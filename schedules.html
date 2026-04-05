@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scheduled Tasks</title>
+<link rel="manifest" href="pwa/manifest-schedules.json"><meta name="theme-color" content="#06b6d4"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="pwa/icon-schedules-192.png">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    padding: 32px;
+    min-height: 100vh;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: #f0f6fc;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    color: #7d8590;
+    font-size: 0.85rem;
+    margin-bottom: 32px;
+  }
+
+  /* ── CATEGORY LEGEND ───────────────────────────────────── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    color: #8b949e;
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  /* ── WEEKLY GRID ───────────────────────────────────────── */
+  h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 16px;
+  }
+
+  .grid-wrap {
+    overflow-x: auto;
+    margin-bottom: 40px;
+    border-radius: 12px;
+    border: 1px solid #21262d;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 56px repeat(7, 1fr);
+    min-width: 700px;
+    background: #161b22;
+  }
+
+  .grid-header {
+    background: #1c2128;
+    padding: 10px 6px;
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #8b949e;
+    border-bottom: 1px solid #21262d;
+    letter-spacing: .05em;
+  }
+
+  .grid-header.today {
+    color: #58a6ff;
+  }
+
+  .time-label {
+    padding: 0 8px;
+    font-size: 0.68rem;
+    color: #484f58;
+    text-align: right;
+    display: flex;
+    align-items: flex-start;
+    padding-top: 4px;
+    border-right: 1px solid #21262d;
+  }
+
+  .grid-cell {
+    border-left: 1px solid #21262d;
+    border-bottom: 1px solid #161b22;
+    height: 40px;
+    position: relative;
+    padding: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .grid-row-label {
+    border-bottom: 1px solid #21262d;
+  }
+
+  .task-pill {
+    display: flex;
+    align-items: center;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-size: 0.62rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: default;
+    flex-shrink: 0;
+    line-height: 1.3;
+  }
+
+  /* ── COLORS ─────────────────────────────────────────────── */
+  .cat-social   { background: #1a3a5c; color: #58a6ff; border-left: 3px solid #1f6feb; }
+  .cat-data     { background: #1e3a2a; color: #3fb950; border-left: 3px solid #238636; }
+  .cat-monitor  { background: #3a1e2a; color: #f85149; border-left: 3px solid #da3633; }
+  .cat-monthly  { background: #2d2a1a; color: #d29922; border-left: 3px solid #9e6a03; }
+
+  /* ── TASK CARDS ─────────────────────────────────────────── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 14px 16px;
+    border-left-width: 4px;
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+  }
+
+  .card-id {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+
+  .card-badge {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 99px;
+    font-weight: 600;
+    background: #1c2128;
+  }
+
+  .card-desc {
+    font-size: 0.75rem;
+    color: #8b949e;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .card-schedule {
+    font-size: 0.72rem;
+    color: #6e7681;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .card-schedule svg {
+    opacity: .5;
+    flex-shrink: 0;
+  }
+
+  .card-next {
+    font-size: 0.7rem;
+    color: #58a6ff;
+    margin-top: 5px;
+  }
+
+  .card.cat-social  { border-left-color: #1f6feb; }
+  .card.cat-data    { border-left-color: #238636; }
+  .card.cat-monitor { border-left-color: #da3633; }
+  .card.cat-monthly { border-left-color: #9e6a03; }
+
+  .section-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    margin-bottom: 10px;
+    margin-top: 28px;
+  }
+
+  /* ── MONTHLY CALENDAR ───────────────────────────────────── */
+  .month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    max-width: 560px;
+    margin-bottom: 10px;
+  }
+
+  .month-day-header {
+    text-align: center;
+    font-size: 0.68rem;
+    color: #484f58;
+    padding: 4px 0;
+    font-weight: 600;
+  }
+
+  .month-day {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    min-height: 48px;
+    padding: 5px;
+    font-size: 0.68rem;
+  }
+
+  .month-day-num {
+    color: #6e7681;
+    font-weight: 700;
+    font-size: 0.72rem;
+    margin-bottom: 3px;
+  }
+
+  .month-day.has-task {
+    border-color: #30363d;
+    background: #1c2128;
+  }
+
+  .month-pill {
+    display: block;
+    border-radius: 3px;
+    padding: 1px 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .footer {
+    margin-top: 48px;
+    font-size: 0.72rem;
+    color: #484f58;
+    border-top: 1px solid #21262d;
+    padding-top: 16px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Scheduled Tasks</h1>
+<p class="subtitle">13 tasks active &nbsp;·&nbsp; Generated 2026-04-04</p>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#1f6feb"></div>Social / Telegram</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#238636"></div>Data / Content</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#da3633"></div>Monitoring (weekly)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9e6a03"></div>Monitoring (monthly)</div>
+</div>
+
+<!-- ── WEEKLY GRID ─────────────────────────────────────────── -->
+<h2>Weekly Schedule</h2>
+<div class="grid-wrap">
+  <div class="grid" id="weekly-grid">
+    <!-- JS renders this -->
+  </div>
+</div>
+
+<!-- ── MONTHLY CALENDAR ───────────────────────────────────── -->
+<h2>Monthly Fixed Tasks</h2>
+<p style="font-size:.78rem;color:#6e7681;margin-bottom:14px;">Tasks that fire on specific calendar dates each month.</p>
+<div class="month-grid" id="month-grid">
+  <!-- JS renders this -->
+</div>
+
+<!-- ── TASK CARDS ─────────────────────────────────────────── -->
+<div class="section-label">All Tasks</div>
+<div class="cards-grid" id="cards"></div>
+
+<div class="footer">
+  Auto-generated · All times local (America/Mexico_City) · Next runs pulled from scheduler
+</div>
+
+<script>
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const TODAY_DOW = (new Date().getDay() + 6) % 7; // 0=Mon
+
+// ── TASK DEFINITIONS ──────────────────────────────────────────
+const tasks = [
+  {
+    id: 'dailyt',
+    desc: 'Run /daily (mañanera + events + news) → Telegram @Resisresbot',
+    cat: 'social',
+    scheduleLabel: 'Every day, multiple windows (sentinel prevents duplicates)',
+    next: '2026-04-04 12:37 local',
+    // fires at 11,12,14,15,19,21 — show first window on each day
+    weekly: { days: [0,1,2,3,4,5,6], hours: [11] },
+  },
+  {
+    id: 'scant',
+    desc: 'Run /scan (La Jornada, Contralinea, El Soberano, El Financiero) → Telegram',
+    cat: 'social',
+    scheduleLabel: 'Every day at 7:15, 13:15, 20:15',
+    next: '2026-04-04 20:16 local',
+    weekly: { days: [0,1,2,3,4,5,6], hours: [7,13,20] },
+  },
+  {
+    id: 'resument',
+    desc: 'Run /resumen (mañanera summary) → Telegram',
+    cat: 'social',
+    scheduleLabel: 'Mon–Fri at 21:55',
+    next: '2026-04-07 22:04 local',
+    weekly: { days: [0,1,2,3,4], hours: [21] },
+  },
+  {
+    id: 'onmexico',
+    desc: 'Scan US media coverage of Mexico / Sheinbaum / 4T → Telegram',
+    cat: 'social',
+    scheduleLabel: 'Every day at 10:03',
+    next: '2026-04-05 10:11 local',
+    weekly: { days: [0,1,2,3,4,5,6], hours: [10] },
+  },
+  {
+    id: 'actualizar-mananeras',
+    desc: 'Update BUSCADOR-MANANERAS.html with latest transcripts & public events',
+    cat: 'data',
+    scheduleLabel: 'Every day at 19:03',
+    next: '2026-04-05 19:04 local',
+    weekly: { days: [0,1,2,3,4,5,6], hours: [19] },
+  },
+  {
+    id: 'mananera-datos',
+    desc: 'Scan mañaneras for data claims → verify → add to monitoring.html',
+    cat: 'data',
+    scheduleLabel: 'Wed & Sat at 10:03',
+    next: '2026-04-08 10:11 local',
+    weekly: { days: [2,5], hours: [10] },
+  },
+  {
+    id: 'update-monitoring-security',
+    desc: 'Update SESNSP crime data: homicidios, feminicidios, seguridad',
+    cat: 'monitor',
+    scheduleLabel: 'Tuesday at 08:00',
+    next: '2026-04-07 08:01 local',
+    weekly: { days: [1], hours: [8] },
+  },
+  {
+    id: 'update-monitoring-inegi',
+    desc: 'Check latest INEGI publications → update monitoring.html',
+    cat: 'monitor',
+    scheduleLabel: 'Mon / Wed / Fri at 08:00',
+    next: '2026-04-06 08:07 local',
+    weekly: { days: [0,2,4], hours: [8] },
+  },
+  {
+    id: 'update-monitoring-banxico',
+    desc: 'Update Banxico: tipo de cambio, tasa, reservas, remesas, UDIS',
+    cat: 'monitor',
+    scheduleLabel: 'Mon / Wed / Fri at 09:00',
+    next: '2026-04-06 09:03 local',
+    weekly: { days: [0,2,4], hours: [9] },
+  },
+  {
+    id: 'update-monitoring-fiscal',
+    desc: 'Update SHCP/SAT fiscal data: deuda, ingresos, déficit, impuestos',
+    cat: 'monthly',
+    scheduleLabel: 'Every 1st and 15th at 08:00',
+    next: '2026-04-15 08:03 local',
+    monthDays: [1,15],
+  },
+  {
+    id: 'update-monitoring-energy',
+    desc: 'Update Pemex / CFE / SENER: oil, refinación, electricidad',
+    cat: 'monthly',
+    scheduleLabel: 'Every 8th and 22nd at 08:00',
+    next: '2026-04-08 08:09 local',
+    monthDays: [8,22],
+  },
+  {
+    id: 'update-monitoring-trimestral',
+    desc: 'Check slow indicators: empleo, pobreza, IED, turismo',
+    cat: 'monthly',
+    scheduleLabel: 'Every 2nd and 15th at 08:00',
+    next: '2026-04-15 08:01 local',
+    monthDays: [2,15],
+  },
+  {
+    id: 'update-monitoring-general',
+    desc: 'Monthly catch-all sweep of ~95 orphan datasets',
+    cat: 'monthly',
+    scheduleLabel: 'Every 10th at 08:00',
+    next: '2026-04-10 08:00 local',
+    monthDays: [10],
+  },
+];
+
+const CAT_CLASS = { social:'cat-social', data:'cat-data', monitor:'cat-monitor', monthly:'cat-monthly' };
+const CAT_LABEL = { social:'Social / TG', data:'Data', monitor:'Monitor', monthly:'Monthly' };
+
+// ── WEEKLY GRID ──────────────────────────────────────────────
+(function buildWeekly() {
+  const HOURS = [7,8,9,10,11,12,13,14,15,16,17,18,19,20,21];
+  const g = document.getElementById('weekly-grid');
+
+  // Headers
+  const corner = Object.assign(document.createElement('div'), {className:'grid-header'});
+  g.appendChild(corner);
+  DAYS.forEach((d,i) => {
+    const el = Object.assign(document.createElement('div'), {
+      className: 'grid-header' + (i===TODAY_DOW?' today':''),
+      textContent: d
+    });
+    g.appendChild(el);
+  });
+
+  // Build lookup: [day][hour] -> list of task ids
+  const lookup = {};
+  DAYS.forEach((_,d) => { lookup[d]={}; HOURS.forEach(h=>{ lookup[d][h]=[]; }); });
+
+  tasks.filter(t=>t.weekly).forEach(t => {
+    t.weekly.days.forEach(d => {
+      t.weekly.hours.forEach(h => {
+        if(lookup[d] && lookup[d][h] !== undefined) lookup[d][h].push(t);
+      });
+    });
+  });
+
+  HOURS.forEach(h => {
+    // Time label
+    const tl = Object.assign(document.createElement('div'), {
+      className: 'time-label grid-row-label',
+      textContent: h + ':00'
+    });
+    g.appendChild(tl);
+    // Cells
+    DAYS.forEach((_,d) => {
+      const cell = document.createElement('div');
+      cell.className = 'grid-cell';
+      (lookup[d][h]||[]).forEach(t => {
+        const pill = document.createElement('div');
+        pill.className = 'task-pill ' + CAT_CLASS[t.cat];
+        pill.textContent = t.id;
+        pill.title = t.desc;
+        cell.appendChild(pill);
+      });
+      g.appendChild(cell);
+    });
+  });
+})();
+
+// ── MONTHLY CALENDAR ─────────────────────────────────────────
+(function buildMonthly() {
+  const mg = document.getElementById('month-grid');
+  // Day headers
+  ['Mo','Tu','We','Th','Fr','Sa','Su'].forEach(d => {
+    const h = Object.assign(document.createElement('div'), {
+      className:'month-day-header', textContent:d
+    });
+    mg.appendChild(h);
+  });
+
+  // April 2026: starts on Wednesday (index 2)
+  const startOffset = 2;
+  const daysInMonth = 30;
+
+  // Build monthly lookup
+  const mLookup = {};
+  tasks.filter(t=>t.monthDays).forEach(t => {
+    t.monthDays.forEach(d => {
+      if(!mLookup[d]) mLookup[d]=[];
+      mLookup[d].push(t);
+    });
+  });
+
+  // Empty cells before 1st
+  for(let i=0;i<startOffset;i++){
+    mg.appendChild(Object.assign(document.createElement('div'),{style:'min-height:48px'}));
+  }
+
+  for(let day=1;day<=daysInMonth;day++){
+    const cell = document.createElement('div');
+    const hasTasks = !!mLookup[day];
+    cell.className = 'month-day' + (hasTasks?' has-task':'');
+
+    const num = Object.assign(document.createElement('div'),{
+      className:'month-day-num', textContent: day
+    });
+    cell.appendChild(num);
+
+    if(hasTasks){
+      mLookup[day].forEach(t=>{
+        const p = Object.assign(document.createElement('span'),{
+          className:'month-pill '+CAT_CLASS[t.cat],
+          textContent: t.id.replace('update-monitoring-',''),
+          title: t.desc
+        });
+        cell.appendChild(p);
+      });
+    }
+    mg.appendChild(cell);
+  }
+})();
+
+// ── TASK CARDS ───────────────────────────────────────────────
+(function buildCards() {
+  const container = document.getElementById('cards');
+  tasks.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'card ' + CAT_CLASS[t.cat];
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-id">${t.id}</div>
+        <div class="card-badge ${CAT_CLASS[t.cat]}">${CAT_LABEL[t.cat]}</div>
+      </div>
+      <div class="card-desc">${t.desc}</div>
+      <div class="card-schedule">
+        <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+        </svg>
+        ${t.scheduleLabel}
+      </div>
+      <div class="card-next">Next: ${t.next}</div>
+    `;
+    container.appendChild(card);
+  });
+})();
+</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
+</body>
+</html>
