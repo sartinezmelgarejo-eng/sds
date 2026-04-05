@@ -2,7 +2,8 @@
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sala de Situacion - Mexico</title>
 <link rel="manifest" href="pwa/manifest.json"><meta name="theme-color" content="#14b8a6"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="pwa/icon-192.png">
-<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#06090f;overflow-x:hidden}#root{min-height:100vh}#loading{color:#64748b;font-family:monospace;padding:40px;text-align:center}#loading h2{color:#14b8a6;margin-bottom:12px}</style>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{overflow-x:hidden}#root{min-height:100vh}#loading{color:#64748b;font-family:monospace;padding:40px;text-align:center}#loading h2{color:#14b8a6;margin-bottom:12px}</style>
+<script>document.body.style.background=localStorage.getItem("sds-theme")==="light"?"#f8f9fb":"#06090f"</script>
 </head><body>
 <div id="root"><div id="loading"><h2>Cargando...</h2><p id="status">Descargando...</p></div></div>
 <script>window.onerror=function(m,s,l,c,e){document.getElementById('root').innerHTML='<div style="color:#ef4444;padding:40px;font-family:monospace;background:#06090f"><h2 style="color:#f59e0b;margin-bottom:16px">Error</h2><p>'+m+'</p><p style="color:#64748b">L:'+l+'</p><pre style="color:#64748b;margin-top:12px;white-space:pre-wrap;font-size:11px">'+(e&&e.stack||'')+'</pre></div>';return true};function setStatus(s){var e=document.getElementById('status');if(e)e.textContent=s}</script>
@@ -14,8 +15,10 @@
 <script type="text/babel" data-type="module">
 const {useState,useEffect}=React;
 const {LineChart,Line,BarChart,Bar,PieChart,Pie,Cell,AreaChart,Area,XAxis,YAxis,CartesianGrid,Tooltip,Legend,ResponsiveContainer,ComposedChart}=Recharts;
-const C={bg:"#06090f",card:"#0c1220",card2:"#111827",bdr:"#1e293b",tx:"#e2e8f0",mu:"#64748b",dm:"#334155",gn:"#10b981",gd:"#047857",gl:"#34d399",rd:"#ef4444",rl:"#f87171",am:"#f59e0b",al:"#fbbf24",bl:"#3b82f6",bll:"#60a5fa",bld:"#1e40af",pu:"#8b5cf6",pl:"#a78bfa",tl:"#14b8a6",rs:"#f43f5e",gld:"#eab308",cy:"#06b6d4"};
-const TH={
+const CD={bg:"#06090f",card:"#0c1220",card2:"#111827",bdr:"#1e293b",tx:"#e2e8f0",mu:"#64748b",dm:"#334155",gn:"#10b981",gd:"#047857",gl:"#34d399",rd:"#ef4444",rl:"#f87171",am:"#f59e0b",al:"#fbbf24",bl:"#3b82f6",bll:"#60a5fa",bld:"#1e40af",pu:"#8b5cf6",pl:"#a78bfa",tl:"#14b8a6",rs:"#f43f5e",gld:"#eab308",cy:"#06b6d4"};
+const CL={bg:"#f8f9fb",card:"#ffffff",card2:"#f1f3f5",bdr:"#e2e5ea",tx:"#1a1a2e",mu:"#6b7280",dm:"#9ca3af",gn:"#059669",gd:"#047857",gl:"#34d399",rd:"#dc2626",rl:"#ef4444",am:"#d97706",al:"#f59e0b",bl:"#2563eb",bll:"#3b82f6",bld:"#1e40af",pu:"#7c3aed",pl:"#8b5cf6",tl:"#0d9488",rs:"#e11d48",gld:"#ca8a04",cy:"#0891b2"};
+const C={...CD};
+const THD={
 w:{c:"#10b981",bg:"#052e1c",bdr:"#065f3a"},
 r:{c:"#f43f5e",bg:"#2a0a12",bdr:"#7f1d2e"},
 e:{c:"#3b82f6",bg:"#0a1628",bdr:"#1e3a6e"},
@@ -24,6 +27,19 @@ n:{c:"#f59e0b",bg:"#2a1a04",bdr:"#7c5a0a"},
 s:{c:"#f97316",bg:"#2a1505",bdr:"#9a3412"},
 d:{c:"#06b6d4",bg:"#042f35",bdr:"#155e68"},
 };
+const THL={
+w:{c:"#059669",bg:"#ecfdf5",bdr:"#a7f3d0"},
+r:{c:"#e11d48",bg:"#fff1f2",bdr:"#fecdd3"},
+e:{c:"#2563eb",bg:"#eff6ff",bdr:"#bfdbfe"},
+f:{c:"#7c3aed",bg:"#f5f3ff",bdr:"#ddd6fe"},
+n:{c:"#d97706",bg:"#fffbeb",bdr:"#fde68a"},
+s:{c:"#ea580c",bg:"#fff7ed",bdr:"#fed7aa"},
+d:{c:"#0891b2",bg:"#ecfeff",bdr:"#a5f3fc"},
+};
+const TH={...THD};
+let _theme=localStorage.getItem("sds-theme")||"dark";
+function applyTheme(t){_theme=t;const src=t==="light"?CL:CD;Object.assign(C,src);const ths=t==="light"?THL:THD;Object.keys(ths).forEach(k=>TH[k]={...ths[k]});document.body.style.background=C.bg;localStorage.setItem("sds-theme",t)}
+applyTheme(_theme);
 
 const D={
 sm:[{y:"00",n:37.6,r:37.6},{y:"06",n:48.7,r:38.5},{y:"12",n:62.3,r:40.3},{y:"18",n:88.4,r:44},{y:"19",n:102.7,r:55.8},{y:"20",n:123.2,r:65.2},{y:"21",n:141.7,r:72.8},{y:"22",n:172.9,r:84.1},{y:"23",n:207.4,r:96.5},{y:"24",n:248.9,r:110.2},{y:"25",n:278.8,r:119.8},{y:"26",n:315,r:130.5}],
@@ -289,7 +305,7 @@ recaudacion:{t:"Recaudacion Tributaria 2024: $4.95T",d:[
 };
 
 const _isMob=()=>window.innerWidth<640;const mg=new Proxy({},{get(_,k){const m=_isMob();return{top:m?2:5,right:m?2:8,left:m?-8:-10,bottom:m?-4:0}[k]}});const ax={get tick(){return{fill:C.mu,fontSize:_isMob()?7:9}}};const axS={get tick(){return{fill:C.mu,fontSize:_isMob()?6:8}}};const yH=_isMob()?{width:25,tick:{fill:C.mu,fontSize:6}}:{};const lgS={get fontSize(){return _isMob()?6:8}};const lgS7={get fontSize(){return _isMob()?5:7}};
-const TT=({active,payload,label})=>{if(!active||!payload?.length)return null;return <div style={{background:"#0c1220ee",border:`1px solid ${C.bdr}`,borderRadius:6,padding:"6px 10px",fontSize:10,fontFamily:"monospace",color:C.tx}}><b>{label}</b>{payload.map((p,i)=><div key={i} style={{color:p.color}}>{p.name}: {typeof p.value==="number"?(Math.abs(p.value)<1?p.value.toFixed(3):p.value.toFixed(1)):p.value}</div>)}</div>};
+const TT=({active,payload,label})=>{if(!active||!payload?.length)return null;return <div style={{background:C.card+"ee",border:`1px solid ${C.bdr}`,borderRadius:6,padding:"6px 10px",fontSize:10,fontFamily:"monospace",color:C.tx}}><b>{label}</b>{payload.map((p,i)=><div key={i} style={{color:p.color}}>{p.name}: {typeof p.value==="number"?(Math.abs(p.value)<1?p.value.toFixed(3):p.value.toFixed(1)):p.value}</div>)}</div>};
 const GR=()=><CartesianGrid strokeDasharray="3 3" stroke={C.bdr} opacity={.4}/>;
 const PieLeg=({items})=><div style={{display:"flex",flexDirection:"column",gap:3,marginTop:6}}>{items.map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:5,fontSize:9,fontFamily:"'JetBrains Mono',monospace"}}><div style={{width:8,height:8,borderRadius:2,background:e.color,flexShrink:0}}/><span style={{color:C.tx}}>{e.name}</span><span style={{color:C.mu,marginLeft:"auto"}}>{e.value!=null?e.value+"%":""}</span></div>)}</div>;
 const _mob=()=>window.innerWidth<640;
@@ -357,7 +373,7 @@ if(!d0||!d1)return null;
 const lbl0=d0[cfg.x],lbl1=d1[cfg.x];
 return <React.Fragment>
 <div style={{position:"absolute",left:x0,top:0,width:Math.max(x1-x0,1),height:h,background:"rgba(255,255,255,.06)",borderLeft:`1px dashed ${C.mu}`,borderRight:`1px dashed ${C.mu}`,pointerEvents:"none",zIndex:3}}/>
-<div style={{position:"absolute",left:Math.min(x0+((x1-x0)/2)-60,ref.current?.offsetWidth-160||9999),top:8,background:"#0c1220ee",border:`1px solid ${C.bdr}`,borderRadius:6,padding:"6px 10px",fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:C.tx,zIndex:6,pointerEvents:"none",minWidth:100,maxWidth:200}}>
+<div style={{position:"absolute",left:Math.min(x0+((x1-x0)/2)-60,ref.current?.offsetWidth-160||9999),top:8,background:C.card+"ee",border:`1px solid ${C.bdr}`,borderRadius:6,padding:"6px 10px",fontSize:10,fontFamily:"'JetBrains Mono',monospace",color:C.tx,zIndex:6,pointerEvents:"none",minWidth:100,maxWidth:200}}>
 <div style={{fontWeight:700,marginBottom:3,color:C.al}}>{lbl0} → {lbl1}</div>
 {cfg.keys.map((k,ki)=>{
 const v0=d0[k.k],v1=d1[k.k];
@@ -653,7 +669,7 @@ const startTimer=()=>{if(ivRef.current)clearInterval(ivRef.current);ivRef.curren
 useEffect(()=>{toRef.current=setTimeout(()=>{change("next");startTimer()},delay);return()=>{clearTimeout(toRef.current);if(ivRef.current)clearInterval(ivRef.current);clearTimeout(dotTO.current)}},[ids.length,delay]);
 const nav=(e,dir)=>{e.stopPropagation();change(dir);startTimer()};
 const c=chMap[ids[ci]];if(!c)return null;const th=TH[c.th]||{};
-const arrow={background:"rgba(0,0,0,.6)",border:`1px solid ${C.bdr}`,borderRadius:4,color:C.mu,padding:"2px 6px",cursor:"pointer",fontSize:12,lineHeight:1,opacity:hov?1:0,transition:"opacity .2s"};
+const arrow={background:_theme==="dark"?"rgba(0,0,0,.6)":"rgba(0,0,0,.06)",border:`1px solid ${C.bdr}`,borderRadius:4,color:C.mu,padding:"2px 6px",cursor:"pointer",fontSize:12,lineHeight:1,opacity:hov?1:0,transition:"opacity .2s"};
 const ch_h=compact?110:185;
 const sw=useSwipe(()=>{change("next");startTimer()},()=>{change("prev");startTimer()});
 return <div onClick={()=>onExpand(c)} onMouseEnter={()=>{setHov(true)}} onMouseLeave={()=>{setHov(false)}} {...sw} style={{background:th.bg||C.card,border:`1px solid ${th.bdr||C.bdr}`,borderRadius:compact?6:8,padding:compact?"6px 6px 4px":"10px 8px 6px",cursor:"pointer",position:"relative",overflow:"hidden",transition:"border-color .3s",touchAction:"pan-y"}}>
@@ -689,6 +705,8 @@ return <div style={{background:C.card,borderRadius:12,border:`1px solid ${C.bdr}
 </div>});
 
 function App(){
+const[theme,setTheme]=useState(_theme);
+const toggleTheme=()=>{const t=theme==="dark"?"light":"dark";applyTheme(t);setTheme(t)};
 const[cols,setCols]=useState(window.innerWidth<640?2:window.innerWidth<1024?3:4);
 useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<1024?3:4);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h)},[]);
 const[mode,setMode]=useState("monitor");
@@ -729,7 +747,7 @@ return <div style={{minHeight:"100vh",background:C.bg,color:C.tx,fontFamily:"'Se
 
 
 {uFs&&(()=>{const upd=UPD[uIdx];const tagColors={Precios:C.am,Comercio:C.bl,"Comercio ext":C.bll,Exportaciones:C.gn,Cuentas:C.pu,Productor:C.tl,Inversion:C.cy,Consumo:C.gn,Poblacion:C.rs,UMA:C.mu,PIB:C.bl,Empleo:C.tl,Servicios:C.cy,Industria:C.am,Confianza:C.pu,Actividad:C.bll,Construccion:C.al,Seguridad:C.rs,Detenciones:C.tl};const hasChart=upd.rel.length>0&&chMap[upd.rel[0]];const tc=tagColors[upd.tag]||(upd.tag==="Nuevo"&&hasChart?TH[hasChart.th]?.c||C.gn:C.mu);const hasMulti=upd.rel.length>1;
-return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,background:"rgba(6,9,15,.93)",backdropFilter:"blur(12px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:cols<=2?10:24}}>
+return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,background:_theme==="dark"?"rgba(6,9,15,.93)":"rgba(255,255,255,.92)",backdropFilter:"blur(12px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:cols<=2?10:24}}>
 <div onClick={e=>e.stopPropagation()} style={{background:C.card,borderRadius:cols<=2?10:16,border:`1px solid ${tc}44`,padding:cols<=2?14:28,width:"100%",maxWidth:860,maxHeight:cols<=2?"90vh":"none",overflowY:cols<=2?"auto":"visible"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:cols<=2?12:20}}>
 <div>
@@ -752,15 +770,15 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 </div>}
 {!hasChart&&<div style={{padding:"30px 0",textAlign:"center",color:C.dm,fontFamily:"monospace",fontSize:10}}>Sin gráfica asociada a esta actualización</div>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
-<button onClick={()=>navU("prev")} style={{background:"rgba(0,0,0,.5)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
+<button onClick={()=>navU("prev")} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
 <span style={{fontSize:9,color:C.dm,fontFamily:"monospace"}}>{uIdx+1} / {UPD.length}</span>
-<button onClick={()=>navU("next")} style={{background:"rgba(0,0,0,.5)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
+<button onClick={()=>navU("next")} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
 </div>
 <div style={{height:2,background:C.bdr,marginTop:12,borderRadius:1}}><div style={{height:2,background:tc,width:((uIdx+1)/UPD.length*100)+"%",transition:"width .4s",borderRadius:1,opacity:.6}}/></div>
 </div>
 </div>})()}
 
-{fs&&<div onClick={()=>setFs(null)} style={{position:"fixed",inset:0,background:"rgba(6,9,15,.93)",backdropFilter:"blur(12px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+{fs&&<div onClick={()=>setFs(null)} style={{position:"fixed",inset:0,background:_theme==="dark"?"rgba(6,9,15,.93)":"rgba(255,255,255,.92)",backdropFilter:"blur(12px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
 <div onClick={e=>e.stopPropagation()} {...(fs.drag?{}:fsSw)} style={{background:C.card,borderRadius:cols<=2?10:16,border:`1px solid ${TH[fs.th]?.bdr||C.bdr}`,padding:cols<=2?12:24,width:"100%",maxWidth:820,maxHeight:cols<=2?"90vh":"none",overflowY:cols<=2?"auto":"visible",touchAction:fs.drag?"auto":"pan-y"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:cols<=2?10:16}}>
 <div><div style={{fontSize:cols<=2?16:20,fontWeight:800,color:C.tx,fontFamily:"'Playfair Display',serif"}}>{fs.t}</div><div style={{fontSize:cols<=2?8:10,color:C.mu,fontFamily:"monospace",marginTop:2}}>Fuente: {fs.s}</div>{fs.d&&<div style={{fontSize:cols<=2?9:11,color:C.mu,fontFamily:"monospace",marginTop:cols<=2?2:4,lineHeight:1.4,maxWidth:700,...(cols<=2?{display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}:{})}}>{fs.d}</div>}</div>
@@ -769,13 +787,13 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 {fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400)}
 {cols<=2&&fs.pie&&<PieLeg items={fs.pie()}/>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
-<button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:"rgba(0,0,0,.5)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
+<button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
 <span style={{fontSize:9,color:C.dm,fontFamily:"monospace"}}>{slotOrder.findIndex(c=>c.id===fs.id)+1} / {slotOrder.length}</span>
-<button onClick={e=>{e.stopPropagation();navFs("next")}} style={{background:"rgba(0,0,0,.5)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
+<button onClick={e=>{e.stopPropagation();navFs("next")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
 </div>
 </div></div>}
 
-{(()=>{const mob=cols<=2;return <div style={{background:"#080c14",borderBottom:`1px solid ${C.bdr}`,padding:mob?"6px 8px":"10px 16px",display:"flex",alignItems:"center",gap:mob?6:16,flexWrap:"wrap"}}>
+{(()=>{const mob=cols<=2;return <div style={{background:theme==="dark"?"#080c14":"#eef1f5",borderBottom:`1px solid ${C.bdr}`,padding:mob?"6px 8px":"10px 16px",display:"flex",alignItems:"center",gap:mob?6:16,flexWrap:"wrap"}}>
 <div style={{display:"flex",alignItems:"center",gap:mob?5:8,flexShrink:0}}>
 <div style={{width:mob?18:26,height:mob?12:17,borderRadius:2,overflow:"hidden",display:"flex",flexDirection:"column"}}><div style={{flex:1,background:"#006341"}}/><div style={{flex:1,background:"#fff"}}/><div style={{flex:1,background:"#CE1126"}}/></div>
 {!mob&&<span style={{fontSize:13,fontWeight:800,fontFamily:"'Playfair Display',serif"}}>SALA DE SITUACIÓN</span>}
@@ -785,6 +803,7 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 <span style={{fontSize:mob?10:14,fontWeight:700,color:p.c,fontFamily:"'JetBrains Mono',monospace"}}>{p.v}</span>
 </div>)}</div>
 <div style={{fontSize:mob?6:8,color:C.dm,fontFamily:"monospace",flexShrink:0}}>03/04/26</div>
+<div onClick={toggleTheme} style={{width:mob?10:12,height:mob?10:12,borderRadius:"50%",background:theme==="dark"?"#334155":"#cbd5e1",cursor:"pointer",flexShrink:0,transition:"background .3s",opacity:.4}} title={theme==="dark"?"Modo claro":"Modo oscuro"}/>
 </div>})()}
 
 
