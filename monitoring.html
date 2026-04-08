@@ -672,10 +672,11 @@ return <div style={{height:h}}>
 </div>});
 
 const MonitorSlot=React.memo(({ids,delay,onExpand,compact})=>{
-const[ci,setCi]=useState(0);const[fade,setFade]=useState(1);const[hov,setHov]=useState(false);const[dotVis,setDotVis]=useState(false);const ivRef=React.useRef(null);const toRef=React.useRef(null);const dotTO=React.useRef(null);
-const change=(dir)=>{setFade(0);setDotVis(true);clearTimeout(dotTO.current);dotTO.current=setTimeout(()=>setDotVis(false),1500);setTimeout(()=>{setCi(p=>{const n=dir==="prev"?(p-1+ids.length)%ids.length:(p+1)%ids.length;return n});setFade(1)},400)};
+const[ci,setCi]=useState(0);const[fade,setFade]=useState(1);const[hov,setHov]=useState(false);const[dotVis,setDotVis]=useState(false);const ivRef=React.useRef(null);const toRef=React.useRef(null);const dotTO=React.useRef(null);const idsRef=React.useRef(ids);
+idsRef.current=ids;
+const change=(dir)=>{setFade(0);setDotVis(true);clearTimeout(dotTO.current);dotTO.current=setTimeout(()=>setDotVis(false),1500);setTimeout(()=>{setCi(p=>{const len=idsRef.current.length;const n=dir==="prev"?(p-1+len)%len:(p+1)%len;return n});setFade(1)},400)};
 const startTimer=()=>{if(ivRef.current)clearInterval(ivRef.current);ivRef.current=setInterval(()=>change("next"),30000)};
-useEffect(()=>{toRef.current=setTimeout(()=>{change("next");startTimer()},delay);return()=>{clearTimeout(toRef.current);if(ivRef.current)clearInterval(ivRef.current);clearTimeout(dotTO.current)}},[ids.length,delay]);
+useEffect(()=>{toRef.current=setTimeout(()=>{change("next");startTimer()},delay);return()=>{clearTimeout(toRef.current);if(ivRef.current)clearInterval(ivRef.current);clearTimeout(dotTO.current)}},[delay]);
 const nav=(e,dir)=>{e.stopPropagation();change(dir);startTimer()};
 const c=chMap[ids[ci]];if(!c)return null;const th=TH[c.th]||{};
 const arrow={background:_theme==="dark"?"rgba(0,0,0,.6)":"rgba(0,0,0,.06)",border:`1px solid ${C.bdr}`,borderRadius:4,color:C.mu,padding:"2px 6px",cursor:"pointer",fontSize:12,lineHeight:1,opacity:hov?1:0,transition:"opacity .2s"};
