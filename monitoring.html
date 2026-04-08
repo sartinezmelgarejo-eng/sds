@@ -718,7 +718,7 @@ const[theme,setTheme]=useState(_theme);
 const toggleTheme=()=>{const t=theme==="dark"?"light":"dark";applyTheme(t);setTheme(t)};
 const[cols,setCols]=useState(window.innerWidth<640?2:window.innerWidth<1024?3:4);
 useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<1024?3:4);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h)},[]);
-const[mode,setMode]=useState("monitor");
+const[mode,setMode]=useState("monitor");const[shuffled,setShuffled]=useState(false);
 const[ti,setTi]=useState(0);
 const[fs,setFs]=useState(null);
 const[uIdx,setUIdx]=useState(0);
@@ -818,7 +818,7 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 
 <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 16px",background:C.card,borderBottom:`1px solid ${C.bdr}`,flexWrap:"wrap"}}>
 <div style={{display:"flex",gap:4}}>
-{[{id:"monitor",l:"⬡ Monitor"},{id:"explore",l:"◎ Explorar"}].map(m=><button key={m.id} onClick={()=>{setMode(m.id);setDrill({topic:null,path:[]})}} style={{background:mode===m.id?C.gd:"transparent",color:mode===m.id?"#fff":C.mu,border:`1px solid ${mode===m.id?C.gn:C.bdr}`,borderRadius:6,padding:"5px 14px",fontSize:10,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{m.l}</button>)}
+{[{id:"monitor",l:"⬡ Monitor"},{id:"explore",l:"◎ Explorar"}].map(m=><button key={m.id} onClick={()=>{setMode(m.id);setDrill({topic:null,path:[]})}} style={{background:mode===m.id?C.gd:"transparent",color:mode===m.id?"#fff":C.mu,border:`1px solid ${mode===m.id?C.gn:C.bdr}`,borderRadius:6,padding:"5px 14px",fontSize:10,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{m.l}</button>)}<button onClick={()=>setShuffled(p=>!p)} style={{background:shuffled?C.tl+"22":"transparent",color:shuffled?C.tl:C.dm,border:`1px solid ${shuffled?C.tl+"55":C.bdr}`,borderRadius:6,padding:"5px 10px",fontSize:9,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",fontWeight:600,marginLeft:4}} title="Mezcla el orden de las gráficas dentro de cada categoría">🔀</button>
 </div>
 <div ref={sRef} style={{position:"relative",marginLeft:"auto"}}>
 {!sOpen?<span onClick={()=>setSOpen(true)} style={{cursor:"pointer",fontSize:14,color:C.mu,padding:"4px 8px",borderRadius:6,border:`1px solid ${C.bdr}`,display:"inline-flex",alignItems:"center",gap:4,fontFamily:"monospace",fontSize:9,transition:"border-color .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=C.tl} onMouseLeave={e=>e.currentTarget.style.borderColor=C.bdr}>🔍<span style={{color:C.dm}}>Buscar</span></span>
@@ -879,14 +879,14 @@ return <div {...(mob?uSw:{})} style={{background:C.card,border:`1px solid ${C.bd
 <div style={{height:2,background:C.bdr}}><div style={{height:2,background:tc,width:((uIdx+1)/UPD.length*100)+"%",transition:"width .4s",opacity:.6}}/></div>
 </div>})()}
 
-{(()=>{const ms=cols<=2?[
+{(()=>{const ms0=cols<=2?[
 slots[0],
 [...slots[1],...slots[2]],
 slots[3],
 [...slots[4],...slots[5],...slots[6]],
 [...slots[7],...slots[8]],
 [...slots[9],...slots[10],...slots[11]]
-]:slots;
+]:slots;const ms=shuffled?ms0.map(sec=>{const sh=[...sec];for(let i=sh.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[sh[i],sh[j]]=[sh[j],sh[i]]}return sh}):ms0;
 return <div style={{display:"grid",gridTemplateColumns:`repeat(${cols},1fr)`,gap:cols<=2?5:8}}>
 {ms.map((_,i)=><MonitorSlot key={i} ids={ms[i]} delay={3000+i*2500} onExpand={setFs} compact={cols<=2}/>)}
 </div>})()}
