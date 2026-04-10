@@ -273,6 +273,112 @@
 <p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Cinco tareas publican contenido: dailyt (mañanera+noticias), scant/scannight (scan de medios), resument (resumen de mañanera), onmexico (cobertura de EEUU sobre México).</p>
 
 <!-- ═══════════════════════════════════════ -->
+<h2>📲 Sistema Inbox de Telegram</h2>
+
+<p>Un segundo sistema independiente de las tareas programadas: permite enviar mensajes, imágenes y archivos HTML desde el teléfono al bot <code>@Resisresbot</code> para que Claude edite los HTMLs automáticamente. Corre localmente vía cron en la Mac.</p>
+
+<div class="warn">
+  <div class="warn-title">🔑 Credenciales y paths clave</div>
+  <ul>
+    <li><strong>Script:</strong> <code>htmls/inbox/inbox.py</code></li>
+    <li><strong>Chat privado:</strong> <code>TG_PRIVATE_CHAT_ID = 6855761084</code> (DM de Samuel con @Resisresbot, para status/errores/preguntas)</li>
+    <li><strong>Canal público:</strong> <code>@resisres</code> (solo data updates de monitoring.html)</li>
+    <li><strong>Bot token:</strong> <code>TELEGRAM_BOT_TOKEN</code> (en <code>~/.zshrc</code> y en <code>htmls/inbox/.env</code>)</li>
+    <li><strong>API key:</strong> <code>ANTHROPIC_API_KEY</code> (workspace "inbox" en console.anthropic.com)</li>
+    <li><strong>Venv Python:</strong> <code>~/inbox-venv/bin/python3</code> (tiene requests y anthropic instalados)</li>
+    <li><strong>Deploy dir:</strong> <code>/tmp/sds</code> (git clone con SSH auth, push a gh-pages)</li>
+    <li><strong>State file:</strong> <code>htmls/inbox/.inbox_state.json</code> (guarda offset de Telegram y pending questions)</li>
+    <li><strong>Log:</strong> <code>~/inbox.log</code></li>
+    <li><strong>Cron:</strong> <code>*/10 8-23 * * *</code> (cada 10 min, 8am-11pm México)</li>
+  </ul>
+</div>
+
+<p><strong>Modelos usados:</strong> <code>claude-sonnet-4-5-20250929</code> para normal mode, Q&A y routing. <code>claude-opus-4-5-20251101</code> para free mode (cambios estructurales complejos).</p>
+
+<h3>Modos del bot</h3>
+
+<div class="tree">
+<strong>1. Normal mode</strong> — Texto o imagen sin prefijo especial
+     └── Routing automático → edit find/replace → validación → backup → git push
+     └── Si es data update a monitoring.html, también publica en @resisres
+     └── Ejemplo: "Inflación marzo 2026: 3.2% según INEGI" + imagen
+<strong>2. Free mode</strong> — Prefijo <code>free:</code> o <code>libre:</code> (también acepta "Free." y "Libre ")
+     └── Usa Opus, permite cambios estructurales (agregar botones, features, refactors)
+     └── Para monitoring.html envía data sections + App component
+     └── Para archivos pequeños envía el archivo completo y espera el archivo completo de vuelta
+     └── Ejemplo: "free: monitor: agrega un botón de shuffle que mezcle el orden"
+<strong>3. Question mode</strong> — Prefijo <code>question:</code> o <code>pregunta:</code>
+     └── Lee los HTMLs y responde en el DM privado, no hace edits
+     └── Ejemplo: "question: cuántas gráficas de seguridad hay?"
+<strong>4. Command mode</strong> — Prefijo <code>cmd:</code> o <code>comando:</code>
+     └── Operaciones locales sin API. Comandos disponibles:
+     └── <code>list</code> · <code>delete &lt;file&gt;</code> · <code>rename &lt;old&gt; to &lt;new&gt;</code>
+     └── <code>git status</code> · <code>git push</code> · <code>backups</code> · <code>restore &lt;file&gt;</code> · <code>schedule</code>
+<strong>5. File upload</strong> — Enviar un archivo .html al bot
+     └── Si el nombre/caption matchea un archivo conocido → reemplaza ese archivo
+     └── Si no matchea → lo guarda como archivo nuevo Y agrega una card en index.html
+<strong>6. Reply-to-message</strong> — Contestar a cualquier mensaje del bot
+     └── Si el bot preguntó algo (<code>❓</code>), tu respuesta se combina con la pregunta original
+     └── Si contestás a una confirmación <code>✅ ... (archivo.html)</code>, hace un follow-up edit a ese archivo
+<strong>7. Stop</strong> — Enviar <code>stop</code>, <code>para</code>, o <code>alto</code>
+     └── Limpia pending questions y skipea todos los mensajes restantes (silencioso)
+</div>
+
+<h3>Flujo de un mensaje de data update</h3>
+
+<div class="tree">
+Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
+         │
+         ├── Cron corre inbox.py en la Mac (cada 10 min)
+         ├── inbox.py pide updates a Telegram API con offset guardado
+         ├── <span class="green">Claude Sonnet (phase 1)</span> routea → monitoring.html
+         ├── <span class="green">Claude Sonnet (phase 2)</span> genera find/replace patches
+         │   └── Si el find string no matchea, <strong>retry automático</strong> una vez con el error de contexto
+         ├── Aplica patches a monitoring.html en htmls/
+         ├── Valida (anchors deben seguir existiendo)
+         ├── Backup a htmls/backups/
+         ├── Copia a /tmp/sds/, git commit, git push (SSH)
+         ├── Notifica al DM privado: "✅ ..."
+         └── Publica en @resisres: "📊 INEGI | Desempleo feb 2026 2.4% ..."</div>
+
+<h3>Features de seguridad</h3>
+
+<ul>
+  <li>Backups automáticos antes de cada edit (en <code>htmls/backups/</code>)</li>
+  <li>Validación de anchors post-edit (si faltan, rollback)</li>
+  <li>Git sync pre-edit (si el repo está dirty, aborta)</li>
+  <li>Retry automático en patches fallidos (una vez, con error context)</li>
+  <li>Config <code>FILES</code> en inbox.py limita qué archivos se pueden editar</li>
+  <li>Commands destructivos (delete, rename) requieren que el archivo esté en <code>SAFE_HTML_FILES</code></li>
+</ul>
+
+<h3>Setup en nueva máquina</h3>
+
+<div class="warn">
+  <div class="warn-title">📦 Dependencias y configuración</div>
+  <ol>
+    <li>Crear virtualenv: <code>python3 -m venv ~/inbox-venv</code></li>
+    <li>Instalar deps: <code>~/inbox-venv/bin/pip install requests anthropic</code></li>
+    <li>Agregar vars a <code>~/.zshrc</code>: <code>TELEGRAM_BOT_TOKEN</code>, <code>TG_PRIVATE_CHAT_ID</code>, <code>ANTHROPIC_API_KEY</code>, <code>HTMLS_DIR</code>, <code>INBOX_DRY_RUN=0</code></li>
+    <li>Setup SSH key para git push (HTTPS con keychain no funciona desde cron): <code>ssh-keygen -t ed25519</code> y agregar la public key a GitHub → Settings → SSH keys</li>
+    <li>Cambiar remote a SSH: <code>git -C /tmp/sds remote set-url origin git@github.com:sartinezmelgarejo-eng/sds.git</code></li>
+    <li>Dar Full Disk Access a <code>/usr/sbin/cron</code> en System Settings → Privacy & Security (cron no puede leer Google Drive sin esto)</li>
+    <li>Instalar cron: <code>echo "*/10 8-23 * * * source ~/.zshrc &amp;&amp; ~/inbox-venv/bin/python3 \"$HTMLS_DIR/inbox/inbox.py\" &gt;&gt; ~/inbox.log 2&gt;&amp;1" | crontab -</code></li>
+  </ol>
+</div>
+
+<h3>Debugging</h3>
+
+<ul>
+  <li><strong>Ver log:</strong> <code>cat ~/inbox.log</code></li>
+  <li><strong>Correr manualmente:</strong> <code>source ~/.zshrc && ~/inbox-venv/bin/python3 -u "$HTMLS_DIR/inbox/inbox.py"</code></li>
+  <li><strong>Ver state:</strong> <code>cat "$HTMLS_DIR/inbox/.inbox_state.json"</code></li>
+  <li><strong>Ver mensajes pendientes en Telegram:</strong> <code>curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates" | python3 -m json.tool</code></li>
+  <li><strong>Skipear todos los mensajes viejos:</strong> editar <code>.inbox_state.json</code> y poner offset alto</li>
+  <li><strong>Ver cron:</strong> <code>crontab -l</code></li>
+</ul>
+
+<!-- ═══════════════════════════════════════ -->
 <h2>💻 En otra computadora</h2>
 
 <p>La carpeta htmls/ está en Google Drive y se sincroniza automáticamente. La única cosa que puede cambiar entre máquinas es la ruta base a la carpeta Books (para el MAPA):</p>
