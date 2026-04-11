@@ -682,6 +682,78 @@ return <div style={{height:h}}>
 </ResponsiveContainer>
 </div>});
 
+const FsLabelsOverlay=({containerRef,data,keys,xKey})=>{
+const[pts,setPts]=useState([]);
+useEffect(()=>{
+const el=containerRef.current;if(!el)return;
+const timer=setTimeout(()=>{
+const svg=el.querySelector('.recharts-surface');if(!svg)return;
+const svgRect=svg.getBoundingClientRect();const elRect=el.getBoundingClientRect();
+const ox=svgRect.left-elRect.left;const oy=svgRect.top-elRect.top;
+const labels=[];
+// Get dots from lines/areas
+const dots=svg.querySelectorAll('.recharts-dot, .recharts-line-dot circle, .recharts-area-dot circle, .recharts-line .recharts-curve + g circle');
+const allDots=[];
+svg.querySelectorAll('circle').forEach(c=>{
+const cx=parseFloat(c.getAttribute('cx'));const cy=parseFloat(c.getAttribute('cy'));const r=parseFloat(c.getAttribute('r')||0);
+if(isNaN(cx)||isNaN(cy)||r<1.5||r>8)return;
+allDots.push({x:ox+cx,y:oy+cy});
+});
+// Get bars
+const bars=[];
+svg.querySelectorAll('.recharts-bar-rectangle path, .recharts-rectangle').forEach(r=>{
+const tag=r.tagName;
+if(tag==='rect'){
+const x=parseFloat(r.getAttribute('x'));const y=parseFloat(r.getAttribute('y'));
+const w=parseFloat(r.getAttribute('width'));const h=parseFloat(r.getAttribute('height'));
+if(isNaN(x)||isNaN(y)||w<2)return;
+bars.push({x:ox+x+w/2,y:oy+y});
+}else if(tag==='path'){
+const bb=r.getBBox();if(bb.width<2)return;
+bars.push({x:ox+bb.x+bb.width/2,y:oy+bb.y});
+}
+});
+// Match dots to data points using x-position ordering
+const allPts=allDots.length>0?allDots:bars;
+if(allPts.length===0){setPts([]);return}
+// Sort by x position
+allPts.sort((a,b)=>a.x-b.x);
+// Figure out how many series we have
+const nSeries=keys.length;
+const nData=data.length;
+// Group points by series (every nData points per series, or interleaved)
+const totalExpected=nSeries*nData;
+if(allPts.length>=totalExpected*0.7){
+// Enough points: assign values
+for(let s=0;s<nSeries;s++){
+for(let d=0;d<nData;d++){
+const idx=s*nData+d;
+if(idx>=allPts.length)break;
+const val=data[d][keys[s].k];
+if(val==null)continue;
+const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
+labels.push({x:allPts[idx].x,y:allPts[idx].y-10,val:fmt});
+}
+}
+}else{
+// Fewer points: probably single series or bars, match 1:1
+for(let i=0;i<Math.min(allPts.length,nData);i++){
+const val=data[i][keys[0].k];
+if(val==null)continue;
+const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
+labels.push({x:allPts[i].x,y:allPts[i].y-10,val:fmt});
+}
+}
+setPts(labels);
+},600);
+return()=>clearTimeout(timer);
+},[data,keys]);
+if(!pts.length)return null;
+return <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
+{pts.map((p,i)=><span key={i} style={{position:"absolute",left:p.x,top:p.y,transform:"translate(-50%,0)",fontSize:7,fontFamily:"'JetBrains Mono',monospace",color:C.tx,fontWeight:700,textShadow:`0 0 4px ${C.card}, 0 0 4px ${C.card}`}}>{p.val}</span>)}
+</div>;
+};
+
 const MonitorSlot=React.memo(({ids,delay,onExpand,compact})=>{
 const[ci,setCi]=useState(0);const[fade,setFade]=useState(1);const[hov,setHov]=useState(false);const[dotVis,setDotVis]=useState(false);const ivRef=React.useRef(null);const toRef=React.useRef(null);const dotTO=React.useRef(null);const idsRef=React.useRef(ids);
 idsRef.current=ids;
@@ -733,7 +805,7 @@ useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<102
 const[mode,setMode]=useState("monitor");const[shuffledSlots,setShuffledSlots]=useState(null);
 const ms0=cols<=2?[slots[0],[...slots[1],...slots[2]],slots[3],[...slots[4],...slots[5],...slots[6]],[...slots[7],...slots[8]],[...slots[9],...slots[10],...slots[11]]]:slots;
 const[ti,setTi]=useState(0);
-const[fs,setFs]=useState(null);
+const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);
 const[uIdx,setUIdx]=useState(0);
 const[uPause,setUPause]=useState(false);
 const[uFs,setUFs]=useState(false);
@@ -804,9 +876,12 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 <div onClick={e=>e.stopPropagation()} {...(fs.drag?{}:fsSw)} style={{background:C.card,borderRadius:cols<=2?10:16,border:`1px solid ${TH[fs.th]?.bdr||C.bdr}`,padding:cols<=2?12:24,width:"100%",maxWidth:820,maxHeight:cols<=2?"90vh":"none",overflowY:cols<=2?"auto":"visible",touchAction:fs.drag?"auto":"pan-y"}}>
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:cols<=2?10:16}}>
 <div><div style={{fontSize:cols<=2?16:20,fontWeight:800,color:C.tx,fontFamily:"'Playfair Display',serif"}}>{fs.t}</div><div style={{fontSize:cols<=2?8:10,color:C.mu,fontFamily:"monospace",marginTop:2}}>Fuente: {fs.s}</div>{fs.d&&<div style={{fontSize:cols<=2?9:11,color:C.mu,fontFamily:"monospace",marginTop:cols<=2?2:4,lineHeight:1.4,maxWidth:700,...(cols<=2?{display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}:{})}}>{fs.d}</div>}</div>
-<button onClick={()=>setFs(null)} style={{background:"none",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"6px 14px",cursor:"pointer",fontSize:14}}>✕</button>
+<div style={{display:"flex",gap:6,alignItems:"center"}}>
+<button onClick={e=>{e.stopPropagation();setFsLabels(l=>!l)}} style={{background:fsLabels?C.tl+"22":"transparent",color:fsLabels?C.tl:C.dm,border:`1px solid ${fsLabels?C.tl+"55":C.bdr}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"monospace",fontWeight:700}}>123</button>
+<button onClick={()=>{setFs(null);setFsLabels(false)}} style={{background:"none",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"6px 14px",cursor:"pointer",fontSize:14}}>✕</button>
 </div>
-{fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400)}
+</div>
+{(()=>{const fsRef=React.createRef();const chart=fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400);return <div ref={fsRef} style={{position:"relative"}}>{chart}{fsLabels&&fs.drag&&<FsLabelsOverlay containerRef={fsRef} data={fs.drag.d} keys={fs.drag.keys} xKey={fs.drag.x}/>}</div>})()}
 {cols<=2&&fs.pie&&<PieLeg items={fs.pie()}/>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
 <button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
