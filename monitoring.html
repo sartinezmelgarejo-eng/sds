@@ -682,7 +682,7 @@ return <div style={{height:h}}>
 </ResponsiveContainer>
 </div>});
 
-const FsLabelsOverlay=({containerRef,data,keys,xKey})=>{
+const FsLabelsOverlay=({containerRef,data,keys,chartId})=>{
 const[pts,setPts]=useState([]);
 useEffect(()=>{
 const el=containerRef.current;if(!el)return;
@@ -732,7 +732,7 @@ if(idx>=allPts.length)break;
 const val=data[d][keys[s].k];
 if(val==null)continue;
 const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
-labels.push({x:allPts[idx].x,y:allPts[idx].y-10,val:fmt});
+labels.push({x:allPts[idx].x,y:allPts[idx].y-18,val:fmt});
 }
 }
 }else{
@@ -741,13 +741,13 @@ for(let i=0;i<Math.min(allPts.length,nData);i++){
 const val=data[i][keys[0].k];
 if(val==null)continue;
 const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
-labels.push({x:allPts[i].x,y:allPts[i].y-10,val:fmt});
+labels.push({x:allPts[i].x,y:allPts[i].y-18,val:fmt});
 }
 }
 setPts(labels);
 },600);
 return()=>clearTimeout(timer);
-},[data,keys]);
+},[data,keys,chartId]);
 if(!pts.length)return null;
 return <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
 {pts.map((p,i)=><span key={i} style={{position:"absolute",left:p.x,top:p.y,transform:"translate(-50%,0)",fontSize:7,fontFamily:"'JetBrains Mono',monospace",color:C.tx,fontWeight:700,textShadow:`0 0 4px ${C.card}, 0 0 4px ${C.card}`}}>{p.val}</span>)}
@@ -805,7 +805,7 @@ useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<102
 const[mode,setMode]=useState("monitor");const[shuffledSlots,setShuffledSlots]=useState(null);
 const ms0=cols<=2?[slots[0],[...slots[1],...slots[2]],slots[3],[...slots[4],...slots[5],...slots[6]],[...slots[7],...slots[8]],[...slots[9],...slots[10],...slots[11]]]:slots;
 const[ti,setTi]=useState(0);
-const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);
+const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);const fsChartRef=React.useRef(null);
 const[uIdx,setUIdx]=useState(0);
 const[uPause,setUPause]=useState(false);
 const[uFs,setUFs]=useState(false);
@@ -881,7 +881,7 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 <button onClick={()=>{setFs(null);setFsLabels(false)}} style={{background:"none",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"6px 14px",cursor:"pointer",fontSize:14}}>✕</button>
 </div>
 </div>
-{(()=>{const fsRef=React.createRef();const chart=fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400);return <div ref={fsRef} style={{position:"relative"}}>{chart}{fsLabels&&fs.drag&&<FsLabelsOverlay containerRef={fsRef} data={fs.drag.d} keys={fs.drag.keys} xKey={fs.drag.x}/>}</div>})()}
+<div ref={fsChartRef} style={{position:"relative"}}>{fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400)}{fsLabels&&fs.drag&&<FsLabelsOverlay containerRef={fsChartRef} data={fs.drag.d} keys={fs.drag.keys} chartId={fs.id}/>}</div>
 {cols<=2&&fs.pie&&<PieLeg items={fs.pie()}/>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
 <button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
