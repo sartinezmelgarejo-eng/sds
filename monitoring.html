@@ -686,71 +686,67 @@ const FsLabelsOverlay=({containerRef,data,keys,chartId})=>{
 const[pts,setPts]=useState([]);
 useEffect(()=>{
 const el=containerRef.current;if(!el)return;
-const timer=setTimeout(()=>{
-const svg=el.querySelector('.recharts-surface');if(!svg)return;
-const svgRect=svg.getBoundingClientRect();const elRect=el.getBoundingClientRect();
+let attempts=0;
+const scan=()=>{
+const svg=el.querySelector('.recharts-surface');
+if(!svg){if(attempts<5){attempts++;setTimeout(scan,400)}return}
+const elRect=el.getBoundingClientRect();const svgRect=svg.getBoundingClientRect();
 const ox=svgRect.left-elRect.left;const oy=svgRect.top-elRect.top;
-const labels=[];
-// Get dots from lines/areas
-const dots=svg.querySelectorAll('.recharts-dot, .recharts-line-dot circle, .recharts-area-dot circle, .recharts-line .recharts-curve + g circle');
-const allDots=[];
-svg.querySelectorAll('circle').forEach(c=>{
-const cx=parseFloat(c.getAttribute('cx'));const cy=parseFloat(c.getAttribute('cy'));const r=parseFloat(c.getAttribute('r')||0);
-if(isNaN(cx)||isNaN(cy)||r<1.5||r>8)return;
-allDots.push({x:ox+cx,y:oy+cy});
+// Collect points per series from line/area layers
+const seriesGroups=[];
+svg.querySelectorAll('.recharts-line, .recharts-area').forEach(layer=>{
+const color=layer.querySelector('path.recharts-curve')?.getAttribute('stroke')||
+layer.querySelector('path.recharts-curve')?.getAttribute('fill')||C.tx;
+const dots=[];
+layer.querySelectorAll('circle').forEach(c=>{
+const cx=parseFloat(c.getAttribute('cx'));const cy=parseFloat(c.getAttribute('cy'));
+if(!isNaN(cx)&&!isNaN(cy))dots.push({x:ox+cx,y:oy+cy});
 });
-// Get bars
-const bars=[];
-svg.querySelectorAll('.recharts-bar-rectangle path, .recharts-rectangle').forEach(r=>{
-const tag=r.tagName;
-if(tag==='rect'){
-const x=parseFloat(r.getAttribute('x'));const y=parseFloat(r.getAttribute('y'));
-const w=parseFloat(r.getAttribute('width'));const h=parseFloat(r.getAttribute('height'));
-if(isNaN(x)||isNaN(y)||w<2)return;
-bars.push({x:ox+x+w/2,y:oy+y});
-}else if(tag==='path'){
-const bb=r.getBBox();if(bb.width<2)return;
-bars.push({x:ox+bb.x+bb.width/2,y:oy+bb.y});
-}
+if(dots.length>0)seriesGroups.push({dots,color});
 });
-// Match dots to data points using x-position ordering
-const allPts=allDots.length>0?allDots:bars;
-if(allPts.length===0){setPts([]);return}
-// Sort by x position
-allPts.sort((a,b)=>a.x-b.x);
-// Figure out how many series we have
-const nSeries=keys.length;
-const nData=data.length;
-// Group points by series (every nData points per series, or interleaved)
-const totalExpected=nSeries*nData;
-if(allPts.length>=totalExpected*0.7){
-// Enough points: assign values
-for(let s=0;s<nSeries;s++){
-for(let d=0;d<nData;d++){
-const idx=s*nData+d;
-if(idx>=allPts.length)break;
-const val=data[d][keys[s].k];
+// Bars: collect per bar layer
+svg.querySelectorAll('.recharts-bar').forEach(layer=>{
+const rects=[];let color=C.tx;
+layer.querySelectorAll('.recharts-bar-rectangle').forEach(br=>{
+const rect=br.querySelector('rect')||br.querySelector('path');
+if(!rect)return;
+if(!color||color===C.tx){color=rect.getAttribute('fill')||C.tx}
+if(rect.tagName==='rect'){
+const x=parseFloat(rect.getAttribute('x'));const y=parseFloat(rect.getAttribute('y'));
+const w=parseFloat(rect.getAttribute('width'));
+if(!isNaN(x)&&!isNaN(y)&&w>2)rects.push({x:ox+x+w/2,y:oy+y});
+}else{const bb=rect.getBBox();if(bb.width>2)rects.push({x:ox+bb.x+bb.width/2,y:oy+bb.y})}
+});
+if(rects.length>0)seriesGroups.push({dots:rects,color});
+});
+if(seriesGroups.length===0){if(attempts<5){attempts++;setTimeout(scan,400)}return}
+const labels=[];const nData=data.length;
+seriesGroups.forEach((sg,si)=>{
+const ki=si<keys.length?si:0;
+sg.dots.sort((a,b)=>a.x-b.x);
+for(let d=0;d<Math.min(sg.dots.length,nData);d++){
+const val=data[d][keys[ki].k];
 if(val==null)continue;
 const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
-labels.push({x:allPts[idx].x,y:allPts[idx].y-18,val:fmt});
+labels.push({x:sg.dots[d].x,y:sg.dots[d].y-18,val:fmt,color:sg.color});
 }
+});
+// Separate overlapping labels at same x position
+for(let i=0;i<labels.length;i++){
+for(let j=i+1;j<labels.length;j++){
+if(Math.abs(labels[i].x-labels[j].x)<8&&Math.abs(labels[i].y-labels[j].y)<14){
+labels[i].y-=7;labels[j].y+=7;
 }
-}else{
-// Fewer points: probably single series or bars, match 1:1
-for(let i=0;i<Math.min(allPts.length,nData);i++){
-const val=data[i][keys[0].k];
-if(val==null)continue;
-const fmt=Math.abs(val)<1?val.toFixed(2):Math.abs(val)<10?val.toFixed(1):Math.round(val);
-labels.push({x:allPts[i].x,y:allPts[i].y-18,val:fmt});
 }
 }
 setPts(labels);
-},600);
+};
+const timer=setTimeout(scan,300);
 return()=>clearTimeout(timer);
 },[data,keys,chartId]);
 if(!pts.length)return null;
 return <div style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"hidden"}}>
-{pts.map((p,i)=><span key={i} style={{position:"absolute",left:p.x,top:p.y,transform:"translate(-50%,0)",fontSize:7,fontFamily:"'JetBrains Mono',monospace",color:C.tx,fontWeight:700,textShadow:`0 0 4px ${C.card}, 0 0 4px ${C.card}`}}>{p.val}</span>)}
+{pts.map((p,i)=><span key={i} style={{position:"absolute",left:p.x,top:p.y,transform:"translate(-50%,0)",fontSize:7,fontFamily:"'JetBrains Mono',monospace",color:p.color,fontWeight:700,textShadow:`0 0 4px ${C.card}, 0 0 4px ${C.card}, 0 0 6px ${C.card}`}}>{p.val}</span>)}
 </div>;
 };
 
