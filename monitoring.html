@@ -319,14 +319,8 @@ const prevId=React.useRef(chartId);
 useEffect(()=>{
 if(prevId.current!==chartId){setFaces([]);prevId.current=chartId}
 const el=containerRef.current;if(!el)return;
-let attempts=0;let cancelled=false;
-const scan=()=>{
-if(cancelled)return;
-const svg=el.querySelector('.recharts-surface');
-if(!svg){if(attempts<5){attempts++;setTimeout(scan,400)}return}
-const bars=svg.querySelectorAll('.recharts-bar-rectangle');
-if(bars.length===0){if(attempts<5){attempts++;setTimeout(scan,400)}return}
-const elRect=el.getBoundingClientRect();const svgRect=svg.getBoundingClientRect();
+let cancelled=false;
+const readBars=(svg,elRect,svgRect)=>{
 const ox=svgRect.left-elRect.left;const oy=svgRect.top-elRect.top;
 const result=[];
 svg.querySelectorAll('.recharts-bar').forEach(layer=>{
@@ -344,9 +338,24 @@ const d=isHoriz?Math.min(3,h*0.1):Math.min(4,w*0.1);
 result.push({x:ox+x,y:oy+y,w,h,d,fill,topC:_shade(fill,40),sideC:_shade(fill,-25),isHoriz});
 });
 });
-if(!cancelled)setFaces(result);
+return result;
 };
-const timer=setTimeout(scan,500);
+const scan=()=>{
+if(cancelled)return;
+const svg=el.querySelector('.recharts-surface');
+if(!svg)return;
+const bars=svg.querySelectorAll('.recharts-bar-rectangle');
+if(bars.length===0){setFaces([]);return}
+const elRect=el.getBoundingClientRect();const svgRect=svg.getBoundingClientRect();
+const r1=readBars(svg,elRect,svgRect);
+// Wait and re-read to confirm animation finished
+setTimeout(()=>{
+if(cancelled)return;
+const r2=readBars(svg,el.getBoundingClientRect(),svg.getBoundingClientRect());
+if(!cancelled)setFaces(r2);
+},800);
+};
+const timer=setTimeout(scan,800);
 return()=>{cancelled=true;clearTimeout(timer)};
 },[chartId]);
 if(!faces.length)return null;
