@@ -823,11 +823,13 @@ useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<102
 const[mode,setMode]=useState("monitor");const[shuffledSlots,setShuffledSlots]=useState(null);
 const ms0=cols<=2?[slots[0],[...slots[1],...slots[2]],slots[3],[...slots[4],...slots[5],...slots[6]],[...slots[7],...slots[8]],[...slots[9],...slots[10],...slots[11]]]:slots;
 const[ti,setTi]=useState(0);
-const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);const fsChartRef=React.useRef(null);
+const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);const fsChartRef=React.useRef(null);const[fsSlide,setFsSlide]=useState(false);
 const[uIdx,setUIdx]=useState(0);
 const[uPause,setUPause]=useState(false);
 const[uFs,setUFs]=useState(false);
+const[uSlide,setUSlide]=useState(false);
 useEffect(()=>{if(uPause||uFs||UPD.length===0)return;const iv=setInterval(()=>setUIdx(p=>(p+1)%UPD.length),30000);return()=>clearInterval(iv)},[uPause,uFs]);
+useEffect(()=>{if(!uFs){setUSlide(false);return}if(!uSlide)return;const iv=setInterval(()=>setUIdx(p=>(p+1)%UPD.length),8000);return()=>clearInterval(iv)},[uFs,uSlide]);
 const navU=(dir)=>{setUIdx(p=>dir==="next"?(p+1)%UPD.length:(p-1+UPD.length)%UPD.length)};
 const uSw=useSwipe(()=>navU("next"),()=>navU("prev"));
 useEffect(()=>{if(!uFs)return;const h=(e)=>{if(e.key==="ArrowRight")navU("next");if(e.key==="ArrowLeft")navU("prev");if(e.key==="Escape")setUFs(false)};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h)},[uFs,uIdx]);
@@ -837,6 +839,7 @@ const slotOrder=React.useMemo(()=>{const flat=slots.flat().map(id=>chMap[id]).fi
 const navFs=(dir)=>{if(!fs)return;const idx=slotOrder.findIndex(c=>c.id===fs.id);if(idx===-1)return;const n=dir==="next"?(idx+1)%slotOrder.length:(idx-1+slotOrder.length)%slotOrder.length;setFs(slotOrder[n])};
 useEffect(()=>{if(!fs)return;const h=(e)=>{if(e.key==="ArrowRight")navFs("next");if(e.key==="ArrowLeft")navFs("prev");if(e.key==="Escape")setFs(null)};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h)},[fs]);
 const fsSw=useSwipe(()=>navFs("next"),()=>navFs("prev"));
+useEffect(()=>{if(!fs){setFsSlide(false);return}if(!fsSlide)return;const iv=setInterval(()=>navFs("next"),8000);return()=>clearInterval(iv)},[fs,fsSlide]);
 const[drill,setDrill]=useState({topic:null,path:[]});
 const[filter,setFilter]=useState("all");
 const[filterOpen,setFilterOpen]=useState(false);
@@ -883,7 +886,10 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 {!hasChart&&<div style={{padding:"30px 0",textAlign:"center",color:C.dm,fontFamily:"monospace",fontSize:10}}>Sin gráfica asociada a esta actualización</div>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8}}>
 <button onClick={()=>navU("prev")} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<button onClick={()=>setUSlide(s=>!s)} style={{background:uSlide?tc+"22":"transparent",border:`1px solid ${uSlide?tc+"55":C.bdr}`,borderRadius:6,color:uSlide?tc:C.mu,padding:"6px 12px",cursor:"pointer",fontSize:12,fontFamily:"monospace"}}>{uSlide?"⏸":"▶"}</button>
 <span style={{fontSize:9,color:C.dm,fontFamily:"monospace"}}>{uIdx+1} / {UPD.length}</span>
+</div>
 <button onClick={()=>navU("next")} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
 </div>
 <div style={{height:2,background:C.bdr,marginTop:12,borderRadius:1}}><div style={{height:2,background:tc,width:((uIdx+1)/UPD.length*100)+"%",transition:"width .4s",borderRadius:1,opacity:.6}}/></div>
@@ -903,7 +909,10 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 {cols<=2&&fs.pie&&<PieLeg items={fs.pie()}/>}
 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
 <button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
+<div style={{display:"flex",alignItems:"center",gap:10}}>
+<button onClick={e=>{e.stopPropagation();setFsSlide(s=>!s)}} style={{background:fsSlide?(TH[fs.th]?.c||C.tl)+"22":"transparent",border:`1px solid ${fsSlide?(TH[fs.th]?.c||C.tl)+"55":C.bdr}`,borderRadius:6,color:fsSlide?(TH[fs.th]?.c||C.tl):C.mu,padding:"6px 12px",cursor:"pointer",fontSize:12,fontFamily:"monospace"}}>{fsSlide?"⏸":"▶"}</button>
 <span style={{fontSize:9,color:C.dm,fontFamily:"monospace"}}>{slotOrder.findIndex(c=>c.id===fs.id)+1} / {slotOrder.length}</span>
+</div>
 <button onClick={e=>{e.stopPropagation();navFs("next")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
 </div>
 </div></div>}
