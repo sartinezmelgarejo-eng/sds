@@ -896,26 +896,40 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 </div>
 </div>})()}
 
-{fs&&<div onClick={()=>setFs(null)} style={{position:"fixed",inset:0,background:_theme==="dark"?"rgba(6,9,15,.93)":"rgba(255,255,255,.92)",backdropFilter:"blur(12px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-<div onClick={e=>e.stopPropagation()} {...(fs.drag?{}:fsSw)} style={{background:C.card,borderRadius:cols<=2?10:16,border:`1px solid ${TH[fs.th]?.bdr||C.bdr}`,padding:cols<=2?12:24,width:"100%",maxWidth:820,maxHeight:cols<=2?"90vh":"none",overflowY:cols<=2?"auto":"visible",touchAction:fs.drag?"auto":"pan-y"}}>
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:cols<=2?10:16}}>
-<div><div style={{fontSize:cols<=2?16:20,fontWeight:800,color:C.tx,fontFamily:"'Playfair Display',serif"}}>{fs.t}</div><div style={{fontSize:cols<=2?8:10,color:C.mu,fontFamily:"monospace",marginTop:2}}>Fuente: {fs.s}</div>{fs.d&&<div style={{fontSize:cols<=2?9:11,color:C.mu,fontFamily:"monospace",marginTop:cols<=2?2:4,lineHeight:1.4,maxWidth:700,...(cols<=2?{display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}:{})}}>{fs.d}</div>}</div>
-<div style={{display:"flex",gap:6,alignItems:"center"}}>
-<button onClick={e=>{e.stopPropagation();setFsLabels(l=>!l)}} style={{background:fsLabels?C.tl+"22":"transparent",color:fsLabels?C.tl:C.dm,border:`1px solid ${fsLabels?C.tl+"55":C.bdr}`,borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:11,fontFamily:"monospace",fontWeight:700}}>123</button>
-<button onClick={()=>{setFs(null);setFsLabels(false)}} style={{background:"none",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"6px 14px",cursor:"pointer",fontSize:14}}>✕</button>
+{fs&&(()=>{const fth=TH[fs.th]||{};const fc2=fth.c||C.tl;const fsIdx=slotOrder.findIndex(c=>c.id===fs.id);const mob=cols<=2;return <div onClick={()=>{setFs(null);setFsSlide(false)}} style={{position:"fixed",inset:0,background:_theme==="dark"?"rgba(2,4,8,.95)":"rgba(240,242,245,.95)",backdropFilter:"blur(18px)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:mob?10:32}}>
+<div onClick={e=>e.stopPropagation()} {...(fs.drag?{}:fsSw)} style={{background:C.card,borderRadius:mob?12:20,border:"none",boxShadow:`0 0 0 1px ${fc2}22, 0 8px 40px ${_theme==="dark"?"rgba(0,0,0,.6)":"rgba(0,0,0,.12)"}, 0 0 80px ${fc2}08`,padding:0,width:"100%",maxWidth:880,maxHeight:mob?"92vh":"none",overflowY:mob?"auto":"visible",overflow:"hidden",touchAction:fs.drag?"auto":"pan-y",transition:"box-shadow .3s"}}>
+<div style={{height:3,background:`linear-gradient(90deg, ${fc2}00, ${fc2}, ${fc2}00)`,borderRadius:"20px 20px 0 0"}}/>
+<div style={{padding:mob?"14px 16px 10px":"24px 28px 16px"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+<div style={{flex:1}}>
+<div style={{fontSize:mob?15:22,fontWeight:800,color:C.tx,fontFamily:"'Playfair Display',serif",letterSpacing:"-0.02em",lineHeight:1.2}}>{fs.t}</div>
+<div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+<span style={{fontSize:8,fontWeight:700,padding:"2px 8px",borderRadius:4,background:fc2+"15",color:fc2,fontFamily:"'JetBrains Mono',monospace",textTransform:"uppercase",letterSpacing:".05em"}}>{fs.s}</span>
+{fs.d&&<span style={{fontSize:mob?9:10,color:C.mu,fontFamily:"monospace",lineHeight:1.4,flex:1,...(mob?{display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}:{})}}>{fs.d}</span>}
 </div>
 </div>
-<div ref={fsChartRef} style={{position:"relative"}}>{fs.drag?<DragOverlay cfg={fs.drag} h={cols<=2?240:400}>{fs.r(cols<=2?240:400)}</DragOverlay>:fs.r(cols<=2?240:400)}{fsLabels&&<FsLabelsOverlay containerRef={fsChartRef} drag={fs.drag} chartId={fs.id}/>}</div>
-{cols<=2&&fs.pie&&<PieLeg items={fs.pie()}/>}
-<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:12}}>
-<button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>‹ Anterior</button>
-<div style={{display:"flex",alignItems:"center",gap:10}}>
-<button onClick={e=>{e.stopPropagation();setFsSlide(s=>!s)}} style={{background:fsSlide?(TH[fs.th]?.c||C.tl)+"22":"transparent",border:`1px solid ${fsSlide?(TH[fs.th]?.c||C.tl)+"55":C.bdr}`,borderRadius:6,color:fsSlide?(TH[fs.th]?.c||C.tl):C.mu,padding:"6px 12px",cursor:"pointer",fontSize:12,fontFamily:"monospace"}}>{fsSlide?"⏸":"▶"}</button>
-<span style={{fontSize:9,color:C.dm,fontFamily:"monospace"}}>{slotOrder.findIndex(c=>c.id===fs.id)+1} / {slotOrder.length}</span>
+<div style={{display:"flex",gap:6,alignItems:"center",marginLeft:12}}>
+<button onClick={e=>{e.stopPropagation();setFsLabels(l=>!l)}} style={{background:fsLabels?fc2+"18":"transparent",color:fsLabels?fc2:C.dm,border:`1px solid ${fsLabels?fc2+"44":C.bdr}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,transition:"all .2s"}}>123</button>
+<button onClick={()=>{setFs(null);setFsLabels(false);setFsSlide(false)}} style={{background:"transparent",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"5px 12px",cursor:"pointer",fontSize:13,transition:"all .2s"}}>✕</button>
 </div>
-<button onClick={e=>{e.stopPropagation();navFs("next")}} style={{background:_theme==="dark"?"rgba(0,0,0,.5)":"rgba(0,0,0,.08)",border:`1px solid ${C.bdr}`,borderRadius:6,color:C.mu,padding:"6px 16px",cursor:"pointer",fontSize:14,fontFamily:"monospace"}}>Siguiente ›</button>
 </div>
-</div></div>}
+</div>
+<div style={{padding:mob?"0 12px":"0 28px",background:fth.bg?fth.bg+"44":"transparent",margin:mob?"0":"0 12px",borderRadius:mob?0:12}}>
+<div ref={fsChartRef} style={{position:"relative",padding:mob?"8px 0":"12px 0"}}>{fs.drag?<DragOverlay cfg={fs.drag} h={mob?250:420}>{fs.r(mob?250:420)}</DragOverlay>:fs.r(mob?250:420)}{fsLabels&&<FsLabelsOverlay containerRef={fsChartRef} drag={fs.drag} chartId={fs.id}/>}</div>
+{mob&&fs.pie&&<PieLeg items={fs.pie()}/>}
+</div>
+<div style={{padding:mob?"10px 14px 14px":"14px 28px 20px"}}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<button onClick={e=>{e.stopPropagation();navFs("prev")}} style={{background:"transparent",border:`1px solid ${C.bdr}`,borderRadius:10,color:C.mu,padding:mob?"8px 14px":"8px 20px",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,transition:"all .2s",letterSpacing:".02em"}}>‹ Anterior</button>
+<div style={{display:"flex",alignItems:"center",gap:12}}>
+<button onClick={e=>{e.stopPropagation();setFsSlide(s=>!s)}} style={{background:fsSlide?fc2+"18":"transparent",border:`1px solid ${fsSlide?fc2+"55":C.bdr}`,borderRadius:10,color:fsSlide?fc2:C.mu,padding:"8px 14px",cursor:"pointer",fontSize:13,fontFamily:"monospace",transition:"all .3s",boxShadow:fsSlide?`0 0 12px ${fc2}22`:"none"}}>{fsSlide?"⏸":"▶"}</button>
+<span style={{fontSize:10,color:C.dm,fontFamily:"'JetBrains Mono',monospace",fontWeight:600}}>{fsIdx+1}<span style={{color:C.bdr,margin:"0 2px"}}>/</span>{slotOrder.length}</span>
+</div>
+<button onClick={e=>{e.stopPropagation();navFs("next")}} style={{background:"transparent",border:`1px solid ${C.bdr}`,borderRadius:10,color:C.mu,padding:mob?"8px 14px":"8px 20px",cursor:"pointer",fontSize:12,fontFamily:"'JetBrains Mono',monospace",fontWeight:600,transition:"all .2s",letterSpacing:".02em"}}>Siguiente ›</button>
+</div>
+<div style={{height:3,background:C.bdr,marginTop:14,borderRadius:2,overflow:"hidden"}}><div style={{height:3,background:`linear-gradient(90deg, ${fc2}88, ${fc2})`,width:((fsIdx+1)/slotOrder.length*100)+"%",transition:"width .5s ease",borderRadius:2}}/></div>
+</div>
+</div></div>})()}
 
 {(()=>{const mob=cols<=2;return <div style={{background:theme==="dark"?"#080c14":"#eef1f5",borderBottom:`1px solid ${C.bdr}`,padding:mob?"6px 8px":"10px 16px",display:"flex",alignItems:"center",gap:mob?6:16,flexWrap:"wrap"}}>
 <div style={{display:"flex",alignItems:"center",gap:mob?5:8,flexShrink:0}}>
