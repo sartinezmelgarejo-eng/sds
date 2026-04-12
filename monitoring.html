@@ -312,6 +312,48 @@ recaudacion:{t:"Recaudacion Tributaria 2024: $4.95T",d:[
 const _isMob=()=>window.innerWidth<640;const mg=new Proxy({},{get(_,k){const m=_isMob();return{top:m?2:5,right:m?2:8,left:m?-8:-10,bottom:m?-4:0}[k]}});const ax={get tick(){return{fill:C.mu,fontSize:_isMob()?7:9}}};const axS={get tick(){return{fill:C.mu,fontSize:_isMob()?6:8}}};const yH=_isMob()?{width:25,tick:{fill:C.mu,fontSize:6}}:{};const lgS={get fontSize(){return _isMob()?6:8}};const lgS7={get fontSize(){return _isMob()?5:7}};const yV=(w)=>{if(!_isMob())return{width:w};return{width:Math.round(w*0.45),tick:{fill:C.mu,fontSize:5}}};const axMob={get tick(){return _isMob()?{fill:C.mu,fontSize:5}:{fill:C.mu,fontSize:9}},get hide(){return _isMob()}};
 const TT=({active,payload,label})=>{if(!active||!payload?.length)return null;return <div style={{background:C.card+"ee",border:`1px solid ${C.bdr}`,borderRadius:6,padding:"6px 10px",fontSize:10,fontFamily:"monospace",color:C.tx}}><b>{label}</b>{payload.map((p,i)=><div key={i} style={{color:p.color}}>{p.name}: {typeof p.value==="number"?(Math.abs(p.value)<1?p.value.toFixed(3):p.value.toFixed(1)):p.value}</div>)}</div>};
 const GR=()=><CartesianGrid strokeDasharray="3 3" stroke={C.bdr} opacity={.4}/>;
+const _shade=(hex,amt)=>{let c=hex.replace('#','');if(c.length===3)c=c[0]+c[0]+c[1]+c[1]+c[2]+c[2];const n=parseInt(c,16);const r=Math.min(255,Math.max(0,((n>>16)&0xff)+amt));const g=Math.min(255,Math.max(0,((n>>8)&0xff)+amt));const b=Math.min(255,Math.max(0,(n&0xff)+amt));return`#${(r<<16|g<<8|b).toString(16).padStart(6,'0')}`};
+const Fs3DOverlay=({containerRef,chartId})=>{
+const[faces,setFaces]=useState([]);
+useEffect(()=>{
+const el=containerRef.current;if(!el)return;
+let attempts=0;
+const scan=()=>{
+const svg=el.querySelector('.recharts-surface');
+if(!svg){if(attempts<5){attempts++;setTimeout(scan,400)}return}
+const elRect=el.getBoundingClientRect();const svgRect=svg.getBoundingClientRect();
+const ox=svgRect.left-elRect.left;const oy=svgRect.top-elRect.top;
+const result=[];
+svg.querySelectorAll('.recharts-bar').forEach(layer=>{
+let isHoriz=false;
+const allBr=layer.querySelectorAll('.recharts-bar-rectangle');
+if(allBr.length>0){const fr=allBr[0].querySelector('rect')||allBr[0].querySelector('path');if(fr){const fw=fr.tagName==='rect'?parseFloat(fr.getAttribute('width')):fr.getBBox().width;const fh=fr.tagName==='rect'?parseFloat(fr.getAttribute('height')):fr.getBBox().height;if(!isNaN(fw)&&!isNaN(fh)&&fw>fh*1.5)isHoriz=true}}
+allBr.forEach(br=>{
+const rect=br.querySelector('rect')||br.querySelector('path');if(!rect)return;
+const fill=rect.getAttribute('fill')||C.am;
+let x,y,w,h;
+if(rect.tagName==='rect'){x=parseFloat(rect.getAttribute('x'));y=parseFloat(rect.getAttribute('y'));w=parseFloat(rect.getAttribute('width'));h=parseFloat(rect.getAttribute('height'))}
+else{const bb=rect.getBBox();x=bb.x;y=bb.y;w=bb.width;h=bb.height}
+if(isNaN(x)||isNaN(y)||w<2||h<2)return;
+const d=isHoriz?Math.min(3,h*0.1):Math.min(4,w*0.1);
+result.push({x:ox+x,y:oy+y,w,h,d,fill,topC:_shade(fill,40),sideC:_shade(fill,-25),isHoriz});
+});
+});
+if(result.length===0&&attempts<5){attempts++;setTimeout(scan,400);return}
+setFaces(result);
+};
+const timer=setTimeout(scan,350);
+return()=>clearTimeout(timer);
+},[chartId]);
+if(!faces.length)return null;
+return <svg style={{position:"absolute",inset:0,pointerEvents:"none",overflow:"visible"}} viewBox={`0 0 ${containerRef.current?.offsetWidth||800} ${containerRef.current?.offsetHeight||400}`}>
+{faces.map((f,i)=><g key={i}>
+<path d={`M${f.x},${f.y}L${f.x+f.d},${f.y-f.d}L${f.x+f.w+f.d},${f.y-f.d}L${f.x+f.w},${f.y}Z`} fill={f.topC}/>
+<path d={`M${f.x+f.w},${f.y}L${f.x+f.w+f.d},${f.y-f.d}L${f.x+f.w+f.d},${f.y+f.h-f.d}L${f.x+f.w},${f.y+f.h}Z`} fill={f.sideC}/>
+{!f.isHoriz&&<path d={`M${f.x},${f.y}L${f.x+f.w},${f.y}L${f.x+f.w},${f.y+1.5}L${f.x},${f.y+1.5}Z`} fill={f.topC} opacity={0.5}/>}
+</g>)}
+</svg>;
+};
 const PieLeg=({items})=><div style={{display:"flex",flexDirection:"column",gap:3,marginTop:6}}>{items.map((e,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:5,fontSize:9,fontFamily:"'JetBrains Mono',monospace"}}><div style={{width:8,height:8,borderRadius:2,background:e.color,flexShrink:0}}/><span style={{color:C.tx}}>{e.name}</span><span style={{color:C.mu,marginLeft:"auto"}}>{e.value!=null?e.value+"%":""}</span></div>)}</div>;
 const _mob=()=>window.innerWidth<640;
 const useSwipe=(onLeft,onRight)=>{const t=React.useRef(null);return{onTouchStart:e=>{t.current=e.touches[0].clientX},onTouchEnd:e=>{if(t.current==null)return;const dx=e.changedTouches[0].clientX-t.current;t.current=null;if(Math.abs(dx)>40){dx<0?onLeft():onRight()}}}};
@@ -841,7 +883,7 @@ useEffect(()=>{const h=()=>setCols(window.innerWidth<640?2:window.innerWidth<102
 const[mode,setMode]=useState("monitor");const[shuffledSlots,setShuffledSlots]=useState(null);
 const ms0=cols<=2?[slots[0],[...slots[1],...slots[2]],slots[3],[...slots[4],...slots[5],...slots[6]],[...slots[7],...slots[8]],[...slots[9],...slots[10],...slots[11]]]:slots;
 const[ti,setTi]=useState(0);
-const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);const fsChartRef=React.useRef(null);const[fsSlide,setFsSlide]=useState(false);
+const[fs,setFs]=useState(null);const[fsLabels,setFsLabels]=useState(false);const[fs3D,setFs3D]=useState(false);const fsChartRef=React.useRef(null);const[fsSlide,setFsSlide]=useState(false);
 const[uIdx,setUIdx]=useState(0);
 const[uPause,setUPause]=useState(false);
 const[uFs,setUFs]=useState(false);
@@ -927,13 +969,14 @@ return <div onClick={()=>setUFs(false)} style={{position:"fixed",inset:0,backgro
 </div>
 </div>
 <div style={{display:"flex",gap:6,alignItems:"center",marginLeft:12}}>
+<button onClick={e=>{e.stopPropagation();setFs3D(v=>!v)}} style={{background:fs3D?fc2+"18":"transparent",color:fs3D?fc2:C.dm,border:`1px solid ${fs3D?fc2+"44":C.bdr}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,transition:"all .2s"}}>3D</button>
 <button onClick={e=>{e.stopPropagation();setFsLabels(l=>!l)}} style={{background:fsLabels?fc2+"18":"transparent",color:fsLabels?fc2:C.dm,border:`1px solid ${fsLabels?fc2+"44":C.bdr}`,borderRadius:8,padding:"5px 10px",cursor:"pointer",fontSize:11,fontFamily:"'JetBrains Mono',monospace",fontWeight:700,transition:"all .2s"}}>123</button>
-<button onClick={()=>{setFs(null);setFsLabels(false);setFsSlide(false)}} style={{background:"transparent",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"5px 12px",cursor:"pointer",fontSize:13,transition:"all .2s"}}>✕</button>
+<button onClick={()=>{setFs(null);setFsLabels(false);setFs3D(false);setFsSlide(false)}} style={{background:"transparent",border:`1px solid ${C.bdr}`,borderRadius:8,color:C.mu,padding:"5px 12px",cursor:"pointer",fontSize:13,transition:"all .2s"}}>✕</button>
 </div>
 </div>
 </div>
 <div style={{padding:mob?"0 12px":"0 28px",background:fth.bg?fth.bg+"44":"transparent",margin:mob?"0":"0 12px",borderRadius:mob?0:12}}>
-<div ref={fsChartRef} style={{position:"relative",padding:mob?"8px 0":"12px 0"}}>{fs.drag?<DragOverlay cfg={fs.drag} h={mob?250:420}>{fs.r(mob?250:420)}</DragOverlay>:fs.r(mob?250:420)}{fsLabels&&<FsLabelsOverlay containerRef={fsChartRef} drag={fs.drag} chartId={fs.id}/>}</div>
+<div ref={fsChartRef} style={{position:"relative",padding:mob?"8px 0":"12px 0"}}>{fs.drag?<DragOverlay cfg={fs.drag} h={mob?250:420}>{fs.r(mob?250:420)}</DragOverlay>:fs.r(mob?250:420)}{fs3D&&<Fs3DOverlay containerRef={fsChartRef} chartId={fs.id}/>}{fsLabels&&<FsLabelsOverlay containerRef={fsChartRef} drag={fs.drag} chartId={fs.id}/>}</div>
 {mob&&fs.pie&&<PieLeg items={fs.pie()}/>}
 </div>
 <div style={{padding:mob?"10px 14px 14px":"14px 28px 20px"}}>
