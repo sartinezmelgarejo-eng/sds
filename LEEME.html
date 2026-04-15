@@ -252,11 +252,11 @@
     Se abre el PDF en <span class="blue">#page=31</span>
 
 
-<span class="gold">Tareas programadas</span> (14 tasks en ~/.claude/scheduled-tasks/)
+<span class="gold">Tareas programadas en launchd</span> (12 tareas en ~/Library/LaunchAgents/com.resisres.*.plist)
          │
-         ├── actualizan <span class="green">monitoring.html</span> (8 tareas: inegi, banxico, fiscal, energy, security, trimestral, general, mananera-datos)
+         ├── actualizan <span class="green">monitoring.html</span> (8 tareas: inegi, banxico, fiscal, energy, security, trimestral, general, mananera-datos, datos-gob-scan)
          ├── actualizan <span class="green">BUSCADOR-MANANERAS.html</span> (1 tarea: actualizar-mananeras)
-         ├── publican en <span class="blue">Telegram @resisres</span> (5 tareas: dailyt, scant, scannight, resument, onmexico)
+         ├── publican en <span class="blue">Telegram @resisres</span> (3 tareas: dailyt, scant, onmexico)
          │
          └── todas hacen <span class="green">git push</span> a GitHub Pages al terminar
               └── <span class="blue">sartinezmelgarejo-eng.github.io/sds/</span></div>
@@ -270,7 +270,71 @@
 
 <p><strong>GitHub Pages</strong> — Todo se despliega en <code>sartinezmelgarejo-eng.github.io/sds/</code>. El repo es público (<code>sartinezmelgarejo-eng/sds</code>, branch <code>gh-pages</code>). Las tareas programadas hacen push automáticamente después de cada actualización. El directorio local de deploy es <code>/tmp/sds</code>.</p>
 
-<p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Cinco tareas publican contenido: dailyt (mañanera+noticias), scant/scannight (scan de medios), resument (resumen de mañanera), onmexico (cobertura de EEUU sobre México).</p>
+<p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Tres tareas publican contenido: dailyt (mañanera+noticias+Mañanera Breakdown), scant (scan de medios mexicanos 3x/día), onmexico (cobertura de EEUU sobre México).</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>⏰ Sistema de tareas programadas (launchd)</h2>
+
+<p>Todas las tareas programadas (excepto inbox.py) corren via <strong>launchd</strong> en macOS, no desde Claude Code. Esto significa que <strong>el app de Claude Code no necesita estar abierto</strong> — la Mac solo tiene que estar prendida y logueada. Cada tarea es un par script + plist.</p>
+
+<div class="warn">
+  <div class="warn-title">🗂 Estructura de archivos</div>
+  <ul>
+    <li><strong>Wrapper genérico:</strong> <code>~/.local/bin/run-claude-task.sh &lt;task-name&gt; [model]</code> — usado por casi todas las tareas, levanta <code>claude --model X --permission-mode bypassPermissions -p "Execute the &lt;task-name&gt; scheduled task by following ~/.claude/scheduled-tasks/&lt;task-name&gt;/SKILL.md exactly"</code>.</li>
+    <li><strong>Wrappers especializados:</strong> <code>~/.local/bin/run-onmexico.sh</code>, <code>~/.local/bin/run-dailyt.sh</code>, <code>~/.local/bin/run-scant.sh</code> — tienen lógica adicional (sentinel, transcript check, retries).</li>
+    <li><strong>Plists:</strong> <code>~/Library/LaunchAgents/com.resisres.&lt;task-name&gt;.plist</code> — definen el horario via <code>StartCalendarInterval</code> y los args al wrapper.</li>
+    <li><strong>Logs:</strong> <code>~/.local/share/&lt;task-name&gt;/.&lt;task-name&gt;-launchd.log</code> y <code>stdout.log</code> / <code>stderr.log</code>.</li>
+    <li><strong>Notificación de errores:</strong> si una tarea falla, manda alerta al DM privado del bot (<code>chat_id 6855761084</code>).</li>
+  </ul>
+</div>
+
+<h3>Tabla de tareas activas en launchd</h3>
+
+<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">
+<thead><tr style="border-bottom:1px solid #444"><th style="text-align:left;padding:4px">Tarea</th><th style="text-align:left;padding:4px">Modelo</th><th style="text-align:left;padding:4px">Schedule</th><th style="text-align:left;padding:4px">Output</th></tr></thead>
+<tbody>
+<tr><td style="padding:3px 4px"><code>onmexico</code></td><td>Opus</td><td>diario 10:03</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>dailyt</code></td><td>Opus</td><td>L-V 13:30 (con sentinel + check de transcripción)</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>scant</code></td><td>Opus</td><td>diario 7:15 / 13:15 / 20:15</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>datos-gob-scan</code></td><td>Sonnet</td><td>diario 6:30</td><td>DM privado (notificaciones de datasets nuevos)</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-inegi</code></td><td>Sonnet</td><td>L/M/V 8:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-banxico</code></td><td>Sonnet</td><td>L/M/V 8:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-security</code></td><td>Sonnet</td><td>Mar 9:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-fiscal</code></td><td>Sonnet</td><td>1° y 15, 11:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-energy</code></td><td>Sonnet</td><td>1° y 15, 11:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-trimestral</code></td><td>Sonnet</td><td>1° y 15, 12:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>mananera-datos</code></td><td>Opus</td><td>Mar/Vie 11:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-general</code></td><td>Opus</td><td>día 10, 12:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>actualizar-mananeras</code></td><td>Sonnet</td><td>diario 19:00</td><td>BUSCADOR-MANANERAS.html + git push</td></tr>
+</tbody>
+</table>
+
+<h3>Tareas desactivadas en Claude Code</h3>
+
+<p>Las versiones originales en <code>~/.claude/scheduled-tasks/&lt;name&gt;/SKILL.md</code> de todas las tareas migradas tienen <code>[DISABLED — migrated to launchd com.resisres.&lt;name&gt;]</code> en su descripción para evitar duplicación. <strong>No las re-actives sin desactivar la versión de launchd primero.</strong></p>
+
+<p>Tareas eliminadas/consolidadas:</p>
+<ul>
+  <li><code>scannight</code> — era duplicado de <code>scant</code> a las 20:15. Marcada disabled.</li>
+  <li><code>resument</code> — integrada al final del skill <code>/dailyt</code> (el "Mañanera Breakdown" via Telegraph se publica al final de dailyt). Marcada disabled.</li>
+  <li><code>com.resisres.daily.plist</code> — versión vieja del launchd, reemplazada por <code>com.resisres.dailyt.plist</code>. Plist eliminado.</li>
+</ul>
+
+<h3>Autenticación</h3>
+
+<p>El CLI <code>claude</code> que corre desde launchd usa la <strong>misma cuenta que la app de Claude Code</strong> (suscripción, no API). Para que funcione desde launchd hay que loguearse explícitamente desde Terminal con <code>claude /login</code> al menos una vez — esto guarda credenciales accesibles al CLI standalone, separadas del Keychain de la app. Si en algún momento las tareas empiezan a fallar con "Not logged in", repetí ese login desde Terminal.</p>
+
+<h3>Cómo agregar/editar/desactivar una tarea</h3>
+
+<p>No editar plists a mano salvo cuando sea necesario. La forma normal es decirle a Claude Code en lenguaje natural: <em>"cambia el horario de scant a las 8 PM"</em>, <em>"crea una tarea nueva que corra X cada lunes"</em>, <em>"desactiva mananera-datos"</em>. Claude conoce los paths y formatos.</p>
+
+<p>Si querés hacerlo manualmente:</p>
+<ul>
+  <li><strong>Listar:</strong> <code>launchctl list | grep resisres</code></li>
+  <li><strong>Disparar manualmente:</strong> <code>launchctl start com.resisres.&lt;name&gt;</code></li>
+  <li><strong>Recargar después de editar el plist:</strong> <code>launchctl unload ~/Library/LaunchAgents/com.resisres.&lt;name&gt;.plist &amp;&amp; launchctl load ~/Library/LaunchAgents/com.resisres.&lt;name&gt;.plist</code></li>
+  <li><strong>Ver log:</strong> <code>cat ~/.local/share/&lt;name&gt;/.&lt;name&gt;-launchd.log</code></li>
+</ul>
 
 <!-- ═══════════════════════════════════════ -->
 <h2>📲 Sistema Inbox de Telegram</h2>
