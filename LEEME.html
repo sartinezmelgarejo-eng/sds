@@ -148,7 +148,7 @@
 │   ├── libreria.html ← biblioteca interactiva
 │   ├── sacred-texts.html       ← Biblia y Corán
 │   ├── Iglesia-contra-Mexico.html
-│   ├── china-trip-planner.html
+│   ├── china-trip-planner-enhanced.html
 │   ├── schedules.html          ← tabla de tareas programadas
 │   ├── LEEME.html              <span class="dim">← este archivo</span>
 │   ├── <span class="green">pwa/</span>                  ← manifests, iconos, service worker
@@ -180,7 +180,7 @@
 <div class="file-card">
   <div class="name">monitoring.html <span class="tag tag-activo">ACTIVO</span></div>
   <div class="desc">Sala de Situación — Dashboard interactivo de indicadores económicos y sociales de México. Construido con React y Recharts. Cubre salario mínimo, pobreza, PIB, comercio exterior, empleo, energía, seguridad, presupuesto federal, comparaciones OCDE/LatAm, y más. Incluye gráficas interactivas con datos históricos, desglose del PEF/LIF 2026, modo Monitor (slots rotatorios) y modo Explorar (navegación por categoría con drill-down). Se actualiza automáticamente vía 8 tareas programadas.</div>
-  <div class="meta">168 KB · React 18 + Recharts + Babel standalone · ~100 gráficas en 7 categorías</div>
+  <div class="meta">201 KB · React 18 + Recharts + Babel standalone · ~100 gráficas en 7 categorías</div>
 </div>
 
 <div class="file-card">
@@ -212,15 +212,15 @@
 </div>
 
 <div class="file-card">
-  <div class="name">china-trip-planner.html <span class="tag tag-activo">ACTIVO</span></div>
-  <div class="desc">Planificador de viaje a China, 26 días abril-mayo 2026.</div>
-  <div class="meta">830 KB · Independiente</div>
+  <div class="name">china-trip-planner-enhanced.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Planificador de viaje a China, 26 días abril-mayo 2026. Versión mejorada.</div>
+  <div class="meta">717 KB · Independiente</div>
 </div>
 
 <div class="file-card">
   <div class="name">schedules.html <span class="tag tag-activo">ACTIVO</span></div>
   <div class="desc">Tabla visual de todas las tareas programadas. Grid semanal (Lun-Dom por hora) + sección de tareas mensuales. Generado manualmente, no se auto-actualiza.</div>
-  <div class="meta">4.7 KB · 14 tareas · Independiente</div>
+  <div class="meta">4.7 KB · 13 tareas · Independiente</div>
 </div>
 
 <div class="file-card">
@@ -252,7 +252,7 @@
     Se abre el PDF en <span class="blue">#page=31</span>
 
 
-<span class="gold">Tareas programadas en launchd</span> (12 tareas en ~/Library/LaunchAgents/com.resisres.*.plist)
+<span class="gold">Tareas programadas en launchd</span> (14 tareas en ~/Library/LaunchAgents/com.resisres.*.plist)
          │
          ├── actualizan <span class="green">monitoring.html</span> (8 tareas: inegi, banxico, fiscal, energy, security, trimestral, general, mananera-datos, datos-gob-scan)
          ├── actualizan <span class="green">BUSCADOR-MANANERAS.html</span> (1 tarea: actualizar-mananeras)
@@ -270,7 +270,7 @@
 
 <p><strong>GitHub Pages</strong> — Todo se despliega en <code>sartinezmelgarejo-eng.github.io/sds/</code>. El repo es público (<code>sartinezmelgarejo-eng/sds</code>, branch <code>gh-pages</code>). Las tareas programadas hacen push automáticamente después de cada actualización. El directorio local de deploy es <code>/tmp/sds</code>.</p>
 
-<p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Tres tareas publican contenido: dailyt (mañanera+noticias+Mañanera Breakdown), scant (scan de medios mexicanos 3x/día), onmexico (cobertura de EEUU sobre México).</p>
+<p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Tres tareas publican contenido: dailyt (mañanera+noticias+Mañanera Breakdown), scant (scan de medios mexicanos 3x/día), onmexico (cobertura de EEUU sobre México). Además, el sistema inbox permite a Samuel enviar mensajes al bot para editar archivos y ejecutar operaciones vía sesiones persistentes de Claude Code.</p>
 
 <!-- ═══════════════════════════════════════ -->
 <h2>⏰ Sistema de tareas programadas (launchd)</h2>
@@ -306,6 +306,7 @@
 <tr><td style="padding:3px 4px"><code>mananera-datos</code></td><td>Opus</td><td>Mar/Vie 11:30</td><td>monitoring.html + git push</td></tr>
 <tr><td style="padding:3px 4px"><code>update-monitoring-general</code></td><td>Opus</td><td>día 10, 12:30</td><td>monitoring.html + git push</td></tr>
 <tr><td style="padding:3px 4px"><code>actualizar-mananeras</code></td><td>Sonnet</td><td>diario 19:00</td><td>BUSCADOR-MANANERAS.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>inbox</code></td><td>Opus (CLI)</td><td>cada 5 min (launchd StartInterval)</td><td>Procesa mensajes de Telegram → sesión persistente de Claude Code</td></tr>
 </tbody>
 </table>
 
@@ -339,81 +340,47 @@
 <!-- ═══════════════════════════════════════ -->
 <h2>📲 Sistema Inbox de Telegram</h2>
 
-<p>Un segundo sistema independiente de las tareas programadas: permite enviar mensajes, imágenes y archivos HTML desde el teléfono al bot <code>@Resisresbot</code> para que Claude edite los HTMLs automáticamente. Corre localmente vía cron en la Mac.</p>
+<p>Sistema que permite enviar mensajes, imágenes y archivos HTML desde el teléfono al bot <code>@Resisresbot</code> y que Claude los procese automáticamente. Usa <strong>sesiones persistentes de Claude Code</strong> — cada mensaje se envía a una sesión con <code>claude --resume</code> que mantiene contexto completo entre turnos. Corre vía launchd (cada 5 min).</p>
 
 <div class="warn">
   <div class="warn-title">🔑 Credenciales y paths clave</div>
   <ul>
-    <li><strong>Script:</strong> <code>htmls/inbox/inbox.py</code></li>
-    <li><strong>Chat privado:</strong> <code>TG_PRIVATE_CHAT_ID = 6855761084</code> (DM de Samuel con @Resisresbot, para status/errores/preguntas)</li>
-    <li><strong>Canal público:</strong> <code>@resisres</code> (solo data updates de monitoring.html)</li>
-    <li><strong>Bot token:</strong> <code>TELEGRAM_BOT_TOKEN</code> (en <code>~/.zshrc</code> y en <code>htmls/inbox/.env</code>)</li>
-    <li><strong>API key:</strong> <code>ANTHROPIC_API_KEY</code> (workspace "inbox" en console.anthropic.com)</li>
-    <li><strong>Venv Python:</strong> <code>~/inbox-venv/bin/python3</code> (tiene requests y anthropic instalados)</li>
+    <li><strong>Script:</strong> <code>htmls/inbox/inbox-v2.py</code> (reemplaza al viejo inbox.py basado en API)</li>
+    <li><strong>Instrucciones de sesión:</strong> <code>htmls/inbox/INBOX_SYSTEM.md</code> (se lee al inicio de cada sesión nueva)</li>
+    <li><strong>Chat privado:</strong> <code>TG_PRIVATE_CHAT_ID = 6855761084</code> (DM de Samuel con @Resisresbot)</li>
+    <li><strong>Canal público:</strong> <code>@resisres</code> (para publicaciones)</li>
+    <li><strong>Bot token:</strong> <code>TELEGRAM_BOT_TOKEN</code> (en el plist de launchd y <code>~/.zshrc</code>)</li>
+    <li><strong>Auth:</strong> Claude Code subscription (no API key) — zero API cost</li>
+    <li><strong>Venv Python:</strong> <code>~/inbox-venv/bin/python3</code> (tiene requests instalado)</li>
     <li><strong>Deploy dir:</strong> <code>/tmp/sds</code> (git clone con SSH auth, push a gh-pages)</li>
-    <li><strong>State file:</strong> <code>htmls/inbox/.inbox_state.json</code> (guarda offset de Telegram y pending questions)</li>
+    <li><strong>State file:</strong> <code>htmls/inbox/.inbox-v2-state.json</code> (guarda offset de Telegram y session ID)</li>
     <li><strong>Log:</strong> <code>~/inbox.log</code></li>
-    <li><strong>Cron:</strong> <code>*/10 8-23 * * *</code> (cada 10 min, 8am-11pm México)</li>
+    <li><strong>Launchd:</strong> <code>com.resisres.inbox</code> (cada 5 min, RunAtLoad=true)</li>
   </ul>
 </div>
 
-<p><strong>Modelos usados:</strong> <code>claude-sonnet-4-5-20250929</code> para normal mode, Q&A y routing. <code>claude-opus-4-5-20251101</code> para free mode (cambios estructurales complejos).</p>
+<h3>Cómo funciona</h3>
 
-<h3>Modos del bot</h3>
-
-<div class="tree">
-<strong>1. Normal mode</strong> — Texto o imagen sin prefijo especial
-     └── Routing automático → edit find/replace → validación → backup → git push
-     └── Si es data update a monitoring.html, también publica en @resisres
-     └── Ejemplo: "Inflación marzo 2026: 3.2% según INEGI" + imagen
-<strong>2. Free mode</strong> — Prefijo <code>free:</code> o <code>libre:</code> (también acepta "Free." y "Libre ")
-     └── Usa Opus, permite cambios estructurales (agregar botones, features, refactors)
-     └── Para monitoring.html envía data sections + App component
-     └── Para archivos pequeños envía el archivo completo y espera el archivo completo de vuelta
-     └── Ejemplo: "free: monitor: agrega un botón de shuffle que mezcle el orden"
-<strong>3. Question mode</strong> — Prefijo <code>question:</code> o <code>pregunta:</code>
-     └── Lee los HTMLs y responde en el DM privado, no hace edits
-     └── Ejemplo: "question: cuántas gráficas de seguridad hay?"
-<strong>4. Command mode</strong> — Prefijo <code>cmd:</code> o <code>comando:</code>
-     └── Operaciones locales sin API. Comandos disponibles:
-     └── <code>list</code> · <code>delete &lt;file&gt;</code> · <code>rename &lt;old&gt; to &lt;new&gt;</code>
-     └── <code>git status</code> · <code>git push</code> · <code>backups</code> · <code>restore &lt;file&gt;</code> · <code>schedule</code>
-<strong>5. File upload</strong> — Enviar un archivo .html al bot
-     └── Si el nombre/caption matchea un archivo conocido → reemplaza ese archivo
-     └── Si no matchea → lo guarda como archivo nuevo Y agrega una card en index.html
-<strong>6. Reply-to-message</strong> — Contestar a cualquier mensaje del bot
-     └── Si el bot preguntó algo (<code>❓</code>), tu respuesta se combina con la pregunta original
-     └── Si contestás a una confirmación <code>✅ ... (archivo.html)</code>, hace un follow-up edit a ese archivo
-<strong>7. Stop</strong> — Enviar <code>stop</code>, <code>para</code>, o <code>alto</code>
-     └── Limpia pending questions y skipea todos los mensajes restantes (silencioso)
-</div>
-
-<h3>Flujo de un mensaje de data update</h3>
+<p>Cada mensaje de Telegram se pasa a una sesión persistente de Claude Code (<code>claude --resume &lt;session-id&gt;</code>). La sesión lee LEEME.html e INBOX_SYSTEM.md al inicio y mantiene contexto completo — puede hacer edits, responder preguntas, ejecutar comandos, todo sin routing ni modos separados. Las sesiones expiran después de 6 horas de inactividad.</p>
 
 <div class="tree">
 Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
          │
-         ├── Cron corre inbox.py en la Mac (cada 10 min)
-         ├── inbox.py pide updates a Telegram API con offset guardado
-         ├── <span class="green">Claude Sonnet (phase 1)</span> routea → monitoring.html
-         ├── <span class="green">Claude Sonnet (phase 2)</span> genera find/replace patches
-         │   └── Si el find string no matchea, <strong>retry automático</strong> una vez con el error de contexto
-         ├── Aplica patches a monitoring.html en htmls/
-         ├── Valida (anchors deben seguir existiendo)
-         ├── Backup a htmls/backups/
-         ├── Copia a /tmp/sds/, git commit, git push (SSH)
-         ├── Notifica al DM privado: "✅ ..."
-         └── Publica en @resisres: "📊 INEGI | Desempleo feb 2026 2.4% ..."</div>
+         ├── launchd corre inbox-v2.py (cada 5 min)
+         ├── inbox-v2.py pide updates a Telegram API con offset guardado
+         ├── Pasa el mensaje a <span class="green">Claude Code (sesión persistente)</span>
+         │   └── Claude tiene acceso completo: Read, Edit, Bash, etc.
+         │   └── Hace backup → edita monitoring.html → valida → git push
+         ├── Responde al DM privado: "✅ ..."
+         └── Si es data update, publica en @resisres</div>
 
-<h3>Features de seguridad</h3>
+<h3>Diferencias con inbox v1 (inbox.py)</h3>
 
 <ul>
-  <li>Backups automáticos antes de cada edit (en <code>htmls/backups/</code>)</li>
-  <li>Validación de anchors post-edit (si faltan, rollback)</li>
-  <li>Git sync pre-edit (si el repo está dirty, aborta)</li>
-  <li>Retry automático en patches fallidos (una vez, con error context)</li>
-  <li>Config <code>FILES</code> en inbox.py limita qué archivos se pueden editar</li>
-  <li>Commands destructivos (delete, rename) requieren que el archivo esté en <code>SAFE_HTML_FILES</code></li>
+  <li>v1 usaba la API de Anthropic (Sonnet para routing/patches, Opus para free mode) — cada mensaje era stateless</li>
+  <li>v2 usa Claude Code CLI con sesiones persistentes — tiene memoria entre turnos, acceso a herramientas del sistema, y cero costo de API</li>
+  <li>v1 tenía modos explícitos (normal, free, question, command) — v2 entiende todo naturalmente por contexto</li>
+  <li>El viejo <code>inbox.py</code> sigue en la carpeta como referencia pero no está activo</li>
 </ul>
 
 <h3>Setup en nueva máquina</h3>
@@ -422,12 +389,11 @@ Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
   <div class="warn-title">📦 Dependencias y configuración</div>
   <ol>
     <li>Crear virtualenv: <code>python3 -m venv ~/inbox-venv</code></li>
-    <li>Instalar deps: <code>~/inbox-venv/bin/pip install requests anthropic</code></li>
-    <li>Agregar vars a <code>~/.zshrc</code>: <code>TELEGRAM_BOT_TOKEN</code>, <code>TG_PRIVATE_CHAT_ID</code>, <code>ANTHROPIC_API_KEY</code>, <code>HTMLS_DIR</code>, <code>INBOX_DRY_RUN=0</code></li>
-    <li>Setup SSH key para git push (HTTPS con keychain no funciona desde cron): <code>ssh-keygen -t ed25519</code> y agregar la public key a GitHub → Settings → SSH keys</li>
+    <li>Instalar deps: <code>~/inbox-venv/bin/pip install requests</code></li>
+    <li>Loguearse en Claude CLI: <code>claude /login</code> desde Terminal</li>
+    <li>Setup SSH key para git push: <code>ssh-keygen -t ed25519</code> y agregar la public key a GitHub</li>
     <li>Cambiar remote a SSH: <code>git -C /tmp/sds remote set-url origin git@github.com:sartinezmelgarejo-eng/sds.git</code></li>
-    <li>Dar Full Disk Access a <code>/usr/sbin/cron</code> en System Settings → Privacy & Security (cron no puede leer Google Drive sin esto)</li>
-    <li>Instalar cron: <code>echo "*/10 8-23 * * * source ~/.zshrc &amp;&amp; ~/inbox-venv/bin/python3 \"$HTMLS_DIR/inbox/inbox.py\" &gt;&gt; ~/inbox.log 2&gt;&amp;1" | crontab -</code></li>
+    <li>Cargar el plist: <code>launchctl load ~/Library/LaunchAgents/com.resisres.inbox.plist</code></li>
   </ol>
 </div>
 
@@ -435,11 +401,11 @@ Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
 
 <ul>
   <li><strong>Ver log:</strong> <code>cat ~/inbox.log</code></li>
-  <li><strong>Correr manualmente:</strong> <code>source ~/.zshrc && ~/inbox-venv/bin/python3 -u "$HTMLS_DIR/inbox/inbox.py"</code></li>
-  <li><strong>Ver state:</strong> <code>cat "$HTMLS_DIR/inbox/.inbox_state.json"</code></li>
+  <li><strong>Correr manualmente:</strong> <code>source ~/.zshrc && ~/inbox-venv/bin/python3 -u "$HTMLS_DIR/inbox/inbox-v2.py"</code></li>
+  <li><strong>Ver state:</strong> <code>cat "$HTMLS_DIR/inbox/.inbox-v2-state.json"</code></li>
   <li><strong>Ver mensajes pendientes en Telegram:</strong> <code>curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates" | python3 -m json.tool</code></li>
-  <li><strong>Skipear todos los mensajes viejos:</strong> editar <code>.inbox_state.json</code> y poner offset alto</li>
-  <li><strong>Ver cron:</strong> <code>crontab -l</code></li>
+  <li><strong>Skipear mensajes viejos:</strong> editar <code>.inbox-v2-state.json</code> y poner offset alto</li>
+  <li><strong>Ver status launchd:</strong> <code>launchctl list | grep inbox</code></li>
 </ul>
 
 <!-- ═══════════════════════════════════════ -->
@@ -668,11 +634,12 @@ with pdfplumber.open("Books/Autor/Libro.pdf") as pdf:
   <li><strong>Abril 2026 (1)</strong> — monitoring.html: mejoras de visualización móvil (centrado de gráficas, YAxis compacto, leyendas responsive), modo Explorar con categorías agrupadas en desktop y dropdown de filtros en móvil, ordenar por fecha, swipe en UPDATES, drill-down con gráficas de pie interactivas.</li>
   <li><strong>Abril 2026 (2)</strong> — PWA: todos los HTMLs convertidos a Progressive Web Apps con manifests individuales, iconos, y service worker. Carpeta pwa/ creada. Se pueden instalar como apps en Android/Huawei.</li>
   <li><strong>Abril 2026 (3)</strong> — GitHub Pages: repo sartinezmelgarejo-eng/sds en branch gh-pages. Todas las tareas programadas ahora hacen git push automático después de actualizar. URL: sartinezmelgarejo-eng.github.io/sds/</li>
-  <li><strong>Abril 2026 (4)</strong> — Telegram: bot @Resisresbot conectado al canal @resisres. 5 tareas publican contenido diariamente (dailyt, scant, scannight, resument, onmexico).</li>
+  <li><strong>Abril 2026 (4)</strong> — Telegram: bot @Resisresbot conectado al canal @resisres. 3 tareas publican contenido diariamente (dailyt, scant, onmexico). scannight consolidado en scant, resument integrado en dailyt.</li>
   <li><strong>Abril 2026 (5)</strong> — index.html: menú principal con tarjetas de todas las apps. schedules.html: simplificado a tabla semanal. Eliminados: chosen-s4-viewer.html, MAPA-DIALECTICO.html (v1), Iglesia-contra-Mexico.md. Migración de iCloud a Google Drive.</li>
   <li><strong>Abril 2026 (6)</strong> — monitoring.html y sacred-texts.html: modo claro/oscuro con toggle discreto (dot). monitoring usa Object.assign para swap de paletas; sacred-texts usa CSS custom properties (var(--st-xxx)). Preferencia guardada en localStorage.</li>
   <li><strong>Abril 2026 (7)</strong> — MAPA: agregado libro #220 — W. E. B. Du Bois "Black Reconstruction in America, 1860-1880" (1935). 6 citas verificadas contra PDF con pdfplumber, QUOTE_PAGES actualizados, portada de Open Library. Estante: fundamentos.</li>
   <li><strong>Abril 2026 (8)</strong> — MAPA: auditoría de citas en Línea de Tiempo y Atlas. Se eliminaron 16 citas genéricas o fuera de lugar en la línea de tiempo (2 misplaced, 14 genéricas). Se agregó link "📄 Ver en PDF" a las citas de la línea de tiempo — ahora usan <code>getQuotePageLink</code> igual que las citas de los libros. Se refinaron keywords del Atlas de Conceptos: eliminados términos genéricos que causaban falsos positivos (<code>'capital '</code>, <code>'negro'</code>, <code>'papa '</code>, <code>'cura '</code>, <code>'colonia'</code>, <code>'pueblo'</code>, <code>'clásico'</code>, <code>'domina'</code>, etc.) y reemplazados por términos más específicos.</li>
+  <li><strong>Abril 2026 (9)</strong> — Inbox v2: sistema inbox migrado de inbox.py (stateless, API-based con modos explícitos) a inbox-v2.py (sesiones persistentes de Claude Code CLI, zero API cost). Migrado de cron a launchd (<code>com.resisres.inbox</code>, cada 5 min). china-trip-planner renombrado a china-trip-planner-enhanced.html. LEEME actualizado con nueva arquitectura de inbox y conteos corregidos.</li>
 </ul>
 
 <div class="footer">
