@@ -93,6 +93,8 @@ body{background:#0a0a0f;color:#d4d4d4;font-family:'Inter',system-ui,sans-serif;m
 .task-gringo .card-task{background:rgba(59,130,246,.12);color:#3b82f6}
 .task-espejo .card-accent{background:#ec4899}
 .task-espejo .card-task{background:rgba(236,72,153,.12);color:#ec4899}
+.task-data .card-accent{background:#06b6d4}
+.task-data .card-task{background:rgba(6,182,212,.12);color:#06b6d4}
 
 /* Empty state */
 .empty{text-align:center;padding:60px 20px;color:#444;font-size:13px}
@@ -123,10 +125,21 @@ body{background:#0a0a0f;color:#d4d4d4;font-family:'Inter',system-ui,sans-serif;m
 <div class="feed" id="feed"></div>
 
 <script>
+/* Category mapping: task → display label + filter group */
 const TASK_LABELS = {
-  dragon:'Dragon',scan:'Scan',scant:'Scan',dailyt:'Mañanera',daily:'Mañanera',
-  mananera:'Mañanera',onmexico:'OnMexico',gringo:'Gringo',espejo:'Espejo'
+  dragon:'🐉',scan:'Mexican News',scant:'Mexican News',
+  dailyt:'Mañanera',daily:'Mañanera',mananera:'Mañanera',
+  onmexico:'Intl Coverage',gringo:'Intl Coverage',espejo:'Intl Coverage',
+  data:'Data'
 };
+/* For filter buttons, group tasks into these categories */
+const FILTER_GROUPS = [
+  {key:'mananera', label:'Mañanera', tasks:['dailyt','daily','mananera']},
+  {key:'news',     label:'Mexican News', tasks:['scan','scant']},
+  {key:'intl',     label:'Intl Coverage', tasks:['onmexico','gringo','espejo']},
+  {key:'dragon',   label:'🐉', tasks:['dragon']},
+  {key:'data',     label:'Data', tasks:['data']},
+];
 
 let DATA=[], activeTask='all', activeDate='all', query='';
 
@@ -142,19 +155,19 @@ async function init(){
 }
 
 function buildFilters(){
-  const tasks=[...new Set(DATA.map(d=>d.task))];
+  const presentTasks=new Set(DATA.map(d=>d.task));
   const el=document.getElementById('filters');
-  let html='<button class="filter-btn active" data-task="all">All</button>';
-  tasks.forEach(t=>{
-    const label=TASK_LABELS[t]||t;
-    html+=`<button class="filter-btn" data-task="${t}">${label}</button>`;
+  let html='<button class="filter-btn active" data-group="all">All</button>';
+  FILTER_GROUPS.forEach(g=>{
+    if(g.tasks.some(t=>presentTasks.has(t)))
+      html+=`<button class="filter-btn" data-group="${g.key}">${g.label}</button>`;
   });
   el.innerHTML=html;
   el.addEventListener('click',e=>{
     if(!e.target.matches('.filter-btn'))return;
     el.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
     e.target.classList.add('active');
-    activeTask=e.target.dataset.task;
+    activeTask=e.target.dataset.group;
     render();
   });
 }
@@ -180,7 +193,10 @@ function buildDates(){
 
 function render(){
   let items=DATA;
-  if(activeTask!=='all') items=items.filter(d=>d.task===activeTask);
+  if(activeTask!=='all'){
+    const grp=FILTER_GROUPS.find(g=>g.key===activeTask);
+    if(grp) items=items.filter(d=>grp.tasks.includes(d.task));
+  }
   if(activeDate!=='all') items=items.filter(d=>d.date===activeDate);
   if(query){
     const q=query.toLowerCase();
