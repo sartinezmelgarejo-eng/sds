@@ -942,14 +942,72 @@ body {
   box-shadow: 0 4px 8px rgba(0,0,0,0.55);
 }
 
+/* ─── LIGHT MODE: softer pale-oak bookcase, less forced ─── */
+:root.light {
+  --wood-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='120'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.018 0.55' numOctaves='2' seed='3'/><feColorMatrix values='0 0 0 0 0.55  0 0 0 0 0.40  0 0 0 0 0.24  0 0 0 0.20 0'/></filter><rect width='100%25' height='100%25' filter='url(%23w)'/></svg>");
+  --wood-back: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='420'><filter id='b'><feTurbulence type='fractalNoise' baseFrequency='0.40 0.018' numOctaves='2' seed='12'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.30  0 0 0 0 0.18  0 0 0 0.22 0'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>");
+}
+:root.light .bookcase {
+  background-color: #c9a674;
+  border-color: #8a6432;
+  box-shadow: 0 12px 32px rgba(80,50,20,0.30);
+}
+:root.light .bookcase-back {
+  background-color: #b08a52;
+}
+:root.light .bookcase-plank {
+  background-color: #b88a52;
+  border-top-color: rgba(255,235,190,0.55);
+  border-bottom-color: rgba(60,38,14,0.45);
+  box-shadow: 0 3px 6px rgba(80,50,20,0.30);
+}
+
 /* Responsive */
 @media (max-width: 700px) {
   .bookcase { margin: 0 -12px; border-radius: 0; }
-  .micro-book { width: 16px; }
   .micro-book::after { font-size: 9px; }
-  .micro-spine { font-size: 5px; }
-  .bookcase-books { gap: 1px; padding: 4px 6px 0; }
+  .micro-spine { font-size: 7px; }
   .shelf-tab-name { font-size: 10px; }
+
+  /* One shelf per row, full-width, scroll books horizontally with snap */
+  .bookcase-grid { grid-template-columns: 1fr; }
+  .bookcase-shelf { padding: 0; }
+  .bookcase-books {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+    padding: 8px 12px 4px;
+    gap: 3px;
+    /* room for the hover-lift transform of the books */
+    min-height: 110px;
+  }
+  .bookcase-books::-webkit-scrollbar { display: none; }
+  .micro-book {
+    width: 26px;
+    height: 96px;
+    scroll-snap-align: start;
+  }
+  .micro-book img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* Subtle hint at right edge that you can scroll */
+  .bookcase-shelf {
+    position: relative;
+  }
+  .bookcase-shelf::after {
+    content: "";
+    position: absolute;
+    top: 28px; bottom: 16px; right: 0;
+    width: 18px;
+    background: linear-gradient(90deg, transparent, rgba(0,0,0,0.35));
+    pointer-events: none;
+    z-index: 6;
+  }
+  :root.light .bookcase-shelf::after {
+    background: linear-gradient(90deg, transparent, rgba(80,50,20,0.18));
+  }
 }
 
 .books-shelf {
