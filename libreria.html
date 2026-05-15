@@ -1149,59 +1149,73 @@ body {
   margin-bottom: 48px;
 }
 
-/* ═══ DESKTOP 2-COLUMN LAYOUT ═══ */
+/* ═══ DESKTOP MASONRY LAYOUT ═══ */
+/* Wider canvas on big screens */
 @media (min-width: 1024px) {
   #book-detail {
-    max-width: 1180px;
+    max-width: 1280px;
     padding: 0 40px 96px;
-  }
-
-  #book-detail .view-transition {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 64px;
-    row-gap: 0;
-    align-items: start;
-  }
-
-  /* Full-width items: back button, hero, and tesis */
-  #book-detail .view-transition > .back-btn,
-  #book-detail .view-transition > .book-hero {
-    grid-column: 1 / -1;
-  }
-
-  /* The first .book-section after hero is Tesis Central — make it full width */
-  #book-detail .view-transition > .book-section:first-of-type {
-    grid-column: 1 / -1;
-    max-width: 760px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-
-  /* Same-author and related books grids at the bottom should span full */
-  #book-detail .view-transition > .book-section:last-of-type {
-    grid-column: 1 / -1;
-  }
-
-  /* The alerta (no-collapse) should span both columns */
-  #book-detail .view-transition > .book-section-no-collapse {
-    grid-column: 1 / -1;
-  }
-
-  /* Sections in the grid get balanced */
-  #book-detail .view-transition > .book-section {
-    margin-bottom: 32px;
-    min-width: 0;
   }
 }
 
 @media (min-width: 1400px) {
-  #book-detail {
-    max-width: 1280px;
+  #book-detail { max-width: 1480px; }
+}
+
+@media (min-width: 1700px) {
+  #book-detail { max-width: 1640px; }
+}
+
+/* The masonry wrapper holds all the non-hero, non-tesis sections */
+.book-masonry {
+  margin: 0 0 32px;
+}
+
+.book-masonry > .book-section {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  display: block;
+  margin-bottom: 32px;
+}
+
+@media (min-width: 900px) {
+  .book-masonry {
+    column-count: 2;
+    column-gap: 56px;
   }
-  #book-detail .view-transition {
-    column-gap: 80px;
+}
+
+@media (min-width: 1280px) {
+  .book-masonry {
+    column-count: 3;
+    column-gap: 48px;
   }
+}
+
+@media (min-width: 1700px) {
+  .book-masonry {
+    column-count: 4;
+    column-gap: 48px;
+  }
+}
+
+/* Tesis stays full-width and centered as the hero piece below hero */
+@media (min-width: 900px) {
+  #book-detail .view-transition > .book-section:first-of-type {
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 48px;
+  }
+}
+
+/* Last sections (same-author / related books grids) - keep wide */
+.book-masonry-footer {
+  margin-top: 32px;
+}
+.book-masonry-footer > .book-section {
+  margin-bottom: 32px;
 }
 
 /* Tesis Central — el corazón del libro */
@@ -6344,15 +6358,19 @@ body {
           '</div>' +
         '</div>' +
         tesisHTML +
-        ideasHTML +
-        contextoHTML +
-        autorHTML +
-        quotesHTML +
-        porqueHTML +
-        alertaHTML +
-        conexionesHTML +
-        sameAuthorHTML +
-        relatedHTML +
+        '<div class="book-masonry">' +
+          quotesHTML +
+          ideasHTML +
+          autorHTML +
+          contextoHTML +
+          porqueHTML +
+          conexionesHTML +
+          alertaHTML +
+        '</div>' +
+        '<div class="book-masonry-footer">' +
+          sameAuthorHTML +
+          relatedHTML +
+        '</div>' +
       '</div>';
 
     // Hide other views
