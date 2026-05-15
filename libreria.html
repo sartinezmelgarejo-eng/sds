@@ -3030,7 +3030,13 @@ body {
   if (IS_MOBILE) { var bfb = document.getElementById('books-folder-btn'); if (bfb) bfb.style.display = 'none'; }
   var BOOKS_BASE_PATH = "/Users/samuelmartinez/Library/Mobile Documents/com~apple~CloudDocs/Documents/Books";
   try { var saved = localStorage.getItem('booksBasePath'); if (saved) BOOKS_BASE_PATH = saved; } catch(e) {}
-  function getFileURL(fp) { if (!fp||!BOOKS_BASE_PATH) return null; return 'file:///'+BOOKS_BASE_PATH.replace(/\\/g,'/').replace(/\/$/,'')+'/'+fp; }
+  function getFileURL(fp) {
+    if (!fp||!BOOKS_BASE_PATH) return null;
+    var base = BOOKS_BASE_PATH.replace(/\\/g,'/').replace(/\/$/,'');
+    // Encode each segment so spaces, parens, &, #, ’ etc. work in file:// URLs
+    var enc = function(s){ return s.split('/').map(encodeURIComponent).join('/'); };
+    return 'file:///' + enc(base.replace(/^\//,'')) + '/' + enc(fp);
+  }
   function getFileButtonHTML(book) {
     if (IS_MOBILE) return '';
     if (!book.filePath) return '';
