@@ -734,18 +734,46 @@ body {
 }
 #mega-library.active { display: block; }
 
-/* ── BOOKCASE: realistic bookshelf ── */
+/* ── BOOKCASE: realistic wooden bookshelf ── */
+:root {
+  /* Wood grain: long horizontal streaks (the actual planks) */
+  --wood-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='120'><filter id='w'><feTurbulence type='turbulence' baseFrequency='0.012 0.55' numOctaves='3' seed='3'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23w)'/></svg>");
+  /* Subtle knot/swirl: occasional darker patches */
+  --wood-knots: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='200'><filter id='k'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='17'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.04  0 0 0 0 0.02  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23k)'/></svg>");
+  /* Back wall: deeper dark wood */
+  --wood-back: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='400'><filter id='b'><feTurbulence type='turbulence' baseFrequency='0.008 0.4' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.06  0 0 0 0 0.03  0 0 0 0.65 0'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>");
+}
+
 .bookcase {
   max-width: 1000px;
   margin: 0 auto;
-  background: linear-gradient(180deg, #1a120d 0%, #0d0906 100%);
-  border: 3px solid #2a1e14;
-  border-radius: 6px 6px 4px 4px;
+  background-color: #2a1c10;
+  background-image: var(--wood-grain), var(--wood-knots);
+  background-size: 600px 120px, 800px 200px;
+  background-blend-mode: overlay, multiply;
+  border: 8px solid #1a0f06;
+  border-radius: 8px 8px 4px 4px;
   padding: 0;
   box-shadow:
-    0 12px 48px rgba(0,0,0,0.8),
-    inset 0 0 60px rgba(0,0,0,0.4);
+    0 16px 56px rgba(0,0,0,0.85),
+    inset 0 0 80px rgba(0,0,0,0.5),
+    inset 0 2px 0 rgba(255,200,140,0.10),
+    inset 0 -3px 0 rgba(0,0,0,0.6);
   position: relative;
+}
+
+/* Soft warm "room light" pouring in from above */
+.bookcase::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(80% 40% at 50% -10%, rgba(255,210,140,0.10), transparent 70%),
+    radial-gradient(60% 30% at 50% 110%, rgba(0,0,0,0.5), transparent 60%);
+  border-radius: inherit;
+  z-index: 4;
+  mix-blend-mode: overlay;
 }
 
 /* Grid: 2 shelves per row */
@@ -753,6 +781,8 @@ body {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
+  position: relative;
+  z-index: 1;
 }
 
 /* Single shelf row */
@@ -761,43 +791,98 @@ body {
   padding: 0 10px;
 }
 
-/* Back wall of shelf */
+/* Vertical wooden divider between left and right shelves */
+.bookcase-shelf + .bookcase-shelf::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  bottom: 4px;
+  width: 4px;
+  background:
+    linear-gradient(90deg, rgba(0,0,0,0.6), rgba(60,38,20,0.4), rgba(0,0,0,0.6));
+  box-shadow: -1px 0 2px rgba(0,0,0,0.4), 1px 0 2px rgba(0,0,0,0.4);
+  z-index: 4;
+}
+
+/* Back wall of shelf — deep recess */
 .bookcase-back {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(180deg, rgba(20,12,8,0.9) 0%, rgba(15,10,6,0.6) 50%, rgba(10,6,3,0.8) 100%);
+  background-color: #0e0805;
+  background-image: var(--wood-back);
+  background-size: 500px 400px;
+  background-blend-mode: overlay;
   z-index: 0;
+  box-shadow:
+    inset 0 8px 16px rgba(0,0,0,0.7),
+    inset 0 -4px 10px rgba(0,0,0,0.5),
+    inset 6px 0 10px rgba(0,0,0,0.45),
+    inset -6px 0 10px rgba(0,0,0,0.45);
 }
 
-/* Category tab label */
+/* Category tab — brass plaque nailed to the shelf */
 .shelf-tab {
   position: relative;
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 3px 12px;
-  margin: 6px 0 0 6px;
-  background: rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-bottom: 2px solid var(--tab-color, var(--gold));
-  border-radius: 3px 3px 0 0;
+  gap: 7px;
+  padding: 4px 14px 4px 12px;
+  margin: 8px 0 0 8px;
+  background:
+    linear-gradient(180deg,
+      rgba(180,142,72,0.95) 0%,
+      rgba(150,112,52,0.95) 45%,
+      rgba(110,80,36,0.95) 100%);
+  border: 1px solid rgba(60,40,18,0.7);
+  border-top-color: rgba(220,180,110,0.55);
+  border-radius: 2px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,225,160,0.35),
+    inset 0 -1px 0 rgba(0,0,0,0.45),
+    0 1px 3px rgba(0,0,0,0.6),
+    0 2px 6px rgba(0,0,0,0.4);
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
+/* Two tiny brass screws/nails on the plaque */
+.shelf-tab::before,
+.shelf-tab::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #f4d896, #6b4a1a 70%, #2a1a08 100%);
+  box-shadow: 0 0 1px rgba(0,0,0,0.8);
+  transform: translateY(-50%);
+}
+.shelf-tab::before { left: 4px; }
+.shelf-tab::after  { right: 4px; }
 .shelf-tab:hover {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.15);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255,235,175,0.50),
+    inset 0 -1px 0 rgba(0,0,0,0.45),
+    0 2px 5px rgba(0,0,0,0.65),
+    0 4px 10px rgba(0,0,0,0.45),
+    0 0 12px rgba(220,180,110,0.25);
 }
-.shelf-tab-icon { font-size: 11px; }
+.shelf-tab-icon {
+  font-size: 11px;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5));
+}
 .shelf-tab-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 12px;
-  color: var(--text-dim);
-  letter-spacing: 0.3px;
+  font-weight: 600;
+  color: #2a1a08;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  text-shadow: 0 1px 0 rgba(255,225,160,0.35);
 }
-.shelf-tab:hover .shelf-tab-name { color: var(--text-bright); }
+.shelf-tab:hover .shelf-tab-name { color: #1a0f04; }
 
 /* Books container — wraps into rectangular blocks */
 .bookcase-books {
@@ -878,27 +963,36 @@ body {
   display: block;
 }
 
-/* Wooden plank */
+/* Wooden plank — solid wood with visible grain */
 .bookcase-plank {
   position: relative;
   z-index: 3;
-  height: 10px;
-  background:
-    linear-gradient(90deg,
-      #2a1e14 0%, #332518 15%, #2e2015 30%, #382a1c 45%,
-      #2a1e14 55%, #332518 70%, #2e2015 85%, #382a1c 100%);
+  height: 14px;
+  background-color: #3a2818;
+  background-image:
+    /* highlight on top edge */
+    linear-gradient(180deg, rgba(255,210,140,0.18) 0%, transparent 12%, transparent 80%, rgba(0,0,0,0.55) 100%),
+    var(--wood-grain),
+    var(--wood-knots);
+  background-size: 100% 100%, 600px 120px, 800px 200px;
+  background-blend-mode: normal, overlay, multiply;
   box-shadow:
-    0 4px 12px rgba(0,0,0,0.6),
-    0 2px 4px rgba(0,0,0,0.4),
-    inset 0 1px 0 rgba(255,210,140,0.08);
+    0 6px 14px rgba(0,0,0,0.65),
+    0 3px 5px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,210,140,0.22),
+    inset 0 -1px 0 rgba(0,0,0,0.55);
+  border-top: 1px solid rgba(255,210,140,0.10);
+  border-bottom: 1px solid rgba(0,0,0,0.7);
 }
+/* Front edge of plank — soft shadow falling onto next shelf */
 .bookcase-plank::after {
   content: '';
   position: absolute;
-  bottom: -5px;
+  bottom: -7px;
   left: 0; right: 0;
-  height: 5px;
-  background: linear-gradient(180deg, #2a1e14 0%, transparent 100%);
+  height: 7px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, transparent 100%);
+  pointer-events: none;
 }
 
 /* Responsive */
