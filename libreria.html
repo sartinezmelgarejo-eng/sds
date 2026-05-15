@@ -740,8 +740,12 @@ body {
   --wood-grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='120'><filter id='w'><feTurbulence type='turbulence' baseFrequency='0.012 0.55' numOctaves='3' seed='3'/><feColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0.55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23w)'/></svg>");
   /* Subtle knot/swirl: occasional darker patches */
   --wood-knots: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='200'><filter id='k'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='2' seed='17'/><feColorMatrix values='0 0 0 0 0.08  0 0 0 0 0.04  0 0 0 0 0.02  0 0 0 0.35 0'/></filter><rect width='100%25' height='100%25' filter='url(%23k)'/></svg>");
-  /* Back wall: deeper dark wood */
-  --wood-back: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='400'><filter id='b'><feTurbulence type='turbulence' baseFrequency='0.008 0.4' numOctaves='3' seed='5'/><feColorMatrix values='0 0 0 0 0.10  0 0 0 0 0.06  0 0 0 0 0.03  0 0 0 0.65 0'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>");
+  /* Back wall: deep vertical wood grain (planks running top-to-bottom on the recess) */
+  --wood-back: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='320' height='420'><filter id='b'><feTurbulence type='turbulence' baseFrequency='0.42 0.014' numOctaves='4' seed='12'/><feColorMatrix values='0 0 0 0 0.18  0 0 0 0 0.10  0 0 0 0 0.05  0 0 0 0.75 0'/></filter><rect width='100%25' height='100%25' filter='url(%23b)'/></svg>");
+  /* Soft mottling for back wall — uneven aging */
+  --wood-back-mottle: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='m'><feTurbulence type='fractalNoise' baseFrequency='0.018' numOctaves='3' seed='21'/><feColorMatrix values='0 0 0 0 0.06  0 0 0 0 0.03  0 0 0 0 0.015  0 0 0 0.45 0'/></filter><rect width='100%25' height='100%25' filter='url(%23m)'/></svg>");
+  /* Vertical plank seams — thin dark vertical lines every ~110px */
+  --wood-back-seams: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='330' height='10'><rect x='0' y='0' width='1' height='10' fill='rgba(0,0,0,0.55)'/><rect x='110' y='0' width='1' height='10' fill='rgba(0,0,0,0.50)'/><rect x='220' y='0' width='1' height='10' fill='rgba(0,0,0,0.55)'/></svg>");
 }
 
 .bookcase {
@@ -762,19 +766,6 @@ body {
   position: relative;
 }
 
-/* Soft warm "room light" pouring in from above */
-.bookcase::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(80% 40% at 50% -10%, rgba(255,210,140,0.10), transparent 70%),
-    radial-gradient(60% 30% at 50% 110%, rgba(0,0,0,0.5), transparent 60%);
-  border-radius: inherit;
-  z-index: 4;
-  mix-blend-mode: overlay;
-}
 
 /* Grid: 2 shelves per row */
 .bookcase-grid {
@@ -805,14 +796,18 @@ body {
   z-index: 4;
 }
 
-/* Back wall of shelf — deep recess */
+/* Back wall of shelf — vertical wood planks in deep recess */
 .bookcase-back {
   position: absolute;
   inset: 0;
-  background-color: #0e0805;
-  background-image: var(--wood-back);
-  background-size: 500px 400px;
-  background-blend-mode: overlay;
+  background-color: #1a1108;
+  background-image:
+    var(--wood-back-seams),
+    var(--wood-back),
+    var(--wood-back-mottle);
+  background-size: 330px 100%, 320px 420px, 600px 600px;
+  background-repeat: repeat-x, repeat, repeat;
+  background-blend-mode: multiply, overlay, multiply;
   z-index: 0;
   box-shadow:
     inset 0 8px 16px rgba(0,0,0,0.7),
