@@ -1048,33 +1048,105 @@ body {
   animation: fadeIn 0.4s ease;
 }
 
-.book-section-title {
+/* Collapsible <details>/<summary> sections */
+.book-section {
+  position: relative;
+}
+
+.book-section[open] > .book-section-title {
+  margin-bottom: 24px;
+}
+
+.book-section > .book-section-title {
   font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 2.5px;
   color: var(--gold-dim);
-  margin-bottom: 24px;
-  padding-bottom: 0;
+  margin-bottom: 0;
+  padding: 12px 0;
   border-bottom: none;
   display: flex;
   align-items: center;
   gap: 12px;
   position: relative;
+  cursor: pointer;
+  list-style: none;
+  transition: color 0.2s;
+  user-select: none;
 }
 
-.book-section-title::after {
+.book-section > .book-section-title::-webkit-details-marker {
+  display: none;
+}
+.book-section > .book-section-title::marker {
+  display: none;
   content: '';
+}
+
+.book-section > .book-section-title:hover {
+  color: var(--gold);
+}
+
+.book-section > .book-section-title .section-icon {
+  font-size: 13px;
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.book-section > .book-section-title > span:nth-child(2) {
+  flex-shrink: 0;
+}
+
+.book-section-title .section-count {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-dim);
+  margin-left: 2px;
+  opacity: 0.7;
+}
+
+/* The horizontal line — uses ::before instead of ::after so the chevron can come after */
+.book-section > .book-section-title::before {
+  content: '';
+  order: 99;
   flex: 1;
   height: 1px;
   background: var(--border);
   margin-left: 4px;
+  margin-right: 12px;
 }
 
-.book-section-title .section-icon {
-  font-size: 13px;
-  opacity: 0.7;
+/* Chevron at the end */
+.book-section > .book-section-title::after {
+  content: '+';
+  order: 100;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--gold-dim);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.25s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.book-section[open] > .book-section-title::after {
+  content: '−';
+  color: var(--gold);
+}
+
+/* The no-collapse alerta variant */
+.book-section-no-collapse {
+  margin-bottom: 48px;
 }
 
 /* Tesis Central — el corazón del libro */
@@ -6141,45 +6213,45 @@ body {
 
     // ── TESIS CENTRAL ──
     const tesisText = book.tesis || book.desc;
-    const tesisHTML = '<div class="book-section"><div class="book-section-title"><span class="section-icon">📖</span>Tesis Central</div><div class="book-tesis">'+tesisText+'</div></div>';
+    const tesisHTML = '<details class="book-section" open><summary class="book-section-title"><span class="section-icon">📖</span><span>Tesis Central</span></summary><div class="book-tesis">'+tesisText+'</div></details>';
 
     // ── IDEAS CLAVE ──
     const ideasHTML = book.ideas && book.ideas.length > 0 ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">💡</span>Ideas Clave</div><ul class="book-ideas">' +
+      '<details class="book-section" open><summary class="book-section-title"><span class="section-icon">💡</span><span>Ideas Clave</span><span class="section-count">'+book.ideas.length+'</span></summary><ul class="book-ideas">' +
       book.ideas.map(function(idea) { return '<li>'+idea+'</li>'; }).join('') +
-      '</ul></div>' : '';
+      '</ul></details>' : '';
 
     // ── CONTEXTO HISTÓRICO ──
     const contextoHTML = book.contexto ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">🕰</span>Contexto Histórico</div><div class="book-contexto">'+book.contexto+'</div></div>' : '';
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">🕰</span><span>Contexto Histórico</span></summary><div class="book-contexto">'+book.contexto+'</div></details>' : '';
 
     // ── SOBRE EL AUTOR ──
     const autorData = autores[book.author];
     const autorHTML = autorData ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">✍</span>Sobre el Autor</div><div class="book-autor-bio" style="cursor:pointer;" onclick="openAuthor(\''+book.author.replace(/'/g,"\\'")+'\')">' +
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">✍</span><span>Sobre el Autor</span></summary><div class="book-autor-bio" style="cursor:pointer;" onclick="openAuthor(\''+book.author.replace(/'/g,"\\'")+'\')">' +
       '<div class="autor-avatar">'+book.author.charAt(0)+'</div><div class="autor-info"><h4 class="book-author-link">'+book.author+'</h4><div class="autor-years">'+autorData.years+'</div><div class="autor-bio-text">'+autorData.bio+'</div>' +
-      '<div style="font-size:11px;color:var(--gold-dim);margin-top:8px;">Ver todos los libros →</div></div></div></div>' : '';
+      '<div style="font-size:11px;color:var(--gold-dim);margin-top:8px;">Ver todos los libros →</div></div></div></details>' : '';
 
     // ── CITAS ──
     const quotesHTML = book.quotes && book.quotes.length > 0 ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">💬</span>Citas</div>' +
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">💬</span><span>Citas</span><span class="section-count">'+book.quotes.length+'</span></summary>' +
       book.quotes.map(function(q, idx) {
         return '<div class="quote-block"><div class="quote-text">'+q.text+'</div><div class="quote-page">'+q.page+getQuotePageLink(book,q.text,idx)+'</div></div>';
-      }).join('') + '</div>' : '';
+      }).join('') + '</details>' : '';
 
     // ── POR QUÉ LEER ──
     const porqueHTML = book.porqueLeer ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">🔥</span>Por Qué Leer Este Libro</div><div class="book-porque">'+book.porqueLeer+'</div></div>' : '';
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">🔥</span><span>Por Qué Leer Este Libro</span></summary><div class="book-porque">'+book.porqueLeer+'</div></details>' : '';
 
     // ── ALERTA ──
     const alertaHTML = book.alerta ?
-      '<div class="book-section"><div class="book-alerta"><span class="alerta-icon">⚠️</span><span class="alerta-text">'+book.alerta+'</span></div></div>' : '';
+      '<div class="book-section book-section-no-collapse"><div class="book-alerta"><span class="alerta-icon">⚠️</span><span class="alerta-text">'+book.alerta+'</span></div></div>' : '';
 
     // ── CONEXIONES (related books with reasons) ──
     const conexiones = book.conexiones || [];
     let conexionesHTML = '';
     if (conexiones.length > 0) {
-      conexionesHTML = '<div class="book-section"><div class="book-section-title"><span class="section-icon">🔗</span>Conexiones</div>' +
+      conexionesHTML = '<details class="book-section"><summary class="book-section-title"><span class="section-icon">🔗</span><span>Conexiones</span><span class="section-count">'+conexiones.length+'</span></summary>' +
         conexiones.map(function(c) {
           const rel = books.find(function(b){ return b.id === c.bookId; });
           if (!rel) return '';
@@ -6190,7 +6262,7 @@ body {
             '<div style="font-size:11px;color:var(--text-dim);">'+rel.author+' · '+rel.year+'</div>' +
             (c.razon ? '<div class="conexion-reason">'+c.razon+'</div>' : '') +
             '</div></div>';
-        }).join('') + '</div>';
+        }).join('') + '</details>';
     }
 
     // ── FALLBACK: same author + related ──
@@ -6198,10 +6270,10 @@ body {
     const related = books.filter(b => b.id !== book.id && b.tags.filter(t => book.tags.includes(t)).length >= 2).slice(0, 6);
 
     const sameAuthorHTML = sameAuthor.length > 0 && conexiones.length === 0 ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">📚</span>Otros libros de '+book.author.split(' ').pop()+'</div><div style="display:flex;flex-wrap:wrap;gap:10px;">'+sameAuthor.slice(0,8).map(function(b){ return miniBookCard(b, true); }).join('')+'</div></div>' : '';
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">📚</span><span>Otros libros de '+book.author.split(' ').pop()+'</span><span class="section-count">'+sameAuthor.length+'</span></summary><div style="display:flex;flex-wrap:wrap;gap:10px;">'+sameAuthor.slice(0,8).map(function(b){ return miniBookCard(b, true); }).join('')+'</div></details>' : '';
 
     const relatedHTML = related.length > 0 && conexiones.length === 0 ?
-      '<div class="book-section"><div class="book-section-title"><span class="section-icon">🌐</span>Libros Relacionados</div><div style="display:flex;flex-wrap:wrap;gap:10px;">'+related.map(function(b){ return miniBookCard(b, true); }).join('')+'</div></div>' : '';
+      '<details class="book-section"><summary class="book-section-title"><span class="section-icon">🌐</span><span>Libros Relacionados</span><span class="section-count">'+related.length+'</span></summary><div style="display:flex;flex-wrap:wrap;gap:10px;">'+related.map(function(b){ return miniBookCard(b, true); }).join('')+'</div></details>' : '';
 
     const detail = document.getElementById('book-detail');
     detail.innerHTML =
