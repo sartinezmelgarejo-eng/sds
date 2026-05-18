@@ -76,6 +76,31 @@ body{
 #article-content blockquote p{margin:0 0 8px}
 #article-content blockquote p:last-child{margin:0}
 
+/* Inline visual highlights (preview only, stripped on copy) */
+.hl-acronym{
+  background:linear-gradient(transparent 60%, rgba(180,140,90,.25) 60%);
+  padding:0 1px;border-radius:2px;
+  font-weight:600;color:#7a4a1a;
+}
+.hl-quote{
+  color:#1a5d3a;font-weight:500;
+}
+.hl-attribution{
+  color:#888;
+}
+.hl-toggle{
+  display:inline-flex;align-items:center;gap:5px;
+  background:#faf7ef;border:1px solid #e0d8c4;border-radius:6px;
+  padding:6px 10px;font-size:11px;color:#5a4a2a;
+  cursor:pointer;user-select:none;
+}
+.hl-toggle.off{opacity:.5}
+.hl-toggle input{margin:0;accent-color:#1a5d3a}
+body.no-highlights .hl-acronym,
+body.no-highlights .hl-quote{
+  background:none;color:inherit;font-weight:inherit;
+}
+
 /* Editable highlight */
 #article-content [contenteditable=true]{
   outline:none;
@@ -171,6 +196,10 @@ body.mode-compare .compare-container{display:block}
   <span class="meta-chip" onclick="copyText(document.getElementById('tags-val').textContent, this)">
     <span class="label">Tags:</span> <span class="val" id="tags-val">—</span>
   </span>
+  <label class="hl-toggle" title="Visual only — does not affect Copy">
+    <input type="checkbox" id="hl-checkbox" checked onchange="toggleHighlights()">
+    <span>highlights</span>
+  </label>
   <span class="save-indicator" id="save-indicator">✓ Saved</span>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
 </div>
@@ -226,6 +255,7 @@ if (!slug) {
     });
 
     _originalParas = original && original.paragraphs ? original.paragraphs : [];
+    decorateHighlights(articleEl);
     buildCompareView();
 
     if (meta) {
@@ -397,8 +427,95 @@ async function copyTitle(){
   } catch(e) { showToast('Copy failed: ' + e.message); }
 }
 
+function getCleanHTML(){
+  // Clone the article DOM, strip visual-only highlight spans, then serialize
+  const clone = articleEl.cloneNode(true);
+  clone.querySelectorAll('.hl-acronym, .hl-quote, .hl-attribution').forEach(sp => {
+    const parent = sp.parentNode;
+    while (sp.firstChild) parent.insertBefore(sp.firstChild, sp);
+    parent.removeChild(sp);
+  });
+  // Also remove contenteditable attribute (clutters output)
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  return clone.innerHTML;
+}
+
+function decorateHighlights(rootEl){
+  // Walk every text node inside <p> or <figcaption>, wrap matches.
+  // Skip already-decorated nodes and the contents of <a>, <em>, <strong>, <code>.
+  const SKIP_TAGS = new Set(['A','EM','STRONG','CODE','SCRIPT','STYLE']);
+  // Acronyms: 2-5 uppercase letters, word-boundary, common false-positives excluded
+  const FALSE_POS = new Set(['I','II','III','IV','VI','VII','VIII','IX','X','XI','XII','OK','TV','AM','PM','BY','OF','TO','IN','ON','AT','AS','IS','IT']);
+  const acronymRe = /\b([A-Z][A-Z0-9]{1,5})\b/g;
+  // Direct quotes: straight or curly
+  const quoteRe = /("[^"]+"|"[^"]+"|"[^"]+")/g;
+
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      let p = node.parentNode;
+      while (p && p !== rootEl) {
+        if (SKIP_TAGS.has(p.tagName)) return NodeFilter.FILTER_REJECT;
+        if (p.classList && (p.classList.contains('hl-acronym') || p.classList.contains('hl-quote'))) return NodeFilter.FILTER_REJECT;
+        p = p.parentNode;
+      }
+      return NodeFilter.FILTER_ACCEPT;
+    }
+  });
+
+  const targets = [];
+  while (walker.nextNode()) targets.push(walker.currentNode);
+
+  targets.forEach(textNode => {
+    const text = textNode.nodeValue;
+    // Build a list of [start, end, type] matches, non-overlapping
+    const matches = [];
+    let m;
+    quoteRe.lastIndex = 0;
+    while ((m = quoteRe.exec(text)) !== null) {
+      matches.push({start: m.index, end: m.index + m[0].length, type:'quote', text: m[0]});
+    }
+    acronymRe.lastIndex = 0;
+    while ((m = acronymRe.exec(text)) !== null) {
+      if (FALSE_POS.has(m[1])) continue;
+      const start = m.index, end = m.index + m[0].length;
+      // Skip if inside a quote match
+      if (matches.some(q => q.type==='quote' && start>=q.start && end<=q.end)) continue;
+      matches.push({start, end, type:'acronym', text: m[0]});
+    }
+    if (matches.length === 0) return;
+    matches.sort((a,b) => a.start - b.start);
+
+    const frag = document.createDocumentFragment();
+    let cursor = 0;
+    matches.forEach(mm => {
+      if (mm.start < cursor) return; // overlap, skip
+      if (mm.start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, mm.start)));
+      const span = document.createElement('span');
+      span.className = mm.type === 'quote' ? 'hl-quote' : 'hl-acronym';
+      span.textContent = mm.text;
+      frag.appendChild(span);
+      cursor = mm.end;
+    });
+    if (cursor < text.length) frag.appendChild(document.createTextNode(text.slice(cursor)));
+    textNode.parentNode.replaceChild(frag, textNode);
+  });
+
+  // Mark attribution paragraph
+  Array.from(rootEl.querySelectorAll('p')).forEach(p => {
+    if (p.children.length === 1 && p.children[0].tagName === 'EM' && !p.classList.contains('hl-attribution')) {
+      p.classList.add('hl-attribution');
+    }
+  });
+}
+
+function toggleHighlights(){
+  const on = document.getElementById('hl-checkbox').checked;
+  document.body.classList.toggle('no-highlights', !on);
+}
+
 async function copyForWordPress(){
-  const html = articleEl.innerHTML; // LIVE DOM → includes edits
+  const html = getCleanHTML(); // strips highlight spans
   if (!html) { showToast('Nothing to copy'); return; }
   try {
     const item = new ClipboardItem({
