@@ -408,7 +408,14 @@ function setMode(mode){
   document.body.classList.toggle('mode-compare', mode === 'compare');
   document.getElementById('mode-preview').classList.toggle('active', mode === 'preview');
   document.getElementById('mode-compare').classList.toggle('active', mode === 'compare');
-  if (mode === 'compare') buildCompareView();  // sync from article DOM
+  if (mode === 'compare') {
+    buildCompareView();  // sync from article DOM
+    // Decorate both columns of the compare grid (EN already inherits from article DOM,
+    // but re-running ensures freshly added cells get decorated; ES needs explicit decoration)
+    compareGridEl.querySelectorAll('.cmp-cell.es, .cmp-cell.en').forEach(cell => {
+      decorateHighlights(cell);
+    });
+  }
 }
 
 function showToast(text){
