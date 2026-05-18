@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Translation Viewer — mexicosolidarity.com</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background:#f5f1ea;color:#1a1a1a;font-family:'Inter',system-ui,sans-serif;
+  min-height:100vh;line-height:1.55;
+}
+.toolbar{
+  position:sticky;top:0;z-index:50;
+  background:#fff;border-bottom:1px solid #e5dfd2;
+  padding:14px 24px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+}
+.back{
+  color:#777;text-decoration:none;font-size:13px;
+  padding:8px 12px;border-radius:6px;transition:background .15s;
+}
+.back:hover{background:#f0ebe0}
+.copy-btn{
+  background:#1a5d3a;color:#fff;border:none;
+  padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;
+  font-family:inherit;cursor:pointer;letter-spacing:.3px;
+  display:inline-flex;align-items:center;gap:6px;
+  transition:background .15s, transform .15s;
+}
+.copy-btn:hover{background:#0f4127;transform:translateY(-1px)}
+.copy-btn.done{background:#0f7a44}
+.copy-btn .icon{font-size:14px}
+.meta-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:#faf7ef;border:1px solid #e0d8c4;border-radius:6px;
+  padding:6px 10px;font-size:12px;color:#5a4a2a;
+  cursor:pointer;transition:background .15s;
+}
+.meta-chip:hover{background:#f0ebe0}
+.meta-chip .label{font-weight:600;color:#8a7340}
+.meta-chip .val{font-family:'Source Serif 4',serif}
+.original-link{
+  color:#1a5d3a;text-decoration:none;font-size:12px;
+  margin-left:auto;
+}
+.original-link:hover{text-decoration:underline}
+.container{
+  max-width:780px;margin:0 auto;padding:40px 32px 80px;
+}
+.preview-banner{
+  background:#fef9e7;border:1px solid #f0d96b;border-radius:6px;
+  padding:10px 14px;font-size:12px;color:#7a5a00;margin-bottom:28px;
+}
+#article-content{
+  font-family:'Source Serif 4',Georgia,serif;
+  font-size:17px;line-height:1.75;color:#262422;
+}
+#article-content figure{margin:24px 0}
+#article-content img{width:100%;height:auto;border-radius:4px}
+#article-content figcaption{
+  font-size:13px;color:#777;font-style:italic;
+  margin-top:6px;font-family:'Inter',sans-serif;
+}
+#article-content p{margin:0 0 18px}
+#article-content em{font-style:italic}
+#article-content a{color:#1a5d3a;text-decoration:underline}
+#article-content h1,#article-content h2{
+  font-family:'Source Serif 4',serif;
+  font-weight:600;margin:28px 0 14px;line-height:1.25;
+}
+.toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+  background:#1a3a2a;color:#fff;padding:12px 22px;border-radius:8px;
+  font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;
+  box-shadow:0 4px 14px rgba(0,0,0,.2);z-index:100;
+}
+.toast.show{opacity:1}
+.error{padding:40px;text-align:center;color:#a04;font-family:serif}
+@media(max-width:600px){
+  .toolbar{padding:10px 14px;gap:8px}
+  .copy-btn{padding:9px 14px;font-size:12px}
+  .meta-chip{font-size:11px;padding:5px 8px}
+  .container{padding:24px 18px 60px}
+  .original-link{display:block;margin:8px 0 0 0;width:100%}
+  #article-content{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <a class="back" href="./">← Queue</a>
+  <button class="copy-btn" id="copy-btn" onclick="copyForWordPress()">
+    <span class="icon">📋</span> <span id="copy-label">Copy for WordPress</span>
+  </button>
+  <span class="meta-chip" onclick="copyText(document.getElementById('cat-val').textContent, this)">
+    <span class="label">Category:</span> <span class="val" id="cat-val">—</span>
+  </span>
+  <span class="meta-chip" onclick="copyText(document.getElementById('tags-val').textContent, this)">
+    <span class="label">Tags:</span> <span class="val" id="tags-val">—</span>
+  </span>
+  <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
+</div>
+
+<div class="container">
+  <div class="preview-banner">
+    📝 Preview below. Click <b>Copy for WordPress</b>, then paste in the WP block editor — Gutenberg converts the HTML into blocks and the site theme applies its own fonts/colors.
+  </div>
+  <div id="article-content"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const params = new URLSearchParams(location.search);
+const slug = params.get('slug');
+const articleEl = document.getElementById('article-content');
+
+if (!slug) {
+  articleEl.innerHTML = '<div class="error">No slug specified. Use <code>?slug=YYYY-MM-DD-name</code> in the URL.</div>';
+} else {
+  Promise.all([
+    fetch(slug + '/article.html').then(r => r.text()),
+    fetch(slug + '/meta.json').then(r => r.json()).catch(()=>null),
+  ]).then(([html, meta]) => {
+    articleEl.innerHTML = html;
+    window._articleHTML = html;
+    if (meta) {
+      if (meta.translated_title) document.title = meta.translated_title;
+      if (meta.suggested_category) document.getElementById('cat-val').textContent = meta.suggested_category;
+      if (meta.suggested_tags) document.getElementById('tags-val').textContent = (meta.suggested_tags || []).join(' ');
+      if (meta.original_url) {
+        const link = document.getElementById('original-link');
+        link.href = meta.original_url;
+        link.textContent = '↗ ' + (meta.outlet || 'Original');
+      }
+    }
+  }).catch(err => {
+    articleEl.innerHTML = '<div class="error">Failed to load translation: ' + err.message + '</div>';
+  });
+}
+
+function showToast(text){
+  const t = document.getElementById('toast');
+  t.textContent = text;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+async function copyForWordPress(){
+  const html = window._articleHTML || '';
+  if (!html) { showToast('Nothing to copy'); return; }
+  // Build a clipboard item with both HTML and plain-text representations
+  // so WP block editor parses it as rich content
+  try {
+    const item = new ClipboardItem({
+      'text/html': new Blob([html], {type:'text/html'}),
+      'text/plain': new Blob([html], {type:'text/plain'}),
+    });
+    await navigator.clipboard.write([item]);
+    flashCopied();
+  } catch(e){
+    // Fallback: plain text only
+    try {
+      await navigator.clipboard.writeText(html);
+      flashCopied();
+    } catch(e2) {
+      showToast('Copy failed: ' + e2.message);
+    }
+  }
+}
+
+function flashCopied(){
+  const btn = document.getElementById('copy-btn');
+  const lbl = document.getElementById('copy-label');
+  btn.classList.add('done');
+  lbl.textContent = 'Copied ✓';
+  showToast('Copied. Paste into WordPress editor.');
+  setTimeout(()=>{
+    btn.classList.remove('done');
+    lbl.textContent = 'Copy for WordPress';
+  }, 2200);
+}
+
+async function copyText(text, el){
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = el.style.background;
+    el.style.background = '#d6efdb';
+    showToast('Copied: ' + text);
+    setTimeout(()=>{el.style.background = orig}, 1200);
+  } catch(e) {
+    showToast('Copy failed');
+  }
+}
+</script>
+</body>
+</html>
