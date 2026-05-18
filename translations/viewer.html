@@ -93,8 +93,11 @@ body{
 
 <div class="toolbar">
   <a class="back" href="./">← Queue</a>
+  <button class="copy-btn" id="title-btn" onclick="copyTitle()" style="background:#3a3a78">
+    <span class="icon">🏷</span> <span id="title-label">Copy title</span>
+  </button>
   <button class="copy-btn" id="copy-btn" onclick="copyForWordPress()">
-    <span class="icon">📋</span> <span id="copy-label">Copy for WordPress</span>
+    <span class="icon">📋</span> <span id="copy-label">Copy body</span>
   </button>
   <span class="meta-chip" onclick="copyText(document.getElementById('cat-val').textContent, this)">
     <span class="label">Category:</span> <span class="val" id="cat-val">—</span>
@@ -128,6 +131,7 @@ if (!slug) {
   ]).then(([html, meta]) => {
     articleEl.innerHTML = html;
     window._articleHTML = html;
+    window._meta = meta;
     if (meta) {
       if (meta.translated_title) document.title = meta.translated_title;
       if (meta.suggested_category) document.getElementById('cat-val').textContent = meta.suggested_category;
@@ -183,6 +187,21 @@ function flashCopied(){
     btn.classList.remove('done');
     lbl.textContent = 'Copy for WordPress';
   }, 2200);
+}
+
+async function copyTitle(){
+  const title = (window._meta && window._meta.translated_title) || document.title;
+  try {
+    await navigator.clipboard.writeText(title);
+    const btn = document.getElementById('title-btn');
+    const lbl = document.getElementById('title-label');
+    btn.classList.add('done');
+    lbl.textContent = 'Copied ✓';
+    showToast('Title copied. Paste in WP title field.');
+    setTimeout(()=>{btn.classList.remove('done'); lbl.textContent = 'Copy title';}, 2200);
+  } catch(e) {
+    showToast('Copy failed: ' + e.message);
+  }
 }
 
 async function copyText(text, el){
