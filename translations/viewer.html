@@ -60,9 +60,10 @@ body{
 
 /* ─── PREVIEW MODE ─── */
 .container{max-width:780px;margin:0 auto;padding:40px 32px 80px}
-.preview-banner{
-  background:#fef9e7;border:1px solid #f0d96b;border-radius:6px;
-  padding:10px 14px;font-size:12px;color:#7a5a00;margin-bottom:28px;
+.article-title{
+  font-family:'Source Serif 4',Georgia,serif;font-weight:600;
+  font-size:30px;line-height:1.2;color:#1a1a1a;
+  margin:0 0 24px;
 }
 #article-content{font-family:'Source Serif 4',Georgia,serif;font-size:17px;line-height:1.75;color:#262422}
 #article-content figure{margin:24px 0}
@@ -120,10 +121,7 @@ body.no-highlights .hl-quote{
 .compare-container{max-width:1400px;margin:0 auto;padding:24px 24px 80px;display:none}
 body.mode-compare .container{display:none}
 body.mode-compare .compare-container{display:block}
-.compare-banner{
-  background:#e8f0eb;border:1px solid #b8d4c2;border-radius:6px;
-  padding:10px 14px;font-size:12px;color:#1a5d3a;margin-bottom:18px;
-}
+.compare-container .article-title{margin:0 0 18px}
 .compare-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -205,17 +203,13 @@ body.mode-compare .compare-container{display:block}
 
 <!-- ═══ PREVIEW MODE ═══ -->
 <div class="container">
-  <div class="preview-banner">
-    📝 Click any paragraph or caption to edit. Edits are saved automatically to this browser. Use <b>Copy body</b> to paste into WordPress.
-  </div>
+  <h1 class="article-title" id="article-title-preview"></h1>
   <div id="article-content"></div>
 </div>
 
 <!-- ═══ COMPARE & EDIT MODE ═══ -->
 <div class="compare-container">
-  <div class="compare-banner">
-    💡 Spanish original on the left (read-only) · English translation on the right (click to edit). Edits sync to Preview & to Copy body.
-  </div>
+  <h1 class="article-title" id="article-title-compare"></h1>
   <div class="compare-grid" id="compare-grid"></div>
 </div>
 
@@ -245,6 +239,9 @@ if (!slug) {
     articleEl.innerHTML = saved || html;
     window._meta = meta;
 
+    // Tag direct children with stable index for scroll-position sync between Preview and Compare modes
+    Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
+
     // Make text content editable: every <p> and <figcaption>
     _articleParas = Array.from(articleEl.querySelectorAll('p'));
     _articleFigCaps = Array.from(articleEl.querySelectorAll('figcaption'));
@@ -258,7 +255,11 @@ if (!slug) {
     buildCompareView();
 
     if (meta) {
-      if (meta.translated_title) document.title = meta.translated_title;
+      if (meta.translated_title) {
+        document.title = meta.translated_title;
+        document.getElementById('article-title-preview').textContent = meta.translated_title;
+        document.getElementById('article-title-compare').textContent = meta.translated_title;
+      }
       if (meta.suggested_category) document.getElementById('cat-val').textContent = meta.suggested_category;
       if (meta.suggested_tags) document.getElementById('tags-val').textContent = (meta.suggested_tags || []).join(' ');
       if (meta.original_url) {
@@ -293,6 +294,13 @@ function buildCompareView(){
   let esIdx = 0;
   children.forEach((node) => {
     const tag = node.tagName;
+    const cmpIdx = node.getAttribute('data-cmp-index');
+    const tagCells = (esCell, enCell) => {
+      if (cmpIdx != null) {
+        esCell.setAttribute('data-cmp-index', cmpIdx);
+        enCell.setAttribute('data-cmp-index', cmpIdx);
+      }
+    };
     if (tag === 'P') {
       const onlyEm = node.children.length === 1 && node.children[0].tagName === 'EM';
       if (onlyEm) {
@@ -320,6 +328,7 @@ function buildCompareView(){
       enCell.innerHTML = node.innerHTML;
       enCell.setAttribute('contenteditable','true');
       enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
+      tagCells(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
     } else if (tag === 'BLOCKQUOTE') {
@@ -336,6 +345,7 @@ function buildCompareView(){
       enCell.innerHTML = node.innerHTML;
       enCell.setAttribute('contenteditable','true');
       enCell.addEventListener('input', () => syncBackToArticleHTML(node, enCell));
+      tagCells(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
     } else if (tag === 'FIGURE') {
@@ -355,6 +365,7 @@ function buildCompareView(){
       } else {
         enCell.textContent = '🖼 [image, no caption]';
       }
+      tagCells(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
     } else if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
@@ -367,6 +378,7 @@ function buildCompareView(){
       enCell.innerHTML = node.innerHTML;
       enCell.setAttribute('contenteditable','true');
       enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
+      tagCells(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
     }
@@ -403,7 +415,35 @@ function saveEdits(){
   }, 400);
 }
 
+function getViewportAnchorIndex(fromMode){
+  const root = fromMode === 'compare' ? compareGridEl : articleEl;
+  const sel = fromMode === 'compare' ? '.cmp-cell.en[data-cmp-index]' : '[data-cmp-index]';
+  const nodes = root.querySelectorAll(sel);
+  const topPad = 80;  // sticky toolbar height
+  let best = null, bestDist = Infinity;
+  nodes.forEach(n => {
+    const r = n.getBoundingClientRect();
+    if (r.bottom < topPad) return;  // already scrolled past
+    const dist = Math.abs(r.top - topPad);
+    if (dist < bestDist) { bestDist = dist; best = n; }
+  });
+  return best ? best.getAttribute('data-cmp-index') : null;
+}
+
+function scrollToAnchor(toMode, idx){
+  if (idx == null) return;
+  const root = toMode === 'compare' ? compareGridEl : articleEl;
+  const sel = toMode === 'compare' ? `.cmp-cell.en[data-cmp-index="${idx}"]` : `[data-cmp-index="${idx}"]`;
+  const el = root.querySelector(sel);
+  if (!el) return;
+  const top = el.getBoundingClientRect().top + window.pageYOffset - 80;
+  window.scrollTo({top, behavior: 'instant'});
+}
+
 function setMode(mode){
+  const fromMode = document.body.classList.contains('mode-compare') ? 'compare' : 'preview';
+  const anchorIdx = fromMode !== mode ? getViewportAnchorIndex(fromMode) : null;
+
   document.body.classList.toggle('mode-compare', mode === 'compare');
   document.getElementById('mode-preview').classList.toggle('active', mode === 'preview');
   document.getElementById('mode-compare').classList.toggle('active', mode === 'compare');
@@ -415,6 +455,7 @@ function setMode(mode){
       decorateHighlights(cell);
     });
   }
+  if (anchorIdx != null) scrollToAnchor(mode, anchorIdx);
 }
 
 function showToast(text){
