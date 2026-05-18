@@ -121,7 +121,25 @@ body.no-highlights .hl-quote{
 .compare-container{max-width:1400px;margin:0 auto;padding:24px 24px 80px;display:none}
 body.mode-compare .container{display:none}
 body.mode-compare .compare-container{display:block}
-.compare-container .article-title{margin:0 0 18px}
+.compare-title-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:0;
+  background:#fff;border:1px solid #e5dfd2;border-radius:8px;
+  overflow:hidden;margin:0 0 18px;
+}
+.compare-title-grid .article-title{
+  margin:0;padding:18px 22px;font-size:22px;line-height:1.25;
+}
+.compare-title-grid .es{background:#faf7ef;border-right:1px solid #e5dfd2;color:#5a4a2a;font-style:italic}
+.compare-title-grid .en[contenteditable=true]{outline:none;transition:background .15s, box-shadow .15s}
+.compare-title-grid .en[contenteditable=true]:hover{background:rgba(26,93,58,.04)}
+.compare-title-grid .en[contenteditable=true]:focus{
+  background:rgba(26,93,58,.08);
+  box-shadow:inset 0 0 0 1px rgba(26,93,58,.3);
+}
+@media (max-width:900px){
+  .compare-title-grid{grid-template-columns:1fr}
+  .compare-title-grid .es{border-right:none;border-bottom:1px solid #e5dfd2}
+}
 .compare-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
@@ -209,7 +227,10 @@ body.mode-compare .compare-container{display:block}
 
 <!-- ═══ COMPARE & EDIT MODE ═══ -->
 <div class="compare-container">
-  <h1 class="article-title" id="article-title-compare"></h1>
+  <div class="compare-title-grid">
+    <h1 class="article-title es" id="article-title-compare-es"></h1>
+    <h1 class="article-title en" id="article-title-compare-en" contenteditable="true"></h1>
+  </div>
   <div class="compare-grid" id="compare-grid"></div>
 </div>
 
@@ -255,11 +276,30 @@ if (!slug) {
     buildCompareView();
 
     if (meta) {
-      if (meta.translated_title) {
-        document.title = meta.translated_title;
-        document.getElementById('article-title-preview').textContent = meta.translated_title;
-        document.getElementById('article-title-compare').textContent = meta.translated_title;
+      // Title can be overridden by a previous in-browser edit
+      const savedTitle = STORAGE_KEY ? localStorage.getItem(STORAGE_KEY + '_title') : null;
+      const enTitle = savedTitle || meta.translated_title || '';
+      if (enTitle) {
+        document.title = enTitle;
+        document.getElementById('article-title-preview').textContent = enTitle;
+        document.getElementById('article-title-compare-en').textContent = enTitle;
+        meta.translated_title = enTitle;
       }
+      if (meta.original_title) {
+        document.getElementById('article-title-compare-es').textContent = meta.original_title;
+      }
+      // Sync EN title edits back to preview + meta + storage
+      const enTitleEl = document.getElementById('article-title-compare-en');
+      const previewTitleEl = document.getElementById('article-title-preview');
+      enTitleEl.addEventListener('input', () => {
+        const v = enTitleEl.textContent;
+        previewTitleEl.textContent = v;
+        document.title = v;
+        if (window._meta) window._meta.translated_title = v;
+        if (STORAGE_KEY) {
+          try { localStorage.setItem(STORAGE_KEY + '_title', v); } catch(e){}
+        }
+      });
       if (meta.suggested_category) document.getElementById('cat-val').textContent = meta.suggested_category;
       if (meta.suggested_tags) document.getElementById('tags-val').textContent = (meta.suggested_tags || []).join(' ');
       if (meta.original_url) {
