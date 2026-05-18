@@ -74,14 +74,6 @@ function timeAgo(ts){
   return Math.floor(d/30) + 'mo ago';
 }
 
-/* Opacity decays from 1.0 (fresh) to 0.25 (old) over ~7 days */
-function ageOpacity(ts){
-  if (!ts) return 0.5;
-  const hours = (Date.now()/1000 - ts) / 3600;
-  if (hours <= 6) return 1;
-  if (hours >= 168) return 0.25;   // 7 days
-  return 1 - (hours - 6) / (168 - 6) * 0.75;
-}
 
 function render(){
   countEl.textContent = _all.length + ' translation' + (_all.length === 1 ? '' : 's');
@@ -89,10 +81,11 @@ function render(){
     listEl.innerHTML = '<div class="empty">Nothing here.</div>';
     return;
   }
-  listEl.innerHTML = _all.map(x => {
+  listEl.innerHTML = _all.map((x, i) => {
     const dateStr = x.original_date || '';
     const ago = x.last_modified ? timeAgo(x.last_modified) : '';
-    const op = ageOpacity(x.last_modified);
+    // First 2 items full opacity, then fade from #3 onward
+    const op = i < 2 ? 1 : Math.max(0.2, 1 - (i - 2) * 0.12);
     return `<a class="item" href="viewer.html?slug=${encodeURIComponent(x.slug)}" style="opacity:${op.toFixed(2)}">
       <div class="title">${escapeHtml(x.translated_title || x.slug)}</div>
       ${x.original_title ? `<div class="original">${escapeHtml(x.original_title)}</div>` : ''}
