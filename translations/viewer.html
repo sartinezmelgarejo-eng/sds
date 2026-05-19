@@ -227,18 +227,51 @@ body.mode-compare .compare-container{display:block}
 .block-menu button.active{color:#1a5d3a;font-weight:600}
 .block-menu .bicon{width:20px;text-align:center;font-size:11px;color:#8a7340;flex-shrink:0}
 .block-menu .sep{border-top:1px solid #f0ebe0;margin:4px 0}
-.block-ext{
-  display:none;padding-top:4px;border-top:1px solid #f0ebe0;margin-top:4px;
+/* ─── BLOCK INSERTER MODAL ─── */
+.bi-overlay{
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,.35);z-index:200;
+  display:flex;align-items:center;justify-content:center;
+  animation:biFadeIn .15s ease;
 }
-.block-ext.open{display:block}
-.block-ext button{
-  display:flex;align-items:center;gap:8px;
-  width:100%;border:none;background:transparent;
-  padding:6px 10px;border-radius:4px;
-  font-family:'Inter',sans-serif;font-size:11px;color:#6a6a6a;
-  cursor:pointer;text-align:left;white-space:nowrap;
+@keyframes biFadeIn{from{opacity:0}to{opacity:1}}
+.bi-panel{
+  background:#fff;border-radius:12px;
+  box-shadow:0 8px 40px rgba(0,0,0,.2);
+  width:90vw;max-width:400px;max-height:70vh;
+  overflow:hidden;display:flex;flex-direction:column;
 }
-.block-ext button:hover{background:#f5f1ea}
+.bi-header{
+  padding:12px 16px;border-bottom:1px solid #e5dfd2;
+  display:flex;align-items:center;justify-content:space-between;
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:#1a1a1a;
+}
+.bi-close{
+  border:none;background:transparent;font-size:18px;cursor:pointer;
+  color:#999;padding:2px 6px;border-radius:4px;
+}
+.bi-close:hover{background:#f0ebe0;color:#333}
+.bi-body{overflow-y:auto;padding:8px 12px 16px}
+.bi-cat{
+  font-family:'Inter',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:1.2px;text-transform:uppercase;color:#8a7340;
+  padding:10px 4px 4px;
+}
+.bi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px}
+.bi-item{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:10px 2px 8px;border-radius:6px;
+  border:none;background:transparent;cursor:pointer;
+  font-family:'Inter',sans-serif;font-size:10px;color:#4a4a4a;
+  transition:background .1s;
+}
+.bi-item:hover{background:#f5f1ea}
+.bi-icon{
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  font-size:16px;color:#1a5d3a;border:1px solid #e5dfd2;border-radius:6px;
+  font-family:'Inter',sans-serif;font-weight:600;
+}
+.bi-item:hover .bi-icon{border-color:#1a5d3a;background:rgba(26,93,58,.04)}
 
 .cmp-cell.figure{font-style:italic;color:#999;font-size:13px}
 
@@ -417,14 +450,101 @@ const BLOCK_TYPES = [
   {id:'list', icon:'•', label:'List', tag:'UL', wpOpen:'wp:list', wpClose:'/wp:list'},
 ];
 
-const EXTENDED_BLOCKS = [
-  {id:'separator', icon:'—', label:'Separator', insert:'hr'},
-  {id:'spacer', icon:'↕', label:'Spacer', insert:'spacer'},
-  {id:'table', icon:'⊞', label:'Table', insert:'table'},
-  {id:'columns', icon:'◫', label:'Columns', insert:'columns'},
-  {id:'details', icon:'▷', label:'Details', insert:'details'},
-  {id:'embed', icon:'▶', label:'Embed', insert:'embed'},
+// ─── Full block catalog (matches WP inserter) ───
+const BLOCK_CATALOG = [
+  {cat:'Text', items:[
+    {id:'paragraph',icon:'¶',label:'Paragraph'},{id:'heading2',icon:'H2',label:'Heading'},
+    {id:'list',icon:'☰',label:'List'},{id:'quote',icon:'❝',label:'Quote'},
+    {id:'code',icon:'⟨⟩',label:'Code'},{id:'details',icon:'▷',label:'Details'},
+    {id:'preformatted',icon:'≡',label:'Preformat'},{id:'pullquote',icon:'❡',label:'Pullquote'},
+    {id:'table',icon:'⊞',label:'Table'},{id:'verse',icon:'♫',label:'Verse'},
+    {id:'classic',icon:'T',label:'Classic'},
+  ]},
+  {cat:'Media', items:[
+    {id:'image',icon:'🖼',label:'Image'},{id:'gallery',icon:'⊡',label:'Gallery'},
+    {id:'audio',icon:'♪',label:'Audio'},{id:'cover',icon:'◰',label:'Cover'},
+    {id:'file',icon:'📄',label:'File'},{id:'media-text',icon:'◨',label:'Media & Text'},
+    {id:'video',icon:'▶',label:'Video'},{id:'embed',icon:'⟐',label:'Embed'},
+  ]},
+  {cat:'Design', items:[
+    {id:'buttons',icon:'▢',label:'Buttons'},{id:'columns',icon:'◫',label:'Columns'},
+    {id:'group',icon:'⊡',label:'Group'},{id:'row',icon:'⊟',label:'Row'},
+    {id:'stack',icon:'⊞',label:'Stack'},{id:'separator',icon:'—',label:'Separator'},
+    {id:'spacer',icon:'↕',label:'Spacer'},
+  ]},
+  {cat:'Kadence', items:[
+    {id:'kb-row',icon:'▦',label:'Row Layout'},{id:'kb-section',icon:'◻',label:'Section'},
+    {id:'kb-accordion',icon:'☰',label:'Accordion'},{id:'kb-tabs',icon:'⊟',label:'Tabs'},
+    {id:'kb-info-box',icon:'ⓘ',label:'Info Box'},{id:'kb-icon-list',icon:'⊡',label:'Icon List'},
+    {id:'kb-testimonials',icon:'💬',label:'Testimonials'},{id:'kb-toc',icon:'≡',label:'TOC'},
+    {id:'kb-buttons',icon:'▢',label:'Buttons Adv'},{id:'kb-gallery',icon:'⊡',label:'Gallery Adv'},
+    {id:'kb-spacer',icon:'↕',label:'Spacer/Div'},{id:'kb-table',icon:'⊞',label:'Table Adv'},
+    {id:'kb-image',icon:'🖼',label:'Image Adv'},{id:'kb-posts',icon:'≡',label:'Posts'},
+    {id:'kb-countdown',icon:'⏱',label:'Countdown'},{id:'kb-count-up',icon:'↑',label:'Count Up'},
+    {id:'kb-form',icon:'✉',label:'Form Adv'},{id:'kb-video-popup',icon:'▶',label:'Video Popup'},
+    {id:'kb-progress',icon:'▬',label:'Progress Bar'},{id:'kb-text',icon:'T',label:'Text Adv'},
+  ]},
+  {cat:'Widgets', items:[
+    {id:'w-html',icon:'<>',label:'Custom HTML'},{id:'w-latest-posts',icon:'≡',label:'Latest Posts'},
+    {id:'w-archives',icon:'📋',label:'Archives'},{id:'w-calendar',icon:'📅',label:'Calendar'},
+    {id:'w-categories',icon:'⊞',label:'Categories'},{id:'w-rss',icon:'📡',label:'RSS'},
+  ]},
 ];
+
+const BLOCK_TEMPLATES = {
+  'paragraph':     {wp:'paragraph', html:'<p>&nbsp;</p>'},
+  'heading2':      {wp:'heading {"level":2}', html:'<h2 class="wp-block-heading">Heading</h2>'},
+  'list':          {wp:'list', html:'<ul class="wp-block-list"><li>Item 1</li><li>Item 2</li></ul>'},
+  'quote':         {wp:'quote', html:'<blockquote class="wp-block-quote"><p>Quote text</p></blockquote>'},
+  'pullquote':     {wp:'pullquote', html:'<figure class="wp-block-pullquote"><blockquote><p>Pullquote text</p></blockquote></figure>'},
+  'code':          {wp:'code', html:'<pre class="wp-block-code"><code>code</code></pre>'},
+  'details':       {wp:'details', html:'<details class="wp-block-details"><summary>Click to expand</summary><p>Content here</p></details>'},
+  'preformatted':  {wp:'preformatted', html:'<pre class="wp-block-preformatted">Text</pre>'},
+  'table':         {wp:'table', html:'<figure class="wp-block-table"><table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>—</td><td>—</td></tr></tbody></table></figure>'},
+  'verse':         {wp:'verse', html:'<pre class="wp-block-verse">Verse text</pre>'},
+  'classic':       {wp:'freeform', html:'<p>Classic editor content</p>'},
+  'image':         {wp:'image', html:'<figure class="wp-block-image"><img src="" alt=""/><figcaption class="wp-element-caption">Caption</figcaption></figure>'},
+  'gallery':       {wp:'gallery {"columns":3}', html:'<figure class="wp-block-gallery has-nested-images columns-3 is-cropped"></figure>'},
+  'audio':         {wp:'audio', html:'<figure class="wp-block-audio"><audio controls src=""></audio></figure>'},
+  'cover':         {wp:'cover', html:'<div class="wp-block-cover"><div class="wp-block-cover__inner-container"><p>Cover text</p></div></div>'},
+  'file':          {wp:'file', html:'<div class="wp-block-file"><a href="#">file.pdf</a></div>'},
+  'media-text':    {wp:'media-text', html:'<div class="wp-block-media-text alignwide is-stacked-on-mobile"><figure class="wp-block-media-text__media"><img src="" alt=""/></figure><div class="wp-block-media-text__content"><p>Text beside image</p></div></div>'},
+  'video':         {wp:'video', html:'<figure class="wp-block-video"><video controls src=""></video></figure>'},
+  'embed':         {wp:'embed', html:'<figure class="wp-block-embed"><div class="wp-block-embed__wrapper">https://</div></figure>'},
+  'buttons':       {wp:'buttons', html:'<div class="wp-block-buttons"><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="#">Button</a></div></div>'},
+  'columns':       {wp:'columns', html:'<div class="wp-block-columns"><div class="wp-block-column"><p>Column 1</p></div><div class="wp-block-column"><p>Column 2</p></div></div>'},
+  'group':         {wp:'group', html:'<div class="wp-block-group"><p>Group content</p></div>'},
+  'row':           {wp:'group {"layout":{"type":"flex"}}', html:'<div class="wp-block-group is-layout-flex"><p>Item 1</p><p>Item 2</p></div>'},
+  'stack':         {wp:'group {"layout":{"type":"flex","orientation":"vertical"}}', html:'<div class="wp-block-group is-layout-flex is-vertical"><p>Item 1</p><p>Item 2</p></div>'},
+  'separator':     {wp:'separator', html:'<hr class="wp-block-separator has-alpha-channel-opacity"/>'},
+  'spacer':        {wp:'spacer', html:'<div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>'},
+  'kb-row':        {wp:'kadence/rowlayout', html:'<div class="wp-block-kadence-rowlayout"></div>'},
+  'kb-section':    {wp:'kadence/column', html:'<div class="wp-block-kadence-column"><div class="kt-inside-inner-col"><p>Section content</p></div></div>'},
+  'kb-accordion':  {wp:'kadence/accordion', html:'<div class="wp-block-kadence-accordion"><div class="kt-accordion-panel"><div class="kt-accordion-header"><span>Accordion</span></div><div class="kt-accordion-panel-inner"><p>Content</p></div></div></div>'},
+  'kb-tabs':       {wp:'kadence/tabs', html:'<div class="wp-block-kadence-tabs"><ul class="kt-tabs-title-list"><li><a>Tab 1</a></li></ul><div class="kt-tabs-content-wrap"><div class="kt-tab-inner-content"><p>Tab content</p></div></div></div>'},
+  'kb-info-box':   {wp:'kadence/infobox', html:'<div class="wp-block-kadence-infobox"><div class="kt-blocks-info-box-link-wrap"><div class="kt-info-box-text-wrap"><h3 class="kt-blocks-info-box-title">Title</h3><p class="kt-blocks-info-box-text">Info text</p></div></div></div>'},
+  'kb-icon-list':  {wp:'kadence/iconlist', html:'<ul class="wp-block-kadence-iconlist kt-svg-icon-list-items"><li class="wp-block-kadence-listitem"><span>Item 1</span></li><li class="wp-block-kadence-listitem"><span>Item 2</span></li></ul>'},
+  'kb-testimonials':{wp:'kadence/testimonials', html:'<div class="wp-block-kadence-testimonials"><div class="kt-blocks-testimonial-item-wrap"><p class="kt-testimonial-content">Quote</p><span class="kt-testimonial-name">Name</span></div></div>'},
+  'kb-toc':        {wp:'kadence/tableofcontents', html:'<nav class="wp-block-kadence-tableofcontents"></nav>'},
+  'kb-buttons':    {wp:'kadence/advancedbtn', html:'<div class="wp-block-kadence-advancedbtn"><a class="kt-button">Button</a></div>'},
+  'kb-gallery':    {wp:'kadence/advancedgallery', html:'<div class="wp-block-kadence-advancedgallery"></div>'},
+  'kb-spacer':     {wp:'kadence/spacer', html:'<div class="wp-block-kadence-spacer" style="height:40px"></div>'},
+  'kb-table':      {wp:'kadence/table', html:'<figure class="wp-block-kadence-table"><table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>—</td><td>—</td></tr></tbody></table></figure>'},
+  'kb-image':      {wp:'kadence/image', html:'<figure class="wp-block-kadence-image"><img src="" alt=""/></figure>'},
+  'kb-posts':      {wp:'kadence/posts', html:'<div class="wp-block-kadence-posts"></div>'},
+  'kb-countdown':  {wp:'kadence/countdown', html:'<div class="wp-block-kadence-countdown"></div>'},
+  'kb-count-up':   {wp:'kadence/countup', html:'<div class="wp-block-kadence-countup"><span class="kt-count-up-number">0</span></div>'},
+  'kb-form':       {wp:'kadence/form', html:'<div class="wp-block-kadence-form"></div>'},
+  'kb-video-popup':{wp:'kadence/videopopup', html:'<div class="wp-block-kadence-videopopup"></div>'},
+  'kb-progress':   {wp:'kadence/progress-bar', html:'<div class="wp-block-kadence-progress-bar"></div>'},
+  'kb-text':       {wp:'kadence/advancedheading', html:'<p class="wp-block-kadence-advancedheading">Text</p>'},
+  'w-html':        {wp:'html', html:'<div class="wp-block-html"><!-- Custom HTML --></div>'},
+  'w-latest-posts':{wp:'latest-posts', html:'<ul class="wp-block-latest-posts"></ul>'},
+  'w-archives':    {wp:'archives', html:'<ul class="wp-block-archives-list"></ul>'},
+  'w-calendar':    {wp:'calendar', html:'<div class="wp-block-calendar"></div>'},
+  'w-categories':  {wp:'categories', html:'<ul class="wp-block-categories-list"></ul>'},
+  'w-rss':         {wp:'rss', html:'<ul class="wp-block-rss"></ul>'},
+};
 
 function detectBlockType(el){
   const tag = el.tagName;
@@ -526,60 +646,37 @@ function convertBlock(articleNode, targetBt){
   showToast('→ ' + targetBt.label);
 }
 
-function insertBlockBefore(articleNode, type){
+function insertCatalogBlock(articleNode, blockId){
+  const t = BLOCK_TEMPLATES[blockId];
+  if (!t) return;
   const parent = articleNode.parentNode;
-  let wpOpen, wpClose, el;
+  const wpBase = t.wp.split('{')[0].split(' ')[0].trim();
 
-  if (type === 'hr') {
-    wpOpen = ' wp:separator '; wpClose = ' /wp:separator ';
-    el = document.createElement('hr');
-    el.className = 'wp-block-separator';
-  } else if (type === 'spacer') {
-    wpOpen = ' wp:spacer '; wpClose = ' /wp:spacer ';
-    el = document.createElement('div');
-    el.className = 'wp-block-spacer';
-    el.style.height = '40px';
-    el.setAttribute('aria-hidden', 'true');
-  } else if (type === 'table') {
-    wpOpen = ' wp:table '; wpClose = ' /wp:table ';
-    el = document.createElement('figure');
-    el.className = 'wp-block-table';
-    el.innerHTML = '<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>—</td><td>—</td></tr></tbody></table>';
-  } else if (type === 'columns') {
-    wpOpen = ' wp:columns '; wpClose = ' /wp:columns ';
-    el = document.createElement('div');
-    el.className = 'wp-block-columns';
-    el.innerHTML = '<div class="wp-block-column"><p>Column 1</p></div><div class="wp-block-column"><p>Column 2</p></div>';
-  } else if (type === 'details') {
-    wpOpen = ' wp:details '; wpClose = ' /wp:details ';
-    el = document.createElement('details');
-    el.className = 'wp-block-details';
-    el.innerHTML = '<summary>Click to expand</summary><p>Content here.</p>';
-  } else if (type === 'embed') {
-    wpOpen = ' wp:embed '; wpClose = ' /wp:embed ';
-    el = document.createElement('figure');
-    el.className = 'wp-block-embed';
-    el.innerHTML = '<div class="wp-block-embed__wrapper">https://</div>';
-  } else {
-    // Default: empty paragraph (for splitting sections)
-    wpOpen = ' wp:paragraph '; wpClose = ' /wp:paragraph ';
-    el = document.createElement('p');
-    el.innerHTML = '&nbsp;';
-    el.setAttribute('contenteditable', 'true');
+  const wrapper = document.createElement('div');
+  wrapper.innerHTML = t.html;
+  const el = wrapper.firstElementChild;
+
+  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
+  parent.insertBefore(document.createComment(' ' + t.wp + ' '), articleNode);
+  parent.insertBefore(el, articleNode);
+  parent.insertBefore(document.createComment(' /' + wpBase + ' '), articleNode);
+  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
+
+  // Make text-bearing blocks editable
+  const editables = el.querySelectorAll('p, li, h2, h3, pre, code, summary, figcaption, a, span, td, th');
+  editables.forEach(e => { e.setAttribute('contenteditable','true'); e.addEventListener('input', onEdit); });
+  if (['P','PRE','H2','H3','UL','OL','DETAILS'].includes(el.tagName)) {
+    el.setAttribute('contenteditable','true');
     el.addEventListener('input', onEdit);
   }
-
-  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
-  parent.insertBefore(document.createComment(wpOpen), articleNode);
-  parent.insertBefore(el, articleNode);
-  parent.insertBefore(document.createComment(wpClose), articleNode);
-  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
 
   Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
   _articleParas = Array.from(articleEl.querySelectorAll('p'));
   saveEdits();
   buildCompareView();
-  showToast('Block inserted');
+
+  const item = BLOCK_CATALOG.flatMap(c=>c.items).find(b=>b.id===blockId);
+  showToast((item ? item.label : 'Block') + ' inserted');
 }
 
 function removeBlock(articleNode){
@@ -595,10 +692,64 @@ function removeBlock(articleNode){
   showToast('Block removed');
 }
 
+let _biTarget = null; // article node the inserter is targeting
+function openBlockInserter(articleNode){
+  _biTarget = articleNode;
+  // Remove existing overlay if any
+  document.querySelectorAll('.bi-overlay').forEach(o => o.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'bi-overlay';
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  const panel = document.createElement('div');
+  panel.className = 'bi-panel';
+
+  const header = document.createElement('div');
+  header.className = 'bi-header';
+  header.innerHTML = 'Insert Block';
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'bi-close';
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => overlay.remove());
+  header.appendChild(closeBtn);
+  panel.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'bi-body';
+
+  BLOCK_CATALOG.forEach(cat => {
+    const catLabel = document.createElement('div');
+    catLabel.className = 'bi-cat';
+    catLabel.textContent = cat.cat;
+    body.appendChild(catLabel);
+
+    const grid = document.createElement('div');
+    grid.className = 'bi-grid';
+
+    cat.items.forEach(item => {
+      const btn = document.createElement('button');
+      btn.className = 'bi-item';
+      btn.innerHTML = '<span class="bi-icon">' + item.icon + '</span>' + item.label;
+      btn.addEventListener('click', () => {
+        overlay.remove();
+        closeAllBlockMenus();
+        insertCatalogBlock(_biTarget, item.id);
+      });
+      grid.appendChild(btn);
+    });
+
+    body.appendChild(grid);
+  });
+
+  panel.appendChild(body);
+  overlay.appendChild(panel);
+  document.body.appendChild(overlay);
+}
+
 function closeAllBlockMenus(){
   document.querySelectorAll('.block-menu.open').forEach(m => m.classList.remove('open'));
   document.querySelectorAll('.block-ctrl.menu-open').forEach(c => c.classList.remove('menu-open'));
-  document.querySelectorAll('.block-ext.open').forEach(m => m.classList.remove('open'));
 }
 document.addEventListener('click', closeAllBlockMenus);
 
@@ -640,46 +791,19 @@ function createBlockCtrl(articleNode, enCell, isSeparator){
     menu.appendChild(opt);
   });
 
-  // Divider + extended blocks panel
+  // Divider + insert block (opens full catalog modal)
   const sep1 = document.createElement('div');
   sep1.className = 'sep';
   menu.appendChild(sep1);
 
-  // + button for extended blocks
   const plusBtn = document.createElement('button');
   plusBtn.innerHTML = '<span class="bicon">+</span>Insert block ↑';
   plusBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    extPanel.classList.toggle('open');
+    closeAllBlockMenus();
+    openBlockInserter(articleNode);
   });
   menu.appendChild(plusBtn);
-
-  // Extended panel (nested)
-  const extPanel = document.createElement('div');
-  extPanel.className = 'block-ext';
-
-  // New empty paragraph (for splitting)
-  const newParaBtn = document.createElement('button');
-  newParaBtn.innerHTML = '<span class="bicon">¶</span>New paragraph';
-  newParaBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    insertBlockBefore(articleNode, 'paragraph');
-    closeAllBlockMenus();
-  });
-  extPanel.appendChild(newParaBtn);
-
-  EXTENDED_BLOCKS.forEach(eb => {
-    const opt = document.createElement('button');
-    opt.innerHTML = '<span class="bicon">' + eb.icon + '</span>' + eb.label;
-    opt.addEventListener('click', (e) => {
-      e.stopPropagation();
-      insertBlockBefore(articleNode, eb.insert);
-      closeAllBlockMenus();
-    });
-    extPanel.appendChild(opt);
-  });
-
-  menu.appendChild(extPanel);
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
