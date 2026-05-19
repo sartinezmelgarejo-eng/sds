@@ -133,7 +133,7 @@
 <div class="container">
 
 <h1>Guía de archivos</h1>
-<p class="subtitle">Qué es cada cosa, cómo se conectan, y qué no tocar. Actualizado: abril 2026.</p>
+<p class="subtitle">Qué es cada cosa, cómo se conectan, y qué no tocar. Actualizado: mayo 2026.</p>
 
 <!-- ═══════════════════════════════════════ -->
 <h2>📂 Estructura general</h2>
@@ -151,6 +151,11 @@
 │   ├── china-trip-planner-enhanced.html
 │   ├── schedules.html          ← tabla de tareas programadas
 │   ├── LEEME.html              <span class="dim">← este archivo</span>
+│   ├── feed.json               <span class="dim">← feed de traducciones publicadas</span>
+│   ├── <span class="green">translations/</span>         ← traducciones EN para mexicosolidarity.com
+│   │   ├── viewer.html         <span class="dim">← Compare & Edit + Copy to WP</span>
+│   │   └── &lt;slug&gt;/            <span class="dim">← una carpeta por artículo (article.html, original.json, meta.json, img/)</span>
+│   ├── <span class="green">inbox/</span>                ← bot de Telegram (ver sección abajo)
 │   ├── <span class="green">pwa/</span>                  ← manifests, iconos, service worker
 │   │   ├── sw.js               <span class="dim">← network-first, cachea CDNs</span>
 │   │   ├── manifest*.json      <span class="dim">← uno por app</span>
@@ -215,6 +220,18 @@
   <div class="name">schedules.html <span class="tag tag-activo">ACTIVO</span></div>
   <div class="desc">Tabla visual de todas las tareas programadas. Grid semanal (Lun-Dom por hora) + sección de tareas mensuales. Generado manualmente, no se auto-actualiza.</div>
   <div class="meta">4.7 KB · 13 tareas · Independiente</div>
+</div>
+
+<div class="file-card">
+  <div class="name">translations/viewer.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Visor de traducciones para publicar en mexicosolidarity.com. Recibe slug por query string (<code>?slug=...</code>), muestra el artículo traducido con título, body, categoría sugerida y tags. Vista Compare &amp; Edit muestra el original ES al lado del EN para refinamiento. Botones de copy para title, body, category, tags — pegás cada uno en el editor Gutenberg de WP. Las imágenes ya vienen con URLs de mexicosolidarity (subidas por el bot al traducir), no de GitHub.</div>
+  <div class="meta">22 KB · Lee de translations/&lt;slug&gt;/{article.html,original.json,meta.json}</div>
+</div>
+
+<div class="file-card">
+  <div class="name">feed.json <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Índice JSON de traducciones publicadas. Lo consume el viewer y cualquier futura UI de listado. Se actualiza cuando el bot termina una traducción nueva.</div>
+  <div class="meta">~19 KB</div>
 </div>
 
 <div class="file-card">
@@ -341,6 +358,9 @@
   <ul>
     <li><strong>Script:</strong> <code>htmls/inbox/inbox-v2.py</code> (reemplaza al viejo inbox.py basado en API)</li>
     <li><strong>Instrucciones de sesión:</strong> <code>htmls/inbox/INBOX_SYSTEM.md</code> (se lee al inicio de cada sesión nueva)</li>
+    <li><strong>Protocolo de traducciones:</strong> <code>htmls/inbox/TRANSLATIONS_PROTOCOL.md</code> (activado por <code>traduce: &lt;URL&gt;</code>; describe el flow de descarga, traducción, subida a WP, y mensaje al topic)</li>
+    <li><strong>Referencia de bloques WP:</strong> <code>htmls/inbox/WP_BLOCKS_REFERENCE.md</code> (Gutenberg + Kadence blocks disponibles para el HTML de las traducciones)</li>
+    <li><strong>Credenciales WordPress:</strong> <code>htmls/inbox/.wp-creds.json</code> (site, username, app_password, user_id — gitignored, perms 600). Usadas para subir imágenes a mexicosolidarity.com Media Library vía REST API durante la traducción</li>
     <li><strong>Chat privado:</strong> <code>TG_PRIVATE_CHAT_ID = 6855761084</code> (DM de Samuel con @Resisresbot)</li>
     <li><strong>Canal público:</strong> <code>@resisres</code> (para publicaciones)</li>
     <li><strong>Bot token:</strong> <code>TELEGRAM_BOT_TOKEN</code> (en el plist de launchd y <code>~/.zshrc</code>)</li>
@@ -413,6 +433,73 @@ Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
   <li><strong>Fallback automático:</strong> si claude devuelve "Not logged in", lee el API key desde <code>$HTMLS_DIR/inbox/.api-key</code> y reintenta. Te manda notificación al DM privado avisando del fallback (que consume créditos de API).</li>
 </ol>
 <p>Si recibís <code>⚠️ CLI login expirado</code> en el DM, hay que correr <code>claude /login</code> desde Terminal cuando puedas. Mientras tanto el fallback te mantiene funcionando.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🌐 Sistema de traducciones a mexicosolidarity.com</h2>
+
+<p>Flow completo end-to-end para traducir artículos de prensa mexicana al inglés y publicarlos en <a href="https://mexicosolidarity.com">mexicosolidarity.com</a> (WordPress + Gutenberg + Kadence Blocks).</p>
+
+<div class="warn">
+  <div class="warn-title">🔑 Credenciales WordPress</div>
+  <ul>
+    <li><strong>Sitio:</strong> <code>https://mexicosolidarity.com</code></li>
+    <li><strong>Usuario:</strong> <code>Samuel</code> (user_id 35)</li>
+    <li><strong>App Password:</strong> en <code>htmls/inbox/.wp-creds.json</code> (gitignored, perms 600). Es una WordPress Application Password creada en Profile → Application Passwords, nombre "photos". Se puede revocar desde WP en cualquier momento si se compromete.</li>
+    <li><strong>Endpoints usados:</strong> <code>POST /wp-json/wp/v2/media</code> (upload imagen), <code>DELETE /wp-json/wp/v2/media/&lt;id&gt;?force=true</code> (limpieza si falla)</li>
+    <li><strong>Auth:</strong> Basic Auth <code>username:app_password</code> en header <code>Authorization</code></li>
+  </ul>
+</div>
+
+<h3>Flow</h3>
+
+<div class="diagram">Samuel envía a topic Traducciones: <span class="green">traduce: &lt;URL&gt;</span>
+         │
+         ├── inbox-v2.py pasa el mensaje a sesión persistente de Claude Code
+         ├── Sesión lee <span class="green">TRANSLATIONS_PROTOCOL.md</span> al inicio
+         │
+         ├── 1. WebFetch del artículo original (ES)
+         ├── 2. Crea slug = <span class="blue">YYYY-MM-DD-keywords</span>
+         ├── 3. Descarga imágenes a <span class="green">translations/&lt;slug&gt;/img/</span>
+         ├── 4. <span class="gold">Sube imágenes a WP Media Library</span> (REST API, en paralelo)
+         │       └── recibe <span class="blue">source_url</span> de mexicosolidarity para cada imagen
+         ├── 5. Genera <span class="green">article.html</span> con esas URLs en &lt;img src&gt; (NO GitHub)
+         ├── 6. Guarda <span class="green">original.json</span> (párrafos ES) y <span class="green">meta.json</span> (slug, title, author, outlet, category, tags)
+         ├── 7. Git push (backup + /tmp/sds + commit + push)
+         └── 8. Postea card en topic con link al viewer
+
+Samuel abre viewer.html?slug=&lt;slug&gt;
+         │
+         ├── Compare &amp; Edit (ES ↔ EN lado a lado) para refinamiento
+         ├── Click 📋 Copy body → <span class="gold">instantáneo</span> (URLs ya son de WP)
+         ├── Pega en WP Gutenberg editor → WP reconoce las imágenes como suyas
+         └── Publish</div>
+
+<h3>Reglas críticas</h3>
+<ul>
+  <li><strong>URLs en article.html son de mexicosolidarity, NO de GitHub.</strong> El swap ocurre en step 4, antes de escribir el HTML. Cero rastro de GitHub en el output final pegado en WP.</li>
+  <li><strong>Si la subida falla (timeout, 401, 5xx):</strong> aborta la traducción, reporta el error en el topic con detalle, borra las imágenes que sí subieron para no dejar huérfanos. NO mezcles URLs de WP y GitHub en el mismo artículo.</li>
+  <li><strong>Imágenes locales en <code>img/</code> se mantienen</strong> como backup y como preview si WP cae.</li>
+  <li><strong>Refinamiento:</strong> si Samuel responde al card en el topic ("cambia X por Y", "rehaz el primer párrafo"), edita <code>article.html</code> y <code>meta.json</code> directo, push, responde con un <code>✅ Editado: ...</code>. NO regeneres todo.</li>
+  <li><strong>Status posted:</strong> cuando Samuel diga "publicado" o "ya lo postee", edita <code>meta.json</code> → <code>"status": "posted"</code>, push.</li>
+</ul>
+
+<h3>Template HTML del artículo</h3>
+<p>El HTML usa clases Gutenberg/Kadence (<code>wp-block-*</code>) sin CSS inline. WP convierte el HTML pegado en bloques nativos. Estructura básica:</p>
+<ul>
+  <li><strong>Featured image:</strong> primera <code>&lt;figure&gt;</code> con <code>&lt;img&gt;</code> + <code>&lt;figcaption&gt;</code> con crédito de foto</li>
+  <li><strong>Attribution paragraph:</strong> en <code>&lt;em&gt;</code>, con link al original embebido en el formato "the &lt;Month Day, Year&gt; edition of &lt;Outlet Name&gt;"</li>
+  <li><strong>Body:</strong> párrafos simples. Quotes inline (no <code>&lt;blockquote&gt;</code>) salvo cuando sintetizan la tesis del artículo (máx 1-2 por pieza)</li>
+  <li><strong>Inline images:</strong> distribuidas en puntos naturales de pausa narrativa, no agrupadas al principio o al final</li>
+  <li><strong>NO:</strong> drop caps, subheads forzados, translator credit</li>
+</ul>
+<p>Para bloques complejos (galerías, pullquotes, columnas, embeds de YouTube/X, listas estructuradas), consultar <code>inbox/WP_BLOCKS_REFERENCE.md</code>.</p>
+
+<h3>Categorías y tags</h3>
+<p>Categorías válidas: <strong>Analysis, News Briefs</strong> (default), <strong>Labor, Mañaneras, Interviews, Historical, Photos, Compañeros</strong>.</p>
+<p>Tags estilo hashtag con <code>#</code>, 2-4 por artículo. Ejemplos: <code>#Cuba</code>, <code>#EZLN</code>, <code>#CNTE</code>, <code>#US Imperialism</code>, <code>#Mexican Sovereignty</code>, <code>#AMLO</code>, <code>#Sheinbaum</code>, <code>#Pemex</code>.</p>
+
+<h3>Topic de Telegram</h3>
+<p>El bot postea en grupo <code>-1003957818672</code>, thread <code>289</code> (topic "Traducciones"). El card del bot incluye headline traducido, autor/fecha/outlet, link al viewer, link al original, y category + tags sugeridos como <code>&lt;code&gt;</code> para copy fácil.</p>
 
 <!-- ═══════════════════════════════════════ -->
 <h2>💻 En otra computadora</h2>
@@ -646,10 +733,11 @@ with pdfplumber.open("Books/Autor/Libro.pdf") as pdf:
   <li><strong>Abril 2026 (7)</strong> — MAPA: agregado libro #220 — W. E. B. Du Bois "Black Reconstruction in America, 1860-1880" (1935). 6 citas verificadas contra PDF con pdfplumber, QUOTE_PAGES actualizados, portada de Open Library. Estante: fundamentos.</li>
   <li><strong>Abril 2026 (8)</strong> — MAPA: auditoría de citas en Línea de Tiempo y Atlas. Se eliminaron 16 citas genéricas o fuera de lugar en la línea de tiempo (2 misplaced, 14 genéricas). Se agregó link "📄 Ver en PDF" a las citas de la línea de tiempo — ahora usan <code>getQuotePageLink</code> igual que las citas de los libros. Se refinaron keywords del Atlas de Conceptos: eliminados términos genéricos que causaban falsos positivos (<code>'capital '</code>, <code>'negro'</code>, <code>'papa '</code>, <code>'cura '</code>, <code>'colonia'</code>, <code>'pueblo'</code>, <code>'clásico'</code>, <code>'domina'</code>, etc.) y reemplazados por términos más específicos.</li>
   <li><strong>Abril 2026 (9)</strong> — Inbox v2: sistema inbox migrado de inbox.py (stateless, API-based con modos explícitos) a inbox-v2.py (sesiones persistentes de Claude Code CLI, zero API cost). Migrado de cron a launchd (<code>com.resisres.inbox</code>, cada 5 min). china-trip-planner renombrado a china-trip-planner-enhanced.html. LEEME actualizado con nueva arquitectura de inbox y conteos corregidos.</li>
+  <li><strong>Mayo 2026 (1)</strong> — Sistema de traducciones para mexicosolidarity.com: nuevo trigger <code>traduce: &lt;URL&gt;</code> en el topic Traducciones de Telegram. El bot descarga el artículo ES, lo traduce al EN, sube las imágenes a WordPress Media Library vía REST API (<code>POST /wp-json/wp/v2/media</code> con Basic Auth + App Password), y genera <code>article.html</code> con las URLs de mexicosolidarity directamente (cero rastro de GitHub). Carpeta <code>translations/&lt;slug&gt;/</code> con article.html + original.json + meta.json + img/. Nuevo <code>viewer.html</code> para Compare &amp; Edit lado a lado y copy-to-WP. Protocolo en <code>inbox/TRANSLATIONS_PROTOCOL.md</code>, referencia de blocks Gutenberg/Kadence en <code>inbox/WP_BLOCKS_REFERENCE.md</code>. Credenciales WP en <code>inbox/.wp-creds.json</code> (gitignored, perms 600). Si falla un upload, aborta y limpia imágenes ya subidas — nunca mezcla URLs WP+GitHub en un mismo artículo.</li>
 </ul>
 
 <div class="footer">
-  Samuel Martínez · Última actualización: abril 2026
+  Samuel Martínez · Última actualización: mayo 2026
 </div>
 
 </div>
