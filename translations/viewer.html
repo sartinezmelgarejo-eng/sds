@@ -227,6 +227,18 @@ body.mode-compare .compare-container{display:block}
 .block-menu button.active{color:#1a5d3a;font-weight:600}
 .block-menu .bicon{width:20px;text-align:center;font-size:11px;color:#8a7340;flex-shrink:0}
 .block-menu .sep{border-top:1px solid #f0ebe0;margin:4px 0}
+.block-ext{
+  display:none;padding-top:4px;border-top:1px solid #f0ebe0;margin-top:4px;
+}
+.block-ext.open{display:block}
+.block-ext button{
+  display:flex;align-items:center;gap:8px;
+  width:100%;border:none;background:transparent;
+  padding:6px 10px;border-radius:4px;
+  font-family:'Inter',sans-serif;font-size:11px;color:#6a6a6a;
+  cursor:pointer;text-align:left;white-space:nowrap;
+}
+.block-ext button:hover{background:#f5f1ea}
 
 .cmp-cell.figure{font-style:italic;color:#999;font-size:13px}
 
@@ -399,15 +411,28 @@ function assignEsIndices(){
 const BLOCK_TYPES = [
   {id:'paragraph', icon:'¶', label:'Paragraph', tag:'P', wpOpen:'wp:paragraph', wpClose:'/wp:paragraph'},
   {id:'quote', icon:'❝', label:'Quote', tag:'BLOCKQUOTE', wpOpen:'wp:quote', wpClose:'/wp:quote'},
+  {id:'pullquote', icon:'❡', label:'Pullquote', tag:'FIGURE', wpOpen:'wp:pullquote', wpClose:'/wp:pullquote'},
   {id:'heading2', icon:'H2', label:'Heading 2', tag:'H2', wpOpen:'wp:heading {"level":2}', wpClose:'/wp:heading'},
   {id:'heading3', icon:'H3', label:'Heading 3', tag:'H3', wpOpen:'wp:heading {"level":3}', wpClose:'/wp:heading'},
+  {id:'list', icon:'•', label:'List', tag:'UL', wpOpen:'wp:list', wpClose:'/wp:list'},
+];
+
+const EXTENDED_BLOCKS = [
+  {id:'separator', icon:'—', label:'Separator', insert:'hr'},
+  {id:'spacer', icon:'↕', label:'Spacer', insert:'spacer'},
+  {id:'table', icon:'⊞', label:'Table', insert:'table'},
+  {id:'columns', icon:'◫', label:'Columns', insert:'columns'},
+  {id:'details', icon:'▷', label:'Details', insert:'details'},
+  {id:'embed', icon:'▶', label:'Embed', insert:'embed'},
 ];
 
 function detectBlockType(el){
   const tag = el.tagName;
   if (tag === 'BLOCKQUOTE') return 'quote';
+  if (tag === 'FIGURE' && el.classList.contains('wp-block-pullquote')) return 'pullquote';
   if (tag === 'H2') return 'heading2';
   if (tag === 'H3') return 'heading3';
+  if (tag === 'UL' || tag === 'OL') return 'list';
   if (tag === 'HR') return 'separator';
   return 'paragraph';
 }
@@ -415,9 +440,17 @@ function detectBlockType(el){
 function blockTypeInfo(id){ return BLOCK_TYPES.find(b => b.id === id); }
 
 function getBlockText(el){
-  if (el.tagName === 'BLOCKQUOTE') {
+  const tag = el.tagName;
+  if (tag === 'BLOCKQUOTE') {
     const p = el.querySelector('p');
     return p ? p.innerHTML : el.innerHTML;
+  }
+  if (tag === 'FIGURE' && el.classList.contains('wp-block-pullquote')) {
+    const p = el.querySelector('blockquote p');
+    return p ? p.innerHTML : el.textContent;
+  }
+  if (tag === 'UL' || tag === 'OL') {
+    return Array.from(el.querySelectorAll('li')).map(li => li.innerHTML).join('. ');
   }
   return el.innerHTML;
 }
@@ -450,13 +483,26 @@ function convertBlock(articleNode, targetBt){
   const text = getBlockText(articleNode);
 
   let newEl;
-  if (targetBt.tag === 'BLOCKQUOTE') {
+  if (targetBt.id === 'quote') {
     newEl = document.createElement('blockquote');
     newEl.className = 'wp-block-quote';
     newEl.innerHTML = '<p>' + text + '</p>';
-    const innerP = newEl.querySelector('p');
-    innerP.setAttribute('contenteditable', 'true');
-    innerP.addEventListener('input', onEdit);
+    newEl.querySelector('p').setAttribute('contenteditable', 'true');
+    newEl.querySelector('p').addEventListener('input', onEdit);
+  } else if (targetBt.id === 'pullquote') {
+    newEl = document.createElement('figure');
+    newEl.className = 'wp-block-pullquote';
+    newEl.innerHTML = '<blockquote><p>' + text + '</p></blockquote>';
+    newEl.querySelector('p').setAttribute('contenteditable', 'true');
+    newEl.querySelector('p').addEventListener('input', onEdit);
+  } else if (targetBt.id === 'list') {
+    newEl = document.createElement('ul');
+    newEl.className = 'wp-block-list';
+    // Split on sentences or keep as single item
+    const items = text.replace(/<[^>]+>/g,'').split(/\.\s+/).filter(s => s.trim());
+    newEl.innerHTML = items.map(s => '<li>' + s.trim() + '</li>').join('');
+    newEl.setAttribute('contenteditable', 'true');
+    newEl.addEventListener('input', onEdit);
   } else {
     newEl = document.createElement(targetBt.tag.toLowerCase());
     newEl.innerHTML = text;
@@ -464,7 +510,6 @@ function convertBlock(articleNode, targetBt){
     newEl.addEventListener('input', onEdit);
   }
 
-  // Preserve indices
   ['data-cmp-index','data-es-idx'].forEach(attr => {
     const v = articleNode.getAttribute(attr);
     if (v != null) newEl.setAttribute(attr, v);
@@ -481,26 +526,63 @@ function convertBlock(articleNode, targetBt){
   showToast('→ ' + targetBt.label);
 }
 
-function insertSeparatorBefore(articleNode){
+function insertBlockBefore(articleNode, type){
   const parent = articleNode.parentNode;
-  const openC = document.createComment(' wp:separator ');
-  const hr = document.createElement('hr');
-  hr.className = 'wp-block-separator';
-  const closeC = document.createComment(' /wp:separator ');
+  let wpOpen, wpClose, el;
+
+  if (type === 'hr') {
+    wpOpen = ' wp:separator '; wpClose = ' /wp:separator ';
+    el = document.createElement('hr');
+    el.className = 'wp-block-separator';
+  } else if (type === 'spacer') {
+    wpOpen = ' wp:spacer '; wpClose = ' /wp:spacer ';
+    el = document.createElement('div');
+    el.className = 'wp-block-spacer';
+    el.style.height = '40px';
+    el.setAttribute('aria-hidden', 'true');
+  } else if (type === 'table') {
+    wpOpen = ' wp:table '; wpClose = ' /wp:table ';
+    el = document.createElement('figure');
+    el.className = 'wp-block-table';
+    el.innerHTML = '<table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>—</td><td>—</td></tr></tbody></table>';
+  } else if (type === 'columns') {
+    wpOpen = ' wp:columns '; wpClose = ' /wp:columns ';
+    el = document.createElement('div');
+    el.className = 'wp-block-columns';
+    el.innerHTML = '<div class="wp-block-column"><p>Column 1</p></div><div class="wp-block-column"><p>Column 2</p></div>';
+  } else if (type === 'details') {
+    wpOpen = ' wp:details '; wpClose = ' /wp:details ';
+    el = document.createElement('details');
+    el.className = 'wp-block-details';
+    el.innerHTML = '<summary>Click to expand</summary><p>Content here.</p>';
+  } else if (type === 'embed') {
+    wpOpen = ' wp:embed '; wpClose = ' /wp:embed ';
+    el = document.createElement('figure');
+    el.className = 'wp-block-embed';
+    el.innerHTML = '<div class="wp-block-embed__wrapper">https://</div>';
+  } else {
+    // Default: empty paragraph (for splitting sections)
+    wpOpen = ' wp:paragraph '; wpClose = ' /wp:paragraph ';
+    el = document.createElement('p');
+    el.innerHTML = '&nbsp;';
+    el.setAttribute('contenteditable', 'true');
+    el.addEventListener('input', onEdit);
+  }
 
   parent.insertBefore(document.createTextNode('\n\n'), articleNode);
-  parent.insertBefore(openC, articleNode);
-  parent.insertBefore(hr, articleNode);
-  parent.insertBefore(closeC, articleNode);
+  parent.insertBefore(document.createComment(wpOpen), articleNode);
+  parent.insertBefore(el, articleNode);
+  parent.insertBefore(document.createComment(wpClose), articleNode);
   parent.insertBefore(document.createTextNode('\n\n'), articleNode);
 
   Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
+  _articleParas = Array.from(articleEl.querySelectorAll('p'));
   saveEdits();
   buildCompareView();
-  showToast('Separator inserted');
+  showToast('Block inserted');
 }
 
-function removeSeparator(articleNode){
+function removeBlock(articleNode){
   const parent = articleNode.parentNode;
   const { open, close } = findWPComments(articleNode);
   if (close) parent.removeChild(close);
@@ -510,12 +592,13 @@ function removeSeparator(articleNode){
   Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
   saveEdits();
   buildCompareView();
-  showToast('Separator removed');
+  showToast('Block removed');
 }
 
 function closeAllBlockMenus(){
   document.querySelectorAll('.block-menu.open').forEach(m => m.classList.remove('open'));
   document.querySelectorAll('.block-ctrl.menu-open').forEach(c => c.classList.remove('menu-open'));
+  document.querySelectorAll('.block-ext.open').forEach(m => m.classList.remove('open'));
 }
 document.addEventListener('click', closeAllBlockMenus);
 
@@ -527,8 +610,8 @@ function createBlockCtrl(articleNode, enCell, isSeparator){
     const btn = document.createElement('button');
     btn.className = 'block-btn';
     btn.textContent = '×';
-    btn.title = 'Remove separator';
-    btn.addEventListener('click', (e) => { e.stopPropagation(); removeSeparator(articleNode); });
+    btn.title = 'Remove';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); removeBlock(articleNode); });
     ctrl.appendChild(btn);
     enCell.appendChild(ctrl);
     return;
@@ -544,6 +627,7 @@ function createBlockCtrl(articleNode, enCell, isSeparator){
   const menu = document.createElement('div');
   menu.className = 'block-menu';
 
+  // Quick types (convertible)
   BLOCK_TYPES.forEach(bt => {
     const opt = document.createElement('button');
     opt.innerHTML = '<span class="bicon">' + bt.icon + '</span>' + bt.label;
@@ -556,18 +640,46 @@ function createBlockCtrl(articleNode, enCell, isSeparator){
     menu.appendChild(opt);
   });
 
-  // Separator insert option
-  const sep = document.createElement('div');
-  sep.className = 'sep';
-  menu.appendChild(sep);
-  const sepBtn = document.createElement('button');
-  sepBtn.innerHTML = '<span class="bicon">—</span>Add separator ↑';
-  sepBtn.addEventListener('click', (e) => {
+  // Divider + extended blocks panel
+  const sep1 = document.createElement('div');
+  sep1.className = 'sep';
+  menu.appendChild(sep1);
+
+  // + button for extended blocks
+  const plusBtn = document.createElement('button');
+  plusBtn.innerHTML = '<span class="bicon">+</span>Insert block ↑';
+  plusBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    insertSeparatorBefore(articleNode);
+    extPanel.classList.toggle('open');
+  });
+  menu.appendChild(plusBtn);
+
+  // Extended panel (nested)
+  const extPanel = document.createElement('div');
+  extPanel.className = 'block-ext';
+
+  // New empty paragraph (for splitting)
+  const newParaBtn = document.createElement('button');
+  newParaBtn.innerHTML = '<span class="bicon">¶</span>New paragraph';
+  newParaBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    insertBlockBefore(articleNode, 'paragraph');
     closeAllBlockMenus();
   });
-  menu.appendChild(sepBtn);
+  extPanel.appendChild(newParaBtn);
+
+  EXTENDED_BLOCKS.forEach(eb => {
+    const opt = document.createElement('button');
+    opt.innerHTML = '<span class="bicon">' + eb.icon + '</span>' + eb.label;
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      insertBlockBefore(articleNode, eb.insert);
+      closeAllBlockMenus();
+    });
+    extPanel.appendChild(opt);
+  });
+
+  menu.appendChild(extPanel);
 
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -610,27 +722,32 @@ function buildCompareView(){
       return;
     }
 
-    // ── Figure ──
+    // ── Figure (image vs pullquote) ──
     if (tag === 'FIGURE') {
-      const esCell = document.createElement('div');
-      esCell.className = 'cmp-cell es figure';
-      esCell.textContent = '🖼 [image]';
-      const enCell = document.createElement('div');
-      enCell.className = 'cmp-cell en figure';
-      const cap = node.querySelector('figcaption');
-      if (cap) {
-        enCell.innerHTML = '🖼 <span data-cap="1" contenteditable="true">' + cap.innerHTML + '</span>';
-        enCell.querySelector('[data-cap]').addEventListener('input', (e) => { cap.innerHTML = e.target.innerHTML; saveEdits(); });
+      if (node.classList.contains('wp-block-pullquote')) {
+        // Pullquote — treat as text-bearing block, falls through below
       } else {
-        enCell.textContent = '🖼 [image, no caption]';
+        // Image figure
+        const esCell = document.createElement('div');
+        esCell.className = 'cmp-cell es figure';
+        esCell.textContent = '🖼 [image]';
+        const enCell = document.createElement('div');
+        enCell.className = 'cmp-cell en figure';
+        const cap = node.querySelector('figcaption');
+        if (cap) {
+          enCell.innerHTML = '🖼 <span data-cap="1" contenteditable="true">' + cap.innerHTML + '</span>';
+          enCell.querySelector('[data-cap]').addEventListener('input', (e) => { cap.innerHTML = e.target.innerHTML; saveEdits(); });
+        } else {
+          enCell.textContent = '🖼 [image, no caption]';
+        }
+        setCmpIdx(esCell, enCell);
+        compareGridEl.appendChild(esCell);
+        compareGridEl.appendChild(enCell);
+        return;
       }
-      setCmpIdx(esCell, enCell);
-      compareGridEl.appendChild(esCell);
-      compareGridEl.appendChild(enCell);
-      return;
     }
 
-    // ── Text-bearing blocks: P, BLOCKQUOTE, H1-H3 ──
+    // ── Text-bearing blocks: P, BLOCKQUOTE, H1-H3, FIGURE(pullquote), UL/OL ──
     const isAttrib = tag === 'P' && node.children.length === 1 && node.children[0].tagName === 'EM';
 
     const esCell = document.createElement('div');
@@ -654,6 +771,19 @@ function buildCompareView(){
       enCell.innerHTML = node.innerHTML;
       enCell.setAttribute('contenteditable', 'true');
       enCell.addEventListener('input', () => syncBackToArticleHTML(node, enCell));
+    } else if (tag === 'FIGURE' && node.classList.contains('wp-block-pullquote')) {
+      enCell.style.fontStyle = 'italic';
+      enCell.style.fontWeight = '500';
+      enCell.style.borderLeft = '3px solid #8a7340';
+      enCell.style.paddingLeft = '14px';
+      const pqP = node.querySelector('blockquote p');
+      enCell.innerHTML = pqP ? pqP.innerHTML : node.textContent;
+      enCell.setAttribute('contenteditable', 'true');
+      enCell.addEventListener('input', () => { if(pqP) pqP.innerHTML = enCell.innerHTML; saveEdits(); });
+    } else if (tag === 'UL' || tag === 'OL') {
+      enCell.innerHTML = node.innerHTML;
+      enCell.setAttribute('contenteditable', 'true');
+      enCell.addEventListener('input', () => { node.innerHTML = enCell.innerHTML; saveEdits(); });
     } else if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
       enCell.style.fontWeight = '600';
       enCell.innerHTML = node.innerHTML;
