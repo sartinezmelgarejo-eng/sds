@@ -14,42 +14,37 @@ body{
 .toolbar{
   position:sticky;top:0;z-index:50;
   background:#fff;border-bottom:1px solid #e5dfd2;
-  padding:8px 16px;
-  display:flex;align-items:center;gap:10px;
+  padding:6px 10px;
+  display:flex;align-items:center;gap:6px;
   box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
-.back{color:#777;text-decoration:none;font-size:13px;padding:6px 8px;border-radius:6px;transition:background .15s}
-.back:hover{background:#f0ebe0}
+.back{color:#999;text-decoration:none;font-size:18px;padding:4px 6px;line-height:1}
 .mode-toggle{
-  display:inline-flex;background:#f0ebe0;border-radius:8px;padding:3px;gap:2px;
+  display:inline-flex;background:#f0ebe0;border-radius:6px;padding:2px;gap:1px;
 }
 .mode-toggle button{
-  border:none;background:transparent;font-family:inherit;font-size:12px;font-weight:500;
-  padding:6px 12px;border-radius:6px;cursor:pointer;color:#777;
+  border:none;background:transparent;font-family:inherit;font-size:11px;font-weight:600;
+  padding:5px 10px;border-radius:5px;cursor:pointer;color:#999;
   transition:background .15s, color .15s;
 }
 .mode-toggle button.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.original-link{color:#1a5d3a;text-decoration:none;font-size:12px;white-space:nowrap}
+.toolbar-spacer{flex:1;min-width:4px}
+.tbtn{
+  border:none;cursor:pointer;font-family:inherit;
+  padding:5px 10px;border-radius:5px;font-size:11px;font-weight:600;
+  white-space:nowrap;transition:background .15s;
+}
+.tbtn.t-title{background:#e8e4f0;color:#3a3a78}
+.tbtn.t-title:hover{background:#d8d0e8}
+.tbtn.t-body{background:#dceee4;color:#1a5d3a}
+.tbtn.t-body:hover{background:#c8e0d0}
+.tbtn.done{background:#0f7a44 !important;color:#fff !important}
+.original-link{color:#1a5d3a;text-decoration:none;font-size:11px;font-weight:500;white-space:nowrap}
 .original-link:hover{text-decoration:underline}
 .save-indicator{
-  font-size:11px;color:#7a9a82;opacity:0;transition:opacity .25s;
+  font-size:10px;color:#7a9a82;opacity:0;transition:opacity .25s;width:0;overflow:hidden;
 }
-.save-indicator.show{opacity:1}
-.toolbar-spacer{flex:1}
-.copy-stack{
-  display:flex;flex-direction:column;gap:3px;flex-shrink:0;
-}
-.copy-stack .btn{
-  border:none;color:#fff;cursor:pointer;font-family:inherit;
-  padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;letter-spacing:.3px;
-  display:inline-flex;align-items:center;
-  transition:background .15s;white-space:nowrap;
-}
-.copy-stack .btn.title{background:#3a3a78}
-.copy-stack .btn.title:hover{background:#2a2a5e}
-.copy-stack .btn.body{background:#1a5d3a}
-.copy-stack .btn.body:hover{background:#0f4127}
-.copy-stack .btn.done{background:#0f7a44 !important}
+.save-indicator.show{opacity:1;width:auto}
 
 /* ─── META FOOTER (cat + tags) ─── */
 .meta-footer{
@@ -195,8 +190,10 @@ body.mode-compare .compare-container{display:block}
 .error{padding:40px;text-align:center;color:#a04;font-family:serif}
 
 @media(max-width:780px){
-  .toolbar{padding:8px 12px;gap:6px}
-  .btn{padding:8px 12px;font-size:11px}
+  .toolbar{padding:5px 8px;gap:4px}
+  .mode-toggle button{font-size:10px;padding:4px 8px}
+  .tbtn{font-size:10px;padding:4px 8px}
+  .original-link{font-size:10px}
   .container{padding:24px 18px 40px}
   .meta-footer{padding:0 18px 40px}
   .compare-container{padding:18px 12px 60px}
@@ -210,17 +207,15 @@ body.mode-compare .compare-container{display:block}
 <body>
 
 <div class="toolbar">
-  <a class="back" href="index.html">← All</a>
+  <a class="back" href="index.html">‹</a>
   <div class="mode-toggle">
     <button id="mode-preview" class="active" onclick="setMode('preview')">Preview</button>
     <button id="mode-compare" onclick="setMode('compare')">Edit</button>
   </div>
-  <span class="save-indicator" id="save-indicator">✓ Saved</span>
+  <span class="save-indicator" id="save-indicator">✓</span>
   <div class="toolbar-spacer"></div>
-  <div class="copy-stack">
-    <button class="btn title" onclick="copyTitle()"><span id="title-label">Copy title</span></button>
-    <button class="btn body" onclick="copyForWordPress()"><span id="copy-label">Copy body</span></button>
-  </div>
+  <button class="tbtn t-title" onclick="copyTitle()"><span id="title-label">Title</span></button>
+  <button class="tbtn t-body" onclick="copyForWordPress()"><span id="copy-label">Body</span></button>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
 </div>
 
@@ -526,8 +521,8 @@ async function copyTitle(){
   const title = (window._meta && window._meta.translated_title) || document.title;
   try {
     await navigator.clipboard.writeText(title);
-    flashBtn('title-label', 'Copied ✓', 'Copy title');
-    showToast('Title copied. Paste in WP title field.');
+    flashBtn('title-label', '✓', 'Title');
+    showToast('Title copied');
   } catch(e) { showToast('Copy failed: ' + e.message); }
 }
 
@@ -627,19 +622,19 @@ async function copyForWordPress(){
       'text/plain': new Blob([html], {type:'text/plain'}),
     });
     await navigator.clipboard.write([item]);
-    flashBtn('copy-label', 'Copied ✓', 'Copy body');
-    showToast('Copied with your edits. Paste into WP editor.');
+    flashBtn('copy-label', '✓', 'Body');
+    showToast('Body copied');
   } catch(e){
     try {
       await navigator.clipboard.writeText(html);
-      flashBtn('copy-label', 'Copied ✓', 'Copy body');
+      flashBtn('copy-label', '✓', 'Body');
     } catch(e2) { showToast('Copy failed: ' + e2.message); }
   }
 }
 
 function flashBtn(labelId, doneText, origText){
   const lbl = document.getElementById(labelId);
-  const btn = lbl.closest('button');
+  const btn = lbl.closest('.tbtn') || lbl.closest('button');
   btn.classList.add('done');
   lbl.textContent = doneText;
   setTimeout(()=>{ btn.classList.remove('done'); lbl.textContent = origText; }, 2200);
