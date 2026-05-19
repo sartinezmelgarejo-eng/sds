@@ -45,8 +45,13 @@ body{
 .tbtn.t-body{background:#dceee4;color:#1a5d3a}
 .tbtn.t-body:hover{background:#c8e0d0}
 .tbtn.done{background:#0f7a44 !important;color:#fff !important}
-.original-link{color:#1a5d3a;text-decoration:none;font-size:11px;font-weight:500;white-space:nowrap}
-.original-link:hover{text-decoration:underline}
+.original-link{
+  display:inline-flex;align-items:center;gap:4px;
+  text-decoration:none;white-space:nowrap;flex-shrink:0;
+}
+.original-link img{width:20px;height:20px;border-radius:4px;object-fit:contain}
+.original-link .arrow{color:#1a5d3a;font-size:11px;font-weight:500}
+.original-link:hover .arrow{text-decoration:underline}
 .save-indicator{
   font-size:10px;color:#7a9a82;opacity:0;transition:opacity .25s;width:0;overflow:hidden;
 }
@@ -323,10 +328,12 @@ if (!slug) {
       if (meta.original_url) {
         const link = document.getElementById('original-link');
         link.href = meta.original_url;
-        let outletDisplay = meta.outlet || 'Original';
-        // Strip common prefixes for a cleaner toolbar
-        outletDisplay = outletDisplay.replace(/^(Revista|Diario|Periódico|El|La)\s+/i, '');
-        link.textContent = '↗ ' + outletDisplay;
+        try {
+          const domain = new URL(meta.original_url).hostname;
+          link.innerHTML = `<img src="https://www.google.com/s2/favicons?domain=${domain}&sz=64" alt=""><span class="arrow">↗</span>`;
+        } catch(e) {
+          link.innerHTML = '<span class="arrow">↗ Original</span>';
+        }
       }
     }
   }).catch(err => {
