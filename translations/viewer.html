@@ -19,6 +19,7 @@ body{
   box-shadow:0 2px 8px rgba(0,0,0,.04);
 }
 .back{color:#999;text-decoration:none;font-size:18px;padding:4px 6px;line-height:1}
+.toolbar-spacer{flex:1;min-width:4px}
 .mode-toggle{
   display:inline-flex;background:#f0ebe0;border-radius:6px;padding:2px;gap:1px;
 }
@@ -28,7 +29,12 @@ body{
   transition:background .15s, color .15s;
 }
 .mode-toggle button.active{background:#fff;color:#1a1a1a;box-shadow:0 1px 2px rgba(0,0,0,.06)}
-.toolbar-spacer{flex:1;min-width:4px}
+.mode-toggle button.locked{background:#fff;color:#1a1a1a;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.lock-icon{
+  display:inline-block;font-size:9px;margin-left:2px;
+  transition:transform .2s ease;
+}
+.lock-icon.locking{transform:scale(1.3);}
 .tbtn{
   border:none;cursor:pointer;font-family:inherit;
   padding:5px 10px;border-radius:5px;font-size:11px;font-weight:600;
@@ -208,12 +214,12 @@ body.mode-compare .compare-container{display:block}
 
 <div class="toolbar">
   <a class="back" href="index.html">‹</a>
-  <div class="mode-toggle">
-    <button id="mode-preview" class="active" onclick="setMode('preview')">Preview</button>
-    <button id="mode-compare" onclick="setMode('compare')">Edit</button>
-  </div>
   <span class="save-indicator" id="save-indicator">✓</span>
   <div class="toolbar-spacer"></div>
+  <div class="mode-toggle">
+    <button id="mode-preview" class="active" onclick="handlePreviewClick()">Preview<span class="lock-icon" id="lock-icon"></span></button>
+    <button id="mode-compare" onclick="setMode('compare')">Edit</button>
+  </div>
   <button class="tbtn t-title" onclick="copyTitle()"><span id="title-label">Title</span></button>
   <button class="tbtn t-body" onclick="copyForWordPress()"><span id="copy-label">Body</span></button>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
@@ -492,17 +498,55 @@ function scrollToAnchor(toMode, idx){
   window.scrollTo({top, behavior: 'instant'});
 }
 
+let _locked = false;
+
+function handlePreviewClick(){
+  const isPreview = !document.body.classList.contains('mode-compare');
+  if (isPreview) {
+    // Already in preview — toggle lock
+    _locked = !_locked;
+    applyLock();
+  } else {
+    // Switch from Edit to Preview
+    _locked = false;
+    setMode('preview');
+    applyLock();
+  }
+}
+
+function applyLock(){
+  const icon = document.getElementById('lock-icon');
+  const btn = document.getElementById('mode-preview');
+  if (_locked) {
+    icon.textContent = '🔒';
+    btn.classList.add('locked');
+    // Disable all contenteditable
+    articleEl.querySelectorAll('[contenteditable]').forEach(el => el.setAttribute('contenteditable','false'));
+    // Animate
+    icon.classList.add('locking');
+    setTimeout(() => icon.classList.remove('locking'), 200);
+    showToast('Locked — read only');
+  } else {
+    icon.textContent = '';
+    btn.classList.remove('locked');
+    // Re-enable contenteditable
+    articleEl.querySelectorAll('p, figcaption').forEach(el => el.setAttribute('contenteditable','true'));
+  }
+}
+
 function setMode(mode){
   const fromMode = document.body.classList.contains('mode-compare') ? 'compare' : 'preview';
   const anchorIdx = fromMode !== mode ? getViewportAnchorIndex(fromMode) : null;
+
+  // Unlock when switching modes
+  _locked = false;
+  applyLock();
 
   document.body.classList.toggle('mode-compare', mode === 'compare');
   document.getElementById('mode-preview').classList.toggle('active', mode === 'preview');
   document.getElementById('mode-compare').classList.toggle('active', mode === 'compare');
   if (mode === 'compare') {
     buildCompareView();  // sync from article DOM
-    // Decorate both columns of the compare grid (EN already inherits from article DOM,
-    // but re-running ensures freshly added cells get decorated; ES needs explicit decoration)
     compareGridEl.querySelectorAll('.cmp-cell.es, .cmp-cell.en').forEach(cell => {
       decorateHighlights(cell);
     });
