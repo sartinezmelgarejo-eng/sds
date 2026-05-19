@@ -63,25 +63,52 @@ h1{font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;co
   font-size:10px;font-weight:300;color:#64748b;
   line-height:1.4;
 }
-.quick-links{
+.tl-widget{
   width:100%;max-width:1000px;margin:0 0 24px;
-  display:flex;gap:8px;align-items:center;
+  background:#0a0a08;border-radius:10px;
+  border:1px solid rgba(201,168,76,.15);
+  overflow:hidden;
+  box-shadow:0 2px 12px rgba(0,0,0,.08);
 }
-.quick-links a{
-  display:inline-flex;align-items:center;gap:5px;
-  padding:6px 14px;border-radius:20px;
-  background:#fff;border:1px solid #e2e8f0;
-  text-decoration:none;font-size:11px;font-weight:600;
-  color:#64748b;letter-spacing:.3px;
-  transition:border-color .2s, box-shadow .2s, color .2s;
-  box-shadow:0 1px 2px rgba(0,0,0,.03);
+.tl-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px 8px;
 }
-.quick-links a:hover{
-  border-color:#c9a84c;color:#8a6d20;
-  box-shadow:0 2px 8px rgba(201,168,76,.15);
+.tl-header a{text-decoration:none;display:flex;align-items:center;gap:6px}
+.tl-label{
+  font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  color:#c9a84c;
 }
-.quick-links a .ql-dot{
-  width:6px;height:6px;border-radius:50%;flex-shrink:0;
+.tl-header .tl-all{
+  font-size:10px;color:#6a5a30;text-decoration:none;
+  transition:color .2s;
+}
+.tl-header .tl-all:hover{color:#c9a84c}
+.tl-list{display:flex;flex-direction:column}
+.tl-item{
+  display:flex;align-items:baseline;gap:10px;
+  padding:7px 16px;text-decoration:none;color:inherit;
+  border-top:1px solid rgba(201,168,76,.08);
+  transition:background .15s;
+}
+.tl-item:hover{background:rgba(201,168,76,.06)}
+.tl-item .tl-title{
+  flex:1;min-width:0;
+  font-size:12px;font-weight:500;color:#d4c8a0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.tl-item .tl-outlet{
+  font-size:10px;color:#5a4a28;flex-shrink:0;
+}
+.tl-item .tl-ago{
+  font-size:9px;color:#3a3420;flex-shrink:0;
+}
+.tl-empty{padding:10px 16px;font-size:11px;color:#3a3420;font-style:italic}
+@media(max-width:640px){
+  .tl-widget{border-radius:8px}
+  .tl-header{padding:8px 12px 6px}
+  .tl-item{padding:6px 12px;gap:8px}
+  .tl-item .tl-title{font-size:11px}
 }
 .footer{margin-top:auto;padding-top:40px;font-size:9px;color:#cbd5e1;letter-spacing:1px}
 .search-stack{
@@ -169,8 +196,14 @@ h1{font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;co
 </form>
 </div>
 
-<div class="quick-links">
-<a href="translations/index.html"><span class="ql-dot" style="background:#c9a84c"></span>Translations</a>
+<div class="tl-widget" id="tl-widget">
+<div class="tl-header">
+<a href="translations/index.html"><span class="tl-label">Translations</span></a>
+<a class="tl-all" href="translations/index.html">View all →</a>
+</div>
+<div class="tl-list" id="tl-list">
+<div class="tl-empty">Loading…</div>
+</div>
 </div>
 
 <div class="grid">
@@ -238,5 +271,29 @@ h1{font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;co
 </div>
 
 <div class="footer">sartinezmelgarejo-eng.github.io/sds</div>
-<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
+<script>
+if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{});
+(function(){
+  const list = document.getElementById('tl-list');
+  function ago(ts){
+    const s = Math.floor(Date.now()/1000 - ts);
+    if(s<60)return 'now';if(s<3600)return Math.floor(s/60)+'m';
+    if(s<86400)return Math.floor(s/3600)+'h';
+    const d=Math.floor(s/86400);if(d<7)return d+'d';return Math.floor(d/7)+'w';
+  }
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  fetch('translations/manifest.json?v='+Date.now())
+    .then(r=>r.json())
+    .then(data=>{
+      const items=(data||[]).sort((a,b)=>(b.last_modified||0)-(a.last_modified||0)).slice(0,4);
+      if(!items.length){list.innerHTML='<div class="tl-empty">No translations yet</div>';return}
+      list.innerHTML=items.map(x=>`<a class="tl-item" href="translations/viewer.html?slug=${encodeURIComponent(x.slug)}">
+        <span class="tl-title">${esc(x.translated_title||x.slug)}</span>
+        <span class="tl-outlet">${esc(x.outlet||'')}</span>
+        <span class="tl-ago">${x.last_modified?ago(x.last_modified):''}</span>
+      </a>`).join('');
+    })
+    .catch(()=>{list.innerHTML='<div class="tl-empty">—</div>'});
+})();
+</script>
 </body></html>
