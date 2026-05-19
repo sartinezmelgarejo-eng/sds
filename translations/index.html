@@ -11,50 +11,67 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{
   font-family:'Inter',system-ui,sans-serif;
-  background:#0d0d0d;color:#e0ddd5;
-  padding:40px 20px 80px;
-  min-height:100vh;
+  background:#060606;color:#e0ddd5;
+  min-height:100vh;overflow-x:hidden;
 }
-.wrap{max-width:840px;margin:0 auto}
-header{margin-bottom:32px;display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:12px}
-h1{font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:28px;line-height:1.2;color:#e8e4da}
-.count{font-size:13px;color:#6a6050;font-weight:500}
+/* Corona glow at the top — the eclipse */
+body::before{
+  content:'';position:fixed;top:-180px;left:50%;transform:translateX(-50%);
+  width:700px;height:400px;
+  background:radial-gradient(ellipse at center, rgba(218,165,50,.18) 0%, rgba(180,120,30,.08) 35%, transparent 70%);
+  pointer-events:none;z-index:0;
+}
+.wrap{max-width:840px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1}
+header{margin-bottom:36px;text-align:center}
+h1{
+  font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:28px;line-height:1.2;
+  color:#daa532;
+  text-shadow:0 0 40px rgba(218,165,50,.25);
+  letter-spacing:.5px;
+}
+.count{font-size:12px;color:#4a4030;font-weight:500;margin-top:6px}
 .list{display:flex;flex-direction:column;gap:10px}
 .item{
-  background:#1a1a1a;border:1px solid #2a2722;border-radius:10px;
+  border-radius:10px;
   padding:18px 22px;text-decoration:none;color:inherit;
-  display:block;transition:border-color .25s, transform .05s, box-shadow .25s;
+  display:block;
+  transition:transform .15s, box-shadow .3s, border-color .3s;
+  border:1px solid transparent;
 }
-.item:hover{border-color:#2a8a5a;opacity:1 !important;box-shadow:0 0 20px rgba(26,93,58,.15)}
+.item:hover{
+  transform:translateY(-1px);
+  box-shadow:0 0 30px rgba(218,165,50,.12);
+  border-color:rgba(218,165,50,.3) !important;
+}
 .item:active{transform:scale(.998)}
 .item .title{
   font-family:'Source Serif 4',Georgia,serif;font-weight:600;font-size:18px;line-height:1.3;
-  color:#e8e4da;margin-bottom:6px;
+  margin-bottom:6px;
 }
 .item .original{
   font-family:'Source Serif 4',Georgia,serif;font-style:italic;font-size:13.5px;
-  color:#7a6d50;margin-bottom:10px;line-height:1.4;
+  margin-bottom:10px;line-height:1.4;
 }
 .item .meta{
-  display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:#6a6050;
+  display:flex;flex-wrap:wrap;gap:10px;font-size:12px;
   align-items:center;
 }
-.item .meta .dot{color:#3a3530}
-.empty{text-align:center;padding:60px 20px;color:#6a6050;font-size:14px}
+.item .meta .dot{opacity:.4}
+.empty{text-align:center;padding:60px 20px;color:#4a4030;font-size:14px}
 .error{background:#2a1010;border:1px solid #5a2020;color:#e08080;padding:14px;border-radius:8px}
-.recency{font-size:11px;color:#5a5040}
 @media (max-width:600px){
-  body{padding:24px 14px 60px}
+  .wrap{padding:24px 14px 60px}
   h1{font-size:22px}
   .item{padding:14px 16px}
   .item .title{font-size:16px}
+  body::before{width:100%;top:-120px}
 }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>📰 Translations Queue</h1>
+    <h1>Translations</h1>
     <div class="count" id="count"></div>
   </header>
   <div class="list" id="list"></div>
@@ -75,26 +92,58 @@ function timeAgo(ts){
   return Math.floor(d/30) + 'mo ago';
 }
 
+// Interpolate between two [r,g,b] colors
+function lerp(a, b, t){ return a.map((v,i) => Math.round(v + (b[i]-v) * t)); }
+function rgb(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
 
 function render(){
-  countEl.textContent = _all.length + ' translation' + (_all.length === 1 ? '' : 's');
-  if (!_all.length) {
+  const n = _all.length;
+  countEl.textContent = n + ' translation' + (n === 1 ? '' : 's');
+  if (!n) {
     listEl.innerHTML = '<div class="empty">Nothing here.</div>';
     return;
   }
+
+  // Color stops: top (eclipse gold) → mid → bottom (void)
+  const GOLD   = [218, 165, 50];
+  const WARM   = [160, 130, 70];
+  const ASH    = [60, 50, 40];
+  const VOID   = [20, 18, 16];
+
+  const TITLE_GOLD = [240, 210, 140];
+  const TITLE_MID  = [180, 165, 130];
+  const TITLE_ASH  = [80, 70, 55];
+
+  const META_GOLD  = [160, 135, 80];
+  const META_ASH   = [50, 42, 32];
+
   listEl.innerHTML = _all.map((x, i) => {
+    // t goes from 0 (top) to 1 (bottom)
+    const t = n <= 1 ? 0 : i / (n - 1);
+    // Ease: first 2 items stay bright, then accelerate into darkness
+    const hold = 2;
+    const et = i < hold ? 0 : Math.min(1, (i - hold) / Math.max(1, n - hold - 1));
+    const t2 = et * et; // quadratic ease — fast drop into void
+
+    const bg = lerp([22,20,17], [10,9,8], t2);
+    const border = lerp([50,42,28], [16,14,12], t2);
+    const title = lerp(TITLE_GOLD, TITLE_ASH, t2);
+    const orig = lerp(WARM, ASH, t2);
+    const meta = lerp(META_GOLD, META_ASH, t2);
+    const opacity = i < hold ? 1 : Math.max(0.15, 1 - t2 * 0.85);
+
     const dateStr = x.original_date || '';
     const ago = x.last_modified ? timeAgo(x.last_modified) : '';
-    // First 2 items full opacity, then fade from #3 onward
-    const op = i < 2 ? 1 : Math.max(0.2, 1 - (i - 2) * 0.12);
-    return `<a class="item" href="viewer.html?slug=${encodeURIComponent(x.slug)}" style="opacity:${op.toFixed(2)}">
-      <div class="title">${escapeHtml(x.translated_title || x.slug)}</div>
-      ${x.original_title ? `<div class="original">${escapeHtml(x.original_title)}</div>` : ''}
-      <div class="meta">
+
+    return `<a class="item" href="viewer.html?slug=${encodeURIComponent(x.slug)}"
+      style="background:${rgb(bg)};border-color:${rgb(border)};opacity:${opacity.toFixed(2)}">
+      <div class="title" style="color:${rgb(title)}">${escapeHtml(x.translated_title || x.slug)}</div>
+      ${x.original_title ? `<div class="original" style="color:${rgb(orig)}">${escapeHtml(x.original_title)}</div>` : ''}
+      <div class="meta" style="color:${rgb(meta)}">
         ${x.outlet ? `<span>${escapeHtml(x.outlet)}</span><span class="dot">·</span>` : ''}
         ${x.author ? `<span>${escapeHtml(x.author)}</span><span class="dot">·</span>` : ''}
         ${dateStr ? `<span>${dateStr}</span>` : ''}
-        ${ago ? `<span class="recency" style="margin-left:auto">${ago}</span>` : ''}
+        ${ago ? `<span style="margin-left:auto;opacity:.7">${ago}</span>` : ''}
       </div>
     </a>`;
   }).join('');
