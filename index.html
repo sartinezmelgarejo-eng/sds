@@ -181,13 +181,18 @@ h1{font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;co
 .tg-widget .w-label{color:#2a96d2}
 .tg-widget .w-link{color:#1a5a7a}
 .tg-widget .w-link:hover{color:#2a96d2}
-.tg-feed{
-  flex:1;min-height:0;border-top:1px solid rgba(42,150,210,.08);
+.tg-list{display:flex;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden}
+.tg-item{
+  display:block;padding:7px 14px;text-decoration:none;color:inherit;
+  border-top:1px solid rgba(42,150,210,.08);transition:background .15s;
 }
-.tg-feed iframe{
-  width:100%;height:100%;border:none;
-  background:#0a0a08;color-scheme:dark;
+.tg-item:hover{background:rgba(42,150,210,.06)}
+.tg-item .tg-txt{
+  font-size:11px;font-weight:400;color:#a0c8e0;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
+.tg-item .tg-date{font-size:9px;color:#1a5a7a;margin-top:2px}
+.tg-empty{padding:10px 14px;font-size:10px;color:#1a5a7a;font-style:italic}
 
 .footer{flex-shrink:0;padding-top:8px;font-size:9px;color:#cbd5e1;letter-spacing:1px;text-align:center}
 
@@ -319,8 +324,8 @@ h1{font-size:13px;font-weight:700;letter-spacing:4px;text-transform:uppercase;co
 <span class="w-label">Telegram</span>
 <a class="w-link" href="https://t.me/resisres" target="_blank">@resisres →</a>
 </div>
-<div class="tg-feed">
-<iframe src="https://t.me/s/resisres" title="Telegram feed"></iframe>
+<div class="tg-list" id="tg-list">
+<div class="tg-empty">Loading…</div>
 </div>
 </div>
 
@@ -384,6 +389,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       </a>`).join('');
     })
     .catch(()=>{list.innerHTML='<div class="tl-empty">—</div>'});
+})();
+(function(){
+  const tg=document.getElementById('tg-list');
+  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  fetch('tg-feed.json?v='+Date.now())
+    .then(r=>r.json())
+    .then(data=>{
+      const items=(data||[]).slice(0,5);
+      if(!items.length){tg.innerHTML='<div class="tg-empty">No posts yet</div>';return}
+      tg.innerHTML=items.map(x=>`<a class="tg-item" href="https://t.me/resisres/${x.id}" target="_blank">
+        <div class="tg-txt">${esc(x.text)}</div>
+        <div class="tg-date">${esc(x.date)}</div>
+      </a>`).join('');
+    })
+    .catch(()=>{tg.innerHTML='<div class="tg-empty">—</div>'});
 })();
 </script>
 </body></html>
