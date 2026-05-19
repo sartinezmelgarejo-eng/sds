@@ -189,6 +189,44 @@ body.mode-compare .compare-container{display:block}
   box-shadow:inset 0 0 0 1px rgba(26,93,58,.3);
 }
 .cmp-cell.placeholder{background:#fdfaf3;color:#aaa;font-style:italic}
+
+/* ─── BLOCK TYPE CONTROLS ─── */
+.cmp-cell.en{position:relative}
+.block-ctrl{
+  position:absolute;top:8px;right:8px;z-index:5;
+  opacity:0;transition:opacity .15s;
+}
+.cmp-cell.en:hover .block-ctrl,
+.cmp-cell.en:focus-within .block-ctrl,
+.block-ctrl.menu-open{opacity:1}
+.block-btn{
+  width:24px;height:22px;border-radius:4px;
+  border:1px solid #e0d8c4;background:#faf7ef;
+  color:#8a7340;font-size:10px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:'Inter',sans-serif;transition:background .1s;
+}
+.block-btn:hover{background:#f0ebe0}
+.block-menu{
+  position:absolute;top:100%;right:0;margin-top:4px;
+  background:#fff;border:1px solid #e5dfd2;border-radius:6px;
+  box-shadow:0 4px 16px rgba(0,0,0,.12);
+  padding:4px;min-width:150px;
+  display:none;
+}
+.block-menu.open{display:block}
+.block-menu button{
+  display:flex;align-items:center;gap:8px;
+  width:100%;border:none;background:transparent;
+  padding:7px 10px;border-radius:4px;
+  font-family:'Inter',sans-serif;font-size:12px;color:#4a4a4a;
+  cursor:pointer;text-align:left;white-space:nowrap;
+}
+.block-menu button:hover{background:#f5f1ea}
+.block-menu button.active{color:#1a5d3a;font-weight:600}
+.block-menu .bicon{width:20px;text-align:center;font-size:11px;color:#8a7340;flex-shrink:0}
+.block-menu .sep{border-top:1px solid #f0ebe0;margin:4px 0}
+
 .cmp-cell.figure{font-style:italic;color:#999;font-size:13px}
 
 .toast{
@@ -295,6 +333,7 @@ if (!slug) {
     });
 
     _originalParas = original && original.paragraphs ? original.paragraphs : [];
+    assignEsIndices();
     decorateHighlights(articleEl);
     buildCompareView();
 
@@ -341,83 +380,237 @@ if (!slug) {
   });
 }
 
-// Identify which <p> elements correspond to translated body paragraphs
-// (skip the attribution <em> wrapper, skip figcaptions, skip empties)
-function contentParaIndices(){
-  const out = [];
-  _articleParas.forEach((p, i) => {
-    // attribution paragraph is the one whose only child is <em>
-    const onlyEm = p.children.length === 1 && p.children[0].tagName === 'EM';
-    if (onlyEm) return;
-    if (!p.textContent.trim()) return;
-    out.push(i);
-  });
-  return out;
-}
-
-// Build the compare view: walk through ordered article children, pair body paragraphs to ES original
-function buildCompareView(){
-  compareGridEl.innerHTML = '';
-  const children = Array.from(articleEl.children);
-  let esIdx = 0;
-  children.forEach((node) => {
+// ─── ES index assignment (stable pairing across block conversions) ───
+function assignEsIndices(){
+  let idx = 0;
+  Array.from(articleEl.children).forEach(node => {
     const tag = node.tagName;
-    const cmpIdx = node.getAttribute('data-cmp-index');
-    const tagCells = (esCell, enCell) => {
-      if (cmpIdx != null) {
-        esCell.setAttribute('data-cmp-index', cmpIdx);
-        enCell.setAttribute('data-cmp-index', cmpIdx);
-      }
-    };
     if (tag === 'P') {
       const onlyEm = node.children.length === 1 && node.children[0].tagName === 'EM';
-      if (onlyEm) {
-        // attribution row — show in both columns, EN editable
-        const esCell = document.createElement('div');
-        esCell.className = 'cmp-cell es placeholder';
-        esCell.textContent = '(attribution paragraph — not in original)';
-        const enCell = document.createElement('div');
-        enCell.className = 'cmp-cell en';
-        enCell.innerHTML = node.innerHTML;
-        enCell.setAttribute('contenteditable','true');
-        enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
-        compareGridEl.appendChild(esCell);
-        compareGridEl.appendChild(enCell);
-        return;
-      }
-      const esText = _originalParas[esIdx] || '';
-      esIdx++;
-      const esCell = document.createElement('div');
-      esCell.className = 'cmp-cell es';
-      esCell.textContent = esText || '(no original counterpart)';
-      if (!esText) esCell.classList.add('placeholder');
-      const enCell = document.createElement('div');
-      enCell.className = 'cmp-cell en';
-      enCell.innerHTML = node.innerHTML;
-      enCell.setAttribute('contenteditable','true');
-      enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
-      tagCells(esCell, enCell);
-      compareGridEl.appendChild(esCell);
-      compareGridEl.appendChild(enCell);
+      if (!onlyEm && node.textContent.trim()) node.setAttribute('data-es-idx', idx++);
     } else if (tag === 'BLOCKQUOTE') {
-      const esText = _originalParas[esIdx] || '';
-      esIdx++;
+      node.setAttribute('data-es-idx', idx++);
+    }
+  });
+}
+
+// ─── Block type definitions ───
+const BLOCK_TYPES = [
+  {id:'paragraph', icon:'¶', label:'Paragraph', tag:'P', wpOpen:'wp:paragraph', wpClose:'/wp:paragraph'},
+  {id:'quote', icon:'❝', label:'Quote', tag:'BLOCKQUOTE', wpOpen:'wp:quote', wpClose:'/wp:quote'},
+  {id:'heading2', icon:'H2', label:'Heading 2', tag:'H2', wpOpen:'wp:heading {"level":2}', wpClose:'/wp:heading'},
+  {id:'heading3', icon:'H3', label:'Heading 3', tag:'H3', wpOpen:'wp:heading {"level":3}', wpClose:'/wp:heading'},
+];
+
+function detectBlockType(el){
+  const tag = el.tagName;
+  if (tag === 'BLOCKQUOTE') return 'quote';
+  if (tag === 'H2') return 'heading2';
+  if (tag === 'H3') return 'heading3';
+  if (tag === 'HR') return 'separator';
+  return 'paragraph';
+}
+
+function blockTypeInfo(id){ return BLOCK_TYPES.find(b => b.id === id); }
+
+function getBlockText(el){
+  if (el.tagName === 'BLOCKQUOTE') {
+    const p = el.querySelector('p');
+    return p ? p.innerHTML : el.innerHTML;
+  }
+  return el.innerHTML;
+}
+
+function findWPComments(el){
+  let open = null, close = null;
+  let prev = el.previousSibling;
+  while (prev) {
+    if (prev.nodeType === 8) { open = prev; break; }
+    if (prev.nodeType === 1) break;
+    prev = prev.previousSibling;
+  }
+  let next = el.nextSibling;
+  while (next) {
+    if (next.nodeType === 8) { close = next; break; }
+    if (next.nodeType === 1) break;
+    next = next.nextSibling;
+  }
+  return { open, close };
+}
+
+function updateWPComments(el, targetBt){
+  const { open, close } = findWPComments(el);
+  if (open) open.nodeValue = ' ' + targetBt.wpOpen + ' ';
+  if (close) close.nodeValue = ' ' + targetBt.wpClose + ' ';
+}
+
+function convertBlock(articleNode, targetBt){
+  const parent = articleNode.parentNode;
+  const text = getBlockText(articleNode);
+
+  let newEl;
+  if (targetBt.tag === 'BLOCKQUOTE') {
+    newEl = document.createElement('blockquote');
+    newEl.className = 'wp-block-quote';
+    newEl.innerHTML = '<p>' + text + '</p>';
+    const innerP = newEl.querySelector('p');
+    innerP.setAttribute('contenteditable', 'true');
+    innerP.addEventListener('input', onEdit);
+  } else {
+    newEl = document.createElement(targetBt.tag.toLowerCase());
+    newEl.innerHTML = text;
+    newEl.setAttribute('contenteditable', 'true');
+    newEl.addEventListener('input', onEdit);
+  }
+
+  // Preserve indices
+  ['data-cmp-index','data-es-idx'].forEach(attr => {
+    const v = articleNode.getAttribute(attr);
+    if (v != null) newEl.setAttribute(attr, v);
+  });
+
+  updateWPComments(articleNode, targetBt);
+  parent.replaceChild(newEl, articleNode);
+
+  _articleParas = Array.from(articleEl.querySelectorAll('p'));
+  _articleFigCaps = Array.from(articleEl.querySelectorAll('figcaption'));
+
+  saveEdits();
+  buildCompareView();
+  showToast('→ ' + targetBt.label);
+}
+
+function insertSeparatorBefore(articleNode){
+  const parent = articleNode.parentNode;
+  const openC = document.createComment(' wp:separator ');
+  const hr = document.createElement('hr');
+  hr.className = 'wp-block-separator';
+  const closeC = document.createComment(' /wp:separator ');
+
+  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
+  parent.insertBefore(openC, articleNode);
+  parent.insertBefore(hr, articleNode);
+  parent.insertBefore(closeC, articleNode);
+  parent.insertBefore(document.createTextNode('\n\n'), articleNode);
+
+  Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
+  saveEdits();
+  buildCompareView();
+  showToast('Separator inserted');
+}
+
+function removeSeparator(articleNode){
+  const parent = articleNode.parentNode;
+  const { open, close } = findWPComments(articleNode);
+  if (close) parent.removeChild(close);
+  if (open) parent.removeChild(open);
+  parent.removeChild(articleNode);
+
+  Array.from(articleEl.children).forEach((n, i) => n.setAttribute('data-cmp-index', i));
+  saveEdits();
+  buildCompareView();
+  showToast('Separator removed');
+}
+
+function closeAllBlockMenus(){
+  document.querySelectorAll('.block-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.block-ctrl.menu-open').forEach(c => c.classList.remove('menu-open'));
+}
+document.addEventListener('click', closeAllBlockMenus);
+
+function createBlockCtrl(articleNode, enCell, isSeparator){
+  const ctrl = document.createElement('div');
+  ctrl.className = 'block-ctrl';
+
+  if (isSeparator) {
+    const btn = document.createElement('button');
+    btn.className = 'block-btn';
+    btn.textContent = '×';
+    btn.title = 'Remove separator';
+    btn.addEventListener('click', (e) => { e.stopPropagation(); removeSeparator(articleNode); });
+    ctrl.appendChild(btn);
+    enCell.appendChild(ctrl);
+    return;
+  }
+
+  const curType = detectBlockType(articleNode);
+  const info = blockTypeInfo(curType);
+  const btn = document.createElement('button');
+  btn.className = 'block-btn';
+  btn.textContent = info ? info.icon : '¶';
+  btn.title = 'Block type';
+
+  const menu = document.createElement('div');
+  menu.className = 'block-menu';
+
+  BLOCK_TYPES.forEach(bt => {
+    const opt = document.createElement('button');
+    opt.innerHTML = '<span class="bicon">' + bt.icon + '</span>' + bt.label;
+    if (bt.id === curType) opt.classList.add('active');
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (bt.id !== curType) convertBlock(articleNode, bt);
+      closeAllBlockMenus();
+    });
+    menu.appendChild(opt);
+  });
+
+  // Separator insert option
+  const sep = document.createElement('div');
+  sep.className = 'sep';
+  menu.appendChild(sep);
+  const sepBtn = document.createElement('button');
+  sepBtn.innerHTML = '<span class="bicon">—</span>Add separator ↑';
+  sepBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    insertSeparatorBefore(articleNode);
+    closeAllBlockMenus();
+  });
+  menu.appendChild(sepBtn);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = menu.classList.contains('open');
+    closeAllBlockMenus();
+    if (!isOpen) { menu.classList.add('open'); ctrl.classList.add('menu-open'); }
+  });
+
+  ctrl.appendChild(btn);
+  ctrl.appendChild(menu);
+  enCell.appendChild(ctrl);
+}
+
+// ─── Compare view ───
+function buildCompareView(){
+  compareGridEl.innerHTML = '';
+  Array.from(articleEl.children).forEach(node => {
+    const tag = node.tagName;
+    if (!tag) return;
+    const cmpIdx = node.getAttribute('data-cmp-index');
+    const esIdxStr = node.getAttribute('data-es-idx');
+    const esText = esIdxStr != null ? (_originalParas[parseInt(esIdxStr)] || '') : '';
+
+    const setCmpIdx = (a, b) => {
+      if (cmpIdx != null) { a.setAttribute('data-cmp-index', cmpIdx); b.setAttribute('data-cmp-index', cmpIdx); }
+    };
+
+    // ── Separator ──
+    if (tag === 'HR') {
       const esCell = document.createElement('div');
-      esCell.className = 'cmp-cell es';
-      esCell.style.fontStyle = 'italic';
-      esCell.textContent = esText || '(no original counterpart)';
-      if (!esText) esCell.classList.add('placeholder');
+      esCell.className = 'cmp-cell es figure';
+      esCell.innerHTML = '<hr style="border:none;border-top:1px solid #d5cdb8;margin:4px 0">';
       const enCell = document.createElement('div');
-      enCell.className = 'cmp-cell en';
-      enCell.style.fontStyle = 'italic';
-      enCell.innerHTML = node.innerHTML;
-      enCell.setAttribute('contenteditable','true');
-      enCell.addEventListener('input', () => syncBackToArticleHTML(node, enCell));
-      tagCells(esCell, enCell);
+      enCell.className = 'cmp-cell en figure';
+      enCell.innerHTML = '<hr style="border:none;border-top:1px solid #e5dfd2;margin:4px 0">';
+      createBlockCtrl(node, enCell, true);
+      setCmpIdx(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
-    } else if (tag === 'FIGURE') {
-      // figure rows — show "image" placeholder + the caption (caption editable)
+      return;
+    }
+
+    // ── Figure ──
+    if (tag === 'FIGURE') {
       const esCell = document.createElement('div');
       esCell.className = 'cmp-cell es figure';
       esCell.textContent = '🖼 [image]';
@@ -426,30 +619,56 @@ function buildCompareView(){
       const cap = node.querySelector('figcaption');
       if (cap) {
         enCell.innerHTML = '🖼 <span data-cap="1" contenteditable="true">' + cap.innerHTML + '</span>';
-        enCell.querySelector('[data-cap]').addEventListener('input', (e) => {
-          cap.innerHTML = e.target.innerHTML;
-          saveEdits();
-        });
+        enCell.querySelector('[data-cap]').addEventListener('input', (e) => { cap.innerHTML = e.target.innerHTML; saveEdits(); });
       } else {
         enCell.textContent = '🖼 [image, no caption]';
       }
-      tagCells(esCell, enCell);
+      setCmpIdx(esCell, enCell);
       compareGridEl.appendChild(esCell);
       compareGridEl.appendChild(enCell);
+      return;
+    }
+
+    // ── Text-bearing blocks: P, BLOCKQUOTE, H1-H3 ──
+    const isAttrib = tag === 'P' && node.children.length === 1 && node.children[0].tagName === 'EM';
+
+    const esCell = document.createElement('div');
+    esCell.className = 'cmp-cell es';
+    if (esText) {
+      esCell.textContent = esText;
+      if (tag === 'BLOCKQUOTE') esCell.style.fontStyle = 'italic';
+    } else if (isAttrib) {
+      esCell.classList.add('placeholder');
+      esCell.textContent = '(attribution)';
+    } else {
+      esCell.classList.add('placeholder');
+      esCell.textContent = esIdxStr != null ? '(no original counterpart)' : '(no original alignment)';
+    }
+
+    const enCell = document.createElement('div');
+    enCell.className = 'cmp-cell en';
+
+    if (tag === 'BLOCKQUOTE') {
+      enCell.style.fontStyle = 'italic';
+      enCell.innerHTML = node.innerHTML;
+      enCell.setAttribute('contenteditable', 'true');
+      enCell.addEventListener('input', () => syncBackToArticleHTML(node, enCell));
     } else if (tag === 'H1' || tag === 'H2' || tag === 'H3') {
-      const esCell = document.createElement('div');
-      esCell.className = 'cmp-cell es placeholder';
-      esCell.textContent = '(subhead — not in original alignment)';
-      const enCell = document.createElement('div');
-      enCell.className = 'cmp-cell en';
       enCell.style.fontWeight = '600';
       enCell.innerHTML = node.innerHTML;
-      enCell.setAttribute('contenteditable','true');
+      enCell.setAttribute('contenteditable', 'true');
       enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
-      tagCells(esCell, enCell);
-      compareGridEl.appendChild(esCell);
-      compareGridEl.appendChild(enCell);
+    } else {
+      enCell.innerHTML = node.innerHTML;
+      enCell.setAttribute('contenteditable', 'true');
+      enCell.addEventListener('input', () => syncBackToArticle(node, enCell, true));
     }
+
+    if (!isAttrib) createBlockCtrl(node, enCell);
+
+    setCmpIdx(esCell, enCell);
+    compareGridEl.appendChild(esCell);
+    compareGridEl.appendChild(enCell);
   });
 }
 
