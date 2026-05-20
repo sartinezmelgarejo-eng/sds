@@ -254,29 +254,16 @@ body{
   transform:translateY(-50%);text-shadow:0 1px 2px rgba(0,0,0,.6);
 }
 .hour-label.major{color:var(--gold);font-weight:600;font-size:11px}
-/* Each task = ember-shaped capsule with a star at its heart */
+/* Star + text floating, no capsule — the star itself says everything */
 .task{
   position:absolute;left:50%;
-  display:flex;align-items:center;gap:10px;
+  display:flex;align-items:center;gap:12px;
   cursor:pointer;pointer-events:auto;white-space:nowrap;
   transform:translate(-50%,-50%);
-  padding:6px 18px 6px 8px;
-  background:
-    radial-gradient(ellipse 70% 110% at 12% 50%, rgba(232,60,32,.35) 0%, transparent 72%),
-    linear-gradient(90deg, rgba(50,16,12,.90) 0%, rgba(20,8,6,.78) 100%);
-  border-radius:99px;
-  border:1px solid rgba(216,40,24,.35);
-  box-shadow:
-    inset 0 0 14px rgba(216,40,24,.12),
-    0 0 22px rgba(168,32,26,.22),
-    0 3px 14px rgba(0,0,0,.5);
-  backdrop-filter:blur(5px);
-  transition:opacity .3s, filter .6s ease, background .4s ease, border-color .4s ease, box-shadow .4s ease;
+  padding:4px 12px;
+  transition:opacity 1.4s ease, filter 1.4s ease;
   will-change:transform,opacity;
 }
-.task.cat-tg{border-color:rgba(232,184,80,.32)}
-.task.cat-dt{border-color:rgba(58,144,80,.34)}
-.task.cat-mn{border-color:rgba(208,64,48,.42)}
 /* Star — hot ember, red/fire core, category tint in the outer halo */
 .task .star{
   width:24px;height:24px;flex-shrink:0;
@@ -483,6 +470,27 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
   }
 }
 .task.crossing .star{animation:star-supernova 900ms ease-out !important}
+
+/* Smoke wisps — drift sideways after crossing, like a meteor's trail */
+.smoke-wisp{
+  position:fixed;width:60px;height:14px;border-radius:50%;
+  background:radial-gradient(ellipse at center,
+    rgba(220,200,170,.32) 0%,
+    rgba(180,160,130,.18) 40%,
+    rgba(140,120,100,.08) 70%,
+    transparent 90%);
+  filter:blur(5px);
+  pointer-events:none;z-index:5;
+  animation:smoke-drift 3.2s ease-out forwards;
+}
+@keyframes smoke-drift{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.45)}
+  18%{opacity:.95}
+  100%{
+    opacity:0;
+    transform:translate(calc(-50% + var(--drift-x, 100px)), calc(-50% + var(--drift-y, -28px))) scale(2.4);
+  }
+}
 
 /* Horizon burst — radial light at the moment of crossing */
 .horizon-burst{
@@ -875,8 +883,8 @@ const hourWatermarkEl = document.getElementById('hour-watermark');
 
 // ── View modes — zoom levels for the horizon timeline
 const VIEWS = {
-  live:  { pxPerHour: 90,  aboveH: 8,      belowH: 3,    days: 1  },
-  day:   { pxPerHour: 28,  aboveH: 20,     belowH: 4,    days: 2  },
+  live:  { pxPerHour: 90,  aboveH: 8,      belowH: 6,    days: 1  },
+  day:   { pxPerHour: 28,  aboveH: 20,     belowH: 8,    days: 2  },
   week:  { pxPerHour: 9,   aboveH: 6*24,   belowH: 1*24, days: 8  },
   month: { pxPerHour: 2.4, aboveH: 28*24,  belowH: 3*24, days: 32 },
 };
@@ -1028,6 +1036,21 @@ function spawnHorizonBurst(taskEl) {
   burst.style.top = y + 'px';
   document.body.appendChild(burst);
   setTimeout(() => burst.remove(), 1200);
+  // Smoke wisps drifting sideways — meteor trail
+  for (let i = 0; i < 3; i++) {
+    const wisp = document.createElement('div');
+    wisp.className = 'smoke-wisp';
+    const side = i === 0 ? -1 : (i === 1 ? 1 : (Math.random() < .5 ? -1 : 1));
+    const driftX = side * (60 + Math.random() * 70);
+    const driftY = -10 - Math.random() * 30;
+    wisp.style.left = (x + side * 8) + 'px';
+    wisp.style.top = (y + (Math.random() * 6 - 3)) + 'px';
+    wisp.style.setProperty('--drift-x', driftX + 'px');
+    wisp.style.setProperty('--drift-y', driftY + 'px');
+    wisp.style.animationDelay = (i * 80) + 'ms';
+    document.body.appendChild(wisp);
+    setTimeout(() => wisp.remove(), 3500);
+  }
 }
 
 function updateFalling() {
