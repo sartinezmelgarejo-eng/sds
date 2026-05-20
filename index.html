@@ -86,42 +86,46 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 .more-dots{font-size:20px;color:#94a3b8;letter-spacing:3px;line-height:1}
 .more-label{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-top:6px}
 
-/* ─── More overlay ─── */
+/* ─── Launchpad overlay ─── */
 .more-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:100;
+  position:fixed;inset:0;z-index:100;
+  background:rgba(15,15,20,.85);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   display:flex;align-items:center;justify-content:center;
-  opacity:0;pointer-events:none;transition:opacity .2s;
+  opacity:0;pointer-events:none;transition:opacity .3s;
 }
 .more-overlay.open{opacity:1;pointer-events:auto}
 .more-panel{
-  background:#fff;border-radius:16px;padding:24px;
-  width:90vw;max-width:520px;
-  box-shadow:0 20px 60px rgba(0,0,0,.2);
-  transform:scale(.95);transition:transform .2s;
+  width:100%;max-width:800px;padding:40px;
+  transform:scale(.92);transition:transform .3s;
 }
 .more-overlay.open .more-panel{transform:scale(1)}
-.more-panel-title{
-  font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
-  color:#94a3b8;margin-bottom:16px;text-align:center;
+.more-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:20px;
+  justify-items:center;
 }
-.more-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 .more-item{
-  display:flex;align-items:center;gap:10px;
-  padding:12px 14px;border-radius:10px;
-  text-decoration:none;color:#1e293b;
-  border:1px solid #e8eaef;
-  transition:background .15s, border-color .2s;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  text-decoration:none;color:#fff;
+  width:100%;max-width:220px;
+  transition:transform .2s;
 }
-.more-item:hover{background:#f5f6f8;border-color:#cbd5e1}
-.more-item-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.more-item-name{font-size:12px;font-weight:600}
-.more-item-desc{font-size:9px;color:#94a3b8;font-weight:300}
+.more-item:hover{transform:translateY(-4px)}
+.more-item-thumb{
+  width:100%;aspect-ratio:16/10;border-radius:14px;
+  background-size:cover;background-position:center top;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  transition:box-shadow .2s;
+}
+.more-item:hover .more-item-thumb{box-shadow:0 8px 30px rgba(0,0,0,.6)}
+.more-item-name{font-size:12px;font-weight:600;color:#d4d4d4;text-align:center}
 .more-close{
-  display:block;margin:18px auto 0;border:none;background:transparent;
+  display:block;margin:30px auto 0;border:none;background:rgba(255,255,255,.08);
   font-family:inherit;font-size:11px;color:#94a3b8;cursor:pointer;
-  padding:6px 16px;border-radius:8px;transition:background .15s;
+  padding:8px 24px;border-radius:20px;transition:background .15s;
+  letter-spacing:1px;text-transform:uppercase;font-weight:600;
 }
-.more-close:hover{background:#f0f2f5}
+.more-close:hover{background:rgba(255,255,255,.15)}
 
 /* ─── Sidebar ─── */
 .sidebar{
@@ -173,10 +177,16 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 .tg-widget .w-link:hover{color:#2a96d2}
 .tg-list{display:flex;flex-direction:column;flex:1;overflow-y:auto;overflow-x:hidden}
 .tg-item{
-  display:block;padding:7px 14px;text-decoration:none;color:inherit;
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;text-decoration:none;color:inherit;
   border-top:1px solid rgba(42,150,210,.08);transition:background .15s;
 }
 .tg-item:hover{background:rgba(42,150,210,.06)}
+.tg-thumb{
+  width:36px;height:36px;border-radius:5px;flex-shrink:0;
+  object-fit:cover;background:#0d1520;
+}
+.tg-body{flex:1;min-width:0}
 .tg-item .tg-txt{
   font-size:11px;font-weight:400;color:#a0c8e0;line-height:1.4;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
@@ -206,7 +216,8 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   .card-info{padding:8px 10px}
   .card-name{font-size:9px;letter-spacing:.5px}
   .card-desc{font-size:8px}
-  .more-grid{grid-template-columns:1fr}
+  .more-grid{grid-template-columns:1fr 1fr;gap:14px}
+  .more-panel{padding:24px}
 }
 </style></head><body>
 
@@ -320,31 +331,18 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 <!-- ═══ MORE OVERLAY ═══ -->
 <div class="more-overlay" id="more-overlay" onclick="if(event.target===this)this.classList.remove('open')">
 <div class="more-panel">
-<div class="more-panel-title">All Apps</div>
 <div class="more-grid">
-<a class="more-item" href="monitoring.html">
-<span class="more-item-dot" style="background:#14b8a6"></span>
-<div><div class="more-item-name">Sala de Situacion</div><div class="more-item-desc">Dashboard de indicadores</div></div>
-</a>
-<a class="more-item" href="BUSCADOR-MANANERAS.html">
-<span class="more-item-dot" style="background:#f59e0b"></span>
-<div><div class="more-item-name">Buscador Mananeras</div><div class="more-item-desc">AMLO & Sheinbaum</div></div>
-</a>
-<a class="more-item" href="libreria.html">
-<span class="more-item-dot" style="background:#8b5cf6"></span>
-<div><div class="more-item-name">Biblioteca Samuel</div><div class="more-item-desc">Biblioteca personal</div></div>
-</a>
-<a class="more-item" href="sacred-texts.html">
-<span class="more-item-dot" style="background:#c9a84c"></span>
-<div><div class="more-item-name">Sacred Texts</div><div class="more-item-desc">Bible & Quran</div></div>
-</a>
 <a class="more-item" href="Iglesia-contra-Mexico.html">
-<span class="more-item-dot" style="background:#dc2626"></span>
-<div><div class="more-item-name">Iglesia vs Mexico</div><div class="more-item-desc">500 anos de historia</div></div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-iglesia.jpg')"></div>
+<div class="more-item-name">Iglesia vs Mexico</div>
+</a>
+<a class="more-item" href="china-trip-planner-enhanced.html">
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-china.jpg')"></div>
+<div class="more-item-name">China Trip</div>
 </a>
 <a class="more-item" href="schedules.html">
-<span class="more-item-dot" style="background:#06b6d4"></span>
-<div><div class="more-item-name">Schedules</div><div class="more-item-desc">Tareas programadas</div></div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-schedules.jpg')"></div>
+<div class="more-item-name">Schedules</div>
 </a>
 </div>
 <button class="more-close" onclick="document.getElementById('more-overlay').classList.remove('open')">Close</button>
@@ -384,8 +382,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       const items=(data||[]).slice(0,5);
       if(!items.length){tg.innerHTML='<div class="tg-empty">No posts yet</div>';return}
       tg.innerHTML=items.map(x=>`<a class="tg-item" href="https://t.me/resisres/${x.id}" target="_blank">
-        <div class="tg-txt">${esc(x.text)}</div>
-        <div class="tg-date">${esc(x.date)}</div>
+        ${x.img?`<img class="tg-thumb" src="${esc(x.img)}" alt="">`:''}
+        <div class="tg-body"><div class="tg-txt">${esc(x.text)}</div>
+        <div class="tg-date">${esc(x.date)}</div></div>
       </a>`).join('');
     })
     .catch(()=>{tg.innerHTML='<div class="tg-empty">—</div>'});
