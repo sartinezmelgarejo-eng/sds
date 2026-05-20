@@ -749,9 +749,9 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
   <div class="lane-guides">
     <svg class="orbits" viewBox="0 0 100 100" preserveAspectRatio="none">
       <!-- Curved orbits: start at outer % at top, converge to 50% at bottom (horizon) -->
-      <path d="M 18,0 Q 18,68 50,100" fill="none" stroke="var(--c-tg)" stroke-width=".25" stroke-dasharray=".5 2"/>
+      <path d="M 18,0 Q 18,70 29,100" fill="none" stroke="var(--c-tg)" stroke-width=".25" stroke-dasharray=".5 2"/>
       <path d="M 50,0 L 50,100"        fill="none" stroke="var(--c-dt)" stroke-width=".25" stroke-dasharray=".5 2"/>
-      <path d="M 82,0 Q 82,68 50,100" fill="none" stroke="var(--c-mn)" stroke-width=".25" stroke-dasharray=".5 2"/>
+      <path d="M 82,0 Q 82,70 71,100" fill="none" stroke="var(--c-mn)" stroke-width=".25" stroke-dasharray=".5 2"/>
     </svg>
     <div class="lane-label l1">Telegram</div>
     <div class="lane-label l2">Datos</div>
@@ -1073,11 +1073,15 @@ function updateFalling() {
     inst.el.style.top = y + 'px';
     const dist = inst.fireHour - h;
 
-    // Horizontal orbit: outer at top, converging to center at horizon
+    // Horizontal orbit: each lane curves slightly inward near the horizon, not all the way to center
     if (orbitsActive && dist > 0) {
       const t = Math.min(1, dist / convergeRange);
-      const eased = t * t;  // stays outer most of the way, converges fast near horizon
+      const eased = 0.65 + 0.35 * (t * t);  // 65% offset at horizon → 100% offset far away
       const offsetPct = LANE_OFFSET[inst.task.cat] * eased;
+      inst.el.style.left = `calc(50% + ${offsetPct}%)`;
+    } else if (orbitsActive) {
+      // Past: keep at the slightly-inward position
+      const offsetPct = LANE_OFFSET[inst.task.cat] * 0.65;
       inst.el.style.left = `calc(50% + ${offsetPct}%)`;
     } else {
       inst.el.style.left = '50%';
