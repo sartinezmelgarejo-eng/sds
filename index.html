@@ -209,9 +209,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 .tl-item:hover{background:rgba(201,168,76,.06)}
 .tl-outlet-icon{
   width:28px;height:28px;border-radius:6px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;
-  font-size:13px;font-weight:700;color:#fff;
-  text-shadow:0 1px 2px rgba(0,0,0,.3);
+  object-fit:contain;background:#fff;padding:3px;
 }
 .tl-item-body{flex:1;min-width:0}
 .tl-item .tl-title{
@@ -392,17 +390,15 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const d=Math.floor(s/86400);if(d<7)return d+'d';return Math.floor(d/7)+'w';
   }
   function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  const outlets={
-    'La Jornada':{bg:'linear-gradient(135deg,#8b1a1a,#5a1010)',letter:'J'},
-    'Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
-    'Revista Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
-    'El Soberano':{bg:'linear-gradient(135deg,#2a6a2a,#1a4a1a)',letter:'S'},
-    'Regeneración':{bg:'linear-gradient(135deg,#6a2a6a,#401a40)',letter:'R'},
-    'El Financiero':{bg:'linear-gradient(135deg,#1a4a5a,#0d2a3a)',letter:'F'},
+  const outletLogos={
+    'La Jornada':'translations/logos/la-jornada.png',
+    'Contralínea':'translations/logos/contralinea.png',
+    'Revista Contralínea':'translations/logos/contralinea.png',
   };
   function outletIcon(name){
-    const o=outlets[name]||{bg:'linear-gradient(135deg,#3a3a3a,#222)',letter:(name||'?')[0]};
-    return `<div class="tl-outlet-icon" style="background:${o.bg}">${o.letter}</div>`;
+    const src=outletLogos[name];
+    if(src) return `<img class="tl-outlet-icon" src="${src}" alt="${esc(name)}">`;
+    return `<img class="tl-outlet-icon" src="translations/logos/la-jornada.png" alt="${esc(name||'')}" style="opacity:.3">`;
   }
   fetch('translations/manifest.json?v='+Date.now())
     .then(r=>r.json())
