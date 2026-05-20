@@ -152,8 +152,11 @@
 │   ├── schedules.html          ← tabla de tareas programadas
 │   ├── LEEME.html              <span class="dim">← este archivo</span>
 │   ├── feed.json               <span class="dim">← feed de traducciones publicadas</span>
+│   ├── tg-feed.json            <span class="dim">← posts recientes de @resisres (widget en index)</span>
 │   ├── <span class="green">translations/</span>         ← traducciones EN para mexicosolidarity.com
+│   │   ├── index.html          <span class="dim">← lista de todas las traducciones (con outlet icons)</span>
 │   │   ├── viewer.html         <span class="dim">← Compare & Edit + Copy to WP</span>
+│   │   ├── manifest.json       <span class="dim">← índice usado por index.html y widget sidebar</span>
 │   │   └── &lt;slug&gt;/            <span class="dim">← una carpeta por artículo (article.html, original.json, meta.json, img/)</span>
 │   ├── <span class="green">inbox/</span>                ← bot de Telegram (ver sección abajo)
 │   ├── <span class="green">pwa/</span>                  ← manifests, iconos, service worker
@@ -178,8 +181,8 @@
 
 <div class="file-card">
   <div class="name">index.html <span class="tag tag-activo">ACTIVO</span></div>
-  <div class="desc">Menú principal / launcher. Muestra todas las apps como tarjetas con icono y color. Responsive: 3 columnas en móvil, auto-fill en escritorio. Es la página por defecto en GitHub Pages.</div>
-  <div class="meta">3.4 KB · 6 apps listadas · Página de inicio en sartinezmelgarejo-eng.github.io/sds/</div>
+  <div class="desc">Menú principal / launcher. Muestra 4 apps como tarjetas con thumbnail (sin texto, nombre solo en tooltip al hover). Barra de búsqueda (Google con autofocus, Yandex, X, YouTube). Sidebar derecho (360px) con dos widgets: Telegram feed (arriba, fondo navy con radial glows, lee de <code>tg-feed.json</code> con thumbnails de los posts) y Translations (abajo, fondo amber/parchment con banner de madera clickeable e iconos de outlet). Botón "More Apps" abre launchpad full-screen con backdrop blur mostrando apps adicionales (Iglesia, China Trip, Schedules) como tarjetas con thumbnail.</div>
+  <div class="meta">~12 KB · Página de inicio en sartinezmelgarejo-eng.github.io/sds/</div>
 </div>
 
 <div class="file-card">
@@ -232,6 +235,12 @@
   <div class="name">feed.json <span class="tag tag-activo">ACTIVO</span></div>
   <div class="desc">Índice JSON de traducciones publicadas. Lo consume el viewer y cualquier futura UI de listado. Se actualiza cuando el bot termina una traducción nueva.</div>
   <div class="meta">~19 KB</div>
+</div>
+
+<div class="file-card">
+  <div class="name">tg-feed.json <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Feed de posts recientes del canal @resisres. Array de objetos con <code>id</code> (post ID), <code>text</code> (preview), <code>date</code>, <code>img</code> (CDN thumbnail URL o null). Lo consume el widget de Telegram en index.html. Actualmente se actualiza manualmente — pendiente conectar a las tareas que publican en el canal para auto-refresh.</div>
+  <div class="meta">~2 KB · 5 posts</div>
 </div>
 
 <div class="file-card">
@@ -733,6 +742,7 @@ with pdfplumber.open("Books/Autor/Libro.pdf") as pdf:
   <li><strong>Abril 2026 (7)</strong> — MAPA: agregado libro #220 — W. E. B. Du Bois "Black Reconstruction in America, 1860-1880" (1935). 6 citas verificadas contra PDF con pdfplumber, QUOTE_PAGES actualizados, portada de Open Library. Estante: fundamentos.</li>
   <li><strong>Abril 2026 (8)</strong> — MAPA: auditoría de citas en Línea de Tiempo y Atlas. Se eliminaron 16 citas genéricas o fuera de lugar en la línea de tiempo (2 misplaced, 14 genéricas). Se agregó link "📄 Ver en PDF" a las citas de la línea de tiempo — ahora usan <code>getQuotePageLink</code> igual que las citas de los libros. Se refinaron keywords del Atlas de Conceptos: eliminados términos genéricos que causaban falsos positivos (<code>'capital '</code>, <code>'negro'</code>, <code>'papa '</code>, <code>'cura '</code>, <code>'colonia'</code>, <code>'pueblo'</code>, <code>'clásico'</code>, <code>'domina'</code>, etc.) y reemplazados por términos más específicos.</li>
   <li><strong>Abril 2026 (9)</strong> — Inbox v2: sistema inbox migrado de inbox.py (stateless, API-based con modos explícitos) a inbox-v2.py (sesiones persistentes de Claude Code CLI, zero API cost). Migrado de cron a launchd (<code>com.resisres.inbox</code>, cada 5 min). china-trip-planner renombrado a china-trip-planner-enhanced.html. LEEME actualizado con nueva arquitectura de inbox y conteos corregidos.</li>
+  <li><strong>Mayo 2026 (2)</strong> — index.html rediseñado: eliminado header y textos de tarjetas (solo thumbnails con tooltip on hover, sin gradientes). Sidebar ampliado a 360px con dos widgets (Telegram arriba + Translations abajo) cada uno con fondo texturizado propio. Widget Telegram lee de <code>tg-feed.json</code> y muestra posts con thumbnails de 48px. Widget Translations tiene banner clickeable con textura de madera y texto 3D gold, lista con iconos de outlet (letra con gradiente de color de marca). Botón "More Apps" ahora abre launchpad full-screen con backdrop blur y tarjetas grandes con thumbnail (solo apps no en pantalla principal). Google search con autofocus. <code>translations/index.html</code> actualizado con los mismos outlet icons (40px).</li>
   <li><strong>Mayo 2026 (1)</strong> — Sistema de traducciones para mexicosolidarity.com: nuevo trigger <code>traduce: &lt;URL&gt;</code> en el topic Traducciones de Telegram. El bot descarga el artículo ES, lo traduce al EN, sube las imágenes a WordPress Media Library vía REST API (<code>POST /wp-json/wp/v2/media</code> con Basic Auth + App Password), y genera <code>article.html</code> con las URLs de mexicosolidarity directamente (cero rastro de GitHub). Carpeta <code>translations/&lt;slug&gt;/</code> con article.html + original.json + meta.json + img/. Nuevo <code>viewer.html</code> para Compare &amp; Edit lado a lado y copy-to-WP. Protocolo en <code>inbox/TRANSLATIONS_PROTOCOL.md</code>, referencia de blocks Gutenberg/Kadence en <code>inbox/WP_BLOCKS_REFERENCE.md</code>. Credenciales WP en <code>inbox/.wp-creds.json</code> (gitignored, perms 600). Si falla un upload, aborta y limpia imágenes ya subidas — nunca mezcla URLs WP+GitHub en un mismo artículo.</li>
 </ul>
 
