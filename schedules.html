@@ -515,6 +515,13 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
   30%{opacity:.8;transform:scale(1.5)}
   100%{opacity:0;transform:scale(2.8)}
 }
+.task .emoji{
+  font-size:18px;line-height:1;
+  filter:drop-shadow(0 0 8px rgba(0,0,0,.85)) drop-shadow(0 1px 3px rgba(0,0,0,1));
+  user-select:none;
+}
+body[data-view="week"] .task .emoji{font-size:14px}
+body[data-view="month"] .task .emoji{display:none}
 .task .time{
   font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
   color:var(--gold);letter-spacing:.5px;font-variant-numeric:tabular-nums;
@@ -779,26 +786,33 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
 // TASK DATA
 // ═══════════════════════════════════════════════════════════════════
 const TASKS_DAILY = [
-  { id:'scant',          cat:'tg', hour:7.25,  days:[0,1,2,3,4,5,6] },
-  { id:'inegi',          cat:'mn', hour:8.0,   days:[1,3,5] },
-  { id:'banxico',        cat:'mn', hour:8.5,   days:[1,3,5] },
-  { id:'security',       cat:'mn', hour:9.0,   days:[2] },
-  { id:'datos-gob',      cat:'dt', hour:9.5,   days:[0,1,2,3,4,5,6] },
-  { id:'onmexico',       cat:'tg', hour:10.05, days:[0,1,2,3,4,5,6] },
-  { id:'mananera-datos', cat:'dt', hour:11.5,  days:[2,5] },
-  { id:'dailyt',         cat:'tg', hour:13.5,  days:[1,2,3,4,5] },
-  { id:'mananeras',      cat:'dt', hour:19.0,  days:[0,1,2,3,4,5,6] },
-  { id:'scant',          cat:'tg', hour:20.25, days:[0,1,2,3,4,5,6] },
+  { id:'scant',          cat:'tg', sub:'news',      emoji:'📰', hour:7.25,  days:[0,1,2,3,4,5,6] },
+  { id:'inegi',          cat:'mn', sub:'inegi',     emoji:'📈', hour:8.0,   days:[1,3,5] },
+  { id:'banxico',        cat:'mn', sub:'banxico',   emoji:'🏦', hour:8.5,   days:[1,3,5] },
+  { id:'security',       cat:'mn', sub:'security',  emoji:'🛡', hour:9.0,   days:[2] },
+  { id:'datos-gob',      cat:'dt', sub:'gov',       emoji:'🗂', hour:9.5,   days:[0,1,2,3,4,5,6] },
+  { id:'onmexico',       cat:'tg', sub:'intl',      emoji:'🌎', hour:10.05, days:[0,1,2,3,4,5,6] },
+  { id:'mananera-datos', cat:'dt', sub:'manana-d',  emoji:'📊', hour:11.5,  days:[2,5] },
+  { id:'dailyt',         cat:'tg', sub:'daily',     emoji:'📅', hour:13.5,  days:[1,2,3,4,5] },
+  { id:'mananeras',      cat:'dt', sub:'mananera',  emoji:'🌅', hour:19.0,  days:[0,1,2,3,4,5,6] },
+  { id:'scant',          cat:'tg', sub:'news',      emoji:'📰', hour:20.25, days:[0,1,2,3,4,5,6] },
 ];
 const TASKS_MONTHLY = [
-  { id:'fiscal',     cat:'mn', day:1,  hour:11.0 },
-  { id:'fiscal',     cat:'mn', day:15, hour:11.0 },
-  { id:'energy',     cat:'mn', day:1,  hour:11.5 },
-  { id:'energy',     cat:'mn', day:15, hour:11.5 },
-  { id:'trimestral', cat:'mn', day:1,  hour:12.0 },
-  { id:'trimestral', cat:'mn', day:15, hour:12.0 },
-  { id:'general',    cat:'mn', day:10, hour:12.5 },
+  { id:'fiscal',     cat:'mn', sub:'fiscal',     emoji:'💰', day:1,  hour:11.0 },
+  { id:'fiscal',     cat:'mn', sub:'fiscal',     emoji:'💰', day:15, hour:11.0 },
+  { id:'energy',     cat:'mn', sub:'energy',     emoji:'⚡', day:1,  hour:11.5 },
+  { id:'energy',     cat:'mn', sub:'energy',     emoji:'⚡', day:15, hour:11.5 },
+  { id:'trimestral', cat:'mn', sub:'trimestral', emoji:'📋', day:1,  hour:12.0 },
+  { id:'trimestral', cat:'mn', sub:'trimestral', emoji:'📋', day:15, hour:12.0 },
+  { id:'general',    cat:'mn', sub:'general',    emoji:'🏛', day:10, hour:12.5 },
 ];
+// Sub-offsets within each main lane (% relative to lane center) — only active in zoomed views
+const SUB_OFFSET = {
+  'news':-3, 'daily':0, 'intl':3, 'dragon':6,
+  'mananera':-3, 'manana-d':0, 'gov':3,
+  'inegi':-4, 'banxico':-2, 'security':2,
+  'fiscal':-3, 'energy':0, 'trimestral':3, 'general':6,
+};
 const CAT_LABEL = { tg:'Telegram', dt:'Datos', mn:'Monitor' };
 const DAY_LETTERS = ['L','M','M','J','V','S','D'];
 const DAY_NAMES_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -976,11 +990,11 @@ function buildTaskCards() {
       card.dataset.cat = t.cat;
       card.dataset.hour = t.hour;
       card.dataset.days = t.days.join(',');
+      card.dataset.sub = t.sub || '';
       card.innerHTML = `
         <div class="star"></div>
+        <div class="emoji">${t.emoji || '·'}</div>
         <div class="time">${fmtH(t.hour)}</div>
-        <div class="name">${t.id}</div>
-        <div class="cat-label">${CAT_LABEL[t.cat]}</div>
       `;
       stripEl.appendChild(card);
       taskInstances.push({ el: card, fireHour, task: t });
@@ -997,11 +1011,11 @@ function buildTaskCards() {
       card.dataset.cat = t.cat;
       card.dataset.hour = t.hour;
       card.dataset.days = 'monthly';
+      card.dataset.sub = t.sub || '';
       card.innerHTML = `
         <div class="star"></div>
+        <div class="emoji">${t.emoji || '·'}</div>
         <div class="time">${fmtH(t.hour)}</div>
-        <div class="name">${t.id}</div>
-        <div class="cat-label">día ${pad(t.day)}</div>
       `;
       stripEl.appendChild(card);
       taskInstances.push({ el: card, fireHour, task: t, monthly: true });
@@ -1073,15 +1087,15 @@ function updateFalling() {
     inst.el.style.top = y + 'px';
     const dist = inst.fireHour - h;
 
-    // Horizontal orbit: each lane curves slightly inward near the horizon, not all the way to center
+    // Horizontal orbit: each lane curves slightly inward near the horizon + sub-channel offset within lane
+    const subOff = SUB_OFFSET[inst.task.sub] || 0;
     if (orbitsActive && dist > 0) {
       const t = Math.min(1, dist / convergeRange);
-      const eased = 0.65 + 0.35 * (t * t);  // 65% offset at horizon → 100% offset far away
-      const offsetPct = LANE_OFFSET[inst.task.cat] * eased;
+      const eased = 0.65 + 0.35 * (t * t);
+      const offsetPct = (LANE_OFFSET[inst.task.cat] + subOff) * eased;
       inst.el.style.left = `calc(50% + ${offsetPct}%)`;
     } else if (orbitsActive) {
-      // Past: keep at the slightly-inward position
-      const offsetPct = LANE_OFFSET[inst.task.cat] * 0.65;
+      const offsetPct = (LANE_OFFSET[inst.task.cat] + subOff) * 0.65;
       inst.el.style.left = `calc(50% + ${offsetPct}%)`;
     } else {
       inst.el.style.left = '50%';
@@ -1294,7 +1308,7 @@ const tipEl = document.getElementById('tip');
 document.addEventListener('pointerover', e => {
   const c = e.target.closest('.task');
   if (!c) return;
-  const id = c.dataset.taskId, cat = c.dataset.cat;
+  const id = c.dataset.taskId, cat = c.dataset.cat, sub = c.dataset.sub || '';
   const hr = parseFloat(c.dataset.hour);
   const days = c.dataset.days.split(',').map(Number);
   const now = new Date();
