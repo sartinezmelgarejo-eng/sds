@@ -268,16 +268,24 @@ body{
 /* Star + text floating, no capsule — the star itself says everything */
 .task{
   position:absolute;left:50%;
-  display:flex;align-items:center;gap:12px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
   cursor:pointer;pointer-events:auto;white-space:nowrap;
   transform:translate(-50%,-50%);
   padding:4px 12px;
   transition:opacity 1.4s ease, filter 1.4s ease;
   will-change:transform,opacity;
 }
+/* Star wrapper — relative container so emoji can sit inside the clipped star */
+.task .star-wrap{
+  position:relative;width:52px;height:52px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:width .5s ease, height .5s ease;
+  isolation:isolate; /* contain mix-blend-mode to the star, not the page */
+}
 /* Star — hot ember, red/fire core, category tint in the outer halo */
 .task .star{
-  width:24px;height:24px;flex-shrink:0;
+  position:absolute;inset:0;
+  width:100%;height:100%;flex-shrink:0;
   background:radial-gradient(circle at 50% 38%,
     #ffe2a0 0%,
     #ff8830 18%,
@@ -318,14 +326,15 @@ body{
 body[data-view="day"] .task .name{font-size:13px}
 
 /* Week-view zoom: smaller star, smaller text, no cat label */
-body[data-view="week"] .task .star{width:16px;height:16px}
+body[data-view="week"] .task .star-wrap{width:30px;height:30px}
 body[data-view="week"] .task .name{font-size:11px}
 body[data-view="week"] .task .time{font-size:10px}
 body[data-view="week"] .task .cat-label{display:none}
 
 /* Month-view zoom: just a glowing star, no text */
-body[data-view="month"] .task .star{width:11px;height:11px}
-body[data-view="month"] .task > *:not(.star){display:none}
+body[data-view="month"] .task .star-wrap{width:14px;height:14px}
+body[data-view="month"] .task > *:not(.star-wrap){display:none}
+body[data-view="month"] .task .emoji{display:none}
 
 /* ─── Orbit lanes — in week/month, separate tasks by category ─── */
 body[data-view="week"] .strip-zone,
@@ -391,8 +400,9 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
     radial-gradient(ellipse 95% 50% at 50% 50%, rgba(255,240,220,.10) 0%, transparent 75%);
 }
 /* Next task: hotter ember, heartbeat pulse — no rotation */
+.task.next .star-wrap{width:68px;height:68px}
+.task.next .emoji{font-size:28px;transform:translateY(4px)}
 .task.next .star{
-  width:32px;height:32px;
   background:radial-gradient(circle at 50% 38%,
     #ffe8b0 0%,
     #ff9040 16%,
@@ -436,6 +446,43 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
 .task.past .name{color:rgba(190,170,140,.55)}
 .task.past .time{color:rgba(170,140,90,.45)}
 .task.past .cat-label{opacity:.3}
+
+/* ─── Telemetry outcomes — what actually happened (from task-log.ndjson) ─── */
+/* Successful past run: warm gold afterglow, still recognizable as a fired star */
+.task.past.outcome-ok .star{
+  background:radial-gradient(circle at 50% 38%, #ffe2a0 0%, #d8a850 35%, #8a5c20 70%, #3a2410 100%);
+  filter:grayscale(.15) brightness(.85) drop-shadow(0 0 4px #c89028) drop-shadow(0 0 10px rgba(200,144,40,.45));
+  opacity:.88;
+}
+.task.past.outcome-ok .time{color:rgba(216,168,80,.85)}
+
+/* Failed past run: dim red coal, slight crimson smoke */
+.task.past.outcome-failed .star{
+  background:radial-gradient(circle at 50% 38%, #c83020 0%, #6a1010 50%, #2a0808 100%);
+  filter:grayscale(.3) brightness(.7) drop-shadow(0 0 4px #a82010) drop-shadow(0 0 12px rgba(168,32,16,.55));
+  opacity:.78;
+}
+.task.past.outcome-failed .time{color:rgba(216,80,64,.85)}
+
+/* Skipped: barely there, ashen — task chose not to fire (sentinel, no transcript, etc) */
+.task.past.outcome-skipped .star{
+  background:radial-gradient(circle at 50% 38%, #4a4038 0%, #2a2018 60%, #100804 100%);
+  filter:grayscale(.85) brightness(.4);
+  opacity:.35;
+  animation:none;
+}
+.task.past.outcome-skipped .time{color:rgba(140,128,100,.4)}
+.task.past.outcome-skipped .emoji{opacity:.4}
+
+/* In progress: started but not yet ended — keep the live ember glow even past horizon */
+.task.outcome-running .star{
+  filter:drop-shadow(0 0 6px #ff7030) drop-shadow(0 0 14px #b81810) drop-shadow(0 0 28px var(--cat-glow)) !important;
+  animation:ember-burn 2.2s ease-in-out infinite !important; /* faster pulse = "working" */
+  opacity:1 !important;
+}
+.task.past.outcome-running .star{
+  background:radial-gradient(circle at 50% 38%, #ffe2a0 0%, #ff8830 18%, #d8281a 48%, #7a0e0c 100%) !important;
+}
 
 /* Crossing the horizon: slow ember intensification — savored, not exploded */
 @keyframes star-supernova{
@@ -536,12 +583,20 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
   100%{opacity:0;transform:scale(2.4)}
 }
 .task .emoji{
-  font-size:18px;line-height:1;
-  filter:drop-shadow(0 0 8px rgba(0,0,0,.85)) drop-shadow(0 1px 3px rgba(0,0,0,1));
-  user-select:none;
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:20px;line-height:1;
+  /* Clip to the same polygon as the star — emoji never overflows the points */
+  clip-path:polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  /* Burn the emoji into the ember: desaturate to a dark imprint, then multiply onto the gradient */
+  filter:grayscale(1) brightness(.22) contrast(1.35);
+  mix-blend-mode:multiply;
+  opacity:.95;
+  user-select:none;pointer-events:none;
+  z-index:2;
+  transform:translateY(3px); /* sit in the pentagonal body of the star, below the top tip */
 }
-body[data-view="week"] .task .emoji{font-size:14px}
-body[data-view="month"] .task .emoji{display:none}
+body[data-view="week"] .task .emoji{font-size:11px;transform:translateY(2px)}
 .task .time{
   font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
   color:var(--gold);letter-spacing:.5px;font-variant-numeric:tabular-nums;
@@ -717,6 +772,172 @@ body[data-view="month"] .task .emoji{display:none}
   }
 }
 
+/* ─── Feed sheet — slides up from the horizon to reveal what was sent ─── */
+.feed-btn{
+  position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  z-index:50;
+  background:linear-gradient(180deg, rgba(216,168,80,.18), rgba(168,32,26,.18));
+  border:1px solid var(--gold);
+  color:var(--gold-pale);
+  font-family:'Cinzel',serif;font-size:11px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;
+  padding:9px 22px;border-radius:30px;cursor:pointer;
+  box-shadow:0 0 18px rgba(216,168,80,.22), 0 6px 16px rgba(0,0,0,.6);
+  backdrop-filter:blur(4px);
+  transition:all .35s ease, transform .35s ease;
+}
+.feed-btn:hover{background:linear-gradient(180deg, rgba(216,168,80,.32), rgba(168,32,26,.28));box-shadow:0 0 28px rgba(216,168,80,.4)}
+.feed-btn .count{
+  display:inline-block;margin-left:8px;padding:1px 7px;
+  background:rgba(168,32,26,.5);border-radius:10px;color:var(--gold-bright);font-size:10px;
+}
+body.sheet-open .feed-btn{opacity:0;pointer-events:none;transform:translateX(-50%) translateY(20px)}
+
+.feed-backdrop{
+  position:fixed;inset:0;z-index:90;
+  background:radial-gradient(ellipse at center bottom, rgba(40,16,12,.55) 0%, rgba(8,4,2,.78) 100%);
+  opacity:0;pointer-events:none;transition:opacity .55s ease;
+  backdrop-filter:blur(2px);
+}
+body.sheet-open .feed-backdrop{opacity:1;pointer-events:auto}
+
+.feed-sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:100;
+  /* Sheet starts at the (potentially lifted) horizon line and extends to bottom.
+     As JS lifts the horizon, this top edge rises with it — sheet "reveals" rather than slides. */
+  top:calc(var(--horizon-y) + 18px);
+  background:linear-gradient(180deg,
+    rgba(6,14,24,.0) 0%,                 /* fully transparent at top — blends with sky/horizon glow */
+    rgba(8,18,30,.88) 6%,                /* deep ocean just under the surface */
+    rgba(14,24,42,.96) 18%,              /* dark cold water */
+    rgba(28,22,38,.97) 42%,              /* warming as we descend */
+    rgba(58,32,36,.97) 68%,              /* emberish glow */
+    rgba(110,52,32,.98) 92%,             /* vivid warm */
+    rgba(140,68,32,.98) 100%);
+  /* No hard border — the horizon line above provides the visual edge */
+  box-shadow:0 -2px 40px rgba(216,168,80,.18);
+  opacity:0;pointer-events:none;
+  transition:opacity .55s ease;  /* `top` is driven by JS-eased --horizon-y, not CSS */
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+body.sheet-open .feed-sheet{opacity:1;pointer-events:auto}
+/* When the sheet is open, the horizon glows brighter as if catching the light from below */
+body.sheet-open .horizon svg .line{
+  stroke-width:1.8;
+  filter:drop-shadow(0 0 14px rgba(240,208,144,.95)) drop-shadow(0 0 32px rgba(168,32,26,.55));
+  transition:stroke-width .6s ease, filter .6s ease;
+}
+
+.feed-sheet-handle{
+  width:52px;height:3px;border-radius:2px;
+  background:linear-gradient(90deg, transparent, rgba(240,208,144,.55), transparent);
+  margin:14px auto 0;flex-shrink:0;
+}
+.feed-sheet-header{
+  display:flex;align-items:baseline;justify-content:space-between;
+  padding:14px 26px 12px;
+  flex-shrink:0;
+  /* No bottom border — let the gradient flow */
+}
+.feed-sheet-title{
+  font-family:'Cinzel',serif;font-size:14px;font-weight:600;letter-spacing:3px;text-transform:uppercase;
+  color:var(--gold-bright);
+}
+.feed-sheet-title .sub{
+  display:block;font-size:10px;font-weight:400;letter-spacing:1.5px;text-transform:none;
+  color:var(--muted);margin-top:2px;font-family:'Inter',sans-serif;
+}
+.feed-sheet-close{
+  background:transparent;border:none;color:var(--gold);
+  font-size:24px;line-height:1;cursor:pointer;padding:4px 10px;
+  border-radius:6px;transition:background .2s;
+}
+.feed-sheet-close:hover{background:rgba(216,168,80,.12)}
+
+.feed-sheet-body{
+  flex:1;overflow-y:auto;padding:14px 22px 28px;
+  scrollbar-width:thin;scrollbar-color:rgba(216,168,80,.3) transparent;
+}
+.feed-sheet-body::-webkit-scrollbar{width:6px}
+.feed-sheet-body::-webkit-scrollbar-thumb{background:rgba(216,168,80,.3);border-radius:3px}
+
+.send-card{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:12px 14px;margin:0 0 8px;
+  background:linear-gradient(90deg, rgba(216,168,80,.06), rgba(168,32,26,.03));
+  border:1px solid rgba(216,168,80,.12);border-radius:8px;
+  color:inherit;text-decoration:none;
+  transition:all .25s ease;
+}
+.send-card:hover{
+  background:linear-gradient(90deg, rgba(216,168,80,.14), rgba(168,32,26,.08));
+  border-color:rgba(216,168,80,.32);
+  transform:translateX(2px);
+}
+.send-card img{
+  width:54px;height:54px;object-fit:cover;border-radius:5px;flex-shrink:0;
+  border:1px solid rgba(216,168,80,.18);
+  background:#1a0e08;
+}
+.send-card .body{flex:1;min-width:0}
+.send-card .meta{
+  display:flex;gap:10px;align-items:center;font-size:10px;
+  color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;
+  font-family:'JetBrains Mono',monospace;
+}
+.send-card .meta .chat{color:var(--gold)}
+.send-card .meta .task{color:var(--c-dt)}
+.send-card .text{
+  font-size:13px;color:var(--gold-pale);line-height:1.45;
+  word-wrap:break-word;overflow-wrap:break-word;
+}
+.feed-empty{
+  color:var(--muted);text-align:center;padding:40px 20px;
+  font-style:italic;font-size:13px;
+}
+/* Per-run grouping: each task run is one bordered block. The sends inside
+   share a left rail so it's visually obvious they're siblings of one run. */
+.feed-run{
+  margin:0 0 22px;padding:12px 14px 8px;
+  background:linear-gradient(180deg, rgba(216,168,80,.06) 0%, rgba(168,32,26,.02) 100%);
+  border-left:2px solid rgba(216,168,80,.45);
+  border-radius:0 8px 8px 0;
+}
+.feed-run:first-child{margin-top:2px}
+.feed-run-header{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding-bottom:8px;margin-bottom:10px;
+  border-bottom:1px dashed rgba(216,168,80,.18);
+}
+.feed-run-task{
+  font-family:'Cinzel',serif;font-size:13px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;color:var(--gold-bright);
+}
+.feed-run-task .cat-dot{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+  margin-right:8px;vertical-align:1px;
+  box-shadow:0 0 8px currentColor;
+}
+.feed-run-meta{
+  display:flex;gap:14px;align-items:baseline;flex:1;
+  font-size:10px;letter-spacing:1.5px;color:var(--muted);
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;
+}
+.feed-run-meta .time{color:var(--gold)}
+.feed-run-meta .chat{color:rgba(216,168,80,.7)}
+.feed-run-count{
+  margin-left:auto;
+  background:rgba(168,32,26,.32);color:var(--gold-bright);
+  padding:2px 10px;border-radius:10px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:1px;
+}
+.feed-run .send-card{margin-left:0}
+
+/* Highlight the star that's currently expanded */
+.task.sheet-source .star{
+  filter:drop-shadow(0 0 10px #ffe2a0) drop-shadow(0 0 22px #ffb060) drop-shadow(0 0 48px var(--cat-glow)) !important;
+}
+
 /* ─── Mobile — stripped to essentials: sky + horizon + falling tasks + 1 next ─── */
 @media(max-width:760px){
   :root{--header-h:60px}
@@ -738,11 +959,12 @@ body[data-view="month"] .task .emoji{display:none}
   body[data-view="week"] .strip-zone,
   body[data-view="month"] .strip-zone{width:100%;max-width:100%}
   /* Tasks bigger for touch */
-  .task{padding:4px 10px;gap:10px}
-  .task .star{width:24px;height:24px}
-  .task .emoji{font-size:18px}
+  .task{padding:4px 10px;gap:3px}
+  .task .star-wrap{width:50px;height:50px}
+  .task .emoji{font-size:19px}
   .task .time{font-size:11px}
-  .task.next .star{width:30px;height:30px}
+  .task.next .star-wrap{width:64px;height:64px}
+  .task.next .emoji{font-size:26px}
   /* Orbital lanes don't fit on mobile — keep tasks centered always */
   body[data-view="week"] .task,
   body[data-view="month"] .task{left:50% !important}
@@ -1058,6 +1280,44 @@ function buildHourTicks() {
   }
 }
 
+// ── Telemetry: task outcomes loaded from task-log.ndjson ──────────────────
+// Map[taskId][YYYY-MM-DD] = { status, started, ended, duration, reason }
+// status ∈ 'running' | 'ok' | 'failed' | 'skipped'
+let taskOutcomes = {};
+async function loadTaskOutcomes() {
+  try {
+    const res = await fetch('task-log.ndjson?_=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const map = {};
+    text.split('\n').forEach(line => {
+      line = line.trim();
+      if (!line) return;
+      let ev; try { ev = JSON.parse(line); } catch { return; }
+      const { task, event, ts_local } = ev;
+      if (!task || !event || !ts_local) return;
+      const date = ts_local.slice(0, 10);  // YYYY-MM-DD local
+      map[task] = map[task] || {};
+      const slot = map[task][date] = map[task][date] || {};
+      if (event === 'start')  { slot.started = ts_local; slot.status = slot.status || 'running'; }
+      if (event === 'skip')   { slot.status = 'skipped'; slot.reason = ev.reason || ''; }
+      if (event === 'end')    {
+        slot.ended = ts_local;
+        slot.duration = ev.duration ? parseInt(ev.duration, 10) : null;
+        slot.status = (ev.status === 'ok' || ev.exit === '0') ? 'ok' : 'failed';
+      }
+    });
+    taskOutcomes = map;
+  } catch (e) {
+    // silently ignore — page works fine without telemetry
+  }
+}
+function outcomeFor(taskId, date) {
+  return (taskOutcomes[taskId] && taskOutcomes[taskId][date]) || null;
+}
+loadTaskOutcomes();
+setInterval(loadTaskOutcomes, 60_000);  // refresh every minute
+
 const taskInstances = [];
 function buildTaskCards() {
   stripEl.querySelectorAll('.task').forEach(n => n.remove());
@@ -1072,6 +1332,8 @@ function buildTaskCards() {
     const jsDay = date.getDay();
     const dom = date.getDate();
     // Daily tasks that fire on this weekday
+    // Local YYYY-MM-DD (must match ts_local in task-log.ndjson, not UTC)
+    const isoDate = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
     TASKS_DAILY.forEach(t => {
       if (!t.days.includes(jsDay)) return;
       const fireHour = t.hour + dayOffset*24;
@@ -1082,10 +1344,13 @@ function buildTaskCards() {
       card.dataset.hour = t.hour;
       card.dataset.days = t.days.join(',');
       card.dataset.sub = t.sub || '';
+      card.dataset.date = isoDate;
       card.innerHTML = `
-        <div class="star"></div>
-        <div class="emoji">${t.emoji || '·'}</div>
         <div class="time">${fmtH(t.hour)}</div>
+        <div class="star-wrap">
+          <div class="star"></div>
+          <div class="emoji">${t.emoji || '·'}</div>
+        </div>
       `;
       stripEl.appendChild(card);
       taskInstances.push({ el: card, fireHour, task: t });
@@ -1103,10 +1368,13 @@ function buildTaskCards() {
       card.dataset.hour = t.hour;
       card.dataset.days = 'monthly';
       card.dataset.sub = t.sub || '';
+      card.dataset.date = isoDate;
       card.innerHTML = `
-        <div class="star"></div>
-        <div class="emoji">${t.emoji || '·'}</div>
         <div class="time">${fmtH(t.hour)}</div>
+        <div class="star-wrap">
+          <div class="star"></div>
+          <div class="emoji">${t.emoji || '·'}</div>
+        </div>
       `;
       stripEl.appendChild(card);
       taskInstances.push({ el: card, fireHour, task: t, monthly: true });
@@ -1205,6 +1473,11 @@ function updateFalling() {
     if (dist <= 0) inst.el.classList.add('past');
     else inst.el.classList.remove('past');
 
+    // Telemetry-driven outcome class for past/in-progress tasks
+    const oc = outcomeFor(inst.task.id, inst.el.dataset.date);
+    ['outcome-ok','outcome-failed','outcome-skipped','outcome-running'].forEach(c => inst.el.classList.remove(c));
+    if (oc && oc.status) inst.el.classList.add('outcome-' + oc.status);
+
     // Always track future tasks for next-up (even if outside visible fall window)
     if (dist > 0) futureInsts.push(inst);
 
@@ -1232,9 +1505,22 @@ function updateFalling() {
     _lastAtmBucket = bucket;
     updateSkyAtmosphere(h);
   }
-  document.documentElement.style.setProperty('--horizon-y', horizonPx + 'px');
+  // Eased horizon lift when the feed sheet is open — feels like the horizon rises and you dive under.
+  // Target is recomputed each frame so it tracks any natural movement of the horizon.
+  // When open: lift to leave HORIZON_OPEN_Y from the top (a thin strip of sky stays visible above the line).
+  const HORIZON_OPEN_Y = 56; // px from viewport top when sheet is open
+  const liftTarget = _horizonOpen ? Math.max(0, horizonPx - HORIZON_OPEN_Y) : 0;
+  const liftDelta = liftTarget - _horizonLift;
+  if (Math.abs(liftDelta) < 0.4) _horizonLift = liftTarget;
+  else _horizonLift += liftDelta * 0.10; // ~6 frames to settle
+  document.documentElement.style.setProperty('--horizon-y', (horizonPx - _horizonLift) + 'px');
   _firstFrame = false;
 }
+
+// Horizon lift state — toggled by openSheet/closeSheet, tweened in updateFalling()
+let _horizonLift = 0;
+let _horizonOpen = false;
+function setHorizonLift(open) { _horizonOpen = !!open; }
 
 function markNextUp(insts) {
   const el = document.getElementById('next-up');
@@ -1522,6 +1808,178 @@ setInterval(() => {
   }
 }, 30000);
 </script>
+
+<!-- ─── Feed dashboard: button + bottom sheet (reads sends.ndjson) ─── -->
+<button class="feed-btn" id="feed-btn">Feed<span class="count" id="feed-count">0</span></button>
+<div class="feed-backdrop" id="feed-backdrop"></div>
+<aside class="feed-sheet" id="feed-sheet" aria-hidden="true">
+  <div class="feed-sheet-handle"></div>
+  <div class="feed-sheet-header">
+    <div class="feed-sheet-title" id="feed-title">Recent sends<span class="sub" id="feed-subtitle"></span></div>
+    <button class="feed-sheet-close" id="feed-close" aria-label="Close">×</button>
+  </div>
+  <div class="feed-sheet-body" id="feed-body"></div>
+</aside>
+
+<script>
+// ── Sends log: per-message records of what actually went out ──────────────
+// htmls/sends.ndjson is appended to by update-tg-feed.py after every send.
+let sendsByRun = {};   // sendsByRun[taskId][YYYY-MM-DD] = [send, ...]
+let allSends   = [];   // chronological newest-first
+
+function escapeHTML(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function loadSends() {
+  try {
+    const res = await fetch('sends.ndjson?_=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const map = {}, list = [];
+    text.split('\n').forEach(line => {
+      line = line.trim(); if (!line) return;
+      let s; try { s = JSON.parse(line); } catch { return; }
+      if (!s.ts) return;
+      const date = s.ts.slice(0, 10);
+      const task = s.task || 'unknown';
+      map[task] = map[task] || {};
+      map[task][date] = map[task][date] || [];
+      map[task][date].push(s);
+      list.push(s);
+    });
+    sendsByRun = map;
+    allSends = list.sort((a, b) => b.ts.localeCompare(a.ts));
+    document.getElementById('feed-count').textContent = allSends.length;
+  } catch (e) { /* page works fine without */ }
+}
+
+function renderSendCard(s) {
+  const time = (s.ts || '').slice(11, 16);
+  const date = (s.ts || '').slice(0, 10);
+  const thumb = s.img
+    ? `<img src="${escapeHTML(s.img)}" loading="lazy" onerror="this.style.display='none'">`
+    : '';
+  const taskLabel = s.task ? `<span class="task">${escapeHTML(s.task)}</span>` : '';
+  return `
+    <a class="send-card" href="${escapeHTML(s.url || '#')}" target="_blank" rel="noopener">
+      ${thumb}
+      <div class="body">
+        <div class="meta">
+          <span class="chat">${escapeHTML(s.chat_label || s.chat || '')}</span>
+          ${taskLabel}
+          <span>${date} · ${time}</span>
+        </div>
+        <div class="text">${escapeHTML(s.text || '')}</div>
+      </div>
+    </a>`;
+}
+
+// Map a task id to its category color (matches the lane colors)
+const TASK_CAT_COLORS = { tg:'var(--c-tg)', dt:'var(--c-dt)', mn:'var(--c-mn)' };
+function taskCatColor(taskId) {
+  // Look it up from the TASKS list if available
+  const t = (typeof TASKS_DAILY !== 'undefined') ? TASKS_DAILY.find(x => x.id === taskId) : null;
+  return TASK_CAT_COLORS[(t && t.cat) || 'tg'];
+}
+
+function renderRunGroup(run) {
+  // run.sends are newest-first; earliest is last in the array
+  const earliest = run.sends[run.sends.length - 1].ts || '';
+  const latest   = run.sends[0].ts || '';
+  const eT = earliest.slice(11, 16);
+  const lT = latest.slice(11, 16);
+  const timeRange = (eT === lT) ? eT : `${eT}–${lT}`;
+  const chats = [...new Set(run.sends.map(s => s.chat_label || s.chat || ''))].filter(Boolean).join(' · ');
+  const n = run.sends.length;
+  const dotColor = taskCatColor(run.task);
+  return `
+    <div class="feed-run">
+      <div class="feed-run-header">
+        <div class="feed-run-task"><span class="cat-dot" style="background:${dotColor};color:${dotColor}"></span>${escapeHTML(run.task)}</div>
+        <div class="feed-run-meta">
+          <span>${run.date}</span>
+          <span class="time">${timeRange}</span>
+          ${chats ? `<span class="chat">${escapeHTML(chats)}</span>` : ''}
+        </div>
+        <div class="feed-run-count">${n} post${n === 1 ? '' : 's'}</div>
+      </div>
+      ${run.sends.map(renderSendCard).join('')}
+    </div>`;
+}
+
+function openSheet(title, subtitle, sends, sourceEl) {
+  document.getElementById('feed-title').firstChild.textContent = title;
+  document.getElementById('feed-subtitle').textContent = subtitle || '';
+  const body = document.getElementById('feed-body');
+  if (!sends || sends.length === 0) {
+    body.innerHTML = '<div class="feed-empty">No sends recorded for this run yet.<br><br>Sends from future task runs will appear here automatically.</div>';
+  } else {
+    // Group by run = task + date (each row in calendar = one star = one run)
+    const byRun = {};
+    sends.forEach(s => {
+      const d = (s.ts || '').slice(0, 10);
+      const t = s.task || 'unknown';
+      const key = `${d}|${t}`;
+      if (!byRun[key]) byRun[key] = { task: t, date: d, sends: [] };
+      byRun[key].sends.push(s);
+    });
+    // Sort runs: newest day first, then newest send within day
+    const runs = Object.values(byRun).sort((a, b) => {
+      const aLatest = a.sends[0].ts || '';
+      const bLatest = b.sends[0].ts || '';
+      return bLatest.localeCompare(aLatest);
+    });
+    body.innerHTML = runs.map(renderRunGroup).join('');
+    body.scrollTop = 0;
+  }
+  document.body.classList.add('sheet-open');
+  document.querySelectorAll('.task.sheet-source').forEach(t => t.classList.remove('sheet-source'));
+  if (sourceEl) sourceEl.classList.add('sheet-source');
+  if (typeof setHorizonLift === 'function') setHorizonLift(true);
+}
+
+function closeSheet() {
+  document.body.classList.remove('sheet-open');
+  document.querySelectorAll('.task.sheet-source').forEach(t => t.classList.remove('sheet-source'));
+  if (typeof setHorizonLift === 'function') setHorizonLift(false);
+}
+
+// Click a star → show that run's sends. Click feed button → show ALL sends.
+document.addEventListener('click', e => {
+  if (e.target.closest('#feed-sheet') && !e.target.closest('#feed-close')) return;
+  if (e.target.closest('#feed-close') || e.target.closest('#feed-backdrop')) { closeSheet(); return; }
+  if (e.target.closest('#feed-btn')) {
+    openSheet('All sends', `${allSends.length} recent`, allSends, null);
+    return;
+  }
+  const taskEl = e.target.closest('.task');
+  if (taskEl) {
+    const tid = taskEl.dataset.taskId;
+    const date = taskEl.dataset.date;
+    const sends = (sendsByRun[tid] && sendsByRun[tid][date]) || [];
+    openSheet(tid, `${date} · ${sends.length} send${sends.length === 1 ? '' : 's'}`, sends, taskEl);
+  }
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+// Swipe-up to open the all-sends feed (mostly for touch / trackpad)
+let touchStartY = null;
+document.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+document.addEventListener('touchend', e => {
+  if (touchStartY === null || document.body.classList.contains('sheet-open')) { touchStartY = null; return; }
+  const dy = touchStartY - e.changedTouches[0].clientY;
+  if (dy > 80 && Math.abs(dy) > 50) {  // upward swipe
+    openSheet('All sends', `${allSends.length} recent`, allSends, null);
+  }
+  touchStartY = null;
+}, { passive: true });
+
+loadSends();
+setInterval(loadSends, 60_000);
+</script>
+
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
 </body>
 </html>
