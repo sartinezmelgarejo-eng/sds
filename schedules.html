@@ -1,94 +1,685 @@
 <!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Schedules</title>
-<link rel="manifest" href="pwa/manifest-schedules.json"><meta name="theme-color" content="#06b6d4"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="pwa/icon-schedules-192.png">
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clockwork — Scheduled Tasks</title>
+<link rel="manifest" href="pwa/manifest-schedules.json">
+<meta name="theme-color" content="#0d0605">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="pwa/icon-schedules-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#06090f;color:#e2e8f0;font-family:'Menlo','Courier New',monospace;padding:12px;min-height:100vh}
-h1{font-size:12px;color:#06b6d4;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
-.sub{font-size:9px;color:#64748b;margin-bottom:10px}
-.home{display:inline-block;margin-bottom:8px;color:#64748b;text-decoration:none;font-size:9px}
-.home:hover{color:#06b6d4}
-.wrap{overflow-x:auto;border:1px solid #1e293b;border-radius:8px}
-table{width:100%;border-collapse:collapse;font-size:8px;min-width:500px}
-th{color:#64748b;font-size:7px;text-transform:uppercase;letter-spacing:.5px;padding:5px 4px;border-bottom:1px solid #1e293b;text-align:center;position:sticky;top:0;background:#0a0e17}
-th:first-child{text-align:right;width:40px}
-td{padding:2px 3px;border-bottom:1px solid #0c1220;border-left:1px solid #0c1220;vertical-align:top;height:28px}
-td:first-child{text-align:right;color:#475569;font-size:7px;border-left:none;padding-right:6px;white-space:nowrap}
-.p{border-radius:3px;padding:1px 4px;font-size:7px;font-weight:700;margin:1px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
-.tg{background:#1a3a5c;color:#58a6ff}
-.dt{background:#1e3a2a;color:#3fb950}
-.mn{background:#3a1e2a;color:#f85149}
-.today th{color:#06b6d4}
-.legend{margin-top:10px;font-size:8px;color:#64748b;display:flex;gap:12px;flex-wrap:wrap}
-.legend span{display:inline-flex;align-items:center;gap:4px}
-.legend .dot{width:8px;height:8px;border-radius:2px;display:inline-block}
-.monthly{margin-top:12px;border:1px solid #1e293b;border-radius:8px;padding:8px 10px}
-.monthly h2{font-size:9px;color:#d29922;margin-bottom:6px;text-transform:uppercase;letter-spacing:1px}
-.monthly table{min-width:auto;border:none}
-.monthly td,.monthly th{border:none;border-bottom:1px solid #0c1220;height:auto;padding:3px 6px}
-.my{background:#2d2a1a;color:#d29922}
-@media(max-width:480px){
-  body{padding:8px 4px}
-  .p{font-size:6px;padding:1px 3px}
-  td{height:24px}
+:root{
+  --bg-deep:#0a0403;
+  --bg-mid:#180806;
+  --crimson:#a8201a;
+  --crimson-deep:#5a1010;
+  --crimson-blood:#7a1818;
+  --green:#2a6838;
+  --green-deep:#143a1c;
+  --gold:#d8a850;
+  --gold-bright:#f0d090;
+  --gold-pale:#e8d4a0;
+  --ochre:#a0683a;
+  --olive:#5a5028;
+  --cream:#f0e2c0;
+  --ink:#1a0a06;
+  --char:#2a1a10;
+  /* category colors — Mexican flag tones */
+  --c-tg:#e8b850;    /* gold = Telegram */
+  --c-dt:#3a9050;    /* green = Data */
+  --c-mn:#d04030;    /* red = Monitor */
 }
-</style></head><body>
-<a href="index.html" class="home">< Apps</a>
-<h1>Scheduled Tasks</h1>
-<p class="sub">Semana tipo</p>
-<div class="wrap">
-<table id="grid"></table>
+html,body{height:100%;overflow:hidden}
+body{
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(120,30,20,.32) 0%, transparent 55%),
+    radial-gradient(ellipse at 30% 80%, rgba(40,90,50,.15) 0%, transparent 60%),
+    var(--bg-deep);
+  color:var(--gold-pale);
+  font-family:'JetBrains Mono',monospace;
+  position:relative;
+}
+/* Subtle film grain */
+body::after{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode:overlay;
+}
+.stage{
+  position:relative;width:100%;height:100%;
+  display:flex;align-items:center;justify-content:center;
+  padding:18px;
+}
+.dial-wrap{
+  position:relative;
+  width:min(94vmin, 720px);
+  aspect-ratio:1;
+  filter:drop-shadow(0 4px 40px rgba(168,32,26,.18));
+}
+svg.dial{width:100%;height:100%;display:block;overflow:visible}
+
+/* Header / Footer overlays */
+.top-bar{
+  position:fixed;top:0;left:0;right:0;
+  padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;
+  z-index:5;pointer-events:none;
+}
+.brand{
+  font-family:'Cinzel',serif;font-weight:600;font-size:18px;
+  color:var(--gold-bright);letter-spacing:5px;text-transform:uppercase;
+  text-shadow:0 0 24px rgba(216,168,80,.4);
+  pointer-events:auto;
+}
+.brand .sub{
+  display:block;font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:3px;color:var(--ochre);font-weight:400;margin-top:3px;text-transform:uppercase;
+}
+.date-block{
+  font-family:'Cormorant Garamond',serif;text-align:right;color:var(--gold-pale);
+  pointer-events:auto;
+}
+.date-block .d{font-size:22px;font-weight:600;letter-spacing:1px;line-height:1}
+.date-block .dn{
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  letter-spacing:3px;color:var(--ochre);text-transform:uppercase;margin-top:3px;
+}
+
+.back{
+  position:fixed;bottom:18px;left:24px;color:var(--ochre);text-decoration:none;
+  font-size:11px;letter-spacing:2px;z-index:5;text-transform:uppercase;
+  transition:color .2s;font-family:'JetBrains Mono',monospace;
+}
+.back:hover{color:var(--gold-bright)}
+
+.next-list{
+  position:fixed;bottom:18px;right:24px;z-index:5;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--ochre);letter-spacing:1.5px;text-align:right;
+  pointer-events:auto;text-transform:uppercase;
+  background:rgba(10,4,3,.4);padding:10px 14px;border:1px solid rgba(168,32,26,.25);
+  backdrop-filter:blur(8px);
+}
+.next-list .title{color:var(--crimson);font-weight:600;margin-bottom:6px;font-size:9px;letter-spacing:2.5px}
+.next-list .row{display:flex;justify-content:flex-end;gap:10px;align-items:center;margin:3px 0;line-height:1.2}
+.next-list .row .nm{color:var(--gold-pale);font-weight:500}
+.next-list .row .tm{color:var(--gold);font-variant-numeric:tabular-nums;min-width:70px;text-align:right}
+.next-list .row .dot{width:6px;height:6px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+
+/* Tooltip */
+.tip{
+  position:fixed;background:linear-gradient(180deg,rgba(40,18,12,.97),rgba(20,10,6,.97));
+  border:1px solid var(--crimson-blood);padding:10px 14px;border-radius:2px;
+  font-size:11px;color:var(--gold-pale);pointer-events:none;opacity:0;
+  transition:opacity .15s;z-index:30;white-space:nowrap;
+  box-shadow:0 4px 28px rgba(0,0,0,.8), inset 0 1px 0 rgba(216,168,80,.15);
+  font-family:'JetBrains Mono',monospace;letter-spacing:.5px;
+}
+.tip.show{opacity:1}
+.tip b{color:var(--gold-bright);font-weight:600;font-size:12px}
+.tip .meta{color:var(--gold);font-size:10px;margin-top:5px;letter-spacing:1px}
+.tip .cat{margin-top:5px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase}
+.tip .countdown{color:var(--crimson);font-size:10px;margin-top:4px;letter-spacing:1px}
+
+/* SVG animations */
+@keyframes pulse-glow{
+  0%,100%{transform:scale(1);opacity:.95}
+  50%{transform:scale(1.35);opacity:.6}
+}
+.task-next{transform-origin:center;transform-box:fill-box;animation:pulse-glow 1.8s ease-in-out infinite}
+
+@keyframes hand-glow{
+  0%,100%{opacity:.7}
+  50%{opacity:1}
+}
+.hand-glow{animation:hand-glow 3s ease-in-out infinite}
+
+@keyframes star-shimmer{
+  0%,100%{opacity:.55;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.08)}
+}
+.star{transform-origin:center;animation:star-shimmer 5s ease-in-out infinite}
+
+/* Mobile */
+@media(max-width:600px){
+  .top-bar{padding:12px 14px}
+  .brand{font-size:14px;letter-spacing:3px}
+  .date-block .d{font-size:18px}
+  .next-list{font-size:9px;padding:8px 10px}
+  .next-list .row .tm{min-width:60px}
+}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="dial-wrap">
+    <svg class="dial" viewBox="-300 -300 600 600">
+      <!-- defs: filters, gradients, patterns -->
+      <defs>
+        <radialGradient id="bgRadial" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1a0805"/>
+          <stop offset="65%" stop-color="#0d0403"/>
+          <stop offset="100%" stop-color="#050201"/>
+        </radialGradient>
+        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#a8201a" stop-opacity=".4"/>
+          <stop offset="60%" stop-color="#5a1010" stop-opacity=".1"/>
+          <stop offset="100%" stop-color="#5a1010" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="brassRing" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f0d090"/>
+          <stop offset="50%" stop-color="#a87838"/>
+          <stop offset="100%" stop-color="#604018"/>
+        </linearGradient>
+        <linearGradient id="goldHand" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#f8e0a8"/>
+          <stop offset="50%" stop-color="#d8a850"/>
+          <stop offset="100%" stop-color="#8a5818"/>
+        </linearGradient>
+        <linearGradient id="crimsonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#c83020"/>
+          <stop offset="100%" stop-color="#5a0a08"/>
+        </linearGradient>
+        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="hardGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="6"/>
+          <feComposite in="SourceGraphic" operator="over"/>
+        </filter>
+        <!-- Star symbol (5-pointed) -->
+        <symbol id="star5" viewBox="-10 -10 20 20">
+          <polygon points="0,-9 2.65,-2.78 9.39,-2.78 3.87,1.06 5.96,7.78 0,3.6 -5.96,7.78 -3.87,1.06 -9.39,-2.78 -2.65,-2.78" fill="currentColor"/>
+        </symbol>
+        <!-- Laurel / wheat ornament half (mirrored for full) -->
+        <symbol id="laurelHalf" viewBox="0 -30 30 60">
+          <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
+            <path d="M 2 0 Q 14 -6 26 -2"/>
+            <path d="M 2 0 Q 14 6 26 2"/>
+            <ellipse cx="6" cy="-3" rx="2.2" ry="1"/>
+            <ellipse cx="11" cy="-4.5" rx="2.4" ry="1.1"/>
+            <ellipse cx="16" cy="-5" rx="2.5" ry="1.1"/>
+            <ellipse cx="21" cy="-4.5" rx="2.4" ry="1"/>
+            <ellipse cx="6" cy="3" rx="2.2" ry="1"/>
+            <ellipse cx="11" cy="4.5" rx="2.4" ry="1.1"/>
+            <ellipse cx="16" cy="5" rx="2.5" ry="1.1"/>
+            <ellipse cx="21" cy="4.5" rx="2.4" ry="1"/>
+          </g>
+        </symbol>
+      </defs>
+
+      <!-- Background disc -->
+      <circle r="290" fill="url(#bgRadial)"/>
+      <circle r="180" fill="url(#centerGlow)"/>
+
+      <!-- Outer engraved border -->
+      <circle r="285" fill="none" stroke="#3a1810" stroke-width="1"/>
+      <circle r="276" fill="none" stroke="#2a1208" stroke-width=".6" stroke-dasharray="2 6"/>
+
+      <!-- Ornamental laurel/wheat at cardinal points (subtle) -->
+      <g opacity=".35" stroke="none" fill="none" color="#7a4830">
+        <g transform="translate(0, -262)">
+          <g transform="scale(-1,1)"><use href="#laurelHalf"/></g>
+          <use href="#laurelHalf"/>
+        </g>
+        <g transform="translate(0, 262) rotate(180)">
+          <g transform="scale(-1,1)"><use href="#laurelHalf"/></g>
+          <use href="#laurelHalf"/>
+        </g>
+      </g>
+
+      <!-- Star at top (subtle communist-Mexican fusion, implicit) -->
+      <g class="star" color="#a8201a" transform="translate(0, -250)">
+        <use href="#star5" width="22" height="22" x="-11" y="-11" filter="url(#softGlow)"/>
+      </g>
+
+      <!-- MONTH RING (outermost task ring) — radius ~225 -->
+      <g id="monthRing"></g>
+
+      <!-- WEEK RING — radius ~175 -->
+      <g id="weekRing"></g>
+
+      <!-- DAY RING (the main protagonist) — radius ~125 -->
+      <g id="dayRing"></g>
+
+      <!-- Center: time -->
+      <g id="centerHub">
+        <circle r="58" fill="#0d0403" stroke="url(#brassRing)" stroke-width="1.5"/>
+        <circle r="55" fill="none" stroke="#3a1810" stroke-width=".5"/>
+        <circle r="3" fill="#d8a850" filter="url(#softGlow)"/>
+      </g>
+
+      <!-- Hand (drawn last so it's on top) -->
+      <g id="hand" filter="url(#softGlow)">
+        <line x1="0" y1="0" x2="0" y2="-225" stroke="url(#goldHand)" stroke-width="1.8"
+              stroke-linecap="round" class="hand-glow"/>
+        <polygon points="0,-225 -4,-215 4,-215" fill="#f0d090"/>
+        <circle r="5" fill="#a8201a" filter="url(#hardGlow)"/>
+      </g>
+    </svg>
+  </div>
 </div>
-<div class="legend">
-<span><i class="dot tg"></i> Telegram</span>
-<span><i class="dot dt"></i> Datos</span>
-<span><i class="dot mn"></i> Monitor</span>
-<span><i class="dot my"></i> Mensual (ver abajo)</span>
+
+<div class="top-bar">
+  <div class="brand">Clockwork<span class="sub">Scheduled · Tareas</span></div>
+  <div class="date-block">
+    <div class="d" id="time-readout">--:--:--</div>
+    <div class="dn" id="date-readout">— —</div>
+  </div>
 </div>
-<div class="monthly">
-<h2>Tareas mensuales</h2>
-<table>
-<tr><th style="text-align:left">Tarea</th><th style="text-align:left">Dias</th><th style="text-align:left">Hora</th></tr>
-<tr><td><span class="p my">fiscal</span></td><td style="color:#94a3b8">1 y 15</td><td style="color:#94a3b8">11:00</td></tr>
-<tr><td><span class="p my">energy</span></td><td style="color:#94a3b8">1 y 15</td><td style="color:#94a3b8">11:30</td></tr>
-<tr><td><span class="p my">trimestral</span></td><td style="color:#94a3b8">1 y 15</td><td style="color:#94a3b8">12:00</td></tr>
-<tr><td><span class="p my">general</span></td><td style="color:#94a3b8">10</td><td style="color:#94a3b8">12:30</td></tr>
-</table>
+
+<a class="back" href="index.html">← Apps</a>
+
+<div class="next-list" id="next-list">
+  <div class="title">Próximas</div>
+  <div id="next-rows"></div>
 </div>
+
+<div class="tip" id="tip"></div>
+
 <script>
-const D=['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
-const tasks=[
-{id:'datos-gob',c:'dt',d:[0,1,2,3,4,5,6],h:[9]},
-{id:'scant',c:'tg',d:[0,1,2,3,4,5,6],h:[7,13,20]},
-{id:'onmexico',c:'tg',d:[0,1,2,3,4,5,6],h:[10]},
-{id:'dailyt',c:'tg',d:[0,1,2,3,4],h:[13]},
-{id:'mananeras',c:'dt',d:[0,1,2,3,4,5,6],h:[19]},
-{id:'man-datos',c:'dt',d:[1,4],h:[11]},
-{id:'inegi',c:'mn',d:[0,2,4],h:[8]},
-{id:'banxico',c:'mn',d:[0,2,4],h:[8]},
-{id:'security',c:'mn',d:[1],h:[9]},
+// ═══════════════════════════════════════════════════════════════════
+// TASK DATA
+// ═══════════════════════════════════════════════════════════════════
+const TASKS_DAILY = [
+  { id:'scant',         cat:'tg', hour:7.25,  days:[0,1,2,3,4,5,6] },
+  { id:'inegi',         cat:'mn', hour:8.0,   days:[0,2,4] },
+  { id:'banxico',       cat:'mn', hour:8.5,   days:[0,2,4] },
+  { id:'security',      cat:'mn', hour:9.0,   days:[1] },
+  { id:'datos-gob',     cat:'dt', hour:9.5,   days:[0,1,2,3,4,5,6] },
+  { id:'onmexico',      cat:'tg', hour:10.05, days:[0,1,2,3,4,5,6] },
+  { id:'mananera-datos',cat:'dt', hour:11.5,  days:[1,4] },
+  { id:'dailyt',        cat:'tg', hour:13.5,  days:[0,1,2,3,4] },
+  { id:'mananeras',     cat:'dt', hour:19.0,  days:[0,1,2,3,4,5,6] },
+  { id:'scant',         cat:'tg', hour:20.25, days:[0,1,2,3,4,5,6] },
 ];
-const hours=[7,8,9,10,11,13,19,20];
-const today=(new Date().getDay()+6)%7;
-const grid=document.getElementById('grid');
-let hdr='<tr><th></th>';
-D.forEach((d,i)=>hdr+=`<th${i===today?' class="today"':''}>${d}</th>`);
-hdr+='</tr>';
-const lookup={};
-tasks.forEach(t=>t.d.forEach(d=>t.h.forEach(h=>{
-  const k=d+'-'+h;if(!lookup[k])lookup[k]=[];lookup[k].push(t);
-})));
-let rows='';
-hours.forEach(h=>{
-  rows+=`<tr><td>${h}:00</td>`;
-  for(let d=0;d<7;d++){
-    const ts=lookup[d+'-'+h]||[];
-    rows+='<td>'+ts.map(t=>`<span class="p ${t.c}">${t.id}</span>`).join('')+'</td>';
+const TASKS_MONTHLY = [
+  { id:'fiscal',     cat:'mn', day:1,  hour:11.0 },
+  { id:'fiscal',     cat:'mn', day:15, hour:11.0 },
+  { id:'energy',     cat:'mn', day:1,  hour:11.5 },
+  { id:'energy',     cat:'mn', day:15, hour:11.5 },
+  { id:'trimestral', cat:'mn', day:1,  hour:12.0 },
+  { id:'trimestral', cat:'mn', day:15, hour:12.0 },
+  { id:'general',    cat:'mn', day:10, hour:12.5 },
+];
+const CAT = {
+  tg: { color:'#e8b850', label:'Telegram' },
+  dt: { color:'#3a9050', label:'Data' },
+  mn: { color:'#d04030', label:'Monitor' },
+};
+const DAY_LETTERS = ['L','M','M','J','V','S','D']; // Mon-Sun for display (JS getDay: 0=Sun)
+const NS = 'http://www.w3.org/2000/svg';
+const SVG_DAY_R = 130;
+const SVG_WEEK_R = 178;
+const SVG_MONTH_R = 232;
+
+// JS getDay: 0=Sun..6=Sat. Convert to Mon=0..Sun=6
+const jsDayToMon = d => (d + 6) % 7;
+
+// ═══════════════════════════════════════════════════════════════════
+// SVG HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function el(tag, attrs = {}, parent = null) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) {
+    if (k === 'text') e.textContent = attrs[k];
+    else e.setAttribute(k, attrs[k]);
   }
-  rows+='</tr>';
+  if (parent) parent.appendChild(e);
+  return e;
+}
+// Polar to cartesian; angle in radians, 0 at top (-π/2 in standard math)
+function polar(r, hour, total = 24) {
+  const a = (hour / total) * Math.PI * 2 - Math.PI / 2;
+  return [Math.cos(a) * r, Math.sin(a) * r];
+}
+function angleAt(hour, total = 24) {
+  return (hour / total) * 360 - 90; // degrees, 0 at top
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DAY RING — 24 hour ticks + daily task jewels + hour numerals
+// ═══════════════════════════════════════════════════════════════════
+const dayRingG = document.getElementById('dayRing');
+
+// Concentric ring lines (chapter ring framing)
+el('circle', { r: SVG_DAY_R + 18, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, dayRingG);
+el('circle', { r: SVG_DAY_R - 12, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, dayRingG);
+el('circle', { r: SVG_DAY_R + 18, fill:'none', stroke:'#7a4830', 'stroke-width':.4, 'stroke-dasharray':'.5 4' }, dayRingG);
+
+// Hour ticks
+for (let h = 0; h < 24; h++) {
+  const isMajor = h % 6 === 0;
+  const isMid = h % 3 === 0 && !isMajor;
+  const r1 = SVG_DAY_R - 8;
+  const r2 = SVG_DAY_R + (isMajor ? 14 : isMid ? 9 : 5);
+  const [x1, y1] = polar(r1, h);
+  const [x2, y2] = polar(r2, h);
+  el('line', {
+    x1, y1, x2, y2,
+    stroke: isMajor ? '#d8a850' : (isMid ? '#a07838' : '#5a4020'),
+    'stroke-width': isMajor ? 1.5 : (isMid ? 1 : .6),
+    'stroke-linecap':'round',
+  }, dayRingG);
+
+  // Hour numerals every 3 hours
+  if (h % 3 === 0) {
+    const [tx, ty] = polar(SVG_DAY_R + 28, h);
+    el('text', {
+      x: tx, y: ty + 4, 'text-anchor':'middle',
+      'font-family':"'Cinzel', serif", 'font-size': isMajor ? 13 : 10,
+      'font-weight': isMajor ? 600 : 500,
+      fill: isMajor ? '#d8a850' : '#7a5028',
+      'letter-spacing':1,
+      text: String(h).padStart(2,'0'),
+    }, dayRingG);
+  }
+}
+
+// Day-name label at center bottom
+el('text', {
+  x: 0, y: SVG_DAY_R - 24, 'text-anchor':'middle',
+  'font-family':"'JetBrains Mono', monospace", 'font-size':7,
+  fill:'#7a5028', 'letter-spacing':3,
+  text:'HOY · TODAY',
+}, dayRingG);
+
+// Place daily task jewels
+const taskNodes = []; // {el, task, fireAtFn, isFuture}
+const hourBucket = {};
+function plantJewel(parent, hour, total, task, baseR, isMonthly = false) {
+  const key = Math.floor(hour * 2); // half-hour buckets
+  hourBucket[`${parent.id}-${key}`] = (hourBucket[`${parent.id}-${key}`] || 0);
+  const offset = hourBucket[`${parent.id}-${key}`] * 9;
+  hourBucket[`${parent.id}-${key}`]++;
+  const r = baseR - offset;
+  const [x, y] = polar(r, hour, total);
+  const color = CAT[task.cat].color;
+  // Halo glow
+  const halo = el('circle', {
+    cx:x, cy:y, r:8, fill:color, opacity:.15, filter:'url(#hardGlow)',
+  }, parent);
+  // Main dot
+  const dot = el('circle', {
+    cx:x, cy:y, r:4, fill:color, stroke:'#1a0a06', 'stroke-width':.6,
+  }, parent);
+  // Outer brass ring
+  el('circle', {
+    cx:x, cy:y, r:6, fill:'none', stroke:'#a87838', 'stroke-width':.5, opacity:.7,
+  }, parent);
+  taskNodes.push({ dot, halo, task, isMonthly, x, y });
+  return dot;
+}
+
+TASKS_DAILY.forEach(t => {
+  plantJewel(dayRingG, t.hour, 24, t, SVG_DAY_R - 24);
 });
-grid.innerHTML=hdr+rows;
+
+// ═══════════════════════════════════════════════════════════════════
+// WEEK RING — 7 segments, today highlighted
+// ═══════════════════════════════════════════════════════════════════
+const weekRingG = document.getElementById('weekRing');
+const todayMon = jsDayToMon(new Date().getDay());
+
+el('circle', { r: SVG_WEEK_R, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, weekRingG);
+el('circle', { r: SVG_WEEK_R + 10, fill:'none', stroke:'#3a1810', 'stroke-width':.6, 'stroke-dasharray':'1 4' }, weekRingG);
+
+// Segments
+for (let d = 0; d < 7; d++) {
+  const a0 = (d/7) * Math.PI*2 - Math.PI/2 - Math.PI/7;
+  const a1 = ((d+1)/7) * Math.PI*2 - Math.PI/2 - Math.PI/7;
+  // tick dividers
+  const [x1, y1] = [Math.cos(a0)*(SVG_WEEK_R-5), Math.sin(a0)*(SVG_WEEK_R-5)];
+  const [x2, y2] = [Math.cos(a0)*(SVG_WEEK_R+5), Math.sin(a0)*(SVG_WEEK_R+5)];
+  el('line', { x1, y1, x2, y2, stroke:'#5a4020', 'stroke-width':.6 }, weekRingG);
+
+  // Day letter
+  const aCenter = (a0 + a1) / 2;
+  const lx = Math.cos(aCenter) * (SVG_WEEK_R - 0);
+  const ly = Math.sin(aCenter) * (SVG_WEEK_R - 0);
+  const isToday = d === todayMon;
+  // Count tasks fired today
+  const taskCount = TASKS_DAILY.filter(t => t.days.includes(d === 6 ? 0 : d + 1) || t.days.includes((d+1) % 7)).length;
+  // Actually let me re-check: JS getDay 0=Sun, we map: Mon=0..Sun=6. Reverse: monIdx 0 → jsDay 1, monIdx 6 → jsDay 0
+  const jsDay = (d + 1) % 7;
+  const realCount = TASKS_DAILY.filter(t => t.days.includes(jsDay)).length;
+
+  // Background highlight for today
+  if (isToday) {
+    el('circle', {
+      cx:lx, cy:ly, r:14, fill:'#a8201a', opacity:.18, filter:'url(#hardGlow)',
+    }, weekRingG);
+    el('circle', {
+      cx:lx, cy:ly, r:11, fill:'none', stroke:'#d04030', 'stroke-width':1,
+    }, weekRingG);
+  }
+
+  el('text', {
+    x: lx, y: ly + 4, 'text-anchor':'middle',
+    'font-family':"'Cinzel', serif", 'font-size': isToday ? 14 : 11,
+    'font-weight': isToday ? 700 : 500,
+    fill: isToday ? '#f0d090' : '#7a5028',
+    'letter-spacing':1,
+    text: DAY_LETTERS[d],
+  }, weekRingG);
+
+  // Task count dots below the letter
+  if (realCount > 0) {
+    const dotsY = ly + 14;
+    el('text', {
+      x: lx, y: dotsY, 'text-anchor':'middle',
+      'font-family':"'JetBrains Mono', monospace", 'font-size': 7,
+      fill: isToday ? '#d8a850' : '#5a4020',
+      'letter-spacing':1,
+      text: `${realCount}`,
+    }, weekRingG);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MONTH RING — 30 ticks + monthly task markers
+// ═══════════════════════════════════════════════════════════════════
+const monthRingG = document.getElementById('monthRing');
+const today = new Date();
+const dom = today.getDate();
+const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
+
+el('circle', { r: SVG_MONTH_R, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, monthRingG);
+
+for (let d = 1; d <= daysInMonth; d++) {
+  const isMajor = d % 5 === 0 || d === 1;
+  const isToday = d === dom;
+  const r1 = SVG_MONTH_R - 4;
+  const r2 = SVG_MONTH_R + (isMajor ? 9 : 5);
+  const [x1, y1] = polar(r1, d-1, daysInMonth);
+  const [x2, y2] = polar(r2, d-1, daysInMonth);
+  el('line', {
+    x1, y1, x2, y2,
+    stroke: isToday ? '#d04030' : (isMajor ? '#a87838' : '#5a4020'),
+    'stroke-width': isToday ? 2 : (isMajor ? 1 : .5),
+    'stroke-linecap':'round',
+  }, monthRingG);
+
+  if (isMajor) {
+    const [tx, ty] = polar(SVG_MONTH_R + 19, d-1, daysInMonth);
+    el('text', {
+      x:tx, y:ty + 3.5, 'text-anchor':'middle',
+      'font-family':"'JetBrains Mono', monospace", 'font-size':9,
+      fill: isToday ? '#f0d090' : '#7a5028',
+      'letter-spacing':.5,
+      text: String(d),
+    }, monthRingG);
+  }
+}
+
+// Plant monthly task markers
+TASKS_MONTHLY.forEach(t => {
+  plantJewel(monthRingG, t.day - 1, daysInMonth, t, SVG_MONTH_R - 12, true);
+});
+
+// "Today" pointer on month ring
+const [todX, todY] = polar(SVG_MONTH_R + 17, dom - 1, daysInMonth);
+const todMarker = el('g', { transform:`translate(${todX},${todY})` }, monthRingG);
+el('circle', { r:6, fill:'#a8201a', filter:'url(#hardGlow)', opacity:.55 }, todMarker);
+el('circle', { r:3, fill:'#f0d090' }, todMarker);
+
+// ═══════════════════════════════════════════════════════════════════
+// HAND ROTATION + TASK STATE (past/future/next)
+// ═══════════════════════════════════════════════════════════════════
+const handG = document.getElementById('hand');
+const timeReadout = document.getElementById('time-readout');
+const dateReadout = document.getElementById('date-readout');
+const nextRowsEl = document.getElementById('next-rows');
+
+const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const dayNamesEs = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+
+function nowH() {
+  const n = new Date();
+  return n.getHours() + n.getMinutes()/60 + n.getSeconds()/3600 + n.getMilliseconds()/3600000;
+}
+
+function update() {
+  const now = new Date();
+  const h = nowH();
+  const pad = n => String(n).padStart(2,'0');
+
+  // Hand rotation: 0h at top, advances CW (visual). Map h → angle = h/24 * 360
+  handG.setAttribute('transform', `rotate(${(h/24)*360})`);
+
+  // Time readout
+  timeReadout.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  dateReadout.textContent = `${dayNamesEs[now.getDay()]} ${pad(now.getDate())} ${monthNames[now.getMonth()]}`;
+
+  // Update jewel states (past=dim, future=full, next=pulsing)
+  const todayJs = now.getDay();
+  const todayMon = jsDayToMon(todayJs);
+
+  // For daily tasks: compute "next fire" hour today; for monthly: compute next day
+  const futureToday = [];
+  const pastToday = [];
+  taskNodes.forEach(n => {
+    n.dot.classList.remove('task-next');
+    if (n.isMonthly) {
+      const isThisMonth = true; // monthly always shown
+      const fireH = n.task.hour;
+      const fireDay = n.task.day;
+      const isFutureThisMonth = (fireDay > dom) || (fireDay === dom && fireH > h);
+      const isPastThisMonth = (fireDay < dom) || (fireDay === dom && fireH <= h);
+      if (isFutureThisMonth) {
+        n.dot.setAttribute('opacity', 1);
+        n.halo.setAttribute('opacity', .25);
+      } else {
+        n.dot.setAttribute('opacity', .35);
+        n.halo.setAttribute('opacity', .05);
+      }
+    } else {
+      const fires = n.task.days.includes(todayJs);
+      if (!fires) {
+        n.dot.setAttribute('opacity', .15);
+        n.halo.setAttribute('opacity', 0);
+        return;
+      }
+      const isPast = n.task.hour <= h;
+      if (isPast) {
+        n.dot.setAttribute('opacity', .35);
+        n.halo.setAttribute('opacity', .05);
+        pastToday.push(n);
+      } else {
+        n.dot.setAttribute('opacity', 1);
+        n.halo.setAttribute('opacity', .25);
+        futureToday.push(n);
+      }
+    }
+  });
+
+  // Mark the very next future task (today) as pulsing
+  futureToday.sort((a,b) => a.task.hour - b.task.hour);
+  if (futureToday.length > 0) {
+    futureToday[0].dot.classList.add('task-next');
+    futureToday[0].halo.setAttribute('opacity', .45);
+  }
+
+  // Next-up list (top 4)
+  const upcoming = futureToday.slice(0, 4);
+  nextRowsEl.innerHTML = upcoming.map(n => {
+    const t = n.task;
+    const delta = t.hour - h;
+    const dh = Math.floor(delta);
+    const dm = Math.floor((delta - dh) * 60);
+    let countdown;
+    if (dh > 0) countdown = `${dh}h ${pad(dm)}m`;
+    else if (dm > 0) countdown = `${dm}m`;
+    else {
+      const ds = Math.floor(((delta-dh)*60 - dm) * 60);
+      countdown = `${ds}s`;
+    }
+    return `<div class="row">
+      <span class="dot" style="background:${CAT[t.cat].color};color:${CAT[t.cat].color}"></span>
+      <span class="nm">${t.id}</span>
+      <span class="tm">${countdown}</span>
+    </div>`;
+  }).join('') || '<div class="row"><span style="opacity:.5">— sin más por hoy —</span></div>';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// TOOLTIP
+// ═══════════════════════════════════════════════════════════════════
+const tipEl = document.getElementById('tip');
+function attachTooltip(node) {
+  node.dot.style.cursor = 'pointer';
+  node.dot.addEventListener('pointerenter', e => {
+    const t = node.task;
+    let meta;
+    if (node.isMonthly) {
+      meta = `Día ${t.day} · ${fmtH(t.hour)}`;
+    } else {
+      const dayStr = t.days.length === 7 ? 'diario' :
+        (t.days.length === 5 && t.days.every(d=>d>=1 && d<=5) ? 'L–V' :
+        t.days.map(d=>['D','L','M','M','J','V','S'][d]).join(''));
+      meta = `${fmtH(t.hour)} · ${dayStr}`;
+    }
+    const color = CAT[t.cat].color;
+    let cd = '';
+    if (!node.isMonthly) {
+      const h = nowH();
+      if (t.days.includes(new Date().getDay()) && t.hour > h) {
+        const dh = Math.floor(t.hour - h);
+        const dm = Math.floor((t.hour - h - dh) * 60);
+        cd = `<div class="countdown">en ${dh > 0 ? dh+'h ':''}${dm}m</div>`;
+      }
+    }
+    tipEl.innerHTML = `<b>${t.id}</b><div class="meta">${meta}</div><div class="cat" style="color:${color}">${CAT[t.cat].label}</div>${cd}`;
+    tipEl.classList.add('show');
+    moveTip(e);
+  });
+  node.dot.addEventListener('pointermove', moveTip);
+  node.dot.addEventListener('pointerleave', () => tipEl.classList.remove('show'));
+}
+function moveTip(e) {
+  tipEl.style.left = Math.min(e.clientX + 14, window.innerWidth - 220) + 'px';
+  tipEl.style.top = Math.min(e.clientY + 14, window.innerHeight - 100) + 'px';
+}
+function fmtH(h) {
+  const hh = Math.floor(h);
+  const mm = Math.round((h - hh) * 60);
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+}
+taskNodes.forEach(attachTooltip);
+
+// ═══════════════════════════════════════════════════════════════════
+// MAIN LOOP
+// ═══════════════════════════════════════════════════════════════════
+function tick() {
+  update();
+  requestAnimationFrame(tick);
+}
+tick();
 </script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
-</body></html>
+</body>
+</html>
