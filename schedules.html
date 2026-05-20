@@ -683,6 +683,29 @@ body[data-view="month"] .task .emoji{display:none}
 }
 .legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;box-shadow:0 0 8px currentColor;vertical-align:middle}
 
+/* ─── Mobile view switch — pill segment at the bottom ─── */
+.view-switch{display:none}
+@media(max-width:760px){
+  .view-switch{
+    display:flex;position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+    z-index:12;background:rgba(8,4,4,.85);
+    border:1px solid rgba(216,168,80,.32);border-radius:99px;padding:3px;
+    backdrop-filter:blur(8px);
+    box-shadow:0 4px 18px rgba(0,0,0,.5);
+  }
+  .view-switch button{
+    background:transparent;border:none;color:var(--muted);
+    font-family:'Cinzel',serif;font-size:10px;font-weight:600;
+    letter-spacing:1.5px;text-transform:uppercase;
+    padding:7px 16px;border-radius:99px;cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .view-switch button.active{
+    background:rgba(168,32,26,.35);color:var(--gold-bright);
+    box-shadow:inset 0 0 8px rgba(216,168,80,.18);
+  }
+}
+
 /* ─── Mobile — stripped to essentials: sky + horizon + falling tasks + 1 next ─── */
 @media(max-width:760px){
   :root{--header-h:60px}
@@ -719,10 +742,10 @@ body[data-view="month"] .task .emoji{display:none}
   .hour-label.day-boundary{padding:1px 4px;font-size:9px}
   /* Hour watermark smaller, lower */
   .hour-watermark{font-size:78px;letter-spacing:4px;top:30%}
-  /* Next-up: only the immediate one, no stack */
+  /* Next-up: only the immediate one, anchored just below header */
   .next-up{
     left:10px;right:10px;max-width:none;
-    top:auto;bottom:198px;
+    top:calc(var(--header-h) + 10px);bottom:auto;
     pointer-events:none;
   }
   .next-up .row{
@@ -731,32 +754,8 @@ body[data-view="month"] .task .emoji{display:none}
   }
   .next-up .row:not(.r1){display:none}
   .next-up .row .label{display:none}
-  /* Cloud panels: at the bottom in a horizontal row */
-  .side{
-    position:fixed;bottom:8px;left:8px;right:8px;
-    top:auto;width:auto;max-height:none;max-width:none;
-    flex-direction:row;gap:8px;
-    overflow:visible;padding:0;
-  }
-  .side-panel{
-    flex:1;min-width:0;padding:10px 12px;border-radius:18px;
-  }
-  .side-panel h3{font-size:13px;margin-bottom:8px;padding-bottom:5px}
-  .side-panel h3 .sub{font-size:8px;letter-spacing:1.5px}
-  /* Week cloud compressed */
-  .week-cloud .head{font-size:9px;margin-bottom:6px}
-  .week-cloud .row{gap:4px}
-  .week-cloud .d{min-width:22px}
-  .week-cloud .d .l{font-size:9px}
-  .week-cloud .d .c{font-size:12px}
-  .week-cloud .d .pip{width:2.5px;height:2.5px}
-  /* Month cloud compressed */
-  .month-cloud{padding:8px 10px}
-  .month-cloud .month-name{font-size:18px;letter-spacing:.5px}
-  .month-cloud .year{font-size:7px;letter-spacing:2px;margin-bottom:4px}
-  .month-cloud .row{font-size:9.5px;padding:1px 0;gap:5px}
-  .month-cloud .row .day{min-width:22px;font-size:8.5px}
-  .month-cloud .row .tm{font-size:8.5px}
+  /* Hide cloud panels entirely on mobile (view-switch handles changing scale) */
+  .cloud-layer{display:none}
   /* Legend hidden on mobile (saves space; emojis tell category) */
   .legend{display:none}
 }
@@ -838,6 +837,13 @@ body[data-view="month"] .task .emoji{display:none}
 
 <!-- CLOUD LAYER — scattered floating bits (week + month + monthly tasks) -->
 <div class="cloud-layer" id="cloud-layer"></div>
+
+<!-- Mobile-only view switch — pill segment at the bottom -->
+<div class="view-switch" id="view-switch">
+  <button data-v="live"  class="active">Ahora</button>
+  <button data-v="week">Semana</button>
+  <button data-v="month">Mes</button>
+</div>
 
 <div class="legend">
   <span><i class="dot" style="background:var(--c-tg);color:var(--c-tg)"></i> Telegram</span>
@@ -993,7 +999,15 @@ function setView(view) {
   document.querySelectorAll('.cloud-group').forEach(el => el.classList.remove('active-view'));
   if (view === 'week')  document.querySelector('.week-cloud')?.classList.add('active-view');
   if (view === 'month') document.querySelector('.month-cloud')?.classList.add('active-view');
+  // Mobile view-switch active state
+  document.querySelectorAll('#view-switch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.v === view);
+  });
 }
+// Hook up mobile view-switch buttons
+document.querySelectorAll('#view-switch button').forEach(b => {
+  b.addEventListener('click', () => setView(b.dataset.v));
+});
 let currentTaskDays = 0;
 
 // Compute horizon Y in viewport pixels (60% of available)
