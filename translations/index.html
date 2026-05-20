@@ -53,10 +53,18 @@ h1{
 .item{
   border-radius:10px;
   padding:18px 22px;text-decoration:none;color:inherit;
-  display:block;
+  display:flex;gap:16px;align-items:flex-start;
   transition:transform .15s, box-shadow .3s, border-color .3s;
   border:1px solid transparent;
 }
+.outlet-icon{
+  width:40px;height:40px;border-radius:8px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;font-weight:700;color:#fff;
+  text-shadow:0 1px 3px rgba(0,0,0,.4);
+  margin-top:2px;
+}
+.item-content{flex:1;min-width:0}
 .item:hover{
   transform:translateY(-1px);
   box-shadow:0 0 30px rgba(218,165,50,.12);
@@ -116,6 +124,19 @@ function timeAgo(ts){
 function lerp(a, b, t){ return a.map((v,i) => Math.round(v + (b[i]-v) * t)); }
 function rgb(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
 
+const outlets={
+  'La Jornada':{bg:'linear-gradient(135deg,#8b1a1a,#5a1010)',letter:'J'},
+  'Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
+  'Revista Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
+  'El Soberano':{bg:'linear-gradient(135deg,#2a6a2a,#1a4a1a)',letter:'S'},
+  'Regeneración':{bg:'linear-gradient(135deg,#6a2a6a,#401a40)',letter:'R'},
+  'El Financiero':{bg:'linear-gradient(135deg,#1a4a5a,#0d2a3a)',letter:'F'},
+};
+function outletIcon(name){
+  const o=outlets[name]||{bg:'linear-gradient(135deg,#3a3a3a,#222)',letter:(name||'?')[0]};
+  return `<div class="outlet-icon" style="background:${o.bg}">${o.letter}</div>`;
+}
+
 function render(){
   const n = _all.length;
   countEl.textContent = n + ' translation' + (n === 1 ? '' : 's');
@@ -166,6 +187,8 @@ function render(){
 
     return `<a class="item" href="viewer.html?slug=${encodeURIComponent(x.slug)}"
       style="background:${rgb(bg)};border-color:${rgb(border)};opacity:${opacity.toFixed(2)};${glow}">
+      ${outletIcon(x.outlet)}
+      <div class="item-content">
       <div class="title" style="color:${rgb(title)}">${escapeHtml(x.translated_title || x.slug)}</div>
       ${x.original_title ? `<div class="original" style="color:${rgb(orig)}">${escapeHtml(x.original_title)}</div>` : ''}
       <div class="meta" style="color:${rgb(meta)}">
@@ -173,6 +196,7 @@ function render(){
         ${x.author ? `<span>${escapeHtml(x.author)}</span><span class="dot">·</span>` : ''}
         ${dateStr ? `<span>${dateStr}</span>` : ''}
         ${ago ? `<span style="margin-left:auto;opacity:.7">${ago}</span>` : ''}
+      </div>
       </div>
     </a>`;
   }).join('');

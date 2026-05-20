@@ -201,12 +201,19 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 }
 .tl-list{display:flex;flex-direction:column;flex:1;overflow:hidden}
 .tl-item{
-  display:flex;flex-direction:column;gap:2px;
-  padding:7px 14px;text-decoration:none;color:inherit;
+  display:flex;align-items:center;gap:10px;
+  padding:8px 14px;text-decoration:none;color:inherit;
   border-top:1px solid rgba(201,168,76,.08);
   transition:background .15s;
 }
 .tl-item:hover{background:rgba(201,168,76,.06)}
+.tl-outlet-icon{
+  width:28px;height:28px;border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:700;color:#fff;
+  text-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+.tl-item-body{flex:1;min-width:0}
 .tl-item .tl-title{
   font-size:11px;font-weight:500;color:#e8dcc0;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
@@ -385,14 +392,27 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const d=Math.floor(s/86400);if(d<7)return d+'d';return Math.floor(d/7)+'w';
   }
   function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  const outlets={
+    'La Jornada':{bg:'linear-gradient(135deg,#8b1a1a,#5a1010)',letter:'J'},
+    'Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
+    'Revista Contralínea':{bg:'linear-gradient(135deg,#1a3a6a,#0d2040)',letter:'C'},
+    'El Soberano':{bg:'linear-gradient(135deg,#2a6a2a,#1a4a1a)',letter:'S'},
+    'Regeneración':{bg:'linear-gradient(135deg,#6a2a6a,#401a40)',letter:'R'},
+    'El Financiero':{bg:'linear-gradient(135deg,#1a4a5a,#0d2a3a)',letter:'F'},
+  };
+  function outletIcon(name){
+    const o=outlets[name]||{bg:'linear-gradient(135deg,#3a3a3a,#222)',letter:(name||'?')[0]};
+    return `<div class="tl-outlet-icon" style="background:${o.bg}">${o.letter}</div>`;
+  }
   fetch('translations/manifest.json?v='+Date.now())
     .then(r=>r.json())
     .then(data=>{
       const items=(data||[]).sort((a,b)=>(b.last_modified||0)-(a.last_modified||0)).slice(0,4);
       if(!items.length){list.innerHTML='<div class="tl-empty">No translations yet</div>';return}
       list.innerHTML=items.map(x=>`<a class="tl-item" href="translations/viewer.html?slug=${encodeURIComponent(x.slug)}">
-        <span class="tl-title">${esc(x.translated_title||x.slug)}</span>
-        <span class="tl-meta"><span>${esc(x.outlet||'')}</span><span class="tl-ago">${x.last_modified?ago(x.last_modified):''}</span></span>
+        ${outletIcon(x.outlet)}
+        <div class="tl-item-body"><span class="tl-title">${esc(x.translated_title||x.slug)}</span>
+        <span class="tl-meta"><span>${esc(x.outlet||'')}</span><span class="tl-ago">${x.last_modified?ago(x.last_modified):''}</span></span></div>
       </a>`).join('');
     })
     .catch(()=>{list.innerHTML='<div class="tl-empty">—</div>'});
