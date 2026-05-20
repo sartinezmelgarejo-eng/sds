@@ -162,13 +162,24 @@ body{
 .hour-watermark:hover{color:rgba(255,250,230,.55);filter:blur(.3px)}
 @media(max-width:760px){.hour-watermark{font-size:88px;letter-spacing:5px;top:25%}}
 
-/* Ground — below horizon */
+/* Ground — below horizon, with top edge curved to match the horizon line */
 .ground{
   position:fixed;left:0;right:0;
-  top:var(--horizon-y);bottom:0;z-index:1;pointer-events:none;
+  top:calc(var(--horizon-y) - 1px);  /* start at horizon's peak (center is highest) */
+  bottom:0;z-index:1;pointer-events:none;
   background:
     radial-gradient(ellipse 130% 100% at 50% -50%, rgba(168,32,26,.18) 0%, transparent 60%),
     linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(8,4,4,.55) 60%, rgba(8,4,4,.85));
+  /* Approximate horizon Q-curve via polygon — depth 21px from center to edges */
+  clip-path:polygon(
+    0% 21px, 5% 19px, 10% 17px, 15% 14px,
+    20% 12px, 25% 9px, 30% 7px, 35% 5px,
+    40% 3px, 45% 1px, 50% 0%, 55% 1px,
+    60% 3px, 65% 5px, 70% 7px, 75% 9px,
+    80% 12px, 85% 14px, 90% 17px, 95% 19px,
+    100% 21px,
+    100% 100%, 0% 100%
+  );
 }
 /* Subtle film grain over everything */
 .atmosphere::after{
