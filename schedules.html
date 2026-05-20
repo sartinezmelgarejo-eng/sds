@@ -3,280 +3,771 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Clockwork — Scheduled Tasks</title>
+<title>Calendario — Tareas Programadas</title>
 <link rel="manifest" href="pwa/manifest-schedules.json">
 <meta name="theme-color" content="#0d0605">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="apple-touch-icon" href="pwa/icon-schedules-192.png">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Cinzel:wght@500;600;700;800;900&family=DM+Serif+Display&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{
-  --bg-deep:#0a0403;
-  --bg-mid:#180806;
-  --crimson:#a8201a;
-  --crimson-deep:#5a1010;
-  --crimson-blood:#7a1818;
-  --green:#2a6838;
-  --green-deep:#143a1c;
-  --gold:#d8a850;
+  --header-h:68px;
+  --sky-top:#0a0a18;
+  --sky-bot:#1a0c10;
+  --star-opacity:.7;
+  --cloud-opacity:0;
+  --sun-opacity:0;
+  --sun-color:#f0c870;
+  --sun-y:50%;
+  --sun-x:50%;
+  --horizon-y:60vh;
   --gold-bright:#f0d090;
+  --gold:#d8a850;
   --gold-pale:#e8d4a0;
-  --ochre:#a0683a;
-  --olive:#5a5028;
-  --cream:#f0e2c0;
-  --ink:#1a0a06;
-  --char:#2a1a10;
-  /* category colors — Mexican flag tones */
-  --c-tg:#e8b850;    /* gold = Telegram */
-  --c-dt:#3a9050;    /* green = Data */
-  --c-mn:#d04030;    /* red = Monitor */
+  --cream:#f5e8c8;
+  --muted:#7a5a38;
+  --muted-2:#5a4028;
+  --line:#3a1e18;
+  --line-soft:#2a1612;
+  --crimson:#a8201a;
+  --crimson-soft:#d4302a;
+  --crimson-deep:#5a1010;
+  --c-tg:#e8b850;
+  --c-dt:#3a9050;
+  --c-mn:#d04030;
 }
-html,body{height:100%;overflow:hidden}
+html,body{height:100%;overflow:hidden;-webkit-font-smoothing:antialiased}
 body{
-  background:
-    radial-gradient(ellipse at 50% 35%, rgba(120,30,20,.32) 0%, transparent 55%),
-    radial-gradient(ellipse at 30% 80%, rgba(40,90,50,.15) 0%, transparent 60%),
-    var(--bg-deep);
+  background:linear-gradient(180deg, var(--sky-top) 0%, var(--sky-bot) 100%);
   color:var(--gold-pale);
-  font-family:'JetBrains Mono',monospace;
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:14px;line-height:1.5;
+  transition:background 4s ease;
   position:relative;
 }
-/* Subtle film grain */
-body::after{
-  content:'';position:fixed;inset:0;pointer-events:none;z-index:1;
-  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  mix-blend-mode:overlay;
-}
-.stage{
-  position:relative;width:100%;height:100%;
-  display:flex;align-items:center;justify-content:center;
-  padding:18px;
-}
-.dial-wrap{
-  position:relative;
-  width:min(94vmin, 720px);
-  aspect-ratio:1;
-  filter:drop-shadow(0 4px 40px rgba(168,32,26,.18));
-}
-svg.dial{width:100%;height:100%;display:block;overflow:visible}
 
-/* Header / Footer overlays */
-.top-bar{
-  position:fixed;top:0;left:0;right:0;
-  padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;
-  z-index:5;pointer-events:none;
+/* ─── Sky atmosphere (window-level) ─── */
+.atmosphere{position:fixed;inset:0;pointer-events:none;z-index:0}
+.atmosphere .stars{
+  position:absolute;inset:0;opacity:var(--star-opacity);transition:opacity 4s ease;
+  background-image:
+    radial-gradient(1.2px 1.2px at 4% 6%, rgba(255,250,220,.95), transparent 70%),
+    radial-gradient(1px 1px at 12% 18%, rgba(255,250,220,.8), transparent 70%),
+    radial-gradient(1.4px 1.4px at 23% 9%, rgba(255,250,220,1), transparent 70%),
+    radial-gradient(1px 1px at 34% 22%, rgba(255,235,200,.7), transparent 70%),
+    radial-gradient(1.2px 1.2px at 41% 4%, rgba(255,250,220,.85), transparent 70%),
+    radial-gradient(1px 1px at 49% 14%, rgba(255,245,210,.8), transparent 70%),
+    radial-gradient(1.5px 1.5px at 57% 7%, rgba(255,250,220,1), transparent 70%),
+    radial-gradient(1px 1px at 62% 28%, rgba(255,230,180,.7), transparent 70%),
+    radial-gradient(1.2px 1.2px at 71% 12%, rgba(255,245,210,.9), transparent 70%),
+    radial-gradient(1px 1px at 78% 24%, rgba(255,240,200,.75), transparent 70%),
+    radial-gradient(1.4px 1.4px at 84% 5%, rgba(255,250,220,.95), transparent 70%),
+    radial-gradient(1px 1px at 91% 18%, rgba(255,235,200,.8), transparent 70%),
+    radial-gradient(1.2px 1.2px at 96% 11%, rgba(255,250,220,.85), transparent 70%),
+    radial-gradient(1px 1px at 8% 32%, rgba(255,245,210,.6), transparent 70%),
+    radial-gradient(1px 1px at 28% 36%, rgba(255,240,200,.55), transparent 70%),
+    radial-gradient(1.2px 1.2px at 53% 34%, rgba(255,250,220,.75), transparent 70%),
+    radial-gradient(1px 1px at 73% 38%, rgba(255,240,200,.55), transparent 70%),
+    radial-gradient(1px 1px at 88% 32%, rgba(255,245,210,.6), transparent 70%);
+}
+.twinkle{
+  position:absolute;width:2.5px;height:2.5px;border-radius:50%;
+  background:#fff8d8;
+  box-shadow:0 0 6px #fff8d8, 0 0 14px rgba(240,208,144,.5);
+  animation:twinkle 3s ease-in-out infinite;
+  opacity:var(--star-opacity);transition:opacity 4s ease;
+}
+@keyframes twinkle{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.2)}}
+.twinkle.t1{top:9%;left:18%;animation-delay:0s}
+.twinkle.t2{top:6%;left:46%;animation-delay:1.4s}
+.twinkle.t3{top:14%;left:67%;animation-delay:.6s}
+.twinkle.t4{top:20%;left:82%;animation-delay:2.1s}
+.twinkle.t5{top:24%;left:32%;animation-delay:1.7s}
+.twinkle.t6{top:11%;left:91%;animation-delay:.9s}
+
+.sun{
+  position:absolute;width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle at 38% 38%, #fff8d8 0%, var(--sun-color) 35%, rgba(232,180,80,.4) 65%, transparent 80%);
+  box-shadow:0 0 80px rgba(240,200,120,.5), 0 0 160px rgba(240,180,100,.25);
+  opacity:var(--sun-opacity);transition:opacity 4s ease, top 4s ease, left 4s ease, background 4s ease;
+  top:var(--sun-y);left:var(--sun-x);transform:translate(-50%,-50%);
+  filter:blur(.5px);
+}
+
+.clouds{position:absolute;inset:0;opacity:var(--cloud-opacity);transition:opacity 4s ease;overflow:hidden}
+.cloud{
+  position:absolute;
+  background:radial-gradient(ellipse at center,
+    rgba(255,245,225,.42) 0%,
+    rgba(255,240,215,.25) 35%,
+    rgba(255,235,210,.08) 65%,
+    transparent 80%);
+  filter:blur(12px);border-radius:50%;will-change:transform;
+}
+.cloud.c1{width:340px;height:90px;top:11%;animation:drift-r 110s linear infinite}
+.cloud.c2{width:240px;height:70px;top:22%;animation:drift-l 130s linear infinite;animation-delay:-30s}
+.cloud.c3{width:400px;height:110px;top:18%;animation:drift-r 150s linear infinite;animation-delay:-70s}
+.cloud.c4{width:280px;height:80px;top:32%;animation:drift-l 120s linear infinite;animation-delay:-15s}
+.cloud.c5{width:320px;height:90px;top:38%;animation:drift-r 140s linear infinite;animation-delay:-95s}
+.cloud.c6{width:220px;height:60px;top:8%;animation:drift-l 100s linear infinite;animation-delay:-50s}
+@keyframes drift-r{0%{transform:translateX(-420px)}100%{transform:translateX(calc(100vw + 80px))}}
+@keyframes drift-l{0%{transform:translateX(calc(100vw + 80px))}100%{transform:translateX(-420px)}}
+
+/* ─── Horizon (full window, curved) ─── */
+.horizon{
+  position:fixed;left:0;right:0;
+  top:var(--horizon-y);
+  height:0;z-index:3;pointer-events:none;
+}
+.horizon svg{
+  position:absolute;left:-2%;right:-2%;width:104%;
+  top:-60px;height:140px;display:block;overflow:visible;
+}
+.horizon svg .line{
+  fill:none;stroke:var(--gold-bright);stroke-width:1.4;stroke-linecap:round;
+  filter:drop-shadow(0 0 8px rgba(240,208,144,.65)) drop-shadow(0 0 18px rgba(168,32,26,.35));
+}
+/* Big atmospheric hour watermark — made of cloud and light */
+.hour-watermark{
+  position:fixed;left:50%;top:30%;transform:translate(-50%, -50%);
+  z-index:2;pointer-events:auto;cursor:pointer;
+  font-family:'DM Serif Display','Cormorant Garamond',serif;font-weight:400;
+  font-size:172px;line-height:1;letter-spacing:6px;
+  color:rgba(255,248,225,.35);
+  text-shadow:
+    0 0 20px rgba(255,250,230,.55),
+    0 0 50px rgba(255,245,220,.45),
+    0 0 100px rgba(255,235,200,.35),
+    0 0 180px rgba(255,220,170,.25),
+    0 0 260px rgba(255,200,140,.15),
+    0 3px 12px rgba(0,0,0,.45);
+  font-variant-numeric:tabular-nums;
+  user-select:none;
+  filter:blur(.6px);
+  transition:color .3s ease, filter .3s ease;
+}
+/* Soft cloud body behind the text */
+.hour-watermark::before{
+  content:'';position:absolute;left:50%;top:50%;
+  width:140%;height:200%;transform:translate(-50%,-50%);
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 50%, rgba(255,245,225,.10) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 35% 45%, rgba(255,238,215,.08) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 55% at 70% 55%, rgba(255,240,220,.07) 0%, transparent 65%);
+  filter:blur(8px);
+  pointer-events:none;z-index:-1;
+}
+.hour-watermark:hover{color:rgba(255,250,230,.55);filter:blur(.3px)}
+@media(max-width:760px){.hour-watermark{font-size:88px;letter-spacing:5px;top:25%}}
+
+/* Ground — below horizon */
+.ground{
+  position:fixed;left:0;right:0;
+  top:var(--horizon-y);bottom:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(ellipse 130% 100% at 50% -50%, rgba(168,32,26,.18) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,.15) 0%, rgba(8,4,4,.55) 60%, rgba(8,4,4,.85));
+}
+/* Subtle film grain over everything */
+.atmosphere::after{
+  content:'';position:absolute;inset:0;mix-blend-mode:overlay;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ─── Header (sticky, transparent over sky) ─── */
+.header{
+  position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:20;
+  padding:14px 26px;
+  background:linear-gradient(180deg, rgba(8,4,4,.7), rgba(8,4,4,.2) 80%, transparent);
+  backdrop-filter:blur(6px);
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  border-bottom:1px solid rgba(58,30,24,.4);
 }
 .brand{
-  font-family:'Cinzel',serif;font-weight:600;font-size:18px;
-  color:var(--gold-bright);letter-spacing:5px;text-transform:uppercase;
-  text-shadow:0 0 24px rgba(216,168,80,.4);
-  pointer-events:auto;
+  font-family:'Cinzel',serif;font-weight:600;font-size:16px;
+  color:var(--gold-bright);letter-spacing:4px;text-transform:uppercase;
 }
+.brand .star{color:var(--crimson);margin-right:6px;font-size:13px}
 .brand .sub{
-  display:block;font-family:'JetBrains Mono',monospace;font-size:9px;
-  letter-spacing:3px;color:var(--ochre);font-weight:400;margin-top:3px;text-transform:uppercase;
+  display:block;font-family:'JetBrains Mono',monospace;font-size:8.5px;
+  letter-spacing:2.5px;color:var(--muted);font-weight:400;margin-top:2px;
 }
-.date-block{
-  font-family:'Cormorant Garamond',serif;text-align:right;color:var(--gold-pale);
-  pointer-events:auto;
+.now-time{
+  font-family:'Cormorant Garamond',serif;font-weight:600;font-size:28px;
+  color:var(--gold-bright);letter-spacing:1px;line-height:1;
+  font-variant-numeric:tabular-nums;
 }
-.date-block .d{font-size:22px;font-weight:600;letter-spacing:1px;line-height:1}
-.date-block .dn{
+.now-date{
   font-family:'JetBrains Mono',monospace;font-size:10px;
-  letter-spacing:3px;color:var(--ochre);text-transform:uppercase;margin-top:3px;
+  color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;text-align:right;
 }
-
+/* Time scrubber — lets you drag time forward / back to preview states */
+.time-scrub{
+  display:inline-flex;align-items:center;gap:6px;margin-top:4px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+}
+.time-scrub button{
+  background:transparent;border:1px solid rgba(216,168,80,.35);
+  color:var(--gold);width:22px;height:22px;border-radius:3px;
+  font-size:13px;line-height:1;cursor:pointer;padding:0;
+  font-family:inherit;transition:background .15s, border-color .15s;
+}
+.time-scrub button:hover{background:rgba(216,168,80,.12);border-color:var(--gold)}
+.time-scrub .offset{
+  min-width:60px;text-align:center;color:var(--muted);
+  letter-spacing:1px;font-variant-numeric:tabular-nums;
+}
+.time-scrub .offset.active{color:var(--crimson-soft)}
+.time-scrub .reset{
+  background:transparent;border:none;color:var(--muted);font-family:inherit;
+  font-size:9px;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;
+  padding:2px 4px;opacity:.4;transition:opacity .2s;
+}
+.time-scrub .reset.active{opacity:1;color:var(--gold)}
 .back{
-  position:fixed;bottom:18px;left:24px;color:var(--ochre);text-decoration:none;
-  font-size:11px;letter-spacing:2px;z-index:5;text-transform:uppercase;
-  transition:color .2s;font-family:'JetBrains Mono',monospace;
+  color:var(--muted);text-decoration:none;font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;transition:color .2s;font-family:'JetBrains Mono',monospace;
+  margin-right:12px;
 }
 .back:hover{color:var(--gold-bright)}
 
-.next-list{
-  position:fixed;bottom:18px;right:24px;z-index:5;
-  font-family:'JetBrains Mono',monospace;font-size:10px;
-  color:var(--ochre);letter-spacing:1.5px;text-align:right;
-  pointer-events:auto;text-transform:uppercase;
-  background:rgba(10,4,3,.4);padding:10px 14px;border:1px solid rgba(168,32,26,.25);
-  backdrop-filter:blur(8px);
+/* ─── Falling strip (centered in window) ─── */
+.strip-zone{
+  position:fixed;top:var(--header-h);bottom:0;left:50%;
+  width:560px;max-width:92vw;transform:translateX(-50%);
+  z-index:8;pointer-events:none;overflow:hidden;
 }
-.next-list .title{color:var(--crimson);font-weight:600;margin-bottom:6px;font-size:9px;letter-spacing:2.5px}
-.next-list .row{display:flex;justify-content:flex-end;gap:10px;align-items:center;margin:3px 0;line-height:1.2}
-.next-list .row .nm{color:var(--gold-pale);font-weight:500}
-.next-list .row .tm{color:var(--gold);font-variant-numeric:tabular-nums;min-width:70px;text-align:right}
-.next-list .row .dot{width:6px;height:6px;border-radius:50%;display:inline-block;box-shadow:0 0 8px currentColor}
+.strip-zone .strip{
+  position:absolute;inset:0;will-change:transform;
+}
+.hour-tick{
+  position:absolute;left:8%;right:8%;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(120,90,60,.22) 30%, rgba(120,90,60,.22) 70%, transparent);
+}
+.hour-tick.major{background:linear-gradient(90deg, transparent, rgba(216,168,80,.36) 25%, rgba(216,168,80,.36) 75%, transparent)}
+.hour-label{
+  position:absolute;left:4px;
+  font-family:'JetBrains Mono',monospace;font-size:10px;
+  color:var(--muted-2);letter-spacing:1.5px;
+  transform:translateY(-50%);text-shadow:0 1px 2px rgba(0,0,0,.6);
+}
+.hour-label.major{color:var(--gold);font-weight:600;font-size:11px}
+/* Each task = ember-shaped capsule with a star at its heart */
+.task{
+  position:absolute;left:50%;
+  display:flex;align-items:center;gap:10px;
+  cursor:pointer;pointer-events:auto;white-space:nowrap;
+  transform:translate(-50%,-50%);
+  padding:6px 18px 6px 8px;
+  background:
+    radial-gradient(ellipse 70% 110% at 12% 50%, rgba(232,60,32,.35) 0%, transparent 72%),
+    linear-gradient(90deg, rgba(50,16,12,.90) 0%, rgba(20,8,6,.78) 100%);
+  border-radius:99px;
+  border:1px solid rgba(216,40,24,.35);
+  box-shadow:
+    inset 0 0 14px rgba(216,40,24,.12),
+    0 0 22px rgba(168,32,26,.22),
+    0 3px 14px rgba(0,0,0,.5);
+  backdrop-filter:blur(5px);
+  transition:opacity .3s, filter .6s ease, background .4s ease, border-color .4s ease, box-shadow .4s ease;
+  will-change:transform,opacity;
+}
+.task.cat-tg{border-color:rgba(232,184,80,.32)}
+.task.cat-dt{border-color:rgba(58,144,80,.34)}
+.task.cat-mn{border-color:rgba(208,64,48,.42)}
+/* Star — hot ember, red/fire core, category tint in the outer halo */
+.task .star{
+  width:24px;height:24px;flex-shrink:0;
+  background:radial-gradient(circle at 50% 38%,
+    #ffe2a0 0%,
+    #ff8830 18%,
+    #d8281a 48%,
+    #7a0e0c 100%);
+  clip-path:polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+  --cat-glow:#a82010;
+  filter:
+    drop-shadow(0 0 4px #ff5020)
+    drop-shadow(0 0 11px #b81810)
+    drop-shadow(0 0 26px var(--cat-glow));
+  animation:ember-burn 4.2s ease-in-out infinite;
+  transition:filter .4s ease, transform .25s ease, width .5s ease, height .5s ease;
+}
+.task.cat-tg .star{--cat-glow:#c89028}
+.task.cat-dt .star{--cat-glow:#2a6840}
+.task.cat-mn .star{--cat-glow:#a82010}
+.task .star{color:var(--cat-glow)}
+@keyframes ember-burn{
+  0%,100%{
+    transform:scale(1);
+    filter:
+      drop-shadow(0 0 4px #ff5020)
+      drop-shadow(0 0 10px #b81810)
+      drop-shadow(0 0 24px var(--cat-glow));
+  }
+  50%{
+    transform:scale(1.035);
+    filter:
+      drop-shadow(0 0 6px #ff7030)
+      drop-shadow(0 0 16px #d82010)
+      drop-shadow(0 0 40px var(--cat-glow));
+  }
+}
+.task:hover .star{transform:scale(1.14)}
+
+/* Day-view zoom: same shape, slightly smaller text */
+body[data-view="day"] .task .name{font-size:13px}
+
+/* Week-view zoom: smaller star, smaller text, no cat label */
+body[data-view="week"] .task .star{width:16px;height:16px}
+body[data-view="week"] .task .name{font-size:11px}
+body[data-view="week"] .task .time{font-size:10px}
+body[data-view="week"] .task .cat-label{display:none}
+
+/* Month-view zoom: just a glowing star, no text */
+body[data-view="month"] .task .star{width:11px;height:11px}
+body[data-view="month"] .task > *:not(.star){display:none}
+
+/* ─── Orbit lanes — in week/month, separate tasks by category ─── */
+body[data-view="week"] .strip-zone,
+body[data-view="month"] .strip-zone{
+  width:min(72vw, 900px);max-width:min(72vw, 900px);
+}
+/* Lane positions (% of strip-zone width) */
+body[data-view="week"] .task.cat-tg,
+body[data-view="month"] .task.cat-tg{left:18%}
+body[data-view="week"] .task.cat-dt,
+body[data-view="month"] .task.cat-dt{left:50%}
+body[data-view="week"] .task.cat-mn,
+body[data-view="month"] .task.cat-mn{left:82%}
+body[data-view="week"] .task,
+body[data-view="month"] .task{transition:left .6s ease, opacity .3s, filter .6s ease}
+/* Lane guides — subtle vertical strands of light */
+.lane-guides{
+  position:absolute;inset:0;pointer-events:none;
+  opacity:0;transition:opacity .6s ease;
+}
+body[data-view="week"] .lane-guides,
+body[data-view="month"] .lane-guides{opacity:1}
+.lane-guides .lane{
+  position:absolute;top:0;bottom:0;width:1px;
+  background:linear-gradient(180deg, transparent 0%, currentColor 8%, currentColor 92%, transparent 100%);
+  opacity:.18;
+}
+.lane-guides .lane.l1{left:18%;color:var(--c-tg)}
+.lane-guides .lane.l2{left:50%;color:var(--c-dt)}
+.lane-guides .lane.l3{left:82%;color:var(--c-mn)}
+.lane-guides .lane-label{
+  position:absolute;top:14px;transform:translateX(-50%);
+  font-family:'Cinzel',serif;font-size:10px;font-weight:600;
+  letter-spacing:2px;text-transform:uppercase;
+  text-shadow:0 0 8px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.lane-guides .lane-label.l1{left:18%;color:var(--c-tg)}
+.lane-guides .lane-label.l2{left:50%;color:var(--c-dt)}
+.lane-guides .lane-label.l3{left:82%;color:var(--c-mn)}
+/* Soften the side clouds in zoomed views so lanes breathe */
+body[data-view="week"] .cloud-layer,
+body[data-view="month"] .cloud-layer{
+  opacity:.32;filter:blur(1.5px);
+  transition:opacity .6s ease, filter .6s ease;
+}
+
+/* Hour labels behavior by view */
+body[data-view="week"] .hour-label:not(.day-boundary),
+body[data-view="month"] .hour-label:not(.day-boundary){display:none}
+body[data-view="week"] .hour-tick:not(.day-boundary),
+body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
+.hour-label.day-boundary{
+  color:var(--gold-bright);font-weight:700;font-size:11px;
+  background:rgba(8,4,4,.7);padding:2px 6px;border-radius:2px;
+  letter-spacing:1px;
+}
+.hour-tick.day-boundary{background:linear-gradient(90deg, transparent, rgba(216,168,80,.5) 25%, rgba(216,168,80,.5) 75%, transparent) !important;height:1px}
+
+/* Active cloud (selected view) */
+.cloud-group.active-view{
+  background:
+    radial-gradient(ellipse 75% 60% at 28% 28%, rgba(255,225,160,.32) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 75% 72%, rgba(255,210,140,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 95% 50% at 50% 50%, rgba(255,220,150,.12) 0%, transparent 75%);
+  cursor:pointer;
+}
+.cloud-group{cursor:pointer}
+.cloud-group:hover{
+  background:
+    radial-gradient(ellipse 75% 60% at 28% 28%, rgba(255,245,225,.20) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 75% 72%, rgba(255,238,215,.16) 0%, transparent 60%),
+    radial-gradient(ellipse 95% 50% at 50% 50%, rgba(255,240,220,.10) 0%, transparent 75%);
+}
+/* Next task: hotter ember, heartbeat pulse — no rotation */
+.task.next .star{
+  width:32px;height:32px;
+  background:radial-gradient(circle at 50% 38%,
+    #ffe8b0 0%,
+    #ff9040 16%,
+    #e02818 46%,
+    #6a0a08 100%);
+  filter:
+    drop-shadow(0 0 8px #ff5020)
+    drop-shadow(0 0 24px #c81810)
+    drop-shadow(0 0 50px var(--cat-glow));
+  animation:ember-heartbeat 1.6s ease-in-out infinite;
+}
+@keyframes ember-heartbeat{
+  0%,100%{
+    transform:scale(1);
+    filter:
+      drop-shadow(0 0 8px #ff5020)
+      drop-shadow(0 0 22px #c81810)
+      drop-shadow(0 0 46px var(--cat-glow));
+  }
+  35%{
+    transform:scale(1.12);
+    filter:
+      drop-shadow(0 0 14px #ffb060)
+      drop-shadow(0 0 36px #e8281a)
+      drop-shadow(0 0 72px var(--cat-glow))
+      brightness(1.15);
+  }
+  60%{transform:scale(1.04)}
+}
+.task.next .name{
+  color:var(--gold-bright);font-weight:600;
+  text-shadow:0 0 14px rgba(255,160,80,.55), 0 0 10px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+
+/* Past tasks: cooled ember, ashen — the fire's out */
+.task.past .star{
+  background:radial-gradient(circle at 50% 38%, #6a5040 0%, #382820 50%, #1a1208 100%);
+  filter:grayscale(.6) brightness(.45) blur(.5px) drop-shadow(0 0 4px #2a1a10);
+  animation:none;opacity:.55;
+}
+.task.past .name{color:rgba(190,170,140,.55)}
+.task.past .time{color:rgba(170,140,90,.45)}
+.task.past .cat-label{opacity:.3}
+
+/* Crossing the horizon: supernova — white-hot core, no rotation */
+@keyframes star-supernova{
+  0%{
+    transform:scale(1);
+    filter:
+      drop-shadow(0 0 8px #ff5020)
+      drop-shadow(0 0 22px #c81810)
+      drop-shadow(0 0 46px var(--cat-glow));
+  }
+  18%{
+    transform:scale(2.7);
+    filter:
+      drop-shadow(0 0 16px #fffce0)
+      drop-shadow(0 0 44px #ffa030)
+      drop-shadow(0 0 92px #d82018)
+      drop-shadow(0 0 160px var(--cat-glow))
+      brightness(2.6) saturate(1.6);
+  }
+  55%{
+    transform:scale(1.45);
+    filter:
+      drop-shadow(0 0 10px #ff7030)
+      drop-shadow(0 0 30px #c81810)
+      drop-shadow(0 0 68px var(--cat-glow))
+      brightness(1.3);
+  }
+  100%{
+    transform:scale(1);
+    filter:
+      drop-shadow(0 0 4px #ff5020)
+      drop-shadow(0 0 10px #b81810)
+      drop-shadow(0 0 26px var(--cat-glow));
+  }
+}
+.task.crossing .star{animation:star-supernova 900ms ease-out !important}
+
+/* Horizon burst — radial light at the moment of crossing */
+.horizon-burst{
+  position:fixed;width:140px;height:140px;border-radius:50%;
+  pointer-events:none;z-index:4;
+  background:radial-gradient(circle,
+    rgba(255,250,220,.95) 0%,
+    rgba(255,200,120,.7) 25%,
+    rgba(232,128,60,.4) 50%,
+    rgba(168,32,26,.2) 70%,
+    transparent 85%);
+  transform:translate(-50%, -50%) scale(.3);
+  animation:burst 1100ms ease-out forwards;
+  filter:blur(2px);
+}
+@keyframes burst{
+  0%{opacity:0;transform:translate(-50%,-50%) scale(.2)}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(.9)}
+  60%{opacity:.6;transform:translate(-50%,-50%) scale(2)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(3.2)}
+}
+/* Spark trail rays from the burst */
+.horizon-burst::before, .horizon-burst::after{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(circle, rgba(255,240,180,.6) 0%, transparent 30%);
+  animation:burst-ray 1100ms ease-out forwards;
+}
+.horizon-burst::after{animation-delay:80ms}
+@keyframes burst-ray{
+  0%{opacity:0;transform:scale(.5)}
+  30%{opacity:.8;transform:scale(1.5)}
+  100%{opacity:0;transform:scale(2.8)}
+}
+.task .time{
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;
+  color:var(--gold);letter-spacing:.5px;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 8px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.task .name{
+  font-family:'Inter',sans-serif;font-size:14px;font-weight:500;
+  color:var(--gold-pale);
+  text-shadow:0 0 10px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.task .cat-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:1.5px;text-transform:uppercase;opacity:.75;
+  text-shadow:0 0 6px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.task.cat-tg .cat-label{color:var(--c-tg)}
+.task.cat-dt .cat-label{color:var(--c-dt)}
+.task.cat-mn .cat-label{color:var(--c-mn)}
+
+/* ─── Next-up stack — list of next 3, immediate at bottom, fading upward ─── */
+.next-up{
+  position:fixed;top:calc(var(--header-h) + 14px);left:26px;
+  z-index:9;
+  display:flex;flex-direction:column-reverse;gap:6px;
+  align-items:flex-start;max-width:520px;
+}
+.next-up .row{
+  padding:8px 14px;min-width:280px;
+  background:linear-gradient(90deg, rgba(168,32,26,.30), rgba(168,32,26,.05));
+  border-left:2px solid var(--crimson);border-radius:0 4px 4px 0;
+  backdrop-filter:blur(10px);
+  display:flex;align-items:center;gap:10px;
+  transition:opacity .4s ease;
+}
+.next-up .row.r1{opacity:1}
+.next-up .row.r2{opacity:.55}
+.next-up .row.r3{opacity:.28}
+.next-up .row .label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:var(--crimson-soft);letter-spacing:2px;text-transform:uppercase;
+  min-width:60px;
+}
+.next-up .row.r2 .label,.next-up .row.r3 .label{visibility:hidden}
+.next-up .row .name{
+  font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:600;
+  color:var(--gold-bright);
+}
+.next-up .row .dot{width:8px;height:8px;border-radius:50%;display:inline-block;box-shadow:0 0 10px currentColor}
+.next-up .row .count{
+  font-family:'JetBrains Mono',monospace;font-size:12px;
+  color:var(--gold);margin-left:auto;font-variant-numeric:tabular-nums;letter-spacing:1px;
+}
+
+/* ─── Cloud groups — soft fluffy backgrounds, no boxes ─── */
+.cloud-layer{position:fixed;inset:0;z-index:10;pointer-events:none}
+.cloud-group{
+  position:absolute;pointer-events:auto;
+  padding:18px 26px;
+  background:
+    radial-gradient(ellipse 75% 60% at 28% 28%, rgba(255,245,225,.14) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 80% at 75% 72%, rgba(255,238,215,.10) 0%, transparent 60%),
+    radial-gradient(ellipse 95% 50% at 50% 50%, rgba(255,240,220,.06) 0%, transparent 75%);
+  filter:drop-shadow(0 6px 28px rgba(0,0,0,.4));
+}
+.cloud-group .head{
+  font-family:'Cormorant Garamond',serif;font-style:italic;font-size:13px;font-weight:500;
+  color:var(--gold);letter-spacing:1.5px;text-transform:lowercase;margin-bottom:10px;
+  text-shadow:0 0 8px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+}
+
+/* Week cloud — 7 days side by side, larger than month */
+.week-cloud{}
+.week-cloud .row{display:flex;gap:14px;align-items:flex-start}
+.week-cloud .d{
+  text-align:center;min-width:32px;
+}
+.week-cloud .d .l{
+  font-family:'Cinzel',serif;font-size:11px;font-weight:600;
+  color:var(--muted);letter-spacing:1px;
+  text-shadow:0 0 8px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+}
+.week-cloud .d .c{
+  font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:600;
+  color:var(--gold-pale);margin-top:1px;font-variant-numeric:tabular-nums;
+  text-shadow:0 0 10px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.week-cloud .d .pips{display:flex;justify-content:center;gap:2px;margin-top:5px;height:4px}
+.week-cloud .d .pip{width:3.5px;height:3.5px;border-radius:50%;display:inline-block;box-shadow:0 0 6px currentColor;opacity:.9}
+.week-cloud .d.today .l{color:var(--gold-bright);text-shadow:0 0 10px rgba(255,200,100,.6), 0 0 18px rgba(168,32,26,.4), 0 1px 3px rgba(0,0,0,1)}
+.week-cloud .d.today .c{color:var(--gold-bright);text-shadow:0 0 14px rgba(255,200,100,.75), 0 0 26px rgba(168,32,26,.5), 0 1px 3px rgba(0,0,0,1)}
+.week-cloud .d.weekend{opacity:.78}
+
+/* Month cloud — emphasis on month name, smaller than week */
+.month-cloud{padding:16px 22px}
+.month-cloud .month-name{
+  font-family:'Cormorant Garamond',serif;font-style:italic;font-weight:600;
+  font-size:30px;line-height:1;color:var(--gold-bright);
+  letter-spacing:1px;text-transform:capitalize;text-align:center;
+  text-shadow:0 0 14px rgba(255,200,100,.45), 0 0 28px rgba(168,32,26,.25), 0 1px 4px rgba(0,0,0,1);
+  margin-bottom:2px;
+}
+.month-cloud .year{
+  font-family:'JetBrains Mono',monospace;font-size:9.5px;
+  color:var(--muted);letter-spacing:3px;text-align:center;
+  text-shadow:0 0 6px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+  margin-bottom:10px;
+}
+.month-cloud .row{
+  display:flex;align-items:center;gap:8px;padding:2.5px 0;
+  font-family:'Inter',sans-serif;font-size:11.5px;white-space:nowrap;
+}
+.month-cloud .row.past{opacity:.42}
+.month-cloud .row .dot{
+  width:5px;height:5px;border-radius:50%;box-shadow:0 0 6px currentColor;flex-shrink:0;
+}
+.month-cloud .row .day{
+  font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--gold);
+  letter-spacing:.5px;font-variant-numeric:tabular-nums;min-width:28px;
+  text-shadow:0 0 8px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+}
+.month-cloud .row .nm{
+  color:var(--gold-pale);flex:1;
+  text-shadow:0 0 8px rgba(0,0,0,.95), 0 1px 3px rgba(0,0,0,1);
+}
+.month-cloud .row .tm{
+  font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);
+  font-variant-numeric:tabular-nums;
+  text-shadow:0 0 6px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,1);
+}
 
 /* Tooltip */
 .tip{
-  position:fixed;background:linear-gradient(180deg,rgba(40,18,12,.97),rgba(20,10,6,.97));
-  border:1px solid var(--crimson-blood);padding:10px 14px;border-radius:2px;
+  position:fixed;background:linear-gradient(180deg,rgba(40,18,12,.98),rgba(20,10,6,.98));
+  border:1px solid var(--crimson-deep);padding:10px 14px;border-radius:3px;
   font-size:11px;color:var(--gold-pale);pointer-events:none;opacity:0;
   transition:opacity .15s;z-index:30;white-space:nowrap;
-  box-shadow:0 4px 28px rgba(0,0,0,.8), inset 0 1px 0 rgba(216,168,80,.15);
+  box-shadow:0 6px 30px rgba(0,0,0,.85), inset 0 1px 0 rgba(216,168,80,.15);
   font-family:'JetBrains Mono',monospace;letter-spacing:.5px;
 }
 .tip.show{opacity:1}
-.tip b{color:var(--gold-bright);font-weight:600;font-size:12px}
-.tip .meta{color:var(--gold);font-size:10px;margin-top:5px;letter-spacing:1px}
-.tip .cat{margin-top:5px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase}
-.tip .countdown{color:var(--crimson);font-size:10px;margin-top:4px;letter-spacing:1px}
+.tip b{color:var(--gold-bright);font-weight:600;font-size:12px;font-family:'Inter',sans-serif}
+.tip .meta{color:var(--gold);font-size:10px;margin-top:5px}
+.tip .cd{color:var(--crimson-soft);font-size:10px;margin-top:5px;text-transform:uppercase;letter-spacing:1.5px}
 
-/* SVG animations */
-@keyframes pulse-glow{
-  0%,100%{transform:scale(1);opacity:.95}
-  50%{transform:scale(1.35);opacity:.6}
+/* Back / Legend */
+.legend{
+  position:fixed;bottom:16px;left:26px;z-index:15;
+  display:flex;gap:16px;font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;
 }
-.task-next{transform-origin:center;transform-box:fill-box;animation:pulse-glow 1.8s ease-in-out infinite}
+.legend .dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;box-shadow:0 0 8px currentColor;vertical-align:middle}
 
-@keyframes hand-glow{
-  0%,100%{opacity:.7}
-  50%{opacity:1}
-}
-.hand-glow{animation:hand-glow 3s ease-in-out infinite}
-
-@keyframes star-shimmer{
-  0%,100%{opacity:.55;transform:scale(1)}
-  50%{opacity:1;transform:scale(1.08)}
-}
-.star{transform-origin:center;animation:star-shimmer 5s ease-in-out infinite}
-
-/* Mobile */
-@media(max-width:600px){
-  .top-bar{padding:12px 14px}
-  .brand{font-size:14px;letter-spacing:3px}
-  .date-block .d{font-size:18px}
-  .next-list{font-size:9px;padding:8px 10px}
-  .next-list .row .tm{min-width:60px}
+/* ─── Mobile ─── */
+@media(max-width:760px){
+  html,body{overflow-y:auto}
+  .header{padding:10px 14px}
+  .brand{font-size:13px;letter-spacing:2.5px}
+  .brand .sub{display:none}
+  .now-time{font-size:20px}
+  .now-date{font-size:9px}
+  .strip-zone{width:100%;max-width:100%}
+  .task{max-width:none;left:42px;right:14px}
+  .hour-label{font-size:9px}
+  .next-up{left:14px;right:14px;max-width:none}
+  .side{
+    position:relative;top:auto;right:auto;width:auto;max-height:none;
+    margin-top:calc(100vh - var(--header-h) + 20px);
+    padding:0 14px 80px;
+  }
+  .side-panel{margin:0}
+  .legend{left:14px;bottom:auto;top:calc(100vh - 40px);font-size:9px;flex-wrap:wrap;gap:10px}
 }
 </style>
 </head>
 <body>
-<div class="stage">
-  <div class="dial-wrap">
-    <svg class="dial" viewBox="-300 -300 600 600">
-      <!-- defs: filters, gradients, patterns -->
-      <defs>
-        <radialGradient id="bgRadial" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#1a0805"/>
-          <stop offset="65%" stop-color="#0d0403"/>
-          <stop offset="100%" stop-color="#050201"/>
-        </radialGradient>
-        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#a8201a" stop-opacity=".4"/>
-          <stop offset="60%" stop-color="#5a1010" stop-opacity=".1"/>
-          <stop offset="100%" stop-color="#5a1010" stop-opacity="0"/>
-        </radialGradient>
-        <linearGradient id="brassRing" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="#f0d090"/>
-          <stop offset="50%" stop-color="#a87838"/>
-          <stop offset="100%" stop-color="#604018"/>
-        </linearGradient>
-        <linearGradient id="goldHand" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#f8e0a8"/>
-          <stop offset="50%" stop-color="#d8a850"/>
-          <stop offset="100%" stop-color="#8a5818"/>
-        </linearGradient>
-        <linearGradient id="crimsonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#c83020"/>
-          <stop offset="100%" stop-color="#5a0a08"/>
-        </linearGradient>
-        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-        <filter id="hardGlow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="6"/>
-          <feComposite in="SourceGraphic" operator="over"/>
-        </filter>
-        <!-- Star symbol (5-pointed) -->
-        <symbol id="star5" viewBox="-10 -10 20 20">
-          <polygon points="0,-9 2.65,-2.78 9.39,-2.78 3.87,1.06 5.96,7.78 0,3.6 -5.96,7.78 -3.87,1.06 -9.39,-2.78 -2.65,-2.78" fill="currentColor"/>
-        </symbol>
-        <!-- Laurel / wheat ornament half (mirrored for full) -->
-        <symbol id="laurelHalf" viewBox="0 -30 30 60">
-          <g fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round">
-            <path d="M 2 0 Q 14 -6 26 -2"/>
-            <path d="M 2 0 Q 14 6 26 2"/>
-            <ellipse cx="6" cy="-3" rx="2.2" ry="1"/>
-            <ellipse cx="11" cy="-4.5" rx="2.4" ry="1.1"/>
-            <ellipse cx="16" cy="-5" rx="2.5" ry="1.1"/>
-            <ellipse cx="21" cy="-4.5" rx="2.4" ry="1"/>
-            <ellipse cx="6" cy="3" rx="2.2" ry="1"/>
-            <ellipse cx="11" cy="4.5" rx="2.4" ry="1.1"/>
-            <ellipse cx="16" cy="5" rx="2.5" ry="1.1"/>
-            <ellipse cx="21" cy="4.5" rx="2.4" ry="1"/>
-          </g>
-        </symbol>
-      </defs>
 
-      <!-- Background disc -->
-      <circle r="290" fill="url(#bgRadial)"/>
-      <circle r="180" fill="url(#centerGlow)"/>
-
-      <!-- Outer engraved border -->
-      <circle r="285" fill="none" stroke="#3a1810" stroke-width="1"/>
-      <circle r="276" fill="none" stroke="#2a1208" stroke-width=".6" stroke-dasharray="2 6"/>
-
-      <!-- Ornamental laurel/wheat at cardinal points (subtle) -->
-      <g opacity=".35" stroke="none" fill="none" color="#7a4830">
-        <g transform="translate(0, -262)">
-          <g transform="scale(-1,1)"><use href="#laurelHalf"/></g>
-          <use href="#laurelHalf"/>
-        </g>
-        <g transform="translate(0, 262) rotate(180)">
-          <g transform="scale(-1,1)"><use href="#laurelHalf"/></g>
-          <use href="#laurelHalf"/>
-        </g>
-      </g>
-
-      <!-- Star at top (subtle communist-Mexican fusion, implicit) -->
-      <g class="star" color="#a8201a" transform="translate(0, -250)">
-        <use href="#star5" width="22" height="22" x="-11" y="-11" filter="url(#softGlow)"/>
-      </g>
-
-      <!-- MONTH RING (outermost task ring) — radius ~225 -->
-      <g id="monthRing"></g>
-
-      <!-- WEEK RING — radius ~175 -->
-      <g id="weekRing"></g>
-
-      <!-- DAY RING (the main protagonist) — radius ~125 -->
-      <g id="dayRing"></g>
-
-      <!-- Center: time -->
-      <g id="centerHub">
-        <circle r="58" fill="#0d0403" stroke="url(#brassRing)" stroke-width="1.5"/>
-        <circle r="55" fill="none" stroke="#3a1810" stroke-width=".5"/>
-        <circle r="3" fill="#d8a850" filter="url(#softGlow)"/>
-      </g>
-
-      <!-- Hand (drawn last so it's on top) -->
-      <g id="hand" filter="url(#softGlow)">
-        <line x1="0" y1="0" x2="0" y2="-225" stroke="url(#goldHand)" stroke-width="1.8"
-              stroke-linecap="round" class="hand-glow"/>
-        <polygon points="0,-225 -4,-215 4,-215" fill="#f0d090"/>
-        <circle r="5" fill="#a8201a" filter="url(#hardGlow)"/>
-      </g>
-    </svg>
+<!-- BACKGROUND ATMOSPHERE -->
+<div class="atmosphere">
+  <div class="stars"></div>
+  <span class="twinkle t1"></span><span class="twinkle t2"></span><span class="twinkle t3"></span>
+  <span class="twinkle t4"></span><span class="twinkle t5"></span><span class="twinkle t6"></span>
+  <div class="sun"></div>
+  <div class="clouds">
+    <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+    <div class="cloud c4"></div><div class="cloud c5"></div><div class="cloud c6"></div>
   </div>
 </div>
 
-<div class="top-bar">
-  <div class="brand">Clockwork<span class="sub">Scheduled · Tareas</span></div>
-  <div class="date-block">
-    <div class="d" id="time-readout">--:--:--</div>
-    <div class="dn" id="date-readout">— —</div>
-  </div>
+<!-- GROUND below horizon -->
+<div class="ground"></div>
+
+<!-- HORIZON line across full window, curved -->
+<div class="horizon">
+  <svg viewBox="0 0 1000 140" preserveAspectRatio="none">
+    <defs>
+      <linearGradient id="horizonGlow" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(168,32,26,.35)"/>
+        <stop offset="55%" stop-color="rgba(168,32,26,.08)"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+      </linearGradient>
+    </defs>
+    <path fill="url(#horizonGlow)" d="M 0,80 Q 500,38 1000,80 L 1000,140 L 0,140 Z"/>
+    <path class="line" d="M 0,80 Q 500,38 1000,80"/>
+  </svg>
 </div>
 
-<a class="back" href="index.html">← Apps</a>
+<!-- Big atmospheric hour in sky center -->
+<div class="hour-watermark" id="hour-watermark">--:--</div>
 
-<div class="next-list" id="next-list">
-  <div class="title">Próximas</div>
-  <div id="next-rows"></div>
+<!-- HEADER -->
+<header class="header">
+  <div>
+    <a class="back" href="index.html">← apps</a>
+    <span class="brand"><span class="star">★</span>Clockwork<span class="sub">Tareas · Agenda</span></span>
+  </div>
+  <div style="text-align:right">
+    <div class="now-time" id="now-time">--:--:--</div>
+    <div class="now-date" id="now-date">— —</div>
+    <div class="time-scrub">
+      <button id="scrub-bb" title="-5 min">◂◂</button>
+      <button id="scrub-b" title="-1 min">◂</button>
+      <span class="offset" id="scrub-offset">+0m</span>
+      <button id="scrub-f" title="+1 min">▸</button>
+      <button id="scrub-ff" title="+5 min">▸▸</button>
+      <button class="reset" id="scrub-reset">ahora</button>
+    </div>
+  </div>
+</header>
+
+<!-- FALLING TASK STRIP (left half) -->
+<div class="strip-zone">
+  <div class="lane-guides">
+    <div class="lane l1"></div>
+    <div class="lane l2"></div>
+    <div class="lane l3"></div>
+    <div class="lane-label l1">Telegram</div>
+    <div class="lane-label l2">Datos</div>
+    <div class="lane-label l3">Monitor</div>
+  </div>
+  <div class="strip" id="strip"></div>
+</div>
+
+<!-- NEXT UP -->
+<div class="next-up" id="next-up"></div>
+
+<!-- CLOUD LAYER — scattered floating bits (week + month + monthly tasks) -->
+<div class="cloud-layer" id="cloud-layer"></div>
+
+<div class="legend">
+  <span><i class="dot" style="background:var(--c-tg);color:var(--c-tg)"></i> Telegram</span>
+  <span><i class="dot" style="background:var(--c-dt);color:var(--c-dt)"></i> Datos</span>
+  <span><i class="dot" style="background:var(--c-mn);color:var(--c-mn)"></i> Monitor</span>
 </div>
 
 <div class="tip" id="tip"></div>
@@ -286,16 +777,16 @@ svg.dial{width:100%;height:100%;display:block;overflow:visible}
 // TASK DATA
 // ═══════════════════════════════════════════════════════════════════
 const TASKS_DAILY = [
-  { id:'scant',         cat:'tg', hour:7.25,  days:[0,1,2,3,4,5,6] },
-  { id:'inegi',         cat:'mn', hour:8.0,   days:[0,2,4] },
-  { id:'banxico',       cat:'mn', hour:8.5,   days:[0,2,4] },
-  { id:'security',      cat:'mn', hour:9.0,   days:[1] },
-  { id:'datos-gob',     cat:'dt', hour:9.5,   days:[0,1,2,3,4,5,6] },
-  { id:'onmexico',      cat:'tg', hour:10.05, days:[0,1,2,3,4,5,6] },
-  { id:'mananera-datos',cat:'dt', hour:11.5,  days:[1,4] },
-  { id:'dailyt',        cat:'tg', hour:13.5,  days:[0,1,2,3,4] },
-  { id:'mananeras',     cat:'dt', hour:19.0,  days:[0,1,2,3,4,5,6] },
-  { id:'scant',         cat:'tg', hour:20.25, days:[0,1,2,3,4,5,6] },
+  { id:'scant',          cat:'tg', hour:7.25,  days:[0,1,2,3,4,5,6] },
+  { id:'inegi',          cat:'mn', hour:8.0,   days:[1,3,5] },
+  { id:'banxico',        cat:'mn', hour:8.5,   days:[1,3,5] },
+  { id:'security',       cat:'mn', hour:9.0,   days:[2] },
+  { id:'datos-gob',      cat:'dt', hour:9.5,   days:[0,1,2,3,4,5,6] },
+  { id:'onmexico',       cat:'tg', hour:10.05, days:[0,1,2,3,4,5,6] },
+  { id:'mananera-datos', cat:'dt', hour:11.5,  days:[2,5] },
+  { id:'dailyt',         cat:'tg', hour:13.5,  days:[1,2,3,4,5] },
+  { id:'mananeras',      cat:'dt', hour:19.0,  days:[0,1,2,3,4,5,6] },
+  { id:'scant',          cat:'tg', hour:20.25, days:[0,1,2,3,4,5,6] },
 ];
 const TASKS_MONTHLY = [
   { id:'fiscal',     cat:'mn', day:1,  hour:11.0 },
@@ -306,379 +797,568 @@ const TASKS_MONTHLY = [
   { id:'trimestral', cat:'mn', day:15, hour:12.0 },
   { id:'general',    cat:'mn', day:10, hour:12.5 },
 ];
-const CAT = {
-  tg: { color:'#e8b850', label:'Telegram' },
-  dt: { color:'#3a9050', label:'Data' },
-  mn: { color:'#d04030', label:'Monitor' },
-};
-const DAY_LETTERS = ['L','M','M','J','V','S','D']; // Mon-Sun for display (JS getDay: 0=Sun)
-const NS = 'http://www.w3.org/2000/svg';
-const SVG_DAY_R = 130;
-const SVG_WEEK_R = 178;
-const SVG_MONTH_R = 232;
-
-// JS getDay: 0=Sun..6=Sat. Convert to Mon=0..Sun=6
+const CAT_LABEL = { tg:'Telegram', dt:'Datos', mn:'Monitor' };
+const DAY_LETTERS = ['L','M','M','J','V','S','D'];
+const DAY_NAMES_ES = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+const MONTH_NAMES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 const jsDayToMon = d => (d + 6) % 7;
+const pad = n => String(n).padStart(2,'0');
+const fmtH = h => `${pad(Math.floor(h))}:${pad(Math.round((h - Math.floor(h)) * 60))}`;
+const fmtDays = days => {
+  if (days.length === 7) return 'diario';
+  if (days.length === 5 && [1,2,3,4,5].every(d=>days.includes(d))) return 'L–V';
+  if (days.length === 2 && [0,6].every(d=>days.includes(d))) return 'fin de semana';
+  return days.map(jsDayToMon).sort((a,b)=>a-b).map(m => DAY_LETTERS[m]).join(' ');
+};
 
 // ═══════════════════════════════════════════════════════════════════
-// SVG HELPERS
+// SKY ATMOSPHERE — color, stars, sun, clouds shift by hour of day
 // ═══════════════════════════════════════════════════════════════════
-function el(tag, attrs = {}, parent = null) {
-  const e = document.createElementNS(NS, tag);
-  for (const k in attrs) {
-    if (k === 'text') e.textContent = attrs[k];
-    else e.setAttribute(k, attrs[k]);
+const SKY_KEYS = [
+  { h: 0,  top:[10,10,28],  bot:[18,12,22],  stars:1,   clouds:0,   sun:0,  sunY:120, sunC:[240,200,120] },
+  { h: 5,  top:[28,22,48],  bot:[58,34,38],  stars:.85, clouds:.05, sun:0,  sunY:115, sunC:[240,180,120] },
+  { h: 6,  top:[78,52,68],  bot:[152,82,62], stars:.35, clouds:.25, sun:.7, sunY:85,  sunC:[255,180,100] },
+  { h: 7,  top:[110,118,150],bot:[200,140,100],stars:.08,clouds:.5, sun:1,  sunY:55,  sunC:[255,220,140] },
+  { h: 9,  top:[100,150,200],bot:[180,180,180],stars:0, clouds:.7,  sun:1,  sunY:30,  sunC:[255,240,180] },
+  { h: 12, top:[90,160,215],bot:[200,210,220],stars:0,  clouds:.85, sun:1,  sunY:12,  sunC:[255,245,200] },
+  { h: 15, top:[110,160,200],bot:[220,200,170],stars:0, clouds:.75, sun:1,  sunY:28,  sunC:[255,235,160] },
+  { h: 17, top:[170,110,90],bot:[230,140,70], stars:0,  clouds:.5,  sun:1,  sunY:60,  sunC:[255,160,90] },
+  { h: 18, top:[140,60,70], bot:[200,80,60],  stars:.1, clouds:.35, sun:.6, sunY:85,  sunC:[230,90,70] },
+  { h: 19, top:[60,40,80],  bot:[110,50,60],  stars:.45,clouds:.18, sun:.1, sunY:108, sunC:[200,70,70] },
+  { h: 20, top:[28,22,50],  bot:[58,28,40],   stars:.75,clouds:.08, sun:0,  sunY:118, sunC:[200,70,70] },
+  { h: 22, top:[14,14,32],  bot:[28,18,28],   stars:.9, clouds:.02, sun:0,  sunY:120, sunC:[200,70,70] },
+  { h: 24, top:[10,10,28],  bot:[18,12,22],   stars:1,  clouds:0,   sun:0,  sunY:120, sunC:[200,70,70] },
+];
+function lerp(a, b, t){ return a + (b - a) * t; }
+function lerpRgb(a, b, t){ return [lerp(a[0],b[0],t), lerp(a[1],b[1],t), lerp(a[2],b[2],t)].map(Math.round); }
+function rgbStr(c){ return `rgb(${c[0]},${c[1]},${c[2]})`; }
+function skyAt(h) {
+  h = ((h % 24) + 24) % 24;
+  for (let i = 0; i < SKY_KEYS.length - 1; i++) {
+    const a = SKY_KEYS[i], b = SKY_KEYS[i+1];
+    if (h >= a.h && h <= b.h) {
+      const t = (h - a.h) / (b.h - a.h);
+      return {
+        top: lerpRgb(a.top, b.top, t), bot: lerpRgb(a.bot, b.bot, t),
+        stars: lerp(a.stars, b.stars, t), clouds: lerp(a.clouds, b.clouds, t),
+        sun: lerp(a.sun, b.sun, t), sunY: lerp(a.sunY, b.sunY, t), sunC: lerpRgb(a.sunC, b.sunC, t),
+      };
+    }
   }
-  if (parent) parent.appendChild(e);
-  return e;
+  return SKY_KEYS[0];
 }
-// Polar to cartesian; angle in radians, 0 at top (-π/2 in standard math)
-function polar(r, hour, total = 24) {
-  const a = (hour / total) * Math.PI * 2 - Math.PI / 2;
-  return [Math.cos(a) * r, Math.sin(a) * r];
+function sunXAt(h) {
+  // Sun arcs across the sky from east (left) at sunrise to west (right) at sunset
+  // Daylight roughly 6h–19h → x goes from 8% to 92%
+  if (h < 6 || h > 19) return 50;
+  const t = (h - 6) / 13;
+  return 8 + t * 84;
 }
-function angleAt(hour, total = 24) {
-  return (hour / total) * 360 - 90; // degrees, 0 at top
+function updateSkyAtmosphere(h) {
+  const s = skyAt(h);
+  const root = document.documentElement;
+  root.style.setProperty('--sky-top', rgbStr(s.top));
+  root.style.setProperty('--sky-bot', rgbStr(s.bot));
+  root.style.setProperty('--star-opacity', s.stars.toFixed(2));
+  root.style.setProperty('--cloud-opacity', s.clouds.toFixed(2));
+  root.style.setProperty('--sun-opacity', s.sun.toFixed(2));
+  root.style.setProperty('--sun-y', s.sunY + 'px');
+  root.style.setProperty('--sun-x', sunXAt(h).toFixed(1) + '%');
+  root.style.setProperty('--sun-color', rgbStr(s.sunC));
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// DAY RING — 24 hour ticks + daily task jewels + hour numerals
+// FALLING STRIP — tasks drop toward the horizon (now)
 // ═══════════════════════════════════════════════════════════════════
-const dayRingG = document.getElementById('dayRing');
+const stripEl = document.getElementById('strip');
+const hourWatermarkEl = document.getElementById('hour-watermark');
 
-// Concentric ring lines (chapter ring framing)
-el('circle', { r: SVG_DAY_R + 18, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, dayRingG);
-el('circle', { r: SVG_DAY_R - 12, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, dayRingG);
-el('circle', { r: SVG_DAY_R + 18, fill:'none', stroke:'#7a4830', 'stroke-width':.4, 'stroke-dasharray':'.5 4' }, dayRingG);
+// ── View modes — zoom levels for the horizon timeline
+const VIEWS = {
+  live:  { pxPerHour: 90,  aboveH: 8,      belowH: 3,    days: 1  },
+  day:   { pxPerHour: 28,  aboveH: 20,     belowH: 4,    days: 2  },
+  week:  { pxPerHour: 9,   aboveH: 6*24,   belowH: 1*24, days: 8  },
+  month: { pxPerHour: 2.4, aboveH: 28*24,  belowH: 3*24, days: 32 },
+};
+let currentView = 'live';
+let PX_PER_HOUR = VIEWS.live.pxPerHour;
+let WINDOW_HOURS_ABOVE = VIEWS.live.aboveH;
+let WINDOW_HOURS_BELOW = VIEWS.live.belowH;
 
-// Hour ticks
-for (let h = 0; h < 24; h++) {
-  const isMajor = h % 6 === 0;
-  const isMid = h % 3 === 0 && !isMajor;
-  const r1 = SVG_DAY_R - 8;
-  const r2 = SVG_DAY_R + (isMajor ? 14 : isMid ? 9 : 5);
-  const [x1, y1] = polar(r1, h);
-  const [x2, y2] = polar(r2, h);
-  el('line', {
-    x1, y1, x2, y2,
-    stroke: isMajor ? '#d8a850' : (isMid ? '#a07838' : '#5a4020'),
-    'stroke-width': isMajor ? 1.5 : (isMid ? 1 : .6),
-    'stroke-linecap':'round',
-  }, dayRingG);
-
-  // Hour numerals every 3 hours
-  if (h % 3 === 0) {
-    const [tx, ty] = polar(SVG_DAY_R + 28, h);
-    el('text', {
-      x: tx, y: ty + 4, 'text-anchor':'middle',
-      'font-family':"'Cinzel', serif", 'font-size': isMajor ? 13 : 10,
-      'font-weight': isMajor ? 600 : 500,
-      fill: isMajor ? '#d8a850' : '#7a5028',
-      'letter-spacing':1,
-      text: String(h).padStart(2,'0'),
-    }, dayRingG);
+function setView(view) {
+  if (!VIEWS[view] || view === currentView) return;
+  const target = VIEWS[view];
+  currentView = view;
+  document.body.dataset.view = view;
+  // Animate the zoom (pxPerHour + windows) over ~600ms
+  const startPx = PX_PER_HOUR;
+  const startAbove = WINDOW_HOURS_ABOVE;
+  const startBelow = WINDOW_HOURS_BELOW;
+  const t0 = performance.now();
+  const dur = 600;
+  function tween(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+    PX_PER_HOUR = startPx + (target.pxPerHour - startPx) * e;
+    WINDOW_HOURS_ABOVE = startAbove + (target.aboveH - startAbove) * e;
+    WINDOW_HOURS_BELOW = startBelow + (target.belowH - startBelow) * e;
+    if (t < 1) requestAnimationFrame(tween);
   }
+  requestAnimationFrame(tween);
+  // Rebuild task instances if we need more days than currently generated
+  if (target.days > currentTaskDays) buildTaskCards();
+  // Reflect active state on clouds
+  document.querySelectorAll('.cloud-group').forEach(el => el.classList.remove('active-view'));
+  if (view === 'week')  document.querySelector('.week-cloud')?.classList.add('active-view');
+  if (view === 'month') document.querySelector('.month-cloud')?.classList.add('active-view');
+}
+let currentTaskDays = 0;
+
+// Compute horizon Y in viewport pixels (60% of available)
+function horizonY() {
+  const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h'));
+  return headerH + (window.innerHeight - headerH) * 0.60;
 }
 
-// Day-name label at center bottom
-el('text', {
-  x: 0, y: SVG_DAY_R - 24, 'text-anchor':'middle',
-  'font-family':"'JetBrains Mono', monospace", 'font-size':7,
-  fill:'#7a5028', 'letter-spacing':3,
-  text:'HOY · TODAY',
-}, dayRingG);
-
-// Place daily task jewels
-const taskNodes = []; // {el, task, fireAtFn, isFuture}
-const hourBucket = {};
-function plantJewel(parent, hour, total, task, baseR, isMonthly = false) {
-  const key = Math.floor(hour * 2); // half-hour buckets
-  hourBucket[`${parent.id}-${key}`] = (hourBucket[`${parent.id}-${key}`] || 0);
-  const offset = hourBucket[`${parent.id}-${key}`] * 9;
-  hourBucket[`${parent.id}-${key}`]++;
-  const r = baseR - offset;
-  const [x, y] = polar(r, hour, total);
-  const color = CAT[task.cat].color;
-  // Halo glow
-  const halo = el('circle', {
-    cx:x, cy:y, r:8, fill:color, opacity:.15, filter:'url(#hardGlow)',
-  }, parent);
-  // Main dot
-  const dot = el('circle', {
-    cx:x, cy:y, r:4, fill:color, stroke:'#1a0a06', 'stroke-width':.6,
-  }, parent);
-  // Outer brass ring
-  el('circle', {
-    cx:x, cy:y, r:6, fill:'none', stroke:'#a87838', 'stroke-width':.5, opacity:.7,
-  }, parent);
-  taskNodes.push({ dot, halo, task, isMonthly, x, y });
-  return dot;
-}
-
-TASKS_DAILY.forEach(t => {
-  plantJewel(dayRingG, t.hour, 24, t, SVG_DAY_R - 24);
-});
-
-// ═══════════════════════════════════════════════════════════════════
-// WEEK RING — 7 segments, today highlighted
-// ═══════════════════════════════════════════════════════════════════
-const weekRingG = document.getElementById('weekRing');
-const todayMon = jsDayToMon(new Date().getDay());
-
-el('circle', { r: SVG_WEEK_R, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, weekRingG);
-el('circle', { r: SVG_WEEK_R + 10, fill:'none', stroke:'#3a1810', 'stroke-width':.6, 'stroke-dasharray':'1 4' }, weekRingG);
-
-// Segments
-for (let d = 0; d < 7; d++) {
-  const a0 = (d/7) * Math.PI*2 - Math.PI/2 - Math.PI/7;
-  const a1 = ((d+1)/7) * Math.PI*2 - Math.PI/2 - Math.PI/7;
-  // tick dividers
-  const [x1, y1] = [Math.cos(a0)*(SVG_WEEK_R-5), Math.sin(a0)*(SVG_WEEK_R-5)];
-  const [x2, y2] = [Math.cos(a0)*(SVG_WEEK_R+5), Math.sin(a0)*(SVG_WEEK_R+5)];
-  el('line', { x1, y1, x2, y2, stroke:'#5a4020', 'stroke-width':.6 }, weekRingG);
-
-  // Day letter
-  const aCenter = (a0 + a1) / 2;
-  const lx = Math.cos(aCenter) * (SVG_WEEK_R - 0);
-  const ly = Math.sin(aCenter) * (SVG_WEEK_R - 0);
-  const isToday = d === todayMon;
-  // Count tasks fired today
-  const taskCount = TASKS_DAILY.filter(t => t.days.includes(d === 6 ? 0 : d + 1) || t.days.includes((d+1) % 7)).length;
-  // Actually let me re-check: JS getDay 0=Sun, we map: Mon=0..Sun=6. Reverse: monIdx 0 → jsDay 1, monIdx 6 → jsDay 0
-  const jsDay = (d + 1) % 7;
-  const realCount = TASKS_DAILY.filter(t => t.days.includes(jsDay)).length;
-
-  // Background highlight for today
-  if (isToday) {
-    el('circle', {
-      cx:lx, cy:ly, r:14, fill:'#a8201a', opacity:.18, filter:'url(#hardGlow)',
-    }, weekRingG);
-    el('circle', {
-      cx:lx, cy:ly, r:11, fill:'none', stroke:'#d04030', 'stroke-width':1,
-    }, weekRingG);
-  }
-
-  el('text', {
-    x: lx, y: ly + 4, 'text-anchor':'middle',
-    'font-family':"'Cinzel', serif", 'font-size': isToday ? 14 : 11,
-    'font-weight': isToday ? 700 : 500,
-    fill: isToday ? '#f0d090' : '#7a5028',
-    'letter-spacing':1,
-    text: DAY_LETTERS[d],
-  }, weekRingG);
-
-  // Task count dots below the letter
-  if (realCount > 0) {
-    const dotsY = ly + 14;
-    el('text', {
-      x: lx, y: dotsY, 'text-anchor':'middle',
-      'font-family':"'JetBrains Mono', monospace", 'font-size': 7,
-      fill: isToday ? '#d8a850' : '#5a4020',
-      'letter-spacing':1,
-      text: `${realCount}`,
-    }, weekRingG);
+// Build hour ticks across a wide day range so we can zoom out to week/month
+function buildHourTicks() {
+  stripEl.querySelectorAll('.hour-tick, .hour-label').forEach(n => n.remove());
+  const today = new Date();
+  // Generate ticks for ±32 days (covers month view zoom)
+  for (let dayOffset = -4; dayOffset <= 32; dayOffset++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + dayOffset);
+    for (let h = 0; h < 24; h++) {
+      const isMajor = h % 6 === 0;
+      const isMid = h % 3 === 0 && !isMajor;
+      const isDayBoundary = h === 0;
+      const tick = document.createElement('div');
+      tick.className = 'hour-tick' + (isMajor ? ' major' : '') + (isDayBoundary ? ' day-boundary' : '');
+      tick.dataset.absHour = dayOffset*24 + h;
+      stripEl.appendChild(tick);
+      if (isMajor || isMid || isDayBoundary) {
+        const label = document.createElement('div');
+        label.className = 'hour-label' + (isMajor ? ' major' : '') + (isDayBoundary ? ' day-boundary' : '');
+        label.dataset.absHour = dayOffset*24 + h;
+        if (isDayBoundary) {
+          label.textContent = `${DAY_LETTERS[jsDayToMon(date.getDay())]} ${pad(date.getDate())}`;
+        } else {
+          label.textContent = pad(h) + ':00';
+        }
+        stripEl.appendChild(label);
+      }
+    }
   }
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// MONTH RING — 30 ticks + monthly task markers
-// ═══════════════════════════════════════════════════════════════════
-const monthRingG = document.getElementById('monthRing');
-const today = new Date();
-const dom = today.getDate();
-const daysInMonth = new Date(today.getFullYear(), today.getMonth()+1, 0).getDate();
-
-el('circle', { r: SVG_MONTH_R, fill:'none', stroke:'#3a1810', 'stroke-width':1 }, monthRingG);
-
-for (let d = 1; d <= daysInMonth; d++) {
-  const isMajor = d % 5 === 0 || d === 1;
-  const isToday = d === dom;
-  const r1 = SVG_MONTH_R - 4;
-  const r2 = SVG_MONTH_R + (isMajor ? 9 : 5);
-  const [x1, y1] = polar(r1, d-1, daysInMonth);
-  const [x2, y2] = polar(r2, d-1, daysInMonth);
-  el('line', {
-    x1, y1, x2, y2,
-    stroke: isToday ? '#d04030' : (isMajor ? '#a87838' : '#5a4020'),
-    'stroke-width': isToday ? 2 : (isMajor ? 1 : .5),
-    'stroke-linecap':'round',
-  }, monthRingG);
-
-  if (isMajor) {
-    const [tx, ty] = polar(SVG_MONTH_R + 19, d-1, daysInMonth);
-    el('text', {
-      x:tx, y:ty + 3.5, 'text-anchor':'middle',
-      'font-family':"'JetBrains Mono', monospace", 'font-size':9,
-      fill: isToday ? '#f0d090' : '#7a5028',
-      'letter-spacing':.5,
-      text: String(d),
-    }, monthRingG);
+const taskInstances = [];
+function buildTaskCards() {
+  stripEl.querySelectorAll('.task').forEach(n => n.remove());
+  taskInstances.length = 0;
+  const today = new Date();
+  // Generate task instances across ±32 days (covers month zoom)
+  const startOffset = -4, endOffset = 32;
+  currentTaskDays = endOffset - startOffset;
+  for (let dayOffset = startOffset; dayOffset <= endOffset; dayOffset++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + dayOffset);
+    const jsDay = date.getDay();
+    const dom = date.getDate();
+    // Daily tasks that fire on this weekday
+    TASKS_DAILY.forEach(t => {
+      if (!t.days.includes(jsDay)) return;
+      const fireHour = t.hour + dayOffset*24;
+      const card = document.createElement('div');
+      card.className = `task cat-${t.cat}`;
+      card.dataset.taskId = t.id;
+      card.dataset.cat = t.cat;
+      card.dataset.hour = t.hour;
+      card.dataset.days = t.days.join(',');
+      card.innerHTML = `
+        <div class="star"></div>
+        <div class="time">${fmtH(t.hour)}</div>
+        <div class="name">${t.id}</div>
+        <div class="cat-label">${CAT_LABEL[t.cat]}</div>
+      `;
+      stripEl.appendChild(card);
+      taskInstances.push({ el: card, fireHour, task: t });
+    });
+    // Monthly tasks that fire on this day-of-month within the same calendar month
+    TASKS_MONTHLY.forEach(t => {
+      if (t.day !== dom) return;
+      // Only same calendar month as the date (to avoid showing every month's task)
+      if (date.getMonth() !== today.getMonth() && Math.abs(dayOffset) > 35) return;
+      const fireHour = t.hour + dayOffset*24;
+      const card = document.createElement('div');
+      card.className = `task cat-${t.cat}`;
+      card.dataset.taskId = t.id;
+      card.dataset.cat = t.cat;
+      card.dataset.hour = t.hour;
+      card.dataset.days = 'monthly';
+      card.innerHTML = `
+        <div class="star"></div>
+        <div class="time">${fmtH(t.hour)}</div>
+        <div class="name">${t.id}</div>
+        <div class="cat-label">día ${pad(t.day)}</div>
+      `;
+      stripEl.appendChild(card);
+      taskInstances.push({ el: card, fireHour, task: t, monthly: true });
+    });
   }
 }
 
-// Plant monthly task markers
-TASKS_MONTHLY.forEach(t => {
-  plantJewel(monthRingG, t.day - 1, daysInMonth, t, SVG_MONTH_R - 12, true);
-});
-
-// "Today" pointer on month ring
-const [todX, todY] = polar(SVG_MONTH_R + 17, dom - 1, daysInMonth);
-const todMarker = el('g', { transform:`translate(${todX},${todY})` }, monthRingG);
-el('circle', { r:6, fill:'#a8201a', filter:'url(#hardGlow)', opacity:.55 }, todMarker);
-el('circle', { r:3, fill:'#f0d090' }, todMarker);
-
-// ═══════════════════════════════════════════════════════════════════
-// HAND ROTATION + TASK STATE (past/future/next)
-// ═══════════════════════════════════════════════════════════════════
-const handG = document.getElementById('hand');
-const timeReadout = document.getElementById('time-readout');
-const dateReadout = document.getElementById('date-readout');
-const nextRowsEl = document.getElementById('next-rows');
-
-const monthNames = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const dayNamesEs = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-
-function nowH() {
-  const n = new Date();
+// ── Time scrubber: lets us shift visualization time forward/backward
+let timeOffset = 0; // ms
+function fakeNow() { return new Date(Date.now() + timeOffset); }
+function nowHour() {
+  const n = fakeNow();
   return n.getHours() + n.getMinutes()/60 + n.getSeconds()/3600 + n.getMilliseconds()/3600000;
 }
 
-function update() {
-  const now = new Date();
-  const h = nowH();
-  const pad = n => String(n).padStart(2,'0');
+let _lastAtmBucket = -1;
+let _firstFrame = true;
 
-  // Hand rotation: 0h at top, advances CW (visual). Map h → angle = h/24 * 360
-  handG.setAttribute('transform', `rotate(${(h/24)*360})`);
+function spawnHorizonBurst(taskEl) {
+  const rect = taskEl.getBoundingClientRect();
+  const x = rect.left + rect.width / 2;
+  const y = horizonY();
+  const burst = document.createElement('div');
+  burst.className = 'horizon-burst';
+  burst.style.left = x + 'px';
+  burst.style.top = y + 'px';
+  document.body.appendChild(burst);
+  setTimeout(() => burst.remove(), 1200);
+}
 
-  // Time readout
-  timeReadout.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  dateReadout.textContent = `${dayNamesEs[now.getDay()]} ${pad(now.getDate())} ${monthNames[now.getMonth()]}`;
+function updateFalling() {
+  const h = nowHour();
+  const now = fakeNow();
+  const horizonPx = horizonY();
+  const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h'));
+  const localFloor = horizonPx - headerH;
 
-  // Update jewel states (past=dim, future=full, next=pulsing)
-  const todayJs = now.getDay();
-  const todayMon = jsDayToMon(todayJs);
+  hourWatermarkEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-  // For daily tasks: compute "next fire" hour today; for monthly: compute next day
-  const futureToday = [];
-  const pastToday = [];
-  taskNodes.forEach(n => {
-    n.dot.classList.remove('task-next');
-    if (n.isMonthly) {
-      const isThisMonth = true; // monthly always shown
-      const fireH = n.task.hour;
-      const fireDay = n.task.day;
-      const isFutureThisMonth = (fireDay > dom) || (fireDay === dom && fireH > h);
-      const isPastThisMonth = (fireDay < dom) || (fireDay === dom && fireH <= h);
-      if (isFutureThisMonth) {
-        n.dot.setAttribute('opacity', 1);
-        n.halo.setAttribute('opacity', .25);
-      } else {
-        n.dot.setAttribute('opacity', .35);
-        n.halo.setAttribute('opacity', .05);
-      }
-    } else {
-      const fires = n.task.days.includes(todayJs);
-      if (!fires) {
-        n.dot.setAttribute('opacity', .15);
-        n.halo.setAttribute('opacity', 0);
-        return;
-      }
-      const isPast = n.task.hour <= h;
-      if (isPast) {
-        n.dot.setAttribute('opacity', .35);
-        n.halo.setAttribute('opacity', .05);
-        pastToday.push(n);
-      } else {
-        n.dot.setAttribute('opacity', 1);
-        n.halo.setAttribute('opacity', .25);
-        futureToday.push(n);
-      }
-    }
+  stripEl.querySelectorAll('.hour-tick, .hour-label').forEach(node => {
+    const abs = parseFloat(node.dataset.absHour);
+    const y = localFloor + (h - abs) * PX_PER_HOUR;
+    node.style.top = y + 'px';
   });
 
-  // Mark the very next future task (today) as pulsing
-  futureToday.sort((a,b) => a.task.hour - b.task.hour);
-  if (futureToday.length > 0) {
-    futureToday[0].dot.classList.add('task-next');
-    futureToday[0].halo.setAttribute('opacity', .45);
-  }
+  const futureInsts = [];
+  taskInstances.forEach(inst => {
+    const y = localFloor + (h - inst.fireHour) * PX_PER_HOUR;
+    inst.el.style.top = y + 'px';
+    const dist = inst.fireHour - h;
+    const prevDist = inst.lastDist;
 
-  // Next-up list (top 4)
-  const upcoming = futureToday.slice(0, 4);
-  nextRowsEl.innerHTML = upcoming.map(n => {
-    const t = n.task;
-    const delta = t.hour - h;
+    // Detect horizon crossing: was future, now past
+    if (!_firstFrame && prevDist !== undefined && prevDist > 0 && dist <= 0) {
+      inst.el.classList.add('crossing');
+      spawnHorizonBurst(inst.el);
+      setTimeout(() => inst.el.classList.remove('crossing'), 900);
+    }
+    inst.lastDist = dist;
+
+    // Past / future classification
+    if (dist <= 0) inst.el.classList.add('past');
+    else inst.el.classList.remove('past');
+
+    // Always track future tasks for next-up (even if outside visible fall window)
+    if (dist > 0) futureInsts.push(inst);
+
+    if (dist > WINDOW_HOURS_ABOVE || dist < -WINDOW_HOURS_BELOW) {
+      inst.el.style.opacity = '0';
+      inst.el.style.pointerEvents = 'none';
+      return;
+    }
+    inst.el.style.pointerEvents = 'auto';
+    if (dist < 0) {
+      const fadeT = Math.min(1, -dist / WINDOW_HOURS_BELOW);
+      inst.el.style.opacity = (1 - fadeT * 0.7).toFixed(2);
+    } else {
+      const fadeT = Math.min(1, dist / WINDOW_HOURS_ABOVE);
+      inst.el.style.opacity = (1 - fadeT * 0.25).toFixed(2);
+    }
+  });
+  futureInsts.sort((a,b) => a.fireHour - b.fireHour);
+  taskInstances.forEach(inst => inst.el.classList.remove('next'));
+  if (futureInsts.length > 0) futureInsts[0].el.classList.add('next');
+  markNextUp(futureInsts.slice(0, 3));
+
+  const bucket = Math.floor(h * 12);
+  if (bucket !== _lastAtmBucket) {
+    _lastAtmBucket = bucket;
+    updateSkyAtmosphere(h);
+  }
+  document.documentElement.style.setProperty('--horizon-y', horizonPx + 'px');
+  _firstFrame = false;
+}
+
+function markNextUp(insts) {
+  const el = document.getElementById('next-up');
+  if (!insts || !insts.length) {
+    el.innerHTML = `<div class="row r1"><span class="label">Hoy</span><span class="name" style="color:var(--muted)">— sin más por hoy —</span></div>`;
+    return;
+  }
+  const h = nowHour();
+  el.innerHTML = insts.slice(0, 3).map((inst, i) => {
+    const t = inst.task;
+    const delta = inst.fireHour - h;
     const dh = Math.floor(delta);
     const dm = Math.floor((delta - dh) * 60);
-    let countdown;
-    if (dh > 0) countdown = `${dh}h ${pad(dm)}m`;
-    else if (dm > 0) countdown = `${dm}m`;
-    else {
-      const ds = Math.floor(((delta-dh)*60 - dm) * 60);
-      countdown = `${ds}s`;
-    }
-    return `<div class="row">
-      <span class="dot" style="background:${CAT[t.cat].color};color:${CAT[t.cat].color}"></span>
-      <span class="nm">${t.id}</span>
-      <span class="tm">${countdown}</span>
-    </div>`;
-  }).join('') || '<div class="row"><span style="opacity:.5">— sin más por hoy —</span></div>';
+    const ds = Math.floor(((delta - dh) * 60 - dm) * 60);
+    let cd;
+    if (dh > 0) cd = `${dh}h ${pad(dm)}m`;
+    else if (dm > 0) cd = `${dm}m ${pad(ds)}s`;
+    else cd = `${ds}s`;
+    return `
+      <div class="row r${i+1}">
+        <span class="dot" style="background:var(--c-${t.cat});color:var(--c-${t.cat})"></span>
+        <span class="label">${i === 0 ? 'Siguiente' : ''}</span>
+        <span class="name">${t.id}</span>
+        <span class="count">${cd}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CLOUDS — scattered week + month pieces floating in the sky
+// Positions are chosen to live in the upper sky, outside the center
+// column where tasks fall (~50vw ± 280px).
+// ═══════════════════════════════════════════════════════════════════
+// Scatter positions: {x: vw or "right:vw", y: px from top under header}
+// Day clouds (7): mixed across left/right outer zones
+const DAY_SCATTER = [
+  { left:'5%',  top:88  },
+  { left:'15%', top:170 },
+  { left:'4%',  top:255 },
+  { left:'23%', top:108 },
+  { right:'22%',top:96  },
+  { right:'8%', top:175 },
+  { right:'18%',top:262 },
+];
+// Month tasks scatter (up to 7)
+const MTASK_SCATTER = [
+  { left:'7%',  top:340 },
+  { left:'18%', top:395 },
+  { left:'5%',  top:445 },
+  { right:'9%', top:340 },
+  { right:'20%',top:395 },
+  { right:'7%', top:445 },
+  { right:'24%',top:495 },
+];
+// Month name + day-of-month indicator
+const MONTH_INDICATOR_POS = { left:'50%', top:480, transform:'translateX(-50%)' };
+
+function buildClouds() {
+  const layer = document.getElementById('cloud-layer');
+  layer.innerHTML = '';
+
+  const today = new Date();
+  const month = today.getMonth();
+  const dom = today.getDate();
+  const todayMon = jsDayToMon(today.getDay());
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - todayMon);
+
+  // ── Week cloud (one group with 7 days side by side)
+  const weekCloud = document.createElement('div');
+  weekCloud.className = 'cloud-group week-cloud';
+  let dayRowHtml = '';
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const jsDay = d.getDay();
+    const tasksOnDay = TASKS_DAILY.filter(t => t.days.includes(jsDay));
+    const isToday = i === todayMon;
+    const isWeekend = i === 5 || i === 6;
+    const cats = {tg:0, dt:0, mn:0};
+    tasksOnDay.forEach(t => cats[t.cat]++);
+    const pips = [];
+    ['tg','dt','mn'].forEach(c => {
+      for (let n = 0; n < Math.min(cats[c], 3); n++) pips.push(`<span class="pip" style="background:var(--c-${c})"></span>`);
+    });
+    dayRowHtml += `
+      <div class="d${isToday ? ' today' : ''}${isWeekend ? ' weekend' : ''}">
+        <div class="l">${DAY_LETTERS[i]}</div>
+        <div class="c">${pad(d.getDate())}</div>
+        <div class="pips">${pips.join('')}</div>
+      </div>
+    `;
+  }
+  weekCloud.innerHTML = `
+    <div class="head">esta semana</div>
+    <div class="row">${dayRowHtml}</div>
+  `;
+  weekCloud.addEventListener('click', () => setView(currentView === 'week' ? 'live' : 'week'));
+  layer.appendChild(weekCloud);
+
+  // ── Month tasks cloud
+  const monthCloud = document.createElement('div');
+  monthCloud.className = 'cloud-group month-cloud';
+  const sortedMTasks = TASKS_MONTHLY.slice().sort((a,b) => a.day - b.day || a.hour - b.hour);
+  const rowsHtml = sortedMTasks.map(t => {
+    const isPast = (t.day < dom) || (t.day === dom && t.hour <= nowHour());
+    return `
+      <div class="row${isPast ? ' past' : ''}">
+        <span class="dot" style="background:var(--c-${t.cat});color:var(--c-${t.cat})"></span>
+        <span class="day">día ${pad(t.day)}</span>
+        <span class="nm">${t.id}</span>
+        <span class="tm">${fmtH(t.hour)}</span>
+      </div>
+    `;
+  }).join('');
+  monthCloud.innerHTML = `
+    <div class="month-name">${MONTH_NAMES_ES[month]}</div>
+    <div class="year">${today.getFullYear()}</div>
+    ${rowsHtml}
+  `;
+  monthCloud.addEventListener('click', () => setView(currentView === 'month' ? 'live' : 'month'));
+  layer.appendChild(monthCloud);
+
+  // ── Position the clouds (responsive)
+  positionClouds(weekCloud, monthCloud);
+}
+
+function positionClouds(weekCloud, monthCloud) {
+  const W = window.innerWidth;
+  const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h'));
+  if (W < 760) {
+    // Mobile: stack them, week on top, month below — both centered above horizon
+    weekCloud.style.cssText += `;left:50%;top:${headerH + 14}px;transform:translateX(-50%)`;
+    monthCloud.style.cssText += `;left:50%;top:${headerH + 140}px;transform:translateX(-50%)`;
+    return;
+  }
+  // Desktop: both on the RIGHT side, week upper, month below with gap (separate, not connected)
+  weekCloud.style.right = '24px';
+  weekCloud.style.top = (headerH + 16) + 'px';
+  // Place month cloud below the week, with a sky gap between them
+  const weekBottom = headerH + 16 + (weekCloud.offsetHeight || 130);
+  monthCloud.style.right = '60px'; // slightly more inset so it's visually distinct
+  monthCloud.style.top = (weekBottom + 32) + 'px';
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HEADER CLOCK
+// ═══════════════════════════════════════════════════════════════════
+const nowTimeEl = document.getElementById('now-time');
+const nowDateEl = document.getElementById('now-date');
+function updateHeader() {
+  const now = fakeNow();
+  nowTimeEl.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  nowDateEl.textContent = `${DAY_NAMES_ES[now.getDay()]} ${pad(now.getDate())} ${MONTH_NAMES_ES[now.getMonth()]}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // TOOLTIP
 // ═══════════════════════════════════════════════════════════════════
 const tipEl = document.getElementById('tip');
-function attachTooltip(node) {
-  node.dot.style.cursor = 'pointer';
-  node.dot.addEventListener('pointerenter', e => {
-    const t = node.task;
-    let meta;
-    if (node.isMonthly) {
-      meta = `Día ${t.day} · ${fmtH(t.hour)}`;
-    } else {
-      const dayStr = t.days.length === 7 ? 'diario' :
-        (t.days.length === 5 && t.days.every(d=>d>=1 && d<=5) ? 'L–V' :
-        t.days.map(d=>['D','L','M','M','J','V','S'][d]).join(''));
-      meta = `${fmtH(t.hour)} · ${dayStr}`;
-    }
-    const color = CAT[t.cat].color;
-    let cd = '';
-    if (!node.isMonthly) {
-      const h = nowH();
-      if (t.days.includes(new Date().getDay()) && t.hour > h) {
-        const dh = Math.floor(t.hour - h);
-        const dm = Math.floor((t.hour - h - dh) * 60);
-        cd = `<div class="countdown">en ${dh > 0 ? dh+'h ':''}${dm}m</div>`;
-      }
-    }
-    tipEl.innerHTML = `<b>${t.id}</b><div class="meta">${meta}</div><div class="cat" style="color:${color}">${CAT[t.cat].label}</div>${cd}`;
-    tipEl.classList.add('show');
-    moveTip(e);
-  });
-  node.dot.addEventListener('pointermove', moveTip);
-  node.dot.addEventListener('pointerleave', () => tipEl.classList.remove('show'));
-}
-function moveTip(e) {
+document.addEventListener('pointerover', e => {
+  const c = e.target.closest('.task');
+  if (!c) return;
+  const id = c.dataset.taskId, cat = c.dataset.cat;
+  const hr = parseFloat(c.dataset.hour);
+  const days = c.dataset.days.split(',').map(Number);
+  const now = new Date();
+  const nh = nowHour();
+  const isToday = days.includes(now.getDay());
+  const cdLine = isToday && hr > nh
+    ? `<div class="cd">en ${formatCountdown(hr - nh)}</div>`
+    : (isToday && hr <= nh ? `<div class="cd" style="color:var(--muted)">hace ${formatCountdown(nh - hr)}</div>` : '');
+  tipEl.innerHTML = `
+    <b>${id}</b>
+    <div class="meta">${fmtH(hr)} · ${fmtDays(days)}</div>
+    <div class="meta" style="color:var(--c-${cat})">${CAT_LABEL[cat]}</div>
+    ${cdLine}
+  `;
+  tipEl.classList.add('show');
+});
+document.addEventListener('pointermove', e => {
+  if (!tipEl.classList.contains('show')) return;
   tipEl.style.left = Math.min(e.clientX + 14, window.innerWidth - 220) + 'px';
-  tipEl.style.top = Math.min(e.clientY + 14, window.innerHeight - 100) + 'px';
+  tipEl.style.top = Math.min(e.clientY + 14, window.innerHeight - 110) + 'px';
+});
+document.addEventListener('pointerout', e => {
+  if (e.target.closest('.task')) tipEl.classList.remove('show');
+});
+function formatCountdown(deltaH) {
+  if (deltaH < 0) deltaH = -deltaH;
+  const h = Math.floor(deltaH);
+  const m = Math.floor((deltaH - h) * 60);
+  const s = Math.floor(((deltaH - h) * 60 - m) * 60);
+  if (h > 0) return `${h}h ${pad(m)}m`;
+  if (m > 0) return `${m}m ${pad(s)}s`;
+  return `${s}s`;
 }
-function fmtH(h) {
-  const hh = Math.floor(h);
-  const mm = Math.round((h - hh) * 60);
-  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
-}
-taskNodes.forEach(attachTooltip);
 
 // ═══════════════════════════════════════════════════════════════════
-// MAIN LOOP
+// MAIN
 // ═══════════════════════════════════════════════════════════════════
-function tick() {
-  update();
-  requestAnimationFrame(tick);
+buildHourTicks();
+buildTaskCards();
+buildClouds();
+updateHeader();
+updateFalling();
+
+// Click on brand or hour watermark returns to "live" (default) view
+document.querySelector('.brand').style.cursor = 'pointer';
+document.querySelector('.brand').addEventListener('click', () => setView('live'));
+document.getElementById('hour-watermark')?.addEventListener('click', () => setView('live'));
+
+// ─── Time scrubber controls ───
+function applyOffset(deltaMs) { timeOffset += deltaMs; updateScrubDisplay(); }
+function resetOffset() { timeOffset = 0; updateScrubDisplay(); }
+function updateScrubDisplay() {
+  const offEl = document.getElementById('scrub-offset');
+  const resetEl = document.getElementById('scrub-reset');
+  if (!offEl) return;
+  const sign = timeOffset >= 0 ? '+' : '−';
+  const abs = Math.abs(timeOffset);
+  const h = Math.floor(abs / 3600000);
+  const m = Math.floor((abs % 3600000) / 60000);
+  let label = '+0m';
+  if (h > 0) label = `${sign}${h}h${pad(m)}m`;
+  else if (m > 0) label = `${sign}${m}m`;
+  else if (abs > 0) label = `${sign}${Math.floor(abs/1000)}s`;
+  offEl.textContent = label;
+  offEl.classList.toggle('active', timeOffset !== 0);
+  resetEl.classList.toggle('active', timeOffset !== 0);
 }
-tick();
+document.getElementById('scrub-bb').addEventListener('click', () => applyOffset(-300000));
+document.getElementById('scrub-b').addEventListener('click',  () => applyOffset(-60000));
+document.getElementById('scrub-f').addEventListener('click',  () => applyOffset(60000));
+document.getElementById('scrub-ff').addEventListener('click', () => applyOffset(300000));
+document.getElementById('scrub-reset').addEventListener('click', resetOffset);
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input,textarea,[contenteditable]')) return;
+  const step = e.shiftKey ? 300000 : 60000;
+  if (e.key === 'ArrowRight') { applyOffset(step); e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { applyOffset(-step); e.preventDefault(); }
+  else if (e.key === 'Escape' || e.key === 'n') { resetOffset(); e.preventDefault(); }
+});
+updateScrubDisplay();
+
+function loop() {
+  updateFalling();
+  requestAnimationFrame(loop);
+}
+loop();
+setInterval(updateHeader, 200);
+window.addEventListener('resize', () => updateFalling());
+
+// Day rollover rebuild
+let lastBuildDay = new Date().getDate();
+setInterval(() => {
+  const d = new Date().getDate();
+  if (d !== lastBuildDay) {
+    lastBuildDay = d;
+    buildTaskCards();
+    buildWeek();
+    buildMonth();
+  }
+}, 30000);
 </script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
 </body>
