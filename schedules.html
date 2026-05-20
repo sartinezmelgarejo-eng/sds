@@ -321,30 +321,16 @@ body[data-view="week"] .strip-zone,
 body[data-view="month"] .strip-zone{
   width:min(72vw, 900px);max-width:min(72vw, 900px);
 }
-/* Lane positions (% of strip-zone width) */
-body[data-view="week"] .task.cat-tg,
-body[data-view="month"] .task.cat-tg{left:18%}
-body[data-view="week"] .task.cat-dt,
-body[data-view="month"] .task.cat-dt{left:50%}
-body[data-view="week"] .task.cat-mn,
-body[data-view="month"] .task.cat-mn{left:82%}
+/* In week/month, tasks fall in curved orbits that converge at the horizon — positioning done in JS */
 body[data-view="week"] .task,
-body[data-view="month"] .task{transition:left .6s ease, opacity .3s, filter .6s ease}
-/* Lane guides — subtle vertical strands of light */
+body[data-view="month"] .task{transition:opacity .3s, filter .6s ease}
+/* Lane guides — labels at the top showing where each orbit starts */
 .lane-guides{
   position:absolute;inset:0;pointer-events:none;
   opacity:0;transition:opacity .6s ease;
 }
 body[data-view="week"] .lane-guides,
 body[data-view="month"] .lane-guides{opacity:1}
-.lane-guides .lane{
-  position:absolute;top:0;bottom:0;width:1px;
-  background:linear-gradient(180deg, transparent 0%, currentColor 8%, currentColor 92%, transparent 100%);
-  opacity:.18;
-}
-.lane-guides .lane.l1{left:18%;color:var(--c-tg)}
-.lane-guides .lane.l2{left:50%;color:var(--c-dt)}
-.lane-guides .lane.l3{left:82%;color:var(--c-mn)}
 .lane-guides .lane-label{
   position:absolute;top:14px;transform:translateX(-50%);
   font-family:'Cinzel',serif;font-size:10px;font-weight:600;
@@ -354,6 +340,11 @@ body[data-view="month"] .lane-guides{opacity:1}
 .lane-guides .lane-label.l1{left:18%;color:var(--c-tg)}
 .lane-guides .lane-label.l2{left:50%;color:var(--c-dt)}
 .lane-guides .lane-label.l3{left:82%;color:var(--c-mn)}
+/* Subtle curved orbit guides via SVG */
+.lane-guides svg.orbits{
+  position:absolute;inset:0;width:100%;height:100%;
+  pointer-events:none;opacity:.22;
+}
 /* Soften the side clouds in zoomed views so lanes breathe */
 body[data-view="week"] .cloud-layer,
 body[data-view="month"] .cloud-layer{
@@ -756,9 +747,12 @@ body[data-view="month"] .hour-tick:not(.day-boundary){opacity:.3}
 <!-- FALLING TASK STRIP (left half) -->
 <div class="strip-zone">
   <div class="lane-guides">
-    <div class="lane l1"></div>
-    <div class="lane l2"></div>
-    <div class="lane l3"></div>
+    <svg class="orbits" viewBox="0 0 100 100" preserveAspectRatio="none">
+      <!-- Curved orbits: start at outer % at top, converge to 50% at bottom (horizon) -->
+      <path d="M 18,0 Q 18,68 50,100" fill="none" stroke="var(--c-tg)" stroke-width=".25" stroke-dasharray=".5 2"/>
+      <path d="M 50,0 L 50,100"        fill="none" stroke="var(--c-dt)" stroke-width=".25" stroke-dasharray=".5 2"/>
+      <path d="M 82,0 Q 82,68 50,100" fill="none" stroke="var(--c-mn)" stroke-width=".25" stroke-dasharray=".5 2"/>
+    </svg>
     <div class="lane-label l1">Telegram</div>
     <div class="lane-label l2">Datos</div>
     <div class="lane-label l3">Monitor</div>
@@ -1068,11 +1062,26 @@ function updateFalling() {
     node.style.top = y + 'px';
   });
 
+  // Lane offsets (% of strip-zone width from 50% center) for orbit convergence
+  const LANE_OFFSET = { tg: -32, dt: 0, mn: 32 };
+  const orbitsActive = (currentView === 'week' || currentView === 'month');
+  const convergeRange = WINDOW_HOURS_ABOVE * 0.55;
+
   const futureInsts = [];
   taskInstances.forEach(inst => {
     const y = localFloor + (h - inst.fireHour) * PX_PER_HOUR;
     inst.el.style.top = y + 'px';
     const dist = inst.fireHour - h;
+
+    // Horizontal orbit: outer at top, converging to center at horizon
+    if (orbitsActive && dist > 0) {
+      const t = Math.min(1, dist / convergeRange);
+      const eased = t * t;  // stays outer most of the way, converges fast near horizon
+      const offsetPct = LANE_OFFSET[inst.task.cat] * eased;
+      inst.el.style.left = `calc(50% + ${offsetPct}%)`;
+    } else {
+      inst.el.style.left = '50%';
+    }
     const prevDist = inst.lastDist;
 
     // Detect horizon crossing: was future, now past
