@@ -328,16 +328,9 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tl-item .dates{font-size:9px;color:#a08a5a;margin-top:3px}
 .sidebar .m-tg-empty{padding:24px 14px;text-align:center;color:#a08a5a;font-style:italic;font-size:11px}
 
-/* ─── Hero-from-source toggle (when post lacks own img but has source preview img) ─── */
-/* By default the .source-as-hero sibling is hidden — only the wide-sidebar magazine layout reveals it */
+/* ─── Hero-from-source: source-card-in-body is the visual everywhere on narrow/compact
+       Source-as-hero only shown in wide-sidebar magazine layout (revealed via @container query) ─── */
 .sidebar .m-tg-item .source-card.source-as-hero{display:none}
-/* COMPACT (non-spacious, not expanded): keep thumb left + show source-card in body BUT
-   hide its inner image (it'd duplicate the thumb). Domain/title/desc still visible. */
-.sidebar .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card .src-img{display:none !important}
-.sidebar .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{padding:6px 10px}
-/* EXPANDED or SPACIOUS narrow: hide the hero thumb, body source-card shows full preview */
-.sidebar .m-tg-item.hero-from-source.expanded > img,
-.sidebar .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
 
 /* ─── source-card promoted to HERO (when post has no own image) ─── */
 /* COMPACT (collapsed in non-spacious list): just the image as a small left thumb. */
@@ -702,50 +695,8 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .m-tg-list.spacious .source-card .src-title{font-size:14px;-webkit-line-clamp:3}
   .m-tg-list.spacious .source-card .src-desc{font-size:12px;-webkit-line-clamp:3}
 
-  /* Mobile: source-as-hero always hidden (no wide-magazine on mobile) */
-  .m-tg-item .source-card.source-as-hero{display:none}
-  /* Compact + hero-from-source: keep thumb left + body source-card visible BUT hide its inner image */
-  .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card .src-img{display:none !important}
-  .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{padding:8px 10px}
-  /* Expanded/Spacious + hero-from-source: hide thumb, full source-card in body shows */
-  .m-tg-item.hero-from-source.expanded > img,
-  .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
-
-  /* ─── source-card promoted to HERO on mobile (matches sidebar behavior) ─── */
-  /* COMPACT (collapsed in non-spacious list): just the image as a small 74px left thumb */
-  .m-tg-list:not(.spacious) .m-tg-item:not(.expanded) .source-card.source-as-hero{
-    display:block;flex-shrink:0;
-    width:74px;height:74px;
-    margin:0;padding:0;border-radius:8px;
-    border:1px solid color-mix(in srgb, var(--ct) 35%, transparent);
-    border-left:1px solid color-mix(in srgb, var(--ct) 35%, transparent);
-    overflow:hidden;
-    background:color-mix(in srgb, var(--ct) 15%, #fff);
-  }
-  .m-tg-list:not(.spacious) .m-tg-item:not(.expanded) .source-card.source-as-hero .src-img{
-    width:100%;height:100%;border-radius:0;object-fit:cover;background:transparent;
-  }
-  .m-tg-list:not(.spacious) .m-tg-item:not(.expanded) .source-card.source-as-hero .src-body{display:none}
-
-  /* EXPANDED (tap-to-expand) OR SPACIOUS: full top banner with image + preview text */
-  .m-tg-item.expanded .source-card.source-as-hero,
-  .m-tg-list.spacious .m-tg-item .source-card.source-as-hero{
-    display:flex;flex-direction:column;
-    width:100%;margin:0;padding:0;
-    border-radius:11px 11px 0 0;border:none;
-    border-bottom:1px solid #e8d4c8;
-    background:#fdf7f3;
-  }
-  .m-tg-item.expanded .source-card.source-as-hero .src-img,
-  .m-tg-list.spacious .m-tg-item .source-card.source-as-hero .src-img{
-    width:100%;height:auto;max-height:220px;
-    object-fit:cover;border-radius:0;
-  }
-  .m-tg-item.expanded .source-card.source-as-hero .src-body,
-  .m-tg-list.spacious .m-tg-item .source-card.source-as-hero .src-body{
-    display:flex;flex-direction:column;gap:3px;
-    padding:10px 14px 12px;
-  }
+  /* MOBILE: source-as-hero never shown — source-card in body handles everything (Telegram-style) */
+  .m-tg-item .source-card.source-as-hero{display:none !important}
   /* Translations chip: oro caramelo Pantone 465 con gradient (distintivo, "premium") */
   .m-chip.translations{
     --ck:#BC955C;
@@ -1117,7 +1068,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const hasOwnImg = !!x.img;
         const hasSource = !!(s && s.url);
         const heroFromSource = !hasOwnImg && !!(s && s.img);
-        const heroImg = x.img || (s && s.img) || null;
+        // Hero thumb only when the post itself has an attached image.
+        // No source.img fallback — the source-card (inside body) provides its own image.
+        const heroImg = x.img || null;
         const itemClasses = ['m-tg-item'];
         if (!heroImg) itemClasses.push('no-img');
         if (heroFromSource) itemClasses.push('hero-from-source');
