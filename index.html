@@ -827,19 +827,32 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     color:#6b4a3a;font-size:11px;font-weight:600;
     pointer-events:none;letter-spacing:.5px;
   }
-  /* Floating refresh button — top right, always accessible */
-  .m-refresh{
-    position:fixed;top:10px;right:10px;z-index:50;
-    background:rgba(24,10,14,.9);backdrop-filter:blur(6px);
-    border:1px solid rgba(221,201,163,.25);
-    width:34px;height:34px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-size:17px;line-height:1;color:#DDC9A3;
+  /* Translations button in header bar */
+  .m-tl-btn{
+    background:linear-gradient(135deg, rgba(188,149,92,.2), rgba(138,106,48,.15));
+    border:1px solid rgba(221,201,163,.25);color:#DDC9A3;
+    width:32px;height:32px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    font-size:15px;line-height:1;
     cursor:pointer;font-family:inherit;padding:0;
-    box-shadow:0 1px 3px rgba(0,0,0,.2);
+    transition:background .2s, border-color .2s;
+  }
+  .m-tl-btn:active,.m-tl-btn.active{
+    background:linear-gradient(135deg, #DDC9A3 0%, #BC955C 100%);
+    border-color:#BC955C;
+    box-shadow:0 1px 6px rgba(188,149,92,.4);
+  }
+  /* Refresh button — pinned in header bar */
+  .m-refresh{
+    background:rgba(159,34,65,.22);
+    border:1px solid rgba(221,201,163,.25);color:#DDC9A3;
+    width:32px;height:32px;border-radius:10px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    font-size:17px;line-height:1;
+    cursor:pointer;font-family:inherit;padding:0;
     transition:transform .25s ease, background .2s;
   }
-  .m-refresh:active{background:rgba(159,34,65,.3)}
+  .m-refresh:active{background:rgba(159,34,65,.4)}
   .m-refresh.spinning{transform:rotate(360deg);transition:transform .55s ease}
   /* Page dots */
   .m-dots{
@@ -951,8 +964,6 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 </div>
 
 <!-- Floating refresh button (mobile only — CSS hidden on desktop) -->
-<button class="m-refresh" id="m-refresh" aria-label="Refresh">⟳</button>
-
 <!-- ═══ MOBILE: 2-PAGE SWIPE LAYOUT ═══ -->
 <div class="mobile-pages" id="mobile-pages">
 
@@ -961,7 +972,10 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     <div class="m-dots"><span class="active"></span><span></span></div>
     <header class="m-page-head">
       <button class="m-view-btn" id="m-view-btn" aria-label="Toggle view">▦</button>
+      <button class="m-tl-btn" id="m-tl-btn" aria-label="Translations">📖</button>
+      <span style="flex:1"></span>
       <a class="link" href="https://t.me/resisres" target="_blank">Open ↗</a>
+      <button class="m-refresh" id="m-refresh" aria-label="Refresh">⟳</button>
     </header>
     <div class="m-tg-chips" id="m-tg-chips">
       <button class="m-chip active" data-filter="">All</button>
@@ -1078,9 +1092,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(chipBars.length){
       const tasks=[...new Set(mobileItems.map(x=>x.task||'other'))];
       const taskChips=tasks.map(t=>{const m=meta(t);return `<button class="m-chip ${activeFilter===t?'active':''}" data-filter="${esc(t)}" style="--ck:${m.color}">${m.label}</button>`}).join('');
-      const tlChip=translationItems.length?`<button class="m-chip translations ${activeFilter==='__tl'?'active':''}" data-filter="__tl">📖 Translations</button>`:'';
-      const chipsHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+taskChips+tlChip;
+      const chipsHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+taskChips;
       chipBars.forEach(c=>{c.innerHTML=chipsHTML});
+      // Update translations button active state in header
+      const tlBtn=document.getElementById('m-tl-btn');
+      if(tlBtn){tlBtn.classList.toggle('active',activeFilter==='__tl')}
     }
     // Translations mode: render translation cards
     if(activeFilter==='__tl'){
@@ -1148,6 +1164,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const c=e.target.closest('.m-chip');
     if(!c)return;
     activeFilter=c.dataset.filter||null;
+    renderMobile();
+  });
+  // Translations header button click
+  const tlBtnEl=document.getElementById('m-tl-btn');
+  if(tlBtnEl)tlBtnEl.addEventListener('click',()=>{
+    activeFilter=activeFilter==='__tl'?null:'__tl';
     renderMobile();
   });
 
