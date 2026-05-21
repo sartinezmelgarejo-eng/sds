@@ -329,6 +329,30 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tl-item .dates{font-size:9px;color:#a08a5a;margin-top:3px}
 .sidebar .m-tg-empty{padding:24px 14px;text-align:center;color:#a08a5a;font-style:italic;font-size:11px}
 
+/* ─── source-card promoted to HERO (when post has no own image) ─── */
+/* In compact: acts as a small left thumb. In expanded: full hero. In wide expanded: left column. */
+.sidebar .m-tg-item .source-card.source-as-hero{
+  flex-shrink:0;width:54px;height:54px;align-self:flex-start;
+  margin:0;padding:0;border-radius:6px;
+  border:1px solid color-mix(in srgb, var(--ct) 40%, transparent);
+  border-left:none;overflow:hidden;
+  background:#0d0608;
+}
+.sidebar .m-tg-item .source-card.source-as-hero .src-img{
+  width:100%;height:100%;border-radius:0;object-fit:cover;max-height:none;
+}
+.sidebar .m-tg-item .source-card.source-as-hero .src-body{display:none}
+/* Expanded card: source-as-hero becomes the full top banner */
+.sidebar .m-tg-item.expanded .source-card.source-as-hero{
+  width:100%;height:auto;max-height:260px;
+  border-radius:0;border:none;
+  align-self:stretch;
+}
+.sidebar .m-tg-item.expanded .source-card.source-as-hero .src-img{
+  width:100%;height:auto;max-height:260px;
+  object-fit:contain;background:transparent;
+}
+
 /* Sidebar SPACIOUS view: full image on top, text below; subtle left stripe marks category */
 .sidebar .m-tg-list.spacious{padding:0}
 .sidebar .m-tg-list.spacious .m-tg-item{
@@ -364,12 +388,19 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     flex-direction:row;align-items:flex-start;
     padding:0;gap:0;overflow:hidden;
   }
-  .sidebar .m-tg-item.expanded img{
+  /* Both <img> and the source-card-promoted-to-hero get the same left-column treatment */
+  .sidebar .m-tg-item.expanded img,
+  .sidebar .m-tg-item.expanded .source-card.source-as-hero{
     width:220px;flex-shrink:0;
     height:auto;max-height:340px;
     align-self:flex-start;
-    object-fit:contain;background:transparent;
     border-radius:8px 0 0 8px;margin:0;
+  }
+  .sidebar .m-tg-item.expanded img{
+    object-fit:contain;background:transparent;
+  }
+  .sidebar .m-tg-item.expanded .source-card.source-as-hero .src-img{
+    max-height:340px;object-fit:contain;background:transparent;
   }
   .sidebar .m-tg-item.expanded .body{
     flex:1;min-width:0;padding:14px 16px 14px 16px;
@@ -378,12 +409,18 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .sidebar .m-tg-list.spacious .m-tg-item{
     flex-direction:row;align-items:flex-start;padding:0;
   }
-  .sidebar .m-tg-list.spacious .m-tg-item img{
+  .sidebar .m-tg-list.spacious .m-tg-item img,
+  .sidebar .m-tg-list.spacious .m-tg-item .source-card.source-as-hero{
     width:220px;flex-shrink:0;
     height:auto;max-height:340px;
     align-self:flex-start;
-    object-fit:contain;background:transparent;
     border-radius:0;margin:0;
+  }
+  .sidebar .m-tg-list.spacious .m-tg-item img{
+    object-fit:contain;background:transparent;
+  }
+  .sidebar .m-tg-list.spacious .m-tg-item .source-card.source-as-hero .src-img{
+    max-height:340px;object-fit:contain;background:transparent;
   }
   .sidebar .m-tg-list.spacious .m-tg-item .body{
     flex:1;min-width:0;padding:14px 16px;
@@ -393,7 +430,9 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 /* Even wider (≥ 600px): bump the image bigger still */
 @container sidebar (min-width: 600px){
   .sidebar .m-tg-item.expanded img,
-  .sidebar .m-tg-list.spacious .m-tg-item img{
+  .sidebar .m-tg-item.expanded .source-card.source-as-hero,
+  .sidebar .m-tg-list.spacious .m-tg-item img,
+  .sidebar .m-tg-list.spacious .m-tg-item .source-card.source-as-hero{
     width:280px;max-height:420px;
   }
   .sidebar .m-tg-item.expanded .body,
@@ -995,12 +1034,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const m=meta(x.task);
         const t=x.ts||'';
         const s=x.source;
-        // Fall back to source.img when the post itself has no attached image —
-        // so article-link posts (scant/dragon/onmexico) still show a thumb.
-        const cardImg = x.img || (s && s.img) || null;
-        const hasImg = !!cardImg;
-        // Optional article preview card (Telegram-style) — its own <a> link
-        const sourceCard=s&&s.url?`
+        const hasOwnImg = !!x.img;
+        const hasSource = !!(s && s.url);
+        // Build the source preview card markup once — used either as hero (when no own img)
+        // or inside the body (when there's also an own img, so they don't duplicate).
+        const sourceCardHTML = hasSource ? `
           <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
             ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
             <div class="src-body">
@@ -1008,17 +1046,24 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
               ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
-          </a>`:'';
-        // Card is a <div>; --ct carries the category color so CSS can tint bg/border via color-mix
-        return `<div class="m-tg-item${hasImg?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
+          </a>` : '';
+        // Decide whether the source card is the HERO (left/top column in expanded layouts)
+        // or stays inline within the body (alongside post's own image).
+        const sourceAsHero = !hasOwnImg && hasSource;
+        const heroSourceCard = sourceAsHero ? sourceCardHTML.replace('source-card', 'source-card source-as-hero') : '';
+        const inlineSourceCard = (!sourceAsHero && hasSource) ? sourceCardHTML : '';
+        const hasHero = hasOwnImg || sourceAsHero;
+        // Card is a <div>; --ct carries the category color
+        return `<div class="m-tg-item${hasHero?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
-          ${hasImg?`<img src="${esc(cardImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+          ${hasOwnImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+          ${heroSourceCard}
           <div class="body">
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
             <div class="txt">${esc(x.text)}</div>
-            ${sourceCard}
+            ${inlineSourceCard}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
               <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
