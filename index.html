@@ -177,15 +177,16 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 }
 .sidebar .m-tg-chips::-webkit-scrollbar{display:none}
 .sidebar .m-chip{
-  flex-shrink:0;border:1px solid rgba(232,199,102,.18);
-  background:rgba(40,18,22,.55);color:#d4b88a;
-  padding:4px 10px;border-radius:11px;font-size:10px;font-weight:600;
-  cursor:pointer;font-family:inherit;letter-spacing:.3px;--ck:#A4243B;
+  flex-shrink:0;--ck:#A4243B;
+  background:color-mix(in srgb, var(--ck) 25%, rgba(20,8,10,.65));
+  color:color-mix(in srgb, var(--ck) 30%, #f5e8c8);
+  border:1px solid color-mix(in srgb, var(--ck) 50%, rgba(232,199,102,.15));
+  padding:4px 10px;border-radius:11px;font-size:10px;font-weight:700;
+  cursor:pointer;font-family:inherit;letter-spacing:.3px;transition:all .2s;
 }
-.sidebar .m-chip:hover{background:rgba(70,28,38,.65)}
-.sidebar .m-chip.active{background:var(--ck);color:#fff;border-color:var(--ck)}
-.sidebar .m-chip.translations{background:rgba(164,36,59,.3);color:#E8C766;border-color:#A4243B}
-.sidebar .m-chip.translations.active{background:#A4243B;color:#fff;border-color:#A4243B}
+.sidebar .m-chip:hover{background:color-mix(in srgb, var(--ck) 38%, rgba(20,8,10,.65))}
+.sidebar .m-chip.active{background:var(--ck);color:#fff;border-color:var(--ck);box-shadow:0 1px 6px color-mix(in srgb, var(--ck) 50%, transparent)}
+.sidebar .m-chip.translations{--ck:#A4243B}
 /* Card list in sidebar — scrollbar hidden so it doesn't eat horizontal space */
 .sidebar .m-tg-list{
   flex:1;overflow-y:auto;padding:6px;background:transparent;
@@ -194,10 +195,17 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tg-list::-webkit-scrollbar{display:none}
 .sidebar .m-tg-item{
   display:flex;gap:10px;align-items:flex-start;cursor:pointer;position:relative;
-  padding:9px;background:rgba(255,255,255,.04);border-radius:8px;margin-bottom:5px;
-  border:1px solid rgba(232,199,102,.08);
+  --ct:#A4243B;  /* category color set per-card inline */
+  padding:9px;
+  background:color-mix(in srgb, var(--ct) 18%, rgba(20,8,10,.5));
+  border:1px solid color-mix(in srgb, var(--ct) 30%, rgba(232,199,102,.08));
+  border-radius:8px;margin-bottom:5px;
+  transition:background .2s,border-color .2s;
 }
-.sidebar .m-tg-item:hover{background:rgba(255,255,255,.07)}
+.sidebar .m-tg-item:hover{
+  background:color-mix(in srgb, var(--ct) 25%, rgba(20,8,10,.5));
+  border-color:color-mix(in srgb, var(--ct) 45%, rgba(232,199,102,.1));
+}
 .sidebar .m-tg-item img{
   width:52px;height:52px;flex-shrink:0;
   border-radius:6px;object-fit:cover;background:#1a0a0c;display:block;
@@ -232,7 +240,7 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 /* Expanded card in sidebar */
 .sidebar .m-tg-item.expanded{
   flex-direction:column;gap:0;padding:0;overflow:hidden;cursor:default;
-  background:rgba(255,255,255,.06);
+  background:color-mix(in srgb, var(--ct) 22%, rgba(20,8,10,.5));
 }
 .sidebar .m-tg-item.expanded img,
 .sidebar .m-tg-item.expanded .meta-row,
@@ -305,14 +313,15 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tl-item .dates{font-size:9px;color:#a08a5a;margin-top:3px}
 .sidebar .m-tg-empty{padding:24px 14px;text-align:center;color:#a08a5a;font-style:italic;font-size:11px}
 
-/* Sidebar SPACIOUS view: full image on top, text below, no card chrome */
+/* Sidebar SPACIOUS view: full image on top, text below, tinted by category */
 .sidebar .m-tg-list.spacious{padding:0}
 .sidebar .m-tg-list.spacious .m-tg-item{
   flex-direction:column;gap:0;padding:0;margin:0;
-  border:none;border-bottom:1px solid rgba(232,199,102,.12);
-  background:transparent;border-radius:0;
+  border:none;border-bottom:1px solid color-mix(in srgb, var(--ct) 30%, rgba(232,199,102,.15));
+  background:color-mix(in srgb, var(--ct) 12%, transparent);
+  border-radius:0;
 }
-.sidebar .m-tg-list.spacious .m-tg-item:hover{background:rgba(255,255,255,.04)}
+.sidebar .m-tg-list.spacious .m-tg-item:hover{background:color-mix(in srgb, var(--ct) 20%, transparent)}
 .sidebar .m-tg-list.spacious .m-tg-item img{
   width:100%;height:auto;max-height:260px;
   border-radius:0;object-fit:contain;background:transparent;
@@ -458,22 +467,29 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none;flex-shrink:0;
   }
   .m-tg-chips::-webkit-scrollbar{display:none}
+  /* Chips tinted by their own category color — derive bg/border from --ck */
   .m-chip{
-    flex-shrink:0;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;
-    padding:6px 12px;border-radius:14px;font-size:11.5px;font-weight:600;
-    letter-spacing:.3px;cursor:pointer;transition:all .2s;--ck:#94a3b8;
-    font-family:inherit;
+    flex-shrink:0;--ck:#A4243B;
+    background:color-mix(in srgb, var(--ck) 10%, #fff);
+    color:var(--ck);
+    border:1px solid color-mix(in srgb, var(--ck) 35%, transparent);
+    padding:6px 12px;border-radius:14px;font-size:11.5px;font-weight:700;
+    letter-spacing:.3px;cursor:pointer;transition:all .2s;font-family:inherit;
   }
-  .m-chip:hover{background:#f1f5f9}
+  .m-chip:hover{background:color-mix(in srgb, var(--ck) 18%, #fff)}
   .m-chip.active{background:var(--ck);color:#fff;border-color:var(--ck);
-    box-shadow:0 1px 4px rgba(0,0,0,.12)}
+    box-shadow:0 1px 4px rgba(0,0,0,.15)}
   /* COMPACT view (default): horizontal row, small thumb left, dense text right */
   .m-tg-list{flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch;background:#f0f2f5}
   .m-tg-item{
     display:flex;gap:12px;align-items:flex-start;
-    padding:11px;background:#fff;border-radius:11px;margin-bottom:7px;
+    --ct:#94a3b8;  /* category color set per-card inline */
+    padding:11px;
+    background:color-mix(in srgb, var(--ct) 8%, #fff);
+    border:1px solid color-mix(in srgb, var(--ct) 22%, transparent);
+    border-radius:11px;margin-bottom:7px;
     text-decoration:none;color:inherit;
-    box-shadow:0 1px 2px rgba(0,0,0,.05);
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
     transition:transform .15s ease;
   }
   /* (no :active transform — card is no longer a tap target; only the buttons inside are) */
@@ -964,13 +980,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
           </a>`:'';
-        // Card is a <div> — tapping body toggles .expanded; only the buttons inside navigate
-        return `<div class="m-tg-item${hasImg?'':' no-img'}">
+        // Card is a <div>; --ct carries the category color so CSS can tint bg/border via color-mix
+        return `<div class="m-tg-item${hasImg?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
           ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
             <div class="meta-row">
-              <span class="task-tag" style="background:${m.color}">${m.label}</span>
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
             <div class="txt">${esc(x.text)}</div>
