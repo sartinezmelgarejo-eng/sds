@@ -328,10 +328,13 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tl-item .dates{font-size:9px;color:#a08a5a;margin-top:3px}
 .sidebar .m-tg-empty{padding:24px 14px;text-align:center;color:#a08a5a;font-style:italic;font-size:11px}
 
-/* ─── Hero-from-source toggle: when the hero img is just a fallback from source.img ─── */
-/* COMPACT in non-spacious list: keep the thumb, hide the body source-card (redundant) */
-.sidebar .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{display:none}
-/* EXPANDED or SPACIOUS: hide the hero thumb, source-card in body shows full preview (Telegram-style) */
+/* ─── Hero-from-source toggle (when post lacks own img but has source preview img) ─── */
+/* By default the .source-as-hero sibling is hidden — only the wide-sidebar magazine layout reveals it */
+.sidebar .m-tg-item .source-card.source-as-hero{display:none}
+/* COMPACT (non-spacious, not expanded): keep thumb left + show source-card in body BUT
+   hide its inner image (it'd duplicate the thumb). Domain/title/desc still visible. */
+.sidebar .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card .src-img{display:none}
+/* EXPANDED or SPACIOUS narrow: hide the hero thumb, body source-card shows full preview */
 .sidebar .m-tg-item.hero-from-source.expanded > img,
 .sidebar .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
 
@@ -407,7 +410,7 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     flex-direction:row;align-items:flex-start;
     padding:0;gap:0;overflow:hidden;
   }
-  /* Both <img> and the source-card-promoted-to-hero get the same left-column treatment */
+  /* Both <img> hero and source-as-hero get the same left-column treatment */
   .sidebar .m-tg-item.expanded img,
   .sidebar .m-tg-item.expanded .source-card.source-as-hero{
     width:220px;flex-shrink:0;
@@ -418,11 +421,17 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .sidebar .m-tg-item.expanded img{
     object-fit:contain;background:transparent;
   }
-  .sidebar .m-tg-item.expanded .source-card.source-as-hero .src-img{
-    max-height:340px;object-fit:contain;background:transparent;
-  }
   .sidebar .m-tg-item.expanded .body{
     flex:1;min-width:0;padding:14px 16px 14px 16px;
+  }
+  /* In wide-magazine: reveal source-as-hero AND hide the body source-card (no duplication) */
+  .sidebar .m-tg-item.hero-from-source.expanded .source-card.source-as-hero{display:flex;flex-direction:column}
+  .sidebar .m-tg-item.hero-from-source.expanded > .body > .source-card{display:none}
+  .sidebar .m-tg-item.hero-from-source.expanded .source-card.source-as-hero .src-img{
+    width:100%;height:auto;max-height:260px;object-fit:cover;border-radius:8px 0 0 0;background:transparent;
+  }
+  .sidebar .m-tg-item.hero-from-source.expanded .source-card.source-as-hero .src-body{
+    display:flex;flex-direction:column;gap:3px;padding:10px 12px;
   }
   /* Spacious cards: same row treatment */
   .sidebar .m-tg-list.spacious .m-tg-item{
@@ -438,11 +447,17 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .sidebar .m-tg-list.spacious .m-tg-item img{
     object-fit:contain;background:transparent;
   }
-  .sidebar .m-tg-list.spacious .m-tg-item .source-card.source-as-hero .src-img{
-    max-height:340px;object-fit:contain;background:transparent;
-  }
   .sidebar .m-tg-list.spacious .m-tg-item .body{
     flex:1;min-width:0;padding:14px 16px;
+  }
+  /* Same reveal/hide for spacious wide */
+  .sidebar .m-tg-list.spacious .m-tg-item.hero-from-source .source-card.source-as-hero{display:flex;flex-direction:column}
+  .sidebar .m-tg-list.spacious .m-tg-item.hero-from-source > .body > .source-card{display:none}
+  .sidebar .m-tg-list.spacious .m-tg-item.hero-from-source .source-card.source-as-hero .src-img{
+    width:100%;height:auto;max-height:260px;object-fit:cover;border-radius:0;background:transparent;
+  }
+  .sidebar .m-tg-list.spacious .m-tg-item.hero-from-source .source-card.source-as-hero .src-body{
+    display:flex;flex-direction:column;gap:3px;padding:10px 12px;
   }
 }
 
@@ -686,8 +701,11 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .m-tg-list.spacious .source-card .src-title{font-size:14px;-webkit-line-clamp:3}
   .m-tg-list.spacious .source-card .src-desc{font-size:12px;-webkit-line-clamp:3}
 
-  /* Mobile: hero-from-source toggle (thumb in compact, full source-card below in expanded) */
-  .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{display:none}
+  /* Mobile: source-as-hero always hidden (no wide-magazine on mobile) */
+  .m-tg-item .source-card.source-as-hero{display:none}
+  /* Compact + hero-from-source: keep thumb left + body source-card visible BUT hide its inner image */
+  .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card .src-img{display:none}
+  /* Expanded/Spacious + hero-from-source: hide thumb, full source-card in body shows */
   .m-tg-item.hero-from-source.expanded > img,
   .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
 
@@ -1096,30 +1114,34 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const s=x.source;
         const hasOwnImg = !!x.img;
         const hasSource = !!(s && s.url);
-        // Hero image: post's own attachment (preferred), or fall back to source.img for compact thumb
-        const heroImg = x.img || (s && s.img) || null;
         const heroFromSource = !hasOwnImg && !!(s && s.img);
+        const heroImg = x.img || (s && s.img) || null;
         const itemClasses = ['m-tg-item'];
         if (!heroImg) itemClasses.push('no-img');
         if (heroFromSource) itemClasses.push('hero-from-source');
-        const sourceCard = hasSource ? `
-          <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
-            ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
-            <div class="src-body">
-              ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
-              ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
-              ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
-            </div>
-          </a>` : '';
+        // Build the source-card markup once; render TWO copies for hero-from-source:
+        //   1. source-as-hero (sibling of body) — shown only in wide-sidebar expanded
+        //   2. source-card (inside body) — shown in narrow expanded/spacious + compact
+        // CSS hides whichever isn't appropriate for the current mode, so only one is ever visible.
+        const sourceCardInner = hasSource ? `
+          ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
+          <div class="src-body">
+            ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
+            ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
+            ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
+          </div>` : '';
+        const sourceCardBody = hasSource ? `<a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
+        const sourceCardHero = heroFromSource ? `<a class="source-card source-as-hero" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
         return `<div class="${itemClasses.join(' ')}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
           ${heroImg?`<img src="${esc(heroImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+          ${sourceCardHero}
           <div class="body">
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
             <div class="txt">${esc(x.text)}</div>
-            ${sourceCard}
+            ${sourceCardBody}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
               <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
