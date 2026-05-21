@@ -1070,14 +1070,17 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   }
 
   // Sidebar resize: drag the left edge to make it wider/narrower. Persists in localStorage.
+  // Min 240px; max = 50% of viewport (so it can take up to half the desktop). Default stays 360.
   (function(){
     const main=document.querySelector('.main');
     const handle=document.getElementById('sidebar-resize');
     if(!main||!handle)return;
-    // Restore saved width on load
+    const maxW=()=>Math.floor(window.innerWidth*0.5);
+    // Restore saved width on load (clamp to current viewport's max)
     const saved=parseInt(localStorage.getItem('sidebar-width')||'',10);
-    if(saved && saved>=240 && saved<=720){
-      main.style.gridTemplateColumns='1fr '+saved+'px';
+    if(saved && saved>=240){
+      const clamped=Math.min(saved, maxW());
+      main.style.gridTemplateColumns='1fr '+clamped+'px';
     }
     let dragging=false, startX=0, startW=0;
     handle.addEventListener('mousedown',e=>{
@@ -1091,7 +1094,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     document.addEventListener('mousemove',e=>{
       if(!dragging)return;
       const dx=startX-e.clientX;  // moving left increases width (sidebar is on the right)
-      const newW=Math.max(240, Math.min(720, startW+dx));
+      const newW=Math.max(240, Math.min(maxW(), startW+dx));
       main.style.gridTemplateColumns='1fr '+newW+'px';
     });
     document.addEventListener('mouseup',()=>{
