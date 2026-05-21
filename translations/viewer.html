@@ -45,6 +45,8 @@ body{
 .tbtn.t-body{background:#dceee4;color:#1a5d3a}
 .tbtn.t-body:hover{background:#c8e0d0}
 .tbtn.done{background:#0f7a44 !important;color:#fff !important}
+.tbtn.t-reset{background:#f0e8e0;color:#8a4a2a}
+.tbtn.t-reset:hover{background:#e8d8c8}
 .original-link{
   display:inline-flex;align-items:center;gap:4px;
   text-decoration:none;white-space:nowrap;flex-shrink:0;
@@ -165,7 +167,7 @@ body.mode-compare .compare-container{display:block}
   background:#fff;
   border:1px solid #e5dfd2;
   border-radius:8px;
-  overflow:hidden;
+  overflow:visible;
 }
 .compare-col{padding:18px 22px;font-family:'Source Serif 4',Georgia,serif;font-size:15px;line-height:1.7;color:#262422}
 .compare-col.es{background:#faf7ef;border-right:1px solid #e5dfd2;color:#5a4a2a}
@@ -302,10 +304,13 @@ body.mode-compare .compare-container{display:block}
   .original-link{font-size:10px}
   .container{padding:24px 18px 40px}
   .meta-footer{padding:0 18px 40px}
-  .compare-container{padding:18px 12px 60px}
+  .compare-container{padding:18px 8px 60px}
   .compare-grid{grid-template-columns:1fr;gap:0}
+  .cmp-cell{padding:12px 14px;font-size:16px;line-height:1.65;word-break:break-word;overflow-wrap:break-word}
   .cmp-cell.es{border-right:none;border-bottom:1px dashed #e5dfd2}
+  .cmp-cell.en[contenteditable=true]{font-size:16px;min-height:2em}
   .compare-col{font-size:14px}
+  .compare-title-grid .article-title{font-size:18px;padding:14px 14px}
   #article-content{font-size:16px}
 }
 </style>
@@ -322,6 +327,7 @@ body.mode-compare .compare-container{display:block}
   </div>
   <button class="tbtn t-title" onclick="copyTitle()"><span id="title-label">Title</span></button>
   <button class="tbtn t-body" onclick="copyForWordPress()"><span id="copy-label">Body</span></button>
+  <button class="tbtn t-reset" onclick="resetEdits()" title="Reset all edits">↺</button>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
 </div>
 
@@ -1341,6 +1347,14 @@ function flashBtn(labelId, doneText, origText){
   btn.classList.add('done');
   lbl.textContent = doneText;
   setTimeout(()=>{ btn.classList.remove('done'); lbl.textContent = origText; }, 2200);
+}
+
+function resetEdits(){
+  if (!STORAGE_KEY) return;
+  if (!confirm('Reset all edits? This will reload the original translation.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEY + '_title');
+  location.reload();
 }
 
 async function copyText(text, el){
