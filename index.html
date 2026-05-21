@@ -274,8 +274,30 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   }
   .m-page-head .title{font-weight:700;font-size:17px;color:#0f172a}
   .m-page-head .link{color:#64748b;text-decoration:none;font-size:12px;font-weight:500}
-  /* TG feed page */
+  /* TG feed page — category filter chips */
+  .m-tg-chips{
+    display:flex;gap:6px;padding:8px 12px;background:#fff;
+    border-bottom:1px solid #e2e8f0;overflow-x:auto;scrollbar-width:none;flex-shrink:0;
+  }
+  .m-tg-chips::-webkit-scrollbar{display:none}
+  .m-chip{
+    flex-shrink:0;border:1px solid #e2e8f0;background:#f8fafc;color:#475569;
+    padding:6px 12px;border-radius:14px;font-size:11.5px;font-weight:600;
+    letter-spacing:.3px;cursor:pointer;transition:all .2s;--ck:#94a3b8;
+    font-family:inherit;
+  }
+  .m-chip:hover{background:#f1f5f9}
+  .m-chip.active{background:var(--ck);color:#fff;border-color:var(--ck);
+    box-shadow:0 1px 4px rgba(0,0,0,.12)}
+  /* TG feed list */
   .m-tg-list{flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch}
+  .m-tg-item .meta-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+  .m-tg-item .task-tag{
+    display:inline-block;padding:1px 7px;border-radius:8px;
+    font-size:9px;font-weight:700;color:#fff;
+    letter-spacing:.5px;text-transform:uppercase;
+  }
+  .m-tg-item .time{font-size:10px;color:#94a3b8;letter-spacing:.5px}
   .m-tg-item{
     display:flex;gap:10px;padding:11px;
     background:#fff;border-radius:10px;margin-bottom:6px;
@@ -476,6 +498,9 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
       <span class="title">@resisres</span>
       <a class="link" href="https://t.me/resisres" target="_blank">Open ↗</a>
     </header>
+    <div class="m-tg-chips" id="m-tg-chips">
+      <button class="m-chip active" data-filter="">All</button>
+    </div>
     <div class="m-tg-list" id="m-tg-list">
       <div class="m-tg-empty">Loading…</div>
     </div>
@@ -572,40 +597,90 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     .catch(()=>{list.innerHTML='<div class="tl-empty">—</div>'});
 })();
 (function(){
+  function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+
+  // Task metadata — chip label + color
+  const TASK_META={
+    dailyt:  {label:'Mañanera', color:'#f59e0b'},
+    scant:   {label:'Scan',     color:'#3b82f6'},
+    onmexico:{label:'OnMex',    color:'#10b981'},
+    dragon:  {label:'Dragon',   color:'#ef4444'},
+  };
+  const meta=t=>TASK_META[t]||{label:(t||'Other'),color:'#94a3b8'};
+
+  // Desktop sidebar (unchanged) — reads tg-feed.json (top 10)
   const tg=document.getElementById('tg-list');
-  function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-  function renderMobile(items){
+  fetch('tg-feed.json?v='+Date.now()).then(r=>r.json()).then(data=>{
+    const items=(data||[]).slice(0,5);
+    if(!items.length){tg.innerHTML='<div class="tg-empty">No posts yet</div>';return}
+    tg.innerHTML=items.map(x=>`<a class="tg-item" href="https://t.me/resisres/${x.id}" target="_blank">
+      ${x.img?`<img class="tg-thumb" src="${esc(x.img)}" alt="">`:''}
+      <div class="tg-body"><div class="tg-txt">${esc(x.text)}</div>
+      <div class="tg-date">${esc(x.date)}</div></div>
+    </a>`).join('');
+  }).catch(()=>{tg.innerHTML='<div class="tg-empty">—</div>'});
+
+  // Mobile feed — reads sends.ndjson (richer: has task + chat info)
+  // Falls back to tg-feed.json if sends.ndjson unavailable.
+  let mobileItems=[], activeFilter=null;
+  function renderMobile(){
     const list=document.getElementById('m-tg-list');
+    const chips=document.getElementById('m-tg-chips');
     const peek=document.getElementById('m-tg-peek');
-    if(list){
-      if(!items.length){list.innerHTML='<div class="m-tg-empty">No posts yet</div>'}
-      else{list.innerHTML=items.map(x=>`<a class="m-tg-item" href="https://t.me/resisres/${x.id}" target="_blank">
-        ${x.img?`<img src="${esc(x.img)}" alt="">`:''}
-        <div class="body"><div class="txt">${esc(x.text)}</div><div class="date">${esc(x.date)}</div></div>
-      </a>`).join('')}
+    if(!list)return;
+    // Build chip set from tasks actually present
+    if(chips){
+      const tasks=[...new Set(mobileItems.map(x=>x.task||'other'))];
+      chips.innerHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+
+        tasks.map(t=>{const m=meta(t);return `<button class="m-chip ${activeFilter===t?'active':''}" data-filter="${esc(t)}" style="--ck:${m.color}">${m.label}</button>`}).join('');
     }
+    const filtered=activeFilter?mobileItems.filter(x=>(x.task||'other')===activeFilter):mobileItems;
+    if(!filtered.length){list.innerHTML='<div class="m-tg-empty">No posts yet</div>'}
+    else{list.innerHTML=filtered.slice(0,50).map(x=>{
+      const m=meta(x.task);
+      const t=x.ts||'';
+      return `<a class="m-tg-item" href="${esc(x.url||'#')}" target="_blank">
+        ${x.img?`<img src="${esc(x.img)}" alt="">`:''}
+        <div class="body">
+          <div class="meta-row"><span class="task-tag" style="background:${m.color}">${m.label}</span>
+            <span class="time">${esc(t.slice(11,16))}</span></div>
+          <div class="txt">${esc(x.text)}</div>
+          <div class="date">${esc(t.slice(0,10))}</div>
+        </div>
+      </a>`;
+    }).join('')}
     if(peek){
-      peek.innerHTML=items.slice(0,4).map(x=>`<a class="tg-peek-item" href="https://t.me/resisres/${x.id}" target="_blank">
+      peek.innerHTML=mobileItems.slice(0,4).map(x=>`<a class="tg-peek-item" href="${esc(x.url||'#')}" target="_blank">
         <div class="ptxt">${esc(x.text)}</div>
       </a>`).join('')+'<span class="swipe-cue">← Feed</span>';
     }
   }
-  fetch('tg-feed.json?v='+Date.now())
-    .then(r=>r.json())
-    .then(data=>{
-      const items=(data||[]).slice(0,10);
-      // Desktop sidebar widget — top 5 only
-      const sidebarItems=items.slice(0,5);
-      if(!sidebarItems.length){tg.innerHTML='<div class="tg-empty">No posts yet</div>'}
-      else{tg.innerHTML=sidebarItems.map(x=>`<a class="tg-item" href="https://t.me/resisres/${x.id}" target="_blank">
-        ${x.img?`<img class="tg-thumb" src="${esc(x.img)}" alt="">`:''}
-        <div class="tg-body"><div class="tg-txt">${esc(x.text)}</div>
-        <div class="tg-date">${esc(x.date)}</div></div>
-      </a>`).join('')}
-      // Mobile full feed (page A) + bottom peek strip (page B)
-      renderMobile(items);
-    })
-    .catch(()=>{tg.innerHTML='<div class="tg-empty">—</div>';renderMobile([])});
+  // Chip click → filter
+  document.addEventListener('click',e=>{
+    const c=e.target.closest('.m-chip');
+    if(!c)return;
+    activeFilter=c.dataset.filter||null;
+    renderMobile();
+  });
+  // Fetch sends.ndjson (preferred), fallback to tg-feed.json
+  fetch('sends.ndjson?v='+Date.now(),{cache:'no-store'}).then(r=>{
+    if(!r.ok)throw 0; return r.text();
+  }).then(text=>{
+    mobileItems=text.split('\n').filter(Boolean).map(l=>{
+      try{return JSON.parse(l)}catch{return null}
+    }).filter(s=>s&&s.chat==='resisres').sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    renderMobile();
+  }).catch(()=>{
+    // Fallback: shape tg-feed.json into the mobile schema
+    fetch('tg-feed.json?v='+Date.now()).then(r=>r.json()).then(data=>{
+      mobileItems=(data||[]).map(x=>({
+        ts:x.date+'T00:00:00', task:'', chat:'resisres',
+        msg_id:x.id, text:x.text, img:x.img,
+        url:`https://t.me/resisres/${x.id}`
+      }));
+      renderMobile();
+    }).catch(()=>{mobileItems=[];renderMobile()});
+  });
 })();
 
 /* ─── Mobile 2-page interactions: strip empty-area swipe + dot tracking ─── */
