@@ -827,20 +827,34 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     color:#6b4a3a;font-size:11px;font-weight:600;
     pointer-events:none;letter-spacing:.5px;
   }
-  /* Translations button in header bar */
-  .m-tl-btn{
-    background:linear-gradient(135deg, rgba(188,149,92,.2), rgba(138,106,48,.15));
-    border:1px solid rgba(221,201,163,.25);color:#DDC9A3;
-    width:32px;height:32px;border-radius:10px;
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    font-size:15px;line-height:1;
-    cursor:pointer;font-family:inherit;padding:0;
-    transition:background .2s, border-color .2s;
+  /* Mode toggle — segmented pill: Telegram ✈️ | Translations 📖 */
+  .m-mode-toggle{
+    display:flex;position:relative;
+    background:rgba(20,8,10,.7);
+    border:1px solid rgba(105,28,50,.4);
+    border-radius:10px;overflow:hidden;flex-shrink:0;
   }
-  .m-tl-btn:active,.m-tl-btn.active{
-    background:linear-gradient(135deg, #DDC9A3 0%, #BC955C 100%);
-    border-color:#BC955C;
-    box-shadow:0 1px 6px rgba(188,149,92,.4);
+  .m-mode-seg{
+    position:relative;z-index:1;
+    width:36px;height:30px;
+    background:transparent;border:none;
+    font-size:14px;line-height:1;
+    cursor:pointer;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    transition:opacity .2s;opacity:.45;
+  }
+  .m-mode-seg.active{opacity:1}
+  .m-mode-slider{
+    position:absolute;top:2px;left:2px;
+    width:calc(50% - 2px);height:calc(100% - 4px);
+    background:rgba(159,34,65,.5);
+    border-radius:8px;
+    transition:left .25s ease;
+    pointer-events:none;
+  }
+  .m-mode-toggle.tl-active .m-mode-slider{
+    left:50%;
+    background:linear-gradient(135deg, rgba(188,149,92,.5), rgba(138,106,48,.4));
   }
   /* Refresh button — pinned in header bar */
   .m-refresh{
@@ -972,7 +986,11 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
     <div class="m-dots"><span class="active"></span><span></span></div>
     <header class="m-page-head">
       <button class="m-view-btn" id="m-view-btn" aria-label="Toggle view">▦</button>
-      <button class="m-tl-btn" id="m-tl-btn" aria-label="Translations">📖</button>
+      <div class="m-mode-toggle" id="m-mode-toggle">
+        <button class="m-mode-seg active" data-mode="tg">✈️</button>
+        <button class="m-mode-seg" data-mode="tl">📖</button>
+        <div class="m-mode-slider"></div>
+      </div>
       <span style="flex:1"></span>
       <a class="link" href="https://t.me/resisres" target="_blank">Open ↗</a>
       <button class="m-refresh" id="m-refresh" aria-label="Refresh">⟳</button>
@@ -1098,9 +1116,15 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         // Hide chips row when in translations mode
         c.style.display=activeFilter==='__tl'?'none':'';
       });
-      // Update translations button active state in header
-      const tlBtn=document.getElementById('m-tl-btn');
-      if(tlBtn){tlBtn.classList.toggle('active',activeFilter==='__tl')}
+      // Update mode toggle in header
+      const modeToggle=document.getElementById('m-mode-toggle');
+      if(modeToggle){
+        const isTl=activeFilter==='__tl';
+        modeToggle.classList.toggle('tl-active',isTl);
+        modeToggle.querySelectorAll('.m-mode-seg').forEach(s=>{
+          s.classList.toggle('active', isTl ? s.dataset.mode==='tl' : s.dataset.mode==='tg');
+        });
+      }
     }
     // Translations mode: render translation cards
     if(activeFilter==='__tl'){
@@ -1170,10 +1194,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     activeFilter=c.dataset.filter||null;
     renderMobile();
   });
-  // Translations header button click
-  const tlBtnEl=document.getElementById('m-tl-btn');
-  if(tlBtnEl)tlBtnEl.addEventListener('click',()=>{
-    activeFilter=activeFilter==='__tl'?null:'__tl';
+  // Mode toggle click — switch between Telegram and Translations
+  const modeToggleEl=document.getElementById('m-mode-toggle');
+  if(modeToggleEl)modeToggleEl.addEventListener('click',e=>{
+    const seg=e.target.closest('.m-mode-seg');
+    if(!seg)return;
+    activeFilter=seg.dataset.mode==='tl'?'__tl':null;
     renderMobile();
   });
 
