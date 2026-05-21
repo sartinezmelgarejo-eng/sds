@@ -994,9 +994,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       else{html=filtered.slice(0,200).map(x=>{
         const m=meta(x.task);
         const t=x.ts||'';
-        const hasImg=!!x.img;
-        // Optional article preview card (Telegram-style) — its own <a> link
         const s=x.source;
+        // Fall back to source.img when the post itself has no attached image —
+        // so article-link posts (scant/dragon/onmexico) still show a thumb.
+        const cardImg = x.img || (s && s.img) || null;
+        const hasImg = !!cardImg;
+        // Optional article preview card (Telegram-style) — its own <a> link
         const sourceCard=s&&s.url?`
           <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
             ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
@@ -1009,7 +1012,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         // Card is a <div>; --ct carries the category color so CSS can tint bg/border via color-mix
         return `<div class="m-tg-item${hasImg?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
-          ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+          ${hasImg?`<img src="${esc(cardImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
