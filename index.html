@@ -1084,9 +1084,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const s=x.source;
         const hasOwnImg = !!x.img;
         const hasSource = !!(s && s.url);
-        // Build the source preview card markup once — used either as hero (when no own img)
-        // or inside the body (when there's also an own img, so they don't duplicate).
-        const sourceCardHTML = hasSource ? `
+        // Telegram-style: only post's own image is hero on top. Source-card (link preview)
+        // always lives inside the body, below the text — never promoted to hero.
+        const sourceCard = hasSource ? `
           <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
             ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
             <div class="src-body">
@@ -1095,23 +1095,15 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
           </a>` : '';
-        // Decide whether the source card is the HERO (left/top column in expanded layouts)
-        // or stays inline within the body (alongside post's own image).
-        const sourceAsHero = !hasOwnImg && hasSource;
-        const heroSourceCard = sourceAsHero ? sourceCardHTML.replace('source-card', 'source-card source-as-hero') : '';
-        const inlineSourceCard = (!sourceAsHero && hasSource) ? sourceCardHTML : '';
-        const hasHero = hasOwnImg || sourceAsHero;
-        // Card is a <div>; --ct carries the category color
-        return `<div class="m-tg-item${hasHero?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
+        return `<div class="m-tg-item${hasOwnImg?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
           ${hasOwnImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
-          ${heroSourceCard}
           <div class="body">
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
             <div class="txt">${esc(x.text)}</div>
-            ${inlineSourceCard}
+            ${sourceCard}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
               <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
