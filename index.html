@@ -1064,6 +1064,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
 // (Legacy translations widget IIFE removed — translations are now in the unified feed below)
 (function(){
   function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+  // Like esc() but preserves safe HTML: <a>, <b>, <i>, <u> and their closing tags
+  function safeTxt(s){
+    s=String(s||'');
+    // Temporarily replace safe tags with placeholders
+    const ph=[];
+    s=s.replace(/<(\/?)([abiu])(\s[^>]*)?>|<(a)\s+href="([^"]*)"[^>]*>(.*?)<\/a>/gi,(_m)=>{ph.push(_m);return '\x00'+(ph.length-1)+'\x00'});
+    s=esc(s);
+    s=s.replace(/\x00(\d+)\x00/g,(_,i)=>ph[+i]);
+    return s;
+  }
 
   // Task metadata — chip label + color. Paleta Pantone institucional (más editorial que bandera literal).
   const TASK_META={
@@ -1168,7 +1178,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
-            <div class="txt">${esc(x.text)}</div>
+            <div class="txt">${safeTxt(x.text)}</div>
             ${sourceCardBody}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
