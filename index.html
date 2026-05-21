@@ -272,8 +272,33 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     display:flex;justify-content:space-between;align-items:center;
     flex-shrink:0;gap:10px;
   }
-  .m-page-head .title{font-weight:700;font-size:17px;color:#0f172a}
-  .m-page-head .link{color:#64748b;text-decoration:none;font-size:12px;font-weight:500}
+  .m-page-head .title{font-weight:700;font-size:17px;color:#0f172a;flex:1;min-width:0}
+  .m-page-head .link{color:#64748b;text-decoration:none;font-size:12px;font-weight:500;flex-shrink:0}
+  .m-view-btn{
+    background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;
+    width:32px;height:32px;border-radius:10px;
+    font-size:16px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    font-family:inherit;padding:0;
+  }
+  .m-view-btn:hover{background:#e2e8f0;color:#0f172a}
+  /* Spacious mode: edge-to-edge image, bigger text, no card chrome */
+  .m-tg-list.spacious{padding:0;background:#fff}
+  .m-tg-list.spacious .m-tg-item{
+    margin:0;border-radius:0;box-shadow:none;
+    border-bottom:1px solid #e2e8f0;
+  }
+  .m-tg-list.spacious .m-tg-item:active{transform:none}
+  .m-tg-list.spacious .m-tg-item img{
+    max-height:none;background:#000;width:100%;
+  }
+  .m-tg-list.spacious .m-tg-item .body{padding:16px 18px 20px}
+  .m-tg-list.spacious .m-tg-item .meta-row{margin-bottom:10px}
+  .m-tg-list.spacious .m-tg-item .txt{
+    font-size:16px;line-height:1.55;-webkit-line-clamp:unset;display:block;overflow:visible;
+  }
+  .m-tg-list.spacious .m-tg-item .footer{margin-top:14px;padding-top:12px}
+  .m-tg-list.spacious .read-more{display:none}  /* spacious always shows full */
   /* TG feed page — category filter chips */
   .m-tg-chips{
     display:flex;gap:6px;padding:8px 12px;background:#fff;
@@ -570,6 +595,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     <div class="m-dots"><span class="active"></span><span></span></div>
     <header class="m-page-head">
       <span class="title">@resisres</span>
+      <button class="m-view-btn" id="m-view-btn" aria-label="Toggle view">▦</button>
       <a class="link" href="https://t.me/resisres" target="_blank">Open ↗</a>
     </header>
     <div class="m-tg-chips" id="m-tg-chips">
@@ -793,6 +819,24 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     activeFilter=c.dataset.filter||null;
     renderMobile();
   });
+
+  // View toggle: compact ⇄ spacious. Preference persists in localStorage.
+  let viewMode = (function(){try{return localStorage.getItem('m-tg-view')||'compact'}catch{return 'compact'}})();
+  function applyView(){
+    const list=document.getElementById('m-tg-list');
+    const btn=document.getElementById('m-view-btn');
+    if(list)list.classList.toggle('spacious', viewMode==='spacious');
+    if(btn)btn.textContent = viewMode==='spacious' ? '☰' : '▦';
+  }
+  const viewBtn=document.getElementById('m-view-btn');
+  if(viewBtn){
+    viewBtn.addEventListener('click',()=>{
+      viewMode = viewMode==='spacious' ? 'compact' : 'spacious';
+      try{localStorage.setItem('m-tg-view',viewMode)}catch{}
+      applyView();
+    });
+  }
+  applyView();
   // Fetch translations manifest in parallel (so the chip can appear once data lands)
   fetch('translations/manifest.json?v='+Date.now()).then(r=>r.ok?r.json():[]).then(data=>{
     translationItems=(data||[]).slice().sort((a,b)=>(b.translated_date||'').localeCompare(a.translated_date||''));
