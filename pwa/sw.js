@@ -1,4 +1,4 @@
-const CACHE='sds-v1';
+const CACHE='sds-v2';
 const ASSETS=[
   './monitoring.html',
   'https://unpkg.com/react@18.2.0/umd/react.production.min.js',
