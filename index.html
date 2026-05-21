@@ -130,7 +130,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 /* ─── Sidebar ─── */
 /* ─── Sidebar (desktop unified feed) ─── Paleta: guinda Pantone 1805C + dorado mostaza */
 .sidebar{
-  overflow:hidden;border-radius:10px;
+  overflow:hidden;border-radius:10px;position:relative;
   display:flex;flex-direction:column;
   background:
     radial-gradient(ellipse at 20% 0%,rgba(164,36,59,.22),transparent 60%),
@@ -138,6 +138,15 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     linear-gradient(170deg,#1a0e10 0%,#221012 40%,#150a0c 100%);
   border:1px solid rgba(164,36,59,.18);
 }
+/* Drag handle on left edge — drag to resize the sidebar width */
+.sidebar-resize{
+  position:absolute;top:0;left:0;width:6px;height:100%;
+  cursor:ew-resize;z-index:10;
+  background:transparent;transition:background .15s;
+}
+.sidebar-resize:hover,.sidebar-resize.dragging{background:rgba(232,199,102,.35)}
+body.sidebar-resizing{cursor:ew-resize!important;user-select:none}
+body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .d-feed-head{
   padding:10px 12px;display:flex;justify-content:space-between;align-items:center;gap:8px;
   border-bottom:1px solid rgba(164,36,59,.15);flex-shrink:0;
@@ -230,7 +239,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 .sidebar .m-tg-item.expanded .txt{cursor:text;user-select:text;-webkit-user-select:text}
 .sidebar .m-tg-item.expanded img{
   width:100%;height:auto;max-height:260px;
-  border-radius:8px 8px 0 0;object-fit:contain;background:#000;
+  border-radius:8px 8px 0 0;object-fit:contain;background:transparent;
 }
 .sidebar .m-tg-item.expanded.no-img img{display:none}
 .sidebar .m-tg-item.expanded .body{padding:10px 11px;width:100%}
@@ -304,8 +313,8 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 }
 .sidebar .m-tg-list.spacious .m-tg-item:hover{background:rgba(255,255,255,.04)}
 .sidebar .m-tg-list.spacious .m-tg-item img{
-  width:100%;height:auto;max-height:200px;
-  border-radius:0;object-fit:contain;background:#000;
+  width:100%;height:auto;max-height:260px;
+  border-radius:0;object-fit:contain;background:transparent;
 }
 .sidebar .m-tg-list.spacious .m-tg-item.no-img img{display:none}
 .sidebar .m-tg-list.spacious .m-tg-item .body{padding:12px 14px 14px;width:100%}
@@ -738,6 +747,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
 
 <!-- ═══ SIDEBAR ═══ (unified feed: same component as mobile) -->
 <div class="sidebar">
+  <div class="sidebar-resize" id="sidebar-resize" aria-label="Drag to resize sidebar"></div>
   <div class="d-feed-head">
     <button class="m-view-btn" id="d-view-btn" aria-label="Toggle view">▦</button>
     <a class="d-feed-link" href="https://t.me/resisres" target="_blank">@resisres ↗</a>
@@ -967,6 +977,41 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       setTimeout(()=>location.reload(), 250);
     });
   }
+
+  // Sidebar resize: drag the left edge to make it wider/narrower. Persists in localStorage.
+  (function(){
+    const main=document.querySelector('.main');
+    const handle=document.getElementById('sidebar-resize');
+    if(!main||!handle)return;
+    // Restore saved width on load
+    const saved=parseInt(localStorage.getItem('sidebar-width')||'',10);
+    if(saved && saved>=240 && saved<=720){
+      main.style.gridTemplateColumns='1fr '+saved+'px';
+    }
+    let dragging=false, startX=0, startW=0;
+    handle.addEventListener('mousedown',e=>{
+      dragging=true;
+      startX=e.clientX;
+      startW=document.querySelector('.sidebar').offsetWidth;
+      handle.classList.add('dragging');
+      document.body.classList.add('sidebar-resizing');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',e=>{
+      if(!dragging)return;
+      const dx=startX-e.clientX;  // moving left increases width (sidebar is on the right)
+      const newW=Math.max(240, Math.min(720, startW+dx));
+      main.style.gridTemplateColumns='1fr '+newW+'px';
+    });
+    document.addEventListener('mouseup',()=>{
+      if(!dragging)return;
+      dragging=false;
+      handle.classList.remove('dragging');
+      document.body.classList.remove('sidebar-resizing');
+      const w=document.querySelector('.sidebar').offsetWidth;
+      try{localStorage.setItem('sidebar-width',w)}catch{}
+    });
+  })();
 
   // View toggle: compact ⇄ spacious. Preference persists in localStorage.
   // Both mobile and desktop sidebar share the same mode + button class.
