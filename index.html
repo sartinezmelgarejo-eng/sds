@@ -298,6 +298,38 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     letter-spacing:.5px;text-transform:uppercase;
   }
   .m-tg-item .time{font-size:10px;color:#94a3b8;letter-spacing:.5px}
+  /* Translations chip: distinct gold/dark style so it reads as different content */
+  .m-chip.translations{
+    background:linear-gradient(135deg, #2a2018, #1a120a);
+    color:#c8a960;border-color:#c8a960;
+  }
+  .m-chip.translations.active{background:linear-gradient(135deg, #c8a960, #8a6a30);color:#1a1208;border-color:#c8a960}
+  /* Translation cards in the mobile feed */
+  .m-tl-item{
+    display:flex;gap:10px;padding:12px;
+    background:linear-gradient(180deg, #fffbf2, #f7efde);
+    border:1px solid #e8d8b0;border-radius:10px;margin-bottom:6px;
+    text-decoration:none;color:inherit;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
+  }
+  .m-tl-item .outlet-logo{
+    width:42px;height:42px;border-radius:6px;flex-shrink:0;
+    background:#fff;border:1px solid #e2d6b5;
+    display:flex;align-items:center;justify-content:center;
+    object-fit:contain;padding:4px;
+  }
+  .m-tl-item .body{flex:1;min-width:0}
+  .m-tl-item .outlet-name{
+    font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;
+    color:#8a6a30;margin-bottom:3px;
+  }
+  .m-tl-item .title{
+    font-size:13px;line-height:1.35;color:#3a2810;font-weight:500;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  }
+  .m-tl-item .dates{
+    font-size:9.5px;color:#a08454;margin-top:5px;letter-spacing:.3px;
+  }
   .m-tg-item{
     display:flex;gap:10px;padding:11px;
     background:#fff;border-radius:10px;margin-bottom:6px;
@@ -622,33 +654,65 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
 
   // Mobile feed — reads sends.ndjson (richer: has task + chat info)
   // Falls back to tg-feed.json if sends.ndjson unavailable.
-  let mobileItems=[], activeFilter=null;
+  // Also loads translations/manifest.json for the Translations filter.
+  let mobileItems=[], translationItems=[], activeFilter=null;
+  // Outlet logo mapping (same as desktop tl-widget)
+  const OUTLET_LOGO={
+    'La Jornada':'translations/logos/la-jornada.png',
+    'Contralínea':'translations/logos/contralinea.png',
+    'Revista Contralínea':'translations/logos/contralinea.png',
+  };
+  function renderTranslationList(){
+    const list=document.getElementById('m-tg-list');
+    if(!list)return;
+    if(!translationItems.length){list.innerHTML='<div class="m-tg-empty">No translations yet</div>';return}
+    list.innerHTML=translationItems.slice(0,50).map(t=>{
+      const logo=OUTLET_LOGO[t.outlet]||'';
+      const title=esc(t.translated_title||t.original_title||'(untitled)');
+      const orig=esc(t.original_date||''), trans=esc(t.translated_date||'');
+      return `<a class="m-tl-item" href="translations/viewer.html?slug=${encodeURIComponent(t.slug||'')}">
+        ${logo?`<img class="outlet-logo" src="${logo}" alt="">`:'<div class="outlet-logo"></div>'}
+        <div class="body">
+          <div class="outlet-name">${esc(t.outlet||'')}</div>
+          <div class="title">${title}</div>
+          <div class="dates">${orig?`Original ${orig}`:''}${orig&&trans?' · ':''}${trans?`Translated ${trans}`:''}</div>
+        </div>
+      </a>`;
+    }).join('');
+  }
   function renderMobile(){
     const list=document.getElementById('m-tg-list');
     const chips=document.getElementById('m-tg-chips');
     const peek=document.getElementById('m-tg-peek');
     if(!list)return;
-    // Build chip set from tasks actually present
+    // Build chip set from tasks actually present (+ Translations at the end)
     if(chips){
       const tasks=[...new Set(mobileItems.map(x=>x.task||'other'))];
-      chips.innerHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+
-        tasks.map(t=>{const m=meta(t);return `<button class="m-chip ${activeFilter===t?'active':''}" data-filter="${esc(t)}" style="--ck:${m.color}">${m.label}</button>`}).join('');
+      const taskChips=tasks.map(t=>{const m=meta(t);return `<button class="m-chip ${activeFilter===t?'active':''}" data-filter="${esc(t)}" style="--ck:${m.color}">${m.label}</button>`}).join('');
+      const tlChip=translationItems.length?`<button class="m-chip translations ${activeFilter==='__tl'?'active':''}" data-filter="__tl">📖 Translations</button>`:'';
+      chips.innerHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+taskChips+tlChip;
     }
-    const filtered=activeFilter?mobileItems.filter(x=>(x.task||'other')===activeFilter):mobileItems;
-    if(!filtered.length){list.innerHTML='<div class="m-tg-empty">No posts yet</div>'}
-    else{list.innerHTML=filtered.slice(0,50).map(x=>{
-      const m=meta(x.task);
-      const t=x.ts||'';
-      return `<a class="m-tg-item" href="${esc(x.url||'#')}" target="_blank">
-        ${x.img?`<img src="${esc(x.img)}" alt="">`:''}
-        <div class="body">
-          <div class="meta-row"><span class="task-tag" style="background:${m.color}">${m.label}</span>
-            <span class="time">${esc(t.slice(11,16))}</span></div>
-          <div class="txt">${esc(x.text)}</div>
-          <div class="date">${esc(t.slice(0,10))}</div>
-        </div>
-      </a>`;
-    }).join('')}
+    // Translations mode: render translation cards
+    if(activeFilter==='__tl'){
+      renderTranslationList();
+    } else {
+      const filtered=activeFilter?mobileItems.filter(x=>(x.task||'other')===activeFilter):mobileItems;
+      if(!filtered.length){list.innerHTML='<div class="m-tg-empty">No posts yet</div>'}
+      else{list.innerHTML=filtered.slice(0,50).map(x=>{
+        const m=meta(x.task);
+        const t=x.ts||'';
+        return `<a class="m-tg-item" href="${esc(x.url||'#')}" target="_blank">
+          ${x.img?`<img src="${esc(x.img)}" alt="">`:''}
+          <div class="body">
+            <div class="meta-row"><span class="task-tag" style="background:${m.color}">${m.label}</span>
+              <span class="time">${esc(t.slice(11,16))}</span></div>
+            <div class="txt">${esc(x.text)}</div>
+            <div class="date">${esc(t.slice(0,10))}</div>
+          </div>
+        </a>`;
+      }).join('')}
+    }
+    // Peek strip on apps page: telegram top 4 (translations don't peek for now)
     if(peek){
       peek.innerHTML=mobileItems.slice(0,4).map(x=>`<a class="tg-peek-item" href="${esc(x.url||'#')}" target="_blank">
         <div class="ptxt">${esc(x.text)}</div>
@@ -662,6 +726,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     activeFilter=c.dataset.filter||null;
     renderMobile();
   });
+  // Fetch translations manifest in parallel (so the chip can appear once data lands)
+  fetch('translations/manifest.json?v='+Date.now()).then(r=>r.ok?r.json():[]).then(data=>{
+    translationItems=(data||[]).slice().sort((a,b)=>(b.translated_date||'').localeCompare(a.translated_date||''));
+    renderMobile();
+  }).catch(()=>{});
+
   // Fetch sends.ndjson (preferred), fallback to tg-feed.json
   fetch('sends.ndjson?v='+Date.now(),{cache:'no-store'}).then(r=>{
     if(!r.ok)throw 0; return r.text();
