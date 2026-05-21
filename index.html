@@ -314,8 +314,20 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   .m-tg-item .time{font-size:11px;color:#94a3b8;letter-spacing:.3px}
   .m-tg-item .txt{
     font-size:15px;line-height:1.45;color:#0f172a;font-weight:500;
-    word-wrap:break-word;overflow-wrap:break-word;
+    word-wrap:break-word;overflow-wrap:break-word;white-space:pre-wrap;
+    display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;
   }
+  .m-tg-item .txt.expanded{
+    -webkit-line-clamp:unset;display:block;overflow:visible;
+  }
+  .m-tg-item .read-more{
+    display:inline-block;margin-top:8px;
+    background:none;border:none;padding:0;
+    color:#475569;font-weight:600;font-size:12px;
+    cursor:pointer;font-family:inherit;
+    letter-spacing:.2px;
+  }
+  .m-tg-item .read-more:hover{color:#1e293b;text-decoration:underline}
   .m-tg-item .footer{
     display:flex;align-items:center;justify-content:space-between;
     margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;
@@ -746,7 +758,26 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             </div>
           </div>
         </a>`;
-      }).join('')}
+      }).join('');
+        // Auto-add "Read more" only where the text actually overflows the 6-line clamp.
+        // requestAnimationFrame so the layout has been computed before we measure.
+        requestAnimationFrame(()=>{
+          list.querySelectorAll('.m-tg-item .txt').forEach(el=>{
+            if(el.scrollHeight > el.clientHeight + 2){
+              const btn=document.createElement('button');
+              btn.className='read-more';
+              btn.type='button';
+              btn.textContent='Read more';
+              btn.addEventListener('click',e=>{
+                e.preventDefault();e.stopPropagation();
+                const open=el.classList.toggle('expanded');
+                btn.textContent=open?'Show less':'Read more';
+              });
+              el.after(btn);
+            }
+          });
+        });
+      }
     }
     // Peek strip on apps page: telegram top 4 (translations don't peek for now)
     if(peek){
