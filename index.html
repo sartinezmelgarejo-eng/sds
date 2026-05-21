@@ -289,15 +289,45 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   .m-chip:hover{background:#f1f5f9}
   .m-chip.active{background:var(--ck);color:#fff;border-color:var(--ck);
     box-shadow:0 1px 4px rgba(0,0,0,.12)}
-  /* TG feed list */
-  .m-tg-list{flex:1;overflow-y:auto;padding:8px;-webkit-overflow-scrolling:touch}
-  .m-tg-item .meta-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
-  .m-tg-item .task-tag{
-    display:inline-block;padding:1px 7px;border-radius:8px;
-    font-size:9px;font-weight:700;color:#fff;
-    letter-spacing:.5px;text-transform:uppercase;
+  /* TG feed list — X-like cards: large image on top, headline below, tap-through */
+  .m-tg-list{flex:1;overflow-y:auto;padding:10px;-webkit-overflow-scrolling:touch;background:#f0f2f5}
+  .m-tg-item{
+    display:block;background:#fff;border-radius:14px;
+    margin-bottom:10px;overflow:hidden;
+    text-decoration:none;color:inherit;
+    box-shadow:0 1px 3px rgba(0,0,0,.06), 0 4px 12px rgba(0,0,0,.03);
+    transition:transform .15s ease;
   }
-  .m-tg-item .time{font-size:10px;color:#94a3b8;letter-spacing:.5px}
+  .m-tg-item:active{transform:scale(.99)}
+  .m-tg-item img{
+    width:100%;display:block;background:#f1f5f9;
+    aspect-ratio:16/9;object-fit:cover;
+  }
+  .m-tg-item.no-img{padding-top:2px}
+  .m-tg-item .body{padding:13px 14px 12px}
+  .m-tg-item .meta-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .m-tg-item .task-tag{
+    display:inline-block;padding:2px 9px;border-radius:10px;
+    font-size:9.5px;font-weight:700;color:#fff;
+    letter-spacing:.6px;text-transform:uppercase;
+  }
+  .m-tg-item .time{font-size:11px;color:#94a3b8;letter-spacing:.3px}
+  .m-tg-item .txt{
+    font-size:15px;line-height:1.45;color:#0f172a;font-weight:500;
+    word-wrap:break-word;overflow-wrap:break-word;
+  }
+  .m-tg-item .footer{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;
+  }
+  .m-tg-item .date{font-size:11px;color:#94a3b8;letter-spacing:.3px}
+  .m-tg-item .open-tg{
+    font-size:11px;color:#0088cc;font-weight:600;
+    text-decoration:none;letter-spacing:.3px;
+    padding:3px 8px;border-radius:10px;
+    background:rgba(0,136,204,.08);
+  }
+  .m-tg-item .open-tg:hover{background:rgba(0,136,204,.15)}
   /* Translations chip: distinct gold/dark style so it reads as different content */
   .m-chip.translations{
     background:linear-gradient(135deg, #2a2018, #1a120a);
@@ -701,13 +731,19 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       else{list.innerHTML=filtered.slice(0,50).map(x=>{
         const m=meta(x.task);
         const t=x.ts||'';
-        return `<a class="m-tg-item" href="${esc(x.url||'#')}" target="_blank">
-          ${x.img?`<img src="${esc(x.img)}" alt="">`:''}
+        const hasImg=!!x.img;
+        return `<a class="m-tg-item${hasImg?'':' no-img'}" href="${esc(x.url||'#')}" target="_blank" rel="noopener">
+          ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
-            <div class="meta-row"><span class="task-tag" style="background:${m.color}">${m.label}</span>
-              <span class="time">${esc(t.slice(11,16))}</span></div>
+            <div class="meta-row">
+              <span class="task-tag" style="background:${m.color}">${m.label}</span>
+              <span class="time">${esc(t.slice(11,16))}</span>
+            </div>
             <div class="txt">${esc(x.text)}</div>
-            <div class="date">${esc(t.slice(0,10))}</div>
+            <div class="footer">
+              <span class="date">${esc(t.slice(0,10))}</span>
+              <span class="open-tg">Open in Telegram ↗</span>
+            </div>
           </div>
         </a>`;
       }).join('')}
