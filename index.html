@@ -388,7 +388,17 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   /* Expanded individual card (compact mode only): flips into a full tweet view */
   .m-tg-item.expanded{
     flex-direction:column;gap:0;padding:0;overflow:hidden;
-    transition:none;
+    transition:none;cursor:default;  /* body is no longer a tap target */
+  }
+  /* Top zone (image + meta-row + chevron) remains tappable to collapse */
+  .m-tg-item.expanded img,
+  .m-tg-item.expanded .meta-row,
+  .m-tg-item.expanded .expand-chevron{cursor:pointer}
+  /* Text body and source preview are freely selectable */
+  .m-tg-item.expanded .txt,
+  .m-tg-item.expanded .src-title,
+  .m-tg-item.expanded .src-desc{
+    cursor:text;user-select:text;-webkit-user-select:text;
   }
   .m-tg-item.expanded img{
     width:100%;height:auto;max-height:480px;
@@ -924,15 +934,23 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     renderMobile();
   });
 
-  // Tap a tg card body → toggle expanded (compact mode only).
-  // Ignore taps on the Open-in-Telegram link or the source preview card so those still navigate.
+  // Tap a tg card → expand. Once expanded, only the top zone collapses it
+  // (so text/source/footer remain freely selectable for copy-paste).
   document.addEventListener('click',e=>{
     const card=e.target.closest('.m-tg-item');
     if(!card)return;
     if(e.target.closest('a, button'))return;  // interactive children handle themselves
-    // No-op in spacious mode (cards are already fully expanded)
-    if(card.closest('.m-tg-list.spacious'))return;
-    card.classList.toggle('expanded');
+    if(card.closest('.m-tg-list.spacious'))return;  // no-op in spacious
+    if(card.classList.contains('expanded')){
+      // Collapse only on chevron, meta-row, or the image
+      const topZone = e.target.closest('.expand-chevron, .meta-row') || e.target.tagName==='IMG';
+      if(topZone) card.classList.remove('expanded');
+    } else {
+      // Don't expand from a text selection — if the user is dragging to select, leave the card alone
+      const sel = window.getSelection && window.getSelection();
+      if(sel && sel.toString().length > 0) return;
+      card.classList.add('expanded');
+    }
   });
 
   // Refresh button: hard-reload the page (since body overflow is locked, pull-to-refresh doesn't work)
