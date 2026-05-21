@@ -375,6 +375,42 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   /* Read-more disabled in compact (toggle to spacious to see full content) */
   .m-tg-item .read-more{display:none}
 
+  /* Subtle "expand" affordance — a chevron that flips when the card is open */
+  .m-tg-item{cursor:pointer;position:relative}
+  .m-tg-item .expand-chevron{
+    position:absolute;top:11px;right:11px;
+    color:#cbd5e1;font-size:14px;line-height:1;
+    transition:transform .25s ease, color .25s;
+    pointer-events:none;
+  }
+  .m-tg-item.expanded .expand-chevron{transform:rotate(180deg);color:#475569}
+
+  /* Expanded individual card (compact mode only): flips into a full tweet view */
+  .m-tg-item.expanded{
+    flex-direction:column;gap:0;padding:0;overflow:hidden;
+    transition:none;
+  }
+  .m-tg-item.expanded img{
+    width:100%;height:auto;max-height:480px;
+    border-radius:11px 11px 0 0;object-fit:contain;background:#000;
+  }
+  .m-tg-item.expanded.no-img img{display:none}
+  .m-tg-item.expanded .body{padding:13px 15px 14px;width:100%}
+  .m-tg-item.expanded .meta-row{margin-bottom:10px;gap:8px}
+  .m-tg-item.expanded .task-tag{padding:2px 9px;font-size:9.5px;border-radius:10px}
+  .m-tg-item.expanded .time{font-size:11px}
+  .m-tg-item.expanded .txt{
+    font-size:14.5px;line-height:1.5;
+    display:block;overflow:visible;
+    -webkit-line-clamp:initial;-webkit-box-orient:initial;
+  }
+  .m-tg-item.expanded .footer{
+    margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;
+  }
+  /* Spacious mode: chevron is irrelevant (cards already full) */
+  .m-tg-list.spacious .expand-chevron{display:none}
+  .m-tg-list.spacious .m-tg-item{cursor:default}
+
   /* Telegram-style article preview card (when the post links to an external article) */
   .source-card{
     display:flex;gap:10px;align-items:stretch;
@@ -836,8 +872,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
           </a>`:'';
-        // Card is now a plain <div> — only the "Open in Telegram" footer link navigates
+        // Card is a <div> — tapping body toggles .expanded; only the buttons inside navigate
         return `<div class="m-tg-item${hasImg?'':' no-img'}">
+          <span class="expand-chevron">▾</span>
           ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
             <div class="meta-row">
@@ -886,6 +923,17 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(!c)return;
     activeFilter=c.dataset.filter||null;
     renderMobile();
+  });
+
+  // Tap a tg card body → toggle expanded (compact mode only).
+  // Ignore taps on the Open-in-Telegram link or the source preview card so those still navigate.
+  document.addEventListener('click',e=>{
+    const card=e.target.closest('.m-tg-item');
+    if(!card)return;
+    if(e.target.closest('a, button'))return;  // interactive children handle themselves
+    // No-op in spacious mode (cards are already fully expanded)
+    if(card.closest('.m-tg-list.spacious'))return;
+    card.classList.toggle('expanded');
   });
 
   // Refresh button: hard-reload the page (since body overflow is locked, pull-to-refresh doesn't work)
