@@ -328,6 +328,13 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 .sidebar .m-tl-item .dates{font-size:9px;color:#a08a5a;margin-top:3px}
 .sidebar .m-tg-empty{padding:24px 14px;text-align:center;color:#a08a5a;font-style:italic;font-size:11px}
 
+/* ─── Hero-from-source toggle: when the hero img is just a fallback from source.img ─── */
+/* COMPACT in non-spacious list: keep the thumb, hide the body source-card (redundant) */
+.sidebar .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{display:none}
+/* EXPANDED or SPACIOUS: hide the hero thumb, source-card in body shows full preview (Telegram-style) */
+.sidebar .m-tg-item.hero-from-source.expanded > img,
+.sidebar .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
+
 /* ─── source-card promoted to HERO (when post has no own image) ─── */
 /* COMPACT (collapsed in non-spacious list): just the image as a small left thumb. */
 .sidebar .m-tg-list:not(.spacious) .m-tg-item:not(.expanded) .source-card.source-as-hero{
@@ -678,6 +685,11 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .m-tg-list.spacious .source-card .src-body{padding:10px 12px 12px}
   .m-tg-list.spacious .source-card .src-title{font-size:14px;-webkit-line-clamp:3}
   .m-tg-list.spacious .source-card .src-desc{font-size:12px;-webkit-line-clamp:3}
+
+  /* Mobile: hero-from-source toggle (thumb in compact, full source-card below in expanded) */
+  .m-tg-list:not(.spacious) .m-tg-item.hero-from-source:not(.expanded) > .body > .source-card{display:none}
+  .m-tg-item.hero-from-source.expanded > img,
+  .m-tg-list.spacious .m-tg-item.hero-from-source > img{display:none}
 
   /* ─── source-card promoted to HERO on mobile (matches sidebar behavior) ─── */
   /* COMPACT (collapsed in non-spacious list): just the image as a small 74px left thumb */
@@ -1084,8 +1096,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const s=x.source;
         const hasOwnImg = !!x.img;
         const hasSource = !!(s && s.url);
-        // Telegram-style: only post's own image is hero on top. Source-card (link preview)
-        // always lives inside the body, below the text — never promoted to hero.
+        // Hero image: post's own attachment (preferred), or fall back to source.img for compact thumb
+        const heroImg = x.img || (s && s.img) || null;
+        const heroFromSource = !hasOwnImg && !!(s && s.img);
+        const itemClasses = ['m-tg-item'];
+        if (!heroImg) itemClasses.push('no-img');
+        if (heroFromSource) itemClasses.push('hero-from-source');
         const sourceCard = hasSource ? `
           <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
             ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
@@ -1095,9 +1111,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
           </a>` : '';
-        return `<div class="m-tg-item${hasOwnImg?'':' no-img'}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
+        return `<div class="${itemClasses.join(' ')}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
           <span class="expand-chevron">▾</span>
-          ${hasOwnImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+          ${heroImg?`<img src="${esc(heroImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
