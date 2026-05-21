@@ -283,23 +283,27 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     font-family:inherit;padding:0;
   }
   .m-view-btn:hover{background:#e2e8f0;color:#0f172a}
-  /* Spacious mode: edge-to-edge image, bigger text, no card chrome */
+  /* Spacious mode: edge-to-edge image, bigger text, no card chrome.
+     !important used here to fully override the compact rules' -webkit-box clamping. */
   .m-tg-list.spacious{padding:0;background:#fff}
   .m-tg-list.spacious .m-tg-item{
-    margin:0;border-radius:0;box-shadow:none;
-    border-bottom:1px solid #e2e8f0;
+    margin:0!important;border-radius:0!important;box-shadow:none!important;
+    border-bottom:1px solid #e2e8f0;overflow:visible!important;
   }
   .m-tg-list.spacious .m-tg-item:active{transform:none}
   .m-tg-list.spacious .m-tg-item img{
-    max-height:none;background:#000;width:100%;
+    max-height:none!important;background:#000;width:100%!important;height:auto!important;
+    display:block;object-fit:contain;
   }
   .m-tg-list.spacious .m-tg-item .body{padding:16px 18px 20px}
   .m-tg-list.spacious .m-tg-item .meta-row{margin-bottom:10px}
   .m-tg-list.spacious .m-tg-item .txt{
-    font-size:16px;line-height:1.55;-webkit-line-clamp:unset;display:block;overflow:visible;
+    font-size:16px!important;line-height:1.55!important;color:#0f172a;
+    display:block!important;overflow:visible!important;
+    -webkit-line-clamp:initial!important;-webkit-box-orient:initial!important;
   }
   .m-tg-list.spacious .m-tg-item .footer{margin-top:14px;padding-top:12px}
-  .m-tg-list.spacious .read-more{display:none}  /* spacious always shows full */
+  .m-tg-list.spacious .read-more{display:none!important}  /* spacious always shows full */
   /* TG feed page — category filter chips */
   .m-tg-chips{
     display:flex;gap:6px;padding:8px 12px;background:#fff;
@@ -861,6 +865,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       viewMode = viewMode==='spacious' ? 'compact' : 'spacious';
       try{localStorage.setItem('m-tg-view',viewMode)}catch{}
       applyView();
+      // Re-render so any stale read-more buttons / .expanded classes from the
+      // previous mode are cleared. Cheap (innerHTML reset on a small list).
+      renderMobile();
     });
   }
   applyView();
