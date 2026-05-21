@@ -341,7 +341,7 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
     box-shadow:0 1px 2px rgba(0,0,0,.05);
     transition:transform .15s ease;
   }
-  .m-tg-item:active{transform:scale(.99)}
+  /* (no :active transform — card is no longer a tap target; only the buttons inside are) */
   .m-tg-item img{
     width:74px;height:74px;flex-shrink:0;
     border-radius:8px;object-fit:cover;background:#f1f5f9;display:block;
@@ -368,7 +368,10 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   .m-tg-item .open-tg{
     font-size:10px;color:#0088cc;font-weight:600;
     text-decoration:none;letter-spacing:.3px;
+    padding:4px 9px;border-radius:8px;
+    background:rgba(0,136,204,.08);
   }
+  .m-tg-item .open-tg:active{background:rgba(0,136,204,.18)}
   /* Read-more disabled in compact (toggle to spacious to see full content) */
   .m-tg-item .read-more{display:none}
 
@@ -822,20 +825,19 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const m=meta(x.task);
         const t=x.ts||'';
         const hasImg=!!x.img;
-        // Optional article preview card (Telegram-style)
+        // Optional article preview card (Telegram-style) — its own <a> link
         const s=x.source;
         const sourceCard=s&&s.url?`
-          <div class="source-card-wrap" onclick="event.stopPropagation();window.open('${esc(s.url)}','_blank')">
-            <div class="source-card">
-              ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
-              <div class="src-body">
-                ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
-                ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
-                ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
-              </div>
+          <a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">
+            ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
+            <div class="src-body">
+              ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
+              ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
+              ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
             </div>
-          </div>`:'';
-        return `<a class="m-tg-item${hasImg?'':' no-img'}" href="${esc(x.url||'#')}" target="_blank" rel="noopener">
+          </a>`:'';
+        // Card is now a plain <div> — only the "Open in Telegram" footer link navigates
+        return `<div class="m-tg-item${hasImg?'':' no-img'}">
           ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
             <div class="meta-row">
@@ -846,10 +848,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             ${sourceCard}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
-              <span class="open-tg">Open in Telegram ↗</span>
+              <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
             </div>
           </div>
-        </a>`;
+        </div>`;
       }).join('');
         // Auto-add "Read more" only where the text actually overflows the 6-line clamp.
         // requestAnimationFrame so the layout has been computed before we measure.
