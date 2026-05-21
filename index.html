@@ -371,6 +371,45 @@ body{background:#f0f2f5;color:#1e293b;font-family:'Inter',system-ui,sans-serif;h
   }
   /* Read-more disabled in compact (toggle to spacious to see full content) */
   .m-tg-item .read-more{display:none}
+
+  /* Telegram-style article preview card (when the post links to an external article) */
+  .source-card{
+    display:flex;gap:10px;align-items:stretch;
+    margin-top:8px;padding:8px;
+    background:#f8fafc;border:1px solid #e2e8f0;
+    border-left:3px solid #0088cc;border-radius:8px;
+    text-decoration:none;color:inherit;
+    overflow:hidden;
+  }
+  .source-card .src-img{
+    width:54px;height:54px;flex-shrink:0;
+    border-radius:5px;object-fit:cover;background:#e2e8f0;
+  }
+  .source-card .src-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center;gap:2px}
+  .source-card .src-domain{
+    font-size:9.5px;font-weight:700;color:#0088cc;
+    text-transform:uppercase;letter-spacing:.6px;
+  }
+  .source-card .src-title{
+    font-size:12.5px;line-height:1.3;color:#0f172a;font-weight:600;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  .source-card .src-desc{
+    font-size:11px;line-height:1.3;color:#64748b;margin-top:2px;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  }
+  /* Spacious mode: bigger preview card with hero image on top */
+  .m-tg-list.spacious .source-card{
+    flex-direction:column;gap:0;padding:0;
+    margin-top:14px;border-left:none;border-radius:10px;
+  }
+  .m-tg-list.spacious .source-card .src-img{
+    width:100%;height:auto;max-height:180px;
+    border-radius:10px 10px 0 0;
+  }
+  .m-tg-list.spacious .source-card .src-body{padding:10px 12px 12px}
+  .m-tg-list.spacious .source-card .src-title{font-size:14px;-webkit-line-clamp:3}
+  .m-tg-list.spacious .source-card .src-desc{font-size:12px;-webkit-line-clamp:3}
   /* Translations chip: distinct gold/dark style so it reads as different content */
   .m-chip.translations{
     background:linear-gradient(135deg, #2a2018, #1a120a);
@@ -783,6 +822,19 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         const m=meta(x.task);
         const t=x.ts||'';
         const hasImg=!!x.img;
+        // Optional article preview card (Telegram-style)
+        const s=x.source;
+        const sourceCard=s&&s.url?`
+          <div class="source-card-wrap" onclick="event.stopPropagation();window.open('${esc(s.url)}','_blank')">
+            <div class="source-card">
+              ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="" loading="lazy" onerror="this.remove()">`:''}
+              <div class="src-body">
+                ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
+                ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
+                ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
+              </div>
+            </div>
+          </div>`:'';
         return `<a class="m-tg-item${hasImg?'':' no-img'}" href="${esc(x.url||'#')}" target="_blank" rel="noopener">
           ${hasImg?`<img src="${esc(x.img)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
           <div class="body">
@@ -791,6 +843,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
             <div class="txt">${esc(x.text)}</div>
+            ${sourceCard}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
               <span class="open-tg">Open in Telegram ↗</span>
