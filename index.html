@@ -169,6 +169,35 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   transition:background .2s,border-color .2s;
 }
 .d-feed-link:hover{background:rgba(159,34,65,.4);border-color:rgba(221,201,163,.5)}
+/* Mode toggle (Telegram / Translations) in sidebar */
+.sidebar .m-mode-toggle{
+  display:flex;position:relative;
+  background:rgba(20,8,10,.7);
+  border:1px solid rgba(105,28,50,.4);
+  border-radius:10px;overflow:hidden;flex-shrink:0;
+}
+.sidebar .m-mode-seg{
+  position:relative;z-index:1;
+  width:36px;height:28px;
+  background:transparent;border:none;
+  font-size:13px;line-height:1;
+  cursor:pointer;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:opacity .2s;opacity:.45;
+}
+.sidebar .m-mode-seg.active{opacity:1}
+.sidebar .m-mode-slider{
+  position:absolute;top:2px;left:2px;
+  width:calc(50% - 2px);height:calc(100% - 4px);
+  background:rgba(159,34,65,.5);
+  border-radius:8px;
+  transition:left .25s ease;
+  pointer-events:none;
+}
+.sidebar .m-mode-toggle.tl-active .m-mode-slider{
+  left:50%;
+  background:linear-gradient(135deg, rgba(188,149,92,.5), rgba(138,106,48,.4));
+}
 /* Chips strip in sidebar */
 .sidebar .m-tg-chips{
   display:flex;gap:5px;padding:8px 10px;
@@ -1022,6 +1051,12 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   <div class="sidebar-resize" id="sidebar-resize" aria-label="Drag to resize sidebar"></div>
   <div class="d-feed-head">
     <button class="m-view-btn" id="d-view-btn" aria-label="Toggle view">▦</button>
+    <div class="m-mode-toggle" id="d-mode-toggle">
+      <button class="m-mode-seg active" data-mode="tg">🗞️</button>
+      <button class="m-mode-seg" data-mode="tl">📖</button>
+      <div class="m-mode-slider"></div>
+    </div>
+    <span style="flex:1"></span>
     <a class="d-feed-link" href="https://t.me/resisres" target="_blank">@resisres ↗</a>
   </div>
   <div class="m-tg-chips d-feed-chips"></div>
@@ -1180,15 +1215,14 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         // Hide chips row when in translations mode
         c.style.display=activeFilter==='__tl'?'none':'';
       });
-      // Update mode toggle in header
-      const modeToggle=document.getElementById('m-mode-toggle');
-      if(modeToggle){
+      // Update mode toggles in header (mobile + desktop)
+      document.querySelectorAll('.m-mode-toggle').forEach(modeToggle=>{
         const isTl=activeFilter==='__tl';
         modeToggle.classList.toggle('tl-active',isTl);
         modeToggle.querySelectorAll('.m-mode-seg').forEach(s=>{
           s.classList.toggle('active', isTl ? s.dataset.mode==='tl' : s.dataset.mode==='tg');
         });
-      }
+      });
     }
     // Translations mode: render translation cards
     if(activeFilter==='__tl'){
@@ -1258,13 +1292,14 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     activeFilter=c.dataset.filter||null;
     renderMobile();
   });
-  // Mode toggle click — switch between Telegram and Translations
-  const modeToggleEl=document.getElementById('m-mode-toggle');
-  if(modeToggleEl)modeToggleEl.addEventListener('click',e=>{
-    const seg=e.target.closest('.m-mode-seg');
-    if(!seg)return;
-    activeFilter=seg.dataset.mode==='tl'?'__tl':null;
-    renderMobile();
+  // Mode toggle click — switch between Telegram and Translations (mobile + desktop)
+  document.querySelectorAll('.m-mode-toggle').forEach(toggle=>{
+    toggle.addEventListener('click',e=>{
+      const seg=e.target.closest('.m-mode-seg');
+      if(!seg)return;
+      activeFilter=seg.dataset.mode==='tl'?'__tl':null;
+      renderMobile();
+    });
   });
 
   // Tap a tg card → expand. Once expanded, only the top zone collapses it
