@@ -924,6 +924,34 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   .more-grid{grid-template-columns:1fr 1fr;gap:14px}
   .more-panel{padding:24px}
 }
+/* ─── Lightbox — click any post image to view full-screen at full resolution ─── */
+#lightbox{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.93);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;pointer-events:none;
+  transition:opacity .25s ease;
+  cursor:zoom-out;
+}
+#lightbox.open{opacity:1;pointer-events:auto}
+#lightbox img{
+  max-width:96vw;max-height:96vh;width:auto;height:auto;
+  object-fit:contain;cursor:default;
+  box-shadow:0 10px 60px rgba(0,0,0,.6);
+  border-radius:4px;
+  background:#111;
+}
+#lightbox .lb-close{
+  position:absolute;top:16px;right:20px;
+  width:42px;height:42px;
+  background:rgba(0,0,0,.6);border:1px solid rgba(255,255,255,.2);
+  border-radius:50%;color:#fff;font-size:24px;line-height:1;
+  cursor:pointer;font-family:inherit;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .15s;
+}
+#lightbox .lb-close:hover{background:rgba(0,0,0,.9);border-color:rgba(255,255,255,.4)}
+.m-tg-item img,.m-tg-item .src-img{cursor:zoom-in}
 </style></head><body>
 
 
@@ -1368,6 +1396,41 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       });
     });
   },{passive:true});
+})();
+
+/* ─── Lightbox: click any feed image to view at full resolution ─── */
+(function(){
+  let lb;
+  function ensureLB(){
+    if(lb)return lb;
+    lb=document.createElement('div');
+    lb.id='lightbox';
+    lb.innerHTML='<button class="lb-close" aria-label="Close">×</button><img alt="">';
+    document.body.appendChild(lb);
+    lb.addEventListener('click',e=>{
+      if(e.target.tagName==='IMG' && !e.target.classList.contains('lb-close'))return;
+      close();
+    });
+    return lb;
+  }
+  function open(src){
+    const el=ensureLB();
+    el.querySelector('img').src=src;
+    el.classList.add('open');
+    document.documentElement.style.overflow='hidden';
+  }
+  function close(){
+    if(lb)lb.classList.remove('open');
+    document.documentElement.style.overflow='';
+  }
+  // Capture phase: intercept image clicks BEFORE the source-card <a> or any parent click handler fires
+  document.addEventListener('click',e=>{
+    const img=e.target.closest('.m-tg-item > img, .m-tg-item .src-img');
+    if(!img||!img.src)return;
+    e.preventDefault();e.stopPropagation();
+    open(img.src);
+  },true);
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
 })();
 </script>
 </body></html>
