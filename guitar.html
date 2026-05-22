@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guitarra</title>
+<link rel="manifest" href="pwa/manifest-guitar.json">
+<meta name="theme-color" content="#e6e3da">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --bg: #e6e3da;
+    --panel: #f0ede4;
+    --panel-2: #e8e5dc;
+    --line: #d2cec0;
+    --line-2: #b8b4a4;
+    --text: #1f1d18;
+    --text-dim: #5e5c52;
+    --text-faint: #908d80;
+    --accent: #a07820;
+
+    --i-R:#dc2626;--i-b2:#ea580c;--i-2:#d97706;--i-b3:#7c3aed;--i-3:#1d4ed8;
+    --i-4:#0891b2;--i-b5:#db2777;--i-5:#059669;--i-b6:#9333ea;--i-6:#ca8a04;
+    --i-b7:#c2410c;--i-7:#b45309;--i-9:#db2777;--i-b9:#e11d48;--i-s9:#a21caf;
+    --i-11:#0891b2;--i-s11:#0e7490;--i-13:#65a30d;--i-b13:#84cc16;--i-s5:#9333ea;
+
+    --tag-tonic: #059669;
+    --tag-predom: #a07820;
+    --tag-dom: #dc2626;
+    --tag-borrowed: #9333ea;
+    --tag-picardy: #b45309;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .brand {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 22px;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .ctx-block { display: flex; flex-direction: column; gap: 3px; }
+  .ctx-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    color: var(--text-faint);
+    font-weight: 700;
+  }
+  .ctx-row { display: flex; gap: 2px; }
+  .chip {
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    padding: 4px 9px;
+    border-radius: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.1s;
+    min-width: 28px;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .chip:hover { border-color: var(--line-2); color: var(--text); }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .spacer { flex: 1; }
+  .toggle { display: flex; background: var(--bg); border-radius: 6px; padding: 2px; }
+  .toggle button {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    padding: 4px 9px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .toggle button.active { background: var(--panel-2); color: var(--text); }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-rows: 1fr auto auto;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  /* ─── Chord Map ─── */
+  .map-wrap {
+    position: relative;
+    overflow: auto;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+  .chord-map {
+    position: relative;
+    width: 1100px;
+    height: 100%;
+    max-height: 100%;
+    flex-shrink: 0;
+  }
+  .map-arrows {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .map-card {
+    position: absolute;
+    width: 130px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 7px 6px;
+    cursor: pointer;
+    transition: opacity 0.18s, border-color 0.12s, box-shadow 0.18s;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+    opacity: 0.92;
+    z-index: 2;
+  }
+  .map-card:hover { border-color: var(--line-2); opacity: 1; z-index: 3; }
+  .map-card.hub {
+    width: 178px;
+    background: var(--panel-2);
+    border: 1.5px solid var(--accent);
+    padding: 12px 10px 10px;
+    box-shadow: 0 4px 18px rgba(31,29,24,0.08);
+    z-index: 4;
+  }
+  .map-card.focused {
+    border-color: var(--accent);
+    background: #fff8e6;
+    box-shadow: 0 6px 22px rgba(31,29,24,0.10), 0 0 0 2px rgba(160,120,32,0.22);
+    z-index: 5;
+    opacity: 1;
+  }
+  .mc-top { display: flex; gap: 6px; align-items: baseline; line-height: 1; }
+  .mc-roman {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 19px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .map-card.hub .mc-roman { font-size: 30px; }
+  .mc-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .map-card.hub .mc-name { font-size: 19px; }
+  .mc-tag {
+    font-size: 7.5px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    line-height: 1.3;
+  }
+  .mc-tag.tonic    { color: var(--tag-tonic); }
+  .mc-tag.predom   { color: var(--tag-predom); }
+  .mc-tag.dom      { color: var(--tag-dom); }
+  .mc-tag.borrowed { color: var(--tag-borrowed); }
+  .mc-tag.picardy  { color: var(--tag-picardy); }
+  .mc-svg-wrap { width: 100%; display: flex; justify-content: center; }
+  .mc-svg-wrap svg { width: 102px; height: auto; }
+  .map-card.hub .mc-svg-wrap svg { width: 150px; }
+  .mc-cost {
+    font-size: 9px;
+    color: var(--text-faint);
+    font-family: 'SF Mono', monospace;
+  }
+  .mc-cost strong { color: var(--accent); }
+
+  /* ─── Alternatives ─── */
+  .alternatives {
+    padding: 8px 20px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .alt-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .alt-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.3px;
+    color: var(--text-faint);
+    font-weight: 700;
+  }
+  .alt-title strong { color: var(--accent); }
+  .alt-hint { font-size: 10px; color: var(--text-faint); }
+  .alt-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .alt-card {
+    flex: 0 0 auto;
+    width: 100px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 4px 5px 5px;
+    cursor: pointer;
+    transition: all 0.08s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .alt-card:hover { border-color: var(--line-2); }
+  .alt-card.selected {
+    border-color: var(--accent);
+    background: #fff8e6;
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  .alt-card svg { width: 88px; height: 92px; }
+  .alt-card .ac-label {
+    font-size: 8px;
+    color: var(--text-dim);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .alt-card .ac-notes {
+    font-size: 8px;
+    color: var(--text-faint);
+    font-family: 'SF Mono', monospace;
+    letter-spacing: 0.3px;
+  }
+
+  /* ─── Fretboard ─── */
+  .fb-wrap {
+    padding: 6px 20px 10px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  svg.fretboard { width: 100%; height: 100%; display: block; max-height: 120px; }
+
+  /* SVG arrow style */
+  .arrow-path {
+    fill: none;
+    stroke: #b8b4a4;
+    stroke-width: 1.5;
+    opacity: 0.7;
+  }
+  .arrow-path.highlighted {
+    stroke: var(--accent);
+    stroke-width: 2.5;
+    opacity: 1;
+  }
+  .arrow-path.sub {
+    stroke-dasharray: 4 3;
+  }
+  .arrow-cost {
+    font-family: 'SF Mono', monospace;
+    font-size: 10px;
+    fill: var(--text-faint);
+  }
+  .arrow-cost.highlighted {
+    fill: var(--accent);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Guitarra</div>
+
+  <div class="ctx-block">
+    <div class="ctx-label">Key</div>
+    <div class="ctx-row" id="key-row"></div>
+  </div>
+
+  <div class="ctx-block">
+    <div class="ctx-label">Tonality</div>
+    <div class="toggle" id="tonality-toggle">
+      <button class="active" data-tonality="major">Major</button>
+      <button data-tonality="minor">Minor</button>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="ctx-block">
+    <div class="ctx-label">Display</div>
+    <div class="toggle" id="display-toggle">
+      <button class="active" data-display="notes">Notes</button>
+      <button data-display="intervals">Int</button>
+      <button data-display="both">Both</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="map-wrap">
+    <div class="chord-map" id="chord-map">
+      <svg class="map-arrows" id="map-arrows" preserveAspectRatio="none"></svg>
+    </div>
+  </div>
+
+  <div class="alternatives">
+    <div class="alt-header">
+      <div class="alt-title">Other voicings for <strong id="alt-chord-name">—</strong></div>
+      <div class="alt-hint">click to swap · the rest of the map will re-pick smoothest voice-leading</div>
+    </div>
+    <div class="alt-row" id="alt-row"></div>
+  </div>
+
+  <div class="fb-wrap">
+    <svg id="fretboard-svg" class="fretboard" viewBox="0 0 2500 380" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+</main>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   THEORY
+   ════════════════════════════════════════════════════════════ */
+
+const SHARP_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_NAMES  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+
+const ROOTS = [
+  {pc:0,name:'C',prefer:'sharp'},{pc:1,name:'Db',prefer:'flat'},{pc:2,name:'D',prefer:'sharp'},
+  {pc:3,name:'Eb',prefer:'flat'},{pc:4,name:'E',prefer:'sharp'},{pc:5,name:'F',prefer:'flat'},
+  {pc:6,name:'F#',prefer:'sharp'},{pc:7,name:'G',prefer:'sharp'},{pc:8,name:'Ab',prefer:'flat'},
+  {pc:9,name:'A',prefer:'sharp'},{pc:10,name:'Bb',prefer:'flat'},{pc:11,name:'B',prefer:'sharp'},
+];
+
+const STRING_OPEN_MIDI = [40, 45, 50, 55, 59, 64];
+const STRING_LABELS = ['E','A','D','G','B','E'];
+const N_FRETS = 22;
+
+const STRING_SETS = [
+  {idx:[0,1,2,3], label:'EADG', sub:'low'},
+  {idx:[1,2,3,4], label:'ADGB', sub:'mid'},
+  {idx:[2,3,4,5], label:'DGBE', sub:'top'},
+];
+
+const QUALITIES = {
+  'maj7':  {ints:[0,4,7,11],  degs:['R','3','5','7'],     sfx:'maj7'},
+  '7':     {ints:[0,4,7,10],  degs:['R','3','5','b7'],    sfx:'7'},
+  'm7':    {ints:[0,3,7,10],  degs:['R','b3','5','b7'],   sfx:'m7'},
+  'm7b5':  {ints:[0,3,6,10],  degs:['R','b3','b5','b7'],  sfx:'ø'},
+  'dim7':  {ints:[0,3,6,9],   degs:['R','b3','b5','bb7'], sfx:'°7'},
+  'mMaj7': {ints:[0,3,7,11],  degs:['R','b3','5','7'],    sfx:'mMaj7'},
+  '6':     {ints:[0,4,7,9],   degs:['R','3','5','6'],     sfx:'6'},
+  'm6':    {ints:[0,3,7,9],   degs:['R','b3','5','6'],    sfx:'m6'},
+};
+
+/* ─── CHORD MAP — tonic centered, approaches around ─── */
+
+const CHORD_MAP = {
+  major: {
+    chords: {
+      'I':     {roman:'I',     deg:0,  quality:'maj7', tag:'tonic',    x:485, y:200, hub:true, family:'tonic'},
+      'V':     {roman:'V',     deg:7,  quality:'7',    tag:'dom',      x:700, y:200, family:'dominant'},
+      'ii':    {roman:'ii',    deg:2,  quality:'m7',   tag:'predom',   x:855, y:130, family:'predom'},
+      'vi':    {roman:'vi',    deg:9,  quality:'m7',   tag:'tonic',    x:855, y:280, family:'tonic'},
+      'iii':   {roman:'iii',   deg:4,  quality:'m7',   tag:'tonic',    x:990, y:60,  family:'tonic'},
+      'bII7':  {roman:'bII7',  deg:1,  quality:'7',    tag:'borrowed', x:570, y:50,  family:'dominant', sub:true},
+      'vii°':  {roman:'vii°',  deg:11, quality:'m7b5', tag:'dom',      x:400, y:50,  family:'dominant', sub:true},
+      'IV':    {roman:'IV',    deg:5,  quality:'maj7', tag:'predom',   x:300, y:200, family:'predom'},
+      'bVII':  {roman:'bVII',  deg:10, quality:'7',    tag:'borrowed', x:160, y:285, family:'dominant', sub:true},
+      'iv':    {roman:'iv',    deg:5,  quality:'m7',   tag:'borrowed', x:20,  y:340, family:'predom'},
+    },
+    arrows: [
+      {from:'V',    to:'I'},
+      {from:'ii',   to:'V'},
+      {from:'vi',   to:'ii'},
+      {from:'iii',  to:'vi'},
+      {from:'bII7', to:'I',  sub:true},
+      {from:'vii°', to:'I',  sub:true},
+      {from:'IV',   to:'I'},
+      {from:'bVII', to:'I',  sub:true},
+      {from:'iv',   to:'bVII'},
+    ],
+  },
+  minor: {
+    chords: {
+      'i':     {roman:'i',     deg:0,  quality:'m7',    tag:'tonic',    x:485, y:200, hub:true, family:'tonic'},
+      'V7':    {roman:'V7',    deg:7,  quality:'7',     tag:'dom',      x:700, y:200, family:'dominant'},
+      'iiø':   {roman:'iiø',   deg:2,  quality:'m7b5',  tag:'predom',   x:855, y:130, family:'predom'},
+      'bVI':   {roman:'bVI',   deg:8,  quality:'maj7',  tag:'tonic',    x:855, y:280, family:'tonic'},
+      'bIII':  {roman:'bIII',  deg:3,  quality:'maj7',  tag:'tonic',    x:990, y:60,  family:'tonic'},
+      'bII':   {roman:'bII',   deg:1,  quality:'maj7',  tag:'borrowed', x:570, y:50,  family:'dominant', sub:true},
+      'vii°7': {roman:'vii°7', deg:11, quality:'dim7',  tag:'dom',      x:400, y:50,  family:'dominant', sub:true},
+      'iv':    {roman:'iv',    deg:5,  quality:'m7',    tag:'predom',   x:300, y:200, family:'predom'},
+      'bVII':  {roman:'bVII',  deg:10, quality:'7',     tag:'borrowed', x:160, y:285, family:'dominant', sub:true},
+      'bVI_a': {roman:'bVI',   deg:8,  quality:'maj7',  tag:'borrowed', x:20,  y:340, family:'predom'},
+    },
+    arrows: [
+      {from:'V7',    to:'i'},
+      {from:'iiø',   to:'V7'},
+      {from:'bVI',   to:'iiø'},
+      {from:'bIII',  to:'bVI'},
+      {from:'bII',   to:'i',  sub:true},
+      {from:'vii°7', to:'i',  sub:true},
+      {from:'iv',    to:'i'},
+      {from:'bVII',  to:'i',  sub:true},
+      {from:'bVI_a', to:'bVII'},
+    ],
+  },
+};
+
+function intervalColor(label) {
+  const map = {'R':'i-R','b2':'i-b2','2':'i-2','b3':'i-b3','3':'i-3','4':'i-4','b5':'i-b5',
+    '5':'i-5','b6':'i-b6','#5':'i-s5','6':'i-6','b7':'i-b7','7':'i-7','bb7':'i-6',
+    'b9':'i-b9','9':'i-9','#9':'i-s9','11':'i-11','#11':'i-s11','13':'i-13','b13':'i-b13'};
+  return map[label] ? getComputedStyle(document.documentElement).getPropertyValue('--' + map[label]).trim() : '#888';
+}
+
+function noteAt(s, f) { return (STRING_OPEN_MIDI[s] + f) % 12; }
+function nameOf(pc, useFlats) { return (useFlats ? FLAT_NAMES : SHARP_NAMES)[pc]; }
+function useFlatsFor(pc) { return ROOTS[pc].prefer === 'flat'; }
+
+/* ─── Drop-2 generator ─── */
+
+function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
+  const q = QUALITIES[quality];
+  if (!q || q.ints.length !== 4) return null;
+  let close = [...q.ints];
+  for (let i = 0; i < inversion; i++) {
+    close = [close[1], close[2], close[3], close[0] + 12];
+  }
+  const dropped = [close[0], close[1], close[2] - 12, close[3]].sort((a, b) => a - b);
+  const set = STRING_SETS[stringSetIdx].idx;
+  for (let oct = 24; oct <= 84; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = dropped.map(s => rootMidi + s);
+    const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
+}
+
+function totalVoiceMovement(shapeA, shapeB) {
+  let total = 0;
+  for (let s = 0; s < 6; s++) {
+    if (shapeA[s] >= 0 && shapeB[s] >= 0) total += Math.abs(shapeA[s] - shapeB[s]);
+  }
+  return total;
+}
+
+function smoothestVoicing(quality, rootPc, sourceShape) {
+  // Try all string sets × inversions; pick smoothest
+  let best = null;
+  for (let ss = 0; ss < STRING_SETS.length; ss++) {
+    for (let inv = 0; inv < 4; inv++) {
+      const sh = dropTwoVoicing(quality, rootPc, ss, inv);
+      if (!sh) continue;
+      const m = totalVoiceMovement(sourceShape, sh);
+      if (!best || m < best.movement) best = {shape: sh, stringSetIdx: ss, inversion: inv, movement: m};
+    }
+  }
+  return best;
+}
+
+function smoothestOnStringSet(quality, rootPc, stringSetIdx, sourceShape) {
+  let best = null;
+  for (let inv = 0; inv < 4; inv++) {
+    const sh = dropTwoVoicing(quality, rootPc, stringSetIdx, inv);
+    if (!sh) continue;
+    const m = totalVoiceMovement(sourceShape, sh);
+    if (!best || m < best.movement) best = {shape: sh, stringSetIdx, inversion: inv, movement: m};
+  }
+  return best;
+}
+
+/* ════════════════════════════════════════════════════════════
+   STATE
+   ════════════════════════════════════════════════════════════ */
+
+const state = {
+  keyPc: 0,
+  tonality: 'major',
+  display: 'notes',
+  focusedId: 'I',
+  userVoicing: null, // {stringSetIdx, inversion} for the focused chord
+};
+
+function currentMap() { return CHORD_MAP[state.tonality]; }
+
+function chordRoot(chord) { return (state.keyPc + chord.deg) % 12; }
+
+function focusedChord() {
+  const map = currentMap();
+  return {id: state.focusedId, ...map.chords[state.focusedId]};
+}
+
+function focusedShape() {
+  const fc = focusedChord();
+  const root = chordRoot(fc);
+  if (state.userVoicing) {
+    return {
+      shape: dropTwoVoicing(fc.quality, root, state.userVoicing.stringSetIdx, state.userVoicing.inversion),
+      ...state.userVoicing,
+    };
+  }
+  // default: root inv on top string set
+  return {
+    shape: dropTwoVoicing(fc.quality, root, 2, 0),
+    stringSetIdx: 2,
+    inversion: 0,
+  };
+}
+
+function computeAllVoicings() {
+  // Returns map of chordId → {shape, stringSetIdx, inversion, movement (from focused)}
+  const map = currentMap();
+  const focused = focusedChord();
+  const focusedRoot = chordRoot(focused);
+  const focShape = focusedShape();
+  const result = {};
+  result[focused.id] = {...focShape, movement: 0};
+
+  for (const id in map.chords) {
+    if (id === focused.id) continue;
+    const ch = map.chords[id];
+    const r = chordRoot(ch);
+    const sm = smoothestVoicing(ch.quality, r, focShape.shape);
+    result[id] = sm;
+  }
+  return result;
+}
+
+/* ════════════════════════════════════════════════════════════
+   MINI FRETBOARD (with inlays)
+   ════════════════════════════════════════════════════════════ */
+
+function renderMini(shape, rootPc, quality, flats, sizing) {
+  if (!shape) return '';
+  const q = QUALITIES[quality];
+  const intToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((semi % 12) + 12) % 12;
+    if (!(pc in intToDeg)) intToDeg[pc] = q.degs[i];
+  });
+
+  const played = shape.filter(f => f >= 0);
+  if (!played.length) return '';
+  let minF = Math.min(...played);
+  let maxF = Math.max(...played);
+  const hasOpen = shape.some(f => f === 0);
+  let span = Math.max(4, maxF - minF + 1);
+  let startFret = hasOpen ? 0 : Math.max(1, minF);
+  let endFret = startFret + span - 1;
+  if (!hasOpen && endFret > N_FRETS) { endFret = N_FRETS; startFret = endFret - span + 1; }
+
+  const W = sizing?.W || 160;
+  const H = sizing?.H || 140;
+  const ml = 18, mr = 8, mt = 18, mb = 6;
+  const innerW = W - ml - mr;
+  const innerH = H - mt - mb;
+  const stringSp = innerW / 5;
+  const fretSp = innerH / Math.max(4, endFret - startFret);
+
+  let s = '';
+  if (startFret === 0) {
+    s += `<line x1="${ml-2}" y1="${mt}" x2="${ml+innerW+2}" y2="${mt}" stroke="#1f1d18" stroke-width="4"/>`;
+  } else {
+    s += `<text x="${ml-4}" y="${mt+fretSp/2+3}" text-anchor="end" font-size="10" fill="#7a7a82" font-family="SF Mono">${startFret}fr</text>`;
+  }
+  for (let i = (startFret === 0 ? 1 : 0); i <= endFret - startFret; i++) {
+    const y = mt + i * fretSp;
+    s += `<line x1="${ml}" y1="${y}" x2="${ml+innerW}" y2="${y}" stroke="#d4d4da" stroke-width="1"/>`;
+  }
+  for (let i = 0; i < 6; i++) {
+    const x = ml + i * stringSp;
+    s += `<line x1="${x}" y1="${mt}" x2="${x}" y2="${mt+innerH}" stroke="#a8a8b0" stroke-width="0.8"/>`;
+  }
+  // Inlays
+  {
+    const cx = ml + innerW / 2;
+    const dw = Math.min(stringSp * 0.7, fretSp * 0.32);
+    const dh = Math.min(fretSp * 0.32, 8);
+    const drawD = (x, y) => `<polygon points="${x},${y-dh} ${x+dw},${y} ${x},${y+dh} ${x-dw},${y}" fill="#aaa496" opacity="0.55"/>`;
+    [3,5,7,9,15,17,19,21].forEach(f => {
+      if (f <= startFret || f > endFret) return;
+      const y = mt + ((f - startFret) - 0.5) * fretSp;
+      if (y < mt - 1) return;
+      s += drawD(cx, y);
+    });
+    [12, 24].forEach(f => {
+      if (f <= startFret || f > endFret) return;
+      const y = mt + ((f - startFret) - 0.5) * fretSp;
+      if (y < mt - 1) return;
+      const off = stringSp * 1.5;
+      s += drawD(cx - off, y);
+      s += drawD(cx + off, y);
+    });
+  }
+  shape.forEach((fret, sIdx) => {
+    const x = ml + sIdx * stringSp;
+    if (fret < 0) {
+      s += `<text x="${x}" y="${mt-5}" text-anchor="middle" font-size="11" fill="#a8a8b0" font-weight="700">×</text>`;
+      return;
+    }
+    const pc = noteAt(sIdx, fret);
+    const rel = (pc - rootPc + 12) % 12;
+    const deg = intToDeg[rel] || '';
+    const color = intervalColor(deg);
+    let cy;
+    if (fret === 0) {
+      cy = mt - 7;
+      s += `<circle cx="${x}" cy="${cy}" r="6" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
+      return;
+    }
+    cy = mt + ((fret - startFret) - 0.5) * fretSp;
+    const r = sizing?.r || 11;
+    s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
+    const noteName = nameOf(pc, flats);
+    let label = state.display === 'intervals' ? deg : noteName;
+    let fontSize = label.length > 2 ? 8 : 10;
+    s += `<text x="${x}" y="${cy + 3.5}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="#000">${label}</text>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+}
+
+/* ════════════════════════════════════════════════════════════
+   CHORD MAP RENDER
+   ════════════════════════════════════════════════════════════ */
+
+const MAP_DIMS = {width: 1100, height: 380};
+
+function renderChordMap() {
+  const wrap = document.getElementById('chord-map');
+  const arrowsSvg = document.getElementById('map-arrows');
+  const map = currentMap();
+  const flats = useFlatsFor(state.keyPc);
+  const voicings = computeAllVoicings();
+
+  // Remove existing cards (keep the SVG inside)
+  Array.from(wrap.querySelectorAll('.map-card')).forEach(el => el.remove());
+
+  // Render cards
+  for (const id in map.chords) {
+    const ch = map.chords[id];
+    const root = chordRoot(ch);
+    const v = voicings[id];
+    const chordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    const isFocus = id === state.focusedId;
+    const isHub = ch.hub;
+    const card = document.createElement('div');
+    card.className = `map-card ${isHub ? 'hub' : ''} ${isFocus ? 'focused' : ''}`;
+    card.style.left = `${ch.x}px`;
+    card.style.top = `${ch.y}px`;
+    card.dataset.id = id;
+    const sizing = isHub ? {W:180, H:160, r:11} : {W:120, H:130, r:8};
+    const svg = v?.shape ? renderMini(v.shape, root, ch.quality, flats, sizing) : '';
+    const inversionN = v ? ['R','1st','2nd','3rd'][v.inversion] : '';
+    const setN = v ? STRING_SETS[v.stringSetIdx].label : '';
+    const cost = (id !== state.focusedId && v) ? `<div class="mc-cost"><strong>${v.movement}st</strong> · ${inversionN}·${setN}</div>` : '';
+    card.innerHTML = `
+      <div class="mc-top">
+        <span class="mc-roman">${ch.roman}</span>
+        <span class="mc-name">${chordName}</span>
+      </div>
+      <div class="mc-tag ${ch.tag}">${ch.tag}</div>
+      <div class="mc-svg-wrap">${svg}</div>
+      ${cost}
+    `;
+    card.addEventListener('click', () => {
+      state.focusedId = id;
+      state.userVoicing = null;
+      renderAll();
+    });
+    wrap.appendChild(card);
+  }
+
+  // Render arrows
+  arrowsSvg.setAttribute('viewBox', `0 0 ${MAP_DIMS.width} ${MAP_DIMS.height}`);
+  arrowsSvg.innerHTML = `
+    <defs>
+      <marker id="arrowHead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="#b8b4a4"/>
+      </marker>
+      <marker id="arrowHeadHl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="${getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()}"/>
+      </marker>
+    </defs>
+  ` + map.arrows.map(arr => {
+    const a = map.chords[arr.from];
+    const b = map.chords[arr.to];
+    if (!a || !b) return '';
+    const aIsHub = a.hub;
+    const bIsHub = b.hub;
+    const aw = aIsHub ? 178 : 130;
+    const bw = bIsHub ? 178 : 130;
+    // approximate card heights for centers (used for arrow endpoints — visual heuristic)
+    const ah = aIsHub ? 200 : 175;
+    const bh = bIsHub ? 200 : 175;
+    const acx = a.x + aw/2;
+    const acy = a.y + ah/2;
+    const bcx = b.x + bw/2;
+    const bcy = b.y + bh/2;
+
+    // Determine direction and pull endpoints toward edges (not centers)
+    const dx = bcx - acx, dy = bcy - acy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (!dist) return '';
+    const ux = dx/dist, uy = dy/dist;
+    // start: from edge of A
+    const aRadX = aw/2 * 0.92;
+    const aRadY = ah/2 * 0.7;
+    // simple: project from center along direction, scaled by an ellipse approximation
+    const tA = 1 / Math.max(Math.abs(ux)/aRadX, Math.abs(uy)/aRadY);
+    const sx = acx + ux * tA;
+    const sy = acy + uy * tA;
+    // end: into edge of B
+    const bRadX = bw/2 * 0.92;
+    const bRadY = bh/2 * 0.7;
+    const tB = 1 / Math.max(Math.abs(ux)/bRadX, Math.abs(uy)/bRadY);
+    const ex = bcx - ux * tB;
+    const ey = bcy - uy * tB;
+    // Control point: midway, with perpendicular offset for curve
+    const mx = (sx + ex) / 2;
+    const my = (sy + ey) / 2;
+    const perpX = -uy, perpY = ux;
+    const curveAmt = Math.min(40, dist * 0.18);
+    const cx = mx + perpX * curveAmt;
+    const cy = my + perpY * curveAmt;
+
+    const isHl = (state.focusedId === arr.from) || (state.focusedId === arr.to);
+    const subCls = arr.sub ? 'sub' : '';
+    const hlCls = isHl ? 'highlighted' : '';
+    const marker = isHl ? 'arrowHeadHl' : 'arrowHead';
+
+    // cost label
+    const va = voicings[arr.from];
+    const vb = voicings[arr.to];
+    let costLabel = '';
+    if (va?.shape && vb?.shape) {
+      const cost = totalVoiceMovement(va.shape, vb.shape);
+      costLabel = `<text x="${cx}" y="${cy + 4}" text-anchor="middle" class="arrow-cost ${hlCls}">${cost}st</text>`;
+    }
+
+    return `
+      <path class="arrow-path ${subCls} ${hlCls}" d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" marker-end="url(#${marker})"/>
+      ${costLabel}
+    `;
+  }).join('');
+}
+
+/* ════════════════════════════════════════════════════════════
+   ALTERNATIVES
+   ════════════════════════════════════════════════════════════ */
+
+function renderAlternatives() {
+  const altRow = document.getElementById('alt-row');
+  const altName = document.getElementById('alt-chord-name');
+  const fc = focusedChord();
+  const root = chordRoot(fc);
+  const flats = useFlatsFor(root);
+  const chordName = nameOf(root, flats) + QUALITIES[fc.quality].sfx;
+  altName.textContent = `${fc.roman} · ${chordName}`;
+
+  const current = state.userVoicing || {stringSetIdx: 2, inversion: 0};
+  const currentKey = `${current.stringSetIdx}.${current.inversion}`;
+
+  const autoSel = state.userVoicing === null ? 'selected' : '';
+  let html = `
+    <div class="alt-card ${autoSel}" data-auto="1" style="justify-content:center">
+      <div style="font-size:14px;color:var(--accent);font-weight:700;text-align:center;line-height:1.2;padding:24px 0">↻<br><span style="font-size:9px;text-transform:uppercase;letter-spacing:1px">auto</span></div>
+      <div class="ac-label">smoothest</div>
+      <div class="ac-notes">(re-pick)</div>
+    </div>
+  `;
+
+  for (let inv = 0; inv < 4; inv++) {
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      const sh = dropTwoVoicing(fc.quality, root, ss, inv);
+      if (!sh) continue;
+      const sel = (`${ss}.${inv}` === currentKey && state.userVoicing) ? 'selected' : '';
+      const invN = ['R','1st','2nd','3rd'][inv];
+      const label = `${invN} · ${STRING_SETS[ss].label}`;
+      const notes = sh.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
+      html += `
+        <div class="alt-card ${sel}" data-ss="${ss}" data-inv="${inv}">
+          ${renderMini(sh, root, fc.quality, flats, {W:88, H:92, r:7})}
+          <div class="ac-label">${label}</div>
+          <div class="ac-notes">${notes}</div>
+        </div>
+      `;
+    }
+  }
+
+  altRow.innerHTML = html;
+  altRow.querySelectorAll('[data-auto]').forEach(c => {
+    c.addEventListener('click', () => { state.userVoicing = null; renderAll(); });
+  });
+  altRow.querySelectorAll('[data-ss]').forEach(c => {
+    c.addEventListener('click', () => {
+      state.userVoicing = {stringSetIdx: +c.dataset.ss, inversion: +c.dataset.inv};
+      renderAll();
+    });
+  });
+}
+
+/* ════════════════════════════════════════════════════════════
+   FRETBOARD
+   ════════════════════════════════════════════════════════════ */
+
+const FB = {W:2500, H:380, ml:60, mr:20, mt:30, mb:30, openW:70, noteR:16};
+
+function renderFretboard() {
+  const svg = document.getElementById('fretboard-svg');
+  const innerW = FB.W - FB.ml - FB.mr - FB.openW;
+  const fretW = innerW / N_FRETS;
+  const stringsH = FB.H - FB.mt - FB.mb;
+  const ss = stringsH / 5;
+
+  const fc = focusedChord();
+  const root = chordRoot(fc);
+  const flats = useFlatsFor(root);
+  const q = QUALITIES[fc.quality];
+  const focShape = focusedShape();
+
+  const activeFrets = focShape.shape ? new Set(focShape.shape.map((f, i) => f >= 0 ? `${i}.${f}` : null).filter(Boolean)) : new Set();
+
+  const chordPcs = new Set(q.ints.map(i => (root + i) % 12));
+  const chordDegFromRoot = {};
+  q.ints.forEach((semi, i) => {
+    const pc = (root + semi) % 12;
+    if (!(pc in chordDegFromRoot)) chordDegFromRoot[pc] = q.degs[i];
+  });
+
+  let s = '';
+  const diamond = (cx, cy) => `<polygon points="${cx},${cy-11} ${cx+11},${cy} ${cx},${cy+11} ${cx-11},${cy}" fill="#aaa496"/>`;
+  [3,5,7,9,15,17,19,21].forEach(f => {
+    if (f > N_FRETS) return;
+    const cx = FB.ml + FB.openW + (f - 0.5) * fretW;
+    s += diamond(cx, FB.mt + stringsH/2);
+  });
+  [12, 24].forEach(f => {
+    if (f > N_FRETS) return;
+    const cx = FB.ml + FB.openW + (f - 0.5) * fretW;
+    s += diamond(cx, FB.mt + ss);
+    s += diamond(cx, FB.mt + ss*4);
+  });
+
+  for (let f = 0; f <= N_FRETS; f++) {
+    const x = FB.ml + FB.openW + f * fretW;
+    const w = f === 0 ? 6 : 1.5;
+    const color = f === 0 ? '#1a1a1f' : '#c8c8cc';
+    s += `<line x1="${x}" y1="${FB.mt - 4}" x2="${x}" y2="${FB.mt + stringsH + 4}" stroke="${color}" stroke-width="${w}"/>`;
+  }
+  for (let f = 1; f <= N_FRETS; f++) {
+    const x = FB.ml + FB.openW + (f - 0.5) * fretW;
+    s += `<text x="${x}" y="${FB.H - 8}" text-anchor="middle" font-size="11" fill="#8a8a92" font-family="SF Mono, monospace">${f}</text>`;
+  }
+  for (let str = 0; str < 6; str++) {
+    const y = FB.mt + (5 - str) * ss;
+    const w = 0.6 + (5 - str) * 0.35;
+    s += `<line x1="${FB.ml}" y1="${y}" x2="${FB.W - FB.mr}" y2="${y}" stroke="#a8a8b0" stroke-width="${w}"/>`;
+    s += `<text x="${FB.ml - 10}" y="${y + 5}" text-anchor="end" font-size="13" fill="#7a7a82" font-family="SF Mono, monospace" font-weight="700">${STRING_LABELS[str]}</text>`;
+  }
+
+  // Shadow chord-tones
+  for (let str = 0; str < 6; str++) {
+    const y = FB.mt + (5 - str) * ss;
+    for (let f = 0; f <= N_FRETS; f++) {
+      const pc = noteAt(str, f);
+      const isActive = activeFrets.has(`${str}.${f}`);
+      if (!chordPcs.has(pc) || isActive) continue;
+      const cx = f === 0 ? FB.ml + FB.openW/2 : FB.ml + FB.openW + (f - 0.5) * fretW;
+      const deg = chordDegFromRoot[pc] || '';
+      const c = intervalColor(deg);
+      s += `<circle cx="${cx}" cy="${y}" r="9" fill="${c}" opacity="0.42" stroke="#000" stroke-width="0.5"/>`;
+    }
+  }
+
+  // Active voicing — bright
+  for (let str = 0; str < 6; str++) {
+    const y = FB.mt + (5 - str) * ss;
+    for (let f = 0; f <= N_FRETS; f++) {
+      const isActive = activeFrets.has(`${str}.${f}`);
+      if (!isActive) continue;
+      const pc = noteAt(str, f);
+      const cx = f === 0 ? FB.ml + FB.openW/2 : FB.ml + FB.openW + (f - 0.5) * fretW;
+      const deg = chordDegFromRoot[pc] || '';
+      const c = intervalColor(deg);
+      const isRoot = pc === root;
+      if (isRoot) {
+        s += `<circle cx="${cx}" cy="${y}" r="${FB.noteR + 5}" fill="none" stroke="${c}" stroke-width="2.2" opacity="0.6"/>`;
+      }
+      s += `<circle cx="${cx}" cy="${y}" r="${FB.noteR}" fill="${c}" stroke="#000" stroke-width="1.5"/>`;
+      const noteName = nameOf(pc, flats);
+      if (state.display === 'notes') {
+        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#000">${noteName}</text>`;
+      } else if (state.display === 'intervals') {
+        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#000">${deg}</text>`;
+      } else {
+        s += `<text x="${cx}" y="${y - 2}" text-anchor="middle" font-size="10" font-weight="700" fill="#000">${noteName}</text>`;
+        s += `<text x="${cx}" y="${y + 10}" text-anchor="middle" font-size="8" font-weight="700" fill="#000" opacity="0.7">${deg}</text>`;
+      }
+    }
+  }
+
+  svg.innerHTML = s;
+}
+
+/* ════════════════════════════════════════════════════════════
+   PICKERS
+   ════════════════════════════════════════════════════════════ */
+
+function renderKeyRow() {
+  const el = document.getElementById('key-row');
+  el.innerHTML = ROOTS.map((r, i) =>
+    `<div class="chip ${state.keyPc === i ? 'active' : ''}" data-key="${i}">${r.name}</div>`
+  ).join('');
+  el.querySelectorAll('[data-key]').forEach(c => {
+    c.addEventListener('click', () => {
+      state.keyPc = +c.dataset.key;
+      state.userVoicing = null;
+      renderAll();
+    });
+  });
+}
+
+document.querySelectorAll('#tonality-toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#tonality-toggle button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.tonality = b.dataset.tonality;
+    state.focusedId = state.tonality === 'major' ? 'I' : 'i';
+    state.userVoicing = null;
+    renderAll();
+  });
+});
+
+document.querySelectorAll('#display-toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#display-toggle button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    state.display = b.dataset.display;
+    renderChordMap();
+    renderAlternatives();
+    renderFretboard();
+  });
+});
+
+/* ════════════════════════════════════════════════════════════
+   ORCHESTRATE
+   ════════════════════════════════════════════════════════════ */
+
+function renderAll() {
+  renderKeyRow();
+  renderChordMap();
+  renderAlternatives();
+  renderFretboard();
+}
+
+renderAll();
+window.addEventListener('resize', renderFretboard);
+</script>
+
+</body>
+</html>
