@@ -3401,31 +3401,42 @@ class Player {
     const homeTonality = state.tonality;
     this._homeKey = { keyPc: homePc, tonality: homeTonality };
 
-    // If user typed a custom progression, loop that as a single section instead
-    // of generating a random AABA. Pre-store each cell's shape so the picker
-    // honors the user's chosen inversions.
+    // If user typed a custom progression, treat it as the song's "A" section.
+    // Two modes based on loop state:
+    //   • Loop ON  → return a single section that loops forever (compose loop)
+    //   • Loop OFF → build a full AABA where A = composed, B = AI-picked bridge
+    //                (the AI takes your hook and runs with it)
     if (state.composedProgression && state.composedProgression.length) {
       const steps = state.composedProgression.map(c => ({
         chord: c.chord,
         bars: 1,
         roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
-        composedShape: c.shape,    // _triggerChord will prefer this over picker
+        composedShape: c.shape,
       }));
-      const prog = { name: '◇ Composed', len: steps.length, steps };
-      const sec = {
+      const composedProg = { name: '◇ Composed', len: steps.length, steps };
+      const composedSection = {
         label: 'A',
-        progression: prog,
-        repeats: 1,
+        progression: composedProg,
+        repeats: loopMode ? 1 : 2,   // AABA = A repeats once before B
         voicingType: voicingPref !== 'all' ? voicingPref : 'drop2',
         bassPattern: this._pickBassPattern(),
       };
-      // Auto-enable loop so the composed progression plays continuously
-      if (!loopMode) {
-        loopMode = true;
-        const lt = document.getElementById('loop-toggle');
-        if (lt) lt.classList.add('active');
+
+      if (loopMode) {
+        // Pure compose-loop mode — single section, loops via loopMode flag
+        return [composedSection];
       }
-      return [sec];
+
+      // Compose-seed mode: composed becomes A, AI picks B + builds AABA
+      const B = this._pickProgression();
+      const B_section = {
+        label: 'B',
+        progression: B,
+        repeats: this._repeatsFor(B),
+        voicingType: voicingPref !== 'all' ? voicingPref : this._pickVoicingType(),
+        bassPattern: this._pickBassPattern(),
+      };
+      return [composedSection, composedSection, B_section, composedSection];
     }
 
     const A = this._pickProgression();
@@ -4100,7 +4111,16 @@ const player = new Player();
 document.getElementById('loop-toggle').addEventListener('click', e => {
   loopMode = !loopMode;
   e.currentTarget.classList.toggle('active', loopMode);
-  // If player is running, immediately re-render the lookahead to reflect loop state
+  // When turning loop OFF mid-play AND a composed progression is active, the AI
+  // takes over: regenerate the song so the composed progression becomes the A
+  // section of a full AABA (AI picks B as a bridge). "Take my hook and run with it."
+  if (player.playing && !loopMode && state.composedProgression.length) {
+    player.song = player._generateSong();
+    player.songIdx = 0;
+    player.sectionIter = 0;
+    // Keep playing through the current bar — next section transition reads new song
+    player._cachedPage = null;
+  }
   if (player.playing) player._renderRealBook();
 });
 
