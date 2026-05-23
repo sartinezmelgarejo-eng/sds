@@ -3716,20 +3716,17 @@ class Player {
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
-    // On mobile, prepend the PEEK chord as cell 0 (replaces the separate peek
-    // element that used to sit on the right). The 4 page cells still highlight
-    // the currently playing bar — so when bar 3 fires, the rightmost cell lights
-    // up AND cell 0 (the peek) starts blinking imminent.
+    // On mobile, when the LAST bar of the page is playing, swap cell 0 to show
+    // the peek (upcoming) chord with imminent blink. Cells 1–3 stay put. Cell 3
+    // remains highlighted as the currently playing chord.
     const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
-    let cells, currentIdx, imminentIdx;
-    if (isMobile && this._cachedPeek) {
-      cells = [{ chord: this._cachedPeek, barIdxInChord: 0 }, ...this._cachedPage];
-      currentIdx = barInPage + 1;                       // page cells shifted by +1
-      imminentIdx = (barInPage === 3) ? 0 : -1;          // peek blinks during last bar
-    } else {
-      cells = this._cachedPage;
-      currentIdx = barInPage;
-      imminentIdx = -1;
+    let cells = this._cachedPage;
+    let currentIdx = barInPage;
+    let imminentIdx = -1;
+    if (isMobile && barInPage === 3 && this._cachedPeek) {
+      cells = [{ chord: this._cachedPeek, barIdxInChord: 0 }, ...this._cachedPage.slice(1)];
+      imminentIdx = 0;
+      // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
     const cellsHtml = cells.map((cell, i) => {
