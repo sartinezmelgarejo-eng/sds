@@ -3689,23 +3689,6 @@ class Player {
     return result;
   }
 
-  // Returns the next 4 bar-cells starting one bar ahead of the current playback.
-  // Used by mobile to render a sliding upcoming-chord window.
-  _slidingNext4() {
-    const out = [];
-    const lookahead = this._lookAheadBars(6);  // a little extra in case we cross sections
-    let skipped = 0;
-    for (const seg of lookahead) {
-      for (let b = 0; b < seg.bars; b++) {
-        if (skipped === 0) { skipped = 1; continue; }  // skip the bar currently playing
-        out.push({ chord: seg.chord, barIdxInChord: b });
-        if (out.length >= 4) return out;
-      }
-    }
-    while (out.length < 4) out.push(null);
-    return out;
-  }
-
   _renderRealBook() {
     const el = document.getElementById('real-book');
     if (!this.playing) { el.hidden = true; return; }
@@ -3715,39 +3698,34 @@ class Player {
     if (barInPage === 0 || !this._cachedPage) {
       this._cachedPage = [];
       this._cachedPeek = null;
-      this._cachedNextPage = [];     // mobile uses this to show the NEXT page early
-      const lookahead = this._lookAheadBars(12);
+      const lookahead = this._lookAheadBars(8);
       let bar = 0;
-      for (const seg of lookahead) {
+      outer: for (const seg of lookahead) {
         for (let b = 0; b < seg.bars; b++) {
           if (bar < 4) {
             this._cachedPage.push({chord: seg.chord, barIdxInChord: b});
           } else if (bar === 4) {
             this._cachedPeek = seg.chord;
-            this._cachedNextPage.push({chord: seg.chord, barIdxInChord: b});
-          } else if (bar < 8) {
-            this._cachedNextPage.push({chord: seg.chord, barIdxInChord: b});
-          } else { break; }
+            break outer;
+          }
           bar++;
         }
       }
       while (this._cachedPage.length < 4) this._cachedPage.push(null);
-      while (this._cachedNextPage.length < 4) this._cachedNextPage.push(null);
     }
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
-    // Mobile uses a SLIDING WINDOW instead of a page-of-4:
-    //   cell 0 = next chord coming (blinks imminent in its last bar before swapping in)
-    //   cells 1..3 = chords after that
-    // The currently playing chord lives on the chord neck — no need to duplicate it
-    // here. This frees the leftmost slot to serve as the "what's next" preview.
+    // On mobile, prepend the PEEK chord as cell 0 (replaces the separate peek
+    // element that used to sit on the right). The 4 page cells still highlight
+    // the currently playing bar — so when bar 3 fires, the rightmost cell lights
+    // up AND cell 0 (the peek) starts blinking imminent.
     const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
     let cells, currentIdx, imminentIdx;
-    if (isMobile) {
-      cells = this._slidingNext4();
-      currentIdx = -1;
-      imminentIdx = (barInPage === 3) ? 0 : -1;  // blinks on the bar right before it plays
+    if (isMobile && this._cachedPeek) {
+      cells = [{ chord: this._cachedPeek, barIdxInChord: 0 }, ...this._cachedPage];
+      currentIdx = barInPage + 1;                       // page cells shifted by +1
+      imminentIdx = (barInPage === 3) ? 0 : -1;          // peek blinks during last bar
     } else {
       cells = this._cachedPage;
       currentIdx = barInPage;
