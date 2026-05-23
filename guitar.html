@@ -1083,36 +1083,33 @@
       -webkit-tap-highlight-color: transparent;
     }
     body.player-active #map-mobile-toggle { display: none; }
-    /* When the overlay is open, show the map host fullscreen on top */
+    /* When map mode is on, the chord map REPLACES the keypad in the same
+       bottom-pinned slot — same footprint, just an alternative input. */
+    body.map-overlay-open .compose-pad { display: none; }
     body.map-overlay-open .chord-map-host {
       display: block;
       position: fixed;
-      inset: 0;
-      z-index: 200;
+      left: 0; right: 0; bottom: 0;
+      z-index: 100;
       width: 100vw;
-      height: 100vh;
+      /* Use the same kind of footprint the keypad has — a bit taller to fit cards */
+      height: 50vh;
+      max-height: 420px;
       background: var(--panel-2);
+      border-top: 1.5px solid #1a1a1a;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
       overflow: auto;
       -webkit-overflow-scrolling: touch;
-      padding: 50px 8px 16px;
+      padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
     }
     body.map-overlay-open .chord-map {
-      /* Scale the 540x800 map down to fit phone width with margin */
+      /* Scale the 540-wide map down to fit phone width with margin */
       transform: scale(calc((100vw - 20px) / 540));
       transform-origin: top left;
     }
-    #map-mobile-backdrop {
-      display: none;
-    }
-    body.map-overlay-open #map-mobile-backdrop {
-      display: block;
-      position: fixed;
-      inset: 0;
-      z-index: 199;
-      background: rgba(0,0,0,0.35);
-    }
+    /* Backdrop unused in this layout — map sits in the keypad slot, not over content */
+    #map-mobile-backdrop { display: none !important; }
     body.map-overlay-open #map-mobile-toggle {
-      z-index: 201;
       background: #1a1a1a;
       color: #fdfcf3;
     }
@@ -5250,19 +5247,13 @@ function renderAll() {
   }
   function open() {
     document.body.classList.add('map-overlay-open');
-    btn.textContent = '✕ Close';
+    btn.textContent = '⌨ Keys';
   }
   btn.addEventListener('click', () => {
     document.body.classList.contains('map-overlay-open') ? close() : open();
   });
-  backdrop.addEventListener('click', close);
-  // When the user taps a card inside the overlay it adds a chord — auto-close
-  // so they can see the strip update and keep tapping the dialer if they want.
-  document.addEventListener('click', (e) => {
-    if (!document.body.classList.contains('map-overlay-open')) return;
-    const card = e.target.closest && e.target.closest('.map-card');
-    if (card) setTimeout(close, 120);   // brief delay so they see which card lit up
-  }, true);
+  // Map is an *alternative* to the keypad in the same slot — stays open while the
+  // user taps multiple chords. They flip back to the dialer with the same button.
 })();
 
 /* ─── Keyboard shortcuts: 1–7 jump to diatonic scale degrees ─── */
