@@ -446,6 +446,10 @@
   }
   .rb-tab-cell:last-child { border-right: none; }
   .rb-tab-cell.current { background: #fcecaa; }
+  /* Visual divider between compose section A (cells 0–7) and B (cells 8–15) */
+  .rb-cell.section-divider, .rb-tab-cell.section-divider {
+    border-left: 3px double #a07820;
+  }
   .rb-tab-cell.imminent {
     animation: cellImminent 1s ease-in-out infinite;
   }
@@ -3401,33 +3405,43 @@ class Player {
     const homeTonality = state.tonality;
     this._homeKey = { keyPc: homePc, tonality: homeTonality };
 
-    // If user typed a custom progression, treat it as the song's "A" section.
-    // Two modes based on loop state:
-    //   • Loop ON  → return a single section that loops forever (compose loop)
-    //   • Loop OFF → build a full AABA where A = composed, B = AI-picked bridge
-    //                (the AI takes your hook and runs with it)
+    // If user typed a custom progression, treat the FIRST 8 chords as section A.
+    // If they kept typing past 8, chords 9–16 become section B.
+    //   • Loop ON                       → loop just A (single section)
+    //   • Loop OFF, only A typed (≤8)   → A + AI-picked B in AABA
+    //   • Loop OFF, A & B typed (9–16)  → both sections come from typed input
     if (state.composedProgression && state.composedProgression.length) {
-      const steps = state.composedProgression.map(c => ({
-        chord: c.chord,
-        bars: 1,
-        roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
-        composedShape: c.shape,
-      }));
-      const composedProg = { name: '◇ Composed', len: steps.length, steps };
-      const composedSection = {
-        label: 'A',
-        progression: composedProg,
-        repeats: loopMode ? 1 : 2,   // AABA = A repeats once before B
-        voicingType: voicingPref !== 'all' ? voicingPref : 'drop2',
-        bassPattern: this._pickBassPattern(),
+      const buildSteps = (cells, label) => {
+        const steps = cells.map(c => ({
+          chord: c.chord,
+          bars: 1,
+          roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
+          composedShape: c.shape,
+        }));
+        return {
+          label,
+          progression: { name: `◇ Composed ${label}`, len: steps.length, steps },
+          repeats: loopMode ? 1 : 2,
+          voicingType: voicingPref !== 'all' ? voicingPref : 'drop2',
+          bassPattern: this._pickBassPattern(),
+        };
       };
+      const aCells = state.composedProgression.slice(0, 8);
+      const bCells = state.composedProgression.slice(8, 16);
+      const A_sec = buildSteps(aCells, 'A');
 
       if (loopMode) {
         // Pure compose-loop mode — single section, loops via loopMode flag
-        return [composedSection];
+        return [A_sec];
       }
 
-      // Compose-seed mode: composed becomes A, AI picks B + builds AABA
+      if (bCells.length > 0) {
+        // User typed BOTH sections — full AABA built entirely from their input
+        const B_sec = buildSteps(bCells, 'B');
+        return [A_sec, A_sec, B_sec, A_sec];
+      }
+
+      // Only A typed — AI picks B as the bridge
       const B = this._pickProgression();
       const B_section = {
         label: 'B',
@@ -3436,7 +3450,7 @@ class Player {
         voicingType: voicingPref !== 'all' ? voicingPref : this._pickVoicingType(),
         bassPattern: this._pickBassPattern(),
       };
-      return [composedSection, composedSection, B_section, composedSection];
+      return [A_sec, A_sec, B_section, A_sec];
     }
 
     const A = this._pickProgression();
@@ -5007,32 +5021,35 @@ function renderComposeStrip() {
   tabsEl.hidden = false;
   const map = currentMap();
   const flats = useFlatsFor(state.keyPc);
-  const MAX_CELLS = 8;
+  // Up to 8 cells for A. If user typed past 8, expand to 16 cells with an A/B
+  // divider between cells 8 and 9.
+  const MAX_CELLS = seq.length > 8 ? 16 : 8;
   const cells = seq.slice(0, MAX_CELLS);
   while (cells.length < MAX_CELLS) cells.push(null);
 
-  el.innerHTML = cells.map((cell, i) => {
-    if (!cell) return `<div class="rb-cell"></div>`;
+  const renderCell = (cell, i, isTab) => {
+    const cls = ['rb-cell'];
+    if (isTab) cls[0] = 'rb-tab-cell';
+    if (i === seq.length - 1) cls.push('current');
+    if (i === 8) cls.push('section-divider');  // start of B
+    if (!cell) return `<div class="${cls.join(' ')}"></div>`;
     const ch = map.chordDefs[cell.chord];
-    if (!ch) return `<div class="rb-cell"></div>`;
+    if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
+    if (isTab) {
+      if (!cell.shape) return `<div class="${cls.join(' ')}"></div>`;
+      const svg = renderMini(cell.shape, root, ch.quality, flats, {W: 130, H: 80, r: 6, minimal: true});
+      return `<div class="${cls.join(' ')}">${svg}</div>`;
+    }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-    const isLast = i === seq.length - 1;
-    return `<div class="rb-cell ${isLast ? 'current' : ''}">
+    return `<div class="${cls.join(' ')}">
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
     </div>`;
-  }).join('');
+  };
 
-  tabsEl.innerHTML = cells.map((cell, i) => {
-    if (!cell || !cell.shape) return `<div class="rb-tab-cell"></div>`;
-    const ch = map.chordDefs[cell.chord];
-    if (!ch) return `<div class="rb-tab-cell"></div>`;
-    const root = chordRoot(ch);
-    const svg = renderMini(cell.shape, root, ch.quality, flats, {W: 130, H: 80, r: 6, minimal: true});
-    const isLast = i === seq.length - 1;
-    return `<div class="rb-tab-cell ${isLast ? 'current' : ''}">${svg}</div>`;
-  }).join('');
+  el.innerHTML = cells.map((c, i) => renderCell(c, i, false)).join('');
+  tabsEl.innerHTML = cells.map((c, i) => renderCell(c, i, true)).join('');
 }
 
 // Tracks voicing cycling for keyboard shortcuts.
@@ -5103,6 +5120,8 @@ document.addEventListener('keydown', e => {
       const idx = (cur._candIdx + (_shiftSide === 'left' ? -1 : 1) + cands.length) % cands.length;
       seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
     } else {
+      // Cap at 16 chords total (8 for A + 8 for B)
+      if (seq.length >= 16) return;
       // Append a new chord at the smoothest voicing from the previous one
       const ch = currentMap().chordDefs[chordId];
       const root = chordRoot(ch);
