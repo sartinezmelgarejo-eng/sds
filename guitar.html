@@ -5250,13 +5250,25 @@ function renderAll() {
   function fitMap() {
     if (!host || !mapEl) return;
     if (!document.body.classList.contains('map-overlay-open')) return;
+    // Reset scale momentarily so we can measure the natural card layout
+    mapEl.style.setProperty('--map-scale', '1');
+    // Measure the real content extents — cards live at absolute offsets and
+    // can extend past the nominal 540x800 box. Use offsetLeft/Width so it
+    // also works while a transform is on the parent.
+    let contentW = 540, contentH = 800;
+    mapEl.querySelectorAll('.map-card').forEach(c => {
+      contentW = Math.max(contentW, c.offsetLeft + c.offsetWidth);
+      contentH = Math.max(contentH, c.offsetTop  + c.offsetHeight);
+    });
     const r = host.getBoundingClientRect();
-    // Container's content-box accounting for its own padding (10px sides, 10/+safe bottom)
     const padX = 20, padY = 20;
     const availW = Math.max(0, r.width  - padX);
     const availH = Math.max(0, r.height - padY);
-    const scale = Math.min(availW / 540, availH / 800);
+    const scale = Math.min(availW / contentW, availH / contentH);
     mapEl.style.setProperty('--map-scale', scale.toFixed(4));
+    // Resize the host to the scaled content exactly — no dead space, no clip
+    mapEl.style.width  = contentW + 'px';
+    mapEl.style.height = contentH + 'px';
   }
   function close() {
     document.body.classList.remove('map-overlay-open');
