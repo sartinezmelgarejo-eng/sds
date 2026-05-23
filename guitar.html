@@ -4308,12 +4308,10 @@ function renderScaleNeck() {
   repaintScaleNeckNotes();
 }
 
-// Paints the scale notes (improv-focused — chord tones across the whole neck):
-//   • Pentatonic scaffold → small dim dots, always visible (spatial reference)
-//   • Tonic of the key → small red dot on the scaffold
-//   • Live chord tones → big colored dots in interval color (R/3/5/7), every position
-//   • Next chord tones → small amber ghost dots, every position
-//   • Stays halos → bloom on notes that carry through to the next chord
+// Scale neck — DEAD SIMPLE: only the 4 chord tones of the LIVE chord, big colored
+// dots at every position they appear on the neck. R/3/5/7 in interval colors.
+// The chord neck above shows ONE voicing; this neck shows EVERY place those
+// 4 notes live, so you can target any of them while soloing.
 function repaintScaleNeckNotes() {
   const panInner = document.getElementById('scale-pan-inner');
   if (!panInner) return;
@@ -4329,94 +4327,33 @@ function repaintScaleNeckNotes() {
   const xOf = (f) => (f - firstFret) * fretW;
   const flats = useFlatsFor(state.keyPc);
 
-  // Pentatonic of the key (minor pentatonic on the relative-minor root)
-  const minorRootPc = (state.tonality === 'major') ? (state.keyPc + 9) % 12 : state.keyPc;
-  const pentaPcs = new Set([0,3,5,7,10].map(i => (minorRootPc + i) % 12));
-
-  // Build pc → interval label maps for current and next chord
-  const buildPcMap = (chordId) => {
-    if (!chordId) return null;
-    const ch = currentMap().chordDefs[chordId];
-    if (!ch) return null;
-    const rootPc = (state.keyPc + ch.deg) % 12;
-    const q = QUALITIES[ch.quality];
-    const m = {};
-    q.ints.forEach((semi, i) => {
-      const pc = (rootPc + semi) % 12;
-      if (!(pc in m)) m[pc] = q.degs[i];
-    });
-    return m;
-  };
   const liveChordId = state.playerVoicing?.chord;
-  const nextChordId = state.nextVoicing?.chord;
-  const livePcs = buildPcMap(liveChordId);
-  const nextPcs = buildPcMap(nextChordId);
+  if (!liveChordId) { notesG.innerHTML = ''; return; }
+  const ch = currentMap().chordDefs[liveChordId];
+  if (!ch) { notesG.innerHTML = ''; return; }
+  const rootPc = (state.keyPc + ch.deg) % 12;
+  const q = QUALITIES[ch.quality];
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = (rootPc + semi) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
 
   let s = '';
-
-  // ── Pass 0: pentatonic scaffold — small dim dots, always visible ──
   for (let str = 0; str < 6; str++) {
     const y = mt + (5 - str) * ss;
     for (let f = firstFret; f <= lastFret; f++) {
       const pc = noteAt(str, f);
-      if (!pentaPcs.has(pc)) continue;
+      const deg = pcToDeg[pc];
+      if (!deg) continue;
       const cx = xOf(f) + fretW/2;
-      const isTonic = pc === minorRootPc;
-      if (isTonic) {
-        // Tonic — small red marker so you can always find home
-        s += `<circle cx="${cx}" cy="${y}" r="9" fill="#dc2626" opacity="0.7"/>`;
-      } else {
-        // Pentatonic — tiny cream dot
-        s += `<circle cx="${cx}" cy="${y}" r="6" fill="#fdfcf3" opacity="0.45"/>`;
-      }
+      const noteName = nameOf(pc, flats);
+      const c = intervalColor(deg);
+      s += `<circle cx="${cx}" cy="${y}" r="34" fill="${c}" stroke="#000" stroke-width="2" filter="url(#scale-dropShadow)"/>`;
+      s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="20" font-weight="700" fill="#000" pointer-events="none">${noteName}</text>`;
+      s += `<text x="${cx}" y="${y + 24}" text-anchor="middle" font-size="14" font-weight="700" fill="#000" opacity="0.7" pointer-events="none">${deg}</text>`;
     }
   }
-
-  // ── Pass 1: ghost dots for NEXT chord tones (drawn first so live notes paint on top) ──
-  if (nextPcs) {
-    for (let str = 0; str < 6; str++) {
-      const y = mt + (5 - str) * ss;
-      for (let f = firstFret; f <= lastFret; f++) {
-        const pc = noteAt(str, f);
-        const nextDeg = nextPcs[pc];
-        if (!nextDeg) continue;
-        const cx = xOf(f) + fretW/2;
-        const noteName = nameOf(pc, useFlatsFor(state.keyPc));
-        // Faint amber preview — "this is where the harmony is heading"
-        s += `<g opacity="0.42">`;
-        s += `<circle cx="${cx}" cy="${y}" r="22" fill="rgba(250,237,196,0.45)" stroke="#a07820" stroke-width="1.6" stroke-dasharray="4 3"/>`;
-        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="13" font-weight="600" fill="#6b4a0e" pointer-events="none">${noteName}</text>`;
-        s += `<text x="${cx}" y="${y + 17}" text-anchor="middle" font-size="9" font-weight="700" fill="#6b4a0e" pointer-events="none">${nextDeg}</text>`;
-        s += `</g>`;
-      }
-    }
-  }
-
-  // ── Pass 2: bold chord tones for the LIVE chord ──
-  if (livePcs) {
-    for (let str = 0; str < 6; str++) {
-      const y = mt + (5 - str) * ss;
-      for (let f = firstFret; f <= lastFret; f++) {
-        const pc = noteAt(str, f);
-        const deg = livePcs[pc];
-        if (!deg) continue;
-        const cx = xOf(f) + fretW/2;
-        const noteName = nameOf(pc, useFlatsFor(state.keyPc));
-        const c = intervalColor(deg);
-        // Halo for notes that are ALSO in the next chord — these "stay"
-        // through the chord change. A bright glow layer behind the dot makes
-        // it visibly radiate in the note's interval color.
-        const staysIntoNext = nextPcs && nextPcs[pc];
-        if (staysIntoNext) {
-          s += `<circle cx="${cx}" cy="${y}" r="40" fill="${c}" opacity="0.85" filter="url(#scale-bloom)"/>`;
-        }
-        s += `<circle cx="${cx}" cy="${y}" r="34" fill="${c}" stroke="#000" stroke-width="2" filter="url(#scale-dropShadow)"/>`;
-        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="20" font-weight="700" fill="#000" pointer-events="none">${noteName}</text>`;
-        s += `<text x="${cx}" y="${y + 24}" text-anchor="middle" font-size="14" font-weight="700" fill="#000" opacity="0.7" pointer-events="none">${deg}</text>`;
-      }
-    }
-  }
-
   notesG.innerHTML = s;
 }
 
