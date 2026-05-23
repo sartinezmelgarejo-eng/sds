@@ -5159,22 +5159,28 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
   } else {
     if (seq.length >= 16) return;
-    const prev = seq.length ? seq[seq.length - 1].shape : null;
-    let bestIdx = 0;
-    if (prev) {
-      let bestCost = Infinity;
-      cands.forEach((c, i) => {
-        const cost = totalVoiceMovement(prev, c.shape);
-        if (cost < bestCost) { bestCost = cost; bestIdx = i; }
-      });
+    const last = seq.length ? seq[seq.length - 1] : null;
+    // Repeating the SAME chord (no Shift): keep the exact same voicing the user
+    // just placed. Cycling inversions is what Shift is for.
+    if (last && last.chord === chordId) {
+      seq.push({ chord: chordId, _candIdx: last._candIdx, shape: last.shape });
     } else {
-      let bestCost = Infinity;
+      // Pick the voicing the chord map would recommend: minimize voice movement
+      // from the previous chord, with a register/string-set bias matching
+      // smoothestVoicing() so compose ≈ map.
+      const prev = last ? last.shape : null;
+      let bestIdx = 0, bestScore = Infinity;
       cands.forEach((c, i) => {
-        const cost = Math.abs(avgFret(c.shape) - 6.5);
-        if (cost < bestCost) { bestCost = cost; bestIdx = i; }
+        const m = prev ? totalVoiceMovement(prev, c.shape) : 0;
+        const af = avgFret(c.shape);
+        const reg = Math.abs(af - 7);
+        const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
+        const setPref = c.stringSetIdx === 0 ? 3 : 0;  // low E set last
+        const score = m + registerCost + setPref;
+        if (score < bestScore) { bestScore = score; bestIdx = i; }
       });
+      seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
     }
-    seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
   }
   state.focusedChord = chordId;
   state.userVoicing = { shape: seq[seq.length - 1].shape };
