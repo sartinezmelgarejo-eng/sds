@@ -542,6 +542,80 @@
     opacity: 0.7;
   }
 
+  /* Sort toggle (used in notes list) */
+  .sort-toggle {
+    display: inline-flex;
+    border: 1px solid var(--gold-deep);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .sort-toggle button {
+    background: rgba(160,120,32,0.04);
+    border: none;
+    padding: 6px 14px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sort-toggle button + button { border-left: 1px solid var(--gold-deep); }
+  .sort-toggle button:hover { background: rgba(160,120,32,0.12); }
+  .sort-toggle button.active {
+    background: rgba(139,30,30,0.18);
+    color: var(--rubric);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  /* Notes list — slightly bigger items than bookmarks, with snippet text */
+  .notes-list {
+    list-style: none;
+    max-height: 55vh;
+    overflow-y: auto;
+    margin: 4px 0;
+  }
+  .note-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(139,30,30,0.18);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .note-item:hover { background: rgba(160,120,32,0.1); }
+  .note-item .note-body { flex: 1; min-width: 0; }
+  .note-item .note-ref {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 14px;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .note-item .note-text {
+    font-family: 'EB Garamond', serif;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.4;
+    /* Truncate to 2 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .note-item .note-date {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.6;
+    margin-top: 4px;
+  }
+  .note-item .bm-del { flex-shrink: 0; }
+
   /* Page footer with page number + tiny ornament */
   .page-footer {
     margin-top: 14px;
@@ -754,6 +828,7 @@
       <span class="ornament">❦</span> Libros
     </button>
     <button class="nav-btn" id="btn-bookmarks" title="Marcadores">🔖</button>
+    <button class="nav-btn" id="btn-notes" title="Mis Notas">📜</button>
     <span class="ref-display" id="ref-display">Génesis I</span>
     <button class="nav-btn" id="btn-prev" title="Capítulo anterior">‹</button>
     <button class="nav-btn" id="btn-next" title="Capítulo siguiente">›</button>
@@ -824,6 +899,22 @@
     <ul class="bookmark-list" id="bm-list"></ul>
     <div class="modal-actions">
       <button class="modal-btn" id="bm-list-close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notes list modal -->
+<div class="modal-backdrop" id="notes-list-bd">
+  <div class="modal">
+    <h3>Mis Notas</h3>
+    <div class="ref">Pulsa una nota para abrirla, ✕ para eliminar</div>
+    <div class="sort-toggle" id="notes-sort">
+      <button data-sort="recent" class="active">Recientes</button>
+      <button data-sort="biblical">Orden bíblico</button>
+    </div>
+    <ul class="notes-list" id="notes-list"></ul>
+    <div class="modal-actions">
+      <button class="modal-btn" id="notes-list-close">Cerrar</button>
     </div>
   </div>
 </div>
@@ -1296,9 +1387,15 @@ const annot = (() => {
     data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
   } catch (e) { data = {}; }
   data.highlights = data.highlights || {};   // { 'gen-1-3': 'gold' | 'red' | 'blue' }
-  data.notes      = data.notes      || {};   // { 'gen-1-3': 'note text' }
+  data.notes      = data.notes      || {};   // { 'gen-1-3': {text, updatedAt, createdAt} }
   data.bookmarks  = data.bookmarks  || [];   // [{id, bookId, chapter, verse?, label, date}]
   data.lastRead   = data.lastRead   || null; // {bookId, chapter, spread}
+  // Migrate any older string-format notes to the new object shape
+  for (const k in data.notes) {
+    if (typeof data.notes[k] === 'string') {
+      data.notes[k] = { text: data.notes[k], updatedAt: Date.now(), createdAt: Date.now() };
+    }
+  }
   return data;
 })();
 
@@ -1412,15 +1509,24 @@ function openNoteModal(verseEl) {
   const [bookId, chap, vn] = vk.split('-');
   noteEditingVK = vk;
   noteRef.textContent = `${bookMeta(bookId).name} ${chap}:${vn}`;
-  noteText.value = annot.notes[vk] || '';
+  noteText.value = (annot.notes[vk] && annot.notes[vk].text) || '';
   noteBd.classList.add('show');
   setTimeout(() => noteText.focus(), 50);
 }
 document.getElementById('note-save').addEventListener('click', () => {
   if (!noteEditingVK) return;
   const txt = noteText.value.trim();
-  if (txt) annot.notes[noteEditingVK] = txt;
-  else delete annot.notes[noteEditingVK];
+  const now = Date.now();
+  if (txt) {
+    const existing = annot.notes[noteEditingVK];
+    annot.notes[noteEditingVK] = {
+      text: txt,
+      updatedAt: now,
+      createdAt: (existing && existing.createdAt) || now,
+    };
+  } else {
+    delete annot.notes[noteEditingVK];
+  }
   saveAnnot();
   applyAnnotationsToDOM();
   noteBd.classList.remove('show');
@@ -1513,8 +1619,122 @@ bmList.addEventListener('click', e => {
 document.getElementById('bm-list-close').addEventListener('click', () => bmListBd.classList.remove('show'));
 document.getElementById('btn-bookmarks').addEventListener('click', openBookmarksList);
 
+/* ────── Notes list modal (view / sort / edit / delete) ────── */
+const notesListBd = document.getElementById('notes-list-bd');
+const notesListEl = document.getElementById('notes-list');
+let notesSort = 'recent';   // 'recent' | 'biblical'
+
+// Book-order index for biblical sorting
+const BOOK_INDEX = {};
+ALL_BOOKS.forEach((b, i) => { BOOK_INDEX[b.id] = i; });
+
+function relativeDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = Date.now();
+  const diff = (now - ts) / 1000;
+  if (diff < 60)     return 'hace un momento';
+  if (diff < 3600)   return `hace ${Math.floor(diff/60)} min`;
+  if (diff < 86400)  return `hace ${Math.floor(diff/3600)} h`;
+  if (diff < 604800) return `hace ${Math.floor(diff/86400)} día(s)`;
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function openNotesList() {
+  renderNotesList();
+  notesListBd.classList.add('show');
+}
+function renderNotesList() {
+  const entries = Object.entries(annot.notes).map(([vk, n]) => {
+    const [bookId, chap, vn] = vk.split('-');
+    return {
+      vk,
+      bookId,
+      chapter: +chap,
+      verse: +vn,
+      text: n.text,
+      updatedAt: n.updatedAt || 0,
+      bookIdx: BOOK_INDEX[bookId] ?? 999,
+    };
+  });
+
+  if (notesSort === 'recent') {
+    entries.sort((a, b) => b.updatedAt - a.updatedAt);
+  } else {
+    entries.sort((a, b) =>
+      a.bookIdx - b.bookIdx ||
+      a.chapter - b.chapter ||
+      a.verse   - b.verse
+    );
+  }
+
+  if (!entries.length) {
+    notesListEl.innerHTML = `<li class="bookmark-empty">Aún no has escrito notas.<br>Toca un versículo y elige 📝 para empezar.</li>`;
+    return;
+  }
+  notesListEl.innerHTML = entries.map(e => {
+    const book = bookMeta(e.bookId);
+    const ref  = book ? `${book.name} ${e.chapter}:${e.verse}` : e.vk;
+    return `<li class="note-item" data-vk="${e.vk}">
+      <div class="note-body">
+        <div class="note-ref">${ref}</div>
+        <div class="note-text">${escapeHTML(e.text)}</div>
+        <div class="note-date">${relativeDate(e.updatedAt)}</div>
+      </div>
+      <button class="bm-del" data-del="${e.vk}" title="Eliminar nota">✕</button>
+    </li>`;
+  }).join('');
+}
+
+document.getElementById('btn-notes').addEventListener('click', openNotesList);
+document.getElementById('notes-list-close').addEventListener('click', () => notesListBd.classList.remove('show'));
+
+// Sort toggle
+document.getElementById('notes-sort').addEventListener('click', e => {
+  const btn = e.target.closest('[data-sort]');
+  if (!btn) return;
+  notesSort = btn.dataset.sort;
+  document.querySelectorAll('#notes-sort button').forEach(b => b.classList.toggle('active', b === btn));
+  renderNotesList();
+});
+
+// Click on note → jump there, then open the note editor.
+// Click on ✕ → delete in place.
+notesListEl.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    e.stopPropagation();
+    delete annot.notes[del.dataset.del];
+    saveAnnot();
+    renderNotesList();
+    applyAnnotationsToDOM();
+    return;
+  }
+  const item = e.target.closest('.note-item');
+  if (!item) return;
+  const vk = item.dataset.vk;
+  const [bookId, chap, vn] = vk.split('-');
+  notesListBd.classList.remove('show');
+  goTo(bookId, +chap);
+  // Wait for the chapter to render, then open the note editor on that verse
+  setTimeout(() => {
+    const verseEl = document.querySelector(`.verse[data-vk="${vk}"]`);
+    if (verseEl) {
+      openNoteModal(verseEl);
+      verseEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    } else {
+      // Verse not on visible spread — open editor with the vk directly
+      noteEditingVK = vk;
+      noteRef.textContent = `${bookMeta(bookId).name} ${chap}:${vn}`;
+      noteText.value = (annot.notes[vk] && annot.notes[vk].text) || '';
+      noteBd.classList.add('show');
+      setTimeout(() => noteText.focus(), 50);
+    }
+  }, 200);
+});
+
 // Backdrop click closes any modal
-[noteBd, bmNameBd, bmListBd].forEach(bd => {
+[noteBd, bmNameBd, bmListBd, notesListBd].forEach(bd => {
   bd.addEventListener('click', e => {
     if (e.target === bd) bd.classList.remove('show');
   });
@@ -1555,6 +1775,7 @@ document.addEventListener('keydown', e => {
     noteBd.classList.remove('show');
     bmNameBd.classList.remove('show');
     bmListBd.classList.remove('show');
+    notesListBd.classList.remove('show');
   }
 });
 
