@@ -1615,49 +1615,56 @@ function showNotePopover(verseEl, anchor) {
     ? `editado ${relativeDate(note.updatedAt || note.createdAt || Date.now())}`
     : '';
   notePopover.hidden = false;
-  // Reset positioning classes before measuring
   notePopover.classList.remove('np-above', 'np-below', 'np-left', 'np-right');
 
-  // Strategy: prefer SIDE placement so the verse stays fully visible.
-  // - Verse on left half of viewport  → try RIGHT side first, then below
-  // - Verse on right half of viewport → try LEFT side first, then below
-  // - Last resort: above (only when nothing else fits)
-  const ar = (anchor || verseEl).getBoundingClientRect();
+  // Anchor at the verse's COLUMN (not the verse text or marker) so the popover
+  // sits OUTSIDE the text area, never on top of the verse.
+  const colEl = verseEl.closest('.vcol') || verseEl.closest('.page') || verseEl;
+  const cr = colEl.getBoundingClientRect();
+  const vr = verseEl.getBoundingClientRect();
   const pw = notePopover.offsetWidth;
   const ph = notePopover.offsetHeight;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const gap = 14;
+  const gap = 16;
   const margin = 10;
 
-  const verseOnLeftPage = (ar.left + ar.width / 2) < vw / 2;
-  const roomRight = vw - ar.right - gap;
-  const roomLeft  = ar.left - gap;
-  const roomBelow = vh - ar.bottom - gap;
-  const roomAbove = ar.top - gap;
+  // Available space OUTSIDE the column on each side
+  const roomRight = vw - cr.right - gap;
+  const roomLeft  = cr.left - gap;
+  const roomBelow = vh - vr.bottom - gap;
+  const roomAbove = vr.top - gap;
+
+  // Prefer the side that has room AND is "away" from the spine. If verse is in
+  // a column whose right edge is past viewport center, lean LEFT first.
+  const colCenter = (cr.left + cr.right) / 2;
+  const preferRight = colCenter < vw / 2;
 
   let placement;
-  if (verseOnLeftPage && roomRight >= pw)      placement = 'right';
-  else if (!verseOnLeftPage && roomLeft >= pw) placement = 'left';
-  else if (roomRight >= pw)                    placement = 'right';
-  else if (roomLeft  >= pw)                    placement = 'left';
-  else if (roomBelow >= ph)                    placement = 'below';
-  else if (roomAbove >= ph)                    placement = 'above';
-  else                                         placement = roomBelow > roomAbove ? 'below' : 'above';
+  if (preferRight && roomRight >= pw)       placement = 'right';
+  else if (!preferRight && roomLeft >= pw)  placement = 'left';
+  else if (roomRight >= pw)                 placement = 'right';
+  else if (roomLeft  >= pw)                 placement = 'left';
+  else if (roomBelow >= ph)                 placement = 'below';
+  else if (roomAbove >= ph)                 placement = 'above';
+  else                                      placement = roomRight > roomLeft ? 'right' : 'left';
 
+  // Compute base position
   let left, top;
   if (placement === 'right') {
-    left = ar.right + gap;
-    top  = ar.top - 6;
+    left = cr.right + gap;
+    // Align vertically with the verse line
+    top  = vr.top - 6;
   } else if (placement === 'left') {
-    left = ar.left - pw - gap;
-    top  = ar.top - 6;
+    left = cr.left - pw - gap;
+    top  = vr.top - 6;
   } else if (placement === 'below') {
-    left = ar.left - 8;
-    top  = ar.bottom + 10;
+    // Drop below the COLUMN bottom (not the verse) so no following verses are covered
+    left = vr.left - 8;
+    top  = cr.bottom + 10;
   } else { /* above */
-    left = ar.left - 8;
-    top  = ar.top - ph - 10;
+    left = vr.left - 8;
+    top  = cr.top - ph - 10;
   }
   // Clamp inside viewport
   if (left + pw > vw - margin) left = vw - pw - margin;
