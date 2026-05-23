@@ -2776,15 +2776,17 @@ function renderScopeMenu() {
         state.userVoicing = null;
       }
       renderAll();
-      // If AI is mid-song, regenerate with new scope on next section transition
+      // If AI is mid-song, regenerate with new scope and reset bookkeeping so
+      // the strip's cached page + voicing chain don't carry stale data.
       if (player.playing) {
-        // Force a fresh song generation at the next section change
-        // (a quick way: regenerate now)
         player.song = player._generateSong();
         player.songIdx = 0;
         player.sectionIter = 0;
         player.currentStepIdx = 0;
         player.barsRemaining = player._currentStep().bars;
+        player.voicingType = player._currentSection().voicingType || player.voicingType;
+        player.bassPattern = player._currentSection().bassPattern || player.bassPattern;
+        player._cachedPage = null;
       }
     });
   });
@@ -2837,9 +2839,17 @@ function renderVoicingMenu() {
       const v = VOICING_OPTIONS.find(o => o.value === voicingPref);
       voicingBtn.textContent = `${v.emoji} ${v.label}`;
       voicingMenu.hidden = true;
-      // If a section is committed to a now-disallowed type, re-pick on next chord
-      if (player.playing) {
-        player.voicingType = player._pickVoicingType();
+      // Re-assign voicingType per section so the strip lookahead and the
+      // player stay synchronized under the new preference.
+      if (player.playing && player.song) {
+        const typeByLabel = {};
+        player.song.forEach(s => {
+          const key = s.label + (s.modName || '');
+          if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
+          s.voicingType = typeByLabel[key];
+        });
+        player.voicingType = player._currentSection().voicingType;
+        player._cachedPage = null;     // strip recomputes with new types
       }
     });
   });
@@ -3941,14 +3951,23 @@ class Player {
     } else {
       newProg = { name: `→ ${chordId}`, len: 2, steps: [{chord: chordId, bars: 2}] };
     }
+    const prev = this._currentSection();
     this.song[this.songIdx] = {
-      label: this._currentSection().label,
+      label: prev.label,
       progression: newProg,
       repeats: this._repeatsFor(newProg),
+      // Preserve the section's pre-assigned voicingType + bassPattern so the
+      // strip lookahead and the player stay in agreement after the jump.
+      voicingType: prev.voicingType || this.voicingType,
+      bassPattern: prev.bassPattern || this.bassPattern,
+      keyPc: prev.keyPc,
+      tonality: prev.tonality,
     };
     this.sectionIter = 0;
     this.currentStepIdx = 0;
     this.barsRemaining = this._currentStep().bars;
+    // Invalidate the cached real-book page — chord IDs have changed
+    this._cachedPage = null;
     // Cancel any bass plucks pre-scheduled for the previous chord
     if (audioCtx) {
       const cutTime = audioCtx.currentTime + 0.05;
