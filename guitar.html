@@ -450,6 +450,70 @@
   .rb-cell.section-divider, .rb-tab-cell.section-divider {
     border-left: 3px double #a07820;
   }
+
+  /* ─── Compose keypad ─── */
+  .compose-pad {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    padding: 6px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+  }
+  body.player-active .compose-pad { display: none; }   /* hidden during playback */
+  .compose-pad-row {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
+  .compose-btn {
+    min-width: 42px;
+    height: 34px;
+    padding: 0 10px;
+    background: #fdfcf3;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+    transition: background 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .compose-btn:hover { background: #f5ecd0; }
+  .compose-btn:active { background: #fcecaa; }
+  .compose-btn .deg {
+    display: block;
+    font-size: 9px;
+    color: var(--text-faint);
+    font-style: normal;
+    line-height: 1;
+    margin-top: 1px;
+  }
+  .compose-btn.compose-play {
+    background: #e8f7ef;
+    border-color: var(--tag-tonic);
+    color: #047857;
+  }
+  .compose-btn.compose-del,
+  .compose-btn.compose-clear {
+    font-family: 'SF Mono', monospace;
+    font-style: normal;
+  }
+  .compose-btn.compose-inv {
+    font-family: 'SF Mono', monospace;
+    font-style: normal;
+    font-size: 13px;
+  }
+  @media (max-width: 800px) {
+    .compose-pad { padding: 8px 6px; gap: 6px; }
+    .compose-btn { min-width: 38px; height: 40px; font-size: 18px; padding: 0 6px; }
+  }
   .rb-tab-cell.imminent {
     animation: cellImminent 1s ease-in-out infinite;
   }
@@ -1014,6 +1078,19 @@
 <div class="sound-menu" id="scope-menu" hidden></div>
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
 <div class="sound-menu" id="rhythm-menu" hidden></div>
+
+<!-- Compose keypad — number pad for typing a custom progression. Only visible
+     when the AI isn't playing. On phone this is the primary input method. -->
+<div class="compose-pad" id="compose-pad">
+  <div class="compose-pad-row" id="compose-chord-buttons"></div>
+  <div class="compose-pad-row compose-pad-ctrls">
+    <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion of last chord (Shift+←)">▼</button>
+    <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
+    <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
+    <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
+    <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion of last chord (Shift+→)">▲</button>
+  </div>
+</div>
 
 <div class="rb-area">
   <div class="rb-stack">
@@ -4975,6 +5052,7 @@ function renderAll() {
   renderFretboard();
   updateActiveDrones();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  if (typeof renderComposePad === 'function') renderComposePad();
 }
 
 /* ─── Keyboard shortcuts: 1–7 jump to diatonic scale degrees ─── */
@@ -5001,6 +5079,106 @@ function composedCandidatesFor(quality, rootPc) {
   });
   return cands;
 }
+
+// Shared compose actions — used by both the keyboard handler and the touch keypad.
+function composeAddChord(chordId, cycleInversion = false, direction = 1) {
+  const ch = currentMap().chordDefs[chordId];
+  if (!ch) return;
+  const root = chordRoot(ch);
+  const cands = composedCandidatesFor(ch.quality, root);
+  if (!cands.length) return;
+  const seq = state.composedProgression;
+  if (cycleInversion && seq.length && seq[seq.length - 1].chord === chordId) {
+    const cur = seq[seq.length - 1];
+    const idx = (cur._candIdx + direction + cands.length) % cands.length;
+    seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
+  } else {
+    if (seq.length >= 16) return;
+    const prev = seq.length ? seq[seq.length - 1].shape : null;
+    let bestIdx = 0;
+    if (prev) {
+      let bestCost = Infinity;
+      cands.forEach((c, i) => {
+        const cost = totalVoiceMovement(prev, c.shape);
+        if (cost < bestCost) { bestCost = cost; bestIdx = i; }
+      });
+    } else {
+      let bestCost = Infinity;
+      cands.forEach((c, i) => {
+        const cost = Math.abs(avgFret(c.shape) - 6.5);
+        if (cost < bestCost) { bestCost = cost; bestIdx = i; }
+      });
+    }
+    seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
+  }
+  state.focusedChord = chordId;
+  state.userVoicing = { shape: seq[seq.length - 1].shape };
+  renderAll();
+  renderComposeStrip();
+  ringFocusedChord();
+}
+function composeCycleLastInversion(direction) {
+  const seq = state.composedProgression;
+  if (!seq.length) return;
+  const last = seq[seq.length - 1];
+  composeAddChord(last.chord, true, direction);
+}
+function composeDeleteLast() {
+  if (!state.composedProgression.length) return;
+  state.composedProgression.pop();
+  renderComposeStrip();
+}
+function composeClear() {
+  state.composedProgression = [];
+  renderComposeStrip();
+}
+function composePlay() {
+  if (player.playing || !state.composedProgression.length) return;
+  player.start();
+  const btn = document.getElementById('auto-play');
+  if (btn) { btn.classList.add('active'); btn.textContent = '⏸ AI'; }
+  document.body.classList.add('player-active');
+}
+
+// Build the chord-button row of the compose keypad. Re-rendered whenever the
+// key/tonality changes so chord names stay accurate.
+function renderComposePad() {
+  const row = document.getElementById('compose-chord-buttons');
+  if (!row) return;
+  const flats = useFlatsFor(state.keyPc);
+  const shortcuts = DEGREE_SHORTCUTS[state.tonality];
+  let html = '';
+  for (let n = 1; n <= 7; n++) {
+    const chordId = shortcuts[n];
+    const ch = currentMap().chordDefs[chordId];
+    if (!ch) continue;
+    const root = (state.keyPc + ch.deg) % 12;
+    const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    html += `<button class="compose-btn" data-chord="${chordId}" title="${ch.roman} (${name}) — keyboard: ${n}">
+      ${ch.roman}<span class="deg">${n}</span>
+    </button>`;
+  }
+  row.innerHTML = html;
+  row.querySelectorAll('[data-chord]').forEach(b => {
+    b.addEventListener('click', () => composeAddChord(b.dataset.chord, false));
+  });
+}
+
+// Wire control-row buttons once
+document.addEventListener('DOMContentLoaded', () => {
+  const pad = document.getElementById('compose-pad');
+  if (!pad) return;
+  pad.querySelectorAll('[data-act]').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.act;
+      if (a === 'del') composeDeleteLast();
+      else if (a === 'clear') composeClear();
+      else if (a === 'play') composePlay();
+      else if (a === 'inv-up') composeCycleLastInversion(1);
+      else if (a === 'inv-down') composeCycleLastInversion(-1);
+    });
+  });
+});
 
 // Render the composed-progression strip into the Real Book area when AI is
 // not playing AND the user has typed at least one chord. Empty cells fill
@@ -5074,28 +5252,17 @@ document.addEventListener('keydown', e => {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-  // Backspace: delete last entry of the composed progression (when not playing)
-  if (e.key === 'Backspace' && !player.playing && state.composedProgression.length) {
-    state.composedProgression.pop();
-    e.preventDefault();
-    renderComposeStrip();
-    return;
+  // Compose-mode shortcuts (only when AI off)
+  if (!player.playing) {
+    if (e.key === 'Backspace' && state.composedProgression.length) {
+      e.preventDefault(); composeDeleteLast(); return;
+    }
+    if (e.key === 'Enter' && state.composedProgression.length) {
+      e.preventDefault(); composePlay(); return;
+    }
   }
-  // Enter: if user has typed a progression, start playing it
-  if (e.key === 'Enter' && !player.playing && state.composedProgression.length) {
-    e.preventDefault();
-    player.start();
-    document.getElementById('auto-play').classList.add('active');
-    document.getElementById('auto-play').textContent = '⏸ AI';
-    document.body.classList.add('player-active');
-    return;
-  }
-  // Escape: clear the composed progression
   if (e.key === 'Escape' && state.composedProgression.length) {
-    state.composedProgression = [];
-    e.preventDefault();
-    renderComposeStrip();
-    return;
+    e.preventDefault(); composeClear(); return;
   }
 
   // Shift+digit may produce a punctuation glyph ("@", "#", ...) instead of the
@@ -5107,48 +5274,9 @@ document.addEventListener('keydown', e => {
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
 
-  // Compose mode (AI not playing): append to or modify the typed sequence.
+  // Compose mode (AI not playing): append OR cycle last inversion with Shift
   if (!player.playing) {
-    const isShift = e.shiftKey;
-    const seq = state.composedProgression;
-    if (isShift && seq.length && seq[seq.length - 1].chord === chordId) {
-      // Cycle the LAST chord's inversion in place
-      const ch = currentMap().chordDefs[chordId];
-      const root = chordRoot(ch);
-      const cands = composedCandidatesFor(ch.quality, root);
-      const cur = seq[seq.length - 1];
-      const idx = (cur._candIdx + (_shiftSide === 'left' ? -1 : 1) + cands.length) % cands.length;
-      seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
-    } else {
-      // Cap at 16 chords total (8 for A + 8 for B)
-      if (seq.length >= 16) return;
-      // Append a new chord at the smoothest voicing from the previous one
-      const ch = currentMap().chordDefs[chordId];
-      const root = chordRoot(ch);
-      const cands = composedCandidatesFor(ch.quality, root);
-      const prev = seq.length ? seq[seq.length - 1].shape : null;
-      // Pick the closest candidate to prev (voice-leading) or sweet-spot if no prev
-      let bestIdx = 0;
-      if (prev) {
-        let bestCost = Infinity;
-        cands.forEach((c, i) => {
-          const cost = totalVoiceMovement(prev, c.shape);
-          if (cost < bestCost) { bestCost = cost; bestIdx = i; }
-        });
-      } else {
-        let bestCost = Infinity;
-        cands.forEach((c, i) => {
-          const cost = Math.abs(avgFret(c.shape) - 6.5);
-          if (cost < bestCost) { bestCost = cost; bestIdx = i; }
-        });
-      }
-      seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
-    }
-    state.focusedChord = chordId;
-    state.userVoicing = { shape: seq[seq.length - 1].shape };
-    renderAll();
-    renderComposeStrip();
-    ringFocusedChord();
+    composeAddChord(chordId, e.shiftKey, _shiftSide === 'left' ? -1 : 1);
     return;
   }
 
