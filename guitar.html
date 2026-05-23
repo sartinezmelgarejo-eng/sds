@@ -159,100 +159,43 @@
     box-shadow: 0 1px 3px rgba(160,120,32,0.35);
   }
 
-  .met-play {
+  .bpm-compact {
+    display: inline-flex;
+    align-items: center;
     background: var(--panel-2);
-    color: var(--text-dim);
-    border: 1px solid var(--line);
-    padding: 4px 9px;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-    min-width: 28px;
-  }
-  .met-play.active {
-    background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);
-  }
-  .bpm-input {
-    width: 60px;
-    padding: 4px 6px;
-    background: var(--panel-2);
-    color: var(--text);
     border: 1px solid var(--line);
     border-radius: 5px;
-    font-size: 18px;
-    font-weight: 700;
-    font-family: 'SF Mono', monospace;
-    text-align: center;
-  }
-  .bpm-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
-  .bpm-input::-webkit-inner-spin-button, .bpm-input::-webkit-outer-spin-button { display: none; }
-  .bpm-step {
-    width: 22px;
-    height: 26px;
-    border: 1px solid var(--line);
-    background: var(--panel);
-    color: var(--text-faint);
-    font-family: 'SF Mono', monospace;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background 0.15s, color 0.15s;
-    padding: 0;
-  }
-  .bpm-step:hover { background: var(--panel-2); color: var(--text); }
-  .bpm-step:active { background: var(--accent); color: #fff; }
-  .bpm-slider {
-    -webkit-appearance: none; appearance: none;
-    width: 110px;
-    height: 4px;
-    background: var(--line);
-    border-radius: 2px;
-    outline: none;
-    cursor: pointer;
-  }
-  .bpm-slider::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid var(--panel);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  }
-  .bpm-slider::-moz-range-thumb {
-    width: 14px; height: 14px;
-    border-radius: 50%;
-    background: var(--accent);
-    border: 2px solid var(--panel);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-  }
-  .bpm-label {
-    font-family: 'Cormorant Garamond', serif;
-    font-style: italic;
-    font-size: 10px;
-    color: var(--text-faint);
-    margin-left: 2px;
-  }
-  .met-mode {
-    display: flex;
-    background: var(--bg);
-    border-radius: 5px;
-    padding: 2px;
-  }
-  .met-mode button {
-    background: transparent;
-    color: var(--text-dim);
-    border: none;
     padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: 600;
-    cursor: pointer;
+    cursor: ns-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    min-width: 38px;
+    justify-content: center;
   }
-  .met-mode button.active { background: var(--panel-2); color: var(--text); }
+  .bpm-compact:hover { border-color: var(--accent); }
+  .bpm-compact.dragging { border-color: var(--accent); background: var(--panel); }
+  .bpm-val {
+    font-family: 'SF Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .bpm-compact input.bpm-edit {
+    width: 38px;
+    padding: 0;
+    background: transparent;
+    color: var(--text);
+    border: none;
+    font-family: 'SF Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+  }
+  .bpm-compact input.bpm-edit::-webkit-inner-spin-button,
+  .bpm-compact input.bpm-edit::-webkit-outer-spin-button { display: none; }
 
   /* Sound popup menu */
   .sound-menu {
@@ -1001,10 +944,8 @@
        No need to waste space on a separate next-chord readout. */
     .rb-peek { display: none; }
 
-    /* Tempo + sound blocks — make their inner controls wrap cleanly */
+    /* Sound block — prevent shrinking */
     .ctx-block { flex-shrink: 0; }
-    .bpm-slider { width: 70px; }
-    .met-mode button { padding: 3px 6px; font-size: 10px; }
 
     /* Mixer / sound dropdowns — wider tap targets */
     .sound-menu-item { padding: 8px 12px; font-size: 13px; }
@@ -1038,26 +979,16 @@
   <div class="spacer"></div>
 
   <div class="ctx-block">
-    <div class="ctx-label">Tempo</div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button class="met-play" id="met-play">▶</button>
-      <input type="number" class="bpm-input" id="bpm-input" value="120" min="40" max="280" title="BPM">
-      <span class="bpm-label">bpm</span>
-      <input type="range" class="bpm-slider" id="bpm-slider" min="40" max="240" value="120" title="drag to set tempo">
-      <div class="met-mode" id="met-mode">
-        <button data-mode="click">Click</button>
-        <button data-mode="ride" class="active">Ride</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="ctx-block">
     <div class="ctx-label">Sound</div>
     <div style="display:flex;gap:6px;align-items:center">
       <button class="auto-btn" id="mixer-btn" style="font-weight:600" title="open the volume mixer">🎚 Mix</button>
       <button class="auto-btn active" id="bass-toggle" style="font-weight:600" title="mute/unmute bass">🎸 Bass</button>
       <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🎹 Piano</button>
       <button class="auto-btn" id="voicing-pref" style="font-weight:600" title="click to pick voicing type">🎼 All</button>
+      <button class="auto-btn" id="rhythm-btn" style="font-weight:600" title="rhythm style">🥁 Ride</button>
+      <div class="bpm-compact" id="bpm-compact" title="drag up/down or click to type BPM">
+        <span class="bpm-val" id="bpm-val">120</span>
+      </div>
     </div>
   </div>
 
@@ -1074,6 +1005,7 @@
 <div class="sound-menu" id="voicing-menu" hidden></div>
 <div class="sound-menu" id="scope-menu" hidden></div>
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
+<div class="sound-menu" id="rhythm-menu" hidden></div>
 
 <div class="rb-area">
   <div class="rb-stack">
@@ -3044,48 +2976,133 @@ class Metronome {
 
 const metronome = new Metronome();
 
-document.getElementById('met-play').addEventListener('click', e => {
-  if (metronome.playing) {
-    metronome.stop();
-    e.target.classList.remove('active');
-    e.target.textContent = '▶';
-  } else {
-    metronome.start();
-    e.target.classList.add('active');
-    e.target.textContent = '⏸';
-  }
-});
-
 function updateBlinkRate() {
-  // One full pulse per half-note (2 beats) — rhythmic but not frantic
   const beat = 60 / metronome.bpm;
   document.documentElement.style.setProperty('--blink-duration', (beat * 2) + 's');
 }
 
-// Tempo controls — input, slider, ± buttons all stay in sync
-const bpmInput  = document.getElementById('bpm-input');
-const bpmSlider = document.getElementById('bpm-slider');
+// ─── BPM compact widget (drag up/down or click to type) ───
+const bpmCompact = document.getElementById('bpm-compact');
+const bpmVal = document.getElementById('bpm-val');
+let currentRhythmMode = 'ride'; // 'ride' | 'click' | 'off'
+
 function setBpm(v) {
   v = Math.max(40, Math.min(280, Math.round(v)));
-  bpmInput.value = v;
-  bpmSlider.value = Math.min(240, v);
   metronome.setBpm(v);
+  bpmVal.textContent = v;
   updateBlinkRate();
 }
-bpmInput.addEventListener('input', e => {
-  const v = parseInt(e.target.value);
-  if (!isNaN(v)) setBpm(v);
-});
-bpmSlider.addEventListener('input', e => setBpm(parseInt(e.target.value)));
 
-updateBlinkRate(); // initial
-
-document.querySelectorAll('#met-mode button').forEach(b => {
-  b.addEventListener('click', () => {
-    document.querySelectorAll('#met-mode button').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    metronome.setMode(b.dataset.mode);
+// Drag up/down to change BPM
+(function() {
+  let dragY = null, dragBpm = null;
+  function onMove(e) {
+    if (dragY === null) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const delta = Math.round((dragY - y) / 3);
+    setBpm(dragBpm + delta);
+  }
+  function onEnd() {
+    dragY = null;
+    bpmCompact.classList.remove('dragging');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+  }
+  bpmCompact.addEventListener('mousedown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    dragY = e.clientY; dragBpm = metronome.bpm;
+    bpmCompact.classList.add('dragging');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
   });
+  bpmCompact.addEventListener('touchstart', e => {
+    if (e.target.tagName === 'INPUT') return;
+    dragY = e.touches[0].clientY; dragBpm = metronome.bpm;
+    bpmCompact.classList.add('dragging');
+    document.addEventListener('touchmove', onMove, {passive: true});
+    document.addEventListener('touchend', onEnd);
+  }, {passive: true});
+})();
+
+// Click to type BPM
+bpmCompact.addEventListener('dblclick', () => {
+  const cur = metronome.bpm;
+  bpmVal.innerHTML = `<input class="bpm-edit" type="number" value="${cur}" min="40" max="280">`;
+  const inp = bpmVal.querySelector('input');
+  inp.focus(); inp.select();
+  function commit() {
+    const v = parseInt(inp.value);
+    if (!isNaN(v)) setBpm(v); else bpmVal.textContent = cur;
+    bpmVal.textContent = metronome.bpm;
+  }
+  inp.addEventListener('blur', commit);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = cur; inp.blur(); } });
+});
+
+updateBlinkRate();
+
+// ─── Rhythm button + menu ───
+const rhythmBtn = document.getElementById('rhythm-btn');
+const rhythmMenu = document.getElementById('rhythm-menu');
+const RHYTHM_OPTIONS = [
+  {value: 'ride',  emoji: '🥁', label: 'Ride'},
+  {value: 'click', emoji: '🔔', label: 'Metronome'},
+  {value: 'off',   emoji: '🔇', label: 'Off'},
+];
+
+function updateRhythmBtn() {
+  const opt = RHYTHM_OPTIONS.find(o => o.value === currentRhythmMode);
+  rhythmBtn.textContent = `${opt.emoji} ${opt.label}`;
+  if (currentRhythmMode === 'off') {
+    rhythmBtn.classList.remove('active');
+  } else {
+    rhythmBtn.classList.add('active');
+  }
+}
+
+function applyRhythmMode(mode) {
+  currentRhythmMode = mode;
+  if (mode === 'off') {
+    if (metronome.playing) metronome.stop();
+  } else {
+    metronome.setMode(mode === 'click' ? 'click' : 'ride');
+    if (!metronome.playing) metronome.start();
+  }
+  updateRhythmBtn();
+}
+
+function renderRhythmMenu() {
+  rhythmMenu.innerHTML = RHYTHM_OPTIONS.map(o => `
+    <div class="sound-menu-item ${o.value === currentRhythmMode ? 'selected' : ''}" data-rhythm="${o.value}">
+      <span>${o.emoji}</span><span>${o.label}</span><span class="check">✓</span>
+    </div>
+  `).join('');
+  rhythmMenu.querySelectorAll('[data-rhythm]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      applyRhythmMode(item.dataset.rhythm);
+      rhythmMenu.hidden = true;
+    });
+  });
+}
+
+rhythmBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (rhythmMenu.hidden) {
+    renderRhythmMenu();
+    const rect = rhythmBtn.getBoundingClientRect();
+    rhythmMenu.style.left = rect.left + 'px';
+    rhythmMenu.style.top = (rect.bottom + 4) + 'px';
+    rhythmMenu.hidden = false;
+  } else {
+    rhythmMenu.hidden = true;
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!rhythmMenu.contains(e.target) && e.target !== rhythmBtn) rhythmMenu.hidden = true;
 });
 
 /* ─── Progression catalog ─── */
@@ -3429,10 +3446,9 @@ class Player {
     state.progressionVoicings = {};
 
     const wasMetronomePlaying = metronome.playing;
-    if (!metronome.playing) {
+    if (!metronome.playing && currentRhythmMode !== 'off') {
       metronome.start();
-      document.getElementById('met-play').classList.add('active');
-      document.getElementById('met-play').textContent = '⏸';
+      updateRhythmBtn();
     }
     updateBlinkRate();
 
@@ -4081,9 +4097,7 @@ document.getElementById('auto-play').addEventListener('click', e => {
     player.stop();
     if (metronome.playing) {
       metronome.stop();
-      const mp = document.getElementById('met-play');
-      mp.classList.remove('active');
-      mp.textContent = '▶';
+      updateRhythmBtn();
     }
     e.target.classList.remove('active');
     e.target.textContent = '▶ AI';
