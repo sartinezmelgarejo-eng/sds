@@ -375,6 +375,45 @@
       0 0 4px rgba(255,90,90,0.7),
       0 0 8px rgba(220,40,40,0.45);
   }
+  /* Cross-reference marker — small dorado § next to verse number */
+  .ref-marker {
+    display: inline-block;
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 2px;
+    margin-left: 1px;
+    cursor: pointer;
+    vertical-align: super;
+    line-height: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s, text-shadow 0.15s;
+  }
+  .ref-marker:hover {
+    opacity: 1;
+    text-shadow: 0 0 4px rgba(212,168,67,0.7);
+  }
+  /* Reference list inside the ref popover */
+  .ref-item {
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(139,30,30,0.12);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-item:hover { background: rgba(160,120,32,0.08); }
+  .ref-link {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .ref-snippet {
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
 
   /* Floating note viewer — shows the note text inline near the verse without
      covering it. Tap ❦ to open, then choose Editar / Eliminar from inside. */
@@ -1117,8 +1156,8 @@ const BOOKS_NT = [
 
 const ALL_BOOKS = [...BOOKS_AT, ...BOOKS_NT];
 
-// ── Sample text (RV1909). Will be replaced by full data load. ──
-const TEXT = {
+// ── Fallback sample text (used only if rv1909.json fails to load). ──
+let TEXT = {
   'gen-1': {
     1: 'EN el principio crió Dios los cielos y la tierra.',
     2: 'Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la haz del abismo, y el Espíritu de Dios se movía sobre la haz de las aguas.',
@@ -1184,9 +1223,15 @@ const state = {
 const bookMeta = (id) => ALL_BOOKS.find(b => b.id === id);
 
 function chapterText(bookId, chapter) {
+  // Loaded from rv1909.json: TEXT becomes nested {bookId: {chapter: {verse: text}}}
+  if (TEXT[bookId] && TEXT[bookId][chapter]) return TEXT[bookId][chapter];
+  // Fallback legacy flat key (only the embedded gen-1 / jua-1 demo)
   const key = `${bookId}-${chapter}`;
   return TEXT[key] || null;
 }
+
+// Cross-references — loaded from refs.json on startup
+let REFS = {};
 
 // Build the chapter scaffolding (page headers + empty verse grids) once.
 // Spread content gets injected by renderSpread().
@@ -1991,9 +2036,174 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// First paint
+// ───────── Cross-reference (referencias cruzadas) marker + popover ─────────
+// A small dorado § appears next to verse numbers that have refs. Tap to open
+// a popover listing the references with snippets — click a reference to jump.
+
+const refPopover = document.createElement('div');
+refPopover.className = 'note-popover';
+refPopover.id = 'ref-popover';
+refPopover.hidden = true;
+refPopover.innerHTML = `
+  <div class="np-ref" id="rp-ref"></div>
+  <div class="np-text" id="rp-list" style="max-height: 240px;"></div>
+  <div class="np-actions">
+    <button class="np-btn" data-act="close">Cerrar</button>
+  </div>`;
+document.body.appendChild(refPopover);
+
+const rpRef  = document.getElementById('rp-ref');
+const rpList = document.getElementById('rp-list');
+
+function showRefPopover(verseEl, anchor) {
+  const vk = verseEl.dataset.vk;
+  const refs = REFS[vk];
+  if (!refs || !refs.length) return;
+  const [bookId, chap, vn] = vk.split('-');
+  const book = bookMeta(bookId);
+  rpRef.textContent = `Referencias · ${book.name} ${chap}:${vn}`;
+  rpList.innerHTML = refs.map(r => {
+    const [bid, ch, v] = r.split('-');
+    const b = bookMeta(bid);
+    if (!b) return '';
+    // Snippet from chapterText if loaded
+    const verseObj = chapterText(bid, +ch);
+    const snippet = (verseObj && verseObj[+v]) ? verseObj[+v].slice(0, 110) + '…' : '';
+    return `<div class="ref-item" data-r="${r}">
+      <span class="ref-link">${b.name} ${ch}:${v}</span>
+      ${snippet ? `<span class="ref-snippet"> ${escapeHTML(snippet)}</span>` : ''}
+    </div>`;
+  }).join('');
+  // Reuse the same lateral-placement logic as the note popover
+  positionFloatingNear(refPopover, verseEl, anchor);
+}
+function hideRefPopover() { refPopover.hidden = true; }
+
+refPopover.addEventListener('click', e => {
+  const item = e.target.closest('[data-r]');
+  if (item) {
+    const [bid, ch, v] = item.dataset.r.split('-');
+    hideRefPopover();
+    goTo(bid, +ch);
+    setTimeout(() => {
+      const verseEl = document.querySelector(`.verse[data-vk="${bid}-${ch}-${v}"]`);
+      if (verseEl) verseEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+    return;
+  }
+  if (e.target.closest('[data-act="close"]')) hideRefPopover();
+});
+
+// Generic lateral positioner — same logic as showNotePopover, factored for reuse
+function positionFloatingNear(popoverEl, verseEl, anchor) {
+  popoverEl.hidden = false;
+  popoverEl.classList.remove('np-above', 'np-below', 'np-left', 'np-right');
+  const colEl = verseEl.closest('.vcol') || verseEl.closest('.page') || verseEl;
+  const cr = colEl.getBoundingClientRect();
+  const vr = verseEl.getBoundingClientRect();
+  const pw = popoverEl.offsetWidth;
+  const ph = popoverEl.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 16, margin = 10;
+  const roomRight = vw - cr.right - gap;
+  const roomLeft  = cr.left - gap;
+  const roomBelow = vh - vr.bottom - gap;
+  const roomAbove = vr.top - gap;
+  const colCenter = (cr.left + cr.right) / 2;
+  const preferRight = colCenter < vw / 2;
+  let placement;
+  if (preferRight && roomRight >= pw)      placement = 'right';
+  else if (!preferRight && roomLeft >= pw) placement = 'left';
+  else if (roomRight >= pw)                placement = 'right';
+  else if (roomLeft  >= pw)                placement = 'left';
+  else if (roomBelow >= ph)                placement = 'below';
+  else if (roomAbove >= ph)                placement = 'above';
+  else                                     placement = roomRight > roomLeft ? 'right' : 'left';
+  let left, top;
+  if (placement === 'right')      { left = cr.right + gap; top  = vr.top - 6; }
+  else if (placement === 'left')  { left = cr.left - pw - gap; top  = vr.top - 6; }
+  else if (placement === 'below') { left = vr.left - 8; top  = cr.bottom + 10; }
+  else                            { left = vr.left - 8; top  = cr.top - ph - 10; }
+  if (left + pw > vw - margin) left = vw - pw - margin;
+  if (left < margin)           left = margin;
+  if (top + ph > vh - margin)  top  = vh - ph - margin;
+  if (top < margin)            top  = margin;
+  popoverEl.style.left = left + 'px';
+  popoverEl.style.top  = top  + 'px';
+  popoverEl.classList.add('np-' + placement);
+}
+
+// Inject ref markers (§) into rendered verses that have cross-references
+function applyRefMarkers() {
+  document.querySelectorAll('.verse[data-vk]').forEach(el => {
+    const old = el.querySelector('.ref-marker');
+    if (old) old.remove();
+    const vk = el.dataset.vk;
+    if (!REFS[vk] || !REFS[vk].length) return;
+    const num = el.querySelector('.v-num');
+    if (!num) return;
+    const m = document.createElement('span');
+    m.className = 'ref-marker';
+    m.textContent = '§';
+    m.title = `${REFS[vk].length} referencias cruzadas`;
+    // Insert after the heart marker if present, else after the verse number
+    const heart = el.querySelector('.note-marker');
+    (heart || num).insertAdjacentElement('afterend', m);
+  });
+}
+
+// Hook into existing render to also inject ref markers
+const _origApplyAnnotations = applyAnnotationsToDOM;
+applyAnnotationsToDOM = function() {
+  _origApplyAnnotations();
+  applyRefMarkers();
+};
+
+// Click handler — intercept .ref-marker clicks before the verse popover
+document.addEventListener('click', e => {
+  const rm = e.target.closest('.ref-marker');
+  if (rm) {
+    e.stopPropagation();
+    e.preventDefault();
+    const verseEl = rm.closest('.verse');
+    if (verseEl) showRefPopover(verseEl, rm);
+    return;
+  }
+  // Hide ref popover on outside click
+  if (!e.target.closest('#ref-popover') && !e.target.closest('.ref-marker')) {
+    hideRefPopover();
+  }
+}, true);
+
+// Escape closes
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideRefPopover();
+});
+
+// ───────── Data loading: rv1909.json + refs.json (async, with loading state) ─────────
+async function loadBibleData() {
+  // Show a tasteful loading indicator on the right page
+  const rc = document.querySelector('#page-right .page-content');
+  if (rc) rc.innerHTML = `<div class="loading" style="margin-top:40%"><em>Cargando la Sagrada Escritura...</em></div>`;
+  try {
+    const [bibleRes, refsRes] = await Promise.all([
+      fetch('bible/rv1909.json'),
+      fetch('bible/refs.json'),
+    ]);
+    if (bibleRes.ok) TEXT = await bibleRes.json();
+    if (refsRes.ok)  REFS = await refsRes.json();
+  } catch (err) {
+    console.warn('Bible data load failed; using embedded sample.', err);
+  }
+  // Now re-render with the real text
+  renderChapterIntoPages();
+}
+
+// First paint with embedded sample, then async-load full bible
 renderBookList();
 renderChapterIntoPages();
+loadBibleData();
 </script>
 </body>
 </html>
