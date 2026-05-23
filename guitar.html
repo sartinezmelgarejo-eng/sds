@@ -1323,56 +1323,54 @@ const CHORD_MAP = {
       'bII7': {roman:'bII7', deg:1,  quality:'7',    tag:'borrowed'},
     },
     nodes: {
-      // ── DIATONIC SPINE (big, prominent) ──
-      'n_iii': {chord:'iii', x:380, y:20},
-      'n_vi':  {chord:'vi',  x:380, y:170},
-      'n_ii':  {chord:'ii',  x:380, y:320},
-      'n_V':   {chord:'V',   x:380, y:470},
-      'n_IV':  {chord:'IV',  x:50,  y:470},
-      'n_I':   {chord:'I',   x:175, y:620, hub:true},
-      // ── SATELLITES (smaller, attached to their diatonic parent) ──
-      // Secondary dominants attached to the left of their target diatonic
-      'n_V_ii': {chord:'V_ii', x:280, y:335},  // touching left of ii
-      'n_V_V':  {chord:'V_V',  x:280, y:485},  // touching left of V
-      // Borrowed iv attached to the right of IV (same row)
-      'n_iv':   {chord:'iv',   x:165, y:485},
-      // Backdoor bVII below IV in the left column
-      'n_bVII': {chord:'bVII', x:50,  y:620},
-      // Tritone sub directly below V
-      'n_bII7': {chord:'bII7', x:380, y:625},
+      // ── PREDOMINANT column (left, x=50) — descending-5ths chain reads top→bottom ──
+      'n_iii':  {chord:'iii',  x:50,  y:30},
+      'n_vi':   {chord:'vi',   x:50,  y:170},
+      'n_ii':   {chord:'ii',   x:50,  y:310},
+      'n_IV':   {chord:'IV',   x:50,  y:450},
+      'n_bVII': {chord:'bVII', x:50,  y:600},
+      // ── PREDOMINANT-area satellites (x=170, tucked right of their parent) ──
+      'n_V_ii': {chord:'V_ii', x:170, y:325},   // sec dom of ii, sits right of ii
+      'n_iv':   {chord:'iv',   x:170, y:465},   // borrowed iv, right of IV (same row)
+      // ── DOMINANT column (middle, x=220) ──
+      'n_V':    {chord:'V',    x:220, y:450},
+      'n_V_V':  {chord:'V_V',  x:325, y:465},   // sec dom of V, sits right of V
+      'n_bII7': {chord:'bII7', x:220, y:600},
+      // ── TONIC (right) ──
+      'n_I':    {chord:'I',    x:390, y:580, hub:true},
     },
     arrows: [
-      // Diatonic cycle (short adjacent — straight line, default curve)
-      {from:'n_iii',  to:'n_vi'},
-      {from:'n_vi',   to:'n_ii'},
-      {from:'n_ii',   to:'n_V'},
-      // V → I (arch right of the V_V satellite)
-      {from:'n_V',    to:'n_I',  curve:-1},
-      // IV's three roles (need to arch around iv & V_V which sit between IV and V)
-      {from:'n_IV',   to:'n_V',  curve:-1},   // arch up over iv/V_V row
-      {from:'n_IV',   to:'n_I'},              // direct diagonal to hub
-      {from:'n_IV',   to:'n_ii', curve:-1},   // arch up around middle
-      // Deceptive V → vi (arch left of ii)
-      {from:'n_V',    to:'n_vi', curve:-1},
-      // Stepwise iii → IV (long diagonal, arch up-left)
-      {from:'n_iii',  to:'n_IV'},
-      // iii → V (substitute-for-tonic into dominant — common jazz move)
-      {from:'n_iii',  to:'n_V'},
-      // Secondaries → their targets (short, default)
-      {from:'n_V_V',  to:'n_V'},
-      {from:'n_V_ii', to:'n_ii'},
-      // Borrowed iv
-      {from:'n_iv',   to:'n_I'},
-      {from:'n_iv',   to:'n_bVII'},
-      {from:'n_bVII', to:'n_I'},
-      // Tritone sub (arch below to avoid hub on the way)
-      {from:'n_bII7', to:'n_I'},
-      // I (tonic hub) → can go anywhere diatonic. Show all standard outgoing moves.
-      {from:'n_I',    to:'n_ii',  curve:-1},
-      {from:'n_I',    to:'n_iii'},
-      {from:'n_I',    to:'n_IV'},
-      {from:'n_I',    to:'n_V',   curve:-1},
-      {from:'n_I',    to:'n_vi'},
+      // Predominant descending-5ths chain (straight down left column)
+      {from:'n_iii', to:'n_vi'},
+      {from:'n_vi',  to:'n_ii'},
+      // Predoms → V (the push)
+      {from:'n_ii',  to:'n_V'},
+      {from:'n_IV',  to:'n_V'},
+      // IV's alternate roles
+      {from:'n_IV',  to:'n_ii', curve:-1},
+      {from:'n_IV',  to:'n_I'},
+      // V → I (the move)
+      {from:'n_V',   to:'n_I'},
+      // Deceptive V → vi (arches up-left around the predom column)
+      {from:'n_V',   to:'n_vi', curve:-1},
+      // iii's options
+      {from:'n_iii', to:'n_IV'},                // stepwise neighbor
+      {from:'n_iii', to:'n_V',  curve:1},       // long diagonal to dom
+      // Borrowed iv path
+      {from:'n_iv',  to:'n_I'},
+      {from:'n_iv',  to:'n_bVII'},
+      {from:'n_bVII',to:'n_I'},
+      // Tritone sub
+      {from:'n_bII7',to:'n_I'},
+      // Secondaries to their targets
+      {from:'n_V_V', to:'n_V'},
+      {from:'n_V_ii',to:'n_ii'},
+      // I (hub) → outgoing diatonic options
+      {from:'n_I',   to:'n_ii'},
+      {from:'n_I',   to:'n_iii'},
+      {from:'n_I',   to:'n_IV'},
+      {from:'n_I',   to:'n_V'},
+      {from:'n_I',   to:'n_vi'},
     ],
   },
   minor: {
@@ -1394,26 +1392,24 @@ const CHORD_MAP = {
       'IV':    {roman:'IV',    deg:5,  quality:'maj7',  tag:'borrowed'},   // parallel-major IV
     },
     nodes: {
-      // Row 1 (top)
-      'n_bIII':  {chord:'bIII',  x:300, y:30},
-      'n_bIII7': {chord:'bIII7', x:430, y:30},
-      // Row 2
-      'n_IV':    {chord:'IV',    x:30,  y:150},  // parallel-major IV (left col)
-      'n_bVI':   {chord:'bVI',   x:300, y:150},
-      // Row 3
-      'n_bVII':  {chord:'bVII',  x:80,  y:270},
-      'n_iiø':   {chord:'iiø',   x:300, y:270},
-      'n_vii7':  {chord:'vii7',  x:430, y:270},
-      // Row 4
-      'n_iv':    {chord:'iv',    x:80,  y:390},
-      'n_V7':    {chord:'V7',    x:300, y:390},
-      'n_bII7':  {chord:'bII7',  x:430, y:390},
-      // Row 5 — secondaries flanking the hub
-      'n_V_iv':  {chord:'V_iv',  x:30,  y:550},
-      'n_i':     {chord:'i',     x:165, y:540, hub:true},
-      'n_V_V':   {chord:'V_V',   x:430, y:550},
-      // Row 6 — Picardy ending below + right of hub
-      'n_I_pic': {chord:'I_pic', x:320, y:710},
+      // ── PREDOMINANT column (left, x=50) — ordered so bIII→bVI→iiø→iv flows downward ──
+      'n_bIII':  {chord:'bIII',  x:50,  y:30},
+      'n_bVI':   {chord:'bVI',   x:50,  y:170},
+      'n_iiø':   {chord:'iiø',   x:50,  y:310},
+      'n_iv':    {chord:'iv',    x:50,  y:450},
+      'n_bVII':  {chord:'bVII',  x:50,  y:600},
+      // ── PREDOMINANT satellites (x=170, sat next to parent rows) ──
+      'n_bIII7': {chord:'bIII7', x:170, y:185},  // sub-dom of bVI, right of bVI
+      'n_IV':    {chord:'IV',    x:170, y:325},  // parallel-maj IV (predom), right of iiø
+      'n_V_iv':  {chord:'V_iv',  x:170, y:465},  // sec dom of iv, right of iv
+      // ── DOMINANT column (middle, x=220) ──
+      'n_vii7':  {chord:'vii7',  x:220, y:310},  // leading-tone dim (dom function)
+      'n_V7':    {chord:'V7',    x:220, y:450},
+      'n_V_V':   {chord:'V_V',   x:325, y:465},  // sec dom of V7
+      'n_bII7':  {chord:'bII7',  x:220, y:600},
+      // ── TONIC (right) ──
+      'n_I_pic': {chord:'I_pic', x:400, y:30},   // Picardy major tonic, top-right
+      'n_i':     {chord:'i',     x:385, y:580, hub:true},
     },
     arrows: [
       {from:'n_bIII', to:'n_bVI'},
