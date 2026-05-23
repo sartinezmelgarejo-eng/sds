@@ -316,33 +316,38 @@
       center / 1px 100% no-repeat;
   }
   .vcol {
-    text-align: justify;
-    hyphens: auto;
     overflow: hidden;
     min-height: 0;
   }
-  .verses p { margin: 0; display: inline; }
-  .verse { display: inline; }
-  /* Verse numbers — bolder, slightly bigger, generous gap before each so the
-     eye can spot verse starts in flowing prose. Modeled after Cambridge /
-     classic RV printed editions. */
+  .verses p { margin: 0; display: block; }
+  /* Each verse is its own paragraph-like block — starts on a new line, number
+     at the left, text wraps under itself with hanging indent. */
+  .verse {
+    display: block;
+    text-align: justify;
+    hyphens: auto;
+    padding-left: 1.7em;
+    text-indent: -1.7em;
+    margin: 0;
+  }
+  /* Extra breathing room before the first verse of a new chapter — small
+     paragraph break, like printed Bibles do between chapters. */
+  .verse.ch-start { margin-top: 0.6em; }
+  /* The very first verse of a column should not start with a hollow indent */
+  .vcol .verse:first-child { margin-top: 0; }
+  /* Verse number — sits at the left margin of the verse block, in the hanging
+     indent space. Bold rubricated. */
   .v-num {
+    display: inline-block;
     font-family: 'Cormorant Garamond', serif;
     font-size: 12.5px;
     font-weight: 800;
     color: var(--rubric);
-    vertical-align: super;
-    line-height: 0;
-    margin-left: 8px;       /* clear gap BEFORE the verse number */
-    margin-right: 4px;      /* small gap to the verse text */
-    padding: 0 1px;
+    min-width: 1.3em;
+    text-align: right;
+    margin-right: 5px;
     letter-spacing: 0.5px;
   }
-  /* The very first verse on a column has no preceding verse — skip the leading gap */
-  .vcol .verse:first-child .v-num { margin-left: 0; }
-  /* First verse of a chapter (right after the chapter drop) — no left margin,
-     it sits flush against the chapter initial. */
-  .verse .ch-drop + .v-num { margin-left: 0; }
   /* Illuminated drop cap — first letter of chapter */
   .drop-cap {
     font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
@@ -1296,11 +1301,12 @@ function buildBookHTMLs(bookId) {
     if (!verses) continue;
     const entries = Object.entries(verses).sort((a, b) => +a[0] - +b[0]);
     entries.forEach(([n, t], i) => {
+      const cls = (i === 0 && ch > 1) ? 'verse ch-start' : 'verse';
       if (i === 0) {
-        // First verse of a chapter — chapter number serves as the drop cap
-        items.push(`<span class="verse" data-vk="${bookId}-${ch}-${n}"><span class="ch-drop">${ch}</span><span class="v-num">${n}</span>${t} </span>`);
+        // First verse of a chapter — chapter number is a small drop cap at left
+        items.push(`<span class="${cls}" data-vk="${bookId}-${ch}-${n}"><span class="ch-drop">${ch}</span><span class="v-num">${n}</span>${t}</span>`);
       } else {
-        items.push(`<span class="verse" data-vk="${bookId}-${ch}-${n}"><span class="v-num">${n}</span>${t} </span>`);
+        items.push(`<span class="${cls}" data-vk="${bookId}-${ch}-${n}"><span class="v-num">${n}</span>${t}</span>`);
       }
     });
   }
