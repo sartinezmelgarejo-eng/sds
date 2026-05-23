@@ -227,21 +227,30 @@
     letter-spacing: 8px;
   }
 
-  /* Verse body — justified, slightly tighter line spacing */
+  /* Verse body — typical Bible: two columns per page, justified, tighter leading */
   .verses {
     font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
-    font-size: 17px;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.55;
     color: var(--ink);
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 22px;
+    min-height: 0;
+    /* Thin vertical rule between the two columns, like a printed Bible */
+    background:
+      linear-gradient(180deg, transparent 6%, rgba(139,30,30,0.18) 6%, rgba(139,30,30,0.18) 94%, transparent 94%)
+      center / 1px 100% no-repeat;
+  }
+  .vcol {
     text-align: justify;
     hyphens: auto;
-    flex: 1;
     overflow: hidden;
+    min-height: 0;
   }
   .verses p { margin: 0; display: inline; }
-  .verse {
-    display: inline;
-  }
+  .verse { display: inline; }
   .v-num {
     font-family: 'Cormorant Garamond', serif;
     font-size: 11px;
@@ -255,11 +264,11 @@
   /* Illuminated drop cap — first letter of chapter */
   .drop-cap {
     font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
-    font-size: 72px;
+    font-size: 58px;
     line-height: 0.85;
     color: var(--rubric);
     float: left;
-    padding: 6px 10px 4px 0;
+    padding: 4px 8px 2px 0;
     margin-top: 4px;
     text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
   }
@@ -438,10 +447,14 @@
       border-radius: 6px;
       box-shadow: inset 0 0 12px rgba(0,0,0,0.15);
     }
-    .page { padding: 22px 24px 24px; }
-    .verses { font-size: 16px; }
+    .page { padding: 22px 18px 22px; }
+    .verses {
+      font-size: 15px;
+      grid-template-columns: 1fr;   /* phones: single column */
+      background: none;
+    }
     .book-name { font-size: 24px; }
-    .drop-cap { font-size: 56px; }
+    .drop-cap { font-size: 50px; }
     .flipper.prev { left: 4px; opacity: 0.5; }
     .flipper.next { right: 4px; opacity: 0.5; }
   }
@@ -644,8 +657,8 @@ const TEXT = {
 const state = {
   bookId: 'gen',
   chapter: 1,
-  page: 0,       // which page-pair of the current chapter we're on
-  pages: [],     // array of {verses: [...]} chunks for this chapter
+  spread: 0,        // which spread (pair of pages) of the current chapter
+  spreads: [],      // array of {l1, l2, r1, r2} HTML chunks per spread
 };
 
 const bookMeta = (id) => ALL_BOOKS.find(b => b.id === id);
@@ -655,6 +668,8 @@ function chapterText(bookId, chapter) {
   return TEXT[key] || null;
 }
 
+// Build the chapter scaffolding (page headers + empty verse grids) once.
+// Spread content gets injected by renderSpread().
 function renderChapterIntoPages() {
   const ch = chapterText(state.bookId, state.chapter);
   const book = bookMeta(state.bookId);
@@ -663,8 +678,6 @@ function renderChapterIntoPages() {
 
   const leftContent  = document.querySelector('#page-left .page-content');
   const rightContent = document.querySelector('#page-right .page-content');
-  leftContent.innerHTML = '';
-  rightContent.innerHTML = '';
 
   if (!ch) {
     leftContent.innerHTML = `
@@ -677,67 +690,133 @@ function renderChapterIntoPages() {
         <em>Este capítulo aún no está cargado en esta demostración.<br>
         Próximamente: Reina-Valera 1909 completa.</em>
       </div>`;
+    rightContent.innerHTML = '';
+    state.spreads = [];
     return;
   }
 
-  // Build the full verse HTML for this chapter once
+  // Build verse HTML once
   const verseEntries = Object.entries(ch).sort((a, b) => +a[0] - +b[0]);
-  const firstVerseText = verseEntries[0][1];
-  const firstLetter = firstVerseText.charAt(0);
-  const firstRest   = firstVerseText.slice(1);
-
-  let html = '';
-  verseEntries.forEach(([n, t], i) => {
+  const verseHTMLs = verseEntries.map(([n, t], i) => {
     if (i === 0) {
-      html += `<span class="verse"><span class="drop-cap">${firstLetter}</span><span class="v-num">${n}</span>${firstRest} </span>`;
-    } else {
-      html += `<span class="verse"><span class="v-num">${n}</span>${t} </span>`;
+      const firstLetter = t.charAt(0);
+      const firstRest   = t.slice(1);
+      return `<span class="verse"><span class="drop-cap">${firstLetter}</span><span class="v-num">${n}</span>${firstRest} </span>`;
     }
+    return `<span class="verse"><span class="v-num">${n}</span>${t} </span>`;
   });
 
-  // For v1: put the header + verses on the left page, continuation flows to right via JS measurement
+  // Render scaffolding
   leftContent.innerHTML = `
     <div class="page-header">
       <div class="book-name">${book.name}</div>
       <span class="chapter-num">Capítulo ${state.chapter}</span>
       <span class="flourish">✦ ❦ ✦</span>
     </div>
-    <div class="verses" id="verses-left"></div>
+    <div class="verses">
+      <div class="vcol" id="L1"></div>
+      <div class="vcol" id="L2"></div>
+    </div>
     <div class="page-footer">
       <span class="ornament">❦</span>
-      <span class="page-num">${book.name} · ${state.chapter}</span>
+      <span class="page-num" id="pgnum-left">${book.name} · ${state.chapter}</span>
     </div>`;
 
   rightContent.innerHTML = `
-    <div class="verses" id="verses-right"></div>
+    <div class="verses">
+      <div class="vcol" id="R1"></div>
+      <div class="vcol" id="R2"></div>
+    </div>
     <div class="page-footer">
-      <span class="page-num">${book.name} · ${state.chapter}</span>
+      <span class="page-num" id="pgnum-right">${book.name} · ${state.chapter}</span>
       <span class="ornament">❦</span>
     </div>`;
 
-  // Split verses between two pages: put the full text on left first, then if it
-  // overflows move the trailing verses to the right page.
-  const leftV  = document.getElementById('verses-left');
-  const rightV = document.getElementById('verses-right');
-  leftV.innerHTML  = html;
+  // Measure how many verses fit per column for this layout, then build spreads
+  state.spreads = paginateChapter(verseHTMLs);
+  if (state.spread >= state.spreads.length) state.spread = 0;
+  renderSpread();
+}
 
-  // Measure: if left overflows, peel verses from the end and move them right
-  // until it fits. (Simple, fast enough for chapters up to ~200 verses.)
-  if (leftV.scrollHeight > leftV.clientHeight + 4) {
-    const verses = Array.from(leftV.querySelectorAll('.verse'));
-    let moved = [];
-    while (leftV.scrollHeight > leftV.clientHeight + 4 && verses.length > 1) {
-      const last = verses.pop();
-      moved.unshift(last);
-      last.remove();
-    }
-    rightV.innerHTML = moved.map(el => el.outerHTML).join('');
-  } else {
-    // Chapter fits on left page — put a small marker on the right for now
-    rightV.innerHTML = `<div style="text-align:center;color:var(--ink-soft);font-style:italic;opacity:0.5;margin-top:40%;">
-      <span style="font-size:24px;color:var(--gold);">❦</span>
-    </div>`;
+// Split the chapter's verse-HTML strings into spreads of 4 columns each
+// (left page = L1 + L2, right page = R1 + R2). Uses a hidden measuring
+// element sized like one column to determine where each column should break.
+function paginateChapter(verseHTMLs) {
+  // Find a real column to clone styles from
+  const refCol = document.getElementById('L1');
+  if (!refCol) return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
+
+  const colW = refCol.clientWidth;
+  const colH = refCol.clientHeight;
+  if (colW < 10 || colH < 10) {
+    return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
   }
+  const cs   = getComputedStyle(refCol);
+
+  // Hidden measuring container — same width / typography as a single column
+  const meas = document.createElement('div');
+  meas.style.cssText = `
+    position: absolute; left: -10000px; top: 0;
+    width: ${colW}px;
+    font-family: ${cs.fontFamily}; font-size: ${cs.fontSize};
+    line-height: ${cs.lineHeight}; color: ${cs.color};
+    text-align: justify; hyphens: auto;
+  `;
+  meas.innerHTML = verseHTMLs.join('');
+  document.body.appendChild(meas);
+
+  // Walk verses, slice indices where cumulative height crosses every colH
+  const verseEls = Array.from(meas.querySelectorAll('.verse'));
+  const cuts = [0];   // indices where each new column starts
+  let nextLimit = colH;
+  for (let i = 0; i < verseEls.length; i++) {
+    const yEnd = verseEls[i].offsetTop + verseEls[i].offsetHeight;
+    while (yEnd > nextLimit + 2) {
+      // This verse spills past the current column boundary — start a new column at i
+      if (cuts[cuts.length - 1] !== i) cuts.push(i);
+      nextLimit += colH;
+    }
+  }
+  cuts.push(verseEls.length);
+  document.body.removeChild(meas);
+
+  // Build column-HTML chunks from the cut indices
+  const cols = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    cols.push(verseHTMLs.slice(cuts[i], cuts[i + 1]).join(''));
+  }
+  // Group columns into spreads of 4
+  const spreads = [];
+  for (let i = 0; i < cols.length; i += 4) {
+    spreads.push({
+      l1: cols[i]     || '',
+      l2: cols[i + 1] || '',
+      r1: cols[i + 2] || '',
+      r2: cols[i + 3] || '',
+    });
+  }
+  // Ensure at least one spread even for a short chapter
+  if (!spreads.length) {
+    spreads.push({l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''});
+  }
+  return spreads;
+}
+
+function renderSpread() {
+  const s = state.spreads[state.spread];
+  if (!s) return;
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  set('L1', s.l1);
+  set('L2', s.l2);
+  set('R1', s.r1);
+  set('R2', s.r2);
+  // Page footer: show "1 / N" if multi-spread
+  const total = state.spreads.length;
+  const lbl = total > 1
+    ? `${bookMeta(state.bookId).name} · ${state.chapter} · ${state.spread + 1}/${total}`
+    : `${bookMeta(state.bookId).name} · ${state.chapter}`;
+  set('pgnum-left',  lbl);
+  set('pgnum-right', lbl);
 }
 
 function roman(n) {
@@ -749,17 +828,39 @@ function roman(n) {
 }
 
 /* ────── Navigation ────── */
-function prevChapter() {
+function prev() {
+  // Step back within chapter first
+  if (state.spread > 0) {
+    state.spread--;
+    renderSpread();
+    return;
+  }
+  // Otherwise jump to previous chapter (and to its last spread)
   const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
   if (state.chapter > 1) {
     state.chapter--;
   } else if (idx > 0) {
     state.bookId = ALL_BOOKS[idx - 1].id;
     state.chapter = ALL_BOOKS[idx - 1].chapters;
+  } else {
+    return;
   }
+  state.spread = 0;
   renderChapterIntoPages();
+  // Land on the LAST spread of the previous chapter so the read order is continuous
+  if (state.spreads.length > 1) {
+    state.spread = state.spreads.length - 1;
+    renderSpread();
+  }
 }
-function nextChapter() {
+function next() {
+  // Forward within chapter first
+  if (state.spread < state.spreads.length - 1) {
+    state.spread++;
+    renderSpread();
+    return;
+  }
+  // Otherwise jump to next chapter
   const book = bookMeta(state.bookId);
   const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
   if (state.chapter < book.chapters) {
@@ -767,15 +868,22 @@ function nextChapter() {
   } else if (idx < ALL_BOOKS.length - 1) {
     state.bookId = ALL_BOOKS[idx + 1].id;
     state.chapter = 1;
+  } else {
+    return;
   }
+  state.spread = 0;
   renderChapterIntoPages();
 }
 function goTo(bookId, chapter) {
   state.bookId = bookId;
   state.chapter = chapter;
+  state.spread = 0;
   renderChapterIntoPages();
   closeDrawer();
 }
+// Aliases so older click handlers still work
+const prevChapter = prev;
+const nextChapter = next;
 
 /* ────── Books drawer ────── */
 const drawer    = document.getElementById('drawer');
