@@ -1661,29 +1661,41 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
       s += `<rect x="${x1 - noteR}" y="${cy - noteR - 1}" width="${x2 - x1 + 2*noteR}" height="${2*noteR + 2}" rx="${noteR + 1}" fill="#1f1d18" opacity="0.13"/>`;
     });
   }
+  const minimal = sizing?.minimal === true;
   shape.forEach((fret, sIdx) => {
     const x = ml + sIdx * stringSp;
     if (fret < 0) {
-      s += `<text x="${x}" y="${mt-5}" text-anchor="middle" font-size="11" fill="#a8a8b0" font-weight="700">×</text>`;
+      s += `<text x="${x}" y="${mt-5}" text-anchor="middle" font-size="${minimal ? 9 : 11}" fill="${minimal ? '#1a1a1a' : '#a8a8b0'}" font-weight="700">×</text>`;
       return;
     }
     const pc = noteAt(sIdx, fret);
     const rel = (pc - rootPc + 12) % 12;
     const deg = intToDeg[rel] || '';
-    const color = intervalColor(deg);
     let cy;
     if (fret === 0) {
+      // Open string: small ring at the nut
       cy = mt - 7;
-      s += `<circle cx="${x}" cy="${cy}" r="6" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
+      if (minimal) {
+        s += `<circle cx="${x}" cy="${cy}" r="4.5" fill="none" stroke="#1a1a1a" stroke-width="1.4"/>`;
+      } else {
+        const color = intervalColor(deg);
+        s += `<circle cx="${x}" cy="${cy}" r="6" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
+      }
       return;
     }
     cy = mt + ((fret - startFret) - 0.5) * fretSp;
     const r = sizing?.r || 11;
-    s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
-    const noteName = nameOf(pc, flats);
-    let label = state.display === 'intervals' ? deg : noteName;
-    let fontSize = label.length > 2 ? 8 : 10;
-    s += `<text x="${x}" y="${cy + 3.5}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="#000">${label}</text>`;
+    if (minimal) {
+      // Classical chord-diagram style: solid black dot, no text, no colors
+      s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="#1a1a1a"/>`;
+    } else {
+      const color = intervalColor(deg);
+      s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
+      const noteName = nameOf(pc, flats);
+      let label = state.display === 'intervals' ? deg : noteName;
+      let fontSize = label.length > 2 ? 8 : 10;
+      s += `<text x="${x}" y="${cy + 3.5}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="#000">${label}</text>`;
+    }
   });
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
 }
@@ -3843,9 +3855,9 @@ class Player {
       const cellFlats = useFlatsFor(cellKeyPc);
       const root = (cellKeyPc + ch.deg) % 12;
       const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
-      // Render with a wider aspect (~1.6:1) so the diagram fills the wide cells
-      // on desktop instead of being letterboxed with empty space on the sides.
-      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 5}) : '';
+      // Minimal classical chord-diagram style — black dots only, no colors or text.
+      // The colors live on the chord neck and bottom fretboard where they have room.
+      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}) : '';
       return `<div class="${cls}">${svg}</div>`;
     }).join('');
     el.innerHTML = cellsHtml;
