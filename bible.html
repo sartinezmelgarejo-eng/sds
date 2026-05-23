@@ -115,73 +115,152 @@
     min-height: 0;
   }
 
-  /* The book itself: two-page spread with spine in the middle */
-  .book {
+  /* ─── The book: a 3D open volume with leather spine + stacked page edges ─── */
+  .book-wrap {
     width: min(1200px, 100%);
     height: 100%;
-    max-height: 820px;
-    display: grid;
-    grid-template-columns: 1fr 12px 1fr;
+    max-height: 860px;
+    perspective: 2800px;
+    perspective-origin: 50% 30%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     position: relative;
-    filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6))
-            drop-shadow(0 10px 20px rgba(0,0,0,0.4));
   }
-  .page {
-    background:
-      radial-gradient(ellipse at top left, rgba(255,255,255,0.15), transparent 60%),
-      radial-gradient(ellipse at bottom right, rgba(120,80,30,0.18), transparent 60%),
-      linear-gradient(180deg, #f6ecd2 0%, #f0e4c4 100%);
-    background-color: var(--parchment);
+  .book {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 1fr 44px 1fr;
     position: relative;
-    overflow: hidden;
-    padding: 38px 52px 48px;
+    transform-style: preserve-3d;
+    /* Soft drop shadow under the whole volume */
+    filter: drop-shadow(0 32px 28px rgba(0,0,0,0.55))
+            drop-shadow(0 12px 14px rgba(0,0,0,0.35));
+  }
+  /* Each page is a stack: a thick base (the page-block) with the visible page on top */
+  .page {
+    position: relative;
+    background-color: var(--parchment);
+    background-image:
+      radial-gradient(ellipse at top, rgba(255,250,225,0.45), transparent 55%),
+      radial-gradient(ellipse 80% 60% at center, transparent 30%, rgba(150,100,40,0.10) 75%, rgba(120,75,25,0.22) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='p'><feTurbulence baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>"),
+      linear-gradient(180deg, #f6ecd2 0%, #efe1c0 100%);
+    background-blend-mode: normal, multiply, multiply, normal;
+    /* overflow visible so the page-edge stack pseudo (::before) shows on the outside */
+    padding: 38px 52px 44px;
     display: flex;
     flex-direction: column;
+    transform-style: preserve-3d;
   }
-  /* Subtle paper texture overlay */
+  /* Outer edge: gilded stack of pages — gives the book actual thickness */
   .page::before {
     content: '';
     position: absolute;
-    inset: 0;
-    background-image:
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
-    mix-blend-mode: multiply;
-    opacity: 0.4;
-    pointer-events: none;
+    top: 6px; bottom: 6px;
+    width: 11px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        #d8c594 0px, #d8c594 1px,
+        #f1e3b6 1px, #f1e3b6 2px,
+        #c4a866 2px, #c4a866 3px
+      ),
+      linear-gradient(90deg, #c0a468 0%, #e8d39a 50%, #b89a5a 100%);
+    background-blend-mode: multiply;
+    box-shadow:
+      0 8px 14px -2px rgba(0,0,0,0.6),
+      0 2px 4px rgba(0,0,0,0.4);
   }
-  /* Aged edge vignette */
+  /* Aged corner vignette + subtle highlight */
   .page::after {
     content: '';
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(ellipse at center, transparent 60%, rgba(140,90,30,0.22) 100%);
+      radial-gradient(ellipse at 30% 0%, rgba(255,250,230,0.35), transparent 45%),
+      radial-gradient(ellipse at center, transparent 55%, rgba(110,70,30,0.22) 100%);
     pointer-events: none;
   }
   .page-left {
-    border-radius: 6px 0 0 6px;
-    box-shadow: inset -6px 0 16px -8px rgba(0,0,0,0.4);
+    border-radius: 4px 0 0 4px;
+    /* Gutter shadow on inner edge (curving down into the spine) */
+    box-shadow:
+      inset -22px 0 30px -16px rgba(60,30,10,0.55),
+      inset -2px 0 1px rgba(80,40,20,0.6);
+    /* Subtle outward curl — the page lifts slightly at the outer edge */
+    transform: perspective(2400px) rotateY(2.2deg);
+    transform-origin: right center;
   }
+  .page-left::before  { left: -11px;  border-radius: 2px 0 0 2px; box-shadow: -4px 6px 14px rgba(0,0,0,0.55); }
   .page-right {
-    border-radius: 0 6px 6px 0;
-    box-shadow: inset 6px 0 16px -8px rgba(0,0,0,0.4);
+    border-radius: 0 4px 4px 0;
+    box-shadow:
+      inset 22px 0 30px -16px rgba(60,30,10,0.55),
+      inset 2px 0 1px rgba(80,40,20,0.6);
+    transform: perspective(2400px) rotateY(-2.2deg);
+    transform-origin: left center;
   }
-  /* The spine */
+  .page-right::before { right: -11px; border-radius: 0 2px 2px 0; box-shadow: 4px 6px 14px rgba(0,0,0,0.55); }
+
+  /* ─── Spine: leather, recessed, ribbed sewing bands ─── */
   .spine {
-    background:
-      linear-gradient(90deg,
-        rgba(0,0,0,0.45) 0%,
-        rgba(0,0,0,0.7) 50%,
-        rgba(0,0,0,0.45) 100%);
     position: relative;
-    z-index: 2;
+    background:
+      /* Soft inner highlight under the lip */
+      linear-gradient(180deg, rgba(160,120,40,0.18), transparent 20%, transparent 80%, rgba(160,120,40,0.12)),
+      /* Deep dark valley with a faint warm core */
+      radial-gradient(ellipse 80% 100% at center, #2c1408 0%, #150806 60%, #0a0303 100%),
+      linear-gradient(90deg, #1a0a08 0%, #0a0303 50%, #1a0a08 100%);
+    background-blend-mode: normal, multiply, normal;
+    box-shadow:
+      inset 8px 0 18px -4px rgba(0,0,0,0.85),
+      inset -8px 0 18px -4px rgba(0,0,0,0.85),
+      inset 0 8px 14px -4px rgba(0,0,0,0.6),
+      inset 0 -8px 14px -4px rgba(0,0,0,0.6);
+    /* Push slightly back so the pages appear to rise around it */
+    transform: translateZ(-6px);
+    z-index: 1;
   }
+  /* Embossed sewing bands across the spine (gold thread) */
   .spine::before {
     content: '';
     position: absolute;
     inset: 0;
-    background: linear-gradient(180deg,
-      transparent, rgba(160,120,32,0.15) 50%, transparent);
+    background-image:
+      linear-gradient(180deg, transparent 12%, rgba(160,120,40,0.45) 12.5%, rgba(80,50,12,0.55) 13.5%, transparent 14%),
+      linear-gradient(180deg, transparent 36%, rgba(160,120,40,0.45) 36.5%, rgba(80,50,12,0.55) 37.5%, transparent 38%),
+      linear-gradient(180deg, transparent 60%, rgba(160,120,40,0.45) 60.5%, rgba(80,50,12,0.55) 61.5%, transparent 62%),
+      linear-gradient(180deg, transparent 84%, rgba(160,120,40,0.45) 84.5%, rgba(80,50,12,0.55) 85.5%, transparent 86%);
+    pointer-events: none;
+    opacity: 0.65;
+  }
+  /* Centre seam line — the deepest part of the gutter */
+  .spine::after {
+    content: '';
+    position: absolute;
+    top: 4px; bottom: 4px;
+    left: 50%; width: 2px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, rgba(0,0,0,0.0), rgba(0,0,0,0.7) 20%, rgba(0,0,0,0.9) 50%, rgba(0,0,0,0.7) 80%, rgba(0,0,0,0.0));
+    box-shadow: 0 0 8px rgba(0,0,0,0.6);
+  }
+  /* Silk ribbon bookmark drifting out the bottom of the spine */
+  .ribbon {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16px;
+    height: 70px;
+    background: linear-gradient(180deg, #8b1e1e 0%, #6e1414 70%, #4a0a0a 100%);
+    box-shadow:
+      inset 2px 0 3px rgba(0,0,0,0.4),
+      inset -2px 0 3px rgba(0,0,0,0.4),
+      0 4px 6px rgba(0,0,0,0.45);
+    clip-path: polygon(0 0, 100% 0, 100% 88%, 50% 100%, 0 88%);
+    z-index: 0;
   }
 
   /* ─── Inside-page content ─── */
@@ -192,6 +271,7 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;   /* keep paginated verses clipped within the page */
   }
   /* Page header (book name + chapter number) — shown only on left page top */
   .page-header {
@@ -438,15 +518,19 @@
     .ref-display { font-size: 15px; padding: 0 4px; }
 
     main { padding: 8px; }
+    .book-wrap { perspective: none; }
     .book {
       grid-template-columns: 1fr;   /* single page on phone */
       max-height: none;
+      transform: none;
     }
     .spine, .page-left  { display: none; }
     .page-right {
       border-radius: 6px;
       box-shadow: inset 0 0 12px rgba(0,0,0,0.15);
+      transform: none;
     }
+    .page::before { display: none; }   /* drop the page-edge stack on phone */
     .page { padding: 22px 18px 22px; }
     .verses {
       font-size: 15px;
@@ -487,16 +571,20 @@
 </header>
 
 <main>
-  <div class="book" id="book">
-    <div class="page page-left" id="page-left">
-      <div class="page-content"></div>
+  <div class="book-wrap">
+    <div class="book" id="book">
+      <div class="page page-left" id="page-left">
+        <div class="page-content"></div>
+      </div>
+      <div class="spine">
+        <div class="ribbon"></div>
+      </div>
+      <div class="page page-right" id="page-right">
+        <div class="page-content"></div>
+      </div>
+      <div class="flipper prev" id="flip-prev">‹</div>
+      <div class="flipper next" id="flip-next">›</div>
     </div>
-    <div class="spine"></div>
-    <div class="page page-right" id="page-right">
-      <div class="page-content"></div>
-    </div>
-    <div class="flipper prev" id="flip-prev">‹</div>
-    <div class="flipper next" id="flip-next">›</div>
   </div>
 </main>
 
