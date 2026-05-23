@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Sagrada Biblia · Reina-Valera 1909</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Pirata+One&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:        #2a1f10;
+    --ink-soft:   #4a3a22;
+    --rubric:     #8b1e1e;   /* red ink for verse numbers, chapter caps */
+    --gold:       #a07820;
+    --gold-deep:  #6e5212;
+    --parchment:  #f4ead0;
+    --parch-edge: #d8c69a;
+    --parch-deep: #c0a86c;
+    --leather:    #2a1410;
+    --leather-2:  #1a0a08;
+    --leather-3:  #3a1c14;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(ellipse at center, var(--leather-3) 0%, var(--leather) 60%, var(--leather-2) 100%);
+    color: var(--ink);
+    font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    background-image:
+      radial-gradient(ellipse at center, var(--leather-3) 0%, var(--leather) 60%, var(--leather-2) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.03 0 0 0 0 0.02 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+    background-blend-mode: multiply;
+  }
+
+  /* ─── Header (top bar with title + book/chapter selector) ─── */
+  header {
+    flex-shrink: 0;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    border-bottom: 1px solid rgba(160,120,32,0.25);
+    background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.1));
+  }
+  .brand {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 28px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(160,120,32,0.3), 0 1px 0 rgba(0,0,0,0.6);
+    line-height: 1;
+  }
+  .brand-sub {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--parch-edge);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+  .nav-cluster {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .nav-btn {
+    background: linear-gradient(180deg, #2a1810, #1a0a08);
+    color: var(--gold);
+    border: 1px solid var(--gold-deep);
+    padding: 8px 16px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    font-style: italic;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    box-shadow: 0 1px 0 rgba(160,120,32,0.2) inset, 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .nav-btn:hover {
+    background: linear-gradient(180deg, #3a2418, #2a1410);
+    color: #d4a843;
+    box-shadow: 0 1px 0 rgba(160,120,32,0.4) inset, 0 2px 10px rgba(160,120,32,0.3);
+  }
+  .nav-btn .ornament {
+    color: var(--rubric);
+    margin: 0 4px;
+  }
+  .ref-display {
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 20px;
+    color: var(--parchment);
+    text-shadow: 0 0 6px rgba(160,120,32,0.4);
+    padding: 0 8px;
+  }
+
+  /* ─── Main book area ─── */
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 0;
+  }
+
+  /* The book itself: two-page spread with spine in the middle */
+  .book {
+    width: min(1200px, 100%);
+    height: 100%;
+    max-height: 820px;
+    display: grid;
+    grid-template-columns: 1fr 12px 1fr;
+    position: relative;
+    filter: drop-shadow(0 30px 50px rgba(0,0,0,0.6))
+            drop-shadow(0 10px 20px rgba(0,0,0,0.4));
+  }
+  .page {
+    background:
+      radial-gradient(ellipse at top left, rgba(255,255,255,0.15), transparent 60%),
+      radial-gradient(ellipse at bottom right, rgba(120,80,30,0.18), transparent 60%),
+      linear-gradient(180deg, #f6ecd2 0%, #f0e4c4 100%);
+    background-color: var(--parchment);
+    position: relative;
+    overflow: hidden;
+    padding: 38px 52px 48px;
+    display: flex;
+    flex-direction: column;
+  }
+  /* Subtle paper texture overlay */
+  .page::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='p'><feTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+    mix-blend-mode: multiply;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  /* Aged edge vignette */
+  .page::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at center, transparent 60%, rgba(140,90,30,0.22) 100%);
+    pointer-events: none;
+  }
+  .page-left {
+    border-radius: 6px 0 0 6px;
+    box-shadow: inset -6px 0 16px -8px rgba(0,0,0,0.4);
+  }
+  .page-right {
+    border-radius: 0 6px 6px 0;
+    box-shadow: inset 6px 0 16px -8px rgba(0,0,0,0.4);
+  }
+  /* The spine */
+  .spine {
+    background:
+      linear-gradient(90deg,
+        rgba(0,0,0,0.45) 0%,
+        rgba(0,0,0,0.7) 50%,
+        rgba(0,0,0,0.45) 100%);
+    position: relative;
+    z-index: 2;
+  }
+  .spine::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg,
+      transparent, rgba(160,120,32,0.15) 50%, transparent);
+  }
+
+  /* ─── Inside-page content ─── */
+  .page-content {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* Page header (book name + chapter number) — shown only on left page top */
+  .page-header {
+    text-align: center;
+    margin-bottom: 18px;
+    border-bottom: 1px solid rgba(139,30,30,0.18);
+    padding-bottom: 14px;
+  }
+  .book-name {
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 30px;
+    color: var(--ink);
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+  .chapter-num {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--rubric);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  /* Ornate flourish under header */
+  .page-header .flourish {
+    display: block;
+    color: var(--gold);
+    font-size: 14px;
+    margin-top: 8px;
+    opacity: 0.7;
+    letter-spacing: 8px;
+  }
+
+  /* Verse body — justified, slightly tighter line spacing */
+  .verses {
+    font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ink);
+    text-align: justify;
+    hyphens: auto;
+    flex: 1;
+    overflow: hidden;
+  }
+  .verses p { margin: 0; display: inline; }
+  .verse {
+    display: inline;
+  }
+  .v-num {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--rubric);
+    vertical-align: super;
+    line-height: 0;
+    margin-right: 2px;
+    padding-left: 2px;
+  }
+  /* Illuminated drop cap — first letter of chapter */
+  .drop-cap {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 72px;
+    line-height: 0.85;
+    color: var(--rubric);
+    float: left;
+    padding: 6px 10px 4px 0;
+    margin-top: 4px;
+    text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
+  }
+
+  /* Page footer with page number + tiny ornament */
+  .page-footer {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-soft);
+    opacity: 0.7;
+    padding-top: 8px;
+    border-top: 1px solid rgba(139,30,30,0.12);
+  }
+  .page-left  .page-footer .page-num { order: -1; }   /* number on outside */
+  .page-right .page-footer .page-num { margin-left: auto; }
+  .page-footer .ornament { color: var(--gold); }
+
+  /* ─── Side flippers (invisible click zones on left/right edges) ─── */
+  .flipper {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 60px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-size: 36px;
+    font-family: 'Cormorant Garamond', serif;
+    opacity: 0;
+    transition: opacity 0.3s;
+    user-select: none;
+  }
+  .flipper:hover { opacity: 0.8; }
+  .flipper.prev { left: -70px; }
+  .flipper.next { right: -70px; }
+
+  /* ─── Books drawer ─── */
+  .drawer {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: min(420px, 88%);
+    background: linear-gradient(180deg, #1f1208, #150b06);
+    box-shadow: 6px 0 30px rgba(0,0,0,0.7);
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--gold-deep);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-header {
+    padding: 18px 22px 12px;
+    border-bottom: 1px solid rgba(160,120,32,0.25);
+    color: var(--gold);
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .drawer-close {
+    background: none;
+    border: none;
+    color: var(--parch-edge);
+    font-size: 22px;
+    cursor: pointer;
+    font-family: serif;
+    padding: 0 8px;
+  }
+  .drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+  }
+  .testament-label {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 16px;
+    padding: 16px 22px 8px;
+    border-bottom: 1px solid rgba(139,30,30,0.25);
+    letter-spacing: 2px;
+  }
+  .book-list { list-style: none; }
+  .book-item {
+    padding: 9px 22px;
+    color: var(--parchment);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(160,120,32,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+  }
+  .book-item:hover {
+    background: rgba(160,120,32,0.1);
+    color: var(--gold);
+  }
+  .book-item.current {
+    background: rgba(139,30,30,0.18);
+    color: var(--gold);
+  }
+  .book-item .chap-count {
+    font-size: 11px;
+    color: var(--parch-edge);
+    opacity: 0.55;
+    font-style: italic;
+  }
+
+  /* Chapter picker (shown when a book is selected) */
+  .chap-picker {
+    padding: 14px 18px;
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-top: 1px solid rgba(160,120,32,0.18);
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .chap-picker.open { display: flex; }
+  .chap-btn {
+    width: 38px; height: 38px;
+    background: rgba(160,120,32,0.08);
+    border: 1px solid rgba(160,120,32,0.3);
+    color: var(--parchment);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .chap-btn:hover {
+    background: rgba(160,120,32,0.2);
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .drawer-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ─── Mobile ─── */
+  @media (max-width: 800px) {
+    header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+    .brand { font-size: 22px; }
+    .brand-sub { display: none; }
+    .nav-btn { padding: 6px 12px; font-size: 13px; }
+    .ref-display { font-size: 15px; padding: 0 4px; }
+
+    main { padding: 8px; }
+    .book {
+      grid-template-columns: 1fr;   /* single page on phone */
+      max-height: none;
+    }
+    .spine, .page-left  { display: none; }
+    .page-right {
+      border-radius: 6px;
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.15);
+    }
+    .page { padding: 22px 24px 24px; }
+    .verses { font-size: 16px; }
+    .book-name { font-size: 24px; }
+    .drop-cap { font-size: 56px; }
+    .flipper.prev { left: 4px; opacity: 0.5; }
+    .flipper.next { right: 4px; opacity: 0.5; }
+  }
+
+  /* Loading state */
+  .loading {
+    color: var(--ink-soft);
+    text-align: center;
+    font-style: italic;
+    padding: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">Sagrada Biblia</div>
+    <div class="brand-sub">Reina-Valera · 1909</div>
+  </div>
+
+  <div class="nav-cluster">
+    <button class="nav-btn" id="btn-books">
+      <span class="ornament">❦</span> Libros
+    </button>
+    <span class="ref-display" id="ref-display">Génesis I</span>
+    <button class="nav-btn" id="btn-prev" title="Capítulo anterior">‹</button>
+    <button class="nav-btn" id="btn-next" title="Capítulo siguiente">›</button>
+  </div>
+</header>
+
+<main>
+  <div class="book" id="book">
+    <div class="page page-left" id="page-left">
+      <div class="page-content"></div>
+    </div>
+    <div class="spine"></div>
+    <div class="page page-right" id="page-right">
+      <div class="page-content"></div>
+    </div>
+    <div class="flipper prev" id="flip-prev">‹</div>
+    <div class="flipper next" id="flip-next">›</div>
+  </div>
+</main>
+
+<!-- Books drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <span>Libros Sagrados</span>
+    <button class="drawer-close" id="drawer-close">✕</button>
+  </div>
+  <div class="drawer-content" id="drawer-content"></div>
+  <div class="chap-picker" id="chap-picker"></div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   DATA — books metadata (chapter counts) + sample chapters
+   For v1 only Génesis 1-3 and Juan 1-3 are hardcoded.
+   The full Reina-Valera 1909 will be loaded from rv1909.json next.
+   ════════════════════════════════════════════════════════════ */
+
+const BOOKS_AT = [
+  // Pentateuco
+  {id:'gen', name:'Génesis',      chapters:50},
+  {id:'exo', name:'Éxodo',        chapters:40},
+  {id:'lev', name:'Levítico',     chapters:27},
+  {id:'num', name:'Números',      chapters:36},
+  {id:'deu', name:'Deuteronomio', chapters:34},
+  // Históricos
+  {id:'jos', name:'Josué',        chapters:24},
+  {id:'jue', name:'Jueces',       chapters:21},
+  {id:'rut', name:'Rut',          chapters:4},
+  {id:'1sa', name:'1 Samuel',     chapters:31},
+  {id:'2sa', name:'2 Samuel',     chapters:24},
+  {id:'1re', name:'1 Reyes',      chapters:22},
+  {id:'2re', name:'2 Reyes',      chapters:25},
+  {id:'1cr', name:'1 Crónicas',   chapters:29},
+  {id:'2cr', name:'2 Crónicas',   chapters:36},
+  {id:'esd', name:'Esdras',       chapters:10},
+  {id:'neh', name:'Nehemías',     chapters:13},
+  {id:'est', name:'Ester',        chapters:10},
+  // Poéticos / Sapienciales
+  {id:'job', name:'Job',          chapters:42},
+  {id:'sal', name:'Salmos',       chapters:150},
+  {id:'pro', name:'Proverbios',   chapters:31},
+  {id:'ecl', name:'Eclesiastés',  chapters:12},
+  {id:'can', name:'Cantares',     chapters:8},
+  // Profetas mayores
+  {id:'isa', name:'Isaías',       chapters:66},
+  {id:'jer', name:'Jeremías',     chapters:52},
+  {id:'lam', name:'Lamentaciones',chapters:5},
+  {id:'eze', name:'Ezequiel',     chapters:48},
+  {id:'dan', name:'Daniel',       chapters:12},
+  // Profetas menores
+  {id:'ose', name:'Oseas',        chapters:14},
+  {id:'joe', name:'Joel',         chapters:3},
+  {id:'amo', name:'Amós',         chapters:9},
+  {id:'abd', name:'Abdías',       chapters:1},
+  {id:'jon', name:'Jonás',        chapters:4},
+  {id:'miq', name:'Miqueas',      chapters:7},
+  {id:'nah', name:'Nahúm',        chapters:3},
+  {id:'hab', name:'Habacuc',      chapters:3},
+  {id:'sof', name:'Sofonías',     chapters:3},
+  {id:'hag', name:'Hageo',        chapters:2},
+  {id:'zac', name:'Zacarías',     chapters:14},
+  {id:'mal', name:'Malaquías',    chapters:4},
+];
+
+const BOOKS_NT = [
+  {id:'mat', name:'Mateo',        chapters:28},
+  {id:'mar', name:'Marcos',       chapters:16},
+  {id:'luc', name:'Lucas',        chapters:24},
+  {id:'jua', name:'Juan',         chapters:21},
+  {id:'hch', name:'Hechos',       chapters:28},
+  {id:'rom', name:'Romanos',      chapters:16},
+  {id:'1co', name:'1 Corintios',  chapters:16},
+  {id:'2co', name:'2 Corintios',  chapters:13},
+  {id:'gal', name:'Gálatas',      chapters:6},
+  {id:'efe', name:'Efesios',      chapters:6},
+  {id:'fil', name:'Filipenses',   chapters:4},
+  {id:'col', name:'Colosenses',   chapters:4},
+  {id:'1te', name:'1 Tesalonicenses', chapters:5},
+  {id:'2te', name:'2 Tesalonicenses', chapters:3},
+  {id:'1ti', name:'1 Timoteo',    chapters:6},
+  {id:'2ti', name:'2 Timoteo',    chapters:4},
+  {id:'tit', name:'Tito',         chapters:3},
+  {id:'flm', name:'Filemón',      chapters:1},
+  {id:'heb', name:'Hebreos',      chapters:13},
+  {id:'san', name:'Santiago',     chapters:5},
+  {id:'1pe', name:'1 Pedro',      chapters:5},
+  {id:'2pe', name:'2 Pedro',      chapters:3},
+  {id:'1jn', name:'1 Juan',       chapters:5},
+  {id:'2jn', name:'2 Juan',       chapters:1},
+  {id:'3jn', name:'3 Juan',       chapters:1},
+  {id:'jud', name:'Judas',        chapters:1},
+  {id:'apo', name:'Apocalipsis',  chapters:22},
+];
+
+const ALL_BOOKS = [...BOOKS_AT, ...BOOKS_NT];
+
+// ── Sample text (RV1909). Will be replaced by full data load. ──
+const TEXT = {
+  'gen-1': {
+    1: 'EN el principio crió Dios los cielos y la tierra.',
+    2: 'Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la haz del abismo, y el Espíritu de Dios se movía sobre la haz de las aguas.',
+    3: 'Y dijo Dios: Sea la luz: y fué la luz.',
+    4: 'Y vió Dios que la luz era buena: y apartó Dios la luz de las tinieblas.',
+    5: 'Y llamó Dios á la luz Día, y á las tinieblas llamó Noche: y fué la tarde y la mañana un día.',
+    6: 'Y dijo Dios: Haya expansión en medio de las aguas, y separe las aguas de las aguas.',
+    7: 'E hizo Dios la expansión, y apartó las aguas que estaban debajo de la expansión, de las aguas que estaban sobre la expansión: y fué así.',
+    8: 'Y llamó Dios á la expansión Cielos: y fué la tarde y la mañana el día segundo.',
+    9: 'Y dijo Dios: Júntense las aguas que están debajo de los cielos en un lugar, y descúbrase la seca: y fué así.',
+    10: 'Y llamó Dios á la seca Tierra, y á la reunión de las aguas llamó Mares: y vió Dios que era bueno.',
+    11: 'Y dijo Dios: Produzca la tierra hierba verde, hierba que dé simiente; árbol de fruto que dé fruto según su género, que su simiente esté en él, sobre la tierra: y fué así.',
+    12: 'Y produjo la tierra hierba verde, hierba que da simiente según su naturaleza, y árbol que da fruto, cuya simiente está en él, según su género: y vió Dios que era bueno.',
+    13: 'Y fué la tarde y la mañana el día tercero.',
+    14: 'Y dijo Dios: Sean lumbreras en la expansión de los cielos para apartar el día y la noche: y sean por señales, y para las estaciones, y para días y años;',
+    15: 'Y sean por lumbreras en la expansión de los cielos para alumbrar sobre la tierra: y fué así.',
+    16: 'E hizo Dios las dos grandes lumbreras; la lumbrera mayor para que señorease en el día, y la lumbrera menor para que señorease en la noche: hizo también las estrellas.',
+    17: 'Y púsolas Dios en la expansión de los cielos, para alumbrar sobre la tierra,',
+    18: 'Y para señorear en el día y en la noche, y para apartar la luz y las tinieblas: y vió Dios que era bueno.',
+    19: 'Y fué la tarde y la mañana el día cuarto.',
+    20: 'Y dijo Dios: Produzcan las aguas reptil de ánima viviente, y aves que vuelen sobre la tierra, en la abierta expansión de los cielos.',
+    21: 'Y crió Dios las grandes ballenas, y toda cosa viva que anda arrastrando, que las aguas produjeron según su género, y toda ave alada según su especie: y vió Dios que era bueno.',
+    22: 'Y Dios los bendijo diciendo: Fructificad y multiplicad, y henchid las aguas en los mares, y las aves se multipliquen en la tierra.',
+    23: 'Y fué la tarde y la mañana el día quinto.',
+    24: 'Y dijo Dios: Produzca la tierra seres vivientes según su género, bestias y serpientes y animales de la tierra según su especie: y fué así.',
+    25: 'E hizo Dios animales de la tierra según su género, y ganado según su género, y todo animal que anda arrastrando sobre la tierra según su especie: y vió Dios que era bueno.',
+    26: 'Y dijo Dios: Hagamos al hombre á nuestra imagen, conforme á nuestra semejanza; y señoree en los peces de la mar, y en las aves de los cielos, y en las bestias, y en toda la tierra, y en todo animal que anda arrastrando sobre la tierra.',
+    27: 'Y crió Dios al hombre á su imagen, á imagen de Dios lo crió; varón y hembra los crió.',
+    28: 'Y los bendijo Dios; y díjoles Dios: Fructificad y multiplicad, y henchid la tierra, y sojuzgadla, y señoread en los peces de la mar, y en las aves de los cielos, y en todas las bestias que se mueven sobre la tierra.',
+    29: 'Y dijo Dios: He aquí que os he dado toda hierba que da simiente, que está sobre la haz de toda la tierra; y todo árbol en que hay fruto de árbol que da simiente, seros ha para comer.',
+    30: 'Y á toda bestia de la tierra, y á todas las aves de los cielos, y á todo lo que se mueve sobre la tierra, en que hay vida, toda hierba verde les será para comer: y fué así.',
+    31: 'Y vió Dios todo lo que había hecho, y he aquí que era bueno en gran manera. Y fué la tarde y la mañana el día sexto.',
+  },
+  'jua-1': {
+    1: 'EN el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios.',
+    2: 'Este era en el principio con Dios.',
+    3: 'Todas las cosas por él fueron hechas; y sin él nada de lo que es hecho, fué hecho.',
+    4: 'En él estaba la vida, y la vida era la luz de los hombres.',
+    5: 'Y la luz en las tinieblas resplandece; mas las tinieblas no la comprendieron.',
+    6: 'Fué un hombre enviado de Dios, el cual se llamaba Juan.',
+    7: 'Este vino por testimonio, para que diese testimonio de la luz, para que todos creyesen por él.',
+    8: 'No era él la luz, sino para que diese testimonio de la luz.',
+    9: 'Aquel era la luz verdadera, que alumbra á todo hombre que viene á este mundo.',
+    10: 'En el mundo estaba, y el mundo fué hecho por él; y el mundo no le conoció.',
+    11: 'A lo suyo vino, y los suyos no le recibieron.',
+    12: 'Mas á todos los que le recibieron, dióles potestad de ser hechos hijos de Dios, á los que creen en su nombre:',
+    13: 'Los cuales no son engendrados de sangre, ni de voluntad de carne, ni de voluntad de varón, mas de Dios.',
+    14: 'Y aquel Verbo fué hecho carne, y habitó entre nosotros (y vimos su gloria, gloria como del unigénito del Padre), lleno de gracia y de verdad.',
+  },
+};
+
+/* ════════════════════════════════════════════════════════════
+   STATE + RENDERING
+   ════════════════════════════════════════════════════════════ */
+
+const state = {
+  bookId: 'gen',
+  chapter: 1,
+  page: 0,       // which page-pair of the current chapter we're on
+  pages: [],     // array of {verses: [...]} chunks for this chapter
+};
+
+const bookMeta = (id) => ALL_BOOKS.find(b => b.id === id);
+
+function chapterText(bookId, chapter) {
+  const key = `${bookId}-${chapter}`;
+  return TEXT[key] || null;
+}
+
+function renderChapterIntoPages() {
+  const ch = chapterText(state.bookId, state.chapter);
+  const book = bookMeta(state.bookId);
+  const refEl = document.getElementById('ref-display');
+  refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+
+  const leftContent  = document.querySelector('#page-left .page-content');
+  const rightContent = document.querySelector('#page-right .page-content');
+  leftContent.innerHTML = '';
+  rightContent.innerHTML = '';
+
+  if (!ch) {
+    leftContent.innerHTML = `
+      <div class="page-header">
+        <div class="book-name">${book.name}</div>
+        <span class="chapter-num">Capítulo ${state.chapter}</span>
+        <span class="flourish">✦ ❦ ✦</span>
+      </div>
+      <div class="loading">
+        <em>Este capítulo aún no está cargado en esta demostración.<br>
+        Próximamente: Reina-Valera 1909 completa.</em>
+      </div>`;
+    return;
+  }
+
+  // Build the full verse HTML for this chapter once
+  const verseEntries = Object.entries(ch).sort((a, b) => +a[0] - +b[0]);
+  const firstVerseText = verseEntries[0][1];
+  const firstLetter = firstVerseText.charAt(0);
+  const firstRest   = firstVerseText.slice(1);
+
+  let html = '';
+  verseEntries.forEach(([n, t], i) => {
+    if (i === 0) {
+      html += `<span class="verse"><span class="drop-cap">${firstLetter}</span><span class="v-num">${n}</span>${firstRest} </span>`;
+    } else {
+      html += `<span class="verse"><span class="v-num">${n}</span>${t} </span>`;
+    }
+  });
+
+  // For v1: put the header + verses on the left page, continuation flows to right via JS measurement
+  leftContent.innerHTML = `
+    <div class="page-header">
+      <div class="book-name">${book.name}</div>
+      <span class="chapter-num">Capítulo ${state.chapter}</span>
+      <span class="flourish">✦ ❦ ✦</span>
+    </div>
+    <div class="verses" id="verses-left"></div>
+    <div class="page-footer">
+      <span class="ornament">❦</span>
+      <span class="page-num">${book.name} · ${state.chapter}</span>
+    </div>`;
+
+  rightContent.innerHTML = `
+    <div class="verses" id="verses-right"></div>
+    <div class="page-footer">
+      <span class="page-num">${book.name} · ${state.chapter}</span>
+      <span class="ornament">❦</span>
+    </div>`;
+
+  // Split verses between two pages: put the full text on left first, then if it
+  // overflows move the trailing verses to the right page.
+  const leftV  = document.getElementById('verses-left');
+  const rightV = document.getElementById('verses-right');
+  leftV.innerHTML  = html;
+
+  // Measure: if left overflows, peel verses from the end and move them right
+  // until it fits. (Simple, fast enough for chapters up to ~200 verses.)
+  if (leftV.scrollHeight > leftV.clientHeight + 4) {
+    const verses = Array.from(leftV.querySelectorAll('.verse'));
+    let moved = [];
+    while (leftV.scrollHeight > leftV.clientHeight + 4 && verses.length > 1) {
+      const last = verses.pop();
+      moved.unshift(last);
+      last.remove();
+    }
+    rightV.innerHTML = moved.map(el => el.outerHTML).join('');
+  } else {
+    // Chapter fits on left page — put a small marker on the right for now
+    rightV.innerHTML = `<div style="text-align:center;color:var(--ink-soft);font-style:italic;opacity:0.5;margin-top:40%;">
+      <span style="font-size:24px;color:var(--gold);">❦</span>
+    </div>`;
+  }
+}
+
+function roman(n) {
+  const M = ['','M','MM','MMM'];
+  const C = ['','C','CC','CCC','CD','D','DC','DCC','DCCC','CM'];
+  const X = ['','X','XX','XXX','XL','L','LX','LXX','LXXX','XC'];
+  const I = ['','I','II','III','IV','V','VI','VII','VIII','IX'];
+  return M[Math.floor(n/1000)] + C[Math.floor(n%1000/100)] + X[Math.floor(n%100/10)] + I[n%10];
+}
+
+/* ────── Navigation ────── */
+function prevChapter() {
+  const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
+  if (state.chapter > 1) {
+    state.chapter--;
+  } else if (idx > 0) {
+    state.bookId = ALL_BOOKS[idx - 1].id;
+    state.chapter = ALL_BOOKS[idx - 1].chapters;
+  }
+  renderChapterIntoPages();
+}
+function nextChapter() {
+  const book = bookMeta(state.bookId);
+  const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
+  if (state.chapter < book.chapters) {
+    state.chapter++;
+  } else if (idx < ALL_BOOKS.length - 1) {
+    state.bookId = ALL_BOOKS[idx + 1].id;
+    state.chapter = 1;
+  }
+  renderChapterIntoPages();
+}
+function goTo(bookId, chapter) {
+  state.bookId = bookId;
+  state.chapter = chapter;
+  renderChapterIntoPages();
+  closeDrawer();
+}
+
+/* ────── Books drawer ────── */
+const drawer    = document.getElementById('drawer');
+const backdrop  = document.getElementById('drawer-backdrop');
+const chapPick  = document.getElementById('chap-picker');
+
+function renderBookList() {
+  const c = document.getElementById('drawer-content');
+  const list = (label, books) => `
+    <div class="testament-label">${label}</div>
+    <ul class="book-list">
+      ${books.map(b => `
+        <li class="book-item ${b.id === state.bookId ? 'current' : ''}" data-book="${b.id}">
+          <span>${b.name}</span>
+          <span class="chap-count">${b.chapters} cap.</span>
+        </li>
+      `).join('')}
+    </ul>`;
+  c.innerHTML = list('Antiguo Testamento', BOOKS_AT) + list('Nuevo Testamento', BOOKS_NT);
+  c.querySelectorAll('.book-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const bid = item.dataset.book;
+      renderChapPicker(bid);
+    });
+  });
+}
+
+function renderChapPicker(bookId) {
+  const book = bookMeta(bookId);
+  chapPick.innerHTML = Array.from({length: book.chapters}, (_, i) =>
+    `<button class="chap-btn" data-ch="${i+1}">${i+1}</button>`
+  ).join('');
+  chapPick.classList.add('open');
+  chapPick.querySelectorAll('[data-ch]').forEach(b => {
+    b.addEventListener('click', () => goTo(bookId, +b.dataset.ch));
+  });
+}
+
+function openDrawer() {
+  drawer.classList.add('open');
+  backdrop.classList.add('show');
+  chapPick.classList.remove('open');
+}
+function closeDrawer() {
+  drawer.classList.remove('open');
+  backdrop.classList.remove('show');
+}
+
+/* ────── Wire it up ────── */
+document.getElementById('btn-books').addEventListener('click', openDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+backdrop.addEventListener('click', closeDrawer);
+document.getElementById('btn-prev').addEventListener('click', prevChapter);
+document.getElementById('btn-next').addEventListener('click', nextChapter);
+document.getElementById('flip-prev').addEventListener('click', prevChapter);
+document.getElementById('flip-next').addEventListener('click', nextChapter);
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') prevChapter();
+  if (e.key === 'ArrowRight') nextChapter();
+  if (e.key === 'Escape') closeDrawer();
+});
+
+// Re-flow on resize (verses may need to re-split between pages)
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderChapterIntoPages, 120);
+});
+
+// First paint
+renderBookList();
+renderChapterIntoPages();
+</script>
+</body>
+</html>
