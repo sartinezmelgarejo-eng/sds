@@ -503,6 +503,12 @@
   }
   .rb-tab-cell:last-child { border-right: none; }
   .rb-tab-cell.current { background: #fcecaa; }
+  .rb-tab-cell.imminent {
+    animation: cellImminent 1s ease-in-out infinite;
+  }
+  /* SVG fills the full cell width — the chord diagram letterboxes to its own
+     aspect so the dots stay round, but the visible footprint matches the
+     chord-name cell above for clean column alignment. */
   .rb-tab-cell svg { width: 100%; height: 100%; display: block; }
   .real-book[hidden] { display: none; }
   .rb-loop {
@@ -3833,15 +3839,19 @@ class Player {
     // Build the SEPARATE tabs row beneath — one mini fretboard per cell, aligned
     // with the chord cells above. Stays empty for null/continuation cells.
     const tabsHtml = cells.map((cell, i) => {
-      if (!cell || cell.barIdxInChord > 0) return `<div class="rb-tab-cell"></div>`;
+      const isCurrent = i === currentIdx;
+      const isImminent = i === imminentIdx;
+      const cls = `rb-tab-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
+      if (!cell || cell.barIdxInChord > 0) return `<div class="${cls}"></div>`;
       const ch = map.chordDefs[cell.chord];
-      if (!ch) return `<div class="rb-tab-cell"></div>`;
+      if (!ch) return `<div class="${cls}"></div>`;
       const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
       const cellFlats = useFlatsFor(cellKeyPc);
       const root = (cellKeyPc + ch.deg) % 12;
       const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
-      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 80, H: 80, r: 5}) : '';
-      const cls = `rb-tab-cell ${i === currentIdx ? 'current' : ''}`;
+      // Render with a wider aspect (~1.6:1) so the diagram fills the wide cells
+      // on desktop instead of being letterboxed with empty space on the sides.
+      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 5}) : '';
       return `<div class="${cls}">${svg}</div>`;
     }).join('');
     let peekHtml = '';
