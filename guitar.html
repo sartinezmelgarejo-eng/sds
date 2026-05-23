@@ -514,12 +514,14 @@
   @media (max-width: 800px) {
     .compose-pad {
       position: fixed;
-      left: 0; right: 0; bottom: 0;
+      left: 0; right: 0;
+      /* Sit above the always-visible map toggle bar (about 44px tall + safe area) */
+      bottom: calc(44px + env(safe-area-inset-bottom));
       z-index: 100;
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+      padding: 14px 14px 14px;
       background: var(--panel-2);
       border-top: 1.5px solid #1a1a1a;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
@@ -1062,27 +1064,31 @@
     .map-wrap { flex-direction: column; padding: 4px; gap: 8px; }
     .chord-map-host { display: none; }
 
-    /* Floating "open map" button — only visible on mobile in compose mode */
+    /* Toggle bar — thin row pinned to the very bottom of the viewport so it
+       stays visible regardless of whether the dialer or the chord-map is up. */
     #map-mobile-toggle {
       display: block;
       position: fixed;
-      top: calc(env(safe-area-inset-top) + 8px);
-      right: 10px;
-      z-index: 90;
-      padding: 8px 14px;
+      left: 0; right: 0;
+      bottom: 0;
+      z-index: 102;
+      padding: 8px 14px calc(8px + env(safe-area-inset-bottom));
       background: #fdfcf3;
-      border: 1.5px solid #1a1a1a;
-      border-radius: 20px;
+      border: none;
+      border-top: 1.5px solid #1a1a1a;
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
       font-size: 14px;
       font-weight: 600;
       color: #1a1a1a;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
     }
     body.player-active #map-mobile-toggle { display: none; }
+    body.map-overlay-open #map-mobile-toggle {
+      background: #1a1a1a;
+      color: #fdfcf3;
+    }
     /* When map mode is on, the chord map REPLACES the keypad in the same
        bottom-pinned slot — same footprint, just an alternative input. */
     body.map-overlay-open .compose-pad { display: none; }
@@ -1091,7 +1097,9 @@
       align-items: flex-start;
       justify-content: center;
       position: fixed;
-      left: 0; right: 0; bottom: 0;
+      left: 0; right: 0;
+      /* Sit above the always-visible map toggle bar (same offset as keypad) */
+      bottom: calc(44px + env(safe-area-inset-bottom));
       z-index: 100;
       width: 100vw;
       /* Tall enough that the whole 540x800 map can be scaled to fit by width */
@@ -1218,9 +1226,10 @@
      when the AI isn't playing. On phone: phone-dialer grid pinned to the bottom. -->
 <div class="compose-pad" id="compose-pad"></div>
 
-<!-- Mobile: floating button to open the chord map as a fullscreen overlay.
-     Hidden on desktop (map is always visible there). -->
-<button id="map-mobile-toggle" type="button" title="open chord map">🗺 Map</button>
+<!-- Mobile: a thin pinned bar at the very bottom of the viewport that toggles
+     between the keypad (default) and the chord-map overlay. Sits below both
+     the compose-pad and the map-host so it's always visible. -->
+<button id="map-mobile-toggle" type="button" title="toggle keypad / chord map">🗺 Map</button>
 <div id="map-mobile-backdrop" hidden></div>
 
 <div class="rb-area">
@@ -1332,12 +1341,13 @@ const CHORD_MAP = {
       // ── PREDOMINANT-area satellites (x=170, tucked right of their parent) ──
       'n_V_ii': {chord:'V_ii', x:170, y:325},   // sec dom of ii, sits right of ii
       'n_iv':   {chord:'iv',   x:170, y:465},   // borrowed iv, right of IV (same row)
-      // ── DOMINANT column (middle, x=220) ──
-      'n_V':    {chord:'V',    x:220, y:450},
-      'n_V_V':  {chord:'V_V',  x:325, y:465},   // sec dom of V, sits right of V
-      'n_bII7': {chord:'bII7', x:220, y:600},
+      // ── DOMINANT column (middle, x=280) — moved right so the predom
+      //    satellites at x=170 (right edge 262) don't collide with it ──
+      'n_V':    {chord:'V',    x:280, y:450},
+      'n_V_V':  {chord:'V_V',  x:280, y:325},   // sec dom of V, stacked above V
+      'n_bII7': {chord:'bII7', x:280, y:600},
       // ── TONIC (right) ──
-      'n_I':    {chord:'I',    x:390, y:580, hub:true},
+      'n_I':    {chord:'I',    x:400, y:560, hub:true},
     },
     arrows: [
       // Predominant descending-5ths chain (straight down left column)
@@ -1402,14 +1412,15 @@ const CHORD_MAP = {
       'n_bIII7': {chord:'bIII7', x:170, y:185},  // sub-dom of bVI, right of bVI
       'n_IV':    {chord:'IV',    x:170, y:325},  // parallel-maj IV (predom), right of iiø
       'n_V_iv':  {chord:'V_iv',  x:170, y:465},  // sec dom of iv, right of iv
-      // ── DOMINANT column (middle, x=220) ──
-      'n_vii7':  {chord:'vii7',  x:220, y:310},  // leading-tone dim (dom function)
-      'n_V7':    {chord:'V7',    x:220, y:450},
-      'n_V_V':   {chord:'V_V',   x:325, y:465},  // sec dom of V7
-      'n_bII7':  {chord:'bII7',  x:220, y:600},
+      // ── DOMINANT column (middle, x=280) — pushed right to clear the
+      //    predom-satellite right edge (262) ──
+      'n_vii7':  {chord:'vii7',  x:280, y:200},  // leading-tone dim (dom function)
+      'n_V_V':   {chord:'V_V',   x:280, y:325},  // sec dom of V7, stacked above
+      'n_V7':    {chord:'V7',    x:280, y:450},
+      'n_bII7':  {chord:'bII7',  x:280, y:600},
       // ── TONIC (right) ──
       'n_I_pic': {chord:'I_pic', x:400, y:30},   // Picardy major tonic, top-right
-      'n_i':     {chord:'i',     x:385, y:580, hub:true},
+      'n_i':     {chord:'i',     x:400, y:560, hub:true},
     },
     arrows: [
       {from:'n_bIII', to:'n_bVI'},
