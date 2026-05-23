@@ -3828,16 +3828,20 @@ class Player {
       // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
-    // Pick a voicing for each cell in TEMPORAL order so the chain matches what
-    // the player will do. In imminent mode, cells = [peek, bar1, bar2, bar3] but
-    // peek (cell 0) is temporally AFTER bar 3 — so we must process bars 1→3
-    // first, then peek with prev = bar 3's actual shape.
+    // Pick a voicing for each cell in TEMPORAL order so the chain mirrors what
+    // the player will actually do. The player's behavior:
+    //   • _triggerChord is called ONCE per chord-step (not per bar) — continuation
+    //     bars (barIdxInChord > 0) keep the same shape, don't re-pick
+    //   • this.previousShape is RESET TO NULL when the key changes (modulation
+    //     or loop+cycle), then next chord picks with prev=null
+    //   • Otherwise prev = the previously-played chord's actual shape
     const cellVoicings = new Array(cells.length).fill(null);
-    // Build temporal traversal order: indices listed in the order they play.
     const temporalOrder = (imminentIdx === 0)
-      ? [1, 2, 3, 0]      // imminent: peek is the future, comes last
+      ? [1, 2, 3, 0]   // imminent: peek is temporally LAST
       : cells.map((_, i) => i);
     let prevShape = null;
+    let prevKeyPc = null;
+    let prevChord = null;
     for (const i of temporalOrder) {
       const cell = cells[i];
       if (!cell) continue;
@@ -3847,21 +3851,33 @@ class Player {
       const cellVoicingType = cell.voicingType || this.voicingType;
       const root = (cellKeyPc + ch.deg) % 12;
 
+      // Key change between this cell and the prior in temporal order → prev = null,
+      // matching _applySectionKey's reset of this.previousShape.
+      if (prevKeyPc !== null && cellKeyPc !== prevKeyPc) prevShape = null;
+
+      // Continuation of the same chord (e.g. bar 2 of a 2-bar chord) → no
+      // re-trigger; the chord keeps its existing shape.
+      const isContinuation = (cell.chord === prevChord) && (cell.barIdxInChord > 0);
+
       let shape = null;
       if (i === currentIdx && state.playerVoicing?.shape) {
-        shape = state.playerVoicing.shape;                  // literally playing
+        shape = state.playerVoicing.shape;
+      } else if (isContinuation) {
+        shape = prevShape;
       } else if (state.progressionVoicings[cell.chord]
                  && cellKeyPc === state.keyPc
                  && cellVoicingType === (state.progressionVoicings[cell.chord].type || this.voicingType)
-                 && i < currentIdx) {                       // only past cells use cache
+                 && i < currentIdx) {
         shape = state.progressionVoicings[cell.chord].shape;
       } else {
-        // Future cell — predict with the SAME picker + chain as the player
         shape = this._pickShape(ch.quality, root, cellVoicingType, prevShape);
         if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
       }
       cellVoicings[i] = shape;
-      if (shape) prevShape = shape;
+      // Only advance the chain when a new chord triggers (not on continuations).
+      if (shape && !isContinuation) prevShape = shape;
+      prevKeyPc = cellKeyPc;
+      prevChord = cell.chord;
     }
 
     const cellsHtml = cells.map((cell, i) => {
