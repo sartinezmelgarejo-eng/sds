@@ -454,10 +454,12 @@
   /* ─── Compose keypad ─── */
   /* Desktop: horizontal flex bar — all 12 buttons in one line at the top */
   .compose-pad {
+    /* Desktop: hidden by default. Keyboard 1-7 + map-card clicks cover composing.
+       Mobile media-query below turns it back on as a pinned phone dialer. */
+    display: none;
     background: var(--panel);
     border-bottom: 1px solid var(--line);
     padding: 6px 18px;
-    display: flex;
     flex-wrap: wrap;
     gap: 6px;
     justify-content: center;
@@ -1835,12 +1837,17 @@ function renderChordMap() {
       </div>
       <div class="mc-svg-wrap">${svg}</div>
     `;
-    card.addEventListener('click', () => {
-      // Use the EXACT voicing the card was just displaying — that's what the
-      // user looked at and expects to hear. `v` is from computeAllVoicings()
-      // and already accounts for AI next-up / progression cache / smoothest fallback.
-      const displayed = v;
+    card.addEventListener('click', (ev) => {
+      // Compose mode: tapping a map card = typing that chord into the strip.
+      // The map IS the dialer when the AI isn't playing. Shift-click cycles
+      // the inversion of the LAST chord (same semantics as Shift+number).
+      if (!player.playing && currentMap().chordDefs[node.chord]) {
+        composeAddChord(node.chord, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
+        return;
+      }
 
+      // Player-active path: focus + jump
+      const displayed = v;
       state.focusedChord = node.chord;
       state.userVoicing = displayed?.shape
         ? { shape: displayed.shape, ...displayed }
