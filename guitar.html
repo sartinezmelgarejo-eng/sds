@@ -1427,6 +1427,10 @@ const state = {
   // chordId → {shape, type} for chords that have played in the current progression.
   // Used so each chord card shows the voicing it will actually be played in.
   progressionVoicings: {},
+  // Composed progression: user-typed sequence of {chord, inversion}. When non-empty
+  // and AI starts playing, this overrides the AI's random progression generation —
+  // the player just loops the typed sequence.
+  composedProgression: [],
 };
 
 function currentMap() { return CHORD_MAP[state.tonality]; }
@@ -3397,6 +3401,33 @@ class Player {
     const homeTonality = state.tonality;
     this._homeKey = { keyPc: homePc, tonality: homeTonality };
 
+    // If user typed a custom progression, loop that as a single section instead
+    // of generating a random AABA. Pre-store each cell's shape so the picker
+    // honors the user's chosen inversions.
+    if (state.composedProgression && state.composedProgression.length) {
+      const steps = state.composedProgression.map(c => ({
+        chord: c.chord,
+        bars: 1,
+        roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
+        composedShape: c.shape,    // _triggerChord will prefer this over picker
+      }));
+      const prog = { name: '◇ Composed', len: steps.length, steps };
+      const sec = {
+        label: 'A',
+        progression: prog,
+        repeats: 1,
+        voicingType: voicingPref !== 'all' ? voicingPref : 'drop2',
+        bassPattern: this._pickBassPattern(),
+      };
+      // Auto-enable loop so the composed progression plays continuously
+      if (!loopMode) {
+        loopMode = true;
+        const lt = document.getElementById('loop-toggle');
+        if (lt) lt.classList.add('active');
+      }
+      return [sec];
+    }
+
     const A = this._pickProgression();
     const B = this._pickProgression(A.name);
     const aRepeats = this._repeatsFor(A);
@@ -3540,6 +3571,9 @@ class Player {
     document.getElementById('real-book').hidden = true;
     const _tabsHide = document.getElementById('real-book-tabs');
     if (_tabsHide) _tabsHide.hidden = true;
+    // If user has a composed progression, re-show the compose strip so they
+    // can edit and replay it.
+    if (typeof renderComposeStrip === 'function') renderComposeStrip();
   }
 
   _scheduler() {
@@ -3850,6 +3884,7 @@ class Player {
         isNextChange: false,
         keyPc: simKeyPc,
         voicingType: simVoicingType,
+        composedShape: step.composedShape,  // honors user-typed inversions
       });
       totalBars += barsToShow;
       isFirst = false;
@@ -3899,6 +3934,9 @@ class Player {
         let shape;
         if (isContinuation) {
           shape = prevShape;
+        } else if (seg.composedShape) {
+          // User-composed progression — honor the exact inversion they chose
+          shape = seg.composedShape;
         } else if (bar === 0 && state.playerVoicing
                    && state.playerVoicing.chord === seg.chord
                    && state.playerVoicing.shape) {
@@ -4896,6 +4934,7 @@ function renderAll() {
   renderAlternatives();
   renderFretboard();
   updateActiveDrones();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
 }
 
 /* ─── Keyboard shortcuts: 1–7 jump to diatonic scale degrees ─── */
@@ -4904,6 +4943,71 @@ const DEGREE_SHORTCUTS = {
   major: {1:'I',  2:'ii',  3:'iii',  4:'IV', 5:'V',  6:'vi',  7:'bVII'},
   minor: {1:'i',  2:'iiø', 3:'bIII', 4:'iv', 5:'V7', 6:'bVI', 7:'bVII'},
 };
+
+// All drop-2 voicing candidates for a chord, sorted by register (low → high).
+// Used by compose mode for predictable inversion cycling.
+function composedCandidatesFor(quality, rootPc) {
+  const cands = [];
+  for (let ss = 0; ss < STRING_SETS.length; ss++) {
+    for (let inv = 0; inv < 4; inv++) {
+      const sh = dropTwoVoicing(quality, rootPc, ss, inv);
+      if (sh) cands.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+    }
+  }
+  cands.sort((a, b) => {
+    const afA = avgFret(a.shape), afB = avgFret(b.shape);
+    if (afA !== afB) return afA - afB;
+    return a.stringSetIdx - b.stringSetIdx;
+  });
+  return cands;
+}
+
+// Render the composed-progression strip into the Real Book area when AI is
+// not playing AND the user has typed at least one chord. Empty cells fill
+// out to the right; backspace removes the last, Enter starts playback.
+function renderComposeStrip() {
+  const el = document.getElementById('real-book');
+  const tabsEl = document.getElementById('real-book-tabs');
+  if (!el || !tabsEl) return;
+  if (player.playing) return;   // AI's own render takes over
+
+  const seq = state.composedProgression;
+  if (!seq.length) {
+    el.hidden = true;
+    tabsEl.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  tabsEl.hidden = false;
+  const map = currentMap();
+  const flats = useFlatsFor(state.keyPc);
+  const MAX_CELLS = 8;
+  const cells = seq.slice(0, MAX_CELLS);
+  while (cells.length < MAX_CELLS) cells.push(null);
+
+  el.innerHTML = cells.map((cell, i) => {
+    if (!cell) return `<div class="rb-cell"></div>`;
+    const ch = map.chordDefs[cell.chord];
+    if (!ch) return `<div class="rb-cell"></div>`;
+    const root = chordRoot(ch);
+    const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    const isLast = i === seq.length - 1;
+    return `<div class="rb-cell ${isLast ? 'current' : ''}">
+      <div class="rb-roman">${ch.roman}</div>
+      <div class="rb-chord">${name}</div>
+    </div>`;
+  }).join('');
+
+  tabsEl.innerHTML = cells.map((cell, i) => {
+    if (!cell || !cell.shape) return `<div class="rb-tab-cell"></div>`;
+    const ch = map.chordDefs[cell.chord];
+    if (!ch) return `<div class="rb-tab-cell"></div>`;
+    const root = chordRoot(ch);
+    const svg = renderMini(cell.shape, root, ch.quality, flats, {W: 130, H: 80, r: 6, minimal: true});
+    const isLast = i === seq.length - 1;
+    return `<div class="rb-tab-cell ${isLast ? 'current' : ''}">${svg}</div>`;
+  }).join('');
+}
 
 // Tracks voicing cycling for keyboard shortcuts.
 //   Number 1–7                → select chord, play the screen-recommended voicing
@@ -4926,6 +5030,31 @@ document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  // Backspace: delete last entry of the composed progression (when not playing)
+  if (e.key === 'Backspace' && !player.playing && state.composedProgression.length) {
+    state.composedProgression.pop();
+    e.preventDefault();
+    renderComposeStrip();
+    return;
+  }
+  // Enter: if user has typed a progression, start playing it
+  if (e.key === 'Enter' && !player.playing && state.composedProgression.length) {
+    e.preventDefault();
+    player.start();
+    document.getElementById('auto-play').classList.add('active');
+    document.getElementById('auto-play').textContent = '⏸ AI';
+    document.body.classList.add('player-active');
+    return;
+  }
+  // Escape: clear the composed progression
+  if (e.key === 'Escape' && state.composedProgression.length) {
+    state.composedProgression = [];
+    e.preventDefault();
+    renderComposeStrip();
+    return;
+  }
+
   // Shift+digit may produce a punctuation glyph ("@", "#", ...) instead of the
   // digit on US layouts — fall back to e.code "Digit1"–"Digit7" in that case.
   let n = parseInt(e.key);
@@ -4934,6 +5063,49 @@ document.addEventListener('keydown', e => {
   const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
+
+  // Compose mode (AI not playing): append to or modify the typed sequence.
+  if (!player.playing) {
+    const isShift = e.shiftKey;
+    const seq = state.composedProgression;
+    if (isShift && seq.length && seq[seq.length - 1].chord === chordId) {
+      // Cycle the LAST chord's inversion in place
+      const ch = currentMap().chordDefs[chordId];
+      const root = chordRoot(ch);
+      const cands = composedCandidatesFor(ch.quality, root);
+      const cur = seq[seq.length - 1];
+      const idx = (cur._candIdx + (_shiftSide === 'left' ? -1 : 1) + cands.length) % cands.length;
+      seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
+    } else {
+      // Append a new chord at the smoothest voicing from the previous one
+      const ch = currentMap().chordDefs[chordId];
+      const root = chordRoot(ch);
+      const cands = composedCandidatesFor(ch.quality, root);
+      const prev = seq.length ? seq[seq.length - 1].shape : null;
+      // Pick the closest candidate to prev (voice-leading) or sweet-spot if no prev
+      let bestIdx = 0;
+      if (prev) {
+        let bestCost = Infinity;
+        cands.forEach((c, i) => {
+          const cost = totalVoiceMovement(prev, c.shape);
+          if (cost < bestCost) { bestCost = cost; bestIdx = i; }
+        });
+      } else {
+        let bestCost = Infinity;
+        cands.forEach((c, i) => {
+          const cost = Math.abs(avgFret(c.shape) - 6.5);
+          if (cost < bestCost) { bestCost = cost; bestIdx = i; }
+        });
+      }
+      seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
+    }
+    state.focusedChord = chordId;
+    state.userVoicing = { shape: seq[seq.length - 1].shape };
+    renderAll();
+    renderComposeStrip();
+    ringFocusedChord();
+    return;
+  }
 
   const ch = currentMap().chordDefs[chordId];
   const root = chordRoot(ch);
