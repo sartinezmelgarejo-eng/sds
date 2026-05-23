@@ -368,6 +368,86 @@
     text-shadow: 0 0 4px rgba(160,120,32,0.5);
   }
 
+  /* Floating note viewer — shows the note text inline near the verse without
+     covering it. Tap ❦ to open, then choose Editar / Eliminar from inside. */
+  .note-popover {
+    position: fixed;
+    z-index: 200;
+    width: min(320px, calc(100vw - 24px));
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      linear-gradient(180deg, #fbf3df 0%, #f3e6c4 100%);
+    background-blend-mode: multiply, normal;
+    border: 1px solid var(--gold-deep);
+    border-radius: 4px;
+    padding: 14px 16px 12px;
+    box-shadow:
+      0 14px 30px rgba(0,0,0,0.45),
+      0 4px 8px rgba(0,0,0,0.3),
+      inset 0 0 0 1px rgba(160,120,32,0.15);
+    color: var(--ink);
+    font-family: 'EB Garamond', 'Cormorant Garamond', serif;
+  }
+  .note-popover[hidden] { display: none; }
+  /* Little folded-corner tab pointing at the verse */
+  .note-popover::before {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    background: inherit;
+    border: 1px solid var(--gold-deep);
+    transform: rotate(45deg);
+  }
+  .note-popover.np-above::before { bottom: -6px; left: 24px; border-top: none; border-left: none; }
+  .note-popover.np-below::before { top: -6px; left: 24px; border-bottom: none; border-right: none; }
+  .note-popover .np-ref {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 13px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .note-popover .np-text {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .note-popover .np-meta {
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.65;
+    margin-bottom: 10px;
+  }
+  .note-popover .np-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    border-top: 1px solid rgba(139,30,30,0.18);
+    padding-top: 8px;
+  }
+  .np-btn {
+    background: rgba(160,120,32,0.08);
+    border: 1px solid rgba(160,120,32,0.45);
+    color: var(--ink);
+    padding: 5px 12px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .np-btn:hover { background: rgba(160,120,32,0.18); color: var(--gold-deep); }
+  .np-btn.danger { color: #8b1e1e; border-color: rgba(139,30,30,0.45); }
+  .np-btn.danger:hover { background: rgba(139,30,30,0.12); color: #6e1414; }
+
   /* Floating popover with annotation actions */
   .annot-popover {
     position: fixed;
@@ -853,6 +933,17 @@
     </div>
   </div>
 </main>
+
+<!-- Note viewer popover (floats next to the ❦ marker, doesn't cover the verse) -->
+<div class="note-popover" id="note-popover" hidden>
+  <div class="np-ref" id="np-ref"></div>
+  <div class="np-text" id="np-text"></div>
+  <div class="np-meta" id="np-meta"></div>
+  <div class="np-actions">
+    <button class="np-btn danger" data-act="delete">Eliminar</button>
+    <button class="np-btn" data-act="edit">Editar</button>
+  </div>
+</div>
 
 <!-- Annotation popover (floats next to a tapped verse) -->
 <div class="annot-popover" id="annot-popover" hidden>
@@ -1461,7 +1552,7 @@ document.addEventListener('click', e => {
   if (noteMarker) {
     e.stopPropagation();
     const verseEl = noteMarker.closest('.verse');
-    if (verseEl) openNoteModal(verseEl);
+    if (verseEl) showNotePopover(verseEl, noteMarker);
     return;
   }
   const verse = e.target.closest('.verse');
@@ -1470,7 +1561,10 @@ document.addEventListener('click', e => {
     showPopover(verse);
     return;
   }
-  if (!e.target.closest('.annot-popover')) hidePopover();
+  if (!e.target.closest('.annot-popover') && !e.target.closest('.note-popover')) {
+    hidePopover();
+    hideNotePopover();
+  }
 });
 
 popover.addEventListener('click', e => {
@@ -1496,6 +1590,72 @@ popover.addEventListener('click', e => {
   } else if (act === 'bookmark') {
     openBookmarkNameModal(t.bookId, t.chapter, t.verseN);
     hidePopover();
+  }
+});
+
+/* ────── Note viewer popover (in-page, doesn't cover verse) ────── */
+const notePopover = document.getElementById('note-popover');
+const npRef       = document.getElementById('np-ref');
+const npText      = document.getElementById('np-text');
+const npMeta      = document.getElementById('np-meta');
+let notePopoverVK = null;
+
+function showNotePopover(verseEl, anchor) {
+  const vk = verseEl.dataset.vk;
+  const note = annot.notes[vk];
+  if (!note) return;
+  notePopoverVK = vk;
+  const [bookId, chap, vn] = vk.split('-');
+  const book = bookMeta(bookId);
+  npRef.textContent = `${book ? book.name : bookId} ${chap}:${vn}`;
+  npText.textContent = note.text;
+  npMeta.textContent = relativeDate
+    ? `editado ${relativeDate(note.updatedAt || note.createdAt || Date.now())}`
+    : '';
+  notePopover.hidden = false;
+  // Reset positioning classes before measuring
+  notePopover.classList.remove('np-above', 'np-below');
+
+  // Position: try BELOW the verse so the verse stays visible above
+  const ar = (anchor || verseEl).getBoundingClientRect();
+  const pw = notePopover.offsetWidth;
+  const ph = notePopover.offsetHeight;
+  const margin = 10;
+  // Default: below the verse, aligned roughly with the anchor's left
+  let left = ar.left - 8;
+  let top  = ar.bottom + 10;
+  let placement = 'below';
+  // If not enough room below, flip above
+  if (top + ph > window.innerHeight - margin) {
+    top = ar.top - ph - 10;
+    placement = 'above';
+  }
+  // Clamp horizontally
+  if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
+  if (left < margin) left = margin;
+  notePopover.style.left = left + 'px';
+  notePopover.style.top  = top  + 'px';
+  notePopover.classList.add(placement === 'above' ? 'np-above' : 'np-below');
+}
+function hideNotePopover() {
+  notePopover.hidden = true;
+  notePopoverVK = null;
+}
+notePopover.addEventListener('click', e => {
+  const btn = e.target.closest('.np-btn');
+  if (!btn || !notePopoverVK) return;
+  const act = btn.dataset.act;
+  if (act === 'edit') {
+    const verseEl = document.querySelector(`.verse[data-vk="${notePopoverVK}"]`);
+    if (verseEl) {
+      openNoteModal(verseEl);
+    }
+    hideNotePopover();
+  } else if (act === 'delete') {
+    delete annot.notes[notePopoverVK];
+    saveAnnot();
+    applyAnnotationsToDOM();
+    hideNotePopover();
   }
 });
 
@@ -1716,14 +1876,18 @@ notesListEl.addEventListener('click', e => {
   const [bookId, chap, vn] = vk.split('-');
   notesListBd.classList.remove('show');
   goTo(bookId, +chap);
-  // Wait for the chapter to render, then open the note editor on that verse
+  // Wait for the chapter to render, then show the note popover near the verse
   setTimeout(() => {
     const verseEl = document.querySelector(`.verse[data-vk="${vk}"]`);
     if (verseEl) {
-      openNoteModal(verseEl);
       verseEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // After the scroll lands, open the popover at the ❦ marker
+      setTimeout(() => {
+        const marker = verseEl.querySelector('.note-marker');
+        showNotePopover(verseEl, marker || verseEl);
+      }, 320);
     } else {
-      // Verse not on visible spread — open editor with the vk directly
+      // Verse not on visible spread — fall back to the editor modal
       noteEditingVK = vk;
       noteRef.textContent = `${bookMeta(bookId).name} ${chap}:${vn}`;
       noteText.value = (annot.notes[vk] && annot.notes[vk].text) || '';
@@ -1772,6 +1936,7 @@ if (annot.lastRead && bookMeta(annot.lastRead.bookId)) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     hidePopover();
+    hideNotePopover();
     noteBd.classList.remove('show');
     bmNameBd.classList.remove('show');
     bmListBd.classList.remove('show');
