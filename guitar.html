@@ -3630,15 +3630,11 @@ class Player {
     if (!ch) return;
     const root = (state.keyPc + ch.deg) % 12;
 
-    // Rebuild the page plan ON DEMAND if it's stale for this trigger. Stale =
-    // missing, or the entry at our current barInPage doesn't match the chord
-    // we're about to play (happens at page boundaries when the plan was built
-    // for the previous page). This guarantees plan[barInPage].chord === chordId
-    // → strip + trigger read literally the same shape.
+    // Make sure the plan covers the current page, and that its entry at our
+    // current barInPage matches the chord we're triggering. If not, rebuild.
+    this._ensurePagePlan();
     const barInPage = this.totalBars % 4;
-    if (!this._cachedPage
-        || !this._cachedPage[barInPage]
-        || this._cachedPage[barInPage].chord !== chordId) {
+    if (!this._cachedPage[barInPage] || this._cachedPage[barInPage].chord !== chordId) {
       this._buildPagePlan();
     }
     const planned = this._cachedPage[barInPage];
@@ -3876,16 +3872,16 @@ class Player {
     return result;
   }
 
-  // Single source of truth for upcoming voicings. Walks the lookahead once,
-  // picks shapes using THE SAME picker the trigger uses, with proper chaining.
-  // Stores the result in `_cachedPage` (4 bars) + `_cachedPeek` (next chord after
-  // the page). Both the strip render AND the chord trigger READ from this — no
-  // separate prediction, so they cannot diverge.
+  // Single source of truth for upcoming voicings. Walks the lookahead, picks
+  // shapes using the same picker the trigger uses, with proper chaining.
+  // Stored in `_cachedPage` (4 bars) + `_cachedPeek`. Both the strip render
+  // AND the chord trigger READ from this — they cannot diverge.
   _buildPagePlan() {
     this._cachedPage = [];
     this._cachedPeek = null;
+    this._cachedPlanPage = Math.floor(this.totalBars / 4);   // tag for cache invalidation
     const lookahead = this._lookAheadBars(8);
-    // Start the chain from the actual previous played shape — same context the
+    // Start the chain from the actual last-played shape — same context the
     // next real trigger will be in.
     let prevShape = this.previousShape;
     let prevKeyPc = state.keyPc;
@@ -3903,6 +3899,14 @@ class Player {
         let shape;
         if (isContinuation) {
           shape = prevShape;
+        } else if (bar === 0 && state.playerVoicing
+                   && state.playerVoicing.chord === seg.chord
+                   && state.playerVoicing.shape) {
+          // First entry IS the currently-playing chord — use the literal played
+          // shape, never re-pick. This is the critical anti-drift anchor: a
+          // post-trigger rebuild would otherwise re-pick with prev=its-own-shape
+          // and may land on a different inversion than what's actually sounding.
+          shape = state.playerVoicing.shape;
         } else if (ch) {
           const root = (segKeyPc + ch.deg) % 12;
           shape = this._pickShape(ch.quality, root, segType, prevShape);
@@ -3924,6 +3928,15 @@ class Player {
     while (this._cachedPage.length < 4) this._cachedPage.push(null);
   }
 
+  // Rebuild the plan only if it's stale (different page than what was cached,
+  // or no plan at all). Idempotent — safe to call from both trigger and render.
+  _ensurePagePlan() {
+    const curPage = Math.floor(this.totalBars / 4);
+    if (!this._cachedPage || this._cachedPlanPage !== curPage) {
+      this._buildPagePlan();
+    }
+  }
+
   _renderRealBook() {
     const el = document.getElementById('real-book');
     if (!this.playing) {
@@ -3934,11 +3947,11 @@ class Player {
     }
     el.hidden = false;
     const barInPage = this.totalBars % 4;
-    // Rebuild the page plan at every page boundary — _triggerChord also reads
-    // from this plan, so the shape you see is guaranteed to be the shape that plays.
-    if (barInPage === 0 || !this._cachedPage) {
-      this._buildPagePlan();
-    }
+    // Plan is shared with _triggerChord. _ensurePagePlan is a no-op if the
+    // plan is already fresh for this page, so the trigger-time rebuild won't
+    // get double-rebuilt by us (which previously caused drift — the second
+    // rebuild used a post-trigger prevShape and could land on a different inversion).
+    this._ensurePagePlan();
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
