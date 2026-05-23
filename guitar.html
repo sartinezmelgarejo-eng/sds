@@ -3630,13 +3630,22 @@ class Player {
     if (!ch) return;
     const root = (state.keyPc + ch.deg) % 12;
 
-    // Use the section's committed voicing type; pick the candidate shape closest to previous
+    // PREFER the shape pre-computed in the page plan — that's what the strip is
+    // displaying, so the played shape MUST equal it. Falls back to fresh pick
+    // only if no plan exists (first trigger of session) or chord ID mismatched.
+    const barInPage = this.totalBars % 4;
+    const planned = this._cachedPage && this._cachedPage[barInPage];
     let type = this.voicingType;
-    let shape = this._pickShape(ch.quality, root, type, this.previousShape);
-    // Fallback if this chord type can't be voiced this way
-    if (!shape) {
-      shape = this._pickShape(ch.quality, root, 'drop2', this.previousShape);
-      type = 'drop2';
+    let shape = null;
+    if (planned && planned.chord === chordId && planned.shape) {
+      shape = planned.shape;
+      type = planned.voicingType || type;
+    } else {
+      shape = this._pickShape(ch.quality, root, type, this.previousShape);
+      if (!shape) {
+        shape = this._pickShape(ch.quality, root, 'drop2', this.previousShape);
+        type = 'drop2';
+      }
     }
     if (!shape) return;
 
@@ -3702,6 +3711,16 @@ class Player {
 
     const nxtCh = currentMap().chordDefs[nxtId];
     if (!nxtCh) { state.nextVoicing = null; return; }
+    // Use the page plan if it has the next chord — same source of truth the
+    // strip displays and the trigger reads. Falls back to a fresh pick if the
+    // next chord is past the plan (rare) or no plan exists yet.
+    const barInPage = this.totalBars % 4;
+    const planEntries = [...(this._cachedPage || []), this._cachedPeek].filter(Boolean);
+    const plannedNext = planEntries.find((e, i) => i > barInPage && e.chord === nxtId);
+    if (plannedNext) {
+      state.nextVoicing = { chord: nxtId, shape: plannedNext.shape, type: plannedNext.voicingType || nextType };
+      return;
+    }
     const nxtRoot = (state.keyPc + nxtCh.deg) % 12;
     const nxtShape = this._pickShape(nxtCh.quality, nxtRoot, nextType, state.playerVoicing.shape);
     state.nextVoicing = nxtShape ? { chord: nxtId, shape: nxtShape, type: nextType } : null;
@@ -3849,6 +3868,54 @@ class Player {
     return result;
   }
 
+  // Single source of truth for upcoming voicings. Walks the lookahead once,
+  // picks shapes using THE SAME picker the trigger uses, with proper chaining.
+  // Stores the result in `_cachedPage` (4 bars) + `_cachedPeek` (next chord after
+  // the page). Both the strip render AND the chord trigger READ from this — no
+  // separate prediction, so they cannot diverge.
+  _buildPagePlan() {
+    this._cachedPage = [];
+    this._cachedPeek = null;
+    const lookahead = this._lookAheadBars(8);
+    // Start the chain from the actual previous played shape — same context the
+    // next real trigger will be in.
+    let prevShape = this.previousShape;
+    let prevKeyPc = state.keyPc;
+    let prevChord = null;
+    let bar = 0;
+    outer: for (const seg of lookahead) {
+      for (let b = 0; b < seg.bars; b++) {
+        const ch = currentMap().chordDefs[seg.chord];
+        const segKeyPc = (seg.keyPc !== undefined) ? seg.keyPc : state.keyPc;
+        const segType = seg.voicingType || this.voicingType;
+        // Key change resets prev (matches _applySectionKey's reset)
+        if (segKeyPc !== prevKeyPc) prevShape = null;
+        // Continuation bar — same chord, no new trigger, reuse shape
+        const isContinuation = (seg.chord === prevChord) && (b > 0);
+        let shape;
+        if (isContinuation) {
+          shape = prevShape;
+        } else if (ch) {
+          const root = (segKeyPc + ch.deg) % 12;
+          shape = this._pickShape(ch.quality, root, segType, prevShape);
+          if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
+        }
+        const entry = { chord: seg.chord, barIdxInChord: b, keyPc: segKeyPc, voicingType: segType, shape };
+        if (bar < 4) {
+          this._cachedPage.push(entry);
+        } else if (bar === 4) {
+          this._cachedPeek = entry;
+          break outer;
+        }
+        if (shape && !isContinuation) prevShape = shape;
+        prevKeyPc = segKeyPc;
+        prevChord = seg.chord;
+        bar++;
+      }
+    }
+    while (this._cachedPage.length < 4) this._cachedPage.push(null);
+  }
+
   _renderRealBook() {
     const el = document.getElementById('real-book');
     if (!this.playing) {
@@ -3859,96 +3926,25 @@ class Player {
     }
     el.hidden = false;
     const barInPage = this.totalBars % 4;
-    // Refresh page + peek at page boundaries (or first render). Within a page, cursor moves only.
+    // Rebuild the page plan at every page boundary — _triggerChord also reads
+    // from this plan, so the shape you see is guaranteed to be the shape that plays.
     if (barInPage === 0 || !this._cachedPage) {
-      this._cachedPage = [];
-      this._cachedPeek = null;
-      this._cachedPeekKeyPc = null;
-      const lookahead = this._lookAheadBars(8);
-      let bar = 0;
-      outer: for (const seg of lookahead) {
-        for (let b = 0; b < seg.bars; b++) {
-          if (bar < 4) {
-            this._cachedPage.push({chord: seg.chord, barIdxInChord: b, keyPc: seg.keyPc, voicingType: seg.voicingType});
-          } else if (bar === 4) {
-            this._cachedPeek = seg.chord;
-            this._cachedPeekKeyPc = seg.keyPc;
-            this._cachedPeekVoicingType = seg.voicingType;
-            break outer;
-          }
-          bar++;
-        }
-      }
-      while (this._cachedPage.length < 4) this._cachedPage.push(null);
+      this._buildPagePlan();
     }
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
-    // When the LAST bar of the page is playing, swap cell 0 to show the peek
-    // (upcoming) chord with imminent blink. Cells 1–3 stay put. Cell 3 still
-    // lights as the currently playing chord. Unified behavior for desktop + mobile —
-    // replaces the old desktop-only separate peek element on the right.
+    // On the last bar of the page, swap cell 0 to show the upcoming chord with
+    // imminent blink. Cells 1–3 stay put. Cell 3 stays highlighted as current.
     let cells = this._cachedPage;
     let currentIdx = barInPage;
     let imminentIdx = -1;
     if (barInPage === 3 && this._cachedPeek) {
-      cells = [{ chord: this._cachedPeek, barIdxInChord: 0, keyPc: this._cachedPeekKeyPc, voicingType: this._cachedPeekVoicingType },
-               ...this._cachedPage.slice(1)];
+      cells = [this._cachedPeek, ...this._cachedPage.slice(1)];
       imminentIdx = 0;
-      // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
-
-    // Pick a voicing for each cell in TEMPORAL order so the chain mirrors what
-    // the player will actually do. The player's behavior:
-    //   • _triggerChord is called ONCE per chord-step (not per bar) — continuation
-    //     bars (barIdxInChord > 0) keep the same shape, don't re-pick
-    //   • this.previousShape is RESET TO NULL when the key changes (modulation
-    //     or loop+cycle), then next chord picks with prev=null
-    //   • Otherwise prev = the previously-played chord's actual shape
-    const cellVoicings = new Array(cells.length).fill(null);
-    const temporalOrder = (imminentIdx === 0)
-      ? [1, 2, 3, 0]   // imminent: peek is temporally LAST
-      : cells.map((_, i) => i);
-    let prevShape = null;
-    let prevKeyPc = null;
-    let prevChord = null;
-    for (const i of temporalOrder) {
-      const cell = cells[i];
-      if (!cell) continue;
-      const ch = map.chordDefs[cell.chord];
-      if (!ch) continue;
-      const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
-      const cellVoicingType = cell.voicingType || this.voicingType;
-      const root = (cellKeyPc + ch.deg) % 12;
-
-      // Key change between this cell and the prior in temporal order → prev = null,
-      // matching _applySectionKey's reset of this.previousShape.
-      if (prevKeyPc !== null && cellKeyPc !== prevKeyPc) prevShape = null;
-
-      // Continuation of the same chord (e.g. bar 2 of a 2-bar chord) → no
-      // re-trigger; the chord keeps its existing shape.
-      const isContinuation = (cell.chord === prevChord) && (cell.barIdxInChord > 0);
-
-      let shape = null;
-      if (i === currentIdx && state.playerVoicing?.shape) {
-        shape = state.playerVoicing.shape;
-      } else if (isContinuation) {
-        shape = prevShape;
-      } else if (state.progressionVoicings[cell.chord]
-                 && cellKeyPc === state.keyPc
-                 && cellVoicingType === (state.progressionVoicings[cell.chord].type || this.voicingType)
-                 && i < currentIdx) {
-        shape = state.progressionVoicings[cell.chord].shape;
-      } else {
-        shape = this._pickShape(ch.quality, root, cellVoicingType, prevShape);
-        if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
-      }
-      cellVoicings[i] = shape;
-      // Only advance the chain when a new chord triggers (not on continuations).
-      if (shape && !isContinuation) prevShape = shape;
-      prevKeyPc = cellKeyPc;
-      prevChord = cell.chord;
-    }
+    // Voicings come straight from the pre-computed page plan — no live re-prediction.
+    const cellVoicings = cells.map(c => c ? c.shape : null);
 
     const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
