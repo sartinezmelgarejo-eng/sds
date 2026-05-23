@@ -5197,11 +5197,24 @@ function composeCycleLastInversion(direction) {
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
   state.composedProgression.pop();
+  const seq = state.composedProgression;
+  if (seq.length) {
+    const last = seq[seq.length - 1];
+    state.focusedChord = last.chord;
+    state.userVoicing  = { shape: last.shape };
+  } else {
+    state.userVoicing = null;
+  }
   renderComposeStrip();
+  renderAll();
+  ringFocusedChord();
 }
 function composeClear() {
   state.composedProgression = [];
+  state.userVoicing = null;
   renderComposeStrip();
+  renderAll();
+  ringFocusedChord();
 }
 function composePlay() {
   if (player.playing || !state.composedProgression.length) return;
@@ -5360,6 +5373,21 @@ document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  // Spacebar → universal play/pause toggle (always available)
+  if (e.key === ' ' || e.code === 'Space') {
+    e.preventDefault();
+    const btn = document.getElementById('auto-play');
+    if (player.playing) {
+      // Hit the auto-play button so it tears down player+metronome the same way
+      if (btn) btn.click();
+    } else if (state.composedProgression.length) {
+      composePlay();
+    } else if (btn) {
+      btn.click();
+    }
+    return;
+  }
 
   // Compose-mode shortcuts (only when AI off)
   if (!player.playing) {
