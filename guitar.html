@@ -556,6 +556,16 @@
   .rb-cell.current {
     background: #fcecaa;
   }
+  /* Imminent: the upcoming chord on mobile when the page is about to roll over */
+  @keyframes cellImminent {
+    0%, 100% { background: #faedc4; }
+    50%      { background: #f5d98a; }
+  }
+  .rb-cell.imminent {
+    animation: cellImminent 1s ease-in-out infinite;
+    color: #6b4a0e;
+    font-weight: 700;
+  }
   .rb-roman {
     font-size: 11px;
     color: #5a5a64;
@@ -3688,35 +3698,51 @@ class Player {
     if (barInPage === 0 || !this._cachedPage) {
       this._cachedPage = [];
       this._cachedPeek = null;
-      const lookahead = this._lookAheadBars(8);
+      this._cachedNextPage = [];     // mobile uses this to show the NEXT page early
+      const lookahead = this._lookAheadBars(12);
       let bar = 0;
-      outer: for (const seg of lookahead) {
+      for (const seg of lookahead) {
         for (let b = 0; b < seg.bars; b++) {
           if (bar < 4) {
             this._cachedPage.push({chord: seg.chord, barIdxInChord: b});
           } else if (bar === 4) {
             this._cachedPeek = seg.chord;
-            break outer;
-          }
+            this._cachedNextPage.push({chord: seg.chord, barIdxInChord: b});
+          } else if (bar < 8) {
+            this._cachedNextPage.push({chord: seg.chord, barIdxInChord: b});
+          } else { break; }
           bar++;
         }
       }
       while (this._cachedPage.length < 4) this._cachedPage.push(null);
+      while (this._cachedNextPage.length < 4) this._cachedNextPage.push(null);
     }
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
-    const cellsHtml = this._cachedPage.map((cell, i) => {
+
+    // Mobile + last bar of page: render NEXT page's cells with cell 0 in imminent
+    // state, so the "what's coming" lives inside the strip (no separate peek needed).
+    const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
+    const showNextPageEarly = isMobile && barInPage === 3 && this._cachedNextPage.some(Boolean);
+    const cells = showNextPageEarly ? this._cachedNextPage : this._cachedPage;
+
+    const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
       const ch = map.chordDefs[cell.chord];
       if (!ch) return `<div class="rb-cell"></div>`;
       const root = (state.keyPc + ch.deg) % 12;
       const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-      const isCurrent = (i === barInPage);
+      // When showing the early-rollover next page, cell 0 is the "imminent" one
+      // (about to start playing on the next bar). On a normal page render, cell N
+      // matches the currently-playing bar.
+      const isCurrent = !showNextPageEarly && (i === barInPage);
+      const isImminent = showNextPageEarly && i === 0;
+      const cls = `rb-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
       if (cell.barIdxInChord > 0) {
-        return `<div class="rb-cell ${isCurrent ? 'current' : ''}"><div class="rb-continuation">%</div></div>`;
+        return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
       }
       return `
-        <div class="rb-cell ${isCurrent ? 'current' : ''}">
+        <div class="${cls}">
           <div class="rb-roman">${ch.roman}</div>
           <div class="rb-chord">${name}</div>
         </div>
