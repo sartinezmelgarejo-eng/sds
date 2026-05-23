@@ -782,6 +782,8 @@
     height: 680px;
     flex-shrink: 0;
   }
+  /* Desktop: the mobile map toggle + backdrop never show */
+  #map-mobile-toggle, #map-mobile-backdrop { display: none; }
   .chord-map {
     position: relative;
     width: 540px;
@@ -1055,9 +1057,65 @@
     .brand { display: none; }                /* title takes room we don't have */
     .ctx-label { font-size: 9px; }
 
-    /* Chord map — too dense for phones. Hide it. */
+    /* Chord map — too dense for phones inline. Hidden by default, shown as
+       a fullscreen overlay when the user taps the floating "🗺 Map" button. */
     .map-wrap { flex-direction: column; padding: 4px; gap: 8px; }
     .chord-map-host { display: none; }
+
+    /* Floating "open map" button — only visible on mobile in compose mode */
+    #map-mobile-toggle {
+      display: block;
+      position: fixed;
+      top: calc(env(safe-area-inset-top) + 8px);
+      right: 10px;
+      z-index: 90;
+      padding: 8px 14px;
+      background: #fdfcf3;
+      border: 1.5px solid #1a1a1a;
+      border-radius: 20px;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body.player-active #map-mobile-toggle { display: none; }
+    /* When the overlay is open, show the map host fullscreen on top */
+    body.map-overlay-open .chord-map-host {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      width: 100vw;
+      height: 100vh;
+      background: var(--panel-2);
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 50px 8px 16px;
+    }
+    body.map-overlay-open .chord-map {
+      /* Scale the 540x800 map down to fit phone width with margin */
+      transform: scale(calc((100vw - 20px) / 540));
+      transform-origin: top left;
+    }
+    #map-mobile-backdrop {
+      display: none;
+    }
+    body.map-overlay-open #map-mobile-backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 199;
+      background: rgba(0,0,0,0.35);
+    }
+    body.map-overlay-open #map-mobile-toggle {
+      z-index: 201;
+      background: #1a1a1a;
+      color: #fdfcf3;
+    }
 
     /* Side panel becomes full-width with just the chord neck */
     .map-side-panel { width: 100% !important; gap: 8px; }
@@ -1158,6 +1216,11 @@
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
      when the AI isn't playing. On phone: phone-dialer grid pinned to the bottom. -->
 <div class="compose-pad" id="compose-pad"></div>
+
+<!-- Mobile: floating button to open the chord map as a fullscreen overlay.
+     Hidden on desktop (map is always visible there). -->
+<button id="map-mobile-toggle" type="button" title="open chord map">🗺 Map</button>
+<div id="map-mobile-backdrop" hidden></div>
 
 <div class="rb-area">
   <div class="rb-stack">
@@ -2014,14 +2077,63 @@ function renderAlternatives() {
 
   altRow.innerHTML = html;
   altRow.querySelectorAll('[data-auto]').forEach(c => {
-    c.addEventListener('click', () => { state.userVoicing = null; renderAll(); });
-  });
-  altRow.querySelectorAll('[data-ss]').forEach(c => {
     c.addEventListener('click', () => {
-      state.userVoicing = {stringSetIdx: +c.dataset.ss, inversion: +c.dataset.inv};
+      state.userVoicing = null;
+      // Compose: if focused chord is the last typed, re-pick its voicing too
+      if (!player.playing) {
+        const seq = state.composedProgression;
+        if (seq.length && seq[seq.length - 1].chord === fc.id) {
+          const ch = currentMap().chordDefs[fc.id];
+          const r  = chordRoot(ch);
+          const prev = seq.length > 1 ? seq[seq.length - 2].shape : null;
+          const sm = smoothestVoicing(ch.quality, r, prev);
+          if (sm) {
+            seq[seq.length - 1].shape = sm.shape;
+            seq[seq.length - 1]._candIdx = 0;
+            renderComposeStrip();
+          }
+        }
+      }
+      applyAltToComping(fc.id, null);
       renderAll();
     });
   });
+  altRow.querySelectorAll('[data-ss]').forEach(c => {
+    c.addEventListener('click', () => {
+      const ss = +c.dataset.ss, inv = +c.dataset.inv;
+      state.userVoicing = {stringSetIdx: ss, inversion: inv};
+      const ch = currentMap().chordDefs[fc.id];
+      const r  = chordRoot(ch);
+      const sh = dropTwoVoicing(ch.quality, r, ss, inv);
+      // Compose: replace last chord's voicing if it matches the focused one
+      if (!player.playing && sh) {
+        const seq = state.composedProgression;
+        if (seq.length && seq[seq.length - 1].chord === fc.id) {
+          seq[seq.length - 1].shape = sh;
+          renderComposeStrip();
+        }
+      }
+      applyAltToComping(fc.id, sh ? { shape: sh, stringSetIdx: ss, inversion: inv } : null);
+      renderAll();
+    });
+  });
+}
+
+// Push an alternate voicing into the live AI comping path, if playing:
+//   - cache it so the next bar of this chord uses it
+//   - if it's the chord currently sounding, re-trigger so the change is audible now
+function applyAltToComping(chordId, voicing) {
+  if (!player || !player.playing) return;
+  if (voicing && voicing.shape) {
+    state.progressionVoicings[chordId] = voicing;
+  } else {
+    delete state.progressionVoicings[chordId];
+  }
+  // Invalidate the cached page-plan so the next bar re-resolves with the new voicing
+  if (player._cachedPlanPage !== undefined) player._cachedPlanPage = -1;
+  if (player.currentChord === chordId && typeof player.jumpTo === 'function') {
+    player.jumpTo(chordId);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -5126,6 +5238,32 @@ function renderAll() {
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (typeof renderComposePad === 'function') renderComposePad();
 }
+
+// Mobile chord-map overlay: toggle, close on backdrop tap, close after picking a chord
+(function wireMobileMapToggle() {
+  const btn      = document.getElementById('map-mobile-toggle');
+  const backdrop = document.getElementById('map-mobile-backdrop');
+  if (!btn || !backdrop) return;
+  function close() {
+    document.body.classList.remove('map-overlay-open');
+    btn.textContent = '🗺 Map';
+  }
+  function open() {
+    document.body.classList.add('map-overlay-open');
+    btn.textContent = '✕ Close';
+  }
+  btn.addEventListener('click', () => {
+    document.body.classList.contains('map-overlay-open') ? close() : open();
+  });
+  backdrop.addEventListener('click', close);
+  // When the user taps a card inside the overlay it adds a chord — auto-close
+  // so they can see the strip update and keep tapping the dialer if they want.
+  document.addEventListener('click', (e) => {
+    if (!document.body.classList.contains('map-overlay-open')) return;
+    const card = e.target.closest && e.target.closest('.map-card');
+    if (card) setTimeout(close, 120);   // brief delay so they see which card lit up
+  }, true);
+})();
 
 /* ─── Keyboard shortcuts: 1–7 jump to diatonic scale degrees ─── */
 
