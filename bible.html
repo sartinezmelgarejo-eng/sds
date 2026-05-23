@@ -400,6 +400,8 @@
   }
   .note-popover.np-above::before { bottom: -6px; left: 24px; border-top: none; border-left: none; }
   .note-popover.np-below::before { top: -6px; left: 24px; border-bottom: none; border-right: none; }
+  .note-popover.np-right::before { left: -6px; top: 22px; border-right: none; border-top: none; }
+  .note-popover.np-left::before  { right: -6px; top: 22px; border-left: none;  border-bottom: none; }
   .note-popover .np-ref {
     font-family: 'UnifrakturMaguntia', serif;
     color: var(--rubric);
@@ -1614,28 +1616,58 @@ function showNotePopover(verseEl, anchor) {
     : '';
   notePopover.hidden = false;
   // Reset positioning classes before measuring
-  notePopover.classList.remove('np-above', 'np-below');
+  notePopover.classList.remove('np-above', 'np-below', 'np-left', 'np-right');
 
-  // Position: try BELOW the verse so the verse stays visible above
+  // Strategy: prefer SIDE placement so the verse stays fully visible.
+  // - Verse on left half of viewport  → try RIGHT side first, then below
+  // - Verse on right half of viewport → try LEFT side first, then below
+  // - Last resort: above (only when nothing else fits)
   const ar = (anchor || verseEl).getBoundingClientRect();
   const pw = notePopover.offsetWidth;
   const ph = notePopover.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 14;
   const margin = 10;
-  // Default: below the verse, aligned roughly with the anchor's left
-  let left = ar.left - 8;
-  let top  = ar.bottom + 10;
-  let placement = 'below';
-  // If not enough room below, flip above
-  if (top + ph > window.innerHeight - margin) {
-    top = ar.top - ph - 10;
-    placement = 'above';
+
+  const verseOnLeftPage = (ar.left + ar.width / 2) < vw / 2;
+  const roomRight = vw - ar.right - gap;
+  const roomLeft  = ar.left - gap;
+  const roomBelow = vh - ar.bottom - gap;
+  const roomAbove = ar.top - gap;
+
+  let placement;
+  if (verseOnLeftPage && roomRight >= pw)      placement = 'right';
+  else if (!verseOnLeftPage && roomLeft >= pw) placement = 'left';
+  else if (roomRight >= pw)                    placement = 'right';
+  else if (roomLeft  >= pw)                    placement = 'left';
+  else if (roomBelow >= ph)                    placement = 'below';
+  else if (roomAbove >= ph)                    placement = 'above';
+  else                                         placement = roomBelow > roomAbove ? 'below' : 'above';
+
+  let left, top;
+  if (placement === 'right') {
+    left = ar.right + gap;
+    top  = ar.top - 6;
+  } else if (placement === 'left') {
+    left = ar.left - pw - gap;
+    top  = ar.top - 6;
+  } else if (placement === 'below') {
+    left = ar.left - 8;
+    top  = ar.bottom + 10;
+  } else { /* above */
+    left = ar.left - 8;
+    top  = ar.top - ph - 10;
   }
-  // Clamp horizontally
-  if (left + pw > window.innerWidth - margin) left = window.innerWidth - pw - margin;
-  if (left < margin) left = margin;
+  // Clamp inside viewport
+  if (left + pw > vw - margin) left = vw - pw - margin;
+  if (left < margin)           left = margin;
+  if (top + ph > vh - margin)  top  = vh - ph - margin;
+  if (top < margin)            top  = margin;
+
   notePopover.style.left = left + 'px';
   notePopover.style.top  = top  + 'px';
-  notePopover.classList.add(placement === 'above' ? 'np-above' : 'np-below');
+  notePopover.classList.add('np-' + placement);
 }
 function hideNotePopover() {
   notePopover.hidden = true;
