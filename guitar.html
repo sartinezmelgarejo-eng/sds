@@ -568,17 +568,17 @@
     /* Tabs container empty on mobile compose — main strip holds chord+tab pair-rows */
     body:not(.player-active) .real-book.compose-interleaved {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(4, 1fr);
       height: auto;
       max-height: 50vh;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
-    body:not(.player-active) .real-book.compose-interleaved .rb-cell { min-height: 52px; }
-    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 68px; }
-    /* Drop right border on right-column cells */
-    body:not(.player-active) .real-book.compose-interleaved .rb-cell:nth-child(2n),
-    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell:nth-child(2n) {
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell { min-height: 48px; }
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 64px; }
+    /* Drop right border on every 4th cell (right edge of each row) */
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell:nth-child(4n),
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell:nth-child(4n) {
       border-right: none;
     }
     /* Horizontal divider between rows */
@@ -5274,10 +5274,11 @@ function renderComposeStrip() {
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
   let MAX_CELLS;
   if (isMobile) {
-    // 2-per-row scrollable layout: start with 4 (2 rows), grow by pairs.
+    // 4-per-row scrollable layout: grow in groups of 4
     if (seq.length <= 4)       MAX_CELLS = 4;
     else if (seq.length <= 8)  MAX_CELLS = 8;
-    else                       MAX_CELLS = Math.min(16, Math.ceil(seq.length / 2) * 2);
+    else if (seq.length <= 12) MAX_CELLS = 12;
+    else                       MAX_CELLS = 16;
   } else {
     MAX_CELLS = seq.length > 8 ? 16 : 8;
   }
@@ -5310,13 +5311,11 @@ function renderComposeStrip() {
   };
 
   if (isMobile) {
-    // Build pair rows: [chord A, chord B, tab A, tab B] for each pair of cells
+    // Build quad rows: 4 chord cells, then 4 tab cells beneath, repeating
     const parts = [];
-    for (let i = 0; i < cells.length; i += 2) {
-      parts.push(renderCell(cells[i],     i,     false));
-      parts.push(renderCell(cells[i + 1], i + 1, false));
-      parts.push(renderCell(cells[i],     i,     true));
-      parts.push(renderCell(cells[i + 1], i + 1, true));
+    for (let i = 0; i < cells.length; i += 4) {
+      for (let k = 0; k < 4; k++) parts.push(renderCell(cells[i + k], i + k, false));
+      for (let k = 0; k < 4; k++) parts.push(renderCell(cells[i + k], i + k, true));
     }
     el.innerHTML = parts.join('');
     tabsEl.innerHTML = '';
