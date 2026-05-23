@@ -478,11 +478,18 @@
     flex: 1;
     border: 1.5px solid #1a1a1a;
     background: #fdfcf3;
-    height: 52px;
+    height: 130px;       /* taller now to fit chord name + mini tab */
   }
+  .rb-tab {
+    margin-top: 2px;
+    width: 64px;
+    height: 64px;
+    pointer-events: none;
+  }
+  .rb-tab svg { width: 100%; height: 100%; display: block; }
   .real-book[hidden] { display: none; }
   .rb-loop {
-    height: 52px;
+    height: 130px;
     width: 38px;
     padding: 0;
     background: #fdfcf3;
@@ -519,7 +526,7 @@
   }
   /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
   .rb-cycle {
-    height: 52px;
+    height: 130px;
     width: 24px;
     padding: 0;
     background: #fdfcf3;
@@ -956,8 +963,9 @@
        it to the right half; on a phone that squeezes the chord cells off-screen). */
     .rb-area { padding: 6px; justify-content: stretch; }
     .rb-stack { width: 100% !important; }
-    .real-book { height: 60px; }
-    .rb-loop, .rb-cycle { height: 60px; }
+    .real-book { height: 110px; }       /* mobile: a little shorter than desktop */
+    .rb-loop, .rb-cycle { height: 110px; }
+    .rb-tab { width: 52px; height: 52px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
@@ -3745,6 +3753,29 @@ class Player {
       // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
+    // Pick a voicing for each unique chord in the strip, threading voice-leading
+    // through the sequence so each tab reflects a smooth move from the prior cell.
+    const cellVoicings = {};   // chord-id+keyPc -> shape
+    let prevShapeForChain = state.playerVoicing?.shape || focusedShape()?.shape || null;
+    cells.forEach(cell => {
+      if (!cell) return;
+      const ch = map.chordDefs[cell.chord];
+      if (!ch) return;
+      const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
+      const root = (cellKeyPc + ch.deg) % 12;
+      const k = `${cell.chord}@${cellKeyPc}`;
+      if (cellVoicings[k]) { prevShapeForChain = cellVoicings[k]; return; }
+      // Prefer cached played voicing if it's in the same key; else smoothest from chain
+      let v = null;
+      if (state.progressionVoicings[cell.chord] && cellKeyPc === state.keyPc) {
+        v = state.progressionVoicings[cell.chord].shape;
+      } else {
+        const sm = smoothestVoicing(ch.quality, root, prevShapeForChain);
+        v = sm?.shape;
+      }
+      if (v) { cellVoicings[k] = v; prevShapeForChain = v; }
+    });
+
     const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
       const ch = map.chordDefs[cell.chord];
@@ -3761,10 +3792,16 @@ class Player {
       if (cell.barIdxInChord > 0) {
         return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
       }
+      // Mini tab below the chord name — shows the voicing as a small fretboard diagram
+      const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
+      const tabSvg = shape
+        ? renderMini(shape, root, ch.quality, cellFlats, {W: 64, H: 64, r: 4})
+        : '';
       return `
         <div class="${cls}">
           <div class="rb-roman">${ch.roman}</div>
           <div class="rb-chord">${name}</div>
+          <div class="rb-tab">${tabSvg}</div>
         </div>
       `;
     }).join('');
