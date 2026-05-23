@@ -3775,14 +3775,14 @@ class Player {
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
-    // On mobile, when the LAST bar of the page is playing, swap cell 0 to show
-    // the peek (upcoming) chord with imminent blink. Cells 1–3 stay put. Cell 3
-    // remains highlighted as the currently playing chord.
-    const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
+    // When the LAST bar of the page is playing, swap cell 0 to show the peek
+    // (upcoming) chord with imminent blink. Cells 1–3 stay put. Cell 3 still
+    // lights as the currently playing chord. Unified behavior for desktop + mobile —
+    // replaces the old desktop-only separate peek element on the right.
     let cells = this._cachedPage;
     let currentIdx = barInPage;
     let imminentIdx = -1;
-    if (isMobile && barInPage === 3 && this._cachedPeek) {
+    if (barInPage === 3 && this._cachedPeek) {
       cells = [{ chord: this._cachedPeek, barIdxInChord: 0, keyPc: this._cachedPeekKeyPc },
                ...this._cachedPage.slice(1)];
       imminentIdx = 0;
@@ -3852,22 +3852,7 @@ class Player {
       const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 5}) : '';
       return `<div class="${cls}">${svg}</div>`;
     }).join('');
-    let peekHtml = '';
-    if (this._cachedPeek) {
-      const ch = map.chordDefs[this._cachedPeek];
-      if (ch) {
-        // Use the peek's recorded key so the name reflects the upcoming key
-        // (matters when loop + cycle is active and the next iteration's key differs).
-        const peekKeyPc = (this._cachedPeekKeyPc !== undefined && this._cachedPeekKeyPc !== null)
-          ? this._cachedPeekKeyPc : state.keyPc;
-        const peekFlats = useFlatsFor(peekKeyPc);
-        const root = (peekKeyPc + ch.deg) % 12;
-        const name = nameOf(root, peekFlats) + QUALITIES[ch.quality].sfx;
-        const imminent = barInPage === 3 ? 'imminent' : '';
-        peekHtml = `<div class="rb-peek ${imminent}">→ ${name}</div>`;
-      }
-    }
-    el.innerHTML = cellsHtml + peekHtml;
+    el.innerHTML = cellsHtml;
     const tabsEl = document.getElementById('real-book-tabs');
     if (tabsEl) {
       tabsEl.hidden = false;
