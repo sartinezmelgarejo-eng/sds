@@ -153,45 +153,10 @@
     font-weight: 600;
     cursor: pointer;
   }
-  .toggle button.active { background: var(--panel-2); color: var(--text); }
-
-  .drone-btn {
-    background: var(--panel-2);
-    color: var(--text-dim);
-    border: 1px solid var(--line);
-    padding: 4px 9px;
-    border-radius: 5px;
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.1s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-  }
-  .drone-btn:hover { border-color: var(--line-2); color: var(--text); }
-  .drone-btn.active {
+  .toggle button.active {
     background: var(--accent);
     color: #fff;
-    border-color: var(--accent);
-  }
-  .drone-btn .dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: 0.4;
-  }
-  .drone-btn.active .dot {
-    opacity: 1;
-    background: #fff;
-    box-shadow: 0 0 6px #fff;
-    animation: pulse 1.4s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  .drone-vol {
-    width: 60px;
-    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(160,120,32,0.35);
   }
 
   .met-play {
@@ -211,18 +176,66 @@
     border-color: var(--accent);
   }
   .bpm-input {
-    width: 48px;
+    width: 60px;
     padding: 4px 6px;
     background: var(--panel-2);
     color: var(--text);
     border: 1px solid var(--line);
     border-radius: 5px;
-    font-size: 11px;
+    font-size: 18px;
     font-weight: 700;
     font-family: 'SF Mono', monospace;
     text-align: center;
   }
   .bpm-input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+  .bpm-input::-webkit-inner-spin-button, .bpm-input::-webkit-outer-spin-button { display: none; }
+  .bpm-step {
+    width: 22px;
+    height: 26px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--text-faint);
+    font-family: 'SF Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+    padding: 0;
+  }
+  .bpm-step:hover { background: var(--panel-2); color: var(--text); }
+  .bpm-step:active { background: var(--accent); color: #fff; }
+  .bpm-slider {
+    -webkit-appearance: none; appearance: none;
+    width: 110px;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .bpm-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--panel);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .bpm-slider::-moz-range-thumb {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--panel);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+  }
+  .bpm-label {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-left: 2px;
+  }
   .met-mode {
     display: flex;
     background: var(--bg);
@@ -279,6 +292,42 @@
     opacity: 0;
   }
   .sound-menu-item.selected .check { opacity: 1; }
+
+  /* Mixer (channel volume) panel */
+  .mixer-menu { min-width: 220px; padding: 10px 12px; gap: 8px; }
+  .mixer-row {
+    display: grid;
+    grid-template-columns: 70px 1fr 28px;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .mixer-row .mix-label { font-style: italic; opacity: 0.85; }
+  .mixer-row input[type="range"] {
+    -webkit-appearance: none; appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--line);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  .mixer-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--panel);
+  }
+  .mixer-row .mix-val {
+    font-family: 'SF Mono', monospace;
+    font-size: 10px;
+    color: var(--text-faint);
+    text-align: right;
+  }
+  .mixer-row.muted .mix-label { opacity: 0.4; text-decoration: line-through; }
 
   /* Playback */
   .auto-btn {
@@ -367,7 +416,7 @@
     border-color: var(--tag-tonic) !important;
     background: #e8f7ef !important;
     animation: playingPulse 0.55s ease-in-out infinite;
-    z-index: 10 !important;
+    z-index: 20 !important;
     opacity: 1 !important;
   }
   @keyframes nextUpBlink {
@@ -393,57 +442,36 @@
     display: flex;
     align-items: stretch;
   }
-  .scale-area {
-    background: var(--panel);
-    border-bottom: 1px solid var(--line);
-    padding: 8px 18px 12px;
-    display: flex;
-    justify-content: flex-end;
-  }
-  .scale-strip {
-    width: 50%;
-    height: 100px;
-    border: 1.5px solid #1a1a1a;
-    background: #fdfcf3;
-    display: flex;
-    align-items: center;
-    padding: 6px 18px;
-    gap: 24px;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-  }
-  .scale-strip-label {
+  .map-side-panel {
+    width: 720px;
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    line-height: 1.15;
-    flex: 0 0 auto;
-    min-width: 140px;
+    gap: 14px;
+    align-self: flex-start;
   }
-  .scale-strip-label .ss-name {
-    font-size: 22px;
-    color: #1a1a1a;
+  .scale-neck {
+    width: 100%;
+    height: 300px;
+    background: #1a1410;
+    border: 1.5px solid #1a1a1a;
+    display: block;
+    border-radius: 4px;
+    box-shadow: 0 2px 18px rgba(0,0,0,0.25) inset;
+  }
+  .neck-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .neck-label {
+    font-family: 'Cormorant Garamond', Georgia, serif;
     font-style: italic;
-    font-weight: 600;
-  }
-  .scale-strip-label .ss-fret {
     font-size: 13px;
     color: #5a5a64;
-    font-style: italic;
-    opacity: 0.75;
-    margin-top: 2px;
-  }
-  .scale-strip-legend {
-    font-size: 11px;
-    color: #5a5a64;
-    font-style: italic;
-    opacity: 0.7;
-    line-height: 1.5;
-    margin-top: 4px;
-  }
-  .scale-strip-legend span { display: inline-flex; align-items: center; gap: 4px; }
-  .scale-strip svg {
-    height: 86px;
-    flex: 1 1 auto;
-    max-width: none;
+    opacity: 0.65;
+    letter-spacing: 0.5px;
+    padding-left: 4px;
   }
   .real-book {
     display: flex;
@@ -455,23 +483,57 @@
   .real-book[hidden] { display: none; }
   .rb-loop {
     height: 52px;
-    padding: 0 14px;
+    width: 38px;
+    padding: 0;
     background: #fdfcf3;
     border: 1.5px solid #1a1a1a;
     border-left: none;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #5a5a64;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
-    white-space: nowrap;
-    transition: background 0.2s, color 0.2s;
+    justify-content: center;
+    transition: background 0.2s;
   }
   .rb-loop:hover { background: #f5ecd0; }
+  .rb-loop svg { display: block; }
+  .rb-loop .repeat-thick { fill: #1a1a1a; transition: fill 0.2s, filter 0.2s; }
+  .rb-loop .repeat-thin  { fill: #1a1a1a; transition: fill 0.2s, filter 0.2s; }
+  .rb-loop .repeat-dot   { fill: #1a1a1a; transition: fill 0.2s, filter 0.2s; }
   .rb-loop.active {
+    background: #fffbe8;
+  }
+  .rb-loop.active .repeat-thick,
+  .rb-loop.active .repeat-thin,
+  .rb-loop.active .repeat-dot {
+    fill: #d4a017;
+    filter: drop-shadow(0 0 3px #f4c542) drop-shadow(0 0 6px #f4c542);
+  }
+  @keyframes repeat-pulse {
+    0%, 100% { filter: drop-shadow(0 0 3px #f4c542) drop-shadow(0 0 6px #f4c542); }
+    50%      { filter: drop-shadow(0 0 5px #ffd54a) drop-shadow(0 0 10px #ffd54a); }
+  }
+  .rb-loop.active .repeat-thick,
+  .rb-loop.active .repeat-thin,
+  .rb-loop.active .repeat-dot {
+    animation: repeat-pulse 1.8s ease-in-out infinite;
+  }
+  /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
+  .rb-cycle {
+    height: 52px;
+    width: 24px;
+    padding: 0;
+    background: #fdfcf3;
+    border: 1.5px solid #1a1a1a;
+    border-left: none;
+    cursor: pointer;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #5a5a64;
+    transition: background 0.2s, color 0.2s;
+  }
+  .rb-cycle:hover { background: #f5ecd0; color: #1a1a1a; }
+  .rb-cycle.active {
     background: #fcecaa;
     color: #6b4a0e;
   }
@@ -546,7 +608,7 @@
   .map-card.next-up {
     border-color: rgba(160,120,32,0.85) !important;
     background: #faedc4 !important;
-    z-index: 8;
+    z-index: 18;
     animation: nextUpBlink var(--blink-duration, 1s) ease-in-out infinite;
   }
 
@@ -580,22 +642,29 @@
   .map-wrap {
     position: relative;
     overflow: auto;
-    padding: 12px;
+    padding: 8px 12px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    gap: 28px;
+    align-items: flex-start;
+    gap: 18px;
+  }
+  .chord-map-host {
+    width: 460px;
+    height: 680px;
+    flex-shrink: 0;
   }
   .chord-map {
     position: relative;
     width: 540px;
     height: 800px;
-    flex-shrink: 0;
+    transform: scale(0.85);
+    transform-origin: top left;
   }
   .map-arrows {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    /* Sit BEHIND the cards so lines never cover chord content. */
     z-index: 1;
   }
   .map-card {
@@ -643,6 +712,43 @@
   .map-card.satellite .mc-name { font-size: 10.5px; }
   .map-card.satellite .mc-svg-wrap svg { width: 72px !important; }
   .map-card.satellite:hover { opacity: 1; }
+  /* Cards connected to the focused chord get a soft amber glow */
+  .map-card.related {
+    box-shadow: 0 0 0 1.5px rgba(160,120,32,0.45), 0 0 14px rgba(212,160,23,0.22);
+    border-color: rgba(160,120,32,0.55) !important;
+    transition: box-shadow 0.35s ease, border-color 0.35s ease;
+  }
+  /* Stronger, slowly-pulsing glow when the focused chord is the tonic hub —
+     makes the opening view feel alive without spaghetti arrows. */
+  @keyframes hubRelatedPulse {
+    0%, 100% { box-shadow: 0 0 0 1.5px rgba(160,120,32,0.45), 0 0 16px rgba(244,197,66,0.32); }
+    50%      { box-shadow: 0 0 0 2px   rgba(160,120,32,0.6),  0 0 26px rgba(244,197,66,0.55); }
+  }
+  .map-card.related-from-hub {
+    animation: hubRelatedPulse 2.6s ease-in-out infinite;
+  }
+  /* "In current progression" — quiet marker so progression chords are recognizable
+     without competing with the playing/next-up highlights. */
+  .map-card.in-progression::after {
+    content: '';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  /* Don't show the dot when the card is already the live or upcoming chord */
+  .map-card.playing.in-progression::after,
+  .map-card.next-up.in-progression::after { display: none; }
+  /* Cards NOT in the current progression get a subtle dim so the in-progression
+     cards stand out without explicit decoration */
+  body.player-active .map-card:not(.in-progression):not(.playing):not(.next-up) {
+    opacity: 0.55;
+  }
   /* Diatonic: emphasize with subtle shadow + thicker border */
   .map-card.diatonic {
     box-shadow: 0 1px 4px rgba(31,29,24,0.07);
@@ -652,7 +758,7 @@
     border-color: var(--accent);
     background: #fff8e6;
     box-shadow: 0 6px 22px rgba(31,29,24,0.10), 0 0 0 2px rgba(160,120,32,0.22);
-    z-index: 5;
+    z-index: 15;
     opacity: 1;
   }
   .mc-top { display: flex; gap: 6px; align-items: baseline; line-height: 1; }
@@ -827,22 +933,20 @@
     </div>
   </div>
 
+  <div class="ctx-block">
+    <div class="ctx-label">Chords</div>
+    <button class="auto-btn" id="chord-scope" style="font-weight:600" title="filter which chords appear in the map and progressions">✦ All</button>
+  </div>
+
   <div class="spacer"></div>
 
   <div class="ctx-block">
-    <div class="ctx-label">Drone</div>
-    <div style="display:flex;gap:4px;align-items:center">
-      <button class="drone-btn" data-drone="tonic"><span class="dot"></span>Tónica</button>
-      <button class="drone-btn" data-drone="chord"><span class="dot"></span>Acorde</button>
-      <input type="range" min="0" max="100" value="35" class="drone-vol" id="drone-vol" title="volume">
-    </div>
-  </div>
-
-  <div class="ctx-block">
     <div class="ctx-label">Tempo</div>
-    <div style="display:flex;gap:4px;align-items:center">
+    <div style="display:flex;gap:6px;align-items:center">
       <button class="met-play" id="met-play">▶</button>
       <input type="number" class="bpm-input" id="bpm-input" value="120" min="40" max="280" title="BPM">
+      <span class="bpm-label">bpm</span>
+      <input type="range" class="bpm-slider" id="bpm-slider" min="40" max="240" value="120" title="drag to set tempo">
       <div class="met-mode" id="met-mode">
         <button data-mode="click">Click</button>
         <button data-mode="ride" class="active">Ride</button>
@@ -850,33 +954,56 @@
     </div>
   </div>
 
-  <div class="ctx-block" style="flex:1;min-width:300px">
-    <div class="ctx-label">Auto-play</div>
+  <div class="ctx-block">
+    <div class="ctx-label">Sound</div>
+    <div style="display:flex;gap:6px;align-items:center">
+      <button class="auto-btn" id="mixer-btn" style="font-weight:600" title="open the volume mixer">🎚 Mix</button>
+      <button class="auto-btn active" id="bass-toggle" style="font-weight:600" title="mute/unmute bass">🎸 Bass</button>
+      <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🪕 Jazz Gtr</button>
+      <button class="auto-btn" id="voicing-pref" style="font-weight:600" title="click to pick voicing type">🎼 All</button>
+    </div>
+  </div>
+
+  <div class="ctx-block" style="flex:1;min-width:200px">
+    <div class="ctx-label">Play</div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="auto-btn" id="auto-play">▶ AI</button>
-      <button class="auto-btn active" id="bass-toggle" style="font-weight:600">🎸 Bass</button>
-      <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">✨ Rhodes</button>
       <div id="player-info"></div>
     </div>
   </div>
 </header>
 
 <div class="sound-menu" id="sound-menu" hidden></div>
+<div class="sound-menu" id="voicing-menu" hidden></div>
+<div class="sound-menu" id="scope-menu" hidden></div>
+<div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
 
 <div class="rb-area">
   <div class="rb-stack">
     <div class="rb-row">
       <div class="real-book" id="real-book" hidden></div>
-      <button class="rb-loop" id="loop-toggle" title="loop the current section">🔁</button>
+      <button class="rb-loop" id="loop-toggle" title="loop the current section" aria-label="repeat"><svg width="20" height="30" viewBox="0 0 20 30"><rect class="repeat-thick" x="3"  y="3" width="4" height="24"/><rect class="repeat-thin"  x="9"  y="3" width="1.4" height="24"/><circle class="repeat-dot" cx="15" cy="11" r="1.8"/><circle class="repeat-dot" cx="15" cy="19" r="1.8"/></svg></button>
+      <button class="rb-cycle" id="cycle-toggle" title="no key cycle">·</button>
     </div>
   </div>
 </div>
 
 <main>
   <div class="map-wrap">
-    <div class="scale-strip" id="scale-strip"></div>
-    <div class="chord-map" id="chord-map">
-      <svg class="map-arrows" id="map-arrows" preserveAspectRatio="none"></svg>
+    <div class="chord-map-host">
+      <div class="chord-map" id="chord-map">
+        <svg class="map-arrows" id="map-arrows" preserveAspectRatio="none"></svg>
+      </div>
+    </div>
+    <div class="map-side-panel">
+      <div class="neck-block">
+        <div class="neck-label">chord</div>
+        <svg class="scale-neck" id="chord-neck" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="neck-block">
+        <div class="neck-label">scale</div>
+        <svg class="scale-neck" id="scale-neck" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
     </div>
   </div>
 
@@ -985,6 +1112,8 @@ const CHORD_MAP = {
       {from:'n_V',    to:'n_vi', curve:-1},
       // Stepwise iii → IV (long diagonal, arch up-left)
       {from:'n_iii',  to:'n_IV'},
+      // iii → V (substitute-for-tonic into dominant — common jazz move)
+      {from:'n_iii',  to:'n_V'},
       // Secondaries → their targets (short, default)
       {from:'n_V_V',  to:'n_V'},
       {from:'n_V_ii', to:'n_ii'},
@@ -994,6 +1123,12 @@ const CHORD_MAP = {
       {from:'n_bVII', to:'n_I'},
       // Tritone sub (arch below to avoid hub on the way)
       {from:'n_bII7', to:'n_I'},
+      // I (tonic hub) → can go anywhere diatonic. Show all standard outgoing moves.
+      {from:'n_I',    to:'n_ii',  curve:-1},
+      {from:'n_I',    to:'n_iii'},
+      {from:'n_I',    to:'n_IV'},
+      {from:'n_I',    to:'n_V',   curve:-1},
+      {from:'n_I',    to:'n_vi'},
     ],
   },
   minor: {
@@ -1002,18 +1137,39 @@ const CHORD_MAP = {
       'iiø':  {roman:'iiø',  deg:2,  quality:'m7b5',  tag:'predom'},
       'bIII': {roman:'bIII', deg:3,  quality:'maj7',  tag:'tonic'},
       'iv':   {roman:'iv',   deg:5,  quality:'m7',    tag:'predom'},
-      'V7':   {roman:'V7',   deg:7,  quality:'7',     tag:'dom'},
-      'bVI':  {roman:'bVI',  deg:8,  quality:'maj7',  tag:'tonic'},
-      'bVII': {roman:'bVII', deg:10, quality:'7',     tag:'dom'},
+      'V7':    {roman:'V7',    deg:7,  quality:'7',     tag:'dom'},
+      'bVI':   {roman:'bVI',   deg:8,  quality:'maj7',  tag:'tonic'},
+      'bVII':  {roman:'bVII',  deg:10, quality:'7',     tag:'dom'},
+      // Extensions
+      'bII7':  {roman:'bII7',  deg:1,  quality:'7',     tag:'borrowed'},   // Neapolitan / tritone sub of V7
+      'V_iv':  {roman:'V/iv',  deg:0,  quality:'7',     tag:'secondary'},  // secondary dom of iv (in C min = C7→Fm)
+      'V_V':   {roman:'V/V',   deg:2,  quality:'7',     tag:'secondary'},  // secondary dom of V7
+      'I_pic': {roman:'I',     deg:0,  quality:'maj7',  tag:'borrowed'},   // Picardy major tonic
+      'bIII7': {roman:'bIII7', deg:3,  quality:'7',     tag:'borrowed'},   // substitute dom
+      'vii7':  {roman:'vii°7', deg:11, quality:'dim7',  tag:'borrowed'},   // harmonic-minor leading-tone dim
+      'IV':    {roman:'IV',    deg:5,  quality:'maj7',  tag:'borrowed'},   // parallel-major IV
     },
     nodes: {
-      'n_bIII': {chord:'bIII', x:300, y:30},
-      'n_bVI':  {chord:'bVI',  x:300, y:150},
-      'n_iiø':  {chord:'iiø',  x:300, y:270},
-      'n_V7':   {chord:'V7',   x:300, y:390},
-      'n_iv':   {chord:'iv',   x:80,  y:390},
-      'n_bVII': {chord:'bVII', x:80,  y:270},
-      'n_i':    {chord:'i',    x:165, y:540, hub:true},
+      // Row 1 (top)
+      'n_bIII':  {chord:'bIII',  x:300, y:30},
+      'n_bIII7': {chord:'bIII7', x:430, y:30},
+      // Row 2
+      'n_IV':    {chord:'IV',    x:30,  y:150},  // parallel-major IV (left col)
+      'n_bVI':   {chord:'bVI',   x:300, y:150},
+      // Row 3
+      'n_bVII':  {chord:'bVII',  x:80,  y:270},
+      'n_iiø':   {chord:'iiø',   x:300, y:270},
+      'n_vii7':  {chord:'vii7',  x:430, y:270},
+      // Row 4
+      'n_iv':    {chord:'iv',    x:80,  y:390},
+      'n_V7':    {chord:'V7',    x:300, y:390},
+      'n_bII7':  {chord:'bII7',  x:430, y:390},
+      // Row 5 — secondaries flanking the hub
+      'n_V_iv':  {chord:'V_iv',  x:30,  y:550},
+      'n_i':     {chord:'i',     x:165, y:540, hub:true},
+      'n_V_V':   {chord:'V_V',   x:430, y:550},
+      // Row 6 — Picardy ending below + right of hub
+      'n_I_pic': {chord:'I_pic', x:320, y:710},
     },
     arrows: [
       {from:'n_bIII', to:'n_bVI'},
@@ -1026,6 +1182,24 @@ const CHORD_MAP = {
       {from:'n_V7',   to:'n_bVI'},
       {from:'n_bVII', to:'n_i'},
       {from:'n_bVI',  to:'n_bVII'},
+      // Extensions resolving inward
+      {from:'n_bII7',  to:'n_i'},                  // tritone sub → tonic
+      {from:'n_V_iv',  to:'n_iv'},                 // secondary → iv
+      {from:'n_V_V',   to:'n_V7'},                 // secondary → V7
+      {from:'n_V7',    to:'n_I_pic', curve:-1},    // Picardy resolution
+      {from:'n_bIII7', to:'n_bVI'},                // sub-dom → bVI
+      {from:'n_vii7',  to:'n_i'},                  // leading-tone dim → i
+      {from:'n_IV',    to:'n_V7'},                 // parallel-major IV → V7 (cadence)
+      {from:'n_IV',    to:'n_i'},                  // or → i directly (plagal)
+      // i (tonic hub) → can go anywhere — show outgoing options (incl. parallels/borrowed)
+      {from:'n_i',    to:'n_iiø'},
+      {from:'n_i',    to:'n_iv'},
+      {from:'n_i',    to:'n_V7'},
+      {from:'n_i',    to:'n_bVI'},
+      {from:'n_i',    to:'n_bVII'},
+      {from:'n_i',    to:'n_bIII'},
+      {from:'n_i',    to:'n_IV'},
+      {from:'n_i',    to:'n_V_iv'},
     ],
   },
 };
@@ -1146,6 +1320,34 @@ function triadVoicing(quality, rootPc, stringSetType = 'top') {
 }
 
 // Shell voicing: R (low) + 7 (or b7) + 3 (or b3) — classic jazz comping
+// Guide-tone duo: the 3rd and 7th only — literally a shell without the root.
+// Mirrors shellVoicing's string sets minus the root string.
+// Returns a single best shape (picker handles voice-leading across calls).
+function guideToneVoicing(quality, rootPc, type = 'A') {
+  const q = QUALITIES[quality];
+  if (!q) return null;
+  const ints = q.ints;
+  const seventhInt = ints.includes(11) ? 11 : ints.includes(10) ? 10 : ints.includes(9) ? 9 : 10;
+  const thirdInt   = ints.includes(4)  ? 4  : ints.includes(3)  ? 3  : 4;
+  // Pitches ascending: 7 (below), 3+12 (above) — same arrangement as the shell's
+  // upper two voices.
+  const intervals = [seventhInt, thirdInt + 12];
+  // Type A: 7 on D string, 3 on G string  (the upper two strings of shell A)
+  // Type B: 7 on G string, 3 on B string  (the upper two strings of shell B)
+  const strings = type === 'A' ? [2, 3] : [3, 4];
+  for (let oct = 24; oct <= 60; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = intervals.map(s => rootMidi + s);
+    const frets = strings.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      strings.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
+}
+
 function shellVoicing(quality, rootPc, type = 'A') {
   const q = QUALITIES[quality];
   if (!q) return null;
@@ -1178,17 +1380,6 @@ function shellVoicing(quality, rootPc, type = 'A') {
   return null;
 }
 
-function smoothestOnStringSet(quality, rootPc, stringSetIdx, sourceShape) {
-  let best = null;
-  for (let inv = 0; inv < 4; inv++) {
-    const sh = dropTwoVoicing(quality, rootPc, stringSetIdx, inv);
-    if (!sh) continue;
-    const m = totalVoiceMovement(sourceShape, sh);
-    if (!best || m < best.movement) best = {shape: sh, stringSetIdx, inversion: inv, movement: m};
-  }
-  return best;
-}
-
 /* ════════════════════════════════════════════════════════════
    STATE
    ════════════════════════════════════════════════════════════ */
@@ -1201,6 +1392,9 @@ const state = {
   userVoicing: null,
   playerVoicing: null,  // {chord, shape, type} — currently playing
   nextVoicing: null,    // {chord, shape, type} — predicted upcoming
+  // chordId → {shape, type} for chords that have played in the current progression.
+  // Used so each chord card shows the voicing it will actually be played in.
+  progressionVoicings: {},
 };
 
 function currentMap() { return CHORD_MAP[state.tonality]; }
@@ -1217,6 +1411,10 @@ function focusedShape() {
   const fc = focusedChord();
   const root = chordRoot(fc);
   if (state.userVoicing) {
+    // If the user voicing carries a raw shape (shells/triads/AI voicings), use it directly.
+    if (state.userVoicing.shape) {
+      return { shape: state.userVoicing.shape, ...state.userVoicing };
+    }
     return {
       shape: dropTwoVoicing(fc.quality, root, state.userVoicing.stringSetIdx, state.userVoicing.inversion),
       ...state.userVoicing,
@@ -1247,12 +1445,18 @@ function computeAllVoicings() {
 
   for (const id in map.chordDefs) {
     if (id === focused.id) continue;
-    // Honor the AI's predicted next-up voicing so the next-up card
-    // shows exactly what will be played when it becomes active
+    // 1. AI's predicted next-up voicing wins (most accurate)
     if (state.nextVoicing && state.nextVoicing.chord === id && state.nextVoicing.shape) {
       result[id] = { shape: state.nextVoicing.shape, type: state.nextVoicing.type };
       continue;
     }
+    // 2. Cached voicing from this run of the progression — keeps each played
+    //    chord's card showing the position it'll be in next time it comes around
+    if (state.progressionVoicings[id]) {
+      result[id] = state.progressionVoicings[id];
+      continue;
+    }
+    // 3. Default: smoothest voice-leading from the focused chord
     const ch = map.chordDefs[id];
     const r = chordRoot(ch);
     const sm = smoothestVoicing(ch.quality, r, focShape.shape);
@@ -1407,6 +1611,8 @@ function renderChordMap() {
   // Render one card per node
   for (const nodeId in map.nodes) {
     const node = map.nodes[nodeId];
+    // Skip chords not allowed by the current scope filter — clears space in the map
+    if (!isChordInScope(node.chord)) continue;
     const ch = map.chordDefs[node.chord];
     const root = chordRoot(ch);
     const v = voicings[node.chord];
@@ -1429,12 +1635,21 @@ function renderChordMap() {
       <div class="mc-svg-wrap">${svg}</div>
     `;
     card.addEventListener('click', () => {
+      // Use the EXACT voicing the card was just displaying — that's what the
+      // user looked at and expects to hear. `v` is from computeAllVoicings()
+      // and already accounts for AI next-up / progression cache / smoothest fallback.
+      const displayed = v;
+
       state.focusedChord = node.chord;
-      state.userVoicing = null;
+      state.userVoicing = displayed?.shape
+        ? { shape: displayed.shape, ...displayed }
+        : null;
+
       if (player.playing) {
         player.jumpTo(node.chord);
       }
       renderAll();
+      ringFocusedChord();
       // After renderAll, re-apply playing/next-up classes if player active
       if (player.playing) {
         document.querySelectorAll('.map-card').forEach(c => {
@@ -1448,25 +1663,23 @@ function renderChordMap() {
 
   // Render arrows using node positions
   arrowsSvg.setAttribute('viewBox', `0 0 ${MAP_DIMS.width} ${MAP_DIMS.height}`);
+  const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
   arrowsSvg.innerHTML = `
     <defs>
-      <marker id="ah-smooth" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" fill="#059669"/>
+      <!-- Tiny, minimal arrowhead — only shown on highlighted arrows -->
+      <marker id="ah-hl" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto">
+        <path d="M0,1 L7,4 L0,7" fill="none" stroke="${accentColor}" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
       </marker>
-      <marker id="ah-med" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" fill="#a07820"/>
-      </marker>
-      <marker id="ah-jump" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" fill="#a8a493"/>
-      </marker>
-      <marker id="ah-hl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-        <path d="M0,0 L10,5 L0,10 z" fill="${getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()}"/>
+      <marker id="ah-soft" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="4" markerHeight="4" orient="auto">
+        <path d="M0,1 L7,4 L0,7" fill="none" stroke="#9d978a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
       </marker>
     </defs>
   ` + map.arrows.map(arr => {
     const a = map.nodes[arr.from];
     const b = map.nodes[arr.to];
     if (!a || !b) return '';
+    // Don't draw arrows touching chords filtered out by the scope
+    if (!isChordInScope(a.chord) || !isChordInScope(b.chord)) return '';
     const aIsHub = a.hub;
     const bIsHub = b.hub;
     const aChDef = map.chordDefs[a.chord];
@@ -1496,8 +1709,8 @@ function renderChordMap() {
     const ey = bcy - uy * tB;
     const mx = (sx + ex) / 2, my = (sy + ey) / 2;
     const perpX = -uy, perpY = ux;
-    // Short arrows = nearly straight. Long arrows = strong arch around obstacles.
-    const curveAmt = dist < 180 ? dist * 0.10 : Math.min(120, dist * 0.34);
+    // Gentler curve — short arrows nearly straight, long arrows softly arched
+    const curveAmt = dist < 180 ? dist * 0.06 : Math.min(70, dist * 0.18);
     const curveDir = (arr.curve === undefined) ? 1 : arr.curve;
     const cx = mx + perpX * curveAmt * curveDir;
     const cy = my + perpY * curveAmt * curveDir;
@@ -1505,37 +1718,47 @@ function renderChordMap() {
     const aChord = a.chord, bChord = b.chord;
     const isHl = (aChord === state.focusedChord) || (bChord === state.focusedChord);
 
-    // Voice-leading cost → visual thickness + color (no number labels)
+    // Only DRAW arrows that touch the focused chord — keeps the map clean.
+    if (!isHl) return '';
+
+    // When the focused chord is the tonic hub, suppress ALL its arrows.
+    // The relationships are conveyed by glowing the connected cards instead.
+    const focusedNode = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
+    if (focusedNode?.hub) return '';
+
+    // Voice-leading cost → opacity (smoother connections are bolder)
     const va = voicings[aChord];
     const vb = voicings[bChord];
-    let strokeWidth = 1.5;
-    let strokeColor = '#a8a493';
-    let markerName = 'ah-jump';
+    let opacity = 0.85;
     if (va?.shape && vb?.shape) {
       const cost = totalVoiceMovement(va.shape, vb.shape);
-      if (cost <= 3) {
-        strokeWidth = 2.8;
-        strokeColor = '#059669';
-        markerName = 'ah-smooth';
-      } else if (cost <= 7) {
-        strokeWidth = 2.0;
-        strokeColor = '#a07820';
-        markerName = 'ah-med';
-      } else {
-        strokeWidth = 1.2;
-        strokeColor = '#a8a493';
-        markerName = 'ah-jump';
-      }
+      if (cost <= 3) opacity = 1.0;
+      else if (cost <= 7) opacity = 0.8;
+      else opacity = 0.55;
     }
-    const finalStroke = isHl ? 'var(--accent)' : strokeColor;
-    const finalWidth = isHl ? Math.max(strokeWidth, 2.6) : strokeWidth;
-    const finalOpacity = isHl ? 1 : 0.78;
-    const finalMarker = isHl ? 'ah-hl' : markerName;
 
-    return `
-      <path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${finalStroke}" stroke-width="${finalWidth}" opacity="${finalOpacity}" marker-end="url(#${finalMarker})"/>
-    `;
+    return `<path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${accentColor}" stroke-width="1.8" opacity="${opacity}" stroke-linecap="round" marker-end="url(#ah-hl)"/>`;
   }).join('');
+
+  // ── Light up the cards connected to the focused chord ──
+  // Find chord IDs that the focused chord points TO or FROM
+  const relatedIds = new Set();
+  map.arrows.forEach(arr => {
+    const a = map.nodes[arr.from];
+    const b = map.nodes[arr.to];
+    if (!a || !b) return;
+    if (a.chord === state.focusedChord) relatedIds.add(b.chord);
+    if (b.chord === state.focusedChord) relatedIds.add(a.chord);
+  });
+  const focusedNode2 = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
+  const isFocusedHub = !!focusedNode2?.hub;
+  document.querySelectorAll('.map-card').forEach(c => {
+    c.classList.remove('related', 'related-from-hub');
+    if (relatedIds.has(c.dataset.chord)) {
+      c.classList.add('related');
+      if (isFocusedHub) c.classList.add('related-from-hub');
+    }
+  });
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -1740,14 +1963,21 @@ function renderKeyRow() {
 
 document.querySelectorAll('#tonality-toggle button').forEach(b => {
   b.addEventListener('click', () => {
-    document.querySelectorAll('#tonality-toggle button').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
     state.tonality = b.dataset.tonality;
     state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
     state.userVoicing = null;
+    syncTonalityToggle();
     renderAll();
   });
 });
+
+// Keep the Major/Minor toggle visually in sync with state.tonality —
+// gets called from renderAll so AI-driven modulations update it too.
+function syncTonalityToggle() {
+  document.querySelectorAll('#tonality-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.tonality === state.tonality);
+  });
+}
 
 /* ════════════════════════════════════════════════════════════
    ORCHESTRATE
@@ -1764,6 +1994,82 @@ function ensureAudio() {
   return audioCtx;
 }
 function midiToFreq(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+
+// Karplus-Strong physical-model plucked string. Returns an AudioBuffer.
+function ksBuffer(ctx, freq, opts = {}) {
+  const duration   = opts.duration   ?? 2.2;
+  const brightness = opts.brightness ?? 0.5;  // 0 bright, 1 warm
+  const damping    = opts.damping    ?? 0.9975;
+  const sr = ctx.sampleRate;
+  const N = Math.max(2, Math.floor(sr / freq));
+  const samples = Math.floor(duration * sr);
+  const buf = ctx.createBuffer(1, samples, sr);
+  const data = buf.getChannelData(0);
+  // Delay line — shaped pluck (low-passed noise)
+  const delay = new Float32Array(N);
+  for (let i = 0; i < N; i++) delay[i] = Math.random() * 2 - 1;
+  // Low-pass the initial burst (2 passes for warmer attack)
+  for (let pass = 0; pass < 2; pass++) {
+    let prev = 0;
+    for (let i = 0; i < N; i++) {
+      const v = delay[i] * (1 - brightness) + prev * brightness;
+      delay[i] = v;
+      prev = v;
+    }
+  }
+  // Karplus-Strong main loop: output sample, average with next, feed back with damping
+  let idx = 0;
+  for (let i = 0; i < samples; i++) {
+    const cur = delay[idx];
+    data[i] = cur;
+    const nxt = delay[(idx + 1) % N];
+    delay[idx] = (cur + nxt) * 0.5 * damping;
+    idx = (idx + 1) % N;
+  }
+  return buf;
+}
+
+// Tube-style soft saturation curve (warm even+odd harmonics, no harshness)
+function makeSatCurve(amount = 8) {
+  const n = 2048;
+  const curve = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    // tanh-style soft clip with slight asymmetry for tube warmth
+    const y = Math.tanh(x * amount) / Math.tanh(amount);
+    curve[i] = y * 0.85 + (y * y * Math.sign(y)) * 0.06;
+  }
+  return curve;
+}
+
+// Generate a short plate/room reverb impulse response. Cached per ctx.
+let _jazzReverbIR = null;
+function getJazzReverbIR(ctx) {
+  if (_jazzReverbIR && _jazzReverbIR._sr === ctx.sampleRate) return _jazzReverbIR;
+  const sr = ctx.sampleRate;
+  const duration = 1.8;
+  const len = Math.floor(sr * duration);
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < len; i++) {
+      const t = i / len;
+      // Exponential decay, slightly slower in the early tail
+      const env = Math.pow(1 - t, 2.2) * (1 - 0.4 * Math.pow(t, 0.3));
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    // gentle low-pass on the IR (one-pole) so reverb is dark, not splashy
+    let prev = 0;
+    for (let i = 0; i < len; i++) {
+      const v = data[i] * 0.35 + prev * 0.65;
+      data[i] = v;
+      prev = v;
+    }
+  }
+  buf._sr = sr;
+  _jazzReverbIR = buf;
+  return buf;
+}
 
 class Drone {
   constructor() {
@@ -1835,11 +2141,12 @@ class Drone {
       if (timbre === 'pad') this._voicePad(midi, i, sortedNotes.length, t);
       else if (timbre === 'organ') this._voiceOrgan(midi, i, sortedNotes.length, t);
       else if (timbre === 'piano') this._voicePiano(midi, i, sortedNotes.length, t);
+      else if (timbre === 'jazzgtr') this._voiceJazzGuitar(midi, i, sortedNotes.length, t);
       else this._voiceRhodes(midi, i, sortedNotes.length, t);
     });
 
     // Per-timbre master attack
-    const attack = timbre === 'pad' ? 0.4 : (timbre === 'organ' ? 0.18 : (timbre === 'piano' ? 0.05 : 0.06));
+    const attack = timbre === 'pad' ? 0.4 : (timbre === 'organ' ? 0.18 : (timbre === 'piano' ? 0.05 : (timbre === 'jazzgtr' ? 0.04 : 0.06)));
     this.master.gain.cancelScheduledValues(now);
     this.master.gain.setValueAtTime(0, now);
     this.master.gain.linearRampToValueAtTime(this.targetVolume, now + attack);
@@ -1975,6 +2282,105 @@ class Drone {
     this.nodes.push({o1: fund, o2: tri, o3: harm});
   }
 
+  _voiceJazzGuitar(midi, i, total, t) {
+    // Soft archtop jazz guitar — Karplus-Strong physically modeled plucked string
+    // plus body-formant EQ to suggest the wooden hollow body.
+    const ctx = audioCtx;
+    const freq = midiToFreq(midi);
+
+    // Joe-Pass dark archtop: neck pickup, tone rolled off — heavily damped attack
+    const brightness = midi < 55 ? 0.86 : (midi < 70 ? 0.82 : 0.78);
+    // Long sustain across the range (hollow body resonance)
+    const damping = midi < 55 ? 0.9990 : (midi < 70 ? 0.9984 : 0.9978);
+
+    const buf = ksBuffer(ctx, freq, {
+      duration: 7,
+      brightness,
+      damping,
+    });
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+
+    // Body formants — typical archtop hollow-body resonances, gentle
+    const f1 = ctx.createBiquadFilter();
+    f1.type = 'peaking'; f1.frequency.value = 180; f1.Q.value = 1.2; f1.gain.value = 2.5;
+    const f2 = ctx.createBiquadFilter();
+    f2.type = 'peaking'; f2.frequency.value = 520; f2.Q.value = 1.4; f2.gain.value = 2.0;
+    const f3 = ctx.createBiquadFilter();
+    f3.type = 'peaking'; f3.frequency.value = 1400; f3.Q.value = 1.6; f3.gain.value = 1.0;
+
+    // Joe Pass tone-knob-rolled-off: aggressive top-end roll (two cascaded LPs for steeper slope)
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.5;
+    const lp2 = ctx.createBiquadFilter();
+    lp2.type = 'lowpass'; lp2.frequency.value = 1900; lp2.Q.value = 0.5;
+    // High-shelf to crush any sizzle that remains
+    const hsh = ctx.createBiquadFilter();
+    hsh.type = 'highshelf'; hsh.frequency.value = 2200; hsh.gain.value = -14;
+
+    // Per-voice volume balance
+    const pitchRoll = 1 - (i / total) * 0.35;
+    const vol = 0.32 * pitchRoll;
+    const g = ctx.createGain();
+    // Gentle plucked-string envelope: brief settling after the pluck, then slow body decay.
+    const decayTime = midi < 55 ? 6.5 : (midi < 65 ? 5.5 : (midi < 72 ? 4.5 : 3.5));
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    // Small settle: pluck transient drops ~15% in the first half-second
+    g.gain.exponentialRampToValueAtTime(vol * 0.85, t + 0.5);
+    // Long slow decay through the body of the note
+    g.gain.exponentialRampToValueAtTime(vol * 0.35, t + decayTime * 0.6);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + decayTime);
+
+    // Lazy-create a shared FX bus on this Drone (saturation + parallel reverb)
+    // so all jazz-guitar voices share one amp + reverb tail instead of each voice
+    // spawning its own convolver.
+    if (!this._gtrFx || this._gtrFx._master !== this.master) {
+      // Pre-amp tone: gentle low-mid warmth, scoop the upper mids slightly
+      const preEq = ctx.createBiquadFilter();
+      preEq.type = 'peaking'; preEq.frequency.value = 350; preEq.Q.value = 0.8; preEq.gain.value = 1.8;
+      const scoop = ctx.createBiquadFilter();
+      scoop.type = 'peaking'; scoop.frequency.value = 2200; scoop.Q.value = 1.2; scoop.gain.value = -3.0;
+
+      // VERY light tube warmth — barely audible, just removes digital edge
+      const drive = ctx.createGain();  drive.gain.value = 1.15;
+      const sat = ctx.createWaveShaper();
+      sat.curve = makeSatCurve(2.2);
+      sat.oversample = '4x';
+      const postSat = ctx.createGain(); postSat.gain.value = 0.88;
+
+      // Speaker cab — dark, woody
+      const ampLp = ctx.createBiquadFilter();
+      ampLp.type = 'lowpass'; ampLp.frequency.value = 2000; ampLp.Q.value = 0.5;
+      const ampHp = ctx.createBiquadFilter();
+      ampHp.type = 'highpass'; ampHp.frequency.value = 85; ampHp.Q.value = 0.5;
+
+      // Parallel reverb send — subtle room, not a plate
+      const dry = ctx.createGain(); dry.gain.value = 0.92;
+      const sendToVerb = ctx.createGain(); sendToVerb.gain.value = 0.22;
+      const conv = ctx.createConvolver();
+      conv.buffer = getJazzReverbIR(ctx);
+      const verbTone = ctx.createBiquadFilter();
+      verbTone.type = 'lowpass'; verbTone.frequency.value = 2200; verbTone.Q.value = 0.4;
+      const wet = ctx.createGain(); wet.gain.value = 0.18;
+
+      // Bus input — voices connect here
+      const input = ctx.createGain(); input.gain.value = 1.0;
+
+      // Wiring
+      input.connect(preEq); preEq.connect(scoop); scoop.connect(drive); drive.connect(sat); sat.connect(postSat);
+      postSat.connect(ampHp); ampHp.connect(ampLp);
+      ampLp.connect(dry); dry.connect(this.master);
+      ampLp.connect(sendToVerb); sendToVerb.connect(conv); conv.connect(verbTone); verbTone.connect(wet); wet.connect(this.master);
+
+      this._gtrFx = { input, _master: this.master };
+    }
+
+    src.connect(f1); f1.connect(f2); f2.connect(f3); f3.connect(lp); lp.connect(lp2); lp2.connect(hsh); hsh.connect(g); g.connect(this._gtrFx.input);
+    src.start(t);
+    this.nodes.push({o1: src});
+  }
+
   _immediateStop() {
     this.nodes.forEach(n => {
       try {
@@ -2015,9 +2421,15 @@ class Drone {
   }
 }
 
-let droneTimbre = 'rhodes';
-let bassEnabled = true;
+let droneTimbre = 'jazzgtr';
 let loopMode = false;
+// Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
+let cycleMode = 'none';
+const CYCLE_OPTIONS = [
+  { value: 'none',      label: '·', title: 'no key cycle' },
+  { value: 'chromatic', label: '½', title: 'chromatic — up a half step each loop' },
+  { value: 'fourths',   label: '4', title: 'circle of fourths — up a fourth each loop' },
+];
 
 const tonicDrone = new Drone();
 const chordDrone = new Drone();
@@ -2088,41 +2500,43 @@ function chordMidiNotes() {
   return fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
 }
 
-function currentDroneVolume() {
-  return (document.getElementById('drone-vol').value / 100) * 0.5;
-}
+// Per-channel volumes (0..1). The mixer popover writes here; audio sites read.
+const channelVols = {
+  chords:    0.7,
+  bass:      0.7,
+  metronome: 0.7,
+  tonic:     0.0,    // off by default; raise in mixer to enable
+};
+const CHANNEL_SCALES = { chords: 0.5, bass: 0.5, metronome: 1.0, tonic: 0.5 };
+function chVol(name) { return channelVols[name] * (CHANNEL_SCALES[name] ?? 0.5); }
+
+// Backward-compat shim — old call sites that meant "the chord/drone volume"
+function currentDroneVolume() { return chVol('chords'); }
+
+// Bass is enabled whenever its slider is above zero.
+function isBassEnabled() { return channelVols.bass > 0.001; }
 
 function updateActiveDrones() {
-  if (tonicDrone.playing) tonicDrone.start(tonicMidiNotes(), currentDroneVolume());
-  if (chordDrone.playing) chordDrone.start(chordMidiNotes(), currentDroneVolume());
+  if (tonicDrone.playing) tonicDrone.start(tonicMidiNotes(), chVol('tonic'));
+  if (chordDrone.playing) chordDrone.start(chordMidiNotes(), chVol('chords'));
 }
 
-document.querySelectorAll('.drone-btn').forEach(b => {
-  b.addEventListener('click', () => {
-    const type = b.dataset.drone;
-    const drone = type === 'tonic' ? tonicDrone : chordDrone;
-    if (drone.playing) {
-      drone.stop();
-      b.classList.remove('active');
-    } else {
-      const notes = type === 'tonic' ? tonicMidiNotes() : chordMidiNotes();
-      drone.start(notes, currentDroneVolume());
-      b.classList.add('active');
-    }
-  });
-});
-
-document.getElementById('drone-vol').addEventListener('input', e => {
-  const v = (e.target.value / 100) * 0.5;
-  tonicDrone.setVolume(v);
-  chordDrone.setVolume(v);
-});
+// Auto start/stop the tónica drone when its channel volume crosses zero.
+function syncTonicDrone() {
+  if (channelVols.tonic > 0.001) {
+    if (!tonicDrone.playing) tonicDrone.start(tonicMidiNotes(), chVol('tonic'));
+    else tonicDrone.setVolume(chVol('tonic'));
+  } else {
+    if (tonicDrone.playing) tonicDrone.stop();
+  }
+}
 
 const SOUND_OPTIONS = [
-  {value: 'rhodes', emoji: '✨', label: 'Rhodes'},
-  {value: 'piano',  emoji: '🎹', label: 'Piano'},
-  {value: 'pad',    emoji: '🌊', label: 'Pad'},
-  {value: 'organ',  emoji: '⛪', label: 'Organ'},
+  {value: 'rhodes',  emoji: '✨', label: 'Rhodes'},
+  {value: 'piano',   emoji: '🎹', label: 'Piano'},
+  {value: 'jazzgtr', emoji: '🪕', label: 'Jazz Gtr'},
+  {value: 'pad',     emoji: '🌊', label: 'Pad'},
+  {value: 'organ',   emoji: '⛪', label: 'Organ'},
 ];
 
 const soundBtn = document.getElementById('chord-sound');
@@ -2141,7 +2555,6 @@ function renderSoundMenu() {
       const s = SOUND_OPTIONS.find(o => o.value === droneTimbre);
       soundBtn.textContent = `${s.emoji} ${s.label}`;
       soundMenu.hidden = true;
-      // Restart any playing drones with new timbre
       if (tonicDrone.playing) {
         tonicDrone.lastNotes = null;
         tonicDrone.start(tonicMidiNotes(), currentDroneVolume());
@@ -2167,10 +2580,166 @@ soundBtn.addEventListener('click', e => {
   }
 });
 
-// Click outside closes the menu
 document.addEventListener('click', e => {
   if (!soundMenu.contains(e.target) && e.target !== soundBtn) {
     soundMenu.hidden = true;
+  }
+});
+
+// Ring the currently focused chord's voicing — used for manual navigation
+// (keyboard shortcut OR chord card click). Skips when the AI is playing so
+// we don't double up. The jazz-guitar voice has natural per-note decay so
+// the chord fades out on its own without ringing forever.
+function ringFocusedChord() {
+  if (player.playing) return;
+  ensureAudio();
+  const fs = focusedShape();
+  if (!fs?.shape) return;
+  const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  if (!notes.length) return;
+  // Force a fresh trigger every time (Drone.start would otherwise skip if the
+  // same notes were already playing — which happens when clicking the same
+  // chord twice, or when two chords happen to voice the same pitches).
+  chordDrone.lastNotes = null;
+  chordDrone.start(notes, currentDroneVolume() * 1.8);
+  // Safety: after 4s, gently fade the master so audio never lingers indefinitely
+  if (chordDrone.master && audioCtx) {
+    const m = chordDrone.master;
+    const now = audioCtx.currentTime;
+    m.gain.cancelScheduledValues(now + 4);
+    m.gain.setTargetAtTime(0, now + 4, 0.8);
+  }
+}
+
+/* ─── Chord-scope filter ─── */
+// Controls which chords appear in the chord map AND which progressions the AI can choose.
+const SCOPE_OPTIONS = [
+  {value: 'all',      emoji: '✦', label: 'All',        desc: 'diatonic + secondaries + borrowed'},
+  {value: 'diatonic', emoji: '◇', label: 'Diatonic',   desc: 'only the 7 diatonic chords'},
+  {value: 'borrowed', emoji: '◈', label: '+ Borrowed', desc: 'diatonic + modal interchange'},
+  {value: 'secondary',emoji: '✷', label: '+ Secondaries', desc: 'diatonic + secondary dominants'},
+];
+let chordScope = 'all';
+
+// True iff `chordId` is allowed under the current scope.
+function isChordInScope(chordId) {
+  const ch = currentMap().chordDefs[chordId];
+  if (!ch) return false;
+  if (chordScope === 'all') return true;
+  if (chordScope === 'diatonic') return ['tonic','predom','dom'].includes(ch.tag);
+  if (chordScope === 'borrowed') return ['tonic','predom','dom','borrowed'].includes(ch.tag);
+  if (chordScope === 'secondary') return ['tonic','predom','dom','secondary'].includes(ch.tag);
+  return true;
+}
+
+const scopeBtn  = document.getElementById('chord-scope');
+const scopeMenu = document.getElementById('scope-menu');
+
+function renderScopeMenu() {
+  scopeMenu.innerHTML = SCOPE_OPTIONS.map(s => `
+    <div class="sound-menu-item ${s.value === chordScope ? 'selected' : ''}" data-scope="${s.value}">
+      <span>${s.emoji}</span>
+      <span style="flex:1">${s.label}<span style="display:block;font-size:10px;opacity:0.6;font-style:italic">${s.desc}</span></span>
+      <span class="check">✓</span>
+    </div>`).join('');
+  scopeMenu.querySelectorAll('[data-scope]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      chordScope = item.dataset.scope;
+      const s = SCOPE_OPTIONS.find(o => o.value === chordScope);
+      scopeBtn.textContent = `${s.emoji} ${s.label}`;
+      scopeMenu.hidden = true;
+      // If focused chord is now out of scope, fall back to tonic
+      if (!isChordInScope(state.focusedChord)) {
+        state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
+        state.userVoicing = null;
+      }
+      renderAll();
+      // If AI is mid-song, regenerate with new scope on next section transition
+      if (player.playing) {
+        // Force a fresh song generation at the next section change
+        // (a quick way: regenerate now)
+        player.song = player._generateSong();
+        player.songIdx = 0;
+        player.sectionIter = 0;
+        player.currentStepIdx = 0;
+        player.barsRemaining = player._currentStep().bars;
+      }
+    });
+  });
+}
+
+scopeBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (scopeMenu.hidden) {
+    renderScopeMenu();
+    const rect = scopeBtn.getBoundingClientRect();
+    scopeMenu.style.left = rect.left + 'px';
+    scopeMenu.style.top = (rect.bottom + 4) + 'px';
+    scopeMenu.hidden = false;
+  } else {
+    scopeMenu.hidden = true;
+  }
+});
+document.addEventListener('click', e => {
+  if (!scopeMenu.contains(e.target) && e.target !== scopeBtn) scopeMenu.hidden = true;
+});
+
+/* ─── Voicing-type preference ─── */
+const VOICING_OPTIONS = [
+  {value: 'all',   emoji: '🎼', label: 'All',    desc: 'mix of drop-2, shells, triads'},
+  {value: 'drop2', emoji: '🎷', label: 'Drop-2', desc: '4-note jazz voicings'},
+  {value: 'shell', emoji: '🌰', label: 'Shells', desc: 'R + 3 + 7 guide tones'},
+  {value: 'triad', emoji: '🔺', label: 'Triads', desc: '3-note R + 3 + 5'},
+  {value: 'guide', emoji: '✌️', label: '3rds + 7ths', desc: 'shells without the root'},
+];
+let voicingPref = 'all';
+
+const voicingBtn  = document.getElementById('voicing-pref');
+const voicingMenu = document.getElementById('voicing-menu');
+
+function renderVoicingMenu() {
+  voicingMenu.innerHTML = VOICING_OPTIONS.map(v => `
+    <div class="sound-menu-item ${v.value === voicingPref ? 'selected' : ''}" data-voicing="${v.value}">
+      <span>${v.emoji}</span>
+      <span style="flex:1">
+        ${v.label}
+        <span style="display:block;font-size:10px;opacity:0.6;font-style:italic">${v.desc}</span>
+      </span>
+      <span class="check">✓</span>
+    </div>
+  `).join('');
+  voicingMenu.querySelectorAll('[data-voicing]').forEach(item => {
+    item.addEventListener('click', e => {
+      e.stopPropagation();
+      voicingPref = item.dataset.voicing;
+      const v = VOICING_OPTIONS.find(o => o.value === voicingPref);
+      voicingBtn.textContent = `${v.emoji} ${v.label}`;
+      voicingMenu.hidden = true;
+      // If a section is committed to a now-disallowed type, re-pick on next chord
+      if (player.playing) {
+        player.voicingType = player._pickVoicingType();
+      }
+    });
+  });
+}
+
+voicingBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (voicingMenu.hidden) {
+    renderVoicingMenu();
+    const rect = voicingBtn.getBoundingClientRect();
+    voicingMenu.style.left = rect.left + 'px';
+    voicingMenu.style.top = (rect.bottom + 4) + 'px';
+    voicingMenu.hidden = false;
+  } else {
+    voicingMenu.hidden = true;
+  }
+});
+
+document.addEventListener('click', e => {
+  if (!voicingMenu.contains(e.target) && e.target !== voicingBtn) {
+    voicingMenu.hidden = true;
   }
 });
 
@@ -2230,21 +2799,25 @@ class Metronome {
   }
   _click(time, isDownbeat) {
     const ctx = audioCtx;
+    const mv = chVol('metronome');
+    if (mv <= 0.001) return;
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.frequency.value = isDownbeat ? 1600 : 1100;
     g.gain.setValueAtTime(0.0001, time);
-    g.gain.exponentialRampToValueAtTime(0.32, time + 0.002);
+    g.gain.exponentialRampToValueAtTime(0.32 * mv, time + 0.002);
     g.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
     o.connect(g); g.connect(ctx.destination);
     o.start(time); o.stop(time + 0.08);
   }
   _ride(time, idx) {
     const ctx = audioCtx;
+    const mv = chVol('metronome');
+    if (mv <= 0.001) return;
     // idx 0,3 = main "ding" (downbeats); idx 1,4 = swing "and"; idx 2,5 = skip note
     const isDing = (idx === 0 || idx === 3);
     const dur = isDing ? 1.1 : 0.55;
-    const vol = isDing ? 0.20 : 0.13;
+    const vol = (isDing ? 0.20 : 0.13) * mv;
 
     // ─── PRIMARY: pink-noise shimmer wash (most of the sound) ───
     const bufLen = Math.floor(ctx.sampleRate * dur);
@@ -2351,10 +2924,21 @@ function updateBlinkRate() {
   document.documentElement.style.setProperty('--blink-duration', (beat * 2) + 's');
 }
 
-document.getElementById('bpm-input').addEventListener('input', e => {
+// Tempo controls — input, slider, ± buttons all stay in sync
+const bpmInput  = document.getElementById('bpm-input');
+const bpmSlider = document.getElementById('bpm-slider');
+function setBpm(v) {
+  v = Math.max(40, Math.min(280, Math.round(v)));
+  bpmInput.value = v;
+  bpmSlider.value = Math.min(240, v);
+  metronome.setBpm(v);
+  updateBlinkRate();
+}
+bpmInput.addEventListener('input', e => {
   const v = parseInt(e.target.value);
-  if (!isNaN(v)) { metronome.setBpm(v); updateBlinkRate(); }
+  if (!isNaN(v)) setBpm(v);
 });
+bpmSlider.addEventListener('input', e => setBpm(parseInt(e.target.value)));
 
 updateBlinkRate(); // initial
 
@@ -2399,19 +2983,33 @@ const PROGRESSIONS = {
     {name:'AABA-A double',                len:16, steps:[{chord:'I',bars:2},{chord:'vi',bars:2},{chord:'ii',bars:2},{chord:'V',bars:2},{chord:'I',bars:2},{chord:'vi',bars:2},{chord:'ii',bars:2},{chord:'V',bars:2}]},
   ],
   minor: [
-    // 4-bar
+    // ─── 4-bar diatonic-only ───
     {name:'iiø–V7–i',                     len:4,  steps:[{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'i',bars:2}]},
     {name:'iv–V7–i',                      len:4,  steps:[{chord:'iv',bars:1},{chord:'V7',bars:1},{chord:'i',bars:2}]},
     {name:'i–bVII–bVI–V7 (Andalusian)',   len:4,  steps:[{chord:'i',bars:1},{chord:'bVII',bars:1},{chord:'bVI',bars:1},{chord:'V7',bars:1}]},
     {name:'i–iv–bVII–bIII',               len:4,  steps:[{chord:'i',bars:1},{chord:'iv',bars:1},{chord:'bVII',bars:1},{chord:'bIII',bars:1}]},
     {name:'bVI–bVII–i',                   len:4,  steps:[{chord:'bVI',bars:1},{chord:'bVII',bars:1},{chord:'i',bars:2}]},
-    // 8-bar
+    // ─── 4-bar with borrowed/secondary chords ───
+    {name:'iiø–bII7–i (tritone sub)',     len:4,  steps:[{chord:'iiø',bars:1},{chord:'bII7',bars:1},{chord:'i',bars:2}]},
+    {name:'iv–bII7–i',                    len:4,  steps:[{chord:'iv',bars:1},{chord:'bII7',bars:1},{chord:'i',bars:2}]},
+    {name:'vii°7–i Bach cadence',         len:4,  steps:[{chord:'iv',bars:1},{chord:'vii7',bars:1},{chord:'i',bars:2}]},
+    {name:'i–IV–V7–i (parallel IV)',      len:4,  steps:[{chord:'i',bars:1},{chord:'IV',bars:1},{chord:'V7',bars:1},{chord:'i',bars:1}]},
+    {name:'iiø–V/V–V7–i',                 len:4,  steps:[{chord:'iiø',bars:1},{chord:'V_V',bars:1},{chord:'V7',bars:1},{chord:'i',bars:1}]},
+    // ─── 8-bar ───
     {name:'i–iv–V7–i (long)',             len:8,  steps:[{chord:'i',bars:2},{chord:'iv',bars:2},{chord:'V7',bars:2},{chord:'i',bars:2}]},
     {name:'bIII–bVI–iiø–V7–i',            len:8,  steps:[{chord:'bIII',bars:1},{chord:'bVI',bars:1},{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'i',bars:4}]},
     {name:'Andalusian extended',          len:8,  steps:[{chord:'i',bars:2},{chord:'bVII',bars:2},{chord:'bVI',bars:2},{chord:'V7',bars:2}]},
     {name:'Minor blues fragment',         len:8,  steps:[{chord:'i',bars:2},{chord:'iv',bars:2},{chord:'i',bars:2},{chord:'V7',bars:1},{chord:'i',bars:1}]},
-    // 16-bar
+    // ─── 8-bar with borrowed/secondary chords ───
+    {name:'i–V/iv–iv–V7 turnaround',      len:8,  steps:[{chord:'i',bars:2},{chord:'V_iv',bars:2},{chord:'iv',bars:2},{chord:'V7',bars:2}]},
+    {name:'iiø–V7–iv–bII7–i',             len:8,  steps:[{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'iv',bars:1},{chord:'bII7',bars:1},{chord:'i',bars:4}]},
+    {name:'i–IV–iiø–V7 (modal mix)',      len:8,  steps:[{chord:'i',bars:2},{chord:'IV',bars:2},{chord:'iiø',bars:2},{chord:'V7',bars:2}]},
+    {name:'Picardy ending',               len:8,  steps:[{chord:'i',bars:2},{chord:'iv',bars:2},{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'I_pic',bars:2}]},
+    {name:'bIII7 backdoor',               len:8,  steps:[{chord:'i',bars:2},{chord:'iv',bars:2},{chord:'bIII7',bars:2},{chord:'bVI',bars:2}]},
+    {name:'Romance bossa',                len:8,  steps:[{chord:'i',bars:1},{chord:'V_iv',bars:1},{chord:'iv',bars:1},{chord:'bII7',bars:1},{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'i',bars:2}]},
+    // ─── 16-bar ───
     {name:'Minor AABA-A',                 len:16, steps:[{chord:'i',bars:2},{chord:'bVI',bars:2},{chord:'iiø',bars:2},{chord:'V7',bars:2},{chord:'i',bars:2},{chord:'bVI',bars:2},{chord:'iiø',bars:2},{chord:'V7',bars:2}]},
+    {name:'Jazz minor long',              len:16, steps:[{chord:'i',bars:2},{chord:'V_iv',bars:1},{chord:'iv',bars:1},{chord:'vii7',bars:1},{chord:'bIII',bars:1},{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'i',bars:2},{chord:'IV',bars:1},{chord:'iv',bars:1},{chord:'iiø',bars:1},{chord:'bII7',bars:1},{chord:'I_pic',bars:2}]},
   ]
 };
 
@@ -2443,6 +3041,9 @@ class Player {
   }
 
   _pickVoicingType() {
+    // Honor user preference: if a specific type is chosen, always use it
+    if (voicingPref !== 'all') return voicingPref;
+    // 'all' = mix of the rich voicings (no guide-tones in random mode)
     const r = Math.random();
     if (r < 0.70) return 'drop2';
     if (r < 0.88) return 'shell';
@@ -2463,6 +3064,8 @@ class Player {
       ['A','B'].forEach(t => { const sh = shellVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'triad') {
       ['top','mid','low'].forEach(t => { const sh = triadVoicing(quality, root, t); if (sh) cands.push(sh); });
+    } else if (type === 'guide') {
+      ['A','B'].forEach(t => { const sh = guideToneVoicing(quality, root, t); if (sh) cands.push(sh); });
     }
     if (!cands.length) return null;
 
@@ -2545,8 +3148,12 @@ class Player {
   _pickProgression(avoidName = null) {
     const list = PROGRESSIONS[state.tonality] || [];
     if (!list.length) return null;
-    const filtered = avoidName ? list.filter(p => p.name !== avoidName) : list;
-    return filtered[Math.floor(Math.random() * filtered.length)];
+    // Only use progressions whose chords are all allowed by the current scope.
+    let inScope = list.filter(p => p.steps.every(step => isChordInScope(step.chord)));
+    if (!inScope.length) inScope = list; // safety: never starve the player
+    const filtered = avoidName ? inScope.filter(p => p.name !== avoidName) : inScope;
+    const finalList = filtered.length ? filtered : inScope;
+    return finalList[Math.floor(Math.random() * finalList.length)];
   }
 
   _repeatsFor(prog) {
@@ -2569,28 +3176,90 @@ class Player {
     return r < 0.85 ? 1 : 2;
   }
 
+  _pickModulation(homePc, homeTonality) {
+    // Returns {keyPc, tonality, name} for a musically motivated key change.
+    const opts = [
+      {keyPc: (homePc + 5) % 12, tonality: homeTonality, name: 'to subdominant'},
+      {keyPc: (homePc + 7) % 12, tonality: homeTonality, name: 'to dominant'},
+    ];
+    if (homeTonality === 'major') {
+      opts.push({keyPc: (homePc + 9) % 12, tonality: 'minor', name: 'to relative minor'});
+      opts.push({keyPc: homePc, tonality: 'minor', name: 'to parallel minor'});
+    } else {
+      opts.push({keyPc: (homePc + 3) % 12, tonality: 'major', name: 'to relative major'});
+      opts.push({keyPc: homePc, tonality: 'major', name: 'to parallel major'});
+    }
+    return opts[Math.floor(Math.random() * opts.length)];
+  }
+
   _generateSong() {
-    // Build an AABA-style song: pick A and B progressions, optionally a bridge C
+    // Snapshot the home key so we can restore + measure modulations from it
+    const homePc = state.keyPc;
+    const homeTonality = state.tonality;
+    this._homeKey = { keyPc: homePc, tonality: homeTonality };
+
     const A = this._pickProgression();
     const B = this._pickProgression(A.name);
     const aRepeats = this._repeatsFor(A);
     const bRepeats = this._repeatsFor(B);
-    // 70% chance AABA, 30% chance ABAB
-    if (Math.random() < 0.7) {
-      return [
-        {label:'A', progression:A, repeats:aRepeats},
-        {label:'A', progression:A, repeats:aRepeats},
-        {label:'B', progression:B, repeats:bRepeats},
-        {label:'A', progression:A, repeats:aRepeats},
-      ];
-    } else {
-      return [
-        {label:'A', progression:A, repeats:aRepeats},
-        {label:'B', progression:B, repeats:bRepeats},
-        {label:'A', progression:A, repeats:aRepeats},
-        {label:'B', progression:B, repeats:bRepeats},
-      ];
+
+    // Decide if this song modulates — kept moderately rare so it feels intentional
+    let bMod = null;
+    let finalALift = null;
+    if (Math.random() < 0.35) {
+      if (Math.random() < 0.55) {
+        // Bridge modulates (relative/parallel/subdom/dom)
+        bMod = this._pickModulation(homePc, homeTonality);
+      } else {
+        // "Truck-driver" lift on the final A section (half- or whole-step up)
+        const shift = Math.random() < 0.4 ? 1 : 2;
+        finalALift = { keyPc: (homePc + shift) % 12, tonality: homeTonality,
+                       name: shift === 1 ? 'half-step lift' : 'whole-step lift' };
+      }
     }
+
+    // If B section flips tonality, re-pick its progression from the destination catalog
+    let B_progression = B;
+    if (bMod && bMod.tonality !== homeTonality) {
+      const altList = PROGRESSIONS[bMod.tonality] || [];
+      if (altList.length) B_progression = altList[Math.floor(Math.random() * altList.length)];
+    }
+
+    const A_base = { label:'A', progression:A, repeats:aRepeats };
+    const B_section = bMod
+      ? { label:'B', progression:B_progression, repeats:bRepeats,
+          keyPc: bMod.keyPc, tonality: bMod.tonality, modName: bMod.name }
+      : { label:'B', progression:B, repeats:bRepeats };
+    const A_lifted = finalALift
+      ? { ...A_base, keyPc: finalALift.keyPc, tonality: finalALift.tonality, modName: finalALift.name }
+      : A_base;
+
+    if (Math.random() < 0.7) {
+      return [A_base, A_base, B_section, A_lifted];
+    } else {
+      return [A_base, B_section, A_base, A_lifted];
+    }
+  }
+
+  // Apply the key/tonality of the current section. Called when songIdx advances.
+  _applySectionKey() {
+    const section = this._currentSection();
+    if (!section) return;
+    const targetPc       = section.keyPc       !== undefined ? section.keyPc       : this._homeKey.keyPc;
+    const targetTonality = section.tonality    !== undefined ? section.tonality    : this._homeKey.tonality;
+    if (state.keyPc === targetPc && state.tonality === targetTonality) return;
+    state.keyPc = targetPc;
+    state.tonality = targetTonality;
+    // Voicings are cached per chord-ID — but now the chord-IDs may differ AND the
+    // roots have changed even where IDs stay the same. Reset everything.
+    state.progressionVoicings = {};
+    state.userVoicing = null;
+    this.previousShape = null;
+    // Snap focused chord to the new tonality's tonic if the old one no longer exists
+    if (!currentMap().chordDefs[state.focusedChord]) {
+      state.focusedChord = (targetTonality === 'major') ? 'I' : 'i';
+    }
+    renderAll();
   }
 
   start() {
@@ -2607,6 +3276,8 @@ class Player {
     this.bassPattern = this._pickBassPattern();
     this.totalBars = 0;
     this._cachedPage = null;
+    // Reset the per-progression voicing cache so cards revert to default until played
+    state.progressionVoicings = {};
 
     const wasMetronomePlaying = metronome.playing;
     if (!metronome.playing) {
@@ -2644,8 +3315,15 @@ class Player {
     this.bassOscillators = [];
     state.playerVoicing = null;
     state.nextVoicing = null;
+    state.progressionVoicings = {};
     this._upcomingType = null;
     this.forceTriggerAtNextBar = false;
+    // Restore home key if we stopped during a modulated section
+    if (this._homeKey && (state.keyPc !== this._homeKey.keyPc || state.tonality !== this._homeKey.tonality)) {
+      state.keyPc = this._homeKey.keyPc;
+      state.tonality = this._homeKey.tonality;
+      renderAll();
+    }
     document.querySelectorAll('.map-card.playing, .map-card.next-up, .map-card.about-to-start').forEach(c => {
       c.classList.remove('playing', 'next-up', 'about-to-start');
     });
@@ -2680,6 +3358,18 @@ class Player {
             // Lock to the current section indefinitely
             this.sectionIter = 0;
             this.currentStepIdx = 0;
+            // Key practice: when a cycle mode is active, advance the key on
+            // each loop iteration — practice the same progression through all 12 keys.
+            if (cycleMode !== 'none') {
+              const step = cycleMode === 'chromatic' ? 1 : 5; // fourths = +5 semitones
+              state.keyPc = (state.keyPc + step) % 12;
+              // Also update the player's "home" so modulations / stop-restore stay coherent
+              if (this._homeKey) this._homeKey.keyPc = state.keyPc;
+              state.progressionVoicings = {};
+              state.userVoicing = null;
+              this.previousShape = null;
+              renderAll();
+            }
           } else if (this.sectionIter < section.repeats) {
             // Repeat same progression — keep same voicing type
             this.currentStepIdx = 0;
@@ -2689,9 +3379,24 @@ class Player {
             this.sectionIter = 0;
             this.currentStepIdx = 0;
             if (this.songIdx >= this.song.length) {
+              // Low-probability "travel" — the new song's home shifts to a
+              // musically related key, like a jam session drifting over time.
+              if (Math.random() < 0.15) {
+                const travel = this._pickModulation(this._homeKey.keyPc, this._homeKey.tonality);
+                state.keyPc = travel.keyPc;
+                state.tonality = travel.tonality;
+                this._travelNote = travel.name;   // surfaces in player-info briefly
+              } else {
+                // Default: restore home key so we stay anchored
+                state.keyPc = this._homeKey.keyPc;
+                state.tonality = this._homeKey.tonality;
+                this._travelNote = null;
+              }
               this.song = this._generateSong();
               this.songIdx = 0;
             }
+            // Apply this section's key/tonality (may modulate)
+            this._applySectionKey();
             this.voicingType = this._upcomingType || this._pickVoicingType();
             this._upcomingType = null;
             this.bassPattern = this._pickBassPattern();
@@ -2724,6 +3429,9 @@ class Player {
     state.focusedChord = chordId;
     state.userVoicing = null;
     state.playerVoicing = { chord: chordId, shape, type };
+    // Remember how this chord was played so its map card defaults to this voicing
+    // for the rest of the progression — even when it's not the focused/next-up chord.
+    state.progressionVoicings[chordId] = { shape, type };
     this.previousShape = shape;
 
     this._predictNextVoicing();
@@ -2733,14 +3441,14 @@ class Player {
     chordDrone.start(notes, vol);
 
     // Schedule bass plucks per the current section's bass pattern
-    if (bassEnabled && audioCtx && this._currentStep()) {
+    if (isBassEnabled() && audioCtx && this._currentStep()) {
       const stepBars = this._currentStep().bars;
       const beatDur = 60 / metronome.bpm;
       const barDur = beatDur * 4;
       const now = audioCtx.currentTime + 0.04;
       const bassMidi = bassMidiForPc(root);
       const fifthMidi = bassMidi + 7; // fifth above root
-      const bassVol = currentDroneVolume() * 0.75;
+      const bassVol = chVol('bass') * 0.75;
       const pattern = this.bassPattern;
       for (let b = 0; b < stepBars; b++) {
         const barStart = now + b * barDur;
@@ -2794,10 +3502,16 @@ class Player {
     // (the focused chord uses state.playerVoicing; others recompute smoothest from it)
     renderChordMap();
 
-    // Re-apply playing / next-up classes (renderChordMap creates fresh cards)
+    // Build a set of chord IDs that appear in the CURRENT section's progression.
+    // Updates at A→B transitions so the dot/dim reflects the immediate context.
+    const progressionChordIds = new Set();
+    this._currentSection()?.progression?.steps?.forEach(step => progressionChordIds.add(step.chord));
+
+    // Re-apply playing / next-up / in-progression classes (renderChordMap creates fresh cards)
     const isLastBar = this.barsRemaining === 1;
     document.querySelectorAll('.map-card').forEach(c => {
-      c.classList.remove('playing', 'next-up', 'about-to-start');
+      c.classList.remove('playing', 'next-up', 'about-to-start', 'in-progression');
+      if (progressionChordIds.has(c.dataset.chord)) c.classList.add('in-progression');
       if (c.dataset.chord === curId) c.classList.add('playing');
       else if (c.dataset.chord === nxtId) {
         c.classList.add('next-up');
@@ -2836,8 +3550,18 @@ class Player {
       ? `<span style="opacity:0.7;font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-faint)">${state.playerVoicing.type} · ${this.bassPattern}</span>`
       : '';
 
+    // Modulation badge — section-level (within a song)
+    const modBadge = section.modName
+      ? `<span style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#a07820;padding:2px 6px;border:1px solid #a07820;border-radius:3px;opacity:0.85">↗ ${section.modName}</span>`
+      : '';
+    // Travel badge — appears on the first section after the AI drifts to a new home key
+    const travelBadge = (this._travelNote && this.songIdx === 0 && this.sectionIter === 0)
+      ? `<span style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#5a8a5a;padding:2px 6px;border:1px solid #5a8a5a;border-radius:3px;opacity:0.85">✈ ${this._travelNote}</span>`
+      : '';
     document.getElementById('player-info').innerHTML = `
       <span class="section-badge">${section.label}</span>
+      ${travelBadge}
+      ${modBadge}
       <span style="opacity:0.7">${formHtml}</span>
       <span class="prog-name">${prog.name}</span>
       <span class="iteration">${this.sectionIter + 1}/${section.repeats}</span>
@@ -2852,7 +3576,7 @@ class Player {
     state.userVoicing = null;
     renderAlternatives();
     renderFretboard();
-    renderScaleStrip();
+    updateScaleHighlightForPlayer(this);
     this._renderRealBook();
   }
 
@@ -2993,19 +3717,95 @@ const player = new Player();
 
 document.getElementById('loop-toggle').addEventListener('click', e => {
   loopMode = !loopMode;
-  e.target.classList.toggle('active', loopMode);
+  e.currentTarget.classList.toggle('active', loopMode);
   // If player is running, immediately re-render the lookahead to reflect loop state
   if (player.playing) player._renderRealBook();
 });
 
-document.getElementById('bass-toggle').addEventListener('click', e => {
-  bassEnabled = !bassEnabled;
-  e.target.classList.toggle('active', bassEnabled);
-  // If disabling mid-playback, stop any pending bass
-  if (!bassEnabled && player.playing) {
-    player.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
-    player.bassOscillators = [];
+// Cycle button — clicks through none → chromatic → fourths → none ...
+// When active AND loop is on, the key advances each loop iteration.
+document.getElementById('cycle-toggle').addEventListener('click', e => {
+  const i = CYCLE_OPTIONS.findIndex(o => o.value === cycleMode);
+  const next = CYCLE_OPTIONS[(i + 1) % CYCLE_OPTIONS.length];
+  cycleMode = next.value;
+  e.currentTarget.textContent = next.label;
+  e.currentTarget.title = next.title;
+  e.currentTarget.classList.toggle('active', cycleMode !== 'none');
+});
+
+/* ─── Volume mixer popover ─── */
+const MIX_CHANNELS = [
+  { key: 'chords',    label: 'Chords' },
+  { key: 'bass',      label: 'Bass' },
+  { key: 'metronome', label: 'Drums' },
+  { key: 'tonic',     label: 'Tónica' },
+];
+const mixerBtn  = document.getElementById('mixer-btn');
+const mixerMenu = document.getElementById('mixer-menu');
+
+function renderMixerMenu() {
+  mixerMenu.innerHTML = MIX_CHANNELS.map(ch => {
+    const v = Math.round(channelVols[ch.key] * 100);
+    return `<div class="mixer-row ${v === 0 ? 'muted' : ''}" data-ch="${ch.key}">
+      <span class="mix-label">${ch.label}</span>
+      <input type="range" min="0" max="100" value="${v}" data-ch="${ch.key}">
+      <span class="mix-val">${v}</span>
+    </div>`;
+  }).join('');
+  mixerMenu.querySelectorAll('input[type="range"]').forEach(slider => {
+    slider.addEventListener('input', e => {
+      const k = slider.dataset.ch;
+      channelVols[k] = parseInt(slider.value) / 100;
+      // Update the displayed value + muted styling for this row
+      const row = slider.closest('.mixer-row');
+      row.querySelector('.mix-val').textContent = slider.value;
+      row.classList.toggle('muted', parseInt(slider.value) === 0);
+      // Apply live to running audio
+      if (k === 'chords' && chordDrone.playing) chordDrone.setVolume(chVol('chords'));
+      if (k === 'tonic')  syncTonicDrone();
+      if (k === 'bass' && parseInt(slider.value) === 0 && player.playing) {
+        player.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+        player.bassOscillators = [];
+      }
+      // (metronome reads chVol on each tick — nothing to push)
+    });
+  });
+}
+
+mixerBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (mixerMenu.hidden) {
+    renderMixerMenu();
+    const rect = mixerBtn.getBoundingClientRect();
+    mixerMenu.style.left = rect.left + 'px';
+    mixerMenu.style.top  = (rect.bottom + 4) + 'px';
+    mixerMenu.hidden = false;
+  } else {
+    mixerMenu.hidden = true;
   }
+});
+document.addEventListener('click', e => {
+  if (!mixerMenu.contains(e.target) && e.target !== mixerBtn) mixerMenu.hidden = true;
+});
+
+/* ─── Bass quick-mute button ─── */
+// Toggles the bass channel between 0 and the last non-zero level.
+let _bassLastVol = channelVols.bass || 0.7;
+document.getElementById('bass-toggle').addEventListener('click', e => {
+  if (channelVols.bass > 0.001) {
+    _bassLastVol = channelVols.bass;
+    channelVols.bass = 0;
+    e.currentTarget.classList.remove('active');
+    if (player.playing) {
+      player.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+      player.bassOscillators = [];
+    }
+  } else {
+    channelVols.bass = _bassLastVol || 0.7;
+    e.currentTarget.classList.add('active');
+  }
+  // Keep the mixer popover in sync if it's open
+  if (!mixerMenu.hidden) renderMixerMenu();
 });
 
 document.getElementById('auto-play').addEventListener('click', e => {
@@ -3020,10 +3820,12 @@ document.getElementById('auto-play').addEventListener('click', e => {
     }
     e.target.classList.remove('active');
     e.target.textContent = '▶ AI';
+    document.body.classList.remove('player-active');
   } else {
     player.start();
     e.target.classList.add('active');
     e.target.textContent = '⏸ AI';
+    document.body.classList.add('player-active');
   }
 });
 
@@ -3080,94 +3882,735 @@ function computeScaleBox(keyPc, tonality, targetFret = null) {
   return {startFret, endFret, notes, minorRootPc};
 }
 
-function renderScaleBox(box, W = 720, H = 86) {
-  const ml = 28, mr = 14, mt = 8, mb = 22;
-  const innerW = W - ml - mr;
-  const innerH = H - mt - mb;
-  const stringSp = innerH / 5;
-  const numFrets = box.endFret - box.startFret + 1;
-  const fretSp = innerW / numFrets;
+// Shared neck render geometry — zoomed-in view that pans across the full neck
+function makeNeckGeo(overrides = {}) {
+  const geo = Object.assign({
+    W: 1440, H: 640,           // SVG viewBox dimensions
+    labelsW: 70,               // left labels strip width (always visible)
+    mt: 60, mb: 72,            // top/bottom margins for the neck area
+    firstFret: 1, lastFret: 22,// full neck rendered in content
+    visibleFrets: 7,           // how many frets shown at once (the zoom)
+  }, overrides);
+  geo.viewW = geo.W - geo.labelsW;
+  geo.fretW = geo.viewW / geo.visibleFrets;
+  geo.contentW = (geo.lastFret - geo.firstFret + 1) * geo.fretW;
+  return geo;
+}
+const SCALE_NECK_GEO = makeNeckGeo();
+const CHORD_NECK_GEO = makeNeckGeo();
+
+function makeHiState() {
+  return {
+    currentStart: 5, currentEnd: 9,
+    targetStart: 5,  targetEnd: 9,
+    fromStart: 5,    fromEnd: 9,
+    currentWindow: 3, targetWindow: 3, fromWindow: 3,
+    tweenStart: 0, tweenDur: 1200,
+    rafId: null,
+  };
+}
+const scaleHi = makeHiState();
+const chordHi = makeHiState();
+
+// Render a hyperrealistic, zoomable neck into an SVG element.
+// opts = { idPrefix: 'scale'|'chord', paintNotes(ctx) -> svgString, showHighlight: bool }
+// ctx supplied to paintNotes: { xOf, mt, ss, contentW, firstFret, lastFret, fretW, flats }
+function renderNeck(svgId, geo, opts) {
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const { W, H, labelsW, mt, mb, firstFret, lastFret, fretW, contentW } = geo;
+  const idPrefix = opts.idPrefix;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  const stringsH = H - mt - mb;
+  const ss = stringsH / 5;
   const flats = useFlatsFor(state.keyPc);
+
+  // Prefix IDs so two neck SVGs can coexist without ID collisions
+  const P = idPrefix;
+
   let s = '';
-  // Strings (horizontal lines, low E at bottom)
+
+  // Gradients + wood-grain noise texture for realism (all IDs prefixed)
+  s += `<defs>
+    <linearGradient id="${P}-wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a2110"/>
+      <stop offset="25%" stop-color="#5a3a22"/>
+      <stop offset="55%" stop-color="#4a2e18"/>
+      <stop offset="100%" stop-color="#2e1a0c"/>
+    </linearGradient>
+    <filter id="${P}-woodGrain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012 0.6" numOctaves="2" seed="3" result="noise"/>
+      <feColorMatrix in="noise" type="matrix" values="0 0 0 0 0.4
+                                                      0 0 0 0 0.22
+                                                      0 0 0 0 0.10
+                                                      0 0 0 0.35 0"/>
+    </filter>
+    <linearGradient id="${P}-fretMetal" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fafafa"/>
+      <stop offset="30%" stop-color="#d8d8d8"/>
+      <stop offset="55%" stop-color="#7a7a7a"/>
+      <stop offset="80%" stop-color="#9d9d9d"/>
+      <stop offset="100%" stop-color="#e0e0e0"/>
+    </linearGradient>
+    <linearGradient id="${P}-bronze" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8c590"/>
+      <stop offset="40%" stop-color="#c89a5e"/>
+      <stop offset="60%" stop-color="#7a5630"/>
+      <stop offset="100%" stop-color="#d4a878"/>
+    </linearGradient>
+    <linearGradient id="${P}-steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0f0f0"/>
+      <stop offset="50%" stop-color="#8e8e8e"/>
+      <stop offset="100%" stop-color="#d0d0d0"/>
+    </linearGradient>
+    <radialGradient id="${P}-neckShade" cx="50%" cy="50%" r="60%">
+      <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+      <stop offset="80%" stop-color="rgba(0,0,0,0.18)"/>
+      <stop offset="100%" stop-color="rgba(0,0,0,0.42)"/>
+    </radialGradient>
+    <linearGradient id="${P}-pearl" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"   stop-color="#fff8f0"/>
+      <stop offset="22%"  stop-color="#e8e6ff"/>
+      <stop offset="42%"  stop-color="#fde2ee"/>
+      <stop offset="60%"  stop-color="#e0f4ff"/>
+      <stop offset="78%"  stop-color="#fffaf0"/>
+      <stop offset="100%" stop-color="#c8d4e6"/>
+    </linearGradient>
+    <linearGradient id="${P}-pearlSheen" x1="0" y1="0" x2="0.8" y2="0.8">
+      <stop offset="0%"  stop-color="rgba(255,255,255,0.85)"/>
+      <stop offset="35%" stop-color="rgba(255,255,255,0.18)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </linearGradient>
+    <filter id="${P}-pearlGrain" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="turbulence" baseFrequency="0.04 0.08" numOctaves="2" seed="7" result="noise"/>
+      <feColorMatrix in="noise" type="matrix"
+        values="0 0 0 0 0.92
+                0 0 0 0 0.92
+                0 0 0 0 1.0
+                0 0 0 0.22 0"/>
+    </filter>
+    <filter id="${P}-dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.5"/>
+      <feOffset dx="0" dy="3" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="${P}-stringShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+      <feOffset dx="0" dy="2.5" result="off"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.6"/></feComponentTransfer>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <!-- Bloom — visible light spill in the source color. -->
+    <filter id="${P}-bloom" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="5"  result="b1"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="14" result="b2"/>
+      <feMerge>
+        <feMergeNode in="b2"/>
+        <feMergeNode in="b1"/>
+        <feMergeNode in="b1"/>
+      </feMerge>
+    </filter>
+    <linearGradient id="${P}-hiGlow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="rgba(252,236,170,0.30)"/>
+      <stop offset="50%" stop-color="rgba(252,236,170,0.18)"/>
+      <stop offset="100%" stop-color="rgba(252,236,170,0.30)"/>
+    </linearGradient>
+    <clipPath id="${P}-neckClip"><rect x="${labelsW}" y="0" width="${W - labelsW}" height="${H}"/></clipPath>
+  </defs>`;
+
+  // Helper: x position of fret f in pan-group coords (fret f's left edge)
+  const xOf = (f) => (f - firstFret) * fretW;
+
+  // ── PAN GROUP: everything that slides as the camera follows the highlight ──
+  s += `<g id="${P}-pan" clip-path="url(#${P}-neckClip)" transform="translate(${labelsW},0)">`;
+  s += `<g id="${P}-pan-inner">`;
+
+  // Fretboard wood — extends full neck content width
+  s += `<rect x="0" y="${mt - 12}" width="${contentW}" height="${stringsH + 24}" fill="url(#${P}-wood)"/>`;
+  s += `<rect x="0" y="${mt - 12}" width="${contentW}" height="${stringsH + 24}" fill="#000" filter="url(#${P}-woodGrain)" opacity="0.55"/>`;
+  s += `<rect x="0" y="${mt - 12}" width="${contentW}" height="${stringsH + 24}" fill="url(#${P}-neckShade)"/>`;
+
+  // Side dot markers (small white dots above the fretboard for fret reference)
+  [3,5,7,9,15,17,19,21].forEach(f => {
+    if (f < firstFret || f > lastFret) return;
+    const cx = xOf(f) + fretW/2;
+    s += `<circle cx="${cx}" cy="${mt - 22}" r="7" fill="#fdfcf3" opacity="0.55"/>`;
+  });
+  [12, 24].forEach(f => {
+    if (f < firstFret || f > lastFret) return;
+    const cx = xOf(f) + fretW/2;
+    s += `<circle cx="${cx - 13}" cy="${mt - 22}" r="7" fill="#fdfcf3" opacity="0.55"/>`;
+    s += `<circle cx="${cx + 13}" cy="${mt - 22}" r="7" fill="#fdfcf3" opacity="0.55"/>`;
+  });
+
+  // Helper to draw a single mother-of-pearl inlay diamond at (cx, cy) with radius r
+  const pearlDiamond = (cx, cy, r) => {
+    const pts = `${cx},${cy-r} ${cx+r},${cy} ${cx},${cy+r} ${cx-r},${cy}`;
+    let d = `<polygon points="${pts}" fill="#000" opacity="0.35" transform="translate(0.8,1.6)"/>`;
+    d += `<polygon points="${pts}" fill="url(#${P}-pearl)" stroke="#3a2a1a" stroke-width="0.6"/>`;
+    d += `<polygon points="${pts}" fill="#fff" filter="url(#${P}-pearlGrain)" opacity="0.7"/>`;
+    d += `<polygon points="${pts}" fill="url(#${P}-pearlSheen)"/>`;
+    d += `<polygon points="${pts}" fill="none" stroke="rgba(0,0,0,0.45)" stroke-width="0.5"/>`;
+    return d;
+  };
+
+  // Inlay diamonds on the fretboard center (single at 3,5,7,9,15,17,19,21)
+  [3,5,7,9,15,17,19,21].forEach(f => {
+    if (f < firstFret || f > lastFret) return;
+    const cx = xOf(f) + fretW/2;
+    const cy = mt + stringsH/2;
+    s += pearlDiamond(cx, cy, 22);
+  });
+  // Octave markers (double diamonds at 12 and 24) — between strings 2&3 and 4&5
+  [12, 24].forEach(f => {
+    if (f < firstFret || f > lastFret) return;
+    const cx = xOf(f) + fretW/2;
+    s += pearlDiamond(cx, mt + ss, 18);
+    s += pearlDiamond(cx, mt + ss*4, 18);
+  });
+
+  // Chrome frets (vertical bars at each fret boundary)
+  for (let f = firstFret; f <= lastFret + 1; f++) {
+    const x = xOf(f);
+    const w = f === 0 ? 14 : 7;
+    s += `<rect x="${x - w/2}" y="${mt - 12}" width="${w}" height="${stringsH + 24}" fill="url(#${P}-fretMetal)"/>`;
+  }
+
+  // Fret numbers (below the fretboard)
+  for (let f = firstFret; f <= lastFret; f++) {
+    const x = xOf(f) + fretW/2;
+    s += `<text x="${x}" y="${H - 22}" text-anchor="middle" font-size="28" fill="#bfb29c" font-family="SF Mono, monospace" font-weight="700">${f}</text>`;
+  }
+
+  // Strings (low strings bronze-wound, high strings polished steel) with cast shadow
   for (let str = 0; str < 6; str++) {
-    const y = mt + str * stringSp;
-    const stroke = (str === 0) ? 1.0 : (str === 1) ? 0.9 : (str === 2) ? 0.8 : 0.7;
-    s += `<line x1="${ml}" y1="${y}" x2="${ml+innerW}" y2="${y}" stroke="#888" stroke-width="${stroke}"/>`;
+    const y = mt + (5 - str) * ss;
+    const sw = 3 + (5 - str) * 1.6;
+    const grad = str < 3 ? 'steel' : 'bronze';
+    s += `<line x1="0" y1="${y + 4}" x2="${contentW}" y2="${y + 4}" stroke="rgba(0,0,0,0.55)" stroke-width="${sw + 0.6}" stroke-linecap="round"/>`;
+    s += `<line x1="0" y1="${y}" x2="${contentW}" y2="${y}" stroke="url(#${P}-${grad})" stroke-width="${sw}" stroke-linecap="round" filter="url(#${P}-stringShadow)"/>`;
   }
-  // String labels on the left
-  const stringLabels = ['E','B','G','D','A','E']; // s1 top → s6 bottom (high E at top)
-  stringLabels.forEach((lbl, i) => {
-    const y = mt + i * stringSp + 4;
-    s += `<text x="${ml - 8}" y="${y}" font-size="10" fill="#7a7a82" text-anchor="end" font-family="SF Mono, monospace" font-weight="700">${lbl}</text>`;
-  });
-  // Fret lines (vertical)
-  for (let f = 0; f <= numFrets; f++) {
-    const x = ml + f * fretSp;
-    const w = (f === 0) ? 2.5 : 1.2;
-    s += `<line x1="${x}" y1="${mt-2}" x2="${x}" y2="${mt+innerH+2}" stroke="#1a1a1a" stroke-width="${w}"/>`;
+
+  // Animated highlight rect (only if requested by caller)
+  if (opts.showHighlight) {
+    s += `<rect id="${P}-hi-rect" x="0" y="${mt - 10}" width="${fretW * 5}" height="${stringsH + 20}" fill="url(#${P}-hiGlow)" stroke="#f4c542" stroke-width="3.5" stroke-dasharray="14 8" rx="5" filter="url(#${P}-dropShadow)"/>`;
   }
-  // Fret numbers below each cell
-  for (let f = 0; f < numFrets; f++) {
-    const fretNum = box.startFret + f;
-    const x = ml + (f + 0.5) * fretSp;
-    s += `<text x="${x}" y="${H - 5}" font-size="11" fill="#5a5a64" text-anchor="middle" font-family="SF Mono, monospace">${fretNum}</text>`;
+
+  // Notes — delegate to caller via notePainter callback
+  if (opts.paintNotes) {
+    s += opts.paintNotes({
+      xOf, mt, ss, contentW, firstFret, lastFret, fretW, flats,
+      dropShadowId: `${P}-dropShadow`,
+    });
   }
-  // Notes
-  box.notes.forEach(n => {
-    const stringIdx = 5 - n.string; // s6 (low E) at the BOTTOM
-    const y = mt + stringIdx * stringSp;
-    const relFret = n.fret - box.startFret;
-    const x = ml + (relFret + 0.5) * fretSp;
-    const pc = (STRING_OPEN_MIDI[n.string] + n.fret) % 12;
-    const noteName = nameOf(pc, flats);
-    if (n.isRoot) {
-      s += `<circle cx="${x}" cy="${y}" r="9" fill="#dc2626" stroke="#1a1a1a" stroke-width="0.6"/>`;
-      s += `<text x="${x}" y="${y + 3.5}" font-size="10" font-weight="700" fill="#fff" text-anchor="middle" font-family="Inter, sans-serif">${noteName}</text>`;
-    } else if (n.isPenta) {
-      s += `<circle cx="${x}" cy="${y}" r="8" fill="#1a1a1a"/>`;
-      s += `<text x="${x}" y="${y + 3.5}" font-size="9" font-weight="700" fill="#fdfcf3" text-anchor="middle" font-family="Inter, sans-serif">${noteName}</text>`;
-    } else {
-      s += `<circle cx="${x}" cy="${y}" r="7.5" fill="#fdfcf3" stroke="#1a1a1a" stroke-width="1.2" opacity="0.7"/>`;
-      s += `<text x="${x}" y="${y + 3.5}" font-size="9" font-weight="600" fill="#1a1a1a" text-anchor="middle" font-family="Inter, sans-serif" opacity="0.7">${noteName}</text>`;
-    }
-  });
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+
+  s += `</g></g>`;
+
+  // ── FIXED LAYER: string labels on the left, always visible ──
+  s += `<rect x="0" y="${mt - 12}" width="${labelsW}" height="${stringsH + 24}" fill="#1a1410"/>`;
+  for (let str = 0; str < 6; str++) {
+    const y = mt + (5 - str) * ss;
+    s += `<text x="${labelsW - 14}" y="${y + 10}" text-anchor="end" font-size="32" fill="#c8b89a" font-family="SF Mono, monospace" font-weight="700">${STRING_LABELS[str]}</text>`;
+  }
+
+  svg.innerHTML = s;
 }
 
-function renderScaleStrip() {
-  const el = document.getElementById('scale-strip');
-  if (!el) return;
-  // Find the target fret from whatever voicing is "active" right now
+// ── Scale-neck wrapper: pentatonic + full diatonic dots ──
+function renderScaleNeck() {
+  renderNeck('scale-neck', SCALE_NECK_GEO, {
+    idPrefix: 'scale',
+    showHighlight: true,
+    // Notes live in a replaceable group so we can repaint chord-tone highlights
+    // on every chord change without rebuilding the whole SVG.
+    paintNotes: () => `<g id="scale-notes-group"></g>`,
+  });
+  repaintScaleNeckNotes();
+}
+
+// Paints the scale notes (improv-focused — chord tones across the whole neck):
+//   • Pentatonic scaffold → small dim dots, always visible (spatial reference)
+//   • Tonic of the key → small red dot on the scaffold
+//   • Live chord tones → big colored dots in interval color (R/3/5/7), every position
+//   • Next chord tones → small amber ghost dots, every position
+//   • Stays halos → bloom on notes that carry through to the next chord
+function repaintScaleNeckNotes() {
+  const panInner = document.getElementById('scale-pan-inner');
+  if (!panInner) return;
+  let notesG = document.getElementById('scale-notes-group');
+  if (!notesG) {
+    notesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    notesG.id = 'scale-notes-group';
+    panInner.appendChild(notesG);
+  }
+  const geo = SCALE_NECK_GEO;
+  const { mt, mb, H, firstFret, lastFret, fretW } = geo;
+  const ss = (H - mt - mb) / 5;
+  const xOf = (f) => (f - firstFret) * fretW;
+  const flats = useFlatsFor(state.keyPc);
+
+  // Pentatonic of the key (minor pentatonic on the relative-minor root)
+  const minorRootPc = (state.tonality === 'major') ? (state.keyPc + 9) % 12 : state.keyPc;
+  const pentaPcs = new Set([0,3,5,7,10].map(i => (minorRootPc + i) % 12));
+
+  // Build pc → interval label maps for current and next chord
+  const buildPcMap = (chordId) => {
+    if (!chordId) return null;
+    const ch = currentMap().chordDefs[chordId];
+    if (!ch) return null;
+    const rootPc = (state.keyPc + ch.deg) % 12;
+    const q = QUALITIES[ch.quality];
+    const m = {};
+    q.ints.forEach((semi, i) => {
+      const pc = (rootPc + semi) % 12;
+      if (!(pc in m)) m[pc] = q.degs[i];
+    });
+    return m;
+  };
+  const liveChordId = state.playerVoicing?.chord;
+  const nextChordId = state.nextVoicing?.chord;
+  const livePcs = buildPcMap(liveChordId);
+  const nextPcs = buildPcMap(nextChordId);
+
+  let s = '';
+
+  // ── Pass 0: pentatonic scaffold — small dim dots, always visible ──
+  for (let str = 0; str < 6; str++) {
+    const y = mt + (5 - str) * ss;
+    for (let f = firstFret; f <= lastFret; f++) {
+      const pc = noteAt(str, f);
+      if (!pentaPcs.has(pc)) continue;
+      const cx = xOf(f) + fretW/2;
+      const isTonic = pc === minorRootPc;
+      if (isTonic) {
+        // Tonic — small red marker so you can always find home
+        s += `<circle cx="${cx}" cy="${y}" r="9" fill="#dc2626" opacity="0.7"/>`;
+      } else {
+        // Pentatonic — tiny cream dot
+        s += `<circle cx="${cx}" cy="${y}" r="6" fill="#fdfcf3" opacity="0.45"/>`;
+      }
+    }
+  }
+
+  // ── Pass 1: ghost dots for NEXT chord tones (drawn first so live notes paint on top) ──
+  if (nextPcs) {
+    for (let str = 0; str < 6; str++) {
+      const y = mt + (5 - str) * ss;
+      for (let f = firstFret; f <= lastFret; f++) {
+        const pc = noteAt(str, f);
+        const nextDeg = nextPcs[pc];
+        if (!nextDeg) continue;
+        const cx = xOf(f) + fretW/2;
+        const noteName = nameOf(pc, useFlatsFor(state.keyPc));
+        // Faint amber preview — "this is where the harmony is heading"
+        s += `<g opacity="0.42">`;
+        s += `<circle cx="${cx}" cy="${y}" r="22" fill="rgba(250,237,196,0.45)" stroke="#a07820" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="13" font-weight="600" fill="#6b4a0e" pointer-events="none">${noteName}</text>`;
+        s += `<text x="${cx}" y="${y + 17}" text-anchor="middle" font-size="9" font-weight="700" fill="#6b4a0e" pointer-events="none">${nextDeg}</text>`;
+        s += `</g>`;
+      }
+    }
+  }
+
+  // ── Pass 2: bold chord tones for the LIVE chord ──
+  if (livePcs) {
+    for (let str = 0; str < 6; str++) {
+      const y = mt + (5 - str) * ss;
+      for (let f = firstFret; f <= lastFret; f++) {
+        const pc = noteAt(str, f);
+        const deg = livePcs[pc];
+        if (!deg) continue;
+        const cx = xOf(f) + fretW/2;
+        const noteName = nameOf(pc, useFlatsFor(state.keyPc));
+        const c = intervalColor(deg);
+        // Halo for notes that are ALSO in the next chord — these "stay"
+        // through the chord change. A bright glow layer behind the dot makes
+        // it visibly radiate in the note's interval color.
+        const staysIntoNext = nextPcs && nextPcs[pc];
+        if (staysIntoNext) {
+          s += `<circle cx="${cx}" cy="${y}" r="40" fill="${c}" opacity="0.85" filter="url(#scale-bloom)"/>`;
+        }
+        s += `<circle cx="${cx}" cy="${y}" r="34" fill="${c}" stroke="#000" stroke-width="2" filter="url(#scale-dropShadow)"/>`;
+        s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="20" font-weight="700" fill="#000" pointer-events="none">${noteName}</text>`;
+        s += `<text x="${cx}" y="${y + 24}" text-anchor="middle" font-size="14" font-weight="700" fill="#000" opacity="0.7" pointer-events="none">${deg}</text>`;
+      }
+    }
+  }
+
+  notesG.innerHTML = s;
+}
+
+// ── Chord-neck wrapper: shows only the notes of the currently played voicing ──
+// Notes go inside a replaceable `#chord-notes-group` so we can repaint them on chord
+// change without rebuilding the SVG (preserving pan transform).
+function renderChordNeck() {
+  renderNeck('chord-neck', CHORD_NECK_GEO, {
+    idPrefix: 'chord',
+    showHighlight: false,
+    paintNotes: () => `<g id="chord-notes-group"></g>`,
+  });
+  // Initial paint of the notes
+  repaintChordNeckNotes();
+}
+
+// Compute the box that should be highlighted right now, based on the active voicing
+function computeActiveBox() {
   let targetFret = null;
   const shape = state.playerVoicing?.shape || focusedShape()?.shape;
   if (shape) {
     const fs = shape.filter(f => f >= 0);
     if (fs.length) targetFret = fs.reduce((a,b) => a+b, 0) / fs.length;
   }
-  const box = computeScaleBox(state.keyPc, state.tonality, targetFret);
-  const flats = useFlatsFor(state.keyPc);
-  const tonicName = nameOf(state.keyPc, flats);
-  const minorName = nameOf(box.minorRootPc, flats);
-  const label = state.tonality === 'major'
-    ? `${tonicName} maj pent`
-    : `${minorName} min pent`;
-  const svg = renderScaleBox(box);
-  el.innerHTML = `
-    <div class="scale-strip-label">
-      <div class="ss-name">${label}</div>
-      <div class="ss-fret">fr ${box.startFret}–${box.endFret}</div>
-      <div class="scale-strip-legend">
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#dc2626"></span> root</span><br>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#1a1a1a"></span> penta</span><br>
-        <span><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#fdfcf3;border:1px solid #1a1a1a"></span> extra</span>
-      </div>
-    </div>
-    ${svg}
-  `;
+  return computeScaleBox(state.keyPc, state.tonality, targetFret);
+}
+
+// Compute the box for an arbitrary chord/voicing object {shape}
+function computeBoxForShape(shape) {
+  if (!shape) return computeScaleBox(state.keyPc, state.tonality, null);
+  const fs = shape.filter(f => f >= 0);
+  const targetFret = fs.length ? fs.reduce((a,b)=>a+b,0)/fs.length : null;
+  return computeScaleBox(state.keyPc, state.tonality, targetFret);
+}
+
+// Generic animator: tweens hiState's box + window toward a target box and pans the neck.
+function animateNeckHighlight(hiState, geo, idPrefix, targetBox, durationMs = 1200) {
+  const visible = geo.visibleFrets;
+  const boxCenter = (targetBox.startFret + targetBox.endFret + 1) / 2;
+  let targetWindow = boxCenter - visible / 2;
+  const minWin = geo.firstFret - 0.3;
+  const maxWin = geo.lastFret - visible + 1.3;
+  targetWindow = Math.max(minWin, Math.min(maxWin, targetWindow));
+
+  if (hiState.targetStart === targetBox.startFret &&
+      hiState.targetEnd   === targetBox.endFret &&
+      Math.abs(hiState.targetWindow - targetWindow) < 0.001) return;
+
+  hiState.fromStart  = hiState.currentStart;
+  hiState.fromEnd    = hiState.currentEnd;
+  hiState.fromWindow = hiState.currentWindow;
+  hiState.targetStart  = targetBox.startFret;
+  hiState.targetEnd    = targetBox.endFret;
+  hiState.targetWindow = targetWindow;
+  hiState.tweenStart = performance.now();
+  hiState.tweenDur   = durationMs;
+
+  if (hiState.rafId == null) {
+    const tick = (now) => {
+      const t = Math.min(1, (now - hiState.tweenStart) / hiState.tweenDur);
+      // Smoother ease: quintic in-out — gentler start/end, no perceived jerk
+      const e = t < 0.5
+        ? 16 * t * t * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 5) / 2;
+      hiState.currentStart  = hiState.fromStart  + (hiState.targetStart  - hiState.fromStart)  * e;
+      hiState.currentEnd    = hiState.fromEnd    + (hiState.targetEnd    - hiState.fromEnd)    * e;
+      hiState.currentWindow = hiState.fromWindow + (hiState.targetWindow - hiState.fromWindow) * e;
+      applyNeckHighlight(hiState, geo, idPrefix);
+      if (t < 1) {
+        hiState.rafId = requestAnimationFrame(tick);
+      } else {
+        hiState.rafId = null;
+      }
+    };
+    hiState.rafId = requestAnimationFrame(tick);
+  }
+}
+
+// Push current animated state into the SVG: pan transform + (optional) highlight rect
+function applyNeckHighlight(hiState, geo, idPrefix) {
+  const rect = document.getElementById(`${idPrefix}-hi-rect`);
+  const panInner = document.getElementById(`${idPrefix}-pan-inner`);
+  if (!panInner) return;
+  const { mt, mb, H, firstFret, fretW } = geo;
+  const stringsH = H - mt - mb;
+  if (rect) {
+    const x0 = (hiState.currentStart - firstFret) * fretW;
+    const x1 = (hiState.currentEnd   - firstFret + 1) * fretW;
+    rect.setAttribute('x', x0);
+    rect.setAttribute('width', Math.max(10, x1 - x0));
+    rect.setAttribute('y', mt - 10);
+    rect.setAttribute('height', stringsH + 20);
+  }
+  const tx = -(hiState.currentWindow - firstFret) * fretW;
+  panInner.setAttribute('transform', `translate(${tx},0)`);
+}
+
+// Convenience wrappers
+function animateScaleHighlight(targetBox, durationMs = 1200) {
+  animateNeckHighlight(scaleHi, SCALE_NECK_GEO, 'scale', targetBox, durationMs);
+}
+function applyScaleHighlight() { applyNeckHighlight(scaleHi, SCALE_NECK_GEO, 'scale'); }
+function animateChordHighlight(targetBox, durationMs = 1200) {
+  animateNeckHighlight(chordHi, CHORD_NECK_GEO, 'chord', targetBox, durationMs);
+}
+function applyChordHighlight() { applyNeckHighlight(chordHi, CHORD_NECK_GEO, 'chord'); }
+
+// For the chord neck: "box" = the fret span the voicing actually uses
+function computeChordViewBox(shape) {
+  if (!shape) return { startFret: 1, endFret: 5 };
+  const fs = shape.filter(f => f > 0);  // ignore open strings
+  if (!fs.length) return { startFret: 1, endFret: 5 };
+  const minF = Math.min(...fs);
+  const maxF = Math.max(...fs);
+  return { startFret: Math.max(1, minF - 1), endFret: Math.max(minF + 4, maxF + 1) };
+}
+
+// Helper: snap a hiState to a given box and apply immediately
+function snapNeckTo(hiState, geo, idPrefix, box) {
+  const visible = geo.visibleFrets;
+  const boxCenter = (box.startFret + box.endFret + 1) / 2;
+  let win = boxCenter - visible / 2;
+  const minWin = geo.firstFret - 0.3;
+  const maxWin = geo.lastFret - visible + 1.3;
+  win = Math.max(minWin, Math.min(maxWin, win));
+  hiState.currentStart  = hiState.targetStart  = hiState.fromStart  = box.startFret;
+  hiState.currentEnd    = hiState.targetEnd    = hiState.fromEnd    = box.endFret;
+  hiState.currentWindow = hiState.targetWindow = hiState.fromWindow = win;
+  applyNeckHighlight(hiState, geo, idPrefix);
+}
+
+function renderScaleStrip() {
+  // (Re)draws both static necks and snaps highlights to the active position.
+  // Called from renderAll() only (key/tonality changes) — NOT every chord change.
+  renderScaleNeck();
+  renderChordNeck();
+  snapNeckTo(scaleHi, SCALE_NECK_GEO, 'scale', computeActiveBox());
+  const shape = state.playerVoicing?.shape || focusedShape()?.shape;
+  snapNeckTo(chordHi, CHORD_NECK_GEO, 'chord', computeChordViewBox(shape));
+}
+
+// Called from the player on every visual tick. Slides the highlight toward
+// the NEXT chord's box during the last bar (anticipation), otherwise eases
+// to the CURRENT chord's box.
+function updateScaleHighlightForPlayer(player) {
+  if (!player || !player.playing) return;
+  // Both necks pan to the SAME window (the scale box) for visual coherence.
+  // The chord neck just draws its dots inside that same window.
+  const curBox = computeBoxForShape(state.playerVoicing?.shape);
+  const beatDur = 60 / metronome.bpm;
+  const barMs = beatDur * 4 * 1000;
+
+  const anticipateBars = Math.min(player.barsRemaining, 2);
+  const inAnticipation = state.nextVoicing && player.barsRemaining <= 2;
+
+  let target, durMs;
+  if (inAnticipation) {
+    const nextBox = computeBoxForShape(state.nextVoicing.shape);
+    if (nextBox.startFret === curBox.startFret && nextBox.endFret === curBox.endFret) {
+      target = curBox; durMs = 700;
+    } else {
+      target = nextBox; durMs = barMs * (anticipateBars - 0.1);
+    }
+  } else {
+    target = curBox; durMs = 750;
+  }
+  animateScaleHighlight(target, durMs);
+  animateChordHighlight(target, durMs);
+
+  // Re-paint both necks' note layers so chord tones recolor live.
+  repaintChordNeckNotes();
+  repaintScaleNeckNotes();
+}
+
+// Helper: build SVG markup for a single voicing's notes on the chord neck.
+// preview=true gives a muted, amber-outlined preview style for the upcoming chord.
+// staysSet: Set of "str.fret" keys that are common between current & next voicings
+// (finger stays put across the chord change) — gets a green halo ring.
+// Detect realistic barres in a voicing based on jazz pedagogy.
+// String indices: 0 = high E, 1 = B, 2 = G, 3 = D, 4 = A, 5 = low E.
+// Rules:
+//   (1) 3+ adjacent strings on same fret → always a barre
+//   (2) 2 adjacent strings on the TOP pair (E+B, indices 0+1) or G+B (1+2) → barre
+//       (these are the standard partial barres — index or ring finger)
+//   (3) 2 adjacent strings at the LOWEST fret of the voicing → barre (root-position index barre)
+//   (4) Mid/bottom pair NOT at the lowest fret → two fingers (no barre shown)
+//   (5) Bottom pair (E+A, A+D) → two fingers (would mute inner voices)
+//   (6) Non-contiguous "barres" → never (just two separate fingers)
+function _detectBarres(shape) {
+  const fretted = shape.filter(f => f > 0);
+  if (!fretted.length) return [];
+  const minFret = Math.min(...fretted);
+  const muted = (str) => shape[str] < 0;
+
+  // Group fretted strings by fret position
+  const byFret = {};
+  for (let str = 0; str < 6; str++) {
+    const f = shape[str];
+    if (f <= 0) continue;
+    (byFret[f] = byFret[f] || []).push(str);
+  }
+
+  const barres = [];
+  for (const [fretStr, strs] of Object.entries(byFret)) {
+    const fret = parseInt(fretStr, 10);
+    if (strs.length < 2) continue;
+    strs.sort((a,b) => a-b);
+
+    // Must be contiguous — no string gaps within the candidate barre
+    let contiguous = true;
+    for (let i = 1; i < strs.length; i++) {
+      if (strs[i] !== strs[i-1] + 1) { contiguous = false; break; }
+    }
+    if (!contiguous) continue;
+
+    // No barre if a string inside the range is muted (we'd cross it)
+    let mutedInside = false;
+    for (let s = strs[0]; s <= strs[strs.length-1]; s++) {
+      if (muted(s)) { mutedInside = true; break; }
+    }
+    if (mutedInside) continue;
+
+    const minS = strs[0], maxS = strs[strs.length - 1];
+    const span = strs.length;
+    const isTopPair = span === 2 && minS === 0 && maxS === 1;          // high E + B
+    const isGB     = span === 2 && minS === 1 && maxS === 2;            // B + G
+    const isAtMinFret = fret === minFret;
+
+    let isBarre = false;
+    if (span >= 3) {
+      isBarre = true;                                                   // (1) 3+ → barre
+    } else if (isTopPair || isGB) {
+      isBarre = true;                                                   // (2) top-string partial
+    } else if (isAtMinFret && minS >= 2) {
+      // (3) Lowest-fret index barre on inner/lower strings — only if it's
+      //     actually the bottom of the voicing AND covers the lowest sounding
+      //     strings of the chord (no fretted note below the barre).
+      const anyFrettedBelow = shape.slice(maxS + 1).some(f => f > 0);
+      isBarre = !anyFrettedBelow;
+    }
+
+    if (isBarre) barres.push({ fret, minStr: minS, maxStr: maxS });
+  }
+  return barres;
+}
+
+function _paintChordVoicing(shape, chordId, preview, geo, staysSet) {
+  if (!shape || !chordId) return '';
+  const map = currentMap();
+  const ch = map.chordDefs[chordId];
+  if (!ch) return '';
+  const root = (state.keyPc + ch.deg) % 12;
+  const q = QUALITIES[ch.quality];
+  const chordDegFromRoot = {};
+  q.ints.forEach((semi, i) => {
+    const pc = (root + semi) % 12;
+    if (!(pc in chordDegFromRoot)) chordDegFromRoot[pc] = q.degs[i];
+  });
+  const { mt, mb, H, firstFret, fretW } = geo;
+  const ss = (H - mt - mb) / 5;
+  const xOf = (f) => (f - firstFret) * fretW;
+  let s = '';
+
+  // Draw barre indicators FIRST (under the note dots) — only on the live chord, not preview
+  if (!preview) {
+    const barres = _detectBarres(shape);
+    barres.forEach(b => {
+      const cx = xOf(b.fret) + fretW / 2;
+      // String y (str=0 is high E at the BOTTOM, str=5 is low E at the TOP)
+      const yHigherStr = mt + (5 - b.maxStr) * ss;  // top of bar
+      const yLowerStr  = mt + (5 - b.minStr) * ss;  // bottom of bar
+      const barW = 78;
+      const padY = 30;
+      const barH = (yLowerStr - yHigherStr) + padY * 2;
+      const barY = yHigherStr - padY;
+
+      // Does the barre survive into the next chord? Count strings at this fret in staysSet.
+      let staysCount = 0;
+      if (staysSet) {
+        for (let str = b.minStr; str <= b.maxStr; str++) {
+          if (staysSet.has(`${str}.${b.fret}`)) staysCount++;
+        }
+      }
+      const barreStays = staysCount >= 2;
+
+      // Soft bloom around the barre when it stays into the next chord
+      if (barreStays) {
+        s += `<rect x="${cx - barW/2}" y="${barY}" width="${barW}" height="${barH}" rx="${barW/2}" ry="${barW/2}" fill="#f0caa0" opacity="0.78" filter="url(#chord-bloom)"/>`;
+      }
+
+      // Soft, fleshy bar that suggests an index finger laying across the strings
+      s += `<rect x="${cx - barW/2}" y="${barY}" width="${barW}" height="${barH}" rx="${barW/2}" ry="${barW/2}" fill="#f0caa0" stroke="#704020" stroke-width="2" opacity="0.6"/>`;
+      // Soft shading on the side to give it depth
+      s += `<rect x="${cx - barW/2}" y="${barY}" width="${barW * 0.45}" height="${barH}" rx="${barW/2}" ry="${barW/2}" fill="#fde8c8" opacity="0.35"/>`;
+      // Tiny nail crescent at the top
+      s += `<ellipse cx="${cx}" cy="${barY + 14}" rx="${barW/2 - 14}" ry="5" fill="#fdf2e0" opacity="0.5"/>`;
+    });
+  }
+
+  for (let str = 0; str < 6; str++) {
+    const f = shape[str];
+    if (f < 0) continue;
+    const y = mt + (5 - str) * ss;
+    const cx = xOf(f) + fretW/2;
+    const pc = noteAt(str, f);
+    const deg = chordDegFromRoot[pc] || '';
+    const c = intervalColor(deg);
+    const noteName = nameOf(pc, useFlatsFor(root));
+    const stays = staysSet && staysSet.has(`${str}.${f}`);
+    if (preview) {
+      s += `<g opacity="0.4">`;
+      if (stays) {
+        // Sustained finger on the preview side — halo in the note's own color
+        s += `<circle cx="${cx}" cy="${y}" r="34" fill="none" stroke="${c}" stroke-width="2.6" stroke-dasharray="4 3" opacity="0.7"/>`;
+      }
+      s += `<circle cx="${cx}" cy="${y}" r="26" fill="rgba(250,237,196,0.35)" stroke="#a07820" stroke-width="1.8" stroke-dasharray="5 4"/>`;
+      s += `<circle cx="${cx}" cy="${y}" r="18" fill="${c}" opacity="0.35"/>`;
+      s += `<text x="${cx}" y="${y + 3}" text-anchor="middle" font-size="13" font-weight="600" fill="#3a2a0a" pointer-events="none">${noteName}</text>`;
+      s += `<text x="${cx}" y="${y + 16}" text-anchor="middle" font-size="10" font-weight="600" fill="#6b4a0e" pointer-events="none">${deg}</text>`;
+      s += `</g>`;
+    } else {
+      if (stays) {
+        // Finger stays into next chord — soft bloom in the note's own color
+        s += `<circle cx="${cx}" cy="${y}" r="40" fill="${c}" opacity="0.85" filter="url(#chord-bloom)"/>`;
+      }
+      s += `<circle cx="${cx}" cy="${y}" r="34" fill="${c}" stroke="#000" stroke-width="2" filter="url(#chord-dropShadow)"/>`;
+      s += `<text x="${cx}" y="${y + 5}" text-anchor="middle" font-size="20" font-weight="700" fill="#000" pointer-events="none">${noteName}</text>`;
+      s += `<text x="${cx}" y="${y + 24}" text-anchor="middle" font-size="14" font-weight="700" fill="#000" opacity="0.7" pointer-events="none">${deg}</text>`;
+    }
+  }
+  return s;
+}
+
+// Re-render the chord-neck note dots without rebuilding the SVG (so pan transform persists).
+function repaintChordNeckNotes() {
+  const panInner = document.getElementById('chord-pan-inner');
+  if (!panInner) return;
+  let notesG = document.getElementById('chord-notes-group');
+  if (!notesG) {
+    notesG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    notesG.id = 'chord-notes-group';
+    panInner.appendChild(notesG);
+  }
+  const geo = CHORD_NECK_GEO;
+  const liveShape = state.playerVoicing?.shape || focusedShape()?.shape;
+  const liveChordId = state.playerVoicing?.chord || state.focusedChord;
+  const nextShape  = state.nextVoicing?.shape;
+  const nextChordId = state.nextVoicing?.chord;
+
+  // Compute "fingers that stay" — same string AND same fret across the two voicings
+  const staysSet = new Set();
+  if (liveShape && nextShape) {
+    for (let str = 0; str < 6; str++) {
+      if (liveShape[str] >= 0 && liveShape[str] === nextShape[str]) {
+        staysSet.add(`${str}.${liveShape[str]}`);
+      }
+    }
+  }
+
+  let s = '';
+  // Preview first so the live chord paints on top
+  if (nextShape && nextChordId) {
+    s += _paintChordVoicing(nextShape, nextChordId, true, geo, staysSet);
+  }
+  if (liveShape && liveChordId) {
+    s += _paintChordVoicing(liveShape, liveChordId, false, geo, staysSet);
+  }
+  notesG.innerHTML = s;
 }
 
 function renderAll() {
+  syncTonalityToggle();
   renderKeyRow();
   renderScaleStrip();
   renderChordMap();
@@ -3183,29 +4626,107 @@ const DEGREE_SHORTCUTS = {
   minor: {1:'i',  2:'iiø', 3:'bIII', 4:'iv', 5:'V7', 6:'bVI', 7:'bVII'},
 };
 
+// Tracks voicing cycling for keyboard shortcuts.
+//   Number 1–7                → select chord, play the screen-recommended voicing
+//   Right Shift + number 1–7  → cycle FORWARD through alternate voicings
+//   Left  Shift + number 1–7  → cycle BACKWARD through alternate voicings
+let _shortcutCycle = { chord: null, idx: 0, cands: [] };
+
+// Track which shift is held — e.shiftKey alone can't distinguish sides.
+let _shiftSide = null;   // 'left' | 'right' | null
 document.addEventListener('keydown', e => {
-  // Don't intercept when typing into inputs
+  if (e.code === 'ShiftLeft')  _shiftSide = 'left';
+  if (e.code === 'ShiftRight') _shiftSide = 'right';
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'ShiftLeft'  && _shiftSide === 'left')  _shiftSide = null;
+  if (e.code === 'ShiftRight' && _shiftSide === 'right') _shiftSide = null;
+});
+
+document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  const n = parseInt(e.key);
-  if (n >= 1 && n <= 7) {
-    const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
-    if (chordId && currentMap().chordDefs[chordId]) {
-      e.preventDefault();
-      state.focusedChord = chordId;
-      state.userVoicing = null;
-      if (player.playing) {
-        player.jumpTo(chordId);
-      } else {
-        renderAll();
+  // Shift+digit may produce a punctuation glyph ("@", "#", ...) instead of the
+  // digit on US layouts — fall back to e.code "Digit1"–"Digit7" in that case.
+  let n = parseInt(e.key);
+  if (isNaN(n) && e.code && e.code.startsWith('Digit')) n = parseInt(e.code.slice(5));
+  if (n < 1 || n > 7) return;
+  const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
+  if (!chordId || !currentMap().chordDefs[chordId]) return;
+  e.preventDefault();
+
+  const ch = currentMap().chordDefs[chordId];
+  const root = chordRoot(ch);
+  const isCycleKey = e.shiftKey;
+  // Default to forward if shift side somehow isn't tracked (e.g. window lost focus)
+  const direction = _shiftSide === 'left' ? -1 : 1;
+
+  if (isCycleKey && _shortcutCycle.chord === chordId && _shortcutCycle.cands.length) {
+    // Shift+same-number → step voicing in the chosen direction
+    const len = _shortcutCycle.cands.length;
+    _shortcutCycle.idx = (_shortcutCycle.idx + direction + len) % len;
+  } else {
+    // Either plain digit OR shift+different-chord — land on the displayed/recommended voicing
+    const displayed = computeAllVoicings()[chordId];
+    const cands = [];
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      for (let inv = 0; inv < 4; inv++) {
+        const sh = dropTwoVoicing(ch.quality, root, ss, inv);
+        if (sh) cands.push({ shape: sh, stringSetIdx: ss, inversion: inv });
       }
     }
+    // Sort by register (avg fret) ascending — so cycling right = higher on the neck,
+    // cycling left = lower. Tie-break by string set so order is stable.
+    cands.sort((a, b) => {
+      const afA = avgFret(a.shape), afB = avgFret(b.shape);
+      if (afA !== afB) return afA - afB;
+      return a.stringSetIdx - b.stringSetIdx;
+    });
+    let startIdx = 0;
+    if (displayed?.shape) {
+      const match = cands.findIndex(c => c.shape.every((f, i) => f === displayed.shape[i]));
+      if (match >= 0) startIdx = match;
+    }
+    // If shift+number on a different chord, advance one step into alternates in direction
+    if (isCycleKey && cands.length > 1) {
+      startIdx = (startIdx + direction + cands.length) % cands.length;
+    }
+    _shortcutCycle = { chord: chordId, idx: startIdx, cands };
+  }
+
+  const picked = _shortcutCycle.cands[_shortcutCycle.idx];
+  state.focusedChord = chordId;
+  state.userVoicing = picked
+    ? { stringSetIdx: picked.stringSetIdx, inversion: picked.inversion }
+    : null;
+
+  if (player.playing) {
+    player.jumpTo(chordId);
+  } else {
+    renderAll();
+    ringFocusedChord();
   }
 });
 
+// Any non-keyboard focus change (clicking a card, AI moving) resets the cycle.
+// We hook this by watching focusedChord transitions from other code paths.
+const _origRenderAll = renderAll;
+renderAll = function() {
+  // If focused changed away from the cycle's chord by other means, drop the cycle
+  if (_shortcutCycle.chord && state.focusedChord !== _shortcutCycle.chord) {
+    _shortcutCycle = { chord: null, idx: 0, cands: [] };
+  }
+  return _origRenderAll.apply(this, arguments);
+};
+
 renderAll();
 window.addEventListener('resize', renderFretboard);
+
+// Register the shared service worker so this app installs / works offline
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('pwa/sw.js').catch(() => {});
+}
 </script>
 
 </body>
