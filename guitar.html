@@ -3362,11 +3362,21 @@ class Player {
       ? { ...A_base, keyPc: finalALift.keyPc, tonality: finalALift.tonality, modName: finalALift.name }
       : A_base;
 
-    if (Math.random() < 0.7) {
-      return [A_base, A_base, B_section, A_lifted];
-    } else {
-      return [A_base, B_section, A_base, A_lifted];
-    }
+    const sections = Math.random() < 0.7
+      ? [A_base, A_base, B_section, A_lifted]
+      : [A_base, B_section, A_base, A_lifted];
+
+    // Pre-assign voicingType + bassPattern PER SECTION so playback is deterministic
+    // (and the Real Book strip's lookahead can show the exact voicings that'll play).
+    // Sections sharing the same identity (same A reused twice) keep the same type.
+    const typeByLabel = {};
+    const bassByLabel = {};
+    return sections.map(s => {
+      const key = s.label + (s.modName || '');   // distinguish A_lifted from A_base
+      if (typeByLabel[key] === undefined) typeByLabel[key] = this._pickVoicingType();
+      if (bassByLabel[key] === undefined) bassByLabel[key] = this._pickBassPattern();
+      return { ...s, voicingType: typeByLabel[key], bassPattern: bassByLabel[key] };
+    });
   }
 
   // Apply the key/tonality of the current section. Called when songIdx advances.
@@ -3400,8 +3410,9 @@ class Player {
     this.sectionIter = 0;
     this.currentStepIdx = 0;
     this.barsRemaining = this._currentStep().bars;
-    this.voicingType = this._pickVoicingType();
-    this.bassPattern = this._pickBassPattern();
+    // Read voicingType + bassPattern from the section (pre-assigned at song generation)
+    this.voicingType = this._currentSection().voicingType || this._pickVoicingType();
+    this.bassPattern = this._currentSection().bassPattern || this._pickBassPattern();
     this.totalBars = 0;
     this._cachedPage = null;
     // Reset the per-progression voicing cache so cards revert to default until played
@@ -3527,9 +3538,12 @@ class Player {
             }
             // Apply this section's key/tonality (may modulate)
             this._applySectionKey();
-            this.voicingType = this._upcomingType || this._pickVoicingType();
+            // Read pre-assigned voicingType / bassPattern from the section so playback
+            // matches the strip's lookahead exactly. Fallback to random if unassigned.
+            const newSection = this._currentSection();
+            this.voicingType = newSection.voicingType || this._upcomingType || this._pickVoicingType();
             this._upcomingType = null;
-            this.bassPattern = this._pickBassPattern();
+            this.bassPattern = newSection.bassPattern || this._pickBassPattern();
           }
         }
         this.barsRemaining = this._currentStep().bars;
@@ -3721,9 +3735,8 @@ class Player {
     let totalBars = 0;
     let isFirst = true;
     let safety = 0;
-    // Track the key + voicing type as we simulate forward
+    // Track the key as we simulate forward
     let simKeyPc = state.keyPc;
-    let simVoicingType = this.voicingType;
     const cycleStep = cycleMode === 'chromatic' ? 1 : cycleMode === 'fourths' ? 5 : 0;
     while (totalBars < n && safety++ < 30) {
       const section = this.song[songIdx];
@@ -3733,14 +3746,17 @@ class Player {
       if (!step) break;
       const stepBars = isFirst ? barsLeft : step.bars;
       const barsToShow = Math.min(stepBars, n - totalBars);
+      // voicingType comes straight from the section's pre-assignment — guaranteed
+      // to match what the player will pick when it transitions in.
+      const simVoicingType = section.voicingType || this.voicingType;
       result.push({
         roman: step.roman,
         chord: step.chord,
         bars: barsToShow,
         isCurrent: isFirst,
         isNextChange: false,
-        keyPc: simKeyPc,           // ← key this chord will actually play in
-        voicingType: simVoicingType, // ← voicing type used at this bar
+        keyPc: simKeyPc,
+        voicingType: simVoicingType,
       });
       totalBars += barsToShow;
       isFirst = false;
@@ -3750,14 +3766,11 @@ class Player {
         sectionIter++;
         if (loopMode) {
           sectionIter = 0;
-          // Loop + cycle: key advances every iteration
           if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
         } else if (sectionIter >= section.repeats) {
           sectionIter = 0;
           songIdx++;
           if (songIdx >= this.song.length) break;
-          // New section will get a fresh voicing type — use the pre-picked one if set
-          simVoicingType = this._upcomingType || this.voicingType;
         }
       }
     }
