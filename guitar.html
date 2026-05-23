@@ -3828,47 +3828,41 @@ class Player {
       // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
-    // Pick a voicing for each cell using the player's own picker + per-bar
-    // voicingType. Chains forward bar-by-bar.
-    //
-    // CRITICAL: the cell at `currentIdx` is the CURRENTLY PLAYING chord — its
-    // real voicing is `state.playerVoicing.shape`, picked at trigger time with
-    // the previous chord as prev. We MUST use that actual shape (not re-pick
-    // with its own shape as prev — that'd give a different result and the
-    // chain would drift). Use cached played voicings for any cell whose chord
-    // ID was actually played in this run; chain forward through predictions
-    // only for cells that haven't played yet.
-    const cellVoicings = [];   // index -> shape (parallel to cells array)
+    // Pick a voicing for each cell in TEMPORAL order so the chain matches what
+    // the player will do. In imminent mode, cells = [peek, bar1, bar2, bar3] but
+    // peek (cell 0) is temporally AFTER bar 3 — so we must process bars 1→3
+    // first, then peek with prev = bar 3's actual shape.
+    const cellVoicings = new Array(cells.length).fill(null);
+    // Build temporal traversal order: indices listed in the order they play.
+    const temporalOrder = (imminentIdx === 0)
+      ? [1, 2, 3, 0]      // imminent: peek is the future, comes last
+      : cells.map((_, i) => i);
     let prevShape = null;
-    // Start the chain from whatever was played JUST BEFORE the current bar —
-    // i.e. the previous chord on the player's history. We approximate that as
-    // null and let the picker use no-prev mode (sweet-spot pull). For cells
-    // past the current one, the chain takes over.
-    cells.forEach((cell, i) => {
-      if (!cell) { cellVoicings.push(null); return; }
+    for (const i of temporalOrder) {
+      const cell = cells[i];
+      if (!cell) continue;
       const ch = map.chordDefs[cell.chord];
-      if (!ch) { cellVoicings.push(null); return; }
+      if (!ch) continue;
       const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
       const cellVoicingType = cell.voicingType || this.voicingType;
       const root = (cellKeyPc + ch.deg) % 12;
 
       let shape = null;
       if (i === currentIdx && state.playerVoicing?.shape) {
-        // The cell that's actually playing right now — use the real voicing
-        shape = state.playerVoicing.shape;
+        shape = state.playerVoicing.shape;                  // literally playing
       } else if (state.progressionVoicings[cell.chord]
                  && cellKeyPc === state.keyPc
-                 && cellVoicingType === (state.progressionVoicings[cell.chord].type || this.voicingType)) {
-        // Already played in this run, same key + type — use the literal voicing
+                 && cellVoicingType === (state.progressionVoicings[cell.chord].type || this.voicingType)
+                 && i < currentIdx) {                       // only past cells use cache
         shape = state.progressionVoicings[cell.chord].shape;
       } else {
-        // Predict using the SAME picker the player will use
+        // Future cell — predict with the SAME picker + chain as the player
         shape = this._pickShape(ch.quality, root, cellVoicingType, prevShape);
         if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
       }
-      cellVoicings.push(shape);
+      cellVoicings[i] = shape;
       if (shape) prevShape = shape;
-    });
+    }
 
     const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
