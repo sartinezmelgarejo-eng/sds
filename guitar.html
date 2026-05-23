@@ -3789,8 +3789,10 @@ class Player {
       // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
-    // Pick a voicing for each unique chord in the strip, threading voice-leading
-    // through the sequence so each tab reflects a smooth move from the prior cell.
+    // Pick a voicing for each unique chord in the strip using the SAME picker
+    // (`_pickShape`) and SAME voicing type the player will use when it actually
+    // triggers the chord — so the tab you see now is the tab that will play.
+    // Chains forward bar-by-bar, threading voice-leading.
     const cellVoicings = {};   // chord-id+keyPc -> shape
     let prevShapeForChain = state.playerVoicing?.shape || focusedShape()?.shape || null;
     cells.forEach(cell => {
@@ -3801,14 +3803,10 @@ class Player {
       const root = (cellKeyPc + ch.deg) % 12;
       const k = `${cell.chord}@${cellKeyPc}`;
       if (cellVoicings[k]) { prevShapeForChain = cellVoicings[k]; return; }
-      // Prefer cached played voicing if it's in the same key; else smoothest from chain
-      let v = null;
-      if (state.progressionVoicings[cell.chord] && cellKeyPc === state.keyPc) {
-        v = state.progressionVoicings[cell.chord].shape;
-      } else {
-        const sm = smoothestVoicing(ch.quality, root, prevShapeForChain);
-        v = sm?.shape;
-      }
+      // Use the player's own picker so prediction matches actual play
+      let v = this._pickShape(ch.quality, root, this.voicingType, prevShapeForChain);
+      // Fallback to drop2 if the chosen type can't voice this quality
+      if (!v) v = this._pickShape(ch.quality, root, 'drop2', prevShapeForChain);
       if (v) { cellVoicings[k] = v; prevShapeForChain = v; }
     });
 
