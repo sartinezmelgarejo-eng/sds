@@ -1233,6 +1233,8 @@ function chapterText(bookId, chapter) {
 
 // Cross-references — loaded from refs.json on startup
 let REFS = {};
+// Becomes true once rv1909.json finishes loading (success or failure)
+let DATA_READY = false;
 
 // Build the chapter scaffolding (page headers + empty verse grids) once.
 // Spread content gets injected by renderSpread().
@@ -1246,16 +1248,16 @@ function renderChapterIntoPages() {
   const rightContent = document.querySelector('#page-right .page-content');
 
   if (!ch) {
+    const msg = DATA_READY
+      ? `<em>Capítulo no encontrado.</em>`
+      : `<em>Cargando la Sagrada Escritura...</em>`;
     leftContent.innerHTML = `
       <div class="page-header">
         <div class="book-name">${book.name}</div>
         <span class="chapter-num">Capítulo ${state.chapter}</span>
         <span class="flourish">✦ ❦ ✦</span>
       </div>
-      <div class="loading">
-        <em>Este capítulo aún no está cargado en esta demostración.<br>
-        Próximamente: Reina-Valera 1909 completa.</em>
-      </div>`;
+      <div class="loading">${msg}</div>`;
     rightContent.innerHTML = '';
     state.spreads = [];
     return;
@@ -2199,20 +2201,29 @@ document.addEventListener('keydown', e => {
 
 // ───────── Data loading: rv1909.json + refs.json (async, with loading state) ─────────
 async function loadBibleData() {
-  // Show a tasteful loading indicator on the right page
-  const rc = document.querySelector('#page-right .page-content');
-  if (rc) rc.innerHTML = `<div class="loading" style="margin-top:40%"><em>Cargando la Sagrada Escritura...</em></div>`;
+  // Cache-bust against any stale CDN copy
+  const v = '?v=2';
   try {
     const [bibleRes, refsRes] = await Promise.all([
-      fetch('bible/rv1909.json'),
-      fetch('bible/refs.json'),
+      fetch('bible/rv1909.json' + v, { cache: 'no-cache' }),
+      fetch('bible/refs.json'   + v, { cache: 'no-cache' }),
     ]);
-    if (bibleRes.ok) TEXT = await bibleRes.json();
-    if (refsRes.ok)  REFS = await refsRes.json();
+    if (bibleRes.ok) {
+      const data = await bibleRes.json();
+      // Sanity: the loaded data should be an object keyed by book IDs
+      if (data && typeof data === 'object' && data.gen) {
+        TEXT = data;
+      } else {
+        console.warn('rv1909.json loaded but shape is unexpected:', data);
+      }
+    } else {
+      console.warn('rv1909.json fetch failed:', bibleRes.status);
+    }
+    if (refsRes.ok) REFS = await refsRes.json();
   } catch (err) {
     console.warn('Bible data load failed; using embedded sample.', err);
   }
-  // Now re-render with the real text
+  DATA_READY = true;
   renderChapterIntoPages();
 }
 
