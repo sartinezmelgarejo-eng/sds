@@ -1056,7 +1056,7 @@
     <div style="display:flex;gap:6px;align-items:center">
       <button class="auto-btn" id="mixer-btn" style="font-weight:600" title="open the volume mixer">🎚 Mix</button>
       <button class="auto-btn active" id="bass-toggle" style="font-weight:600" title="mute/unmute bass">🎸 Bass</button>
-      <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🪕 Jazz Gtr</button>
+      <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🎹 Piano</button>
       <button class="auto-btn" id="voicing-pref" style="font-weight:600" title="click to pick voicing type">🎼 All</button>
     </div>
   </div>
@@ -2380,20 +2380,26 @@ class Drone {
     lp.frequency.setValueAtTime(2400, t);
     lp.frequency.exponentialRampToValueAtTime(1100, t + 0.5);
     lp.Q.value = 0.35;
+    // Pitch-dependent decay — high notes die faster like a real piano.
+    const decayTime = midi < 55 ? 3.5 : (midi < 65 ? 2.8 : (midi < 72 ? 2.2 : 1.7));
     const pitchRoll = 1.0 - (i / total) * 0.35;
     const peakVol = 0.22 * pitchRoll;
-    const sustainVol = peakVol * 0.55;
     const env = ctx.createGain();
-    env.gain.setValueAtTime(0, t);
-    env.gain.linearRampToValueAtTime(peakVol, t + 0.018); // soft felt-hammer attack
-    env.gain.exponentialRampToValueAtTime(sustainVol, t + 0.45);
-    env.gain.exponentialRampToValueAtTime(sustainVol * 0.35, t + 2.8); // long natural fade
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(peakVol, t + 0.018);            // soft felt attack
+    env.gain.exponentialRampToValueAtTime(peakVol * 0.5,  t + 0.35);       // hammer pluck dies
+    env.gain.exponentialRampToValueAtTime(peakVol * 0.15, t + decayTime * 0.55);
+    env.gain.exponentialRampToValueAtTime(0.0001,         t + decayTime);  // full fade to silence
     fund.connect(env);
     tri.connect(triG); triG.connect(env);
     harm.connect(harmG); harmG.connect(env);
     env.connect(lp);
     lp.connect(this.master);
     fund.start(t); tri.start(t); harm.start(t);
+    // Free the oscillators after the envelope finishes so they don't pile up
+    fund.stop(t + decayTime + 0.1);
+    tri.stop(t + decayTime + 0.1);
+    harm.stop(t + decayTime + 0.1);
     this.nodes.push({o1: fund, o2: tri, o3: harm});
   }
 
@@ -2536,7 +2542,7 @@ class Drone {
   }
 }
 
-let droneTimbre = 'jazzgtr';
+let droneTimbre = 'piano';
 let loopMode = false;
 // Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
 let cycleMode = 'none';
@@ -2717,12 +2723,12 @@ function ringFocusedChord() {
   // chord twice, or when two chords happen to voice the same pitches).
   chordDrone.lastNotes = null;
   chordDrone.start(notes, currentDroneVolume() * 1.8);
-  // Safety: after 4s, gently fade the master so audio never lingers indefinitely
+  // Safety: fade the master after ~2s so audio never lingers indefinitely
   if (chordDrone.master && audioCtx) {
     const m = chordDrone.master;
     const now = audioCtx.currentTime;
-    m.gain.cancelScheduledValues(now + 4);
-    m.gain.setTargetAtTime(0, now + 4, 0.8);
+    m.gain.cancelScheduledValues(now + 2);
+    m.gain.setTargetAtTime(0, now + 2, 0.5);
   }
 }
 
