@@ -307,6 +307,7 @@
     flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;     /* force columns to fill the full vertical space */
     column-gap: 22px;
     min-height: 0;
     /* Thin vertical rule between the two columns, like a printed Bible */
@@ -1312,8 +1313,23 @@ function paginateChapter(verseHTMLs) {
   if (!refCol) return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
 
   const colW = refCol.clientWidth;
-  const colH = refCol.clientHeight;
-  if (colW < 10 || colH < 10) {
+  // The .vcol is empty at this point so its own clientHeight is 0.
+  // The available column height = the .verses container's height (it has
+  // flex:1, so it already fills the page-content vertical space).
+  const containerH = refCol.parentElement.clientHeight;
+  // Tiny safety margin so the last line doesn't touch the page footer
+  const colH = Math.max(0, containerH - 4);
+  if (colW < 10 || colH < 30) {
+    // Layout not ready yet — render everything in column 1 and retry once
+    // after the next frame so the user still sees something immediately.
+    requestAnimationFrame(() => {
+      const recomputed = paginateChapter(verseHTMLs);
+      if (recomputed.length !== 1 || (recomputed[0].r1 || recomputed[0].l2)) {
+        state.spreads = recomputed;
+        if (state.spread >= state.spreads.length) state.spread = 0;
+        renderSpread();
+      }
+    });
     return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
   }
   const cs   = getComputedStyle(refCol);
