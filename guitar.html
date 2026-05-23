@@ -1552,11 +1552,18 @@ function computeAllVoicings() {
       result[id] = state.progressionVoicings[id];
       continue;
     }
-    // 3. Default: smoothest voice-leading from the focused chord
+    // 3. Predict using the SAME picker the player would use, so the card
+    //    shows the voicing that'll actually play. Falls back to smoothestVoicing
+    //    when the player isn't running (no _pickShape context).
     const ch = map.chordDefs[id];
     const r = chordRoot(ch);
-    const sm = smoothestVoicing(ch.quality, r, focShape.shape);
-    result[id] = sm;
+    if (player && player.playing) {
+      let sh = player._pickShape(ch.quality, r, player.voicingType, focShape.shape);
+      if (!sh) sh = player._pickShape(ch.quality, r, 'drop2', focShape.shape);
+      result[id] = sh ? { shape: sh, type: player.voicingType } : null;
+    } else {
+      result[id] = smoothestVoicing(ch.quality, r, focShape.shape);
+    }
   }
   return result;
 }
@@ -3708,8 +3715,9 @@ class Player {
     let totalBars = 0;
     let isFirst = true;
     let safety = 0;
-    // Track the key as we simulate forward — loop + cycle advances it each iteration
+    // Track the key + voicing type as we simulate forward
     let simKeyPc = state.keyPc;
+    let simVoicingType = this.voicingType;
     const cycleStep = cycleMode === 'chromatic' ? 1 : cycleMode === 'fourths' ? 5 : 0;
     while (totalBars < n && safety++ < 30) {
       const section = this.song[songIdx];
@@ -3725,7 +3733,8 @@ class Player {
         bars: barsToShow,
         isCurrent: isFirst,
         isNextChange: false,
-        keyPc: simKeyPc,    // ← key this chord will actually play in
+        keyPc: simKeyPc,           // ← key this chord will actually play in
+        voicingType: simVoicingType, // ← voicing type used at this bar
       });
       totalBars += barsToShow;
       isFirst = false;
@@ -3741,6 +3750,8 @@ class Player {
           sectionIter = 0;
           songIdx++;
           if (songIdx >= this.song.length) break;
+          // New section will get a fresh voicing type — use the pre-picked one if set
+          simVoicingType = this._upcomingType || this.voicingType;
         }
       }
     }
@@ -3769,10 +3780,11 @@ class Player {
       outer: for (const seg of lookahead) {
         for (let b = 0; b < seg.bars; b++) {
           if (bar < 4) {
-            this._cachedPage.push({chord: seg.chord, barIdxInChord: b, keyPc: seg.keyPc});
+            this._cachedPage.push({chord: seg.chord, barIdxInChord: b, keyPc: seg.keyPc, voicingType: seg.voicingType});
           } else if (bar === 4) {
             this._cachedPeek = seg.chord;
             this._cachedPeekKeyPc = seg.keyPc;
+            this._cachedPeekVoicingType = seg.voicingType;
             break outer;
           }
           bar++;
@@ -3791,29 +3803,27 @@ class Player {
     let currentIdx = barInPage;
     let imminentIdx = -1;
     if (barInPage === 3 && this._cachedPeek) {
-      cells = [{ chord: this._cachedPeek, barIdxInChord: 0, keyPc: this._cachedPeekKeyPc },
+      cells = [{ chord: this._cachedPeek, barIdxInChord: 0, keyPc: this._cachedPeekKeyPc, voicingType: this._cachedPeekVoicingType },
                ...this._cachedPage.slice(1)];
       imminentIdx = 0;
       // currentIdx stays at 3 — cell 3 still shows + highlights bar 4
     }
 
     // Pick a voicing for each unique chord in the strip using the SAME picker
-    // (`_pickShape`) and SAME voicing type the player will use when it actually
-    // triggers the chord — so the tab you see now is the tab that will play.
-    // Chains forward bar-by-bar, threading voice-leading.
-    const cellVoicings = {};   // chord-id+keyPc -> shape
+    // and per-bar voicingType the player will use — so the tab you see now is
+    // the tab that will play. Chains forward bar-by-bar.
+    const cellVoicings = {};   // (chord-id + keyPc + voicingType) -> shape
     let prevShapeForChain = state.playerVoicing?.shape || focusedShape()?.shape || null;
     cells.forEach(cell => {
       if (!cell) return;
       const ch = map.chordDefs[cell.chord];
       if (!ch) return;
       const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
+      const cellVoicingType = cell.voicingType || this.voicingType;
       const root = (cellKeyPc + ch.deg) % 12;
-      const k = `${cell.chord}@${cellKeyPc}`;
+      const k = `${cell.chord}@${cellKeyPc}@${cellVoicingType}`;
       if (cellVoicings[k]) { prevShapeForChain = cellVoicings[k]; return; }
-      // Use the player's own picker so prediction matches actual play
-      let v = this._pickShape(ch.quality, root, this.voicingType, prevShapeForChain);
-      // Fallback to drop2 if the chosen type can't voice this quality
+      let v = this._pickShape(ch.quality, root, cellVoicingType, prevShapeForChain);
       if (!v) v = this._pickShape(ch.quality, root, 'drop2', prevShapeForChain);
       if (v) { cellVoicings[k] = v; prevShapeForChain = v; }
     });
@@ -3853,8 +3863,9 @@ class Player {
       if (!ch) return `<div class="${cls}"></div>`;
       const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
       const cellFlats = useFlatsFor(cellKeyPc);
+      const cellVoicingType = cell.voicingType || this.voicingType;
       const root = (cellKeyPc + ch.deg) % 12;
-      const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
+      const shape = cellVoicings[`${cell.chord}@${cellKeyPc}@${cellVoicingType}`];
       // Minimal classical chord-diagram style — black dots only, no colors or text.
       // The colors live on the chord neck and bottom fretboard where they have room.
       const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}) : '';
