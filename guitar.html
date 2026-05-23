@@ -3689,6 +3689,23 @@ class Player {
     return result;
   }
 
+  // Returns the next 4 bar-cells starting one bar ahead of the current playback.
+  // Used by mobile to render a sliding upcoming-chord window.
+  _slidingNext4() {
+    const out = [];
+    const lookahead = this._lookAheadBars(6);  // a little extra in case we cross sections
+    let skipped = 0;
+    for (const seg of lookahead) {
+      for (let b = 0; b < seg.bars; b++) {
+        if (skipped === 0) { skipped = 1; continue; }  // skip the bar currently playing
+        out.push({ chord: seg.chord, barIdxInChord: b });
+        if (out.length >= 4) return out;
+      }
+    }
+    while (out.length < 4) out.push(null);
+    return out;
+  }
+
   _renderRealBook() {
     const el = document.getElementById('real-book');
     if (!this.playing) { el.hidden = true; return; }
@@ -3720,11 +3737,22 @@ class Player {
     const flats = useFlatsFor(state.keyPc);
     const map = currentMap();
 
-    // Mobile + last bar of page: render NEXT page's cells with cell 0 in imminent
-    // state, so the "what's coming" lives inside the strip (no separate peek needed).
+    // Mobile uses a SLIDING WINDOW instead of a page-of-4:
+    //   cell 0 = next chord coming (blinks imminent in its last bar before swapping in)
+    //   cells 1..3 = chords after that
+    // The currently playing chord lives on the chord neck — no need to duplicate it
+    // here. This frees the leftmost slot to serve as the "what's next" preview.
     const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
-    const showNextPageEarly = isMobile && barInPage === 3 && this._cachedNextPage.some(Boolean);
-    const cells = showNextPageEarly ? this._cachedNextPage : this._cachedPage;
+    let cells, currentIdx, imminentIdx;
+    if (isMobile) {
+      cells = this._slidingNext4();
+      currentIdx = -1;
+      imminentIdx = (barInPage === 3) ? 0 : -1;  // blinks on the bar right before it plays
+    } else {
+      cells = this._cachedPage;
+      currentIdx = barInPage;
+      imminentIdx = -1;
+    }
 
     const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
@@ -3732,11 +3760,8 @@ class Player {
       if (!ch) return `<div class="rb-cell"></div>`;
       const root = (state.keyPc + ch.deg) % 12;
       const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-      // When showing the early-rollover next page, cell 0 is the "imminent" one
-      // (about to start playing on the next bar). On a normal page render, cell N
-      // matches the currently-playing bar.
-      const isCurrent = !showNextPageEarly && (i === barInPage);
-      const isImminent = showNextPageEarly && i === 0;
+      const isCurrent = i === currentIdx;
+      const isImminent = i === imminentIdx;
       const cls = `rb-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
       if (cell.barIdxInChord > 0) {
         return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
