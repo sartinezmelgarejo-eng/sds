@@ -478,18 +478,41 @@
     flex: 1;
     border: 1.5px solid #1a1a1a;
     background: #fdfcf3;
-    height: 130px;       /* taller now to fit chord name + mini tab */
+    height: 52px;
   }
-  .rb-tab {
-    margin-top: 2px;
-    width: 64px;
-    height: 64px;
-    pointer-events: none;
+  /* Second row beneath the chord-name row: matching cells, each with a mini tab */
+  .real-book-tabs {
+    display: flex;
+    flex: 1;
+    border: 1.5px solid #1a1a1a;
+    border-top: none;
+    background: #fdfcf3;
+    height: 92px;
   }
-  .rb-tab svg { width: 100%; height: 100%; display: block; }
+  .real-book-tabs[hidden] { display: none; }
+  /* Tabs row extends across only the chord-cell width (matching real-book above).
+     The +1 accounts for the loop button's space on the row above. */
+  .rb-tab-cell {
+    flex: 1 1 0;
+    border-right: 1.5px solid #1a1a1a;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    background: #fdfcf3;
+  }
+  .rb-tab-cell:last-child { border-right: none; }
+  .rb-tab-cell.current { background: #fcecaa; }
+  .rb-tab-cell svg { width: 100%; height: 100%; display: block; }
+  /* Spacer matching the loop+cycle column on the row above, so tabs align with their chord names */
+  .real-book-tabs::after {
+    content: '';
+    width: 62px;   /* rb-loop 38 + rb-cycle 24 */
+    flex-shrink: 0;
+  }
   .real-book[hidden] { display: none; }
   .rb-loop {
-    height: 130px;
+    height: 52px;
     width: 38px;
     padding: 0;
     background: #fdfcf3;
@@ -526,7 +549,7 @@
   }
   /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
   .rb-cycle {
-    height: 130px;
+    height: 52px;
     width: 24px;
     padding: 0;
     background: #fdfcf3;
@@ -963,9 +986,10 @@
        it to the right half; on a phone that squeezes the chord cells off-screen). */
     .rb-area { padding: 6px; justify-content: stretch; }
     .rb-stack { width: 100% !important; }
-    .real-book { height: 110px; }       /* mobile: a little shorter than desktop */
-    .rb-loop, .rb-cycle { height: 110px; }
-    .rb-tab { width: 52px; height: 52px; }
+    .real-book { height: 56px; }
+    .rb-loop, .rb-cycle { height: 56px; }
+    .real-book-tabs { height: 70px; }
+    .real-book-tabs::after { width: 62px; }   /* match loop+cycle width */
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
@@ -1055,6 +1079,9 @@
       <div class="real-book" id="real-book" hidden></div>
       <button class="rb-loop" id="loop-toggle" title="loop the current section" aria-label="repeat"><svg width="20" height="30" viewBox="0 0 20 30"><rect class="repeat-thick" x="3"  y="3" width="4" height="24"/><rect class="repeat-thin"  x="9"  y="3" width="1.4" height="24"/><circle class="repeat-dot" cx="15" cy="11" r="1.8"/><circle class="repeat-dot" cx="15" cy="19" r="1.8"/></svg></button>
       <button class="rb-cycle" id="cycle-toggle" title="no key cycle">·</button>
+    </div>
+    <div class="rb-row">
+      <div class="real-book-tabs" id="real-book-tabs" hidden></div>
     </div>
   </div>
 </div>
@@ -3407,6 +3434,8 @@ class Player {
     });
     document.getElementById('player-info').innerHTML = '';
     document.getElementById('real-book').hidden = true;
+    const _tabsHide = document.getElementById('real-book-tabs');
+    if (_tabsHide) _tabsHide.hidden = true;
   }
 
   _scheduler() {
@@ -3712,7 +3741,12 @@ class Player {
 
   _renderRealBook() {
     const el = document.getElementById('real-book');
-    if (!this.playing) { el.hidden = true; return; }
+    if (!this.playing) {
+      el.hidden = true;
+      const tEl = document.getElementById('real-book-tabs');
+      if (tEl) tEl.hidden = true;
+      return;
+    }
     el.hidden = false;
     const barInPage = this.totalBars % 4;
     // Refresh page + peek at page boundaries (or first render). Within a page, cursor moves only.
@@ -3792,18 +3826,27 @@ class Player {
       if (cell.barIdxInChord > 0) {
         return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
       }
-      // Mini tab below the chord name — shows the voicing as a small fretboard diagram
-      const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
-      const tabSvg = shape
-        ? renderMini(shape, root, ch.quality, cellFlats, {W: 64, H: 64, r: 4})
-        : '';
       return `
         <div class="${cls}">
           <div class="rb-roman">${ch.roman}</div>
           <div class="rb-chord">${name}</div>
-          <div class="rb-tab">${tabSvg}</div>
         </div>
       `;
+    }).join('');
+
+    // Build the SEPARATE tabs row beneath — one mini fretboard per cell, aligned
+    // with the chord cells above. Stays empty for null/continuation cells.
+    const tabsHtml = cells.map((cell, i) => {
+      if (!cell || cell.barIdxInChord > 0) return `<div class="rb-tab-cell"></div>`;
+      const ch = map.chordDefs[cell.chord];
+      if (!ch) return `<div class="rb-tab-cell"></div>`;
+      const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
+      const cellFlats = useFlatsFor(cellKeyPc);
+      const root = (cellKeyPc + ch.deg) % 12;
+      const shape = cellVoicings[`${cell.chord}@${cellKeyPc}`];
+      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 80, H: 80, r: 5}) : '';
+      const cls = `rb-tab-cell ${i === currentIdx ? 'current' : ''}`;
+      return `<div class="${cls}">${svg}</div>`;
     }).join('');
     let peekHtml = '';
     if (this._cachedPeek) {
@@ -3821,6 +3864,11 @@ class Player {
       }
     }
     el.innerHTML = cellsHtml + peekHtml;
+    const tabsEl = document.getElementById('real-book-tabs');
+    if (tabsEl) {
+      tabsEl.hidden = false;
+      tabsEl.innerHTML = tabsHtml;
+    }
   }
 
   jumpTo(chordId) {
