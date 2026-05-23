@@ -565,24 +565,25 @@
     body:not(.player-active) .rb-loop,
     body:not(.player-active) .rb-cycle { display: none; }
     /* Both strips become 4-col grids that wrap into multiple rows naturally */
-    body:not(.player-active) .real-book,
-    body:not(.player-active) .real-book-tabs {
+    /* Tabs container empty on mobile compose — main strip holds chord+tab pair-rows */
+    body:not(.player-active) .real-book.compose-interleaved {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: 1fr 1fr;
       height: auto;
-      min-height: 56px;
+      max-height: 50vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    body:not(.player-active) .real-book .rb-cell { min-height: 56px; }
-    body:not(.player-active) .real-book-tabs .rb-tab-cell { min-height: 70px; }
-    /* Drop the right-border on every 4th cell (end of each row) so the grid
-       reads as a clean rectangle without dangling internal lines */
-    body:not(.player-active) .real-book .rb-cell:nth-child(4n),
-    body:not(.player-active) .real-book-tabs .rb-tab-cell:nth-child(4n) {
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell { min-height: 52px; }
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 68px; }
+    /* Drop right border on right-column cells */
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell:nth-child(2n),
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell:nth-child(2n) {
       border-right: none;
     }
-    /* Bottom border between wrapped rows */
-    body:not(.player-active) .real-book .rb-cell,
-    body:not(.player-active) .real-book-tabs .rb-tab-cell {
+    /* Horizontal divider between rows */
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell,
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
       border-bottom: 1px solid rgba(26,26,26,0.4);
     }
   }
@@ -5266,7 +5267,6 @@ function renderComposeStrip() {
     return;
   }
   el.hidden = false;
-  tabsEl.hidden = false;
   const map = currentMap();
   const flats = useFlatsFor(state.keyPc);
   // Adaptive cell count — start small (especially on phone where 8+ feels cramped)
@@ -5274,12 +5274,19 @@ function renderComposeStrip() {
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
   let MAX_CELLS;
   if (isMobile) {
-    MAX_CELLS = seq.length <= 4 ? 4 : (seq.length <= 8 ? 8 : 16);
+    // 2-per-row scrollable layout: start with 4 (2 rows), grow by pairs.
+    if (seq.length <= 4)       MAX_CELLS = 4;
+    else if (seq.length <= 8)  MAX_CELLS = 8;
+    else                       MAX_CELLS = Math.min(16, Math.ceil(seq.length / 2) * 2);
   } else {
     MAX_CELLS = seq.length > 8 ? 16 : 8;
   }
   const cells = seq.slice(0, MAX_CELLS);
   while (cells.length < MAX_CELLS) cells.push(null);
+  // Mobile: render interleaved (2 chord cells, then 2 tab cells, repeating) into
+  // the main strip only. Tabs container is hidden so the whole grid scrolls as one.
+  el.classList.toggle('compose-interleaved', isMobile);
+  tabsEl.hidden = isMobile ? true : false;
 
   const renderCell = (cell, i, isTab) => {
     const cls = ['rb-cell'];
@@ -5302,8 +5309,21 @@ function renderComposeStrip() {
     </div>`;
   };
 
-  el.innerHTML = cells.map((c, i) => renderCell(c, i, false)).join('');
-  tabsEl.innerHTML = cells.map((c, i) => renderCell(c, i, true)).join('');
+  if (isMobile) {
+    // Build pair rows: [chord A, chord B, tab A, tab B] for each pair of cells
+    const parts = [];
+    for (let i = 0; i < cells.length; i += 2) {
+      parts.push(renderCell(cells[i],     i,     false));
+      parts.push(renderCell(cells[i + 1], i + 1, false));
+      parts.push(renderCell(cells[i],     i,     true));
+      parts.push(renderCell(cells[i + 1], i + 1, true));
+    }
+    el.innerHTML = parts.join('');
+    tabsEl.innerHTML = '';
+  } else {
+    el.innerHTML = cells.map((c, i) => renderCell(c, i, false)).join('');
+    tabsEl.innerHTML = cells.map((c, i) => renderCell(c, i, true)).join('');
+  }
 }
 
 // Tracks voicing cycling for keyboard shortcuts.
