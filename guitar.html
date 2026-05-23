@@ -2894,10 +2894,7 @@ soundBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (soundMenu.hidden) {
     renderSoundMenu();
-    const rect = soundBtn.getBoundingClientRect();
-    soundMenu.style.left = rect.left + 'px';
-    soundMenu.style.top = (rect.bottom + 4) + 'px';
-    soundMenu.hidden = false;
+    positionPopoverUnder(soundMenu, soundBtn);
   } else {
     soundMenu.hidden = true;
   }
@@ -2994,14 +2991,35 @@ function renderScopeMenu() {
   });
 }
 
+// Anchor a popover under a button while keeping it inside the viewport.
+// Without this, opening a popover near the right edge of a phone pushes the
+// menu off-screen. We make it visible momentarily to measure its width, then
+// clamp left so it always fits within an 8px margin.
+function positionPopoverUnder(menu, btn) {
+  const rect = btn.getBoundingClientRect();
+  const margin = 8;
+  // Show it first so the layout engine gives us a real width
+  menu.style.visibility = 'hidden';
+  menu.hidden = false;
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  let left = rect.left;
+  if (left + mw > vw - margin) left = Math.max(margin, vw - mw - margin);
+  if (left < margin) left = margin;
+  let top = rect.bottom + 4;
+  if (top + mh > vh - margin) top = Math.max(margin, rect.top - mh - 4);  // flip above
+  menu.style.left = left + 'px';
+  menu.style.top  = top  + 'px';
+  menu.style.visibility = '';
+}
+
 scopeBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (scopeMenu.hidden) {
     renderScopeMenu();
-    const rect = scopeBtn.getBoundingClientRect();
-    scopeMenu.style.left = rect.left + 'px';
-    scopeMenu.style.top = (rect.bottom + 4) + 'px';
-    scopeMenu.hidden = false;
+    positionPopoverUnder(scopeMenu, scopeBtn);
   } else {
     scopeMenu.hidden = true;
   }
@@ -3061,10 +3079,7 @@ voicingBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (voicingMenu.hidden) {
     renderVoicingMenu();
-    const rect = voicingBtn.getBoundingClientRect();
-    voicingMenu.style.left = rect.left + 'px';
-    voicingMenu.style.top = (rect.bottom + 4) + 'px';
-    voicingMenu.hidden = false;
+    positionPopoverUnder(voicingMenu, voicingBtn);
   } else {
     voicingMenu.hidden = true;
   }
@@ -3402,10 +3417,7 @@ rhythmBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (rhythmMenu.hidden) {
     renderRhythmMenu();
-    const rect = rhythmBtn.getBoundingClientRect();
-    rhythmMenu.style.left = rect.left + 'px';
-    rhythmMenu.style.top = (rect.bottom + 4) + 'px';
-    rhythmMenu.hidden = false;
+    positionPopoverUnder(rhythmMenu, rhythmBtn);
   } else {
     rhythmMenu.hidden = true;
   }
@@ -4456,10 +4468,7 @@ mixerBtn.addEventListener('click', e => {
   e.stopPropagation();
   if (mixerMenu.hidden) {
     renderMixerMenu();
-    const rect = mixerBtn.getBoundingClientRect();
-    mixerMenu.style.left = rect.left + 'px';
-    mixerMenu.style.top  = (rect.bottom + 4) + 'px';
-    mixerMenu.hidden = false;
+    positionPopoverUnder(mixerMenu, mixerBtn);
   } else {
     mixerMenu.hidden = true;
   }
