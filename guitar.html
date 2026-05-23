@@ -1087,25 +1087,29 @@
        bottom-pinned slot — same footprint, just an alternative input. */
     body.map-overlay-open .compose-pad { display: none; }
     body.map-overlay-open .chord-map-host {
-      display: block;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
       position: fixed;
       left: 0; right: 0; bottom: 0;
       z-index: 100;
       width: 100vw;
-      /* Use the same kind of footprint the keypad has — a bit taller to fit cards */
-      height: 50vh;
-      max-height: 420px;
+      /* Tall enough that the whole 540x800 map can be scaled to fit by width */
+      height: min(60vh, calc((100vw - 20px) * 800 / 540 + 20px));
       background: var(--panel-2);
       border-top: 1.5px solid #1a1a1a;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
-      overflow: auto;
-      -webkit-overflow-scrolling: touch;
-      padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+      overflow: hidden;
+      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
     }
     body.map-overlay-open .chord-map {
-      /* Scale the 540-wide map down to fit phone width with margin */
-      transform: scale(calc((100vw - 20px) / 540));
+      /* JS sets --map-scale = min(availW/540, availH/800) so the full map fits
+         without scrolling regardless of aspect ratio. */
+      transform: scale(var(--map-scale, 0.6));
       transform-origin: top left;
+      width: 540px;
+      height: 800px;
+      flex-shrink: 0;
     }
     /* Backdrop unused in this layout — map sits in the keypad slot, not over content */
     #map-mobile-backdrop { display: none !important; }
@@ -5241,6 +5245,19 @@ function renderAll() {
   const btn      = document.getElementById('map-mobile-toggle');
   const backdrop = document.getElementById('map-mobile-backdrop');
   if (!btn || !backdrop) return;
+  const host = document.querySelector('.chord-map-host');
+  const mapEl = document.querySelector('.chord-map');
+  function fitMap() {
+    if (!host || !mapEl) return;
+    if (!document.body.classList.contains('map-overlay-open')) return;
+    const r = host.getBoundingClientRect();
+    // Container's content-box accounting for its own padding (10px sides, 10/+safe bottom)
+    const padX = 20, padY = 20;
+    const availW = Math.max(0, r.width  - padX);
+    const availH = Math.max(0, r.height - padY);
+    const scale = Math.min(availW / 540, availH / 800);
+    mapEl.style.setProperty('--map-scale', scale.toFixed(4));
+  }
   function close() {
     document.body.classList.remove('map-overlay-open');
     btn.textContent = '🗺 Map';
@@ -5248,7 +5265,10 @@ function renderAll() {
   function open() {
     document.body.classList.add('map-overlay-open');
     btn.textContent = '⌨ Keys';
+    requestAnimationFrame(fitMap);
   }
+  window.addEventListener('resize', fitMap);
+  window.addEventListener('orientationchange', () => setTimeout(fitMap, 200));
   btn.addEventListener('click', () => {
     document.body.classList.contains('map-overlay-open') ? close() : open();
   });
