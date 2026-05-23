@@ -1960,13 +1960,6 @@ function renderFretboard() {
     const color = f === 0 ? '#1a1a1f' : '#c8c8cc';
     s += `<line x1="${x}" y1="${FB.mt - 4}" x2="${x}" y2="${FB.mt + stringsH + 4}" stroke="${color}" stroke-width="${w}"/>`;
   }
-
-  // Gold tracker — dashed amber rectangle over the active voicing's fret range.
-  // Position is set + animated by updateFretboardHighlight() so it slides smoothly
-  // on chord changes. Width=0 default = invisible until a chord is selected.
-  s += `<rect id="fb-hi-rect" x="0" y="${FB.mt - 8}" width="0" height="${stringsH + 16}"
-    fill="rgba(244,197,66,0.10)" stroke="#d4a017" stroke-width="3" stroke-dasharray="10 6"
-    rx="6" pointer-events="none"/>`;
   for (let f = 1; f <= N_FRETS; f++) {
     const x = FB.ml + FB.openW + (f - 0.5) * fretW;
     s += `<text x="${x}" y="${FB.H - 8}" text-anchor="middle" font-size="11" fill="#8a8a92" font-family="SF Mono, monospace">${f}</text>`;
@@ -4525,57 +4518,10 @@ function updateScaleHighlightForPlayer(player) {
   }
   animateScaleHighlight(target, durMs);
   animateChordHighlight(target, durMs);
-  animateFretboardHighlight(target, durMs);
 
   // Re-paint both necks' note layers so chord tones recolor live.
   repaintChordNeckNotes();
   repaintScaleNeckNotes();
-}
-
-// Tracks the bottom fretboard's gold highlight rect — slides smoothly across
-// the wide neck so you can see where the active voicing sits.
-const fbHi = {
-  currentStart: 0, currentEnd: 0,
-  targetStart: 0,  targetEnd: 0,
-  fromStart: 0,    fromEnd: 0,
-  tweenStart: 0, tweenDur: 700,
-  rafId: null,
-};
-
-function animateFretboardHighlight(targetBox, durationMs = 700) {
-  if (fbHi.targetStart === targetBox.startFret && fbHi.targetEnd === targetBox.endFret) return;
-  fbHi.fromStart = fbHi.currentStart;
-  fbHi.fromEnd   = fbHi.currentEnd;
-  fbHi.targetStart = targetBox.startFret;
-  fbHi.targetEnd   = targetBox.endFret;
-  fbHi.tweenStart = performance.now();
-  fbHi.tweenDur = durationMs;
-  if (fbHi.rafId == null) {
-    const tick = (now) => {
-      const t = Math.min(1, (now - fbHi.tweenStart) / fbHi.tweenDur);
-      const e = t < 0.5 ? 16*t*t*t*t*t : 1 - Math.pow(-2*t + 2, 5) / 2;  // quintic ease
-      fbHi.currentStart = fbHi.fromStart + (fbHi.targetStart - fbHi.fromStart) * e;
-      fbHi.currentEnd   = fbHi.fromEnd   + (fbHi.targetEnd   - fbHi.fromEnd)   * e;
-      applyFretboardHighlight();
-      if (t < 1) fbHi.rafId = requestAnimationFrame(tick);
-      else fbHi.rafId = null;
-    };
-    fbHi.rafId = requestAnimationFrame(tick);
-  }
-}
-
-function applyFretboardHighlight() {
-  const rect = document.getElementById('fb-hi-rect');
-  if (!rect) return;
-  // Mirror the fretboard's geometry to position the rect over the right fret range
-  const innerW = FB.W - FB.ml - FB.mr - FB.openW;
-  const fretW = innerW / N_FRETS;
-  const startFret = Math.max(0, fbHi.currentStart);
-  const endFret   = Math.min(N_FRETS, fbHi.currentEnd);
-  const x0 = FB.ml + FB.openW + (startFret - 1) * fretW;   // bar BEFORE start
-  const x1 = FB.ml + FB.openW + endFret * fretW;            // bar AFTER end
-  rect.setAttribute('x', x0);
-  rect.setAttribute('width', Math.max(10, x1 - x0));
 }
 
 // Helper: build SVG markup for a single voicing's notes on the chord neck.
