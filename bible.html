@@ -344,6 +344,38 @@
     margin-top: 4px;
     text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
   }
+  /* Chapter number that opens a chapter inline — acts as the drop cap when
+     chapters flow continuously through the spreads. */
+  .ch-drop {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 44px;
+    line-height: 0.85;
+    color: var(--rubric);
+    float: left;
+    padding: 6px 8px 2px 0;
+    margin-top: 6px;
+    text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
+  }
+  /* Tiny book title that appears once at the start of each book */
+  .book-banner {
+    display: block;
+    text-align: center;
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 22px;
+    color: var(--ink);
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(139,30,30,0.22);
+    letter-spacing: 1px;
+  }
+  .book-banner .ornament {
+    display: block;
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 6px;
+    margin-top: 4px;
+    opacity: 0.75;
+  }
 
   /* ─── Annotations: highlights, note markers, popover, modals ─── */
   .verse { cursor: pointer; transition: background 0.15s; padding: 1px 0; border-radius: 2px; }
@@ -1217,8 +1249,9 @@ let TEXT = {
 const state = {
   bookId: 'gen',
   chapter: 1,
-  spread: 0,        // which spread (pair of pages) of the current chapter
-  spreads: [],      // array of {l1, l2, r1, r2} HTML chunks per spread
+  spread: 0,        // which spread of the book we are on
+  bookPlan: null,   // { columns: [HTML...], chapterStartCol: {ch: colIdx} }
+  bookPlanFor: null,// bookId the plan was built for
 };
 
 const bookMeta = (id) => ALL_BOOKS.find(b => b.id === id);
@@ -1236,80 +1269,183 @@ let REFS = {};
 // Becomes true once rv1909.json finishes loading (success or failure)
 let DATA_READY = false;
 
-// Build the chapter scaffolding (page headers + empty verse grids) once.
-// Spread content gets injected by renderSpread().
-function renderChapterIntoPages() {
-  const ch = chapterText(state.bookId, state.chapter);
-  const book = bookMeta(state.bookId);
-  const refEl = document.getElementById('ref-display');
-  refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+// ─────────── Book-flow rendering ────────────
+// Chapters flow continuously through the spreads. A chapter can start on any
+// column (left page top, right page bottom, etc.) — just like a real Bible.
 
+function buildBookHTMLs(bookId) {
+  const book = bookMeta(bookId);
+  const items = [];                  // inline HTML strings
+  const chapterFirstIdx = {};        // chapter# -> index in items where it starts
+  // Book banner once at the very top
+  items.push(`<span class="book-banner">${book.name}<span class="ornament">✦ ❦ ✦</span></span>`);
+
+  for (let ch = 1; ch <= book.chapters; ch++) {
+    chapterFirstIdx[ch] = items.length;
+    const verses = chapterText(bookId, ch);
+    if (!verses) continue;
+    const entries = Object.entries(verses).sort((a, b) => +a[0] - +b[0]);
+    entries.forEach(([n, t], i) => {
+      if (i === 0) {
+        // First verse of a chapter — chapter number serves as the drop cap
+        items.push(`<span class="verse" data-vk="${bookId}-${ch}-${n}"><span class="ch-drop">${ch}</span><span class="v-num">${n}</span>${t} </span>`);
+      } else {
+        items.push(`<span class="verse" data-vk="${bookId}-${ch}-${n}"><span class="v-num">${n}</span>${t} </span>`);
+      }
+    });
+  }
+  return { items, chapterFirstIdx };
+}
+
+// Render the page scaffolding (empty columns + footer) for the given book.
+// Done once when the book changes, so paginateBook has real columns to measure.
+function renderBookScaffolding(book) {
   const leftContent  = document.querySelector('#page-left .page-content');
   const rightContent = document.querySelector('#page-right .page-content');
-
-  if (!ch) {
-    const msg = DATA_READY
-      ? `<em>Capítulo no encontrado.</em>`
-      : `<em>Cargando la Sagrada Escritura...</em>`;
-    leftContent.innerHTML = `
-      <div class="page-header">
-        <div class="book-name">${book.name}</div>
-        <span class="chapter-num">Capítulo ${state.chapter}</span>
-        <span class="flourish">✦ ❦ ✦</span>
-      </div>
-      <div class="loading">${msg}</div>`;
-    rightContent.innerHTML = '';
-    state.spreads = [];
-    return;
-  }
-
-  // Build verse HTML once
-  const verseEntries = Object.entries(ch).sort((a, b) => +a[0] - +b[0]);
-  const verseHTMLs = verseEntries.map(([n, t], i) => {
-    if (i === 0) {
-      const firstLetter = t.charAt(0);
-      const firstRest   = t.slice(1);
-      return `<span class="verse"><span class="drop-cap">${firstLetter}</span><span class="v-num">${n}</span>${firstRest} </span>`;
-    }
-    return `<span class="verse"><span class="v-num">${n}</span>${t} </span>`;
-  });
-
-  // Render scaffolding
   leftContent.innerHTML = `
-    <div class="page-header">
-      <div class="book-name">${book.name}</div>
-      <span class="chapter-num">Capítulo ${state.chapter}</span>
-      <span class="flourish">✦ ❦ ✦</span>
-    </div>
     <div class="verses">
       <div class="vcol" id="L1"></div>
       <div class="vcol" id="L2"></div>
     </div>
     <div class="page-footer">
       <span class="ornament">❦</span>
-      <span class="page-num" id="pgnum-left">${book.name} · ${state.chapter}</span>
+      <span class="page-num" id="pgnum-left">${book.name}</span>
     </div>`;
-
   rightContent.innerHTML = `
     <div class="verses">
       <div class="vcol" id="R1"></div>
       <div class="vcol" id="R2"></div>
     </div>
     <div class="page-footer">
-      <span class="page-num" id="pgnum-right">${book.name} · ${state.chapter}</span>
+      <span class="page-num" id="pgnum-right">${book.name}</span>
       <span class="ornament">❦</span>
     </div>`;
+}
 
-  // Measure how many verses fit per column for this layout, then build spreads
-  state.spreads = paginateChapter(verseHTMLs);
-  if (state.spread >= state.spreads.length) state.spread = 0;
+// Paginate an entire book into a flat array of column-HTML strings, tracking
+// which column each chapter starts in.
+function paginateBook(bookId) {
+  const { items, chapterFirstIdx } = buildBookHTMLs(bookId);
+  const refCol = document.getElementById('L1');
+  if (!refCol || items.length === 0) {
+    return { columns: [items.join('')], chapterStartCol: {1: 0} };
+  }
+  const colW = refCol.clientWidth;
+  const containerH = refCol.parentElement.clientHeight;
+  const colH = Math.max(0, containerH - 4);
+  if (colW < 10 || colH < 30) {
+    // Layout not ready — retry after the next frame
+    requestAnimationFrame(() => {
+      state.bookPlan = paginateBook(state.bookId);
+      state.bookPlanFor = state.bookId;
+      goToChapter(state.chapter);  // re-locate spread
+    });
+    return { columns: [items.join('')], chapterStartCol: {1: 0} };
+  }
+
+  // Single hidden measuring container (column-width × natural flow)
+  const cs = getComputedStyle(refCol);
+  const meas = document.createElement('div');
+  meas.style.cssText = `
+    position: absolute; left: -10000px; top: 0;
+    width: ${colW}px;
+    font-family: ${cs.fontFamily}; font-size: ${cs.fontSize};
+    line-height: ${cs.lineHeight}; color: ${cs.color};
+    text-align: justify; hyphens: auto;
+  `;
+  meas.innerHTML = items.join('');
+  document.body.appendChild(meas);
+
+  // Walk every measurable item (verses + chapter-marks) and find column cuts
+  const itemEls = Array.from(meas.children);
+  const cuts = [0];
+  let nextLimit = colH;
+  for (let i = 0; i < itemEls.length; i++) {
+    const el = itemEls[i];
+    const yEnd = el.offsetTop + el.offsetHeight;
+    while (yEnd > nextLimit + 2) {
+      if (cuts[cuts.length - 1] !== i) cuts.push(i);
+      nextLimit += colH;
+    }
+  }
+  cuts.push(itemEls.length);
+  document.body.removeChild(meas);
+
+  const columns = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    columns.push(items.slice(cuts[i], cuts[i + 1]).join(''));
+  }
+
+  // Map each chapter to the column it starts in
+  const chapterStartCol = {};
+  for (const ch in chapterFirstIdx) {
+    const itemIdx = chapterFirstIdx[ch];
+    // Find column k where cuts[k] <= itemIdx < cuts[k+1]
+    let k = 0;
+    for (let c = 0; c < cuts.length - 1; c++) {
+      if (cuts[c] <= itemIdx && itemIdx < cuts[c + 1]) { k = c; break; }
+    }
+    chapterStartCol[ch] = k;
+  }
+  return { columns, chapterStartCol };
+}
+
+// Find the dominant chapter currently visible on a spread (chapter whose start
+// is closest to but not after the spread's first column)
+function chapterAtCol(col) {
+  const map = state.bookPlan && state.bookPlan.chapterStartCol;
+  if (!map) return state.chapter;
+  let best = 1;
+  for (const ch in map) {
+    if (map[ch] <= col) best = Math.max(best, +ch);
+  }
+  return best;
+}
+
+function rebuildBookPlanIfNeeded() {
+  if (state.bookPlanFor !== state.bookId) {
+    renderBookScaffolding(bookMeta(state.bookId));
+    state.bookPlan = paginateBook(state.bookId);
+    state.bookPlanFor = state.bookId;
+  }
+}
+
+function renderChapterIntoPages() {
+  const book = bookMeta(state.bookId);
+  const refEl = document.getElementById('ref-display');
+
+  // If data isn't ready, show a loading state on the scaffolding
+  const sample = chapterText(state.bookId, 1);
+  if (!sample) {
+    renderBookScaffolding(book);
+    const L1 = document.getElementById('L1');
+    if (L1) {
+      const msg = DATA_READY ? 'Capítulo no encontrado.' : 'Cargando la Sagrada Escritura...';
+      L1.innerHTML = `<div class="loading"><em>${msg}</em></div>`;
+    }
+    refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+    return;
+  }
+
+  rebuildBookPlanIfNeeded();
+  // Snap spread to current chapter's start
+  const targetCol = state.bookPlan.chapterStartCol[state.chapter] ?? 0;
+  state.spread = Math.floor(targetCol / 4);
+  renderSpread();
+  refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+}
+
+function goToChapter(chapter) {
+  if (!state.bookPlan) return;
+  const col = state.bookPlan.chapterStartCol[chapter];
+  if (col == null) return;
+  state.chapter = chapter;
+  state.spread = Math.floor(col / 4);
   renderSpread();
 }
 
-// Split the chapter's verse-HTML strings into spreads of 4 columns each
-// (left page = L1 + L2, right page = R1 + R2). Uses a hidden measuring
-// element sized like one column to determine where each column should break.
-function paginateChapter(verseHTMLs) {
+// LEGACY (no longer used) — kept for reference; superseded by paginateBook().
+function _unused_paginateChapter(verseHTMLs) {
   // Find a real column to clone styles from
   const refCol = document.getElementById('L1');
   if (!refCol) return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
@@ -1386,20 +1522,23 @@ function paginateChapter(verseHTMLs) {
 }
 
 function renderSpread() {
-  const s = state.spreads[state.spread];
-  if (!s) return;
-  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
-  set('L1', s.l1);
-  set('L2', s.l2);
-  set('R1', s.r1);
-  set('R2', s.r2);
-  // Page footer: show "1 / N" if multi-spread
-  const total = state.spreads.length;
-  const lbl = total > 1
-    ? `${bookMeta(state.bookId).name} · ${state.chapter} · ${state.spread + 1}/${total}`
-    : `${bookMeta(state.bookId).name} · ${state.chapter}`;
-  set('pgnum-left',  lbl);
-  set('pgnum-right', lbl);
+  if (!state.bookPlan) return;
+  const cols = state.bookPlan.columns;
+  const i = state.spread * 4;
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html || ''; };
+  set('L1', cols[i]);
+  set('L2', cols[i + 1]);
+  set('R1', cols[i + 2]);
+  set('R2', cols[i + 3]);
+  // Update current chapter based on what's actually showing on the spread
+  const visibleCh = chapterAtCol(i);
+  state.chapter = visibleCh;
+  const book = bookMeta(state.bookId);
+  const totalSpreads = Math.ceil(cols.length / 4);
+  set('pgnum-left',  `${book.name} · ${visibleCh}`);
+  set('pgnum-right', `${book.name} · pág. ${state.spread + 1} / ${totalSpreads}`);
+  const refEl = document.getElementById('ref-display');
+  if (refEl) refEl.textContent = `${book.name} ${roman(visibleCh)}`;
 }
 
 function roman(n) {
@@ -1411,60 +1550,50 @@ function roman(n) {
 }
 
 /* ────── Navigation ────── */
+// Flipper arrows step ONE spread at a time within the current book.
+// At the book's edges they roll over to the previous / next book.
 function prev() {
-  // Step back within chapter first
+  if (!state.bookPlan) { renderChapterIntoPages(); return; }
   if (state.spread > 0) {
     state.spread--;
     renderSpread();
     return;
   }
-  // Otherwise jump to previous chapter (and to its last spread)
+  // First spread of this book — go to previous book's last spread
   const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
-  if (state.chapter > 1) {
-    state.chapter--;
-  } else if (idx > 0) {
+  if (idx > 0) {
     state.bookId = ALL_BOOKS[idx - 1].id;
-    state.chapter = ALL_BOOKS[idx - 1].chapters;
-  } else {
-    return;
-  }
-  state.spread = 0;
-  renderChapterIntoPages();
-  // Land on the LAST spread of the previous chapter so the read order is continuous
-  if (state.spreads.length > 1) {
-    state.spread = state.spreads.length - 1;
+    state.chapter = 1;
+    rebuildBookPlanIfNeeded();
+    const total = Math.ceil(state.bookPlan.columns.length / 4);
+    state.spread = Math.max(0, total - 1);
     renderSpread();
   }
 }
 function next() {
-  // Forward within chapter first
-  if (state.spread < state.spreads.length - 1) {
+  if (!state.bookPlan) { renderChapterIntoPages(); return; }
+  const total = Math.ceil(state.bookPlan.columns.length / 4);
+  if (state.spread < total - 1) {
     state.spread++;
     renderSpread();
     return;
   }
-  // Otherwise jump to next chapter
-  const book = bookMeta(state.bookId);
+  // Last spread of this book — go to next book
   const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
-  if (state.chapter < book.chapters) {
-    state.chapter++;
-  } else if (idx < ALL_BOOKS.length - 1) {
+  if (idx < ALL_BOOKS.length - 1) {
     state.bookId = ALL_BOOKS[idx + 1].id;
     state.chapter = 1;
-  } else {
-    return;
+    state.spread = 0;
+    renderChapterIntoPages();
   }
-  state.spread = 0;
-  renderChapterIntoPages();
 }
 function goTo(bookId, chapter) {
   state.bookId = bookId;
   state.chapter = chapter;
-  state.spread = 0;
   renderChapterIntoPages();
   closeDrawer();
 }
-// Aliases so older click handlers still work
+// Aliases used by older handlers
 const prevChapter = prev;
 const nextChapter = next;
 
@@ -1531,11 +1660,14 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeDrawer();
 });
 
-// Re-flow on resize (verses may need to re-split between pages)
+// Re-flow on resize (column width changes, so the whole book has to re-paginate)
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(renderChapterIntoPages, 120);
+  resizeTimer = setTimeout(() => {
+    state.bookPlanFor = null;   // force rebuild
+    renderChapterIntoPages();
+  }, 120);
 });
 
 /* ════════════════════════════════════════════════════════════
@@ -2014,22 +2146,13 @@ notesListEl.addEventListener('click', e => {
   });
 });
 
-/* ────── Stamp data-vk on verses + apply annotations after each render ────── */
-function tagVersesAndApply() {
-  document.querySelectorAll('.verse').forEach(el => {
-    const num = el.querySelector('.v-num');
-    if (!num) return;
-    const vn = num.textContent.trim();
-    if (vn) el.dataset.vk = verseKey(state.bookId, state.chapter, vn);
-  });
-  applyAnnotationsToDOM();
-}
-
-// Hook into existing renderSpread + renderChapter
+/* ────── Apply annotations after each render ────── */
+// data-vk is now baked into the verse HTML at book-build time, so we just need
+// to re-apply highlights / note markers / ref markers after each spread render.
 const _origRenderSpread = renderSpread;
 renderSpread = function() {
   _origRenderSpread();
-  tagVersesAndApply();
+  applyAnnotationsToDOM();
   // Persist last-read position
   annot.lastRead = { bookId: state.bookId, chapter: state.chapter, spread: state.spread };
   saveAnnot();
@@ -2224,6 +2347,7 @@ async function loadBibleData() {
     console.warn('Bible data load failed; using embedded sample.', err);
   }
   DATA_READY = true;
+  state.bookPlanFor = null;   // force fresh pagination with the real text
   renderChapterIntoPages();
 }
 
