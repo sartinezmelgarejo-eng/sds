@@ -3630,17 +3630,25 @@ class Player {
     if (!ch) return;
     const root = (state.keyPc + ch.deg) % 12;
 
-    // PREFER the shape pre-computed in the page plan — that's what the strip is
-    // displaying, so the played shape MUST equal it. Falls back to fresh pick
-    // only if no plan exists (first trigger of session) or chord ID mismatched.
+    // Rebuild the page plan ON DEMAND if it's stale for this trigger. Stale =
+    // missing, or the entry at our current barInPage doesn't match the chord
+    // we're about to play (happens at page boundaries when the plan was built
+    // for the previous page). This guarantees plan[barInPage].chord === chordId
+    // → strip + trigger read literally the same shape.
     const barInPage = this.totalBars % 4;
-    const planned = this._cachedPage && this._cachedPage[barInPage];
+    if (!this._cachedPage
+        || !this._cachedPage[barInPage]
+        || this._cachedPage[barInPage].chord !== chordId) {
+      this._buildPagePlan();
+    }
+    const planned = this._cachedPage[barInPage];
     let type = this.voicingType;
     let shape = null;
     if (planned && planned.chord === chordId && planned.shape) {
       shape = planned.shape;
       type = planned.voicingType || type;
     } else {
+      // True last-resort fallback (shouldn't happen with the rebuild above)
       shape = this._pickShape(ch.quality, root, type, this.previousShape);
       if (!shape) {
         shape = this._pickShape(ch.quality, root, 'drop2', this.previousShape);
