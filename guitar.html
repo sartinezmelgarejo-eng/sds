@@ -452,22 +452,18 @@
   }
 
   /* ─── Compose keypad ─── */
+  /* Desktop: horizontal flex bar — all 12 buttons in one line at the top */
   .compose-pad {
     background: var(--panel);
     border-bottom: 1px solid var(--line);
     padding: 6px 18px;
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
     align-items: center;
   }
   body.player-active .compose-pad { display: none; }   /* hidden during playback */
-  .compose-pad-row {
-    display: flex;
-    gap: 6px;
-    justify-content: center;
-    flex-wrap: nowrap;
-  }
   .compose-btn {
     min-width: 42px;
     height: 34px;
@@ -510,65 +506,58 @@
     font-style: normal;
     font-size: 13px;
   }
-  /* ─── Mobile: phone-dialer style ─── */
+  /* Insert a small spacer between the 7 chord buttons and the controls on desktop */
+  .compose-btn[data-act="inv-down"] { margin-left: 18px; }
+  /* ─── Mobile: phone-dialer pinned to the bottom of the viewport ─── */
   @media (max-width: 800px) {
-    /* Compose pad takes prominence — big chunky buttons in a grid */
     .compose-pad {
-      padding: 12px 14px;
-      gap: 10px;
-      background: var(--panel-2);
-    }
-    .compose-pad-row {
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    /* Chord-button row becomes a 4-column grid (covers 7 chords + flex room) */
-    #compose-chord-buttons {
+      position: fixed;
+      left: 0; right: 0; bottom: 0;
+      z-index: 100;
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
-      width: 100%;
+      padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
+      background: var(--panel-2);
+      border-top: 1.5px solid #1a1a1a;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
+      align-items: stretch;
     }
-    #compose-chord-buttons .compose-btn {
+    .compose-pad .compose-btn {
       width: 100%;
-      height: 56px;
+      height: 54px;
       font-size: 22px;
-      border-radius: 10px;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.08);
+      border-radius: 12px;
+      box-shadow: 0 3px 0 rgba(0,0,0,0.12);
+      margin: 0;     /* override desktop's left spacer */
     }
-    #compose-chord-buttons .compose-btn .deg {
+    .compose-pad .compose-btn .deg {
       font-size: 10px;
       margin-top: 2px;
     }
-    #compose-chord-buttons .compose-btn:active {
-      transform: translateY(1px);
-      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+    .compose-pad .compose-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 1px 0 rgba(0,0,0,0.12);
     }
-    /* Controls row — also chunky, 5 evenly spaced */
-    .compose-pad-ctrls {
-      display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 10px;
-      width: 100%;
-    }
-    .compose-pad-ctrls .compose-btn {
-      width: 100%;
-      height: 48px;
-      font-size: 18px;
-      border-radius: 10px;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.08);
-    }
-    .compose-pad-ctrls .compose-btn:active {
-      transform: translateY(1px);
-      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
-    }
-    .compose-btn.compose-play {
-      font-size: 22px;
-    }
+    /* Phone-dialer layout placement on the 3-col grid:
+         row 1: 1 2 3
+         row 2: 4 5 6
+         row 3: ▼ 7 ▲
+         row 4: ⌫ ▶ × */
+    .compose-pad .compose-btn[data-act="inv-down"] { grid-row: 3; grid-column: 1; }
+    .compose-pad .compose-btn[data-n="7"]          { grid-row: 3; grid-column: 2; }
+    .compose-pad .compose-btn[data-act="inv-up"]   { grid-row: 3; grid-column: 3; }
+    .compose-pad .compose-btn[data-act="del"]      { grid-row: 4; grid-column: 1; }
+    .compose-pad .compose-btn[data-act="play"]     { grid-row: 4; grid-column: 2; }
+    .compose-pad .compose-btn[data-act="clear"]    { grid-row: 4; grid-column: 3; }
 
-    /* While the compose pad is visible (AI off + composing), the chord neck
-       gets out of the way so the dialer dominates the screen.
-       (`body:not(.player-active)` = AI not playing → pad shows → hide neck) */
+    /* Padding so the bottom-pinned keypad doesn't cover the content above */
+    body:not(.player-active) main,
+    body:not(.player-active) .rb-area {
+      /* 4 rows × 54px + 3 gaps × 10px + 28px padding ≈ 280px */
+      padding-bottom: 290px;
+    }
+    /* Hide the chord neck while composing — the dialer dominates the screen */
     body:not(.player-active) .map-side-panel { display: none; }
   }
   .rb-tab-cell.imminent {
@@ -1137,17 +1126,8 @@
 <div class="sound-menu" id="rhythm-menu" hidden></div>
 
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
-     when the AI isn't playing. On phone this is the primary input method. -->
-<div class="compose-pad" id="compose-pad">
-  <div class="compose-pad-row" id="compose-chord-buttons"></div>
-  <div class="compose-pad-row compose-pad-ctrls">
-    <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion of last chord (Shift+←)">▼</button>
-    <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
-    <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
-    <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
-    <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion of last chord (Shift+→)">▲</button>
-  </div>
-</div>
+     when the AI isn't playing. On phone: phone-dialer grid pinned to the bottom. -->
+<div class="compose-pad" id="compose-pad"></div>
 
 <div class="rb-area">
   <div class="rb-stack">
@@ -5197,34 +5177,41 @@ function composePlay() {
   document.body.classList.add('player-active');
 }
 
-// Build the chord-button row of the compose keypad. Re-rendered whenever the
-// key/tonality changes so chord names stay accurate.
+// Build the full compose keypad as a flat list of buttons. CSS positions them:
+// mobile = phone-dialer grid (1,2,3 / 4,5,6 / ▼,7,▲ / ⌫,▶,×) pinned at bottom.
+// Desktop = horizontal row.
 function renderComposePad() {
-  const row = document.getElementById('compose-chord-buttons');
-  if (!row) return;
-  const flats = useFlatsFor(state.keyPc);
-  const shortcuts = DEGREE_SHORTCUTS[state.tonality];
-  let html = '';
-  for (let n = 1; n <= 7; n++) {
-    const chordId = shortcuts[n];
-    const ch = currentMap().chordDefs[chordId];
-    if (!ch) continue;
-    const root = (state.keyPc + ch.deg) % 12;
-    const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-    html += `<button class="compose-btn" data-chord="${chordId}" title="${ch.roman} (${name}) — keyboard: ${n}">
-      ${ch.roman}<span class="deg">${n}</span>
-    </button>`;
-  }
-  row.innerHTML = html;
-  row.querySelectorAll('[data-chord]').forEach(b => {
-    b.addEventListener('click', () => composeAddChord(b.dataset.chord, false));
-  });
-}
-
-// Wire control-row buttons once
-document.addEventListener('DOMContentLoaded', () => {
   const pad = document.getElementById('compose-pad');
   if (!pad) return;
+  const flats = useFlatsFor(state.keyPc);
+  const shortcuts = DEGREE_SHORTCUTS[state.tonality];
+
+  const chordBtn = (n) => {
+    const chordId = shortcuts[n];
+    const ch = currentMap().chordDefs[chordId];
+    if (!ch) return '';
+    const root = (state.keyPc + ch.deg) % 12;
+    const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    return `<button class="compose-btn compose-chord-btn" data-chord="${chordId}" data-n="${n}" title="${ch.roman} (${name}) — keyboard: ${n}">
+      ${ch.roman}<span class="deg">${n}</span>
+    </button>`;
+  };
+
+  // DOM order: 1 2 3 4 5 6 [▼] [7] [▲] [⌫] [▶] [×]
+  // CSS grid (mobile) places ▼,7,▲ on the same row, then ⌫,▶,× on the next.
+  pad.innerHTML = `
+    ${chordBtn(1)}${chordBtn(2)}${chordBtn(3)}
+    ${chordBtn(4)}${chordBtn(5)}${chordBtn(6)}
+    <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion (Shift+←)">▼</button>
+    ${chordBtn(7)}
+    <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion (Shift+→)">▲</button>
+    <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
+    <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
+    <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
+  `;
+  pad.querySelectorAll('[data-chord]').forEach(b => {
+    b.addEventListener('click', () => composeAddChord(b.dataset.chord, false));
+  });
   pad.querySelectorAll('[data-act]').forEach(b => {
     b.addEventListener('click', () => {
       const a = b.dataset.act;
@@ -5235,7 +5222,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (a === 'inv-down') composeCycleLastInversion(-1);
     });
   });
-});
+}
 
 // Render the composed-progression strip into the Real Book area when AI is
 // not playing AND the user has typed at least one chord. Empty cells fill
@@ -5256,9 +5243,15 @@ function renderComposeStrip() {
   tabsEl.hidden = false;
   const map = currentMap();
   const flats = useFlatsFor(state.keyPc);
-  // Up to 8 cells for A. If user typed past 8, expand to 16 cells with an A/B
-  // divider between cells 8 and 9.
-  const MAX_CELLS = seq.length > 8 ? 16 : 8;
+  // Adaptive cell count — start small (especially on phone where 8+ feels cramped)
+  // and grow as the user types past tier thresholds.
+  const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
+  let MAX_CELLS;
+  if (isMobile) {
+    MAX_CELLS = seq.length <= 4 ? 4 : (seq.length <= 8 ? 8 : 16);
+  } else {
+    MAX_CELLS = seq.length > 8 ? 16 : 8;
+  }
   const cells = seq.slice(0, MAX_CELLS);
   while (cells.length < MAX_CELLS) cells.push(null);
 
@@ -5402,7 +5395,10 @@ renderAll = function() {
 };
 
 renderAll();
-window.addEventListener('resize', renderFretboard);
+window.addEventListener('resize', () => {
+  renderFretboard();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
+});
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
