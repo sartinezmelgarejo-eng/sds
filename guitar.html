@@ -2823,6 +2823,33 @@ class Metronome {
     this.scheduleAhead = 0.12;
     this.lookAheadMs = 25;
   }
+  // Lazy-init a long pink-noise buffer once per audio context. Reused for both
+  // the ride shimmer wash and the 2&4 hi-hat. Pink noise sounds random regardless,
+  // so generating it once and replaying is indistinguishable from per-tick generation
+  // — but skips ~48k samples of synchronous main-thread work per tick (the original
+  // biggest source of audio glitches on mobile).
+  static _ensurePinkBuf(ctx) {
+    if (Metronome._pinkBuf && Metronome._pinkBuf._sr === ctx.sampleRate) return Metronome._pinkBuf;
+    const bufLen = Math.floor(ctx.sampleRate * 1.2);
+    const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    // Paul Kellet's pink noise approximation
+    let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+    for (let i = 0; i < bufLen; i++) {
+      const w = Math.random() * 2 - 1;
+      b0 = 0.99886*b0 + w*0.0555179;
+      b1 = 0.99332*b1 + w*0.0750759;
+      b2 = 0.96900*b2 + w*0.1538520;
+      b3 = 0.86650*b3 + w*0.3104856;
+      b4 = 0.55000*b4 + w*0.5329522;
+      b5 = -0.7616*b5 - w*0.0168980;
+      data[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362) * 0.11;
+      b6 = w * 0.115926;
+    }
+    buf._sr = ctx.sampleRate;
+    Metronome._pinkBuf = buf;
+    return buf;
+  }
   start() {
     if (this.playing) return;
     const ctx = ensureAudio();
@@ -2887,32 +2914,9 @@ class Metronome {
     const dur = isDing ? 1.1 : 0.55;
     const vol = (isDing ? 0.20 : 0.13) * mv;
 
-    // ─── PRIMARY: pink-noise shimmer wash (cached buffer, reused every tick) ───
-    // Pink noise sounds random regardless — we just need ONE long buffer
-    // generated once, then every tick spawns a BufferSource reading from it.
-    // Previously this generated ~48k samples per tick on the main thread, which
-    // was the biggest audio-glitch source on mobile.
-    if (!Metronome._pinkBuf || Metronome._pinkBuf._sr !== ctx.sampleRate) {
-      const bufLen = Math.floor(ctx.sampleRate * 1.2);   // longest possible "ding"
-      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
-      for (let i = 0; i < bufLen; i++) {
-        const w = Math.random() * 2 - 1;
-        b0 = 0.99886*b0 + w*0.0555179;
-        b1 = 0.99332*b1 + w*0.0750759;
-        b2 = 0.96900*b2 + w*0.1538520;
-        b3 = 0.86650*b3 + w*0.3104856;
-        b4 = 0.55000*b4 + w*0.5329522;
-        b5 = -0.7616*b5 - w*0.0168980;
-        data[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362) * 0.11;
-        b6 = w * 0.115926;
-      }
-      buf._sr = ctx.sampleRate;
-      Metronome._pinkBuf = buf;
-    }
+    // PRIMARY: pink-noise shimmer wash from the shared cached buffer
     const noise = ctx.createBufferSource();
-    noise.buffer = Metronome._pinkBuf;
+    noise.buffer = Metronome._ensurePinkBuf(ctx);
 
     // Multi-stage filtering for the cymbal "sheen"
     const hp = ctx.createBiquadFilter();
@@ -2963,35 +2967,33 @@ class Metronome {
     const ctx = audioCtx;
     const mv = chVol('metronome');
     if (mv <= 0.001) return;
-    // Closed hi-hat: short burst of filtered noise
-    if (!Metronome._pinkBuf || Metronome._pinkBuf._sr !== ctx.sampleRate) {
-      const bufLen = Math.floor(ctx.sampleRate * 1.2);
-      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
-      for (let i = 0; i < bufLen; i++) {
-        const w = Math.random() * 2 - 1;
-        b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
-        b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
-        b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
-        data[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
-        b6=w*0.115926;
-      }
-      buf._sr = ctx.sampleRate;
-      Metronome._pinkBuf = buf;
-    }
+    // Brushed snare / rim-ish: pink noise bandpassed in the snare body region
+    // with a quick metallic ping on top. More body and presence than the old
+    // thin hi-hat tick, fills the room better at low volumes.
     const noise = ctx.createBufferSource();
-    noise.buffer = Metronome._pinkBuf;
-    const hp = ctx.createBiquadFilter();
-    hp.type = 'highpass'; hp.frequency.value = 6000; hp.Q.value = 0.6;
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 11000; lp.Q.value = 0.5;
+    noise.buffer = Metronome._ensurePinkBuf(ctx);
+    // Body band: focused on ~3.5kHz with steep filtering = warm snare body
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 3500; bp.Q.value = 1.2;
+    // Air shelf: slight highshelf cut to keep it from being shrill
+    const shelf = ctx.createBiquadFilter();
+    shelf.type = 'highshelf'; shelf.frequency.value = 8000; shelf.gain.value = -6;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, time);
-    env.gain.exponentialRampToValueAtTime(0.25 * mv, time + 0.005);
-    env.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
-    noise.connect(hp); hp.connect(lp); lp.connect(env); env.connect(ctx.destination);
-    noise.start(time); noise.stop(time + 0.1);
+    env.gain.exponentialRampToValueAtTime(0.55 * mv, time + 0.004);  // snappier attack
+    env.gain.exponentialRampToValueAtTime(0.0001, time + 0.14);      // longer body decay
+    noise.connect(bp); bp.connect(shelf); shelf.connect(env); env.connect(ctx.destination);
+    noise.start(time); noise.stop(time + 0.18);
+
+    // Subtle metallic "click" — short sine ping that gives it definition
+    const ping = ctx.createOscillator();
+    ping.type = 'triangle'; ping.frequency.value = 2200;
+    const pingEnv = ctx.createGain();
+    pingEnv.gain.setValueAtTime(0.0001, time);
+    pingEnv.gain.exponentialRampToValueAtTime(0.12 * mv, time + 0.002);
+    pingEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.04);
+    ping.connect(pingEnv); pingEnv.connect(ctx.destination);
+    ping.start(time); ping.stop(time + 0.05);
   }
   setBpm(b) { this.bpm = Math.max(40, Math.min(280, b)); }
   setMode(m) { this.mode = m; this.tickIdx = 0; }
