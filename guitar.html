@@ -5268,23 +5268,29 @@ function renderAll() {
     if (!document.body.classList.contains('map-overlay-open')) return;
     // Reset scale momentarily so we can measure the natural card layout
     mapEl.style.setProperty('--map-scale', '1');
+    mapEl.style.width  = '540px';
+    mapEl.style.height = '800px';
     // Measure the real content extents — cards live at absolute offsets and
-    // can extend past the nominal 540x800 box. Use offsetLeft/Width so it
-    // also works while a transform is on the parent.
+    // can extend past the nominal 540x800 box.
     let contentW = 540, contentH = 800;
     mapEl.querySelectorAll('.map-card').forEach(c => {
       contentW = Math.max(contentW, c.offsetLeft + c.offsetWidth);
       contentH = Math.max(contentH, c.offsetTop  + c.offsetHeight);
     });
-    const r = host.getBoundingClientRect();
+    // Pick the largest scale that fits both viewport width and an absolute
+    // cap on how much vertical room the map can take.
     const padX = 20, padY = 20;
-    const availW = Math.max(0, r.width  - padX);
-    const availH = Math.max(0, r.height - padY);
-    const scale = Math.min(availW / contentW, availH / contentH);
+    const availW = Math.max(0, window.innerWidth - padX);
+    // Leave room for the bottom toggle bar (~50px) and a bit at the top
+    const maxSlotH = Math.max(220, window.innerHeight - 60 - 100);
+    const scaleW = availW    / contentW;
+    const scaleH = maxSlotH  / contentH;
+    const scale  = Math.min(scaleW, scaleH);
     mapEl.style.setProperty('--map-scale', scale.toFixed(4));
-    // Resize the host to the scaled content exactly — no dead space, no clip
     mapEl.style.width  = contentW + 'px';
     mapEl.style.height = contentH + 'px';
+    // Resize the slot to hug the scaled map — no wasted dead space above/below
+    host.style.height = Math.ceil(contentH * scale + padY) + 'px';
   }
   function close() {
     document.body.classList.remove('map-overlay-open');
