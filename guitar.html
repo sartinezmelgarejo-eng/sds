@@ -297,65 +297,155 @@
     color: #fff;
     border-color: var(--tag-tonic);
   }
+  /* ─── Player info bar — two-row layout, hierarchy: NOW chord big, context small ───
+     Row 1 (small, contextual):  progression name · form segments · iteration
+     Row 2 (large, live):        NOW chord  →  NEXT chord                bars
+     Modulation / travel badges float on the right when present. */
   #player-info {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    column-gap: 14px;
+    row-gap: 4px;
+    align-items: center;
+    color: var(--text-dim);
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    width: 100%;
+  }
+  #player-info .pi-context {
+    grid-column: 1;
+    grid-row: 1;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 11px;
-    color: var(--text-dim);
-    font-family: 'SF Mono', monospace;
+    gap: 12px;
     flex-wrap: wrap;
-  }
-  #player-info .section-badge {
-    background: var(--accent);
-    color: #fff;
-    padding: 2px 7px;
-    border-radius: 4px;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-  }
-  #player-info .iteration {
+    font-size: 12px;
     color: var(--text-faint);
-    font-size: 10px;
   }
-  #player-info .prog-name {
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 14px;
-    color: var(--text);
-    font-weight: 600;
-    letter-spacing: 0.3px;
-  }
-  #player-info .dots {
-    display: inline-flex;
-    gap: 3px;
+  #player-info .pi-badges {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    gap: 6px;
     align-items: center;
   }
-  #player-info .dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--line-2);
+  #player-info .pi-live {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
   }
-  #player-info .dot.done { background: var(--text-faint); }
-  #player-info .dot.now {
-    background: var(--tag-tonic);
-    box-shadow: 0 0 6px rgba(5,150,105,0.6);
-  }
-  #player-info .now-chord strong {
-    color: var(--tag-tonic);
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 14px;
-  }
-  #player-info .bars-left {
+  #player-info .pi-bars {
+    grid-column: 2;
+    grid-row: 2;
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
     color: var(--accent);
     font-weight: 700;
+    white-space: nowrap;
   }
-  #player-info .next-chord strong {
+  /* Progression name — italic serif, sits at the left as the section heading */
+  #player-info .pi-prog {
+    font-style: italic;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text);
+    letter-spacing: 0.3px;
+  }
+  /* AABA form bar — compact segmented strip */
+  #player-info .pi-form {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+  }
+  #player-info .pi-form-seg {
+    min-width: 18px;
+    height: 8px;
+    border-radius: 2px;
+    background: var(--line-2);
+    transition: background 0.2s, height 0.2s;
+    position: relative;
+  }
+  #player-info .pi-form-seg.done { background: var(--text-faint); opacity: 0.55; }
+  #player-info .pi-form-seg.now  {
+    background: var(--accent);
+    height: 12px;
+    box-shadow: 0 0 8px rgba(160,120,32,0.55);
+  }
+  /* Tiny letter (A / B) under the current segment so the form is legible */
+  #player-info .pi-form-seg.now::after {
+    content: attr(data-label);
+    position: absolute;
+    bottom: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
     color: var(--accent);
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
   }
+  #player-info .pi-iter {
+    font-size: 10px;
+    color: var(--text-faint);
+    font-family: 'SF Mono', monospace;
+    letter-spacing: 0.5px;
+  }
+  /* The big live chord names */
+  #player-info .pi-now,
+  #player-info .pi-next {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+  #player-info .pi-now .pi-chord {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--tag-tonic);
+    letter-spacing: -0.3px;
+  }
+  #player-info .pi-now .pi-roman {
+    font-size: 13px;
+    font-style: italic;
+    color: var(--text-faint);
+    font-weight: 500;
+  }
+  #player-info .pi-arrow {
+    color: var(--text-faint);
+    font-size: 18px;
+    opacity: 0.7;
+  }
+  #player-info .pi-next .pi-chord {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    opacity: 0.75;
+    letter-spacing: -0.2px;
+  }
+  #player-info .pi-next .pi-roman {
+    font-size: 11px;
+    font-style: italic;
+    color: var(--text-faint);
+    font-weight: 500;
+    opacity: 0.6;
+  }
+  /* Modulation / travel pill — slightly more prominent, animates in */
+  @keyframes piBadgeIn {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 0.92; transform: translateY(0); }
+  }
+  #player-info .pi-badge {
+    font-style: italic;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid;
+    animation: piBadgeIn 0.4s ease-out;
+  }
+  #player-info .pi-badge.mod    { color: var(--accent);   border-color: var(--accent); background: rgba(160,120,32,0.08); }
+  #player-info .pi-badge.travel { color: #5a8a5a;          border-color: #5a8a5a;       background: rgba(90,138,90,0.08); }
   @keyframes playingPulse {
     0%,100% { box-shadow: 0 0 0 2.5px var(--tag-tonic), 0 0 24px rgba(5,150,105,0.45); }
     50%     { box-shadow: 0 0 0 3.5px var(--tag-tonic), 0 0 36px rgba(5,150,105,0.7); }
@@ -4169,44 +4259,49 @@ class Player {
 
     const section = this._currentSection();
     const prog = this._currentProgression();
-    const dotsHtml = prog.steps.map((step, i) => {
-      let cls = '';
-      if (i < this.currentStepIdx) cls = 'done';
-      else if (i === this.currentStepIdx) cls = 'now';
-      return `<span class="dot ${cls}"></span>`;
-    }).join('');
 
-    // Form summary: AABA visualization (current section highlighted)
+    // Form segments — AABA as a tiny segmented strip. The current segment is
+    // taller and gold; finished sections fade out; upcoming ones sit muted.
     const formHtml = this.song.map((s, i) => {
-      const color = s.label === 'A' ? 'var(--tag-tonic)' : s.label === 'B' ? 'var(--accent)' : 'var(--tag-borrowed)';
-      const isCur = i === this.songIdx;
-      return `<span style="color:${color};font-weight:${isCur?'700':'400'};opacity:${isCur?'1':'0.4'};font-family:'Cormorant Garamond',serif;font-size:13px;margin:0 1px">${s.label}</span>`;
+      let cls = 'pi-form-seg';
+      if (i < this.songIdx)       cls += ' done';
+      else if (i === this.songIdx) cls += ' now';
+      return `<span class="${cls}" data-label="${s.label}"></span>`;
     }).join('');
 
-    const voicingTypeLabel = state.playerVoicing?.type
-      ? `<span style="opacity:0.7;font-size:9px;text-transform:uppercase;letter-spacing:0.8px;color:var(--text-faint)">${state.playerVoicing.type} · ${this.bassPattern}</span>`
-      : '';
+    // Roman labels are still useful (shows the FUNCTION of the chord in the
+    // current key) but live as quiet captions next to the bigger chord name.
+    const curRoman = curStep?.chord || '';
+    const nxtRoman = nxtId || '';
 
-    // Modulation badge — section-level (within a song)
     const modBadge = section.modName
-      ? `<span style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#a07820;padding:2px 6px;border:1px solid #a07820;border-radius:3px;opacity:0.85">↗ ${section.modName}</span>`
-      : '';
-    // Travel badge — appears on the first section after the AI drifts to a new home key
+      ? `<span class="pi-badge mod">↗ ${section.modName}</span>` : '';
     const travelBadge = (this._travelNote && this.songIdx === 0 && this.sectionIter === 0)
-      ? `<span style="font-family:'Cormorant Garamond',serif;font-style:italic;font-size:11px;color:#5a8a5a;padding:2px 6px;border:1px solid #5a8a5a;border-radius:3px;opacity:0.85">✈ ${this._travelNote}</span>`
-      : '';
+      ? `<span class="pi-badge travel">✈ ${this._travelNote}</span>` : '';
+
+    const iterTxt = section.repeats > 1
+      ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
+
     document.getElementById('player-info').innerHTML = `
-      <span class="section-badge">${section.label}</span>
-      ${travelBadge}
-      ${modBadge}
-      <span style="opacity:0.7">${formHtml}</span>
-      <span class="prog-name">${prog.name}</span>
-      <span class="iteration">${this.sectionIter + 1}/${section.repeats}</span>
-      <span class="dots">${dotsHtml}</span>
-      <span class="now-chord">now <strong>${curStep.chord}</strong> ${curName}</span>
-      ${voicingTypeLabel}
-      <span class="bars-left">${barsLabel}</span>
-      ${nxtCh ? `<span class="next-chord">→ <strong>${nxtCh.roman}</strong> ${nxtName}</span>` : ''}
+      <div class="pi-context">
+        <span class="pi-prog">${prog.name}</span>
+        ${iterTxt}
+        <span class="pi-form">${formHtml}</span>
+      </div>
+      <div class="pi-badges">${travelBadge}${modBadge}</div>
+      <div class="pi-live">
+        <span class="pi-now">
+          <span class="pi-chord">${curName}</span>
+          <span class="pi-roman">${curRoman}</span>
+        </span>
+        ${nxtCh ? `
+          <span class="pi-arrow">→</span>
+          <span class="pi-next">
+            <span class="pi-chord">${nxtName}</span>
+            <span class="pi-roman">${nxtRoman}</span>
+          </span>` : ''}
+      </div>
+      <div class="pi-bars">${barsLabel}</div>
     `;
 
     state.focusedChord = curId;
