@@ -5584,11 +5584,13 @@ document.getElementById('auto-play').addEventListener('click', e => {
     e.target.classList.remove('active');
     e.target.textContent = '▶ AI';
     document.body.classList.remove('player-active');
+    if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   } else {
     player.start();
     e.target.classList.add('active');
     e.target.textContent = '⏸ AI';
     document.body.classList.add('player-active');
+    if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   }
 });
 
@@ -7219,41 +7221,93 @@ window.addEventListener('resize', () => {
 
 /* ─── MIDI Export ─── */
 
-function exportMidi() {
-  const prog = state.composedProgression;
-  if (!prog || !prog.length) return;
-
-  const bpm = metronome.bpm || 120;
-  const map = currentMap();
+// Collect note events from either the composed progression or the full AI song
+function _midiCollectEvents() {
   const ticksPerBeat = 480;
-  const beatsPerChord = 4; // one bar per chord, 4/4 time
-
-  // Collect chord MIDI notes from the composed progression
   const events = [];
   let tick = 0;
-  for (const cell of prog) {
-    const def = map.chordDefs[cell.chord];
-    if (!def) continue;
 
-    let notes;
-    if (cell.shape && cell.shape.some(f => f >= 0)) {
-      // Use the stored guitar voicing shape
-      notes = cell.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
-    } else {
-      // Fallback: build from intervals in a piano-friendly range
-      const rootPc = (state.keyPc + def.deg) % 12;
-      const q = QUALITIES[def.quality];
-      if (!q) continue;
-      notes = q.ints.map(i => 48 + rootPc + i); // C3 base
-    }
-
-    const dur = ticksPerBeat * beatsPerChord;
+  // Helper: add one chord block (all notes on, hold for `bars` bars, notes off)
+  const addChord = (notes, bars) => {
+    const dur = ticksPerBeat * 4 * bars; // 4 beats per bar
     for (const n of notes) {
       events.push({ tick, type: 'on',  note: n, vel: 90 });
       events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
     }
     tick += dur;
+  };
+
+  // Helper: resolve notes for a chord ID given a key + tonality + optional shape
+  const chordNotes = (chordId, keyPc, tonality, shape) => {
+    const defs = CHORD_MAP[tonality]?.chordDefs;
+    const def = defs?.[chordId];
+    if (!def) return null;
+    if (shape && shape.some(f => f >= 0)) {
+      return shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+    }
+    // Fallback: build from quality intervals
+    const rootPc = (keyPc + def.deg) % 12;
+    const q = QUALITIES[def.quality];
+    if (!q) return null;
+    return q.ints.map(i => 48 + rootPc + i);
+  };
+
+  // ── Source 1: Full AI song (player.song exists after pressing ▶ AI)
+  if (player.song && player.song.length) {
+    const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
+    let prevShape = null;
+    for (const section of player.song) {
+      const secKey = section.keyPc ?? homeKey.keyPc;
+      const secTon = section.tonality ?? homeKey.tonality;
+      const vType  = section.voicingType || 'drop2';
+      const prog   = section.progression;
+      if (!prog || !prog.steps) continue;
+      const repeats = section.repeats || 1;
+      for (let r = 0; r < repeats; r++) {
+        for (const step of prog.steps) {
+          const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
+          if (!def) continue;
+          // Use composedShape if available, otherwise generate a voicing
+          let notes;
+          if (step.composedShape && step.composedShape.some(f => f >= 0)) {
+            notes = step.composedShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+            prevShape = step.composedShape;
+          } else {
+            const rootPc = (secKey + def.deg) % 12;
+            const shape = player._pickShape(def.quality, rootPc, vType, prevShape);
+            if (shape) {
+              notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+              prevShape = shape;
+            } else {
+              const q = QUALITIES[def.quality];
+              notes = q ? q.ints.map(i => 48 + rootPc + i) : null;
+            }
+          }
+          if (notes && notes.length) addChord(notes, step.bars || 1);
+        }
+      }
+    }
+    return events;
   }
+
+  // ── Source 2: Composed progression (no AI song yet)
+  if (state.composedProgression.length) {
+    for (const cell of state.composedProgression) {
+      const notes = chordNotes(cell.chord, state.keyPc, state.tonality, cell.shape);
+      if (notes && notes.length) addChord(notes, 1);
+    }
+    return events;
+  }
+
+  return events;
+}
+
+function exportMidi() {
+  const events = _midiCollectEvents();
+  if (!events.length) return;
+
+  const bpm = metronome.bpm || 120;
+  const ticksPerBeat = 480;
 
   // Build MIDI file (format 0, single track)
   const buf = [];
@@ -7275,7 +7329,6 @@ function exportMidi() {
   // Build track data
   const trackBuf = [];
   const tw8  = (v) => trackBuf.push(v & 0xff);
-  const tw16 = (v) => { tw8(v >> 8); tw8(v); };
   const twVLQ = (v) => {
     const bytes = [];
     bytes.push(v & 0x7f);
@@ -7289,8 +7342,9 @@ function exportMidi() {
   twVLQ(0); tw8(0xff); tw8(0x51); tw8(3);
   tw8((uspb >> 16) & 0xff); tw8((uspb >> 8) & 0xff); tw8(uspb & 0xff);
 
-  // Key name as track name
-  const keyName = ROOTS[state.keyPc].name + ' ' + state.tonality;
+  // Track name
+  const isFullSong = player.song && player.song.length > 0;
+  const keyName = ROOTS[state.keyPc].name + ' ' + state.tonality + (isFullSong ? ' (full song)' : '');
   twVLQ(0); tw8(0xff); tw8(0x03); twVLQ(keyName.length);
   for (let i = 0; i < keyName.length; i++) tw8(keyName.charCodeAt(i));
 
@@ -7319,20 +7373,24 @@ function exportMidi() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const keyStr = ROOTS[state.keyPc].name.replace('#', 's').replace('b', 'f');
+  const suffix = isFullSong ? '-song' : '';
   a.href = url;
-  a.download = `guitarra-${keyStr}-${state.tonality}.mid`;
+  a.download = `guitarra-${keyStr}-${state.tonality}${suffix}.mid`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// Show/hide MIDI button based on composed progression
+// Show/hide MIDI button: visible when there's a composed progression OR a loaded AI song
+function _updateMidiBtn() {
+  const btn = document.getElementById('midi-export');
+  if (btn) btn.style.display = (state.composedProgression.length || (player.song && player.song.length)) ? '' : 'none';
+}
 const _origRenderComposeStrip = renderComposeStrip;
 renderComposeStrip = function() {
   _origRenderComposeStrip.apply(this, arguments);
-  const btn = document.getElementById('midi-export');
-  if (btn) btn.style.display = state.composedProgression.length ? '' : 'none';
+  _updateMidiBtn();
 };
 
 document.getElementById('midi-export').addEventListener('click', exportMidi);
