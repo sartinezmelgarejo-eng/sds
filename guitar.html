@@ -553,6 +553,13 @@
   body.instrument-piano .real-book.compose-interleaved > .rb-cell {
     display: none !important;
   }
+  /* In piano mode the cycle button is moved next to the loop button (since the
+     chord-name row is gone); make it match the loop's height so the two pills
+     stand as a clean pair on the right edge of the staff row. */
+  body.instrument-piano .rb-cycle {
+    height: 150px;
+    border-left: none;
+  }
   body.instrument-piano .real-book-tabs {
     border: none !important;
     background: #fdfcf3;
@@ -2870,6 +2877,19 @@ function setInstrument(inst) {
   document.body.classList.toggle('instrument-piano', inst === 'piano');
   document.body.classList.toggle('instrument-guitar', inst === 'guitar');
   if (instrumentBtn) instrumentBtn.textContent = (inst === 'piano') ? '🎹' : '🎸';
+  // The cycle button lived in row 1 (next to the chord-name strip). In piano
+  // mode that whole row is hidden, so move the cycle button next to the loop
+  // button in row 2 to keep them visually together.
+  const cycleBtn = document.getElementById('cycle-toggle');
+  const loopBtn  = document.getElementById('loop-toggle');
+  if (cycleBtn && loopBtn) {
+    if (inst === 'piano') {
+      loopBtn.parentElement.insertBefore(cycleBtn, loopBtn);
+    } else {
+      const row1 = document.querySelector('.rb-stack > .rb-row:first-child');
+      if (row1) row1.appendChild(cycleBtn);
+    }
+  }
   if (typeof renderChordPiano === 'function') renderChordPiano();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
