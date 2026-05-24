@@ -1716,6 +1716,12 @@ const QUALITIES = {
   'mMaj7': {ints:[0,3,7,11],  degs:['R','b3','5','7'],    sfx:'mMaj7'},
   '6':     {ints:[0,4,7,9],   degs:['R','3','5','6'],     sfx:'6'},
   'm6':    {ints:[0,3,7,9],   degs:['R','b3','5','6'],    sfx:'m6'},
+  // Sus family — common in jazz comping and modern standards. Triads
+  // (sus2 / sus4) lack a 3rd, so shells/guides will fall back to b7/3
+  // approximations; triad mode handles them correctly.
+  'sus4':  {ints:[0,5,7],     degs:['R','4','5'],         sfx:'sus4'},
+  'sus2':  {ints:[0,2,7],     degs:['R','2','5'],         sfx:'sus2'},
+  '7sus4': {ints:[0,5,7,10],  degs:['R','4','5','b7'],    sfx:'7sus4'},
 };
 
 /* ─── CHORD MAP — tonic centered, approaches around ─── */
@@ -1730,6 +1736,7 @@ const CHORD_MAP = {
       'IV':   {roman:'IV',   deg:5,  quality:'maj7', tag:'predom'},
       'V':    {roman:'V',    deg:7,  quality:'7',    tag:'dom'},
       'vi':   {roman:'vi',   deg:9,  quality:'m7',   tag:'tonic'},
+      'vii':  {roman:'viiø', deg:11, quality:'m7b5', tag:'dom'},     // diatonic leading-tone (functions as dom upper-structure)
       // Secondary dominants
       'V_V':  {roman:'V/V',  deg:2,  quality:'7',    tag:'secondary'},
       'V_ii': {roman:'V/ii', deg:9,  quality:'7',    tag:'secondary'},
@@ -1753,6 +1760,7 @@ const CHORD_MAP = {
       //    satellites at x=170 (right edge 262) don't collide with it ──
       'n_V':    {chord:'V',    x:280, y:450},
       'n_V_V':  {chord:'V_V',  x:280, y:325},   // sec dom of V, stacked above V
+      'n_vii':  {chord:'vii',  x:280, y:200},   // diatonic vii° at top of dom column
       'n_bII7': {chord:'bII7', x:280, y:600},
       // ── TONIC (right) ──
       'n_I':    {chord:'I',    x:400, y:560, hub:true},
@@ -1783,6 +1791,9 @@ const CHORD_MAP = {
       // Secondaries to their targets
       {from:'n_V_V', to:'n_V'},
       {from:'n_V_ii',to:'n_ii'},
+      // vii° — diatonic leading-tone, resolves to I; IV → vii° is the classic Bach approach
+      {from:'n_vii', to:'n_I'},
+      {from:'n_IV',  to:'n_vii'},
       // I (hub) → outgoing diatonic options
       {from:'n_I',   to:'n_ii'},
       {from:'n_I',   to:'n_iii'},
@@ -2021,7 +2032,7 @@ function guideToneVoicing(quality, rootPc, type = 'A') {
   return null;
 }
 
-function shellVoicing(quality, rootPc, type = 'A') {
+function shellVoicing(quality, rootPc, type = 'A', inversion = 0) {
   const q = QUALITIES[quality];
   if (!q) return null;
   // Find the 7th and 3rd intervals from chord tones
@@ -2035,14 +2046,22 @@ function shellVoicing(quality, rootPc, type = 'A') {
   if (ints.includes(4)) thirdInt = 4;
   else if (ints.includes(3)) thirdInt = 3;
   else thirdInt = 4;
-  // Ascending pitches: R (0), 7 (10 or 11), 3 + 12 (to be above 7)
-  const intervals = [0, seventhInt, thirdInt + 12];
-  // Type A: R on 6th string, 7 on 4th, 3 on 3rd (skip 5th string)
-  // Type B: R on 5th string, 7 on 3rd, 3 on 2nd
+  // Base ascending pitches for root-position shell: R, 7, 3+12
+  // Rotate up by `inversion` (0-2) — each rotation lifts the current
+  // lowest pitch by an octave. So:
+  //   inv 0: R, 7, 3+12        (root in bass)
+  //   inv 1: 7, 3+12, R+12     (7 in bass)
+  //   inv 2: 3+12, R+12, 7+12  (3 in bass)
+  let offsets = [0, seventhInt, thirdInt + 12];
+  for (let k = 0; k < inversion; k++) {
+    offsets = [...offsets.slice(1), offsets[0] + 12];
+  }
+  // Type A: R-position lives on E-D-G strings (skip A string)
+  // Type B: R-position lives on A-G-B strings (skip D string)
   const strings = type === 'A' ? [0, 2, 3] : [1, 3, 4];
-  for (let oct = 24; oct <= 60; oct += 12) {
+  for (let oct = 12; oct <= 60; oct += 12) {
     const rootMidi = oct + rootPc;
-    const voiceMidis = intervals.map(s => rootMidi + s);
+    const voiceMidis = offsets.map(s => rootMidi + s);
     const frets = strings.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
       const shape = [-1, -1, -1, -1, -1, -1];
@@ -4452,7 +4471,14 @@ class Player {
         }
       }
     } else if (type === 'shell') {
-      ['A','B'].forEach(t => { const sh = shellVoicing(quality, root, t); if (sh) cands.push(sh); });
+      // Both string sets × 3 rotations = up to 6 shell candidates, giving
+      // the voice-leading scorer real options instead of just 2 fixed shapes.
+      ['A','B'].forEach(t => {
+        for (let inv = 0; inv < 3; inv++) {
+          const sh = shellVoicing(quality, root, t, inv);
+          if (sh) cands.push(sh);
+        }
+      });
     } else if (type === 'triad') {
       ['top','mid','low'].forEach(t => { const sh = triadVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'guide') {
@@ -6487,7 +6513,9 @@ function startBeatCounterLoop() {
 /* ─── Keyboard shortcuts: 1–7 jump to diatonic scale degrees ─── */
 
 const DEGREE_SHORTCUTS = {
-  major: {1:'I',  2:'ii',  3:'iii',  4:'IV', 5:'V',  6:'vi',  7:'bVII'},
+  // Number 7 binds to the diatonic vii° in major (was bVII before — bVII
+  // still lives in the chord map, just no longer on the number pad).
+  major: {1:'I',  2:'ii',  3:'iii',  4:'IV', 5:'V',  6:'vi',  7:'vii'},
   minor: {1:'i',  2:'iiø', 3:'bIII', 4:'iv', 5:'V7', 6:'bVI', 7:'bVII'},
 };
 
