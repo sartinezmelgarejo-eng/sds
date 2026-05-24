@@ -6514,6 +6514,18 @@ function renderComposeInfo() {
     const af = Math.round(avgFret(fs.shape));
     if (Number.isFinite(af) && af > 0) fretTxt = `fret&nbsp;${af}`;
   }
+  // Position counter inside the current voicing family — "3/12" tells the
+  // user how many more voicings live in this technique before cycling
+  // wraps. Only shown in compose mode (the AI's own info bar is busy with
+  // progression state and doesn't need this).
+  let posTxt = '';
+  if (fs?.shape && typeRaw) {
+    const family = allDistinctVoicings(ch.quality, root).filter(c => c.type === typeRaw);
+    if (family.length > 1) {
+      const idx = family.findIndex(c => c.shape.every((f, i) => f === fs.shape[i]));
+      if (idx >= 0) posTxt = `${idx + 1}/${family.length}`;
+    }
+  }
   // Key chip (matches the player's pi-key styling).
   const keyName = nameOf(state.keyPc, flats);
   const tq = state.tonality === 'major' ? 'MAJ' : 'MIN';
@@ -6522,7 +6534,8 @@ function renderComposeInfo() {
   // rhymes with the playback bar's progression name.
   const chordHtml = `<span class="pi-prog">${name}</span>`;
   const romanHtml = `<span class="pi-iter">${ch.roman}</span>`;
-  const typeHtml  = `<span class="pi-voicing">${typeLabel}${detail ? ' · ' + detail : ''}</span>`;
+  const posChip   = posTxt ? `<span class="pi-step">${posTxt}</span>` : '';
+  const typeHtml  = `<span class="pi-voicing">${typeLabel}${detail ? ' · ' + detail : ''}</span>${posChip}`;
   const fretHtml  = fretTxt ? `<span class="pi-iter">${fretTxt}</span>` : '';
   el.innerHTML = `
     ${keyHtml}
