@@ -2013,12 +2013,8 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const clefW = showClef ? 16 : 3;
   const accW = 10;
   const noteX = clefW + accW + 4;
-  // Tighter line spacing so notes up to ~3 ledger lines below the staff still
-  // fit inside the cell. Staff sits ~25% from the top — leaves more room
-  // below for ledger lines (which is where low chord tones live).
-  const lineSp = sizing?.minimal ? 6.5 : 9;
-  const staffTopY = lineSp * 2;
-  const staffBotY = staffTopY + 4 * lineSp;
+  // Bigger line spacing so the notes are actually visible
+  const lineSp = sizing?.minimal ? 9 : 11;
 
   // 5 staff lines
   let lines = '';
@@ -2049,21 +2045,34 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
 
-  const positions = midis.map((midi, idx) => {
+  // Compute step + accidental for each note
+  const baseInfo = midis.map((midi) => {
     const pc = ((midi % 12) + 12) % 12;
-    const origPc = ((shape.filter(f => f >= 0)[idx] !== undefined)
-      ? (((midi - (shifted ? 12 : 0)) % 12) + 12) % 12
-      : pc);   // keep degree-color lookup honest under the octave shift
     const octave = Math.floor(midi / 12) - 1;
     const name = noteLetterFromPc(pc, flats);
     const letter = name.charAt(0);
     const acc = name.length > 1 ? name.charAt(1) : '';
-    const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
-    // y at C4 (step 0) = first ledger below staff = staffBotY + lineSp
-    // y at F5 (step 10) = top line = staffTopY
-    const y = staffBotY + lineSp - step * 0.5 * lineSp;
-    return { midi, pc, origPc, y, acc, letter, step };
+    const step = (octave - 4) * 7 + stepInOctave[letter];
+    return { midi, pc, acc, letter, step };
   });
+  // Relative y of each note ASSUMING staffTopY=0:
+  //   y_rel(step) = lineSp * (5 - step / 2)
+  const relYs = baseInfo.map(b => lineSp * (5 - b.step / 2));
+  const minRelY = Math.min(...relYs);
+  const maxRelY = Math.max(...relYs);
+  // Center the chord stack vertically in the SVG box. Then nudge so the staff
+  // body stays at least partially in view.
+  let staffTopY = H / 2 - (minRelY + maxRelY) / 2;
+  // Clamp so the staff isn't off-screen and the lowest note isn't clipped
+  const pad = 4;
+  staffTopY = Math.max(pad - minRelY, staffTopY);
+  staffTopY = Math.min(H - pad - maxRelY, staffTopY);
+  const staffBotY = staffTopY + 4 * lineSp;
+
+  const positions = baseInfo.map((b, i) => ({
+    ...b,
+    y: staffTopY + relYs[i],
+  }));
 
   // Ledger lines
   let ledgers = '';
