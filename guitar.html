@@ -4821,6 +4821,8 @@ class Player {
     // If user has a composed progression, re-show the compose strip so they
     // can edit and replay it.
     if (typeof renderComposeStrip === 'function') renderComposeStrip();
+    // Hand the green info bar back to compose mode (chord name + voicing).
+    if (typeof renderComposeInfo === 'function') renderComposeInfo();
   }
 
   _scheduler() {
@@ -6408,6 +6410,64 @@ function renderAll() {
   updateActiveDrones();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (typeof renderComposePad === 'function') renderComposePad();
+  renderComposeInfo();
+}
+
+// Compose-mode counterpart of the player's green info bar. While the AI isn't
+// playing, the bar still has useful real estate — show the focused chord and
+// the voicing being inspected (type, inversion, string set, fret position).
+// When the player IS playing, this is a no-op (the player owns the bar).
+function renderComposeInfo() {
+  const el = document.getElementById('player-info');
+  if (!el) return;
+  if (player && player.playing) return;          // player's _updateVisuals fills it
+  const fcId = state.focusedChord;
+  const map = currentMap();
+  const ch = fcId && map.chordDefs[fcId];
+  if (!ch) { el.innerHTML = ''; return; }
+  const flats = useFlatsFor(state.keyPc);
+  const root  = (state.keyPc + ch.deg) % 12;
+  const name  = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+  const fs    = focusedShape();
+  // Voicing-type label — prefer explicit type from userVoicing/focusedShape;
+  // fall back to the global voicingPref when nothing more specific is known.
+  const typeRaw = fs?.type || state.userVoicing?.type || (window.voicingPref && voicingPref !== 'all' ? voicingPref : 'drop2');
+  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE' };
+  const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
+  // Inversion + string-set when available (drop-2 path).
+  const SET_LABEL = ['LOW', 'MID', 'TOP'];
+  const INV_LABEL = ['root pos', '1st inv', '2nd inv', '3rd inv'];
+  const inv = fs?.inversion;
+  const ss  = fs?.stringSetIdx;
+  let detail = '';
+  if (Number.isInteger(inv) && Number.isInteger(ss)) {
+    detail = `${INV_LABEL[inv] || ('inv ' + inv)} · ${SET_LABEL[ss] || ('set ' + ss)} set`;
+  }
+  // Average fret as a quick "where on the neck" reading.
+  let fretTxt = '';
+  if (fs?.shape) {
+    const af = Math.round(avgFret(fs.shape));
+    if (Number.isFinite(af) && af > 0) fretTxt = `fret&nbsp;${af}`;
+  }
+  // Key chip (matches the player's pi-key styling).
+  const keyName = nameOf(state.keyPc, flats);
+  const tq = state.tonality === 'major' ? 'MAJ' : 'MIN';
+  const keyHtml = `<span class="pi-key">${keyName}<span class="pi-key-q">${tq}</span></span>`;
+  // Chord name uses the same italic-serif pi-prog class so it visually
+  // rhymes with the playback bar's progression name.
+  const chordHtml = `<span class="pi-prog">${name}</span>`;
+  const romanHtml = `<span class="pi-iter">${ch.roman}</span>`;
+  const typeHtml  = `<span class="pi-voicing">${typeLabel}${detail ? ' · ' + detail : ''}</span>`;
+  const fretHtml  = fretTxt ? `<span class="pi-iter">${fretTxt}</span>` : '';
+  el.innerHTML = `
+    ${keyHtml}
+    <span class="pi-div"></span>
+    ${chordHtml}
+    ${romanHtml}
+    <span class="pi-div"></span>
+    ${typeHtml}
+    ${fretHtml ? '<span class="pi-spacer"></span>' + fretHtml : ''}
+  `;
 }
 
 // ─── Beat counter loop: drives the 1-2-3-4 lights in the player-info bar ───
