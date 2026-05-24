@@ -574,13 +574,14 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       height: auto;
-      /* Show exactly 2 sets (chord-row + tab-row, twice = ~224px); scroll the rest */
-      max-height: 224px;
+      /* Show exactly 2 sets (chord-row + tab-row, twice). Cells got thicker
+         so the slot needs ~260 to keep showing 2 full sets without scroll. */
+      max-height: 260px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
-    body:not(.player-active) .real-book.compose-interleaved .rb-cell { min-height: 48px; }
-    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 64px; }
+    body:not(.player-active) .real-book.compose-interleaved .rb-cell  { min-height: 58px; }
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 78px; }
     /* Drop right border on every 4th cell (right edge of each row) */
     body:not(.player-active) .real-book.compose-interleaved .rb-cell:nth-child(4n),
     body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell:nth-child(4n) {
@@ -1099,8 +1100,8 @@
       bottom: calc(44px + env(safe-area-inset-bottom));
       z-index: 100;
       width: 100vw;
-      height: 320px;
-      max-height: 55vh;
+      height: 260px;
+      max-height: 42vh;
       background: var(--panel-2);
       border-top: 1.5px solid #1a1a1a;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
@@ -5290,7 +5291,10 @@ function renderAll() {
     const availW = Math.max(0, vw - padX);
     // Cap the slot to a sensible fraction of the visual viewport so even on
     // small phones the map can never be taller than what's actually visible.
-    const maxSlotH = Math.max(200, Math.min(vh * 0.55, vh - toggleBarH - headerH));
+    // Reserve room for the compose strip too (~280px on mobile) so the chord
+     // preview never gets buried behind the map overlay.
+    const composeStripH = 280;
+    const maxSlotH = Math.max(180, Math.min(vh * 0.42, vh - toggleBarH - headerH - composeStripH));
     const scaleW = availW    / contentW;
     const scaleH = (maxSlotH - padY) / contentH;
     const scale  = Math.min(scaleW, scaleH);
