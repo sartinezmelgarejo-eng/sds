@@ -1427,14 +1427,6 @@
   </div>
 
   <div class="ctx-block">
-    <div class="ctx-label">Instrument</div>
-    <div class="toggle" id="instrument-toggle">
-      <button class="active" data-instrument="guitar" title="Guitar fretboard">🎸</button>
-      <button data-instrument="piano" title="Piano keyboard">🎹</button>
-    </div>
-  </div>
-
-  <div class="ctx-block">
     <div class="ctx-label">Chords</div>
     <button class="auto-btn" id="chord-scope" style="font-weight:600" title="filter which chords appear in the map and progressions">✦ All</button>
   </div>
@@ -1444,6 +1436,7 @@
   <div class="ctx-block">
     <div class="ctx-label">Sound</div>
     <div style="display:flex;gap:6px;align-items:center">
+      <button class="auto-btn" id="instrument-btn" style="font-weight:600" title="Toggle guitar / piano view">🎸</button>
       <button class="auto-btn" id="mixer-btn" style="font-weight:600" title="open the volume mixer">🎚 Mix</button>
       <button class="auto-btn active" id="bass-toggle" style="font-weight:600" title="mute/unmute bass">🎸 Bass</button>
       <button class="auto-btn" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🎹 Piano</button>
@@ -2774,22 +2767,23 @@ function syncTonalityToggle() {
   });
 }
 
-// ── Instrument toggle: 🎸 (guitar fretboard) ↔ 🎹 (piano keyboard) ──
-document.querySelectorAll('#instrument-toggle button').forEach(b => {
-  b.addEventListener('click', () => {
-    state.instrument = b.dataset.instrument;
-    document.body.classList.toggle('instrument-piano', state.instrument === 'piano');
-    document.body.classList.toggle('instrument-guitar', state.instrument === 'guitar');
-    document.querySelectorAll('#instrument-toggle button').forEach(bb => {
-      bb.classList.toggle('active', bb.dataset.instrument === state.instrument);
-    });
-    if (typeof renderChordPiano === 'function') renderChordPiano();
-    // Re-render strip + Real Book so chord diagrams swap to/from sheet music
-    if (typeof renderComposeStrip === 'function') renderComposeStrip();
-    if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
+// ── Instrument toggle: single pill that flips between 🎸 and 🎹 ──
+const instrumentBtn = document.getElementById('instrument-btn');
+function setInstrument(inst) {
+  state.instrument = inst;
+  document.body.classList.toggle('instrument-piano', inst === 'piano');
+  document.body.classList.toggle('instrument-guitar', inst === 'guitar');
+  if (instrumentBtn) instrumentBtn.textContent = (inst === 'piano') ? '🎹' : '🎸';
+  if (typeof renderChordPiano === 'function') renderChordPiano();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
+}
+if (instrumentBtn) {
+  instrumentBtn.addEventListener('click', () => {
+    setInstrument(state.instrument === 'guitar' ? 'piano' : 'guitar');
   });
-});
-// Apply initial body class so CSS picks it up on first load
+}
+// Initial state
 document.body.classList.add('instrument-guitar');
 
 /* ════════════════════════════════════════════════════════════
