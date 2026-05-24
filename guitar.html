@@ -1011,6 +1011,15 @@
   /* Cells of the composed strip are clickable (audition + focus). */
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
   body:not(.player-active) [data-compose-idx]:hover { background: rgba(160,120,32,0.10); }
+  /* Selected compose cell — warm orange so the user knows the next chord /
+     inversion change will EDIT this cell instead of appending a new one. */
+  [data-compose-idx].compose-selected {
+    background: rgba(232,144,52,0.22) !important;
+    box-shadow: inset 0 0 0 2px #e89034;
+  }
+  [data-compose-idx].compose-selected:hover {
+    background: rgba(232,144,52,0.30) !important;
+  }
   .rb-cell.current {
     background: #fcecaa;
   }
@@ -2050,6 +2059,10 @@ const state = {
   // and AI starts playing, this overrides the AI's random progression generation —
   // the player just loops the typed sequence.
   composedProgression: [],
+  // Index of the currently SELECTED compose cell (orange highlight). When set,
+  // adding a chord / cycling inversions / Backspace target this cell instead
+  // of appending to the end. null = append mode (default).
+  composedSelectedIdx: null,
 };
 
 function currentMap() { return CHORD_MAP[state.tonality]; }
@@ -6456,6 +6469,37 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const cands = composedCandidatesFor(ch.quality, root);
   if (!cands.length) return;
   const seq = state.composedProgression;
+  // ── EDIT MODE: a cell is selected → replace/cycle THAT slot ──
+  const selIdx = state.composedSelectedIdx;
+  if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
+    const cur = seq[selIdx];
+    if (cycleInversion && cur.chord === chordId) {
+      const idx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
+      seq[selIdx] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
+    } else {
+      // Pick the voicing that flows best from the PREVIOUS cell (idx-1) so
+      // the replacement still respects voice-leading context.
+      const prev = (selIdx > 0) ? seq[selIdx - 1].shape : null;
+      let bestIdx = 0, bestScore = Infinity;
+      cands.forEach((c, i) => {
+        const m = prev ? totalVoiceMovement(prev, c.shape) : 0;
+        const af = avgFret(c.shape);
+        const reg = Math.abs(af - 7);
+        const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
+        const setPref = c.stringSetIdx === 0 ? 3 : 0;
+        const score = m + registerCost + setPref;
+        if (score < bestScore) { bestScore = score; bestIdx = i; }
+      });
+      seq[selIdx] = { chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape };
+    }
+    state.focusedChord = chordId;
+    state.userVoicing = { shape: seq[selIdx].shape };
+    renderAll();
+    renderComposeStrip();
+    ringFocusedChord();
+    return;
+  }
+  // ── APPEND MODE (no selection) ──
   if (cycleInversion && seq.length && seq[seq.length - 1].chord === chordId) {
     const cur = seq[seq.length - 1];
     const idx = (cur._candIdx + direction + cands.length) % cands.length;
@@ -6494,19 +6538,37 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
 function composeCycleLastInversion(direction) {
   const seq = state.composedProgression;
   if (!seq.length) return;
-  const last = seq[seq.length - 1];
-  composeAddChord(last.chord, true, direction);
+  // If a cell is selected, cycle ITS inversion; otherwise cycle the last.
+  const idx = (state.composedSelectedIdx !== null && state.composedSelectedIdx < seq.length)
+    ? state.composedSelectedIdx
+    : seq.length - 1;
+  composeAddChord(seq[idx].chord, true, direction);
 }
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
-  state.composedProgression.pop();
   const seq = state.composedProgression;
-  if (seq.length) {
-    const last = seq[seq.length - 1];
-    state.focusedChord = last.chord;
-    state.userVoicing  = { shape: last.shape };
+  const selIdx = state.composedSelectedIdx;
+  if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
+    // Delete the selected cell. Move selection back one (or clear if empty).
+    seq.splice(selIdx, 1);
+    if (!seq.length) {
+      state.composedSelectedIdx = null;
+      state.userVoicing = null;
+    } else {
+      state.composedSelectedIdx = Math.max(0, selIdx - 1);
+      const newCur = seq[state.composedSelectedIdx];
+      state.focusedChord = newCur.chord;
+      state.userVoicing  = { shape: newCur.shape };
+    }
   } else {
-    state.userVoicing = null;
+    seq.pop();
+    if (seq.length) {
+      const last = seq[seq.length - 1];
+      state.focusedChord = last.chord;
+      state.userVoicing  = { shape: last.shape };
+    } else {
+      state.userVoicing = null;
+    }
   }
   renderComposeStrip();
   renderAll();
@@ -6514,6 +6576,7 @@ function composeDeleteLast() {
 }
 function composeClear() {
   state.composedProgression = [];
+  state.composedSelectedIdx = null;
   state.userVoicing = null;
   // Reset focused chord back to the tonic so the neck preview clears too,
   // otherwise it keeps showing the chord that was just deleted from the strip.
@@ -6646,7 +6709,8 @@ function renderComposeStrip() {
   const renderCell = (cell, i, isTab) => {
     const cls = ['rb-cell'];
     if (isTab) cls[0] = 'rb-tab-cell';
-    if (i === seq.length - 1) cls.push('current');
+    if (i === seq.length - 1 && state.composedSelectedIdx === null) cls.push('current');
+    if (i === state.composedSelectedIdx) cls.push('compose-selected');
     if (i === 8) cls.push('section-divider');  // start of B
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
@@ -6709,18 +6773,33 @@ function renderComposeStrip() {
 document.addEventListener('click', (ev) => {
   if (player.playing) return;   // playback owns the strip while AI is on
   const cell = ev.target.closest('[data-compose-idx]');
-  if (!cell) return;
+  if (!cell) {
+    // Click outside any compose cell — clear selection so subsequent
+    // chord additions go back to appending at the end.
+    if (state.composedSelectedIdx !== null) {
+      // Don't clear if the click landed on the inversion buttons or
+      // compose-pad controls (those operate ON the selection).
+      const inControls = ev.target.closest('.compose-pad, .compose-btn, .compose-inv');
+      if (!inControls) {
+        state.composedSelectedIdx = null;
+        renderComposeStrip();
+      }
+    }
+    return;
+  }
   const idx = parseInt(cell.dataset.composeIdx, 10);
   const seq = state.composedProgression;
   if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
+  // Mark this cell as the edit target — next chord pick / inversion cycle
+  // will REPLACE this slot instead of appending to the end of the strip.
+  state.composedSelectedIdx = idx;
   state.focusedChord = entry.chord;
-  // If this cell has a recorded shape (set at compose-time), audition that
-  // exact voicing — otherwise fall back to focusedShape's default pick.
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
   renderAll();
+  renderComposeStrip();
   ringFocusedChord();
 });
 
@@ -6771,7 +6850,16 @@ document.addEventListener('keydown', e => {
     }
   }
   if (e.key === 'Escape' && state.composedProgression.length) {
-    e.preventDefault(); composeClear(); return;
+    e.preventDefault();
+    // First Escape: just deselect (leaves the strip intact). Second Escape
+    // (with no selection): clear the whole composed progression.
+    if (state.composedSelectedIdx !== null) {
+      state.composedSelectedIdx = null;
+      renderComposeStrip();
+    } else {
+      composeClear();
+    }
+    return;
   }
 
   // Shift+digit may produce a punctuation glyph ("@", "#", ...) instead of the
