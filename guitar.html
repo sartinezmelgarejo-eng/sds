@@ -2312,9 +2312,16 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Hint of the middle-C line floating between the two staves — short faint
   // dashed segment centered horizontally so the reader has a reference for
   // where C4 sits without overpowering the staff itself.
-  const cHintW = W * 0.25;
+  // If middle C (MIDI 60) is actually sounding in this chord, light its
+  // ledger line up in gold so the reader's eye snaps to the pivot tone.
+  const hasMiddleC = midis.includes(60);
+  const cHintW = hasMiddleC ? W * 0.32 : W * 0.25;
   const cHintX = (W - cHintW) / 2;
-  lines += `<line x1="${cHintX}" y1="${middleCY}" x2="${cHintX + cHintW}" y2="${middleCY}" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.35"/>`;
+  if (hasMiddleC) {
+    lines += `<line x1="${cHintX}" y1="${middleCY}" x2="${cHintX + cHintW}" y2="${middleCY}" stroke="#d4a843" stroke-width="1.2" opacity="0.95" stroke-linecap="round"/>`;
+  } else {
+    lines += `<line x1="${cHintX}" y1="${middleCY}" x2="${cHintX + cHintW}" y2="${middleCY}" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.35"/>`;
+  }
 
   // Only the treble (G) clef is drawn. The bass staff lines stay so low
   // chord tones still have their proper home, just without an F-clef letter
