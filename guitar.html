@@ -811,7 +811,7 @@
   .rb-tab-cell svg { width: 100%; height: 100%; display: block; }
   .real-book[hidden] { display: none; }
   .rb-loop {
-    height: 92px;     /* matches the tabs row height — sits on the bottom row */
+    height: 150px;    /* matches the tabs row height — sits on the bottom row */
     width: 24px;      /* same thin width as the cycle button so they align visually */
     padding: 0;
     background: #fdfcf3;
@@ -2065,13 +2065,20 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Budget the whole vertical space across both staves + a generous gap for
   // the middle-C ledger zone. Two staves × 4 line-spacings each + gap + pad
   // = H, so lineSp = (H - pad*2 - gap) / 8.
-  const padY = 3;
+  // padTop slightly tighter and padBot looser — chord tones drop below the
+  // bass staff more often than they rise above the treble, so favor the
+  // bottom with extra breathing room.
+  const padTop = 3;
+  const padBot = (sizing?.minimal ? 7 : 9);
   const gapY = (sizing?.minimal ? 1.6 : 1.8);     // gap measured in line-spacings
-  const lineSp = (H - padY * 2) / (8 + gapY);
-  const trebleTopY = padY;
+  const lineSp = (H - padTop - padBot) / (8 + gapY);
+  const trebleTopY = padTop;
   const trebleBotY = trebleTopY + 4 * lineSp;
   const bassTopY   = trebleBotY + lineSp * gapY;
   const bassBotY   = bassTopY + 4 * lineSp;
+  // Middle C line lives in the gap between the two staves (one ledger below
+  // treble = one ledger above bass)
+  const middleCY   = trebleBotY + lineSp;
 
   // Map MIDI -> diatonic step + accidental + which staff
   const noteLetterFromPc = (pc, useFlat) => {
@@ -2114,6 +2121,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   }
   // Compás divider — thin vertical line at the right edge of every cell
   lines += `<line x1="${W - 0.5}" y1="${trebleTopY}" x2="${W - 0.5}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+  // Hint of the middle-C line floating between the two staves — short faint
+  // dashed segment centered horizontally so the reader has a reference for
+  // where C4 sits without overpowering the staff itself.
+  const cHintW = W * 0.25;
+  const cHintX = (W - cHintW) / 2;
+  lines += `<line x1="${cHintX}" y1="${middleCY}" x2="${cHintX + cHintW}" y2="${middleCY}" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.35"/>`;
 
   // Only the treble (G) clef is drawn. The bass staff lines stay so low
   // chord tones still have their proper home, just without an F-clef letter
