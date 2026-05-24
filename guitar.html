@@ -403,14 +403,31 @@
     opacity: 0.85;
     white-space: nowrap;
   }
-  /* Bars-left — small mono, green */
-  #player-info .pi-bars {
+  /* Beat counter — 1 2 3 4 ticking with the BPM. The current beat lights up;
+     the downbeat (1) gets a gold accent. Replaces the static bars-left. */
+  #player-info .pi-beats {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
     font-family: 'SF Mono', monospace;
-    font-size: 10.5px;
-    color: var(--tag-tonic);
+  }
+  #player-info .pi-beat {
+    display: inline-block;
+    width: 14px;
+    text-align: center;
+    font-size: 12px;
     font-weight: 700;
-    white-space: nowrap;
-    letter-spacing: 0.5px;
+    color: rgba(5,150,105,0.28);
+    transition: color 0.06s, transform 0.08s, text-shadow 0.08s;
+  }
+  #player-info .pi-beat.on {
+    color: var(--tag-tonic);
+    transform: scale(1.22);
+    text-shadow: 0 0 6px rgba(5,150,105,0.55);
+  }
+  #player-info .pi-beat.downbeat.on {
+    color: #d4a843;
+    text-shadow: 0 0 8px rgba(212,168,67,0.75);
   }
   /* Iteration count — mono, smaller */
   #player-info .pi-iter {
@@ -3994,6 +4011,7 @@ class Player {
     const beatDur = 60 / metronome.bpm;
     this.nextBarTime += beatDur * 4;
     this.timer = setInterval(() => this._scheduler(), 30);
+    startBeatCounterLoop();
   }
 
   stop() {
@@ -4296,6 +4314,14 @@ class Player {
     const liveKeyName = nameOf(liveKeyPc, useFlatsFor(liveKeyPc));
     const keyHtml = `<span class="pi-key">${liveKeyName}<span class="pi-key-q">${state.tonality === 'major' ? 'maj' : 'min'}</span></span>`;
 
+    const beatsHtml = `
+      <span class="pi-beats">
+        <span class="pi-beat downbeat" data-b="0">1</span>
+        <span class="pi-beat" data-b="1">2</span>
+        <span class="pi-beat" data-b="2">3</span>
+        <span class="pi-beat" data-b="3">4</span>
+      </span>`;
+
     document.getElementById('player-info').innerHTML = `
       ${keyHtml}
       <span class="pi-div"></span>
@@ -4309,7 +4335,7 @@ class Player {
       <span class="pi-spacer"></span>
       ${travelBadge}
       ${modBadge}
-      <span class="pi-bars">${barsLabel}</span>
+      ${beatsHtml}
     `;
 
     state.focusedChord = curId;
@@ -5411,6 +5437,33 @@ function renderAll() {
   updateActiveDrones();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (typeof renderComposePad === 'function') renderComposePad();
+}
+
+// ─── Beat counter loop: drives the 1-2-3-4 lights in the player-info bar ───
+// Reads from audioCtx + player.nextBarTime so it stays phase-locked with the
+// actual scheduled chord changes (no drift, no separate clock).
+let _beatLoopId = null;
+function startBeatCounterLoop() {
+  if (_beatLoopId) return;
+  let lastBeat = -1;
+  function tick() {
+    if (!player || !player.playing || !audioCtx) {
+      _beatLoopId = null;
+      return;
+    }
+    const beatDur = 60 / metronome.bpm;
+    const barStart = player.nextBarTime - beatDur * 4;
+    const elapsed = audioCtx.currentTime - barStart;
+    const beatInBar = ((Math.floor(elapsed / beatDur) % 4) + 4) % 4;
+    if (beatInBar !== lastBeat) {
+      lastBeat = beatInBar;
+      document.querySelectorAll('#player-info .pi-beat').forEach((el, i) => {
+        el.classList.toggle('on', i === beatInBar);
+      });
+    }
+    _beatLoopId = requestAnimationFrame(tick);
+  }
+  _beatLoopId = requestAnimationFrame(tick);
 }
 
 // Mobile chord-map overlay: toggle, close on backdrop tap, close after picking a chord
