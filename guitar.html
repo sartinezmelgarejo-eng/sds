@@ -297,55 +297,19 @@
     color: #fff;
     border-color: var(--tag-tonic);
   }
-  /* ─── Player info bar — two-row layout, hierarchy: NOW chord big, context small ───
-     Row 1 (small, contextual):  progression name · form segments · iteration
-     Row 2 (large, live):        NOW chord  →  NEXT chord                bars
-     Modulation / travel badges float on the right when present. */
+  /* ─── Player info bar — pure CONTEXT strip (chord names live in the Real
+     Book strip and the chord map, no need to mirror them here). One stable
+     row that doesn't jump around as the chord changes. */
   #player-info {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
-    column-gap: 14px;
-    row-gap: 4px;
+    display: flex;
     align-items: center;
+    gap: 16px;
     color: var(--text-dim);
     font-family: 'Cormorant Garamond', Georgia, serif;
     width: 100%;
+    min-height: 28px;
   }
-  #player-info .pi-context {
-    grid-column: 1;
-    grid-row: 1;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-    font-size: 12px;
-    color: var(--text-faint);
-  }
-  #player-info .pi-badges {
-    grid-column: 2;
-    grid-row: 1;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  #player-info .pi-live {
-    grid-column: 1;
-    grid-row: 2;
-    display: flex;
-    align-items: baseline;
-    gap: 14px;
-    flex-wrap: wrap;
-  }
-  #player-info .pi-bars {
-    grid-column: 2;
-    grid-row: 2;
-    font-family: 'SF Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
-    font-weight: 700;
-    white-space: nowrap;
-  }
+  #player-info .pi-spacer { flex: 1; }     /* pushes right-side info to the edge */
   /* Progression name — italic serif, the SECTION HEADING. Make it pop. */
   #player-info .pi-prog {
     font-style: italic;
@@ -393,57 +357,27 @@
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.5px;
   }
-  /* The big live chord names */
-  #player-info .pi-now,
-  #player-info .pi-next {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 6px;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-  }
-  #player-info .pi-now .pi-chord {
-    font-size: 26px;
-    font-weight: 700;
-    color: var(--tag-tonic);
-    letter-spacing: -0.3px;
-  }
-  #player-info .pi-now .pi-roman {
-    font-size: 13px;
-    font-style: italic;
-    color: var(--text-faint);
-    font-weight: 500;
-  }
-  /* Voicing-type caption next to the now chord — drop2 / triad / shell etc. */
+  /* Voicing-type pill — drop2 / triad / shell · walking / steady — context
+     about HOW the chord is being voiced (info NOT visible elsewhere). */
   #player-info .pi-voicing {
     font-family: 'SF Mono', monospace;
-    font-size: 10px;
-    color: var(--text-faint);
+    font-size: 10.5px;
+    color: var(--text-dim);
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    padding: 2px 6px;
+    padding: 3px 8px;
     border: 1px solid rgba(160,120,32,0.4);
     border-radius: 3px;
-    background: rgba(160,120,32,0.05);
-    margin-left: 4px;
+    background: rgba(160,120,32,0.06);
+    white-space: nowrap;
   }
-  #player-info .pi-arrow {
-    color: var(--text-faint);
-    font-size: 18px;
-    opacity: 0.7;
-  }
-  #player-info .pi-next .pi-chord {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--accent);
-    opacity: 0.75;
-    letter-spacing: -0.2px;
-  }
-  #player-info .pi-next .pi-roman {
+  /* Bars-left readout */
+  #player-info .pi-bars {
+    font-family: 'SF Mono', monospace;
     font-size: 11px;
-    font-style: italic;
-    color: var(--text-faint);
-    font-weight: 500;
-    opacity: 0.6;
+    color: var(--accent);
+    font-weight: 700;
+    white-space: nowrap;
   }
   /* Modulation / travel pill — slightly more prominent, animates in */
   @keyframes piBadgeIn {
@@ -4296,29 +4230,19 @@ class Player {
     const iterTxt = section.repeats > 1
       ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
 
+    const voicingTxt = state.playerVoicing?.type
+      ? `<span class="pi-voicing">${state.playerVoicing.type} · ${this.bassPattern}</span>`
+      : '';
+
     document.getElementById('player-info').innerHTML = `
-      <div class="pi-context">
-        <span class="pi-prog">${prog.name}</span>
-        ${iterTxt}
-        <span class="pi-form">${formHtml}</span>
-      </div>
-      <div class="pi-badges">${travelBadge}${modBadge}</div>
-      <div class="pi-live">
-        <span class="pi-now">
-          <span class="pi-chord">${curName}</span>
-          <span class="pi-roman">${curRoman}</span>
-        </span>
-        ${state.playerVoicing?.type
-          ? `<span class="pi-voicing">${state.playerVoicing.type} · ${this.bassPattern}</span>`
-          : ''}
-        ${nxtCh ? `
-          <span class="pi-arrow">→</span>
-          <span class="pi-next">
-            <span class="pi-chord">${nxtName}</span>
-            <span class="pi-roman">${nxtRoman}</span>
-          </span>` : ''}
-      </div>
-      <div class="pi-bars">${barsLabel}</div>
+      <span class="pi-prog">${prog.name}</span>
+      ${iterTxt}
+      <span class="pi-form">${formHtml}</span>
+      ${voicingTxt}
+      <span class="pi-spacer"></span>
+      ${travelBadge}
+      ${modBadge}
+      <span class="pi-bars">${barsLabel}</span>
     `;
 
     state.focusedChord = curId;
