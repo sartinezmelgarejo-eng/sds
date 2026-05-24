@@ -2213,9 +2213,21 @@ function renderContinuationStaff(sizing) {
     `<circle cx="${cx - perp}" cy="${cy - perp}" r="${dotR}" fill="#1a1a1a"/>` +
     `<circle cx="${cx + perp}" cy="${cy + perp}" r="${dotR}" fill="#1a1a1a"/>`;
 
+  // Clefs (only on the first cell of the row, so the rest reads as a clean
+  // continuation of the partitura).
+  let clef = '';
+  if (showClef) {
+    const trebleClefY = trebleBotY - lineSp;
+    const bassClefY   = bassTopY + lineSp;
+    const cx2 = clefW * 0.5;
+    clef = trebleClefSVG(cx2, trebleClefY, lineSp, !!sizing?.minimal)
+         + bassClefSVG(cx2, bassClefY, lineSp, !!sizing?.minimal);
+  }
+
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
+      ${clef}
       ${simile}
     </svg>
   </svg>`;
@@ -2234,19 +2246,19 @@ function trebleClefSVG(cx, gLineY, lineSp, minimal) {
         text-anchor="middle"
         dominant-baseline="central">𝄞</text>`;
 }
-function bassClefSVG(cx, fLineY, lineSp) {
-  // The F sits centered on the F3 line. Two small dots straddle the F line
-  // (echoing the real bass-clef dots), reinforcing the anchor.
-  const fs = lineSp * 3.1;
-  const dotR = lineSp * 0.22;
-  return `<g fill="#1a1a1a">
-    <text x="${cx}" y="${fLineY + fs * 0.36}" font-size="${fs}"
-          font-family="'Cormorant Garamond', Georgia, serif"
-          font-style="italic" font-weight="700"
-          text-anchor="middle">F</text>
-    <circle cx="${cx + lineSp * 1.4}" cy="${fLineY - lineSp * 0.5}" r="${dotR}"/>
-    <circle cx="${cx + lineSp * 1.4}" cy="${fLineY + lineSp * 0.5}" r="${dotR}"/>
-  </g>`;
+function bassClefSVG(cx, fLineY, lineSp, minimal) {
+  // Real bass clef glyph (𝄢, U+1D122). Mirrors trebleClefSVG: smaller on
+  // mobile (Apple/Noto Music render symbols larger in their em-box), larger
+  // on desktop (Apple Symbols / Segoe UI Symbol are more conservative).
+  // The dot of the clef anchors F3 — the spot at fLineY, so we let the
+  // central baseline sit on that line.
+  const fs = lineSp * (minimal ? 2.6 : 4.4);
+  return `<text x="${cx}" y="${fLineY}"
+        font-size="${fs}"
+        font-family="'Bravura Text','Petaluma','Maestro','Sebastian','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola','Times New Roman',serif"
+        fill="#1a1a1a"
+        text-anchor="middle"
+        dominant-baseline="central">𝄢</text>`;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -2357,14 +2369,15 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${cHintX}" y1="${middleCY}" x2="${cHintX + cHintW}" y2="${middleCY}" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.35"/>`;
   }
 
-  // Only the treble (G) clef is drawn. The bass staff lines stay so low
-  // chord tones still have their proper home, just without an F-clef letter
-  // crowding the cell.
+  // Both clefs drawn: treble (G clef) anchors G4 on the second-bottom treble
+  // line; bass (F clef) anchors F3 on the second-top bass line.
   let clef = '';
   if (showClef) {
     const trebleClefY = trebleBotY - lineSp;   // G4 line — center of the loop
+    const bassClefY   = bassTopY + lineSp;     // F3 line — dot of the bass clef
     const cx = clefW * 0.5;
-    clef = trebleClefSVG(cx, trebleClefY, lineSp, !!sizing?.minimal);
+    clef = trebleClefSVG(cx, trebleClefY, lineSp, !!sizing?.minimal)
+         + bassClefSVG(cx, bassClefY, lineSp, !!sizing?.minimal);
   }
 
   // Ledger lines — drawn per-staff (treble or bass) based on each note's home
