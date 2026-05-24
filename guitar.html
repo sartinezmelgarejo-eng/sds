@@ -6644,8 +6644,79 @@ const DEGREE_SHORTCUTS = {
   minor: {1:'i',  2:'iiø', 3:'bIII', 4:'iv', 5:'V7', 6:'bVI', 7:'bVII'},
 };
 
+/* Master voicing catalog for a chord — DEDUPED across every technique.
+   Ordered: drop-2 → shells → triads → guides → sus, register-ascending
+   within each group. Used by the inversion cycle so the user can step
+   through every distinct voicing the app knows how to play, instead of
+   just the drop-2 column.
+   Each entry: {shape, type, ...meta}. meta carries stringSetIdx/inversion
+   (drop-2/sus) or stringSet (shells/triads/guides) so the green info bar
+   can describe what's currently selected. */
+function allDistinctVoicings(quality, rootPc) {
+  const out = [];
+  const seen = new Set();
+  const keyOf = (sh) => sh.map((f, s) => f >= 0 ? `${s}.${f}` : '').filter(Boolean).sort().join(',');
+  const add = (sh, type, meta = {}) => {
+    if (!sh) return;
+    const k = keyOf(sh);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push({ shape: sh, type, ...meta });
+  };
+  const byReg = (a, b) => avgFret(a.shape) - avgFret(b.shape);
+
+  // 1. Drop-2 (3 string sets × 4 inversions)
+  const drops = [];
+  for (let ss = 0; ss < STRING_SETS.length; ss++) {
+    for (let inv = 0; inv < 4; inv++) {
+      const sh = dropTwoVoicing(quality, rootPc, ss, inv);
+      if (sh) drops.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+    }
+  }
+  drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
+
+  // 2. Shells (2 string sets × 3 rotations)
+  const shells = [];
+  ['A','B'].forEach(t => {
+    for (let inv = 0; inv < 3; inv++) {
+      const sh = shellVoicing(quality, rootPc, t, inv);
+      if (sh) shells.push({ shape: sh, stringSet: t, inversion: inv });
+    }
+  });
+  shells.sort(byReg).forEach(s => add(s.shape, 'shell', { stringSet: s.stringSet, inversion: s.inversion }));
+
+  // 3. Triads (3 string positions)
+  const triads = [];
+  ['top','mid','low'].forEach(t => {
+    const sh = triadVoicing(quality, rootPc, t);
+    if (sh) triads.push({ shape: sh, stringSet: t });
+  });
+  triads.sort(byReg).forEach(t => add(t.shape, 'triad', { stringSet: t.stringSet }));
+
+  // 4. Guide tones (2 string sets)
+  const guides = [];
+  ['A','B'].forEach(t => {
+    const sh = guideToneVoicing(quality, rootPc, t);
+    if (sh) guides.push({ shape: sh, stringSet: t });
+  });
+  guides.sort(byReg).forEach(g => add(g.shape, 'guide', { stringSet: g.stringSet }));
+
+  // 5. Sus voicings (3 sets × 4 inversions)
+  const suss = [];
+  for (let ss = 0; ss < STRING_SETS.length; ss++) {
+    for (let inv = 0; inv < 4; inv++) {
+      const sh = susVoicing(quality, rootPc, ss, inv);
+      if (sh) suss.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+    }
+  }
+  suss.sort(byReg).forEach(s => add(s.shape, 'sus', { stringSetIdx: s.stringSetIdx, inversion: s.inversion }));
+
+  return out;
+}
+
 // All drop-2 voicing candidates for a chord, sorted by register (low → high).
-// Used by compose mode for predictable inversion cycling.
+// Kept as a separate helper because bestStartingVoicing still wants the
+// drop-2-only pool for the map's static "what would this chord look like" view.
 function composedCandidatesFor(quality, rootPc) {
   const cands = [];
   for (let ss = 0; ss < STRING_SETS.length; ss++) {
@@ -6667,71 +6738,77 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const ch = currentMap().chordDefs[chordId];
   if (!ch) return;
   const root = chordRoot(ch);
-  const cands = composedCandidatesFor(ch.quality, root);
+  // Master pool: every distinct voicing across all techniques, deduped.
+  // Cycling (Shift) steps through this list; first-pick scoring biases toward
+  // drop-2 so the default voicing feels familiar.
+  const cands = allDistinctVoicings(ch.quality, root);
   if (!cands.length) return;
   const seq = state.composedProgression;
+
+  const pickBest = (prevShape) => {
+    let bestIdx = 0, bestScore = Infinity;
+    cands.forEach((c, i) => {
+      const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
+      const af = avgFret(c.shape);
+      const reg = Math.abs(af - 7);
+      const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
+      const setPref = c.stringSetIdx === 0 ? 3 : 0;
+      // Strong bias toward drop-2 for the default — keeps the chord map and
+      // compose's initial picks coherent. Cycling escapes the bias entirely.
+      const typePenalty = c.type === 'drop2' ? 0 : 60;
+      const score = m + registerCost + setPref + typePenalty;
+      if (score < bestScore) { bestScore = score; bestIdx = i; }
+    });
+    return bestIdx;
+  };
+  const writeCell = (target, idx) => {
+    const c = cands[idx];
+    return { chord: chordId, _candIdx: idx, shape: c.shape, voicingType: c.type };
+  };
+
   // ── EDIT MODE: a cell is selected → replace/cycle THAT slot ──
   const selIdx = state.composedSelectedIdx;
   if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
     const cur = seq[selIdx];
+    let newIdx;
     if (cycleInversion && cur.chord === chordId) {
-      const idx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
-      seq[selIdx] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
+      newIdx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
     } else {
-      // Pick the voicing that flows best from the PREVIOUS cell (idx-1) so
-      // the replacement still respects voice-leading context.
-      const prev = (selIdx > 0) ? seq[selIdx - 1].shape : null;
-      let bestIdx = 0, bestScore = Infinity;
-      cands.forEach((c, i) => {
-        const m = prev ? totalVoiceMovement(prev, c.shape) : 0;
-        const af = avgFret(c.shape);
-        const reg = Math.abs(af - 7);
-        const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
-        const setPref = c.stringSetIdx === 0 ? 3 : 0;
-        const score = m + registerCost + setPref;
-        if (score < bestScore) { bestScore = score; bestIdx = i; }
-      });
-      seq[selIdx] = { chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape };
+      newIdx = pickBest(selIdx > 0 ? seq[selIdx - 1].shape : null);
     }
+    seq[selIdx] = writeCell(selIdx, newIdx);
+    const c = cands[newIdx];
     state.focusedChord = chordId;
-    state.userVoicing = { shape: seq[selIdx].shape };
+    state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
     renderAll();
     renderComposeStrip();
     ringFocusedChord();
     return;
   }
+
   // ── APPEND MODE (no selection) ──
+  let newIdx;
   if (cycleInversion && seq.length && seq[seq.length - 1].chord === chordId) {
     const cur = seq[seq.length - 1];
-    const idx = (cur._candIdx + direction + cands.length) % cands.length;
-    seq[seq.length - 1] = { chord: chordId, _candIdx: idx, shape: cands[idx].shape };
+    newIdx = (cur._candIdx + direction + cands.length) % cands.length;
+    seq[seq.length - 1] = writeCell(seq.length - 1, newIdx);
   } else {
     if (seq.length >= 16) return;
     const last = seq.length ? seq[seq.length - 1] : null;
-    // Repeating the SAME chord (no Shift): keep the exact same voicing the user
-    // just placed. Cycling inversions is what Shift is for.
+    // Repeating the SAME chord (no Shift): keep the exact same voicing.
     if (last && last.chord === chordId) {
-      seq.push({ chord: chordId, _candIdx: last._candIdx, shape: last.shape });
+      seq.push({ chord: chordId, _candIdx: last._candIdx, shape: last.shape, voicingType: last.voicingType });
     } else {
-      // Pick the voicing the chord map would recommend: minimize voice movement
-      // from the previous chord, with a register/string-set bias matching
-      // smoothestVoicing() so compose ≈ map.
-      const prev = last ? last.shape : null;
-      let bestIdx = 0, bestScore = Infinity;
-      cands.forEach((c, i) => {
-        const m = prev ? totalVoiceMovement(prev, c.shape) : 0;
-        const af = avgFret(c.shape);
-        const reg = Math.abs(af - 7);
-        const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
-        const setPref = c.stringSetIdx === 0 ? 3 : 0;  // low E set last
-        const score = m + registerCost + setPref;
-        if (score < bestScore) { bestScore = score; bestIdx = i; }
-      });
-      seq.push({ chord: chordId, _candIdx: bestIdx, shape: cands[bestIdx].shape });
+      newIdx = pickBest(last ? last.shape : null);
+      seq.push(writeCell(seq.length, newIdx));
     }
   }
+  const cur = seq[seq.length - 1];
+  const c = cands[cur._candIdx];
   state.focusedChord = chordId;
-  state.userVoicing = { shape: seq[seq.length - 1].shape };
+  state.userVoicing = c
+    ? { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion }
+    : { shape: cur.shape };
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
@@ -7090,28 +7167,16 @@ document.addEventListener('keydown', e => {
     const len = _shortcutCycle.cands.length;
     _shortcutCycle.idx = (_shortcutCycle.idx + direction + len) % len;
   } else {
-    // Either plain digit OR shift+different-chord — land on the displayed/recommended voicing
+    // Either plain digit OR shift+different-chord. Pull the master voicing
+    // list (drop-2 → shells → triads → guides → sus, deduped) so the cycle
+    // covers EVERY distinct voicing — not just drop-2 inversions.
     const displayed = computeAllVoicings()[chordId];
-    const cands = [];
-    for (let ss = 0; ss < STRING_SETS.length; ss++) {
-      for (let inv = 0; inv < 4; inv++) {
-        const sh = dropTwoVoicing(ch.quality, root, ss, inv);
-        if (sh) cands.push({ shape: sh, stringSetIdx: ss, inversion: inv });
-      }
-    }
-    // Sort by register (avg fret) ascending — so cycling right = higher on the neck,
-    // cycling left = lower. Tie-break by string set so order is stable.
-    cands.sort((a, b) => {
-      const afA = avgFret(a.shape), afB = avgFret(b.shape);
-      if (afA !== afB) return afA - afB;
-      return a.stringSetIdx - b.stringSetIdx;
-    });
+    const cands = allDistinctVoicings(ch.quality, root);
     let startIdx = 0;
     if (displayed?.shape) {
       const match = cands.findIndex(c => c.shape.every((f, i) => f === displayed.shape[i]));
       if (match >= 0) startIdx = match;
     }
-    // If shift+number on a different chord, advance one step into alternates in direction
     if (isCycleKey && cands.length > 1) {
       startIdx = (startIdx + direction + cands.length) % cands.length;
     }
@@ -7121,7 +7186,7 @@ document.addEventListener('keydown', e => {
   const picked = _shortcutCycle.cands[_shortcutCycle.idx];
   state.focusedChord = chordId;
   state.userVoicing = picked
-    ? { stringSetIdx: picked.stringSetIdx, inversion: picked.inversion }
+    ? { shape: picked.shape, type: picked.type, stringSetIdx: picked.stringSetIdx, inversion: picked.inversion }
     : null;
 
   if (player.playing) {
