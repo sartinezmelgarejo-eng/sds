@@ -1106,7 +1106,6 @@
   .bottom-bar .alternatives {
     flex: 0 0 auto;
     width: 48%;
-    min-width: 0;        /* keep the inner alt-row's horizontal overflow from expanding this column past 48% */
     border-top: none;
     border-right: 1px solid var(--line);
   }
@@ -1344,17 +1343,6 @@
     color: var(--text-faint);
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
-  }
-  /* Family separator inside the alt-row. Small fixed height (smaller than the
-     card) so it never expands the row's vertical footprint. */
-  .alt-divider {
-    flex: 0 0 1px;
-    align-self: center;
-    width: 1px;
-    height: 80px;
-    background: var(--line);
-    opacity: 0.6;
-    margin: 0 2px;
   }
 
   /* ─── Fretboard ─── */
@@ -2950,12 +2938,8 @@ function renderAlternatives() {
   const chordName = nameOf(root, flats) + QUALITIES[fc.quality].sfx;
   altName.textContent = `${fc.roman} · ${chordName}`;
 
-  // Master catalog — drop-2 → shells → triads → guides → sus, deduped.
-  const cands = allDistinctVoicings(fc.quality, root);
-  // Match the active card by full shape (not just stringSetIdx/inversion) so
-  // non-drop-2 voicings can be highlighted too.
-  const shapeKey = (sh) => sh.map((f, i) => f >= 0 ? `${i}.${f}` : '').filter(Boolean).join(',');
-  const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
+  const current = state.userVoicing || {stringSetIdx: 2, inversion: 0};
+  const currentKey = `${current.stringSetIdx}.${current.inversion}`;
 
   const autoSel = state.userVoicing === null ? 'selected' : '';
   let html = `
@@ -2966,37 +2950,25 @@ function renderAlternatives() {
     </div>
   `;
 
-  // Short labels so single-line rendering is guaranteed inside the 100px card.
-  const INV = ['R','1st','2nd','3rd'];
-  const SET = ['LOW','MID','TOP'];
-  const labelFor = (c) => {
-    if (c.type === 'drop2')  return `${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
-    if (c.type === 'sus')    return `sus ${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
-    if (c.type === 'shell')  return `shell ${c.stringSet}`;
-    if (c.type === 'triad')  return `triad ${c.stringSet}`;
-    if (c.type === 'guide')  return `guide ${c.stringSet}`;
-    return c.type;
-  };
-
-  let lastType = null;
-  cands.forEach((c, i) => {
-    if (lastType !== null && lastType !== c.type) {
-      html += `<div class="alt-divider"></div>`;
+  for (let inv = 0; inv < 4; inv++) {
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      const sh = dropTwoVoicing(fc.quality, root, ss, inv);
+      if (!sh) continue;
+      const sel = (`${ss}.${inv}` === currentKey && state.userVoicing) ? 'selected' : '';
+      const invN = ['R','1st','2nd','3rd'][inv];
+      const label = `${invN} · ${STRING_SETS[ss].label}`;
+      const notes = sh.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
+      html += `
+        <div class="alt-card ${sel}" data-ss="${ss}" data-inv="${inv}">
+          ${renderMini(sh, root, fc.quality, flats, {W:88, H:92, r:7})}
+          <div class="ac-label">${label}</div>
+          <div class="ac-notes">${notes}</div>
+        </div>
+      `;
     }
-    lastType = c.type;
-    const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
-    const notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
-    html += `
-      <div class="alt-card ${sel}" data-idx="${i}">
-        ${renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7})}
-        <div class="ac-label">${labelFor(c)}</div>
-        <div class="ac-notes">${notes}</div>
-      </div>
-    `;
-  });
+  }
 
   altRow.innerHTML = html;
-
   altRow.querySelectorAll('[data-auto]').forEach(c => {
     c.addEventListener('click', () => {
       state.userVoicing = null;
@@ -3019,39 +2991,24 @@ function renderAlternatives() {
       renderAll();
     });
   });
-
-  altRow.querySelectorAll('[data-idx]').forEach(card => {
-    card.addEventListener('click', () => {
-      const c = cands[+card.dataset.idx];
-      if (!c) return;
-      state.userVoicing = {
-        shape: c.shape,
-        type: c.type,
-        stringSetIdx: c.stringSetIdx,
-        inversion: c.inversion,
-        stringSet: c.stringSet,
-      };
-      if (!player.playing) {
+  altRow.querySelectorAll('[data-ss]').forEach(c => {
+    c.addEventListener('click', () => {
+      const ss = +c.dataset.ss, inv = +c.dataset.inv;
+      state.userVoicing = {stringSetIdx: ss, inversion: inv};
+      const ch = currentMap().chordDefs[fc.id];
+      const r  = chordRoot(ch);
+      const sh = dropTwoVoicing(ch.quality, r, ss, inv);
+      // Compose: replace last chord's voicing if it matches the focused one
+      if (!player.playing && sh) {
         const seq = state.composedProgression;
         if (seq.length && seq[seq.length - 1].chord === fc.id) {
-          seq[seq.length - 1].shape = c.shape;
-          seq[seq.length - 1].voicingType = c.type;
-          seq[seq.length - 1]._candIdx = +card.dataset.idx;
+          seq[seq.length - 1].shape = sh;
           renderComposeStrip();
         }
       }
-      applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion });
+      applyAltToComping(fc.id, sh ? { shape: sh, stringSetIdx: ss, inversion: inv } : null);
       renderAll();
     });
-  });
-
-  // Auto-scroll the row so the selected card is visible. Horizontal only
-  // (inline-center), so the rest of the page never jumps vertically.
-  requestAnimationFrame(() => {
-    const sel = altRow.querySelector('.alt-card.selected');
-    if (!sel || altRow.clientWidth <= 0) return;
-    const target = sel.offsetLeft - altRow.clientWidth / 2 + sel.offsetWidth / 2;
-    altRow.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   });
 }
 
