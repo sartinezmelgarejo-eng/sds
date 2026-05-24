@@ -2297,25 +2297,21 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     </g>`;
   });
 
-  // Chord-name label above the staff (Real-Book style). Lives in the INNER
-  // (aspect-preserving) layer so text doesn't get horizontally squished by
-  // the outer's preserveAspectRatio=none stretch.
+  // Chord-name label above the staff (Real-Book style). Single <text> with
+  // a <tspan> for the roman numeral that uses dx for proper letter-by-letter
+  // horizontal offset — no manual width estimation, no overlap.
   let nameSvg = '';
   if (nameLabel) {
     const nameFs = sizing?.minimal ? 14 : 17;
     const romanFs = sizing?.minimal ? 10 : 12;
     const tx = showClef ? clefW + 4 : 4;
     const ty = labelH * 0.85;
+    const romanTspan = romanLabel
+      ? `<tspan dx="6" font-size="${romanFs}" font-weight="500" fill="#5a5a64" opacity="0.75">${romanLabel}</tspan>`
+      : '';
     nameSvg += `<text x="${tx}" y="${ty}" font-size="${nameFs}"
                 font-family="'Cormorant Garamond', Georgia, serif"
-                font-style="italic" font-weight="700" fill="#1a1a1a">${nameLabel}</text>`;
-    if (romanLabel) {
-      const nameApproxW = nameLabel.length * nameFs * 0.45;
-      nameSvg += `<text x="${tx + nameApproxW + 4}" y="${ty}" font-size="${romanFs}"
-                  font-family="'Cormorant Garamond', Georgia, serif"
-                  font-style="italic" font-weight="500" fill="#5a5a64"
-                  opacity="0.75">${romanLabel}</text>`;
-    }
+                font-style="italic" font-weight="700" fill="#1a1a1a"><tspan>${nameLabel}</tspan>${romanTspan}</text>`;
   }
   // Two-layer SVG: outer stretches (preserveAspectRatio=none) so staff lines
   // and bar-line reach the actual cell edges — adjacent cells connect into
