@@ -1918,6 +1918,42 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   return null;
 }
 
+/* ─── Sus voicings ───
+   Substitution voicing: rebuild any chord as a 4-note 7sus4 (R-4-5-7).
+   The 3rd gets replaced by the 4th, the 7th is preserved (or defaults to b7
+   if the quality is pure-triad). Useful as a practice mode — the user can
+   drill the whole progression in suspended voicings without changing chord
+   identities in the map.
+*/
+function susVoicing(quality, rootPc, stringSetIdx, inversion) {
+  const q = QUALITIES[quality];
+  if (!q) return null;
+  // Pick a 7th: prefer maj7 → b7 → 6 → fallback b7
+  let seventh = 10;
+  if (q.ints.includes(11)) seventh = 11;
+  else if (q.ints.includes(10)) seventh = 10;
+  else if (q.ints.includes(9))  seventh = 9;
+  // Sus seventh intervals: Root, 4th, 5th, 7th
+  const susInts = [0, 5, 7, seventh];
+  let close = [...susInts];
+  for (let i = 0; i < inversion; i++) {
+    close = [close[1], close[2], close[3], close[0] + 12];
+  }
+  const dropped = [close[0], close[1], close[2] - 12, close[3]].sort((a, b) => a - b);
+  const set = STRING_SETS[stringSetIdx].idx;
+  for (let oct = 24; oct <= 84; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = dropped.map(s => rootMidi + s);
+    const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
+}
+
 function totalVoiceMovement(shapeA, shapeB) {
   let total = 0;
   for (let s = 0; s < 6; s++) {
@@ -3977,6 +4013,7 @@ const VOICING_OPTIONS = [
   {value: 'shell', emoji: '🌰', label: 'Shells', desc: 'R + 3 + 7 guide tones'},
   {value: 'triad', emoji: '🔺', label: 'Triads', desc: '3-note R + 3 + 5'},
   {value: 'guide', emoji: '✌️', label: '3rds + 7ths', desc: 'shells without the root'},
+  {value: 'sus',   emoji: '🪷', label: 'Sus',    desc: 'every chord as R-4-5-7 (suspended)'},
 ];
 let voicingPref = 'all';
 
@@ -4503,6 +4540,14 @@ class Player {
       ['top','mid','low'].forEach(t => { const sh = triadVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'guide') {
       ['A','B'].forEach(t => { const sh = guideToneVoicing(quality, root, t); if (sh) cands.push(sh); });
+    } else if (type === 'sus') {
+      // Suspended voicings: rebuild as 7sus4 across all string sets + inversions.
+      for (let ss = 0; ss < STRING_SETS.length; ss++) {
+        for (let inv = 0; inv < 4; inv++) {
+          const sh = susVoicing(quality, root, ss, inv);
+          if (sh) cands.push(sh);
+        }
+      }
     }
     if (!cands.length) return null;
 
@@ -6452,7 +6497,7 @@ function renderComposeInfo() {
   // Voicing-type label — prefer explicit type from userVoicing/focusedShape;
   // fall back to the global voicingPref when nothing more specific is known.
   const typeRaw = fs?.type || state.userVoicing?.type || (window.voicingPref && voicingPref !== 'all' ? voicingPref : 'drop2');
-  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE' };
+  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
   const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
   // Inversion + string-set when available (drop-2 path).
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
