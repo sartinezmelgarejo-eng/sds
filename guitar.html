@@ -2082,12 +2082,12 @@ function computeAllVoicings() {
    and F (bass = F clef, anchors F3). Cleaner and instantly readable
    at any cell size on any device, no Unicode-font surprises.
    ════════════════════════════════════════════════════════════ */
-function trebleClefSVG(cx, gLineY, lineSp) {
-  // Real treble clef glyph. Desktop fonts (Apple Symbols on macOS, Segoe UI
-  // Symbol on Windows) tend to draw 𝄞 noticeably smaller within their em-box
-  // than the mobile music fonts do — bump font-size when we're not in the
-  // tightest mobile sizing so the glyph looks comparable on both.
-  const fs = lineSp * 3.2;
+function trebleClefSVG(cx, gLineY, lineSp, minimal) {
+  // Real treble clef glyph. Mobile (Apple iOS / Noto Music) renders 𝄞 larger
+  // within its em-box than desktop fonts (Apple Symbols / Segoe UI Symbol) —
+  // use a smaller multiplier on mobile and a larger one on desktop so the
+  // glyph visually reads at a similar staff-relative size on both.
+  const fs = lineSp * (minimal ? 2.5 : 4.4);
   return `<text x="${cx}" y="${gLineY}"
         font-size="${fs}"
         font-family="'Bravura Text','Petaluma','Maestro','Sebastian','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola','Times New Roman',serif"
@@ -2218,7 +2218,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (showClef) {
     const trebleClefY = trebleBotY - lineSp;   // G4 line — center of the loop
     const cx = clefW * 0.5;
-    clef = trebleClefSVG(cx, trebleClefY, lineSp);
+    clef = trebleClefSVG(cx, trebleClefY, lineSp, !!sizing?.minimal);
   }
 
   // Ledger lines — drawn per-staff (treble or bass) based on each note's home
