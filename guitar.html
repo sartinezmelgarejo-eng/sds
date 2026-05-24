@@ -2298,16 +2298,26 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   });
 
   // Chord-name label above the staff (Real-Book style). Single <text> with
-  // a <tspan> for the roman numeral that uses dx for proper letter-by-letter
-  // horizontal offset — no manual width estimation, no overlap.
+  // a <tspan> for the roman numeral that uses dx for letter-by-letter
+  // offset. Roman is colored by harmonic-function tag (tonic green, dom red,
+  // predom gold, borrowed purple, secondary orange).
+  const TAG_COLOR = {
+    tonic:     '#059669',
+    predom:    '#a07820',
+    dom:       '#dc2626',
+    borrowed:  '#9333ea',
+    secondary: '#b45309',
+    picardy:   '#b45309',
+  };
   let nameSvg = '';
   if (nameLabel) {
     const nameFs = sizing?.minimal ? 14 : 17;
     const romanFs = sizing?.minimal ? 10 : 12;
     const tx = showClef ? clefW + 4 : 4;
     const ty = labelH * 0.85;
+    const romanColor = TAG_COLOR[sizing?.tag] || '#5a5a64';
     const romanTspan = romanLabel
-      ? `<tspan dx="6" font-size="${romanFs}" font-weight="500" fill="#5a5a64" opacity="0.75">${romanLabel}</tspan>`
+      ? `<tspan dx="6" font-size="${romanFs}" font-weight="700" fill="${romanColor}">${romanLabel}</tspan>`
       : '';
     nameSvg += `<text x="${tx}" y="${ty}" font-size="${nameFs}"
                 font-family="'Cormorant Garamond', Georgia, serif"
@@ -5048,7 +5058,7 @@ class Player {
       const cellName = nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[ch.quality].sfx;
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: true, showClef, chordName: cellName, roman: ch.roman})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: true, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
@@ -6434,8 +6444,8 @@ function renderComposeStrip() {
       const showClef = (i % perRow === 0);
       const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
       const sizing = isMobile
-        ? {W: 100, H: 128, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman}
-        : {W: 130, H: 148, r: 6, minimal: true, showClef, chordName: cellChordName, roman: ch.roman};
+        ? {W: 100, H: 128, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag}
+        : {W: 130, H: 148, r: 6, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
