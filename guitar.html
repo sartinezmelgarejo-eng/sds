@@ -3213,9 +3213,12 @@ class Drone {
     this.playing = false;
     this.targetVolume = 0.18;
   }
-  start(midiNotes, volume) {
-    // Avoid restarting if the pitches didn't change (prevents clicking on focus changes)
-    if (this.playing && this.lastNotes &&
+  start(midiNotes, volume, forceRestart = false) {
+    // Avoid restarting if the pitches didn't change (prevents clicking on focus
+    // changes). Skip this short-circuit when the caller is explicitly asking
+    // for a re-strike — e.g. the bar scheduler hitting the same chord at the
+    // start of a new step, where the player WANTS the chord to sound again.
+    if (!forceRestart && this.playing && this.lastNotes &&
         midiNotes.length === this.lastNotes.length &&
         midiNotes.every((n, i) => n === this.lastNotes[i])) {
       this.setVolume(volume);
@@ -4847,7 +4850,11 @@ class Player {
 
     const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
     const vol = currentDroneVolume() * 1.8;
-    chordDrone.start(notes, vol);
+    // Force re-attack: _triggerChord is only called at a NEW step boundary,
+    // so even if the chord/voicing matches the previous step (e.g. "I I V"),
+    // the user expects to hear the chord strike again. Continuation bars
+    // inside a multi-bar step never reach this path — those just keep ringing.
+    chordDrone.start(notes, vol, true);
 
     // Schedule bass plucks per the current section's bass pattern
     if (isBassEnabled() && audioCtx && this._currentStep()) {
