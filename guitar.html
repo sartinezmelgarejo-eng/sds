@@ -2120,15 +2120,16 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const labelH = (nameLabel || romanLabel) ? (sizing?.minimal ? 14 : 18) : 3;
   const padTop = labelH;
   const padBot = (sizing?.minimal ? 7 : 9);
-  const gapY = (sizing?.minimal ? 1.6 : 1.8);     // gap measured in line-spacings
+  // gap = 2 line-spacings so middle-C (one full ledger below treble bottom AND
+  // one full ledger above bass top) sits at exactly the geometric mid-point
+  // between the two staves. Anything less and the C-hint reads like B3.
+  const gapY = 2;
   const lineSp = (H - padTop - padBot) / (8 + gapY);
   const trebleTopY = padTop;
   const trebleBotY = trebleTopY + 4 * lineSp;
   const bassTopY   = trebleBotY + lineSp * gapY;
   const bassBotY   = bassTopY + 4 * lineSp;
-  // Middle C line lives in the gap between the two staves (one ledger below
-  // treble = one ledger above bass)
-  const middleCY   = trebleBotY + lineSp;
+  const middleCY   = trebleBotY + lineSp;   // C4 ledger position
 
   // Map MIDI -> diatonic step + accidental + which staff
   const noteLetterFromPc = (pc, useFlat) => {
@@ -2287,20 +2288,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     </g>`;
   });
 
-  // Chord-name label above the staff (Real-Book style). Drawn in OUTER
-  // (stretched) layer. When the cell shows a clef, push the name to start
-  // after the clef so it doesn't crowd it.
+  // Chord-name label above the staff (Real-Book style). Lives in the INNER
+  // (aspect-preserving) layer so text doesn't get horizontally squished by
+  // the outer's preserveAspectRatio=none stretch.
   let nameSvg = '';
   if (nameLabel) {
-    const nameFs = sizing?.minimal ? 12 : 15;
-    const romanFs = sizing?.minimal ? 9 : 11;
+    const nameFs = sizing?.minimal ? 14 : 17;
+    const romanFs = sizing?.minimal ? 10 : 12;
     const tx = showClef ? clefW + 4 : 4;
-    const ty = labelH * 0.80;
+    const ty = labelH * 0.85;
     nameSvg += `<text x="${tx}" y="${ty}" font-size="${nameFs}"
                 font-family="'Cormorant Garamond', Georgia, serif"
                 font-style="italic" font-weight="700" fill="#1a1a1a">${nameLabel}</text>`;
     if (romanLabel) {
-      // Roman numeral sits just to the right of the chord name, smaller and dimmer
       const nameApproxW = nameLabel.length * nameFs * 0.45;
       nameSvg += `<text x="${tx + nameApproxW + 4}" y="${ty}" font-size="${romanFs}"
                   font-family="'Cormorant Garamond', Georgia, serif"
@@ -2310,13 +2310,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   }
   // Two-layer SVG: outer stretches (preserveAspectRatio=none) so staff lines
   // and bar-line reach the actual cell edges — adjacent cells connect into
-  // one continuous score. Inner keeps aspect so clef + noteheads aren't
-  // horizontally distorted.
+  // one continuous score. Inner keeps aspect so clef, noteheads AND the
+  // chord-name label aren't horizontally distorted.
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
-    ${nameSvg}
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
-      ${clef}${ledgers}${notes}
+      ${nameSvg}${clef}${ledgers}${notes}
     </svg>
   </svg>`;
 }
