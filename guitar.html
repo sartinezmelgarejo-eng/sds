@@ -4039,13 +4039,16 @@ class Player {
 
     // Schedule the FIRST chord precisely at firstBarStart via setTimeout
     // (not via the scheduler's look-ahead, which would fire ~120ms early).
+    // Mirror the original start() flow: trigger chord, push nextBarTime to the
+    // NEXT bar boundary. Don't touch totalBars here — the scheduler will
+    // increment it when it processes the next bar (this matches the legacy
+    // pre-count-in behaviour and keeps the page-plan lookup in phase).
     const delayMs = Math.max(0, (firstBarStart - ctx.currentTime) * 1000);
     setTimeout(() => {
       if (!this.playing) return;
       this._countInUntil = 0;
-      this.nextBarTime = firstBarStart + beatDur * 4;   // next bar boundary
+      this.nextBarTime = firstBarStart + beatDur * 4;
       this._triggerChord(this._currentChordId());
-      this.totalBars++;
       this._updateVisuals();
     }, delayMs);
 
