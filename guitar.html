@@ -2092,6 +2092,61 @@ function computeAllVoicings() {
    and F (bass = F clef, anchors F3). Cleaner and instantly readable
    at any cell size on any device, no Unicode-font surprises.
    ════════════════════════════════════════════════════════════ */
+// Continuation-bar staff: same grand-staff geometry as renderChordStaff but
+// no notes — just an empty staff plus a simile sign (the slash + two dots
+// you see in Real Books meaning "play the previous measure again"). Lets
+// the partitura read continuously across multi-bar chords without
+// retriggering the audio.
+function renderContinuationStaff(sizing) {
+  const W = sizing?.W || 100;
+  const H = sizing?.H || 130;
+  const showClef = sizing?.showClef !== false;
+  const clefW = showClef ? 22 : 3;
+  const labelH = sizing?.minimal ? 14 : 26;
+  const padTop = labelH;
+  const padBot = sizing?.minimal ? 7 : 9;
+  const gapY = 2;
+  const lineSp = (H - padTop - padBot) / (8 + gapY);
+  const trebleTopY = padTop;
+  const trebleBotY = trebleTopY + 4 * lineSp;
+  const bassTopY   = trebleBotY + lineSp * gapY;
+  const bassBotY   = bassTopY + 4 * lineSp;
+  const middleCY   = trebleBotY + lineSp;
+  const linesStartX = showClef ? clefW : 0;
+
+  let lines = '';
+  for (let i = 0; i < 5; i++) {
+    const yt = trebleTopY + i * lineSp;
+    const yb = bassTopY   + i * lineSp;
+    lines += `<line x1="${linesStartX}" y1="${yt}" x2="${W}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    lines += `<line x1="${linesStartX}" y1="${yb}" x2="${W}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+  }
+  // Compás divider on the right
+  lines += `<line x1="${W - 0.5}" y1="${trebleTopY}" x2="${W - 0.5}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+  // Faint middle-C hint
+  const cHintW = W * 0.25;
+  lines += `<line x1="${(W - cHintW)/2}" y1="${middleCY}" x2="${(W + cHintW)/2}" y2="${middleCY}" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="2,3" opacity="0.35"/>`;
+
+  // Simile sign (slash + two dots), centered between the two staves
+  const cx = W * 0.5;
+  const cy = middleCY;
+  const slashL = lineSp * 2.5;
+  const dotR   = lineSp * 0.3;
+  const dx = slashL / 2;
+  const dy = slashL / 2;
+  const simile =
+    `<line x1="${cx - dx}" y1="${cy + dy}" x2="${cx + dx}" y2="${cy - dy}" stroke="#1a1a1a" stroke-width="${Math.max(2, lineSp*0.32)}" stroke-linecap="round"/>` +
+    `<circle cx="${cx - dx - lineSp*0.45}" cy="${cy + dy + lineSp*0.1}" r="${dotR}" fill="#1a1a1a"/>` +
+    `<circle cx="${cx + dx + lineSp*0.45}" cy="${cy - dy - lineSp*0.1}" r="${dotR}" fill="#1a1a1a"/>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+    ${lines}
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
+      ${simile}
+    </svg>
+  </svg>`;
+}
+
 function trebleClefSVG(cx, gLineY, lineSp, minimal) {
   // Real treble clef glyph. Mobile (Apple iOS / Noto Music) renders 𝄞 larger
   // within its em-box than desktop fonts (Apple Symbols / Segoe UI Symbol) —
@@ -5077,7 +5132,18 @@ class Player {
       const isCurrent = i === currentIdx;
       const isImminent = i === imminentIdx;
       const cls = `rb-tab-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
-      if (!cell || cell.barIdxInChord > 0) return `<div class="${cls}"></div>`;
+      if (!cell) return `<div class="${cls}"></div>`;
+      // Continuation bar (same chord still sounding from the previous bar).
+      // In piano mode draw an empty staff with a simile sign so the partitura
+      // reads as one continuous score; in guitar mode keep it empty since the
+      // chord-name row already shows the % continuation symbol.
+      if (cell.barIdxInChord > 0) {
+        if (state.instrument === 'piano') {
+          const showClefC = (i === 0);
+          return `<div class="${cls}">${renderContinuationStaff({W: 150, H: 178, minimal: true, showClef: showClefC})}</div>`;
+        }
+        return `<div class="${cls}"></div>`;
+      }
       const ch = map.chordDefs[cell.chord];
       if (!ch) return `<div class="${cls}"></div>`;
       const cellKeyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
