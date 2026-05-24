@@ -1982,6 +1982,41 @@ function computeAllVoicings() {
    ════════════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════════════
+   Stylized SVG clefs — drawn with primitives instead of relying on
+   font glyphs (which render inconsistently on mobile).
+   ════════════════════════════════════════════════════════════ */
+function trebleClefSVG(cx, gLineY, lineSp) {
+  const sw = Math.max(1, lineSp * 0.32);
+  const r  = lineSp * 0.78;       // loop radius around the G line
+  // Spine x offset to the right of the loop
+  const sx = cx + r * 0.9;
+  return `<g stroke="#1a1a1a" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="${cx}" cy="${gLineY}" r="${r}"/>
+    <line x1="${sx}" y1="${gLineY - lineSp * 0.2}" x2="${sx}" y2="${gLineY - lineSp * 2.7}"/>
+    <path d="M ${sx} ${gLineY - lineSp * 2.7}
+             Q ${cx - r * 0.6} ${gLineY - lineSp * 3.3}
+               ${cx - r * 1.1} ${gLineY - lineSp * 1.6}"/>
+    <line x1="${sx}" y1="${gLineY + lineSp * 0.2}" x2="${sx}" y2="${gLineY + lineSp * 2.9}"/>
+    <path d="M ${sx} ${gLineY + lineSp * 2.9}
+             Q ${sx} ${gLineY + lineSp * 3.5}
+               ${cx + r * 0.1} ${gLineY + lineSp * 3.3}"/>
+  </g>`;
+}
+function bassClefSVG(cx, fLineY, lineSp) {
+  const sw = Math.max(1, lineSp * 0.36);
+  return `<g stroke="#1a1a1a" stroke-width="${sw}" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M ${cx - lineSp * 0.7} ${fLineY - lineSp * 1.2}
+             Q ${cx + lineSp * 1.2} ${fLineY - lineSp * 1.4}
+               ${cx + lineSp * 1.2} ${fLineY}
+             Q ${cx + lineSp * 1.2} ${fLineY + lineSp * 1.5}
+               ${cx - lineSp * 0.7} ${fLineY + lineSp * 1.2}"
+          stroke-width="${sw * 1.15}"/>
+    <circle cx="${cx + lineSp * 1.55}" cy="${fLineY - lineSp * 0.5}" r="${sw * 0.85}" fill="#1a1a1a" stroke="none"/>
+    <circle cx="${cx + lineSp * 1.55}" cy="${fLineY + lineSp * 0.5}" r="${sw * 0.85}" fill="#1a1a1a" stroke="none"/>
+  </g>`;
+}
+
+/* ════════════════════════════════════════════════════════════
    SHEET MUSIC — grand staff (treble + bass). Notes plotted at
    their actual pitch on whichever staff is appropriate (C4 / 60 is
    the split). No octave-shift trickery needed since the bass clef
@@ -2003,7 +2038,8 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
   const showClef = sizing?.showClef !== false;
-  const clefW = showClef ? 18 : 3;
+  // Wider clef column so the bass-clef dots and treble-clef curl fit
+  const clefW = showClef ? 22 : 3;
   const accW = 10;
   // Place the note stack at the HORIZONTAL CENTER of the cell — chords sit
   // visually balanced inside the staff lines instead of being pinned to the
@@ -2058,19 +2094,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
   }
 
-  // Clefs (Unicode glyphs anchored on their canonical staff lines —
-  // 𝄞 baseline on G4 (2nd line of treble), 𝄢 baseline on F3 (4th line of
-  // bass). Font sizes deliberately conservative so the glyph doesn't bulge
-  // out of the cell on mobile where lineSp is small.
+  // Hand-drawn SVG clefs — Unicode 𝄞 / 𝄢 render unpredictably across phone
+  // fonts; drawing them ourselves guarantees consistent shape and size.
   let clef = '';
   if (showClef) {
-    const trebleClefFs = lineSp * 5.2;
-    const bassClefFs   = lineSp * 3.4;
-    const trebleClefY  = trebleBotY - lineSp;       // G4 line
-    const bassClefY    = bassTopY + lineSp;         // F3 line
-    clef =
-      `<text x="${clefW * 0.08}" y="${trebleClefY}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a" dominant-baseline="alphabetic">𝄞</text>` +
-      `<text x="${clefW * 0.08}" y="${bassClefY}"   font-size="${bassClefFs}"   font-family="serif" fill="#1a1a1a" dominant-baseline="alphabetic">𝄢</text>`;
+    const trebleClefY = trebleBotY - lineSp;   // G4 line — center of the loop
+    const bassClefY   = bassTopY + lineSp;     // F3 line — between the two dots
+    const cx = clefW * 0.5;
+    clef = trebleClefSVG(cx, trebleClefY, lineSp) + bassClefSVG(cx, bassClefY, lineSp);
   }
 
   // Ledger lines — drawn per-staff (treble or bass) based on each note's home
