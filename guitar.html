@@ -1934,19 +1934,33 @@ function smoothestVoicing(quality, rootPc, sourceShape) {
 }
 
 function bestStartingVoicing(quality, rootPc) {
+  // Single source of truth: use the EXACT same candidate list + scoring as
+  // composeAddChord's no-previous-chord branch, so the voicing the map shows
+  // for the focused chord is always the one that gets played when the user
+  // clicks it (or types it as the first chord of a composed progression).
+  const cands = (typeof composedCandidatesFor === 'function')
+    ? composedCandidatesFor(quality, rootPc)
+    : (() => {
+        const out = [];
+        for (let ss = 0; ss < STRING_SETS.length; ss++) {
+          for (let inv = 0; inv < 4; inv++) {
+            const sh = dropTwoVoicing(quality, rootPc, ss, inv);
+            if (sh) out.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+          }
+        }
+        return out;
+      })();
   let best = null;
-  for (let ss = 0; ss < STRING_SETS.length; ss++) {
-    for (let inv = 0; inv < 4; inv++) {
-      const sh = dropTwoVoicing(quality, rootPc, ss, inv);
-      if (!sh) continue;
-      const af = avgFret(sh);
-      const reg = Math.abs(af - 7);
-      const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
-      const setPref = ss === 0 ? 3 : 0;
-      const score = registerCost + setPref;
-      if (!best || score < best.score) best = {shape: sh, stringSetIdx: ss, inversion: inv, score};
+  cands.forEach((c) => {
+    const af = avgFret(c.shape);
+    const reg = Math.abs(af - 7);
+    const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
+    const setPref = c.stringSetIdx === 0 ? 3 : 0;   // low-E set penalty
+    const score = registerCost + setPref;
+    if (!best || score < best.score) {
+      best = { shape: c.shape, stringSetIdx: c.stringSetIdx, inversion: c.inversion, score };
     }
-  }
+  });
   return best;
 }
 
