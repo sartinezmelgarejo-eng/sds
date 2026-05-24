@@ -2077,7 +2077,7 @@ function guideToneVoicing(quality, rootPc, type = 'A') {
   return null;
 }
 
-function shellVoicing(quality, rootPc, type = 'A', inversion = 0) {
+function shellVoicing(quality, rootPc, type = 'A') {
   const q = QUALITIES[quality];
   if (!q) return null;
   // Find the 7th and 3rd intervals from chord tones
@@ -2091,22 +2091,16 @@ function shellVoicing(quality, rootPc, type = 'A', inversion = 0) {
   if (ints.includes(4)) thirdInt = 4;
   else if (ints.includes(3)) thirdInt = 3;
   else thirdInt = 4;
-  // Base ascending pitches for root-position shell: R, 7, 3+12
-  // Rotate up by `inversion` (0-2) — each rotation lifts the current
-  // lowest pitch by an octave. So:
-  //   inv 0: R, 7, 3+12        (root in bass)
-  //   inv 1: 7, 3+12, R+12     (7 in bass)
-  //   inv 2: 3+12, R+12, 7+12  (3 in bass)
-  let offsets = [0, seventhInt, thirdInt + 12];
-  for (let k = 0; k < inversion; k++) {
-    offsets = [...offsets.slice(1), offsets[0] + 12];
-  }
-  // Type A: R-position lives on E-D-G strings (skip A string)
-  // Type B: R-position lives on A-G-B strings (skip D string)
+  // Shells are inherently a root-on-bottom idiom — rotating the voicing
+  // (7 or 3 in the bass) forces awkward fret spans on guitar, so we stick
+  // to root-position. Variety comes from the string-set choice instead.
+  const intervals = [0, seventhInt, thirdInt + 12];
+  // Type A: R on 6th string, 7 on 4th, 3 on 3rd (skip 5th string)
+  // Type B: R on 5th string, 7 on 3rd, 3 on 2nd
   const strings = type === 'A' ? [0, 2, 3] : [1, 3, 4];
-  for (let oct = 12; oct <= 60; oct += 12) {
+  for (let oct = 24; oct <= 60; oct += 12) {
     const rootMidi = oct + rootPc;
-    const voiceMidis = offsets.map(s => rootMidi + s);
+    const voiceMidis = intervals.map(s => rootMidi + s);
     const frets = strings.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
       const shape = [-1, -1, -1, -1, -1, -1];
@@ -4528,14 +4522,9 @@ class Player {
         }
       }
     } else if (type === 'shell') {
-      // Both string sets × 3 rotations = up to 6 shell candidates, giving
-      // the voice-leading scorer real options instead of just 2 fixed shapes.
-      ['A','B'].forEach(t => {
-        for (let inv = 0; inv < 3; inv++) {
-          const sh = shellVoicing(quality, root, t, inv);
-          if (sh) cands.push(sh);
-        }
-      });
+      // Root-position shells on both string sets — A (low) + B (mid).
+      // No rotations: shell inversions sit awkwardly on guitar.
+      ['A','B'].forEach(t => { const sh = shellVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'triad') {
       ['top','mid','low'].forEach(t => { const sh = triadVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'guide') {
@@ -6688,15 +6677,13 @@ function allDistinctVoicings(quality, rootPc) {
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
 
-  // 2. Shells (2 string sets × 3 rotations)
+  // 2. Shells (2 root-position string sets — no rotations on guitar)
   const shells = [];
   ['A','B'].forEach(t => {
-    for (let inv = 0; inv < 3; inv++) {
-      const sh = shellVoicing(quality, rootPc, t, inv);
-      if (sh) shells.push({ shape: sh, stringSet: t, inversion: inv });
-    }
+    const sh = shellVoicing(quality, rootPc, t);
+    if (sh) shells.push({ shape: sh, stringSet: t });
   });
-  shells.sort(byReg).forEach(s => add(s.shape, 'shell', { stringSet: s.stringSet, inversion: s.inversion }));
+  shells.sort(byReg).forEach(s => add(s.shape, 'shell', { stringSet: s.stringSet }));
 
   // 3. Triads (3 string positions)
   const triads = [];
