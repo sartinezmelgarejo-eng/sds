@@ -5513,21 +5513,37 @@ function renderComposePad() {
     <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
     <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
   `;
-  pad.querySelectorAll('[data-chord]').forEach(b => {
-    b.addEventListener('click', () => composeAddChord(b.dataset.chord, false));
-  });
-  pad.querySelectorAll('[data-act]').forEach(b => {
-    b.addEventListener('click', (e) => {
-      e.stopPropagation();   // don't let it bubble to map-card / outside-click handlers
-      const a = b.dataset.act;
-      if (a === 'del') composeDeleteLast();
-      else if (a === 'clear') composeClear();
-      else if (a === 'play') composePlay();
-      else if (a === 'inv-up') composeCycleLastInversion(1);
+  // Per-button handlers are no longer attached here — see the single delegated
+  // listener on the compose-pad (set up once, after first renderComposePad).
+}
+
+// One-time delegated listener for the compose-pad. Survives any innerHTML
+// re-renders because it's attached to the pad container, not to the buttons.
+(function wireComposePadDelegation() {
+  // Wait until the pad exists (renderComposePad runs from renderAll at startup)
+  const tryAttach = () => {
+    const pad = document.getElementById('compose-pad');
+    if (!pad) { setTimeout(tryAttach, 50); return; }
+    if (pad.dataset.wired === '1') return;
+    pad.dataset.wired = '1';
+    pad.addEventListener('click', (e) => {
+      const btn = e.target.closest('button.compose-btn');
+      if (!btn || !pad.contains(btn)) return;
+      e.stopPropagation();
+      if (btn.dataset.chord) {
+        composeAddChord(btn.dataset.chord, false);
+        return;
+      }
+      const a = btn.dataset.act;
+      if      (a === 'del')      composeDeleteLast();
+      else if (a === 'clear')    composeClear();
+      else if (a === 'play')     composePlay();
+      else if (a === 'inv-up')   composeCycleLastInversion(1);
       else if (a === 'inv-down') composeCycleLastInversion(-1);
     });
-  });
-}
+  };
+  tryAttach();
+})();
 
 // Render the composed-progression strip into the Real Book area when AI is
 // not playing AND the user has typed at least one chord. Empty cells fill
