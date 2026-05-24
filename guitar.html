@@ -581,7 +581,10 @@
       -webkit-overflow-scrolling: touch;
     }
     body:not(.player-active) .real-book.compose-interleaved .rb-cell  { min-height: 58px; }
-    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell { min-height: 78px; }
+    body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
+      min-height: 78px;
+      padding: 1px;          /* drop the 4px frame so the diagram can reach the edges */
+    }
     /* Drop right border on every 4th cell (right edge of each row) */
     body:not(.player-active) .real-book.compose-interleaved .rb-cell:nth-child(4n),
     body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell:nth-child(4n) {
@@ -5526,7 +5529,13 @@ function renderComposeStrip() {
     const root = chordRoot(ch);
     if (isTab) {
       if (!cell.shape) return `<div class="${cls.join(' ')}"></div>`;
-      const svg = renderMini(cell.shape, root, ch.quality, flats, {W: 130, H: 80, r: 6, minimal: true});
+      // On mobile compose, each tab cell is ~95x78 (aspect ~1.22). Match the
+      // SVG viewBox aspect so the diagram fills the cell instead of leaving
+      // a vertical letterbox gap top + bottom.
+      const sizing = isMobile
+        ? {W: 100, H: 82, r: 7, minimal: true}
+        : {W: 130, H: 80, r: 6, minimal: true};
+      const svg = renderMini(cell.shape, root, ch.quality, flats, sizing);
       return `<div class="${cls.join(' ')}">${svg}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
