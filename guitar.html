@@ -4034,9 +4034,20 @@ class Player {
     firstBarStart += COUNT_IN_BEATS * beatDur;
 
     this.nextBarTime = firstBarStart;
-    this._countInUntil = firstBarStart;            // for the UI to flag count-in mode
-    this.forceTriggerAtNextBar = true;             // scheduler triggers chord 1 at firstBarStart
+    this._countInUntil = firstBarStart;            // scheduler treats this as dormant
     this._updateVisuals();
+
+    // Schedule the FIRST chord precisely at firstBarStart via setTimeout
+    // (not via the scheduler's look-ahead, which would fire ~120ms early).
+    const delayMs = Math.max(0, (firstBarStart - ctx.currentTime) * 1000);
+    setTimeout(() => {
+      if (!this.playing) return;
+      this._countInUntil = 0;
+      this.nextBarTime = firstBarStart + beatDur * 4;   // next bar boundary
+      this._triggerChord(this._currentChordId());
+      this.totalBars++;
+      this._updateVisuals();
+    }, delayMs);
 
     this.timer = setInterval(() => this._scheduler(), 30);
     startBeatCounterLoop();
@@ -4076,12 +4087,14 @@ class Player {
 
   _scheduler() {
     if (!audioCtx) return;
+    // Stay dormant during the count-in — first chord is fired by a setTimeout
+    // in start() so its audio lands precisely on the downbeat, not ~120ms early.
+    if (this._countInUntil && audioCtx.currentTime < this._countInUntil - 0.005) return;
     const barDur = (60 / metronome.bpm) * 4;
     if (this.nextBarTime < audioCtx.currentTime + 0.12) {
       // If user jumped, trigger the new chord at THIS bar boundary instead of advancing
       if (this.forceTriggerAtNextBar) {
         this.forceTriggerAtNextBar = false;
-        this._countInUntil = 0;          // exit count-in visual mode
         this._triggerChord(this._currentChordId());
         this.totalBars++;
         this._updateVisuals();
