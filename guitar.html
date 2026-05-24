@@ -2016,27 +2016,6 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Bigger line spacing so the notes are actually visible
   const lineSp = sizing?.minimal ? 9 : 11;
 
-  // 5 staff lines
-  let lines = '';
-  for (let i = 0; i < 5; i++) {
-    const y = staffTopY + i * lineSp;
-    lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
-  }
-
-  // Treble clef glyph + optional 8 / 15 below for 8vb / 15ma bassa
-  const octaveMark = shiftCount === 2 ? '15' : '8';
-  let clef = '';
-  if (showClef) {
-    const clefFs = lineSp * 6.5;
-    const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
-    clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
-    if (shifted) {
-      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.5}" font-size="${lineSp * 1.5}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">${octaveMark}</text>`;
-    }
-  } else if (shifted) {
-    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.55" text-anchor="middle">${octaveMark}</text>`;
-  }
-
   // Map MIDI -> diatonic step + accidental
   const noteLetterFromPc = (pc, useFlat) => {
     const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
@@ -2060,10 +2039,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const relYs = baseInfo.map(b => lineSp * (5 - b.step / 2));
   const minRelY = Math.min(...relYs);
   const maxRelY = Math.max(...relYs);
-  // Center the chord stack vertically in the SVG box. Then nudge so the staff
-  // body stays at least partially in view.
+  // Center the chord stack vertically in the SVG box, then nudge so the
+  // staff body stays at least partially in view.
   let staffTopY = H / 2 - (minRelY + maxRelY) / 2;
-  // Clamp so the staff isn't off-screen and the lowest note isn't clipped
   const pad = 4;
   staffTopY = Math.max(pad - minRelY, staffTopY);
   staffTopY = Math.min(H - pad - maxRelY, staffTopY);
@@ -2073,6 +2051,27 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     ...b,
     y: staffTopY + relYs[i],
   }));
+
+  // 5 staff lines
+  let lines = '';
+  for (let i = 0; i < 5; i++) {
+    const y = staffTopY + i * lineSp;
+    lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+  }
+
+  // Treble clef glyph + optional 8 / 15 below for 8vb / 15ma bassa
+  const octaveMark = shiftCount === 2 ? '15' : '8';
+  let clef = '';
+  if (showClef) {
+    const clefFs = lineSp * 6.5;
+    const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
+    clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
+    if (shifted) {
+      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.5}" font-size="${lineSp * 1.5}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">${octaveMark}</text>`;
+    }
+  } else if (shifted) {
+    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.55" text-anchor="middle">${octaveMark}</text>`;
+  }
 
   // Ledger lines
   let ledgers = '';
