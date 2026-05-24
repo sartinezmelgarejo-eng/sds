@@ -5303,7 +5303,9 @@ class Player {
       // chord-name row already shows the % continuation symbol.
       if (cell.barIdxInChord > 0) {
         if (state.instrument === 'piano') {
-          const showClefC = (i === 0);
+          // Clefs ONLY on the song's very first compás, never again — once
+          // playback has moved past bar 0, no more clefs anywhere.
+          const showClefC = (i === 0 && this.totalBars < 3);
           return `<div class="${cls}">${renderContinuationStaff({W: 130, H: 148, minimal: window.innerWidth <= 800, showClef: showClefC})}</div>`;
         }
         return `<div class="${cls}"></div>`;
@@ -5316,8 +5318,9 @@ class Player {
       const shape = cellVoicings[i];
       // Minimal classical chord-diagram style — black dots only, no colors or text.
       // The colors live on the chord neck and bottom fretboard where they have room.
-      // Clef only on the first cell of the row (the rest inherit it visually)
-      const showClef = (i === 0);
+      // Clefs ONLY on the song's very first compás — once we're past bar 0,
+      // they never appear again on the playback strip.
+      const showClef = (i === 0 && this.totalBars < 3);
       const cellName = nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[ch.quality].sfx;
       // Mobile playback inherits the same minimal sizing compose uses, so the
       // chord name is the same on-screen size whether you're composing or the
@@ -6761,8 +6764,9 @@ function renderComposeStrip() {
     if (isTab) {
       if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}></div>`;
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
-      const perRow = isMobile ? 4 : 8;
-      const showClef = (i % perRow === 0);
+      // Clef only on the very first compose cell — once you're past it, the
+      // staff continues unmarked (the eye carries the clef forward).
+      const showClef = (i === 0);
       const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
       const sizing = isMobile
         ? {W: 100, H: 128, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag}
