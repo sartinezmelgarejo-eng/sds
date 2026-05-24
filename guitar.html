@@ -1953,6 +1953,125 @@ function computeAllVoicings() {
    MINI FRETBOARD (with inlays)
    ════════════════════════════════════════════════════════════ */
 
+/* ════════════════════════════════════════════════════════════
+   SHEET MUSIC (grand staff) — used in place of tab diagrams
+   when state.instrument === 'piano'.
+   ════════════════════════════════════════════════════════════ */
+function renderChordStaff(shape, rootPc, quality, flats, sizing) {
+  if (!shape) return '';
+  const q = QUALITIES[quality];
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((rootPc + semi) % 12 + 12) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
+  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+                     .filter(x => x !== null)
+                     .sort((a, b) => a - b);
+
+  const W = sizing?.W || 100;
+  const H = sizing?.H || 82;
+  const noteR = sizing?.minimal ? 2.4 : 3.0;
+  const clefW = 13;
+  const accW  = 8;
+  const noteX = clefW + accW + 6;
+  // Compact grand staff: line spacing ~4.5px, ~14px between staves
+  const lineSp = (H - 28) / 12;     // staff-line spacing computed to fit H
+  const trebleTopY = 6;
+  const bassTopY   = trebleTopY + 4 * lineSp + 14;
+
+  // 5 lines per staff
+  let lines = '';
+  for (let i = 0; i < 5; i++) {
+    const yt = trebleTopY + i * lineSp;
+    const yb = bassTopY   + i * lineSp;
+    lines += `<line x1="${clefW}" y1="${yt}" x2="${W-2}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.6"/>`;
+    lines += `<line x1="${clefW}" y1="${yb}" x2="${W-2}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.6"/>`;
+  }
+  // Joining brace bar at left
+  lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassTopY + 4*lineSp}" stroke="#1a1a1a" stroke-width="1.4"/>`;
+
+  // Clefs (Unicode glyphs scaled to staff height)
+  const trebleClefFs = lineSp * 6;
+  const bassClefFs   = lineSp * 4.5;
+  const clefSvg =
+    `<text x="0" y="${trebleTopY + 4*lineSp - lineSp*0.4}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>` +
+    `<text x="0" y="${bassTopY + 2*lineSp + lineSp*0.6}" font-size="${bassClefFs}" font-family="serif" fill="#1a1a1a">𝄢</text>`;
+
+  // Map each MIDI to its diatonic position + accidental
+  const noteLetterFromPc = (pc, useFlat) => {
+    const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const flat  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+    return (useFlat ? flat : sharp)[pc];
+  };
+  const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
+
+  const positions = midis.map(midi => {
+    const pc = ((midi % 12) + 12) % 12;
+    const octave = Math.floor(midi / 12) - 1;
+    const name = noteLetterFromPc(pc, flats);
+    const letter = name.charAt(0);
+    const acc = name.length > 1 ? name.charAt(1) : '';
+    const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
+    const useTreble = midi >= 60;
+    const y = useTreble
+      ? trebleTopY + (5 - step * 0.5) * lineSp
+      : bassTopY + (-step - 2) * 0.5 * lineSp;
+    return { midi, pc, y, useTreble, acc, letter, step };
+  });
+
+  // Ledger lines (short horizontal extensions outside the staff)
+  let ledgerSvg = '';
+  const seenLedger = new Set();   // dedupe shared ledgers between adjacent notes
+  for (const p of positions) {
+    const staffTop = p.useTreble ? trebleTopY : bassTopY;
+    const staffBot = staffTop + 4 * lineSp;
+    if (p.y > staffBot + lineSp * 0.3) {
+      // Below staff
+      let k = 1;
+      while (true) {
+        const ly = staffBot + k * lineSp;
+        if (ly > p.y + lineSp * 0.3) break;
+        const key = `b-${ly.toFixed(2)}`;
+        if (!seenLedger.has(key)) {
+          seenLedger.add(key);
+          ledgerSvg += `<line x1="${noteX - 5}" y1="${ly}" x2="${noteX + 5}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+        }
+        k++;
+      }
+    } else if (p.y < staffTop - lineSp * 0.3) {
+      // Above staff
+      let k = 1;
+      while (true) {
+        const ly = staffTop - k * lineSp;
+        if (ly < p.y - lineSp * 0.3) break;
+        const key = `a-${ly.toFixed(2)}`;
+        if (!seenLedger.has(key)) {
+          seenLedger.add(key);
+          ledgerSvg += `<line x1="${noteX - 5}" y1="${ly}" x2="${noteX + 5}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+        }
+        k++;
+      }
+    }
+  }
+
+  // Accidentals + noteheads (colored by degree)
+  let notesSvg = '';
+  for (const p of positions) {
+    const deg = pcToDeg[p.pc];
+    const color = deg ? (intervalColor(deg) || '#1a1a1a') : '#1a1a1a';
+    if (p.acc === '#') {
+      notesSvg += `<text x="${noteX - 9}" y="${p.y + lineSp*0.5}" font-size="${lineSp*1.8}" font-family="serif" fill="#1a1a1a">♯</text>`;
+    } else if (p.acc === 'b') {
+      notesSvg += `<text x="${noteX - 8}" y="${p.y + lineSp*0.5}" font-size="${lineSp*2.0}" font-family="serif" fill="#1a1a1a">♭</text>`;
+    }
+    // Slanted notehead (whole-note style — open notehead common for chord-stack display)
+    notesSvg += `<ellipse cx="${noteX}" cy="${p.y}" rx="${noteR * 1.35}" ry="${noteR}" fill="${color}" transform="rotate(-22 ${noteX} ${p.y})"/>`;
+  }
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">${lines}${clefSvg}${ledgerSvg}${notesSvg}</svg>`;
+}
+
 function renderMini(shape, rootPc, quality, flats, sizing) {
   if (!shape) return '';
   const q = QUALITIES[quality];
@@ -2539,6 +2658,9 @@ document.querySelectorAll('#instrument-toggle button').forEach(b => {
       bb.classList.toggle('active', bb.dataset.instrument === state.instrument);
     });
     if (typeof renderChordPiano === 'function') renderChordPiano();
+    // Re-render strip + Real Book so chord diagrams swap to/from sheet music
+    if (typeof renderComposeStrip === 'function') renderComposeStrip();
+    if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
   });
 });
 // Apply initial body class so CSS picks it up on first load
@@ -4641,7 +4763,11 @@ class Player {
       const shape = cellVoicings[i];
       // Minimal classical chord-diagram style — black dots only, no colors or text.
       // The colors live on the chord neck and bottom fretboard where they have room.
-      const svg = shape ? renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}) : '';
+      const svg = shape
+        ? (state.instrument === 'piano'
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 80, minimal: true})
+            : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
+        : '';
       return `<div class="${cls}">${svg}</div>`;
     }).join('');
     el.innerHTML = cellsHtml;
@@ -6028,7 +6154,9 @@ function renderComposeStrip() {
       const sizing = isMobile
         ? {W: 100, H: 82, r: 7, minimal: true}
         : {W: 130, H: 80, r: 6, minimal: true};
-      const svg = renderMini(cell.shape, root, ch.quality, flats, sizing);
+      const svg = state.instrument === 'piano'
+        ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
+        : renderMini(cell.shape, root, ch.quality, flats, sizing);
       return `<div class="${cls.join(' ')}">${svg}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
