@@ -5465,6 +5465,10 @@ function composeDeleteLast() {
 function composeClear() {
   state.composedProgression = [];
   state.userVoicing = null;
+  // Reset focused chord back to the tonic so the neck preview clears too,
+  // otherwise it keeps showing the chord that was just deleted from the strip.
+  const tonicId = state.tonality === 'major' ? 'I' : 'i';
+  if (currentMap().chordDefs[tonicId]) state.focusedChord = tonicId;
   renderComposeStrip();
   renderAll();
   ringFocusedChord();
@@ -5513,7 +5517,8 @@ function renderComposePad() {
     b.addEventListener('click', () => composeAddChord(b.dataset.chord, false));
   });
   pad.querySelectorAll('[data-act]').forEach(b => {
-    b.addEventListener('click', () => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();   // don't let it bubble to map-card / outside-click handlers
       const a = b.dataset.act;
       if (a === 'del') composeDeleteLast();
       else if (a === 'clear') composeClear();
