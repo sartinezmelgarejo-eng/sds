@@ -1102,13 +1102,16 @@
       bottom: calc(44px + env(safe-area-inset-bottom));
       z-index: 100;
       width: 100vw;
-      /* Tall enough that the whole 540x800 map can be scaled to fit by width */
-      height: min(60vh, calc((100vw - 20px) * 800 / 540 + 20px));
+      /* JS computes the exact height via fitMap(); this is just an upper bound
+         so a momentary CSS-only render before JS settles can't ever spill off
+         the top of the viewport. */
+      height: 320px;
+      max-height: 55vh;
       background: var(--panel-2);
       border-top: 1.5px solid #1a1a1a;
       box-shadow: 0 -4px 16px rgba(0,0,0,0.15);
       overflow: hidden;
-      padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+      padding: 8px 10px;
     }
     body.map-overlay-open .chord-map {
       /* JS sets --map-scale = min(availW/540, availH/800) so the full map fits
@@ -5266,31 +5269,38 @@ function renderAll() {
   function fitMap() {
     if (!host || !mapEl) return;
     if (!document.body.classList.contains('map-overlay-open')) return;
-    // Reset scale momentarily so we can measure the natural card layout
+    // Reset scale + nominal box so measurements are stable
     mapEl.style.setProperty('--map-scale', '1');
     mapEl.style.width  = '540px';
     mapEl.style.height = '800px';
-    // Measure the real content extents — cards live at absolute offsets and
-    // can extend past the nominal 540x800 box.
+    // Measure real content extents
     let contentW = 540, contentH = 800;
     mapEl.querySelectorAll('.map-card').forEach(c => {
       contentW = Math.max(contentW, c.offsetLeft + c.offsetWidth);
       contentH = Math.max(contentH, c.offsetTop  + c.offsetHeight);
     });
-    // Pick the largest scale that fits both viewport width and an absolute
-    // cap on how much vertical room the map can take.
-    const padX = 20, padY = 20;
-    const availW = Math.max(0, window.innerWidth - padX);
-    // Leave room for the bottom toggle bar (~50px) and a bit at the top
-    const maxSlotH = Math.max(220, window.innerHeight - 60 - 100);
+    // Use the visual viewport when available — innerHeight on mobile lies while
+    // the URL bar is showing, which was making the slot too tall and spilling
+    // past the top of the actual visible area.
+    const vv = window.visualViewport;
+    const vw = vv ? vv.width  : window.innerWidth;
+    const vh = vv ? vv.height : window.innerHeight;
+    // Reserve room for the toggle bar + safe area below AND the header above
+    const toggleBarH = 48;
+    const headerH    = 60;
+    const padX = 24, padY = 18;
+    const availW = Math.max(0, vw - padX);
+    // Cap the slot to a sensible fraction of the visual viewport so even on
+    // small phones the map can never be taller than what's actually visible.
+    const maxSlotH = Math.max(200, Math.min(vh * 0.55, vh - toggleBarH - headerH));
     const scaleW = availW    / contentW;
-    const scaleH = maxSlotH  / contentH;
+    const scaleH = (maxSlotH - padY) / contentH;
     const scale  = Math.min(scaleW, scaleH);
     mapEl.style.setProperty('--map-scale', scale.toFixed(4));
     mapEl.style.width  = contentW + 'px';
     mapEl.style.height = contentH + 'px';
-    // Resize the slot to hug the scaled map — no wasted dead space above/below
-    host.style.height = Math.ceil(contentH * scale + padY) + 'px';
+    const slotH = Math.min(maxSlotH, Math.ceil(contentH * scale + padY));
+    host.style.height = slotH + 'px';
   }
   function close() {
     document.body.classList.remove('map-overlay-open');
@@ -5303,6 +5313,10 @@ function renderAll() {
   }
   window.addEventListener('resize', fitMap);
   window.addEventListener('orientationchange', () => setTimeout(fitMap, 200));
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', fitMap);
+    window.visualViewport.addEventListener('scroll', fitMap);
+  }
   btn.addEventListener('click', () => {
     document.body.classList.contains('map-overlay-open') ? close() : open();
   });
