@@ -990,15 +990,6 @@
     background: #fcecaa;
     color: #6b4a0e;
   }
-  /* Interleave toggle — visually quiet (low-opacity shuffle glyph) when off
-     so it doesn't compete for attention. Lights up when engaged. */
-  .rb-interleave { font-size: 12px; opacity: 0.35; }
-  .rb-interleave:hover { opacity: 1; }
-  .rb-interleave.active {
-    opacity: 1;
-    background: #e8e3ff;
-    color: #4a3a8a;
-  }
   /* When strip is hidden, the loop button needs its own left border */
   /* When the row's main element is hidden, the trailing button needs its own left border */
   .real-book[hidden] + .rb-cycle,
@@ -1653,7 +1644,6 @@
     <div class="rb-row">
       <div class="real-book" id="real-book" hidden></div>
       <button class="rb-cycle" id="cycle-toggle" title="no key cycle">·</button>
-      <button class="rb-cycle rb-interleave" id="interleave-toggle" title="interleave progressions">🔀</button>
     </div>
     <div class="rb-row">
       <div class="real-book-tabs" id="real-book-tabs" hidden></div>
@@ -3642,11 +3632,6 @@ class Drone {
 
 let droneTimbre = 'piano';
 let loopMode = false;
-// Interleaved practice mode — when on, the AI rotates through distinct
-// progressions every chorus instead of looping AABA. Backed by the motor-
-// learning literature on contextual interference (Shea-Morgan 1979,
-// Carter-Grahn 2016): forced active recall after a gap retains better.
-let interleavedMode = false;
 // Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
 let cycleMode = 'none';
 const CYCLE_OPTIONS = [
@@ -4652,32 +4637,6 @@ class Player {
       return [A_sec, A_sec, B_section, A_sec];
     }
 
-    // ── Interleaved mode: chain 6 distinct progressions, each one chorus ──
-    // Forces active recall after a gap (contextual-interference effect).
-    // Skipped when the user has a composed progression — that takes priority.
-    if (interleavedMode) {
-      const N = 6;
-      const recent = this._recentInterleaveNames || [];
-      const picks = [];
-      for (let i = 0; i < N; i++) {
-        const avoid = new Set([...recent.slice(-3), ...picks.map(p => p.name)]);
-        let prog = null, tries = 0;
-        do {
-          prog = this._pickProgression();
-          tries++;
-        } while (prog && avoid.has(prog.name) && tries < 20);
-        if (prog) picks.push(prog);
-      }
-      this._recentInterleaveNames = [...recent.slice(-3), ...picks.map(p => p.name)].slice(-8);
-      return picks.map((prog, i) => ({
-        label: String.fromCharCode(65 + i),     // A, B, C, ...
-        progression: prog,
-        repeats: 1,                              // one pass only — that's the whole point
-        voicingType: voicingPref !== 'all' ? voicingPref : this._pickVoicingType(),
-        bassPattern: this._pickBassPattern(),
-      }));
-    }
-
     const A = this._pickProgression();
     const B = this._pickProgression(A.name);
     const aRepeats = this._repeatsFor(A);
@@ -5444,22 +5403,6 @@ document.getElementById('loop-toggle').addEventListener('click', e => {
     player._cachedPage = null;
   }
   if (player.playing) player._renderRealBook();
-});
-
-// Interleave toggle — when on, the AI keeps rotating through different
-// progressions every chorus instead of looping a fixed AABA. Tiny hidden
-// button next to the cycle toggle; doesn't change anything else.
-document.getElementById('interleave-toggle').addEventListener('click', e => {
-  interleavedMode = !interleavedMode;
-  e.currentTarget.classList.toggle('active', interleavedMode);
-  // If playing, regenerate the song so the new mode kicks in next section.
-  if (player.playing) {
-    player.song = player._generateSong();
-    player.songIdx = 0;
-    player.sectionIter = 0;
-    player._cachedPage = null;
-    player._renderRealBook();
-  }
 });
 
 // Cycle button — clicks through none → chromatic → fourths → none ...
