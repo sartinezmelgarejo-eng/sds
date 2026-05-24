@@ -1737,6 +1737,7 @@ const CHORD_MAP = {
       'V':    {roman:'V',    deg:7,  quality:'7',    tag:'dom'},
       'vi':   {roman:'vi',   deg:9,  quality:'m7',   tag:'tonic'},
       'vii':  {roman:'viiø', deg:11, quality:'m7b5', tag:'dom'},     // diatonic leading-tone (functions as dom upper-structure)
+      'V7sus':{roman:'V7sus',deg:7,  quality:'7sus4',tag:'dom'},     // suspended dom — common pre-V setup
       // Secondary dominants
       'V_V':  {roman:'V/V',  deg:2,  quality:'7',    tag:'secondary'},
       'V_ii': {roman:'V/ii', deg:9,  quality:'7',    tag:'secondary'},
@@ -1761,6 +1762,7 @@ const CHORD_MAP = {
       'n_V':    {chord:'V',    x:280, y:450},
       'n_V_V':  {chord:'V_V',  x:280, y:325},   // sec dom of V, stacked above V
       'n_vii':  {chord:'vii',  x:280, y:200},   // diatonic vii° at top of dom column
+      'n_V7sus':{chord:'V7sus',x:400, y:340},   // sus dom — sits above tonic, leads into V or I
       'n_bII7': {chord:'bII7', x:280, y:600},
       // ── TONIC (right) ──
       'n_I':    {chord:'I',    x:400, y:560, hub:true},
@@ -1794,6 +1796,9 @@ const CHORD_MAP = {
       // vii° — diatonic leading-tone, resolves to I; IV → vii° is the classic Bach approach
       {from:'n_vii', to:'n_I'},
       {from:'n_IV',  to:'n_vii'},
+      // V7sus — typically resolves to V or directly to I
+      {from:'n_V7sus', to:'n_V'},
+      {from:'n_V7sus', to:'n_I'},
       // I (hub) → outgoing diatonic options
       {from:'n_I',   to:'n_ii'},
       {from:'n_I',   to:'n_iii'},
@@ -1819,6 +1824,7 @@ const CHORD_MAP = {
       'bIII7': {roman:'bIII7', deg:3,  quality:'7',     tag:'borrowed'},   // substitute dom
       'vii7':  {roman:'vii°7', deg:11, quality:'dim7',  tag:'borrowed'},   // harmonic-minor leading-tone dim
       'IV':    {roman:'IV',    deg:5,  quality:'maj7',  tag:'borrowed'},   // parallel-major IV
+      'V7sus': {roman:'V7sus', deg:7,  quality:'7sus4', tag:'dom'},        // sus dom — common pre-V setup
     },
     nodes: {
       // ── PREDOMINANT column (left, x=50) — ordered so bIII→bVI→iiø→iv flows downward ──
@@ -1839,6 +1845,7 @@ const CHORD_MAP = {
       'n_bII7':  {chord:'bII7',  x:280, y:600},
       // ── TONIC (right) ──
       'n_I_pic': {chord:'I_pic', x:400, y:30},   // Picardy major tonic, top-right
+      'n_V7sus': {chord:'V7sus', x:400, y:340},  // sus dom, sits above the tonic hub
       'n_i':     {chord:'i',     x:400, y:560, hub:true},
     },
     arrows: [
@@ -1860,6 +1867,8 @@ const CHORD_MAP = {
       {from:'n_bIII7', to:'n_bVI'},                // sub-dom → bVI
       {from:'n_vii7',  to:'n_i'},                  // leading-tone dim → i
       {from:'n_IV',    to:'n_V7'},                 // parallel-major IV → V7 (cadence)
+      {from:'n_V7sus', to:'n_V7'},                 // sus dom → dom
+      {from:'n_V7sus', to:'n_i'},                  // sus dom → i (direct)
       {from:'n_IV',    to:'n_i'},                  // or → i directly (plagal)
       // i (tonic hub) → can go anywhere — show outgoing options (incl. parallels/borrowed)
       {from:'n_i',    to:'n_iiø'},
@@ -4372,6 +4381,14 @@ const PROGRESSIONS = {
     {name:'I–V–vi–IV',                    len:4,  steps:[{chord:'I',bars:1},{chord:'V',bars:1},{chord:'vi',bars:1},{chord:'IV',bars:1}]},
     {name:'Plagal IV–I',                  len:4,  steps:[{chord:'IV',bars:2},{chord:'I',bars:2}]},
     {name:'Deceptive ii–V–vi',            len:4,  steps:[{chord:'ii',bars:1},{chord:'V',bars:1},{chord:'vi',bars:2}]},
+    // ───── With vii° (diatonic leading-tone) ─────
+    {name:'IV–vii°–I (Bach)',             len:4,  steps:[{chord:'IV',bars:1},{chord:'vii',bars:1},{chord:'I',bars:2}]},
+    {name:'I–vii°–vi–V',                  len:4,  steps:[{chord:'I',bars:1},{chord:'vii',bars:1},{chord:'vi',bars:1},{chord:'V',bars:1}]},
+    {name:'ii–vii°–I (chromatic approach)',len:4, steps:[{chord:'ii',bars:1},{chord:'vii',bars:1},{chord:'I',bars:2}]},
+    // ───── With V7sus (suspended dom) ─────
+    {name:'V7sus–V–I',                    len:4,  steps:[{chord:'V7sus',bars:1},{chord:'V',bars:1},{chord:'I',bars:2}]},
+    {name:'ii–V7sus–V–I',                 len:4,  steps:[{chord:'ii',bars:1},{chord:'V7sus',bars:1},{chord:'V',bars:1},{chord:'I',bars:1}]},
+    {name:'I–V7sus–IV (modal)',           len:4,  steps:[{chord:'I',bars:2},{chord:'V7sus',bars:1},{chord:'IV',bars:1}]},
     // ───── 8-bar phrases ─────
     {name:'iii–vi–ii–V–I',                len:8,  steps:[{chord:'iii',bars:1},{chord:'vi',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1},{chord:'I',bars:4}]},
     {name:'Rhythm Changes A',             len:8,  steps:[{chord:'I',bars:1},{chord:'vi',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1},{chord:'I',bars:1},{chord:'vi',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1}]},
@@ -4405,6 +4422,9 @@ const PROGRESSIONS = {
     {name:'vii°7–i Bach cadence',         len:4,  steps:[{chord:'iv',bars:1},{chord:'vii7',bars:1},{chord:'i',bars:2}]},
     {name:'i–IV–V7–i (parallel IV)',      len:4,  steps:[{chord:'i',bars:1},{chord:'IV',bars:1},{chord:'V7',bars:1},{chord:'i',bars:1}]},
     {name:'iiø–V/V–V7–i',                 len:4,  steps:[{chord:'iiø',bars:1},{chord:'V_V',bars:1},{chord:'V7',bars:1},{chord:'i',bars:1}]},
+    // ─── With V7sus (suspended dom in minor) ───
+    {name:'V7sus–V7–i',                   len:4,  steps:[{chord:'V7sus',bars:1},{chord:'V7',bars:1},{chord:'i',bars:2}]},
+    {name:'iiø–V7sus–V7–i',               len:4,  steps:[{chord:'iiø',bars:1},{chord:'V7sus',bars:1},{chord:'V7',bars:1},{chord:'i',bars:1}]},
     // ─── 8-bar ───
     {name:'i–iv–V7–i (long)',             len:8,  steps:[{chord:'i',bars:2},{chord:'iv',bars:2},{chord:'V7',bars:2},{chord:'i',bars:2}]},
     {name:'bIII–bVI–iiø–V7–i',            len:8,  steps:[{chord:'bIII',bars:1},{chord:'bVI',bars:1},{chord:'iiø',bars:1},{chord:'V7',bars:1},{chord:'i',bars:4}]},
