@@ -39,6 +39,17 @@
   * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
   .midi-export-btn { font-size: 11px !important; padding: 2px 8px !important; opacity: 0.7; }
   .midi-export-btn:hover { opacity: 1; }
+  .midi-menu {
+    position: absolute; top: 100%; left: 0; z-index: 999;
+    background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px;
+    padding: 4px 0; min-width: 150px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  }
+  .midi-menu button {
+    display: block; width: 100%; text-align: left; padding: 6px 12px;
+    background: none; border: none; font-size: 12px; color: var(--text);
+    cursor: pointer; font-family: inherit;
+  }
+  .midi-menu button:hover { background: var(--panel-2); }
   html, body { height: 100%; }
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -1620,7 +1631,10 @@
     <div class="ctx-label">Song</div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="auto-btn" id="auto-play">▶ AI</button>
-      <button class="auto-btn midi-export-btn" id="midi-export" title="Export composition as MIDI file" style="display:none">⬇ MIDI</button>
+      <div class="midi-wrap" id="midi-wrap" style="display:none;position:relative">
+        <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
+        <div class="midi-menu" id="midi-menu" hidden></div>
+      </div>
       <div id="player-info"></div>
     </div>
   </div>
@@ -7221,95 +7235,84 @@ window.addEventListener('resize', () => {
 
 /* ─── MIDI Export ─── */
 
-// Collect note events from either the composed progression or the full AI song
-function _midiCollectEvents() {
+function _midiCollectComposed() {
   const ticksPerBeat = 480;
   const events = [];
   let tick = 0;
-
-  // Helper: add one chord block (all notes on, hold for `bars` bars, notes off)
-  const addChord = (notes, bars) => {
-    const dur = ticksPerBeat * 4 * bars; // 4 beats per bar
+  for (const cell of state.composedProgression) {
+    const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
+    if (!def) continue;
+    let notes;
+    if (cell.shape && cell.shape.some(f => f >= 0)) {
+      notes = cell.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+    } else {
+      const rootPc = (state.keyPc + def.deg) % 12;
+      const q = QUALITIES[def.quality];
+      if (!q) continue;
+      notes = q.ints.map(i => 48 + rootPc + i);
+    }
+    const dur = ticksPerBeat * 4;
     for (const n of notes) {
-      events.push({ tick, type: 'on',  note: n, vel: 90 });
+      events.push({ tick, type: 'on', note: n, vel: 90 });
       events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
     }
     tick += dur;
-  };
-
-  // Helper: resolve notes for a chord ID given a key + tonality + optional shape
-  const chordNotes = (chordId, keyPc, tonality, shape) => {
-    const defs = CHORD_MAP[tonality]?.chordDefs;
-    const def = defs?.[chordId];
-    if (!def) return null;
-    if (shape && shape.some(f => f >= 0)) {
-      return shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
-    }
-    // Fallback: build from quality intervals
-    const rootPc = (keyPc + def.deg) % 12;
-    const q = QUALITIES[def.quality];
-    if (!q) return null;
-    return q.ints.map(i => 48 + rootPc + i);
-  };
-
-  // ── Source 1: Full AI song (player.song exists after pressing ▶ AI)
-  if (player.song && player.song.length) {
-    const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
-    let prevShape = null;
-    for (const section of player.song) {
-      const secKey = section.keyPc ?? homeKey.keyPc;
-      const secTon = section.tonality ?? homeKey.tonality;
-      const vType  = section.voicingType || 'drop2';
-      const prog   = section.progression;
-      if (!prog || !prog.steps) continue;
-      const repeats = section.repeats || 1;
-      for (let r = 0; r < repeats; r++) {
-        for (const step of prog.steps) {
-          const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
-          if (!def) continue;
-          // Use composedShape if available, otherwise generate a voicing
-          let notes;
-          if (step.composedShape && step.composedShape.some(f => f >= 0)) {
-            notes = step.composedShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
-            prevShape = step.composedShape;
-          } else {
-            const rootPc = (secKey + def.deg) % 12;
-            const shape = player._pickShape(def.quality, rootPc, vType, prevShape);
-            if (shape) {
-              notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
-              prevShape = shape;
-            } else {
-              const q = QUALITIES[def.quality];
-              notes = q ? q.ints.map(i => 48 + rootPc + i) : null;
-            }
-          }
-          if (notes && notes.length) addChord(notes, step.bars || 1);
-        }
-      }
-    }
-    return events;
   }
-
-  // ── Source 2: Composed progression (no AI song yet)
-  if (state.composedProgression.length) {
-    for (const cell of state.composedProgression) {
-      const notes = chordNotes(cell.chord, state.keyPc, state.tonality, cell.shape);
-      if (notes && notes.length) addChord(notes, 1);
-    }
-    return events;
-  }
-
   return events;
 }
 
-function exportMidi() {
-  const events = _midiCollectEvents();
-  if (!events.length) return;
+function _midiCollectSong() {
+  const ticksPerBeat = 480;
+  const events = [];
+  let tick = 0;
+  if (!player.song || !player.song.length) return events;
+  const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
+  let prevShape = null;
+  for (const section of player.song) {
+    const secKey = section.keyPc ?? homeKey.keyPc;
+    const secTon = section.tonality ?? homeKey.tonality;
+    const vType  = section.voicingType || 'drop2';
+    const prog   = section.progression;
+    if (!prog || !prog.steps) continue;
+    const repeats = section.repeats || 1;
+    for (let r = 0; r < repeats; r++) {
+      for (const step of prog.steps) {
+        const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
+        if (!def) continue;
+        let notes;
+        if (step.composedShape && step.composedShape.some(f => f >= 0)) {
+          notes = step.composedShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+          prevShape = step.composedShape;
+        } else {
+          const rootPc = (secKey + def.deg) % 12;
+          const shape = player._pickShape(def.quality, rootPc, vType, prevShape);
+          if (shape) {
+            notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+            prevShape = shape;
+          } else {
+            const q = QUALITIES[def.quality];
+            notes = q ? q.ints.map(i => 48 + rootPc + i) : null;
+          }
+        }
+        const dur = ticksPerBeat * 4 * (step.bars || 1);
+        if (notes && notes.length) {
+          for (const n of notes) {
+            events.push({ tick, type: 'on', note: n, vel: 90 });
+            events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
+          }
+          tick += dur;
+        }
+      }
+    }
+  }
+  return events;
+}
 
+function _buildMidiFile(events, label) {
+  if (!events.length) return;
   const bpm = metronome.bpm || 120;
   const ticksPerBeat = 480;
 
-  // Build MIDI file (format 0, single track)
   const buf = [];
   const w8  = (v) => buf.push(v & 0xff);
   const w16 = (v) => { w8(v >> 8); w8(v); };
@@ -7323,10 +7326,8 @@ function exportMidi() {
     bytes.reverse().forEach(b => w8(b));
   };
 
-  // Header chunk
   wStr('MThd'); w32(6); w16(0); w16(1); w16(ticksPerBeat);
 
-  // Build track data
   const trackBuf = [];
   const tw8  = (v) => trackBuf.push(v & 0xff);
   const twVLQ = (v) => {
@@ -7337,63 +7338,90 @@ function exportMidi() {
     bytes.reverse().forEach(b => tw8(b));
   };
 
-  // Tempo meta event
   const uspb = Math.round(60000000 / bpm);
   twVLQ(0); tw8(0xff); tw8(0x51); tw8(3);
   tw8((uspb >> 16) & 0xff); tw8((uspb >> 8) & 0xff); tw8(uspb & 0xff);
 
-  // Track name
-  const isFullSong = player.song && player.song.length > 0;
-  const keyName = ROOTS[state.keyPc].name + ' ' + state.tonality + (isFullSong ? ' (full song)' : '');
+  const keyName = ROOTS[state.keyPc].name + ' ' + state.tonality + ' (' + label + ')';
   twVLQ(0); tw8(0xff); tw8(0x03); twVLQ(keyName.length);
   for (let i = 0; i < keyName.length; i++) tw8(keyName.charCodeAt(i));
 
-  // Sort events by tick, note-off before note-on at same tick
   events.sort((a, b) => a.tick - b.tick || (a.type === 'off' ? -1 : 1));
-
   let lastTick = 0;
   for (const ev of events) {
-    const delta = ev.tick - lastTick;
+    twVLQ(ev.tick - lastTick);
     lastTick = ev.tick;
-    twVLQ(delta);
     tw8(ev.type === 'on' ? 0x90 : 0x80);
     tw8(ev.note);
     tw8(ev.type === 'on' ? ev.vel : 0);
   }
-
-  // End of track
   twVLQ(0); tw8(0xff); tw8(0x2f); tw8(0);
 
-  // Track chunk
   wStr('MTrk'); w32(trackBuf.length);
   trackBuf.forEach(b => buf.push(b));
 
-  // Download
   const blob = new Blob([new Uint8Array(buf)], { type: 'audio/midi' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   const keyStr = ROOTS[state.keyPc].name.replace('#', 's').replace('b', 'f');
-  const suffix = isFullSong ? '-song' : '';
   a.href = url;
-  a.download = `guitarra-${keyStr}-${state.tonality}${suffix}.mid`;
+  a.download = `guitarra-${keyStr}-${state.tonality}-${label}.mid`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
 
-// Show/hide MIDI button: visible when there's a composed progression OR a loaded AI song
+// Show/hide MIDI wrap + manage menu
 function _updateMidiBtn() {
-  const btn = document.getElementById('midi-export');
-  if (btn) btn.style.display = (state.composedProgression.length || (player.song && player.song.length)) ? '' : 'none';
+  const wrap = document.getElementById('midi-wrap');
+  if (!wrap) return;
+  const hasComposed = state.composedProgression.length > 0;
+  const hasSong = player.song && player.song.length > 0;
+  wrap.style.display = (hasComposed || hasSong) ? '' : 'none';
 }
+
+const _midiMenu = document.getElementById('midi-menu');
+
+function _closeMidiMenu() { _midiMenu.hidden = true; }
+
+document.getElementById('midi-export').addEventListener('click', () => {
+  const hasComposed = state.composedProgression.length > 0;
+  const hasSong = player.song && player.song.length > 0;
+
+  // Only one option available — export directly, no menu
+  if (hasComposed && !hasSong) {
+    _buildMidiFile(_midiCollectComposed(), 'composed');
+    return;
+  }
+  if (!hasComposed && hasSong) {
+    _buildMidiFile(_midiCollectSong(), 'song');
+    return;
+  }
+
+  // Both available — show chooser menu
+  _midiMenu.innerHTML = '';
+  const opt1 = document.createElement('button');
+  opt1.textContent = '◇ Composed progression';
+  opt1.onclick = () => { _closeMidiMenu(); _buildMidiFile(_midiCollectComposed(), 'composed'); };
+  const opt2 = document.createElement('button');
+  opt2.textContent = '♫ Full song (AABA)';
+  opt2.onclick = () => { _closeMidiMenu(); _buildMidiFile(_midiCollectSong(), 'song'); };
+  _midiMenu.appendChild(opt1);
+  _midiMenu.appendChild(opt2);
+  _midiMenu.hidden = false;
+});
+
+// Close menu on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.midi-wrap')) _closeMidiMenu();
+});
+
 const _origRenderComposeStrip = renderComposeStrip;
 renderComposeStrip = function() {
   _origRenderComposeStrip.apply(this, arguments);
   _updateMidiBtn();
 };
-
-document.getElementById('midi-export').addEventListener('click', exportMidi);
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
