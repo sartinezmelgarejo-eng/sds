@@ -1008,6 +1008,9 @@
     position: relative;
   }
   .rb-cell:last-child { border-right: none; }
+  /* Cells of the composed strip are clickable (audition + focus). */
+  body:not(.player-active) [data-compose-idx] { cursor: pointer; }
+  body:not(.player-active) [data-compose-idx]:hover { background: rgba(160,120,32,0.10); }
   .rb-cell.current {
     background: #fcecaa;
   }
@@ -6645,12 +6648,15 @@ function renderComposeStrip() {
     if (isTab) cls[0] = 'rb-tab-cell';
     if (i === seq.length - 1) cls.push('current');
     if (i === 8) cls.push('section-divider');  // start of B
+    // data-compose-idx lets the delegated click handler (below) find which
+    // composed-progression step was tapped so it can ring + focus that chord.
+    const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
     if (!cell) return `<div class="${cls.join(' ')}"></div>`;
     const ch = map.chordDefs[cell.chord];
     if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
     if (isTab) {
-      if (!cell.shape) return `<div class="${cls.join(' ')}"></div>`;
+      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}></div>`;
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
       const perRow = isMobile ? 4 : 8;
       const showClef = (i % perRow === 0);
@@ -6661,10 +6667,10 @@ function renderComposeStrip() {
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
-      return `<div class="${cls.join(' ')}">${svg}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}>${svg}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-    return `<div class="${cls.join(' ')}">
+    return `<div class="${cls.join(' ')}"${idxAttr}>
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
     </div>`;
@@ -6695,6 +6701,28 @@ function renderComposeStrip() {
     tabsEl.innerHTML = cells.map((c, i) => renderCell(c, i, true)).join('');
   }
 }
+
+// Delegated click handler for the compose strip — tapping any composed-
+// progression cell rings that chord (with its exact stored voicing) and
+// focuses it so the user can audition / cycle inversions from there.
+// Attached once on the document so it survives every renderComposeStrip().
+document.addEventListener('click', (ev) => {
+  if (player.playing) return;   // playback owns the strip while AI is on
+  const cell = ev.target.closest('[data-compose-idx]');
+  if (!cell) return;
+  const idx = parseInt(cell.dataset.composeIdx, 10);
+  const seq = state.composedProgression;
+  if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
+  const entry = seq[idx];
+  if (!entry || !entry.chord) return;
+  ensureAudio();
+  state.focusedChord = entry.chord;
+  // If this cell has a recorded shape (set at compose-time), audition that
+  // exact voicing — otherwise fall back to focusedShape's default pick.
+  state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+  renderAll();
+  ringFocusedChord();
+});
 
 // Tracks voicing cycling for keyboard shortcuts.
 //   Number 1–7                → select chord, play the screen-recommended voicing
