@@ -5234,34 +5234,58 @@ function renderChordPiano() {
   paintPianoNotes();
 }
 
-// Repaint just the lit-key overlays (called when the chord changes)
+// Repaint just the lit-key overlays (called when the chord changes).
+// Draws the NEXT chord's notes first as hollow outlines (under the live notes),
+// then the LIVE chord on top as filled discs — mirrors the guitar-neck preview.
 function paintPianoNotes() {
   const svg = document.getElementById('chord-piano');
   if (!svg) return;
   const group = document.getElementById('piano-lit-group');
   if (!group) return;
-  group.innerHTML = '';
 
-  const liveShape = state.playerVoicing?.shape || focusedShape()?.shape;
+  const liveShape   = state.playerVoicing?.shape || focusedShape()?.shape;
   const liveChordId = state.playerVoicing?.chord || state.focusedChord;
-  if (!liveShape || !liveChordId) return;
+  const nextShape   = state.nextVoicing?.shape;
+  const nextChordId = state.nextVoicing?.chord;
+
+  // Sustained notes — same MIDI in both voicings (mark with a soft halo)
+  const staysSet = new Set();
+  if (liveShape && nextShape) {
+    for (let str = 0; str < 6; str++) {
+      if (liveShape[str] >= 0 && liveShape[str] === nextShape[str]) {
+        staysSet.add(STRING_OPEN_MIDI[str] + liveShape[str]);
+      }
+    }
+  }
+
+  let s = '';
+  // 1. NEXT chord as hollow outlines (below)
+  if (nextShape && nextChordId) {
+    s += _paintPianoVoicing(svg, nextShape, nextChordId, true, staysSet);
+  }
+  // 2. LIVE chord as filled discs (above)
+  if (liveShape && liveChordId) {
+    s += _paintPianoVoicing(svg, liveShape, liveChordId, false, staysSet);
+  }
+  group.innerHTML = s;
+}
+
+// Helper: paint one voicing's notes onto the keyboard
+function _paintPianoVoicing(svg, shape, chordId, preview, staysSet) {
   const map = currentMap();
-  const ch = map.chordDefs[liveChordId];
-  if (!ch) return;
+  const ch = map.chordDefs[chordId];
+  if (!ch) return '';
   const root = chordRoot(ch);
   const q = QUALITIES[ch.quality];
-  // Map of pc -> degree label
   const pcToDeg = {};
   q.ints.forEach((semi, i) => {
     const pc = ((root + semi) % 12 + 12) % 12;
     if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
   });
-
-  // Lit MIDIs from the current voicing
-  const lit = liveShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
 
   let s = '';
-  for (const midi of lit) {
+  for (const midi of midis) {
     const keyEl = svg.querySelector(`[data-midi="${midi}"]`);
     if (!keyEl) continue;
     const bb = keyEl.getBBox();
@@ -5272,13 +5296,27 @@ function paintPianoNotes() {
     const isBlack = isBlackKey(midi);
     const r = isBlack ? 8 : 10;
     const cy = bb.y + bb.height - (isBlack ? 14 : 18);
-    s += `<circle class="kb-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
-    if (deg) {
-      const isDarkText = (color === '#facc15' || color === '#fde68a' || color === '#f4c542');
-      s += `<text class="kb-deg ${isDarkText ? 'dark' : ''}" x="${cx}" y="${cy + 4}">${deg}</text>`;
+    const isStay = staysSet.has(midi);
+
+    if (preview) {
+      // NEXT chord: hollow outline so you see the upcoming shape without it
+      // competing with the live notes
+      const previewR = r + 2;
+      s += `<circle cx="${cx}" cy="${cy}" r="${previewR}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3,2" opacity="0.85"/>`;
+    } else {
+      // LIVE chord: filled disc with degree letter
+      if (isStay) {
+        // Soft halo around shared notes (sustained between live and next)
+        s += `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="${color}" opacity="0.18"/>`;
+      }
+      s += `<circle class="kb-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+      if (deg) {
+        const isDarkText = (color === '#facc15' || color === '#fde68a' || color === '#f4c542');
+        s += `<text class="kb-deg ${isDarkText ? 'dark' : ''}" x="${cx}" y="${cy + 4}">${deg}</text>`;
+      }
     }
   }
-  group.innerHTML = s;
+  return s;
 }
 
 // Compute the box that should be highlighted right now, based on the active voicing
