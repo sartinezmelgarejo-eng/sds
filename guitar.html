@@ -553,15 +553,32 @@
   body.instrument-piano .real-book.compose-interleaved > .rb-cell {
     display: none !important;
   }
-  /* Piano mode: the chord-name strip in row 1 is hidden, but the cycle button
-     keeps its own thin upper bar (where the pitch-shift toggle lives — none /
-     cromático / cuartas). Push it to the right of the empty row so it sits
-     above the loop button column. */
+  /* Piano mode: row 1 (where the chord-name strip + cycle used to live) is
+     gone entirely. The cycle + loop buttons live as a vertical stack on the
+     right of the staff row, split 30 / 70. */
   body.instrument-piano .rb-row:first-child {
-    justify-content: flex-end;
+    display: none;
   }
-  body.instrument-piano .rb-row:first-child .rb-cycle {
-    border-left: 1.5px solid #1a1a1a;
+  body.instrument-piano .right-btn-stack {
+    display: flex;
+    flex-direction: column;
+    width: 24px;
+    flex-shrink: 0;
+  }
+  body.instrument-piano .right-btn-stack .rb-cycle {
+    flex: 0 0 30%;
+    width: 100%;
+    height: auto;
+    border: 1.5px solid #1a1a1a;
+    border-left: none;
+    border-bottom: none;
+  }
+  body.instrument-piano .right-btn-stack .rb-loop {
+    flex: 1 1 70%;
+    width: 100%;
+    height: auto;
+    border: 1.5px solid #1a1a1a;
+    border-left: none;
   }
   body.instrument-piano .real-book-tabs {
     border: none !important;
@@ -2880,6 +2897,32 @@ function setInstrument(inst) {
   document.body.classList.toggle('instrument-piano', inst === 'piano');
   document.body.classList.toggle('instrument-guitar', inst === 'guitar');
   if (instrumentBtn) instrumentBtn.textContent = (inst === 'piano') ? '🎹' : '🎸';
+  // Piano mode: stack cycle + loop into a single right-column inside the
+  // staff row, splitting vertically ~30/70. Guitar mode: restore them to
+  // their original separate rows (cycle in row 1, loop in row 2).
+  const cycleBtn = document.getElementById('cycle-toggle');
+  const loopBtn  = document.getElementById('loop-toggle');
+  if (cycleBtn && loopBtn) {
+    if (inst === 'piano') {
+      let stack = document.getElementById('right-btn-stack');
+      if (!stack) {
+        stack = document.createElement('div');
+        stack.id = 'right-btn-stack';
+        stack.className = 'right-btn-stack';
+      }
+      stack.appendChild(cycleBtn);    // top
+      stack.appendChild(loopBtn);     // bottom
+      const tabsRow = document.querySelector('.rb-stack > .rb-row:nth-child(2)');
+      if (tabsRow) tabsRow.appendChild(stack);
+    } else {
+      const row1 = document.querySelector('.rb-stack > .rb-row:first-child');
+      const row2 = document.querySelector('.rb-stack > .rb-row:nth-child(2)');
+      if (row1) row1.appendChild(cycleBtn);
+      if (row2) row2.appendChild(loopBtn);
+      const stack = document.getElementById('right-btn-stack');
+      if (stack) stack.remove();
+    }
+  }
   if (typeof renderChordPiano === 'function') renderChordPiano();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
