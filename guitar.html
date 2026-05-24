@@ -1996,26 +1996,28 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
                    .sort((a, b) => a - b);
   if (!midis.length) return '';
 
-  // If the lowest note would sit more than ~2 ledger lines below the staff
-  // (below G3 = MIDI 55), display the whole chord an octave higher and put
-  // an italic "8" under the clef so the reader knows it sounds 8vb.
-  let shifted = false;
-  if (midis[0] < 55) {
+  // Aggressively shift the voicing up so EVERY note fits inside the SVG box.
+  // One octave shift = an "8" stamped beneath the clef (8vb, sounds an octave
+  // lower than written). Two octaves = "15" (15ma bassa). Iterates so very
+  // low chords are pulled up enough that nothing spills off the bottom.
+  let shiftCount = 0;
+  while (midis[0] < 60 && shiftCount < 2) {     // 60 = middle C
     midis = midis.map(m => m + 12);
-    shifted = true;
+    shiftCount++;
   }
+  const shifted = shiftCount > 0;
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
   const showClef = sizing?.showClef !== false;
-  // No clef → no clef-column at all; staff lines start at left margin
   const clefW = showClef ? 16 : 3;
   const accW = 10;
   const noteX = clefW + accW + 4;
-  // Single staff — use ~55% of height for the staff, leave room above and
-  // below for ledger lines + the 8vb mark
-  const lineSp = (H * 0.55) / 4;
-  const staffTopY = (H - lineSp * 4) / 2 - (shifted ? lineSp * 0.5 : 0);
+  // Tighter line spacing so notes up to ~3 ledger lines below the staff still
+  // fit inside the cell. Staff sits ~25% from the top — leaves more room
+  // below for ledger lines (which is where low chord tones live).
+  const lineSp = sizing?.minimal ? 6.5 : 9;
+  const staffTopY = lineSp * 2;
   const staffBotY = staffTopY + 4 * lineSp;
 
   // 5 staff lines
@@ -2025,18 +2027,18 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
   }
 
-  // Treble clef glyph + optional 8 below for 8vb. Only drawn when showClef is on.
+  // Treble clef glyph + optional 8 / 15 below for 8vb / 15ma bassa
+  const octaveMark = shiftCount === 2 ? '15' : '8';
   let clef = '';
   if (showClef) {
     const clefFs = lineSp * 6.5;
     const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
     clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
     if (shifted) {
-      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.7}" font-size="${lineSp * 1.7}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">8</text>`;
+      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.5}" font-size="${lineSp * 1.5}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">${octaveMark}</text>`;
     }
   } else if (shifted) {
-    // Even without the clef, the tiny "8" still informs the reader of 8vb
-    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.6}" font-size="${lineSp * 1.4}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.6" text-anchor="middle">8</text>`;
+    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.55" text-anchor="middle">${octaveMark}</text>`;
   }
 
   // Map MIDI -> diatonic step + accidental
