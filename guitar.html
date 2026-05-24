@@ -1093,18 +1093,12 @@
        bottom-pinned slot — same footprint, just an alternative input. */
     body.map-overlay-open .compose-pad { display: none; }
     body.map-overlay-open .chord-map-host {
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
+      display: block;       /* not flex — flex centering breaks when child overflows */
       position: fixed;
       left: 0; right: 0;
-      /* Sit above the always-visible map toggle bar (same offset as keypad) */
       bottom: calc(44px + env(safe-area-inset-bottom));
       z-index: 100;
       width: 100vw;
-      /* JS computes the exact height via fitMap(); this is just an upper bound
-         so a momentary CSS-only render before JS settles can't ever spill off
-         the top of the viewport. */
       height: 320px;
       max-height: 55vh;
       background: var(--panel-2);
@@ -1114,15 +1108,17 @@
       padding: 8px 10px;
     }
     body.map-overlay-open .chord-map {
-      /* JS sets --map-scale + width/height. transform-origin must be top
-         CENTER (not top left) so that when flex centers the 540-wide layout
-         box in a narrower viewport, the visually scaled content stays
-         horizontally centered instead of overflowing off the left edge. */
-      transform: scale(var(--map-scale, 0.6));
+      /* Pin to top-center of the host and translate the WIDE box left by half
+         its own width before scaling. This is the only reliable way to center
+         a box that is wider than its container — flex justify-content falls
+         back to start when content overflows. */
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%) scale(var(--map-scale, 0.6));
       transform-origin: top center;
       width: 540px;
       height: 800px;
-      flex-shrink: 0;
     }
     /* Backdrop unused in this layout — map sits in the keypad slot, not over content */
     #map-mobile-backdrop { display: none !important; }
