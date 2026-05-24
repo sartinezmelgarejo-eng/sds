@@ -2007,7 +2007,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
-  const clefW = 16;
+  const showClef = sizing?.showClef !== false;
+  // No clef → no clef-column at all; staff lines start at left margin
+  const clefW = showClef ? 16 : 3;
   const accW = 10;
   const noteX = clefW + accW + 4;
   // Single staff — use ~55% of height for the staff, leave room above and
@@ -2023,12 +2025,18 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
   }
 
-  // Treble clef glyph + optional 8 below for 8vb
-  const clefFs = lineSp * 6.5;
-  const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
-  let clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
-  if (shifted) {
-    clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.7}" font-size="${lineSp * 1.7}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">8</text>`;
+  // Treble clef glyph + optional 8 below for 8vb. Only drawn when showClef is on.
+  let clef = '';
+  if (showClef) {
+    const clefFs = lineSp * 6.5;
+    const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
+    clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
+    if (shifted) {
+      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.7}" font-size="${lineSp * 1.7}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">8</text>`;
+    }
+  } else if (shifted) {
+    // Even without the clef, the tiny "8" still informs the reader of 8vb
+    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.6}" font-size="${lineSp * 1.4}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.6" text-anchor="middle">8</text>`;
   }
 
   // Map MIDI -> diatonic step + accidental
@@ -4805,9 +4813,11 @@ class Player {
       const shape = cellVoicings[i];
       // Minimal classical chord-diagram style — black dots only, no colors or text.
       // The colors live on the chord neck and bottom fretboard where they have room.
+      // Clef only on the first cell of the row (the rest inherit it visually)
+      const showClef = (i === 0);
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 80, minimal: true})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 80, minimal: true, showClef})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
@@ -6190,12 +6200,12 @@ function renderComposeStrip() {
     const root = chordRoot(ch);
     if (isTab) {
       if (!cell.shape) return `<div class="${cls.join(' ')}"></div>`;
-      // On mobile compose, each tab cell is ~95x78 (aspect ~1.22). Match the
-      // SVG viewBox aspect so the diagram fills the cell instead of leaving
-      // a vertical letterbox gap top + bottom.
+      // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
+      const perRow = isMobile ? 4 : 8;
+      const showClef = (i % perRow === 0);
       const sizing = isMobile
-        ? {W: 100, H: 82, r: 7, minimal: true}
-        : {W: 130, H: 80, r: 6, minimal: true};
+        ? {W: 100, H: 82, r: 7, minimal: true, showClef}
+        : {W: 130, H: 80, r: 6, minimal: true, showClef};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
