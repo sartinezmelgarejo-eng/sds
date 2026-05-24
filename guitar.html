@@ -1338,27 +1338,16 @@
     text-align: center;
     line-height: 1.2;
   }
-  /* Visual separator between voicing families (drop-2 → shells → triads → ...) */
+  /* Thin separator between voicing families (drop-2 → shells → triads → …).
+     Sized small so the row keeps its original height + side-scroll feel. */
   .alt-divider {
     flex: 0 0 auto;
     width: 1px;
-    align-self: stretch;
-    background: var(--line);
-    margin: 4px 4px;
-    opacity: 0.55;
-  }
-  .alt-family-label {
-    flex: 0 0 auto;
+    height: 100px;
     align-self: center;
-    font-size: 8.5px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.3px;
-    color: var(--text-faint);
-    writing-mode: vertical-rl;
-    transform: rotate(180deg);
-    padding: 0 2px;
-    opacity: 0.7;
+    background: var(--line);
+    margin: 0 2px;
+    opacity: 0.55;
   }
   .alt-card .ac-notes {
     font-size: 8px;
@@ -2981,25 +2970,27 @@ function renderAlternatives() {
 
   let lastType = null;
   cands.forEach((c, i) => {
-    // Family divider — thin vertical line + rotated family label between groups.
-    if (lastType !== c.type) {
-      if (lastType !== null) html += `<div class="alt-divider"></div>`;
-      html += `<div class="alt-family-label">${TYPE_LABEL[c.type] || c.type}</div>`;
-      lastType = c.type;
+    // Thin divider between families — no extra label, the card detail line
+    // already says "Drop-2 / Shell / Triad / …" so the row height stays put.
+    if (lastType !== null && lastType !== c.type) {
+      html += `<div class="alt-divider"></div>`;
     }
+    lastType = c.type;
     const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
-    // Detail line under each card depends on the voicing family.
-    let detail = '';
+    // Detail line: include family name so each card self-identifies even when
+    // the dividers between families aren't on-screen during side-scroll.
+    const family = TYPE_LABEL[c.type] || c.type;
+    let detail = family;
     if (Number.isInteger(c.inversion) && Number.isInteger(c.stringSetIdx)) {
-      detail = `${INV_LABEL[c.inversion]} · ${SET_LABEL[c.stringSetIdx]}`;
+      detail = `${family} · ${INV_LABEL[c.inversion]} · ${SET_LABEL[c.stringSetIdx]}`;
     } else if (c.stringSet) {
-      detail = (c.type === 'triad') ? `${c.stringSet} pos` : `set ${c.stringSet}`;
+      detail = (c.type === 'triad') ? `${family} · ${c.stringSet}` : `${family} · ${c.stringSet}`;
     }
     const notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
     html += `
       <div class="alt-card ${sel}" data-idx="${i}">
         ${renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7})}
-        <div class="ac-label">${detail || (TYPE_LABEL[c.type] || c.type)}</div>
+        <div class="ac-label">${detail}</div>
         <div class="ac-notes">${notes}</div>
       </div>
     `;
