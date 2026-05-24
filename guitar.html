@@ -297,27 +297,63 @@
     color: #fff;
     border-color: var(--tag-tonic);
   }
-  /* ─── Player info bar — pure CONTEXT strip (chord names live in the Real
-     Book strip and the chord map, no need to mirror them here). One stable
-     row that doesn't jump around as the chord changes. */
+  /* ─── Player info bar — fine, green-leaning, info-rich. One stable row.
+     Chord names live in the Real Book strip; this is the context layer. */
   #player-info {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 14px;
     color: var(--text-dim);
     font-family: 'Cormorant Garamond', Georgia, serif;
     width: 100%;
-    min-height: 28px;
+    min-height: 26px;
+    /* Subtle green-tinted backdrop so the player state reads as "live" */
+    background: linear-gradient(90deg, rgba(5,150,105,0.04), transparent 35%, transparent 65%, rgba(5,150,105,0.04));
+    border-top: 1px solid rgba(5,150,105,0.18);
+    border-bottom: 1px solid rgba(5,150,105,0.18);
+    padding: 4px 10px;
   }
-  #player-info .pi-spacer { flex: 1; }     /* pushes right-side info to the edge */
-  /* Progression name — italic serif, the SECTION HEADING. Make it pop. */
+  #player-info .pi-spacer { flex: 1; }
+  /* Subtle vertical divider between info groups */
+  #player-info .pi-div {
+    width: 1px;
+    height: 14px;
+    background: rgba(5,150,105,0.22);
+    margin: 0 -4px;
+  }
+  /* Key signature pill — small green chip showing the active key */
+  #player-info .pi-key {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--tag-tonic);
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  #player-info .pi-key .pi-key-q {
+    font-style: normal;
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-left: 2px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  /* Step position inside the current progression — '2/4' tiny mono */
+  #player-info .pi-step {
+    font-family: 'SF Mono', monospace;
+    font-size: 10px;
+    color: var(--tag-tonic);
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    opacity: 0.85;
+  }
+  /* Progression name — italic serif section heading, slightly emphasized */
   #player-info .pi-prog {
     font-style: italic;
     font-weight: 700;
-    font-size: 17px;
-    color: var(--accent);
-    letter-spacing: 0.4px;
-    text-shadow: 0 0 6px rgba(160,120,32,0.18);
+    font-size: 15px;
+    color: var(--tag-tonic);
+    letter-spacing: 0.3px;
   }
   /* AABA form bar — compact segmented strip */
   #player-info .pi-form {
@@ -326,28 +362,28 @@
     align-items: center;
   }
   #player-info .pi-form-seg {
-    min-width: 18px;
-    height: 8px;
+    min-width: 14px;
+    height: 5px;
     border-radius: 2px;
-    background: var(--line-2);
+    background: rgba(5,150,105,0.20);
     transition: background 0.2s, height 0.2s;
     position: relative;
   }
-  #player-info .pi-form-seg.done { background: var(--text-faint); opacity: 0.55; }
+  #player-info .pi-form-seg.done { background: rgba(5,150,105,0.4); opacity: 0.75; }
   #player-info .pi-form-seg.now  {
-    background: var(--accent);
-    height: 12px;
-    box-shadow: 0 0 8px rgba(160,120,32,0.55);
+    background: var(--tag-tonic);
+    height: 8px;
+    box-shadow: 0 0 6px rgba(5,150,105,0.6);
   }
-  /* Tiny letter (A / B) under the current segment so the form is legible */
+  /* Letter (A / B) under the current segment — small but readable */
   #player-info .pi-form-seg.now::after {
     content: attr(data-label);
     position: absolute;
-    bottom: -14px;
+    bottom: -12px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 9px;
-    color: var(--accent);
+    font-size: 8.5px;
+    color: var(--tag-tonic);
     font-weight: 700;
     letter-spacing: 1px;
   }
@@ -357,28 +393,46 @@
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.5px;
   }
-  /* Voicing-type pill — drop2 / triad / shell · walking / steady — context
-     about HOW the chord is being voiced (info NOT visible elsewhere). */
+  /* Voicing-type — fine mono caption, no pill, just colored text */
   #player-info .pi-voicing {
     font-family: 'SF Mono', monospace;
-    font-size: 10.5px;
-    color: var(--text-dim);
+    font-size: 10px;
+    color: var(--tag-tonic);
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    padding: 3px 8px;
-    border: 1px solid rgba(160,120,32,0.4);
-    border-radius: 3px;
-    background: rgba(160,120,32,0.06);
+    opacity: 0.85;
     white-space: nowrap;
   }
-  /* Bars-left readout */
+  /* Bars-left — small mono, green */
   #player-info .pi-bars {
     font-family: 'SF Mono', monospace;
-    font-size: 11px;
-    color: var(--accent);
+    font-size: 10.5px;
+    color: var(--tag-tonic);
     font-weight: 700;
     white-space: nowrap;
+    letter-spacing: 0.5px;
   }
+  /* Iteration count — mono, smaller */
+  #player-info .pi-iter {
+    font-family: 'SF Mono', monospace;
+    font-size: 9.5px;
+    color: var(--tag-tonic);
+    letter-spacing: 0.6px;
+    font-weight: 700;
+    opacity: 0.8;
+  }
+  /* Refine the modulation / travel badges — finer, greener */
+  #player-info .pi-badge {
+    font-style: italic;
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 2px;
+    border: 1px solid;
+    animation: piBadgeIn 0.4s ease-out;
+    letter-spacing: 0.3px;
+  }
+  #player-info .pi-badge.mod    { color: var(--accent); border-color: rgba(160,120,32,0.6); background: rgba(160,120,32,0.06); }
+  #player-info .pi-badge.travel { color: var(--tag-tonic); border-color: rgba(5,150,105,0.55); background: rgba(5,150,105,0.06); }
   /* Modulation / travel pill — slightly more prominent, animates in */
   @keyframes piBadgeIn {
     from { opacity: 0; transform: translateY(-3px); }
@@ -4234,10 +4288,23 @@ class Player {
       ? `<span class="pi-voicing">${state.playerVoicing.type} · ${this.bassPattern}</span>`
       : '';
 
+    // Step indicator — where we are within the current progression
+    const stepTxt = `<span class="pi-step">${this.currentStepIdx + 1}/${prog.steps.length}</span>`;
+
+    // Live key name (handles modulation — section.modName/modKeyPc beat state.keyPc)
+    const liveKeyPc = (section.modKeyPc != null) ? section.modKeyPc : state.keyPc;
+    const liveKeyName = nameOf(liveKeyPc, useFlatsFor(liveKeyPc));
+    const keyHtml = `<span class="pi-key">${liveKeyName}<span class="pi-key-q">${state.tonality === 'major' ? 'maj' : 'min'}</span></span>`;
+
     document.getElementById('player-info').innerHTML = `
+      ${keyHtml}
+      <span class="pi-div"></span>
       <span class="pi-prog">${prog.name}</span>
+      ${stepTxt}
       ${iterTxt}
+      <span class="pi-div"></span>
       <span class="pi-form">${formHtml}</span>
+      <span class="pi-div"></span>
       ${voicingTxt}
       <span class="pi-spacer"></span>
       ${travelBadge}
