@@ -1978,10 +1978,10 @@ function computeAllVoicings() {
    ════════════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════════════
-   SHEET MUSIC — single treble staff with 8vb (8 below clef) when
-   the voicing's lowest note would otherwise need lots of ledger
-   lines. One staff = double the line-spacing of the grand-staff
-   version → much more readable in the small strip cells.
+   SHEET MUSIC — grand staff (treble + bass). Notes plotted at
+   their actual pitch on whichever staff is appropriate (C4 / 60 is
+   the split). No octave-shift trickery needed since the bass clef
+   handles all the low chord tones natively.
    ════════════════════════════════════════════════════════════ */
 function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (!shape) return '';
@@ -1991,32 +1991,29 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     const pc = ((rootPc + semi) % 12 + 12) % 12;
     if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
   });
-  let midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
-                   .filter(x => x !== null)
-                   .sort((a, b) => a - b);
+  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+                     .filter(x => x !== null)
+                     .sort((a, b) => a - b);
   if (!midis.length) return '';
-
-  // Aggressively shift the voicing up so EVERY note fits inside the SVG box.
-  // One octave shift = an "8" stamped beneath the clef (8vb, sounds an octave
-  // lower than written). Two octaves = "15" (15ma bassa). Iterates so very
-  // low chords are pulled up enough that nothing spills off the bottom.
-  let shiftCount = 0;
-  while (midis[0] < 60 && shiftCount < 2) {     // 60 = middle C
-    midis = midis.map(m => m + 12);
-    shiftCount++;
-  }
-  const shifted = shiftCount > 0;
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
   const showClef = sizing?.showClef !== false;
-  const clefW = showClef ? 16 : 3;
+  const clefW = showClef ? 18 : 3;
   const accW = 10;
   const noteX = clefW + accW + 4;
-  // Bigger line spacing so the notes are actually visible
-  const lineSp = sizing?.minimal ? 9 : 11;
+  // Budget the whole vertical space across both staves + a generous gap for
+  // the middle-C ledger zone. Two staves × 4 line-spacings each + gap + pad
+  // = H, so lineSp = (H - pad*2 - gap) / 8.
+  const padY = 3;
+  const gapY = (sizing?.minimal ? 1.6 : 1.8);     // gap measured in line-spacings
+  const lineSp = (H - padY * 2) / (8 + gapY);
+  const trebleTopY = padY;
+  const trebleBotY = trebleTopY + 4 * lineSp;
+  const bassTopY   = trebleBotY + lineSp * gapY;
+  const bassBotY   = bassTopY + 4 * lineSp;
 
-  // Map MIDI -> diatonic step + accidental
+  // Map MIDI -> diatonic step + accidental + which staff
   const noteLetterFromPc = (pc, useFlat) => {
     const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flat  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -2024,82 +2021,75 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
 
-  // Compute step + accidental for each note
-  const baseInfo = midis.map((midi) => {
+  const positions = midis.map((midi) => {
     const pc = ((midi % 12) + 12) % 12;
     const octave = Math.floor(midi / 12) - 1;
     const name = noteLetterFromPc(pc, flats);
     const letter = name.charAt(0);
     const acc = name.length > 1 ? name.charAt(1) : '';
-    const step = (octave - 4) * 7 + stepInOctave[letter];
-    return { midi, pc, acc, letter, step };
+    const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
+    // MIDI >= 60 → treble. Below → bass. (Middle C lives on first ledger
+    // below treble; B3 and below sit on bass.)
+    const useTreble = midi >= 60;
+    const y = useTreble
+      ? trebleBotY + lineSp - step * 0.5 * lineSp
+      : bassTopY + (-step - 2) * 0.5 * lineSp;
+    return { midi, pc, acc, letter, step, useTreble, y };
   });
-  // Relative y of each note ASSUMING staffTopY=0:
-  //   y_rel(step) = lineSp * (5 - step / 2)
-  const relYs = baseInfo.map(b => lineSp * (5 - b.step / 2));
-  const minRelY = Math.min(...relYs);
-  const maxRelY = Math.max(...relYs);
-  // Center the chord stack vertically in the SVG box, then nudge so the
-  // staff body stays at least partially in view.
-  let staffTopY = H / 2 - (minRelY + maxRelY) / 2;
-  const pad = 4;
-  staffTopY = Math.max(pad - minRelY, staffTopY);
-  staffTopY = Math.min(H - pad - maxRelY, staffTopY);
-  const staffBotY = staffTopY + 4 * lineSp;
 
-  const positions = baseInfo.map((b, i) => ({
-    ...b,
-    y: staffTopY + relYs[i],
-  }));
-
-  // 5 staff lines
+  // 5 staff lines per staff
   let lines = '';
   for (let i = 0; i < 5; i++) {
-    const y = staffTopY + i * lineSp;
-    lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+    const yt = trebleTopY + i * lineSp;
+    const yb = bassTopY   + i * lineSp;
+    lines += `<line x1="${clefW}" y1="${yt}" x2="${W-2}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    lines += `<line x1="${clefW}" y1="${yb}" x2="${W-2}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+  }
+  // Brace bar at left joining the two staves (only on cells that show clefs,
+  // otherwise the bar would float orphaned)
+  if (showClef) {
+    lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
   }
 
-  // Treble clef glyph + optional ↓ / ↓↓ below — each arrow = "sounds one
-  // octave lower than written" (8vb / 15ma bassa, but easier to read at a glance)
-  const arrows = '↓'.repeat(shiftCount);
+  // Clefs (Unicode glyphs scaled to their staff)
   let clef = '';
   if (showClef) {
-    const clefFs = lineSp * 6.5;
-    const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
-    clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
-    if (shifted) {
-      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.6}" font-size="${lineSp * 1.5}" font-family="sans-serif" font-weight="700" fill="#a07820" text-anchor="middle" letter-spacing="-1">${arrows}</text>`;
-    }
-  } else if (shifted) {
-    // No clef shown — render the arrows centered in the small left margin
-    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="sans-serif" font-weight="700" fill="#a07820" opacity="0.7" text-anchor="middle" letter-spacing="-1">${arrows}</text>`;
+    const trebleClefFs = lineSp * 6.5;
+    const bassClefFs   = lineSp * 4.0;
+    const trebleClefY  = trebleBotY - lineSp * 0.5;       // tail of 𝄞 hooks under G line
+    const bassClefY    = bassTopY + 2 * lineSp + lineSp * 0.5;
+    clef =
+      `<text x="${clefW * 0.05}" y="${trebleClefY}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>` +
+      `<text x="${clefW * 0.05}" y="${bassClefY}"   font-size="${bassClefFs}"   font-family="serif" fill="#1a1a1a">𝄢</text>`;
   }
 
-  // Ledger lines
+  // Ledger lines — drawn per-staff (treble or bass) based on each note's home
   let ledgers = '';
   const seenLedger = new Set();
   for (const p of positions) {
-    if (p.y > staffBotY + lineSp * 0.3) {
+    const staffTop = p.useTreble ? trebleTopY : bassTopY;
+    const staffBot = staffTop + 4 * lineSp;
+    if (p.y > staffBot + lineSp * 0.3) {
       let k = 1;
       while (true) {
-        const ly = staffBotY + k * lineSp;
+        const ly = staffBot + k * lineSp;
         if (ly > p.y + lineSp * 0.3) break;
         const key = `b-${ly.toFixed(1)}`;
         if (!seenLedger.has(key)) {
           seenLedger.add(key);
-          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
         }
         k++;
       }
-    } else if (p.y < staffTopY - lineSp * 0.3) {
+    } else if (p.y < staffTop - lineSp * 0.3) {
       let k = 1;
       while (true) {
-        const ly = staffTopY - k * lineSp;
+        const ly = staffTop - k * lineSp;
         if (ly < p.y - lineSp * 0.3) break;
         const key = `a-${ly.toFixed(1)}`;
         if (!seenLedger.has(key)) {
           seenLedger.add(key);
-          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.8"/>`;
+          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
         }
         k++;
       }
