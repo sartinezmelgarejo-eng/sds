@@ -2247,13 +2247,14 @@ function trebleClefSVG(cx, gLineY, lineSp, minimal) {
         dominant-baseline="central">𝄞</text>`;
 }
 function bassClefSVG(cx, fLineY, lineSp, minimal) {
-  // Real bass clef glyph (𝄢, U+1D122). Mirrors trebleClefSVG: smaller on
-  // mobile (Apple/Noto Music render symbols larger in their em-box), larger
-  // on desktop (Apple Symbols / Segoe UI Symbol are more conservative).
-  // The dot of the clef anchors F3 — the spot at fLineY, so we let the
-  // central baseline sit on that line.
-  const fs = lineSp * (minimal ? 2.6 : 4.4);
-  return `<text x="${cx}" y="${fLineY}"
+  // Real bass clef glyph (𝄢, U+1D122). Mirrors trebleClefSVG but the bass
+  // glyph reads heavier per em-unit, so use slightly smaller multipliers.
+  // Most fonts draw 𝄢 with its visual centroid sitting ABOVE the em-box
+  // center, which makes a centrally-baselined glyph look too high — nudge
+  // Y down by ~0.4 lineSp to bring the "dot" back onto F3.
+  const fs = lineSp * (minimal ? 2.2 : 3.6);
+  const y  = fLineY + lineSp * 0.4;
+  return `<text x="${cx}" y="${y}"
         font-size="${fs}"
         font-family="'Bravura Text','Petaluma','Maestro','Sebastian','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola','Times New Roman',serif"
         fill="#1a1a1a"
