@@ -1978,8 +1978,10 @@ function computeAllVoicings() {
    ════════════════════════════════════════════════════════════ */
 
 /* ════════════════════════════════════════════════════════════
-   SHEET MUSIC (grand staff) — used in place of tab diagrams
-   when state.instrument === 'piano'.
+   SHEET MUSIC — single treble staff with 8vb (8 below clef) when
+   the voicing's lowest note would otherwise need lots of ledger
+   lines. One staff = double the line-spacing of the grand-staff
+   version → much more readable in the small strip cells.
    ════════════════════════════════════════════════════════════ */
 function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (!shape) return '';
@@ -1989,40 +1991,47 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     const pc = ((rootPc + semi) % 12 + 12) % 12;
     if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
   });
-  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
-                     .filter(x => x !== null)
-                     .sort((a, b) => a - b);
+  let midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+                   .filter(x => x !== null)
+                   .sort((a, b) => a - b);
+  if (!midis.length) return '';
+
+  // If the lowest note would sit more than ~2 ledger lines below the staff
+  // (below G3 = MIDI 55), display the whole chord an octave higher and put
+  // an italic "8" under the clef so the reader knows it sounds 8vb.
+  let shifted = false;
+  if (midis[0] < 55) {
+    midis = midis.map(m => m + 12);
+    shifted = true;
+  }
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
-  const noteR = sizing?.minimal ? 2.4 : 3.0;
-  const clefW = 13;
-  const accW  = 8;
-  const noteX = clefW + accW + 6;
-  // Compact grand staff: line spacing ~4.5px, ~14px between staves
-  const lineSp = (H - 28) / 12;     // staff-line spacing computed to fit H
-  const trebleTopY = 6;
-  const bassTopY   = trebleTopY + 4 * lineSp + 14;
+  const clefW = 16;
+  const accW = 10;
+  const noteX = clefW + accW + 4;
+  // Single staff — use ~55% of height for the staff, leave room above and
+  // below for ledger lines + the 8vb mark
+  const lineSp = (H * 0.55) / 4;
+  const staffTopY = (H - lineSp * 4) / 2 - (shifted ? lineSp * 0.5 : 0);
+  const staffBotY = staffTopY + 4 * lineSp;
 
-  // 5 lines per staff
+  // 5 staff lines
   let lines = '';
   for (let i = 0; i < 5; i++) {
-    const yt = trebleTopY + i * lineSp;
-    const yb = bassTopY   + i * lineSp;
-    lines += `<line x1="${clefW}" y1="${yt}" x2="${W-2}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.6"/>`;
-    lines += `<line x1="${clefW}" y1="${yb}" x2="${W-2}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.6"/>`;
+    const y = staffTopY + i * lineSp;
+    lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
   }
-  // Joining brace bar at left
-  lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassTopY + 4*lineSp}" stroke="#1a1a1a" stroke-width="1.4"/>`;
 
-  // Clefs (Unicode glyphs scaled to staff height)
-  const trebleClefFs = lineSp * 6;
-  const bassClefFs   = lineSp * 4.5;
-  const clefSvg =
-    `<text x="0" y="${trebleTopY + 4*lineSp - lineSp*0.4}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>` +
-    `<text x="0" y="${bassTopY + 2*lineSp + lineSp*0.6}" font-size="${bassClefFs}" font-family="serif" fill="#1a1a1a">𝄢</text>`;
+  // Treble clef glyph + optional 8 below for 8vb
+  const clefFs = lineSp * 6.5;
+  const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
+  let clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
+  if (shifted) {
+    clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.7}" font-size="${lineSp * 1.7}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">8</text>`;
+  }
 
-  // Map each MIDI to its diatonic position + accidental
+  // Map MIDI -> diatonic step + accidental
   const noteLetterFromPc = (pc, useFlat) => {
     const sharp = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
     const flat  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
@@ -2030,70 +2039,79 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
 
-  const positions = midis.map(midi => {
+  const positions = midis.map((midi, idx) => {
     const pc = ((midi % 12) + 12) % 12;
+    const origPc = ((shape.filter(f => f >= 0)[idx] !== undefined)
+      ? (((midi - (shifted ? 12 : 0)) % 12) + 12) % 12
+      : pc);   // keep degree-color lookup honest under the octave shift
     const octave = Math.floor(midi / 12) - 1;
     const name = noteLetterFromPc(pc, flats);
     const letter = name.charAt(0);
     const acc = name.length > 1 ? name.charAt(1) : '';
     const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
-    const useTreble = midi >= 60;
-    const y = useTreble
-      ? trebleTopY + (5 - step * 0.5) * lineSp
-      : bassTopY + (-step - 2) * 0.5 * lineSp;
-    return { midi, pc, y, useTreble, acc, letter, step };
+    // y at C4 (step 0) = first ledger below staff = staffBotY + lineSp
+    // y at F5 (step 10) = top line = staffTopY
+    const y = staffBotY + lineSp - step * 0.5 * lineSp;
+    return { midi, pc, origPc, y, acc, letter, step };
   });
 
-  // Ledger lines (short horizontal extensions outside the staff)
-  let ledgerSvg = '';
-  const seenLedger = new Set();   // dedupe shared ledgers between adjacent notes
+  // Ledger lines
+  let ledgers = '';
+  const seenLedger = new Set();
   for (const p of positions) {
-    const staffTop = p.useTreble ? trebleTopY : bassTopY;
-    const staffBot = staffTop + 4 * lineSp;
-    if (p.y > staffBot + lineSp * 0.3) {
-      // Below staff
+    if (p.y > staffBotY + lineSp * 0.3) {
       let k = 1;
       while (true) {
-        const ly = staffBot + k * lineSp;
+        const ly = staffBotY + k * lineSp;
         if (ly > p.y + lineSp * 0.3) break;
-        const key = `b-${ly.toFixed(2)}`;
+        const key = `b-${ly.toFixed(1)}`;
         if (!seenLedger.has(key)) {
           seenLedger.add(key);
-          ledgerSvg += `<line x1="${noteX - 5}" y1="${ly}" x2="${noteX + 5}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.8"/>`;
         }
         k++;
       }
-    } else if (p.y < staffTop - lineSp * 0.3) {
-      // Above staff
+    } else if (p.y < staffTopY - lineSp * 0.3) {
       let k = 1;
       while (true) {
-        const ly = staffTop - k * lineSp;
+        const ly = staffTopY - k * lineSp;
         if (ly < p.y - lineSp * 0.3) break;
-        const key = `a-${ly.toFixed(2)}`;
+        const key = `a-${ly.toFixed(1)}`;
         if (!seenLedger.has(key)) {
           seenLedger.add(key);
-          ledgerSvg += `<line x1="${noteX - 5}" y1="${ly}" x2="${noteX + 5}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.8"/>`;
         }
         k++;
       }
     }
   }
 
-  // Accidentals + noteheads (colored by degree)
-  let notesSvg = '';
-  for (const p of positions) {
+  // Detect adjacent-stepwise pairs and offset one of them so noteheads don't overlap
+  const offsetX = {};   // index -> x-offset for displaced notes
+  for (let i = 1; i < positions.length; i++) {
+    if (Math.abs(positions[i].step - positions[i - 1].step) <= 1
+        && offsetX[i - 1] === undefined) {
+      offsetX[i] = lineSp * 1.5;   // shift this note to the right of stem
+    }
+  }
+
+  // Accidentals + noteheads
+  let notes = '';
+  const noteR = lineSp * 0.45;
+  positions.forEach((p, i) => {
+    const dx = offsetX[i] || 0;
+    const cx = noteX + dx;
     const deg = pcToDeg[p.pc];
     const color = deg ? (intervalColor(deg) || '#1a1a1a') : '#1a1a1a';
     if (p.acc === '#') {
-      notesSvg += `<text x="${noteX - 9}" y="${p.y + lineSp*0.5}" font-size="${lineSp*1.8}" font-family="serif" fill="#1a1a1a">♯</text>`;
+      notes += `<text x="${cx - lineSp * 1.4}" y="${p.y + lineSp*0.55}" font-size="${lineSp*1.9}" font-family="serif" fill="#1a1a1a">♯</text>`;
     } else if (p.acc === 'b') {
-      notesSvg += `<text x="${noteX - 8}" y="${p.y + lineSp*0.5}" font-size="${lineSp*2.0}" font-family="serif" fill="#1a1a1a">♭</text>`;
+      notes += `<text x="${cx - lineSp * 1.3}" y="${p.y + lineSp*0.55}" font-size="${lineSp*2.1}" font-family="serif" fill="#1a1a1a">♭</text>`;
     }
-    // Slanted notehead (whole-note style — open notehead common for chord-stack display)
-    notesSvg += `<ellipse cx="${noteX}" cy="${p.y}" rx="${noteR * 1.35}" ry="${noteR}" fill="${color}" transform="rotate(-22 ${noteX} ${p.y})"/>`;
-  }
+    notes += `<ellipse cx="${cx}" cy="${p.y}" rx="${noteR * 1.4}" ry="${noteR}" fill="${color}" transform="rotate(-22 ${cx} ${p.y})"/>`;
+  });
 
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">${lines}${clefSvg}${ledgerSvg}${notesSvg}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">${lines}${clef}${ledgers}${notes}</svg>`;
 }
 
 function renderMini(shape, rootPc, quality, flats, sizing) {
