@@ -1104,14 +1104,10 @@
     min-height: 0;
   }
   .bottom-bar .alternatives {
-    flex: 0 0 48%;
+    flex: 0 0 auto;
     width: 48%;
-    max-width: 48%;
-    min-width: 0;            /* let the inner alt-row overflow scroll instead of pushing the fretboard off-screen */
     border-top: none;
     border-right: 1px solid var(--line);
-    box-sizing: border-box;
-    overflow: hidden;
   }
   .bottom-bar .fb-wrap {
     flex: 1;
@@ -1342,31 +1338,11 @@
     text-align: center;
     line-height: 1.2;
   }
-  /* Thin separator between voicing families (drop-2 → shells → triads → …).
-     Sized small so the row keeps its original height + side-scroll feel. */
-  .alt-divider {
-    flex: 0 0 auto;
-    width: 1px;
-    height: 100px;
-    align-self: center;
-    background: var(--line);
-    margin: 0 2px;
-    opacity: 0.55;
-  }
   .alt-card .ac-notes {
     font-size: 8px;
     color: var(--text-faint);
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
-  }
-  /* Keep label + notes to single lines so cards stay the same height no
-     matter how long the family/inversion text gets. Truncate with … if needed. */
-  .alt-card .ac-label,
-  .alt-card .ac-notes {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
   }
 
   /* ─── Fretboard ─── */
@@ -2962,11 +2938,8 @@ function renderAlternatives() {
   const chordName = nameOf(root, flats) + QUALITIES[fc.quality].sfx;
   altName.textContent = `${fc.roman} · ${chordName}`;
 
-  // Pull the master catalog (deduped, grouped by family).
-  const cands = allDistinctVoicings(fc.quality, root);
-  // Match the currently-selected voicing by shape so we highlight the right card.
-  const shapeKey = (sh) => sh.map((f, i) => f >= 0 ? `${i}.${f}` : '').filter(Boolean).join(',');
-  const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
+  const current = state.userVoicing || {stringSetIdx: 2, inversion: 0};
+  const currentKey = `${current.stringSetIdx}.${current.inversion}`;
 
   const autoSel = state.userVoicing === null ? 'selected' : '';
   let html = `
@@ -2977,38 +2950,23 @@ function renderAlternatives() {
     </div>
   `;
 
-  // Short codes so each card label still fits on one line in a 100px-wide cell.
-  const TYPE_LABEL = { drop2: 'D2', shell: 'Sh', triad: 'Tri', guide: 'Gd', sus: 'Sus' };
-  const INV_LABEL = ['R','1st','2nd','3rd'];
-  const SET_LABEL = ['LOW', 'MID', 'TOP'];
-
-  let lastType = null;
-  cands.forEach((c, i) => {
-    // Thin divider between families — no extra label, the card detail line
-    // already says "Drop-2 / Shell / Triad / …" so the row height stays put.
-    if (lastType !== null && lastType !== c.type) {
-      html += `<div class="alt-divider"></div>`;
+  for (let inv = 0; inv < 4; inv++) {
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      const sh = dropTwoVoicing(fc.quality, root, ss, inv);
+      if (!sh) continue;
+      const sel = (`${ss}.${inv}` === currentKey && state.userVoicing) ? 'selected' : '';
+      const invN = ['R','1st','2nd','3rd'][inv];
+      const label = `${invN} · ${STRING_SETS[ss].label}`;
+      const notes = sh.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
+      html += `
+        <div class="alt-card ${sel}" data-ss="${ss}" data-inv="${inv}">
+          ${renderMini(sh, root, fc.quality, flats, {W:88, H:92, r:7})}
+          <div class="ac-label">${label}</div>
+          <div class="ac-notes">${notes}</div>
+        </div>
+      `;
     }
-    lastType = c.type;
-    const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
-    // Detail line: include family name so each card self-identifies even when
-    // the dividers between families aren't on-screen during side-scroll.
-    const family = TYPE_LABEL[c.type] || c.type;
-    let detail = family;
-    if (Number.isInteger(c.inversion) && Number.isInteger(c.stringSetIdx)) {
-      detail = `${family} · ${INV_LABEL[c.inversion]} · ${SET_LABEL[c.stringSetIdx]}`;
-    } else if (c.stringSet) {
-      detail = (c.type === 'triad') ? `${family} · ${c.stringSet}` : `${family} · ${c.stringSet}`;
-    }
-    const notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
-    html += `
-      <div class="alt-card ${sel}" data-idx="${i}">
-        ${renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7})}
-        <div class="ac-label">${detail}</div>
-        <div class="ac-notes">${notes}</div>
-      </div>
-    `;
-  });
+  }
 
   altRow.innerHTML = html;
   altRow.querySelectorAll('[data-auto]').forEach(c => {
@@ -3033,40 +2991,22 @@ function renderAlternatives() {
       renderAll();
     });
   });
-  // Auto-scroll the row so the currently-selected card is centered. Uses
-  // requestAnimationFrame so layout is done before we measure offsetLeft.
-  // inline-only scroll (no vertical jump) keeps the rest of the page steady.
-  requestAnimationFrame(() => {
-    const sel = altRow.querySelector('.alt-card.selected');
-    if (!sel || altRow.clientWidth <= 0) return;
-    const target = sel.offsetLeft - altRow.clientWidth / 2 + sel.offsetWidth / 2;
-    altRow.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
-  });
-
-  altRow.querySelectorAll('[data-idx]').forEach(card => {
-    card.addEventListener('click', () => {
-      const c = cands[+card.dataset.idx];
-      if (!c) return;
-      state.userVoicing = {
-        shape: c.shape,
-        type: c.type,
-        stringSetIdx: c.stringSetIdx,
-        inversion: c.inversion,
-        stringSet: c.stringSet,
-      };
+  altRow.querySelectorAll('[data-ss]').forEach(c => {
+    c.addEventListener('click', () => {
+      const ss = +c.dataset.ss, inv = +c.dataset.inv;
+      state.userVoicing = {stringSetIdx: ss, inversion: inv};
+      const ch = currentMap().chordDefs[fc.id];
+      const r  = chordRoot(ch);
+      const sh = dropTwoVoicing(ch.quality, r, ss, inv);
       // Compose: replace last chord's voicing if it matches the focused one
-      if (!player.playing) {
+      if (!player.playing && sh) {
         const seq = state.composedProgression;
         if (seq.length && seq[seq.length - 1].chord === fc.id) {
-          seq[seq.length - 1].shape = c.shape;
-          seq[seq.length - 1].voicingType = c.type;
-          // Reset _candIdx to point into the master list so subsequent
-          // inversion cycling continues smoothly from this position.
-          seq[seq.length - 1]._candIdx = +card.dataset.idx;
+          seq[seq.length - 1].shape = sh;
           renderComposeStrip();
         }
       }
-      applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion });
+      applyAltToComping(fc.id, sh ? { shape: sh, stringSetIdx: ss, inversion: inv } : null);
       renderAll();
     });
   });
