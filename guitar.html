@@ -2059,18 +2059,20 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${clefW}" y1="${y}" x2="${W-2}" y2="${y}" stroke="#1a1a1a" stroke-width="0.8"/>`;
   }
 
-  // Treble clef glyph + optional 8 / 15 below for 8vb / 15ma bassa
-  const octaveMark = shiftCount === 2 ? '15' : '8';
+  // Treble clef glyph + optional ↓ / ↓↓ below — each arrow = "sounds one
+  // octave lower than written" (8vb / 15ma bassa, but easier to read at a glance)
+  const arrows = '↓'.repeat(shiftCount);
   let clef = '';
   if (showClef) {
     const clefFs = lineSp * 6.5;
     const clefY = staffTopY + 4 * lineSp - lineSp * 0.55;
     clef = `<text x="${clefW * 0.05}" y="${clefY}" font-size="${clefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>`;
     if (shifted) {
-      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.5}" font-size="${lineSp * 1.5}" font-family="serif" font-style="italic" fill="#1a1a1a" text-anchor="middle">${octaveMark}</text>`;
+      clef += `<text x="${clefW * 0.55}" y="${staffBotY + lineSp * 1.6}" font-size="${lineSp * 1.5}" font-family="sans-serif" font-weight="700" fill="#a07820" text-anchor="middle" letter-spacing="-1">${arrows}</text>`;
     }
   } else if (shifted) {
-    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="serif" font-style="italic" fill="#1a1a1a" opacity="0.55" text-anchor="middle">${octaveMark}</text>`;
+    // No clef shown — render the arrows centered in the small left margin
+    clef = `<text x="${clefW * 0.5}" y="${staffBotY + lineSp * 1.4}" font-size="${lineSp * 1.2}" font-family="sans-serif" font-weight="700" fill="#a07820" opacity="0.7" text-anchor="middle" letter-spacing="-1">${arrows}</text>`;
   }
 
   // Ledger lines
