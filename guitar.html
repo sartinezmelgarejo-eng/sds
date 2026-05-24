@@ -527,6 +527,35 @@
     gap: 14px;
     align-self: flex-start;
   }
+  /* Piano keyboard — shown when state.instrument === 'piano' */
+  .piano-svg {
+    display: none;
+    width: 100%;
+    height: 200px;
+  }
+  body.instrument-piano #chord-neck { display: none; }
+  body.instrument-piano .piano-svg { display: block; }
+  /* Piano keyboard keys — renamed kb- to avoid collision with header's key-picker .pk- classes */
+  .kb-white { fill: #fdfcf3; stroke: #1a1a1a; stroke-width: 1.2; }
+  .kb-black { fill: #1a1a1a; stroke: #000; }
+  .kb-dot   { stroke: rgba(0,0,0,0.4); stroke-width: 1; }
+  .kb-deg {
+    font-family: 'SF Mono', monospace;
+    font-size: 11px;
+    font-weight: 800;
+    text-anchor: middle;
+    fill: #fff;
+    pointer-events: none;
+  }
+  .kb-deg.dark { fill: #1a1a1a; }
+  .kb-octave-label {
+    font-family: 'SF Mono', monospace;
+    font-size: 9px;
+    fill: var(--text-faint);
+    text-anchor: middle;
+    pointer-events: none;
+  }
+
   .scale-neck {
     width: 100%;
     height: 300px;
@@ -1370,6 +1399,14 @@
   </div>
 
   <div class="ctx-block">
+    <div class="ctx-label">Instrument</div>
+    <div class="toggle" id="instrument-toggle">
+      <button class="active" data-instrument="guitar" title="Guitar fretboard">🎸</button>
+      <button data-instrument="piano" title="Piano keyboard">🎹</button>
+    </div>
+  </div>
+
+  <div class="ctx-block">
     <div class="ctx-label">Chords</div>
     <button class="auto-btn" id="chord-scope" style="font-weight:600" title="filter which chords appear in the map and progressions">✦ All</button>
   </div>
@@ -1439,6 +1476,7 @@
       <div class="neck-block">
         <div class="neck-label">chord</div>
         <svg class="scale-neck" id="chord-neck" preserveAspectRatio="xMidYMid meet"></svg>
+        <svg class="piano-svg" id="chord-piano" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
     </div>
   </div>
@@ -1821,6 +1859,7 @@ function shellVoicing(quality, rootPc, type = 'A') {
 const state = {
   keyPc: 0,
   tonality: 'major',
+  instrument: 'guitar',     // 'guitar' | 'piano' — swaps chord neck for piano keyboard
   display: 'notes',
   focusedChord: 'I',
   userVoicing: null,
@@ -2489,6 +2528,21 @@ function syncTonalityToggle() {
     b.classList.toggle('active', b.dataset.tonality === state.tonality);
   });
 }
+
+// ── Instrument toggle: 🎸 (guitar fretboard) ↔ 🎹 (piano keyboard) ──
+document.querySelectorAll('#instrument-toggle button').forEach(b => {
+  b.addEventListener('click', () => {
+    state.instrument = b.dataset.instrument;
+    document.body.classList.toggle('instrument-piano', state.instrument === 'piano');
+    document.body.classList.toggle('instrument-guitar', state.instrument === 'guitar');
+    document.querySelectorAll('#instrument-toggle button').forEach(bb => {
+      bb.classList.toggle('active', bb.dataset.instrument === state.instrument);
+    });
+    if (typeof renderChordPiano === 'function') renderChordPiano();
+  });
+});
+// Apply initial body class so CSS picks it up on first load
+document.body.classList.add('instrument-guitar');
 
 /* ════════════════════════════════════════════════════════════
    ORCHESTRATE
@@ -5119,6 +5173,112 @@ function renderChordNeck() {
   });
   // Initial paint of the notes
   repaintChordNeckNotes();
+  // Also paint piano (so when user toggles, it's already populated)
+  renderChordPiano();
+}
+
+/* ════════════════════════════════════════════════════════════
+   PIANO KEYBOARD — alternative to the chord neck
+   ════════════════════════════════════════════════════════════ */
+
+const PIANO_START_MIDI = 36;   // C2
+const PIANO_END_MIDI   = 84;   // C6 (4 octaves)
+
+function isBlackKey(midi) {
+  const pc = ((midi % 12) + 12) % 12;
+  return pc === 1 || pc === 3 || pc === 6 || pc === 8 || pc === 10;
+}
+
+function renderChordPiano() {
+  const svg = document.getElementById('chord-piano');
+  if (!svg) return;
+  const W = 700;
+  const H = 130;
+
+  // White-key MIDIs and their column indices
+  const whiteIdx = {};
+  let wIdx = 0;
+  for (let m = PIANO_START_MIDI; m <= PIANO_END_MIDI; m++) {
+    if (!isBlackKey(m)) { whiteIdx[m] = wIdx++; }
+  }
+  const whiteCount = wIdx;
+  const wkW = W / whiteCount;
+  const wkH = H;
+  const bkW = wkW * 0.62;
+  const bkH = H * 0.62;
+
+  let s = '';
+  // White keys
+  for (const m in whiteIdx) {
+    const x = whiteIdx[m] * wkW;
+    const isC = (((+m) % 12) + 12) % 12 === 0;
+    s += `<rect class="kb kb-white" data-midi="${m}" x="${x}" y="0" width="${wkW - 0.6}" height="${wkH}" rx="2"/>`;
+    if (isC) {
+      const oct = Math.floor((+m) / 12) - 1;
+      s += `<text class="kb-octave-label" x="${x + wkW/2}" y="${wkH - 4}">C${oct}</text>`;
+    }
+  }
+  // Black keys — center on the boundary between adjacent white keys
+  for (let m = PIANO_START_MIDI; m <= PIANO_END_MIDI; m++) {
+    if (!isBlackKey(m)) continue;
+    const nextWhite = whiteIdx[m + 1];
+    if (nextWhite == null) continue;
+    const cx = nextWhite * wkW;
+    s += `<rect class="kb kb-black" data-midi="${m}" x="${cx - bkW/2}" y="0" width="${bkW}" height="${bkH}" rx="2"/>`;
+  }
+  // Container group for lit-key overlays — rendered last so it's on top
+  s += `<g id="piano-lit-group"></g>`;
+
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = s;
+  paintPianoNotes();
+}
+
+// Repaint just the lit-key overlays (called when the chord changes)
+function paintPianoNotes() {
+  const svg = document.getElementById('chord-piano');
+  if (!svg) return;
+  const group = document.getElementById('piano-lit-group');
+  if (!group) return;
+  group.innerHTML = '';
+
+  const liveShape = state.playerVoicing?.shape || focusedShape()?.shape;
+  const liveChordId = state.playerVoicing?.chord || state.focusedChord;
+  if (!liveShape || !liveChordId) return;
+  const map = currentMap();
+  const ch = map.chordDefs[liveChordId];
+  if (!ch) return;
+  const root = chordRoot(ch);
+  const q = QUALITIES[ch.quality];
+  // Map of pc -> degree label
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((root + semi) % 12 + 12) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
+
+  // Lit MIDIs from the current voicing
+  const lit = liveShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+
+  let s = '';
+  for (const midi of lit) {
+    const keyEl = svg.querySelector(`[data-midi="${midi}"]`);
+    if (!keyEl) continue;
+    const bb = keyEl.getBBox();
+    const pc = ((midi % 12) + 12) % 12;
+    const deg = pcToDeg[pc] || '';
+    const color = intervalColor(deg) || '#a07820';
+    const cx = bb.x + bb.width / 2;
+    const isBlack = isBlackKey(midi);
+    const r = isBlack ? 8 : 10;
+    const cy = bb.y + bb.height - (isBlack ? 14 : 18);
+    s += `<circle class="kb-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+    if (deg) {
+      const isDarkText = (color === '#facc15' || color === '#fde68a' || color === '#f4c542');
+      s += `<text class="kb-deg ${isDarkText ? 'dark' : ''}" x="${cx}" y="${cy + 4}">${deg}</text>`;
+    }
+  }
+  group.innerHTML = s;
 }
 
 // Compute the box that should be highlighted right now, based on the active voicing
@@ -5438,6 +5598,9 @@ function _paintChordVoicing(shape, chordId, preview, geo, staysSet) {
   return s;
 }
 
+// Repaint piano keys alongside chord-neck notes
+const _origRepaintWrap = (fn) => function() { fn.apply(this, arguments); paintPianoNotes(); };
+
 // Re-render the chord-neck note dots without rebuilding the SVG (so pan transform persists).
 function repaintChordNeckNotes() {
   const panInner = document.getElementById('chord-pan-inner');
@@ -5473,6 +5636,7 @@ function repaintChordNeckNotes() {
     s += _paintChordVoicing(liveShape, liveChordId, false, geo, staysSet);
   }
   notesG.innerHTML = s;
+  paintPianoNotes();   // keep the piano lit-keys in sync
 }
 
 function renderAll() {
