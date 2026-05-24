@@ -2250,15 +2250,16 @@ function trebleClefSVG(cx, gLineY, lineSp, minimal) {
         dominant-baseline="central">𝄞</text>`;
 }
 function bassClefSVG(cx, fLineY, lineSp, minimal) {
-  // Real bass clef glyph (𝄢, U+1D122). Mirrors trebleClefSVG but the bass
-  // glyph reads heavier per em-unit, so use slightly smaller multipliers.
-  // Most fonts draw 𝄢 with its visual centroid sitting ABOVE the em-box
-  // center, which makes a centrally-baselined glyph look too high — nudge
-  // Y down by ~0.4 lineSp to bring the "dot" back onto F3.
-  const fs = lineSp * (minimal ? 2.8 : 4.6);
-  // 𝄢 sits high inside its em-box; push the glyph down so the dot lands on
-  // F3 without the curl floating above the top staff line.
-  const y  = fLineY + lineSp * 0.9;
+  // Real bass clef glyph (𝄢, U+1D122). Sized to engraving spec: the body
+  // of the F-clef fills the bass staff (~4 line-spacings tall). The visible
+  // glyph in Apple Symbols / Segoe UI Symbol / Noto Music is roughly 0.55–
+  // 0.60 of the font-size, so multiplying lineSp by ~6.7 yields ≈ 4·lineSp
+  // of visible glyph — exactly the height of the staff.
+  const fs = lineSp * (minimal ? 4.4 : 6.7);
+  // Em-box centroid sits above the glyph's visual midpoint; bias down so
+  // the dot of the clef lands on F3 (fLineY) and the curl tucks under the
+  // top staff line.
+  const y  = fLineY + lineSp * 0.55;
   return `<text x="${cx}" y="${y}"
         font-size="${fs}"
         font-family="'Bravura Text','Petaluma','Maestro','Sebastian','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola','Times New Roman',serif"
