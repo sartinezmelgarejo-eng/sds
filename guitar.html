@@ -429,6 +429,26 @@
     color: #d4a843;
     text-shadow: 0 0 8px rgba(212,168,67,0.75);
   }
+  /* Count-in: the 4 beats before the song actually starts. Tint everything
+     gold so the user knows this is the "1, 2, 3, 4" before the band enters. */
+  #player-info .pi-beats.count-in .pi-beat {
+    color: rgba(212,168,67,0.30);
+  }
+  #player-info .pi-beats.count-in .pi-beat.on {
+    color: #d4a843;
+    text-shadow: 0 0 10px rgba(212,168,67,0.85);
+    transform: scale(1.35);
+  }
+  /* Tiny "count-in" caption that fades in next to the beat dots */
+  #player-info .pi-beats.count-in::before {
+    content: 'count-in';
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 10px;
+    color: #a07820;
+    margin-right: 4px;
+    opacity: 0.75;
+  }
   /* Iteration count — mono, smaller */
   #player-info .pi-iter {
     font-family: 'SF Mono', monospace;
@@ -3997,19 +4017,27 @@ class Player {
     updateBlinkRate();
 
     // Sync the first bar with the metronome's next downbeat so they line up
+    let firstBarStart;
     if (wasMetronomePlaying) {
       const downbeat = metronome.nextDownbeatTime();
-      this.nextBarTime = (downbeat !== null && downbeat > ctx.currentTime + 0.05)
+      firstBarStart = (downbeat !== null && downbeat > ctx.currentTime + 0.05)
         ? downbeat
         : ctx.currentTime + 0.08;
     } else {
-      this.nextBarTime = ctx.currentTime + 0.08;
+      firstBarStart = ctx.currentTime + 0.08;
     }
-    this._triggerChord(this._currentChordId());
+
+    // Count-in: 4 ticks of the metronome before the first chord enters. Lets
+    // the user feel the tempo and "come in" with the band.
+    const beatDur = 60 / metronome.bpm;
+    const COUNT_IN_BEATS = 4;
+    firstBarStart += COUNT_IN_BEATS * beatDur;
+
+    this.nextBarTime = firstBarStart;
+    this._countInUntil = firstBarStart;            // for the UI to flag count-in mode
+    this.forceTriggerAtNextBar = true;             // scheduler triggers chord 1 at firstBarStart
     this._updateVisuals();
 
-    const beatDur = 60 / metronome.bpm;
-    this.nextBarTime += beatDur * 4;
     this.timer = setInterval(() => this._scheduler(), 30);
     startBeatCounterLoop();
   }
@@ -4053,6 +4081,7 @@ class Player {
       // If user jumped, trigger the new chord at THIS bar boundary instead of advancing
       if (this.forceTriggerAtNextBar) {
         this.forceTriggerAtNextBar = false;
+        this._countInUntil = 0;          // exit count-in visual mode
         this._triggerChord(this._currentChordId());
         this.totalBars++;
         this._updateVisuals();
@@ -5446,6 +5475,7 @@ let _beatLoopId = null;
 function startBeatCounterLoop() {
   if (_beatLoopId) return;
   let lastBeat = -1;
+  let lastCountIn = null;
   function tick() {
     if (!player || !player.playing || !audioCtx) {
       _beatLoopId = null;
@@ -5455,8 +5485,12 @@ function startBeatCounterLoop() {
     const barStart = player.nextBarTime - beatDur * 4;
     const elapsed = audioCtx.currentTime - barStart;
     const beatInBar = ((Math.floor(elapsed / beatDur) % 4) + 4) % 4;
-    if (beatInBar !== lastBeat) {
+    const inCountIn = !!(player._countInUntil && audioCtx.currentTime < player._countInUntil - 0.02);
+    if (beatInBar !== lastBeat || inCountIn !== lastCountIn) {
       lastBeat = beatInBar;
+      lastCountIn = inCountIn;
+      const beatsEl = document.querySelector('#player-info .pi-beats');
+      if (beatsEl) beatsEl.classList.toggle('count-in', inCountIn);
       document.querySelectorAll('#player-info .pi-beat').forEach((el, i) => {
         el.classList.toggle('on', i === beatInBar);
       });
