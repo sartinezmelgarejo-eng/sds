@@ -2183,7 +2183,10 @@ function renderContinuationStaff(sizing) {
   const bassTopY   = trebleBotY + lineSp * gapY;
   const bassBotY   = bassTopY + 4 * lineSp;
   const middleCY   = trebleBotY + lineSp;
-  const linesStartX = showClef ? clefW : 0;
+  // Staff lines run all the way to the left edge; the clef glyph overlays
+  // them (classical engraving). This keeps the clef visually inside the
+  // staff instead of pushing it into its own left margin.
+  const linesStartX = 0;
 
   let lines = '';
   for (let i = 0; i < 5; i++) {
@@ -2344,7 +2347,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // 5 staff lines per staff — extend the FULL width of the cell so adjacent
   // cells' staves visually connect (continuous score look). The vertical bar
   // line at the right edge serves as the compás divider between cells.
-  const linesStartX = showClef ? clefW : 0;
+  // Staff lines run all the way to the left edge; the clef glyph overlays
+  // them (classical engraving). This keeps the clef visually inside the
+  // staff instead of pushing it into its own left margin.
+  const linesStartX = 0;
   let lines = '';
   for (let i = 0; i < 5; i++) {
     const yt = trebleTopY + i * lineSp;
@@ -2352,9 +2358,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${linesStartX}" y1="${yt}" x2="${W}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.7"/>`;
     lines += `<line x1="${linesStartX}" y1="${yb}" x2="${W}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.7"/>`;
   }
-  // Brace bar at left joining the two staves (only on cells that show clefs)
+  // Brace bar joining the two staves — sits flush at the left edge so the
+  // clef glyphs can live inside the staff itself.
   if (showClef) {
-    lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
+    lines += `<line x1="0.7" y1="${trebleTopY}" x2="0.7" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
   }
   // Compás divider — thin vertical line at the right edge of every cell
   lines += `<line x1="${W - 0.5}" y1="${trebleTopY}" x2="${W - 0.5}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="0.8"/>`;
