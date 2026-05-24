@@ -37,6 +37,8 @@
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; touch-action: manipulation; }
+  .midi-export-btn { font-size: 11px !important; padding: 2px 8px !important; opacity: 0.7; }
+  .midi-export-btn:hover { opacity: 1; }
   html, body { height: 100%; }
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -1618,6 +1620,7 @@
     <div class="ctx-label">Song</div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="auto-btn" id="auto-play">▶ AI</button>
+      <button class="auto-btn midi-export-btn" id="midi-export" title="Export composition as MIDI file" style="display:none">⬇ MIDI</button>
       <div id="player-info"></div>
     </div>
   </div>
@@ -7213,6 +7216,126 @@ window.addEventListener('resize', () => {
   renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
 });
+
+/* ─── MIDI Export ─── */
+
+function exportMidi() {
+  const prog = state.composedProgression;
+  if (!prog || !prog.length) return;
+
+  const bpm = metronome.bpm || 120;
+  const map = currentMap();
+  const ticksPerBeat = 480;
+  const beatsPerChord = 4; // one bar per chord, 4/4 time
+
+  // Collect chord MIDI notes from the composed progression
+  const events = [];
+  let tick = 0;
+  for (const cell of prog) {
+    const def = map.chordDefs[cell.chord];
+    if (!def) continue;
+
+    let notes;
+    if (cell.shape && cell.shape.some(f => f >= 0)) {
+      // Use the stored guitar voicing shape
+      notes = cell.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+    } else {
+      // Fallback: build from intervals in a piano-friendly range
+      const rootPc = (state.keyPc + def.deg) % 12;
+      const q = QUALITIES[def.quality];
+      if (!q) continue;
+      notes = q.ints.map(i => 48 + rootPc + i); // C3 base
+    }
+
+    const dur = ticksPerBeat * beatsPerChord;
+    for (const n of notes) {
+      events.push({ tick, type: 'on',  note: n, vel: 90 });
+      events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
+    }
+    tick += dur;
+  }
+
+  // Build MIDI file (format 0, single track)
+  const buf = [];
+  const w8  = (v) => buf.push(v & 0xff);
+  const w16 = (v) => { w8(v >> 8); w8(v); };
+  const w32 = (v) => { w16(v >> 16); w16(v); };
+  const wStr = (s) => { for (let i = 0; i < s.length; i++) w8(s.charCodeAt(i)); };
+  const wVLQ = (v) => {
+    const bytes = [];
+    bytes.push(v & 0x7f);
+    v >>= 7;
+    while (v > 0) { bytes.push((v & 0x7f) | 0x80); v >>= 7; }
+    bytes.reverse().forEach(b => w8(b));
+  };
+
+  // Header chunk
+  wStr('MThd'); w32(6); w16(0); w16(1); w16(ticksPerBeat);
+
+  // Build track data
+  const trackBuf = [];
+  const tw8  = (v) => trackBuf.push(v & 0xff);
+  const tw16 = (v) => { tw8(v >> 8); tw8(v); };
+  const twVLQ = (v) => {
+    const bytes = [];
+    bytes.push(v & 0x7f);
+    v >>= 7;
+    while (v > 0) { bytes.push((v & 0x7f) | 0x80); v >>= 7; }
+    bytes.reverse().forEach(b => tw8(b));
+  };
+
+  // Tempo meta event
+  const uspb = Math.round(60000000 / bpm);
+  twVLQ(0); tw8(0xff); tw8(0x51); tw8(3);
+  tw8((uspb >> 16) & 0xff); tw8((uspb >> 8) & 0xff); tw8(uspb & 0xff);
+
+  // Key name as track name
+  const keyName = ROOTS[state.keyPc].name + ' ' + state.tonality;
+  twVLQ(0); tw8(0xff); tw8(0x03); twVLQ(keyName.length);
+  for (let i = 0; i < keyName.length; i++) tw8(keyName.charCodeAt(i));
+
+  // Sort events by tick, note-off before note-on at same tick
+  events.sort((a, b) => a.tick - b.tick || (a.type === 'off' ? -1 : 1));
+
+  let lastTick = 0;
+  for (const ev of events) {
+    const delta = ev.tick - lastTick;
+    lastTick = ev.tick;
+    twVLQ(delta);
+    tw8(ev.type === 'on' ? 0x90 : 0x80);
+    tw8(ev.note);
+    tw8(ev.type === 'on' ? ev.vel : 0);
+  }
+
+  // End of track
+  twVLQ(0); tw8(0xff); tw8(0x2f); tw8(0);
+
+  // Track chunk
+  wStr('MTrk'); w32(trackBuf.length);
+  trackBuf.forEach(b => buf.push(b));
+
+  // Download
+  const blob = new Blob([new Uint8Array(buf)], { type: 'audio/midi' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const keyStr = ROOTS[state.keyPc].name.replace('#', 's').replace('b', 'f');
+  a.href = url;
+  a.download = `guitarra-${keyStr}-${state.tonality}.mid`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Show/hide MIDI button based on composed progression
+const _origRenderComposeStrip = renderComposeStrip;
+renderComposeStrip = function() {
+  _origRenderComposeStrip.apply(this, arguments);
+  const btn = document.getElementById('midi-export');
+  if (btn) btn.style.display = state.composedProgression.length ? '' : 'none';
+};
+
+document.getElementById('midi-export').addEventListener('click', exportMidi);
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
