@@ -2671,8 +2671,12 @@ function renderChordMap() {
         ? { shape: displayed.shape, ...displayed }
         : null;
 
+      // While the AI is playing, clicking a chord auditions it (plays once,
+      // visually focuses) but does NOT permanently jump the progression —
+      // the next scheduled bar overwrites the audition, "reverting" the
+      // chord automatically. To force a real jump, use the keyboard.
       if (player.playing) {
-        player.jumpTo(node.chord);
+        auditionChord(node.chord);
       }
       renderAll();
       ringFocusedChord();
@@ -3738,11 +3742,7 @@ function ringFocusedChord() {
   if (!fs?.shape) return;
   const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
   if (!notes.length) return;
-  // Force a fresh trigger every time (Drone.start would otherwise skip if the
-  // same notes were already playing — which happens when clicking the same
-  // chord twice, or when two chords happen to voice the same pitches).
-  chordDrone.lastNotes = null;
-  chordDrone.start(notes, currentDroneVolume() * 1.8);
+  chordDrone.start(notes, currentDroneVolume() * 1.8, true);
   // Safety: fade the master after ~2s so audio never lingers indefinitely
   if (chordDrone.master && audioCtx) {
     const m = chordDrone.master;
@@ -3750,6 +3750,38 @@ function ringFocusedChord() {
     m.gain.cancelScheduledValues(now + 2);
     m.gain.setTargetAtTime(0, now + 2, 0.5);
   }
+}
+
+// Audition a chord WHILE the AI is playing — rings the clicked chord on top
+// of the playback so the user can hear what they tapped, without altering the
+// progression. The next bar boundary's scheduled chord will naturally
+// overwrite the audition, restoring whatever was supposed to be playing.
+// A timeout also reverts the visual focus to the chord that's actually
+// sounding, so the highlight doesn't get stuck on the auditioned card.
+let _auditionRevertTimer = null;
+function auditionChord(chordId) {
+  if (!player.playing) return;
+  ensureAudio();
+  const fs = focusedShape();
+  if (!fs?.shape) return;
+  const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  if (!notes.length) return;
+  chordDrone.start(notes, currentDroneVolume() * 1.8, true);
+  // Revert the focused chord back to whatever the player is on after a few
+  // seconds (or sooner if the user clicks again — the timer is replaced).
+  if (_auditionRevertTimer) clearTimeout(_auditionRevertTimer);
+  _auditionRevertTimer = setTimeout(() => {
+    _auditionRevertTimer = null;
+    if (!player.playing) return;
+    state.focusedChord = player.currentChord || state.focusedChord;
+    state.userVoicing = null;
+    renderAll();
+    // Re-apply playing / next-up classes lost during renderAll
+    document.querySelectorAll('.map-card').forEach(c => {
+      if (c.dataset.chord === player.currentChord) c.classList.add('playing');
+      else if (c.dataset.chord === player.nextChord) c.classList.add('next-up');
+    });
+  }, 3500);
 }
 
 /* ─── Chord-scope filter ─── */
