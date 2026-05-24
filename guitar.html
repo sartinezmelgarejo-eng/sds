@@ -534,6 +534,24 @@
     gap: 14px;
     align-self: flex-start;
   }
+  /* Piano-mode tab cells: drop the heavy borders so staff lines flow across
+     cells like one continuous staff — the SVG itself draws the compás bar
+     line between cells. */
+  body.instrument-piano .rb-tab-cell {
+    border: none !important;
+    padding: 0 !important;
+    background: #fdfcf3 !important;
+  }
+  body.instrument-piano .real-book-tabs {
+    border: 1.2px solid #1a1a1a;
+  }
+  body.instrument-piano .real-book.compose-interleaved .rb-tab-cell {
+    border-bottom: none !important;
+  }
+  body.instrument-piano .real-book.compose-interleaved {
+    border: 1.2px solid #1a1a1a;
+    background: #fdfcf3;
+  }
   /* Piano keyboard — shown when state.instrument === 'piano' */
   .piano-svg {
     display: none;
@@ -600,7 +618,7 @@
     border: 1.5px solid #1a1a1a;
     border-top: none;
     background: #fdfcf3;
-    height: 150px;     /* taller so the staff has room for proper line spacing */
+    height: 115px;     /* taller so the staff has room for proper line spacing */
   }
   .real-book-tabs[hidden] { display: none; }
   /* Tabs row extends across only the chord-cell width (matching real-book above).
@@ -746,7 +764,7 @@
       height: auto;
       /* Show exactly 2 sets (chord-row + tab-row, twice). Cells got thicker
          so the slot needs ~260 to keep showing 2 full sets without scroll. */
-      max-height: 380px;
+      max-height: 290px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
     }
@@ -769,7 +787,7 @@
       white-space: nowrap;
     }
     body:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
-      min-height: 132px;
+      min-height: 96px;
       padding: 1px;          /* drop the 4px frame so the diagram can reach the edges */
     }
     /* Drop right border on every 4th cell (right edge of each row) */
@@ -2078,19 +2096,23 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     return { midi, pc, acc, letter, step, useTreble, y };
   });
 
-  // 5 staff lines per staff
+  // 5 staff lines per staff — extend the FULL width of the cell so adjacent
+  // cells' staves visually connect (continuous score look). The vertical bar
+  // line at the right edge serves as the compás divider between cells.
+  const linesStartX = showClef ? clefW : 0;
   let lines = '';
   for (let i = 0; i < 5; i++) {
     const yt = trebleTopY + i * lineSp;
     const yb = bassTopY   + i * lineSp;
-    lines += `<line x1="${clefW}" y1="${yt}" x2="${W-2}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.7"/>`;
-    lines += `<line x1="${clefW}" y1="${yb}" x2="${W-2}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    lines += `<line x1="${linesStartX}" y1="${yt}" x2="${W}" y2="${yt}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    lines += `<line x1="${linesStartX}" y1="${yb}" x2="${W}" y2="${yb}" stroke="#1a1a1a" stroke-width="0.7"/>`;
   }
-  // Brace bar at left joining the two staves (only on cells that show clefs,
-  // otherwise the bar would float orphaned)
+  // Brace bar at left joining the two staves (only on cells that show clefs)
   if (showClef) {
     lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
   }
+  // Compás divider — thin vertical line at the right edge of every cell
+  lines += `<line x1="${W - 0.5}" y1="${trebleTopY}" x2="${W - 0.5}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="0.8"/>`;
 
   // Only the treble (G) clef is drawn. The bass staff lines stay so low
   // chord tones still have their proper home, just without an F-clef letter
@@ -4900,7 +4922,7 @@ class Player {
       const showClef = (i === 0);
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: true, showClef})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 113, minimal: true, showClef})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
@@ -6287,8 +6309,8 @@ function renderComposeStrip() {
       const perRow = isMobile ? 4 : 8;
       const showClef = (i % perRow === 0);
       const sizing = isMobile
-        ? {W: 100, H: 130, r: 7, minimal: true, showClef}
-        : {W: 130, H: 148, r: 6, minimal: true, showClef};
+        ? {W: 100, H: 94, r: 7, minimal: true, showClef}
+        : {W: 130, H: 113, r: 6, minimal: true, showClef};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
