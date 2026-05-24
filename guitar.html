@@ -1355,6 +1355,15 @@
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
   }
+  /* Keep label + notes to single lines so cards stay the same height no
+     matter how long the family/inversion text gets. Truncate with … if needed. */
+  .alt-card .ac-label,
+  .alt-card .ac-notes {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
 
   /* ─── Fretboard ─── */
   .fb-wrap {
@@ -2964,7 +2973,8 @@ function renderAlternatives() {
     </div>
   `;
 
-  const TYPE_LABEL = { drop2: 'Drop-2', shell: 'Shell', triad: 'Triad', guide: 'Guide', sus: 'Sus' };
+  // Short codes so each card label still fits on one line in a 100px-wide cell.
+  const TYPE_LABEL = { drop2: 'D2', shell: 'Sh', triad: 'Tri', guide: 'Gd', sus: 'Sus' };
   const INV_LABEL = ['R','1st','2nd','3rd'];
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
 
@@ -3019,6 +3029,16 @@ function renderAlternatives() {
       renderAll();
     });
   });
+  // Auto-scroll the row so the currently-selected card is centered. Uses
+  // requestAnimationFrame so layout is done before we measure offsetLeft.
+  // inline-only scroll (no vertical jump) keeps the rest of the page steady.
+  requestAnimationFrame(() => {
+    const sel = altRow.querySelector('.alt-card.selected');
+    if (!sel || altRow.clientWidth <= 0) return;
+    const target = sel.offsetLeft - altRow.clientWidth / 2 + sel.offsetWidth / 2;
+    altRow.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
+  });
+
   altRow.querySelectorAll('[data-idx]').forEach(card => {
     card.addEventListener('click', () => {
       const c = cands[+card.dataset.idx];
