@@ -5177,7 +5177,7 @@ class Player {
       if (cell.barIdxInChord > 0) {
         if (state.instrument === 'piano') {
           const showClefC = (i === 0);
-          return `<div class="${cls}">${renderContinuationStaff({W: 130, H: 148, showClef: showClefC})}</div>`;
+          return `<div class="${cls}">${renderContinuationStaff({W: 130, H: 148, minimal: window.innerWidth <= 800, showClef: showClefC})}</div>`;
         }
         return `<div class="${cls}"></div>`;
       }
@@ -5192,9 +5192,13 @@ class Player {
       // Clef only on the first cell of the row (the rest inherit it visually)
       const showClef = (i === 0);
       const cellName = nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[ch.quality].sfx;
+      // Mobile playback inherits the same minimal sizing compose uses, so the
+      // chord name is the same on-screen size whether you're composing or the
+      // AI is playing.
+      const isMobileNow = window.innerWidth <= 800;
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
