@@ -2058,16 +2058,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     lines += `<line x1="${clefW}" y1="${trebleTopY}" x2="${clefW}" y2="${bassBotY}" stroke="#1a1a1a" stroke-width="1.4"/>`;
   }
 
-  // Clefs (Unicode glyphs scaled to their staff)
+  // Clefs (Unicode glyphs anchored on their canonical staff lines —
+  // 𝄞 baseline on G4 (2nd line of treble), 𝄢 baseline on F3 (4th line of
+  // bass). Font sizes deliberately conservative so the glyph doesn't bulge
+  // out of the cell on mobile where lineSp is small.
   let clef = '';
   if (showClef) {
-    const trebleClefFs = lineSp * 6.5;
-    const bassClefFs   = lineSp * 4.0;
-    const trebleClefY  = trebleBotY - lineSp * 0.5;       // tail of 𝄞 hooks under G line
-    const bassClefY    = bassTopY + 2 * lineSp + lineSp * 0.5;
+    const trebleClefFs = lineSp * 5.2;
+    const bassClefFs   = lineSp * 3.4;
+    const trebleClefY  = trebleBotY - lineSp;       // G4 line
+    const bassClefY    = bassTopY + lineSp;         // F3 line
     clef =
-      `<text x="${clefW * 0.05}" y="${trebleClefY}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a">𝄞</text>` +
-      `<text x="${clefW * 0.05}" y="${bassClefY}"   font-size="${bassClefFs}"   font-family="serif" fill="#1a1a1a">𝄢</text>`;
+      `<text x="${clefW * 0.08}" y="${trebleClefY}" font-size="${trebleClefFs}" font-family="serif" fill="#1a1a1a" dominant-baseline="alphabetic">𝄞</text>` +
+      `<text x="${clefW * 0.08}" y="${bassClefY}"   font-size="${bassClefFs}"   font-family="serif" fill="#1a1a1a" dominant-baseline="alphabetic">𝄢</text>`;
   }
 
   // Ledger lines — drawn per-staff (treble or bass) based on each note's home
