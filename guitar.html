@@ -1640,7 +1640,7 @@
   <div class="map-wrap">
     <div class="chord-map-host">
       <div class="chord-map" id="chord-map">
-        <svg class="map-arrows" id="map-arrows" preserveAspectRatio="none"></svg>
+        <svg class="map-arrows" id="map-arrows"></svg>
       </div>
     </div>
     <div class="map-side-panel">
@@ -2759,7 +2759,22 @@ function renderChordMap() {
       else opacity = 0.55;
     }
 
-    return `<path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${accentColor}" stroke-width="1.8" opacity="${opacity}" stroke-linecap="round" marker-end="url(#ah-hl)"/>`;
+    // Hand-rolled arrowhead — compute the exact tangent at the path end so
+    // direction is guaranteed correct on every browser (mobile Safari has
+    // historically mis-oriented SVG <marker> arrows with curved Q paths).
+    // Tangent of Q at t=1 is (end - control), pointing OUT of the path end.
+    const tdx = ex - cx, tdy = ey - cy;
+    const tlen = Math.sqrt(tdx*tdx + tdy*tdy) || 1;
+    const tux = tdx / tlen, tuy = tdy / tlen;
+    const arrSize = 7;
+    // Tip sits at (ex,ey); two wings flare backward along -tangent ± perpendicular
+    const baseX = ex - tux * arrSize;
+    const baseY = ey - tuy * arrSize;
+    const wing = arrSize * 0.55;
+    const w1x = baseX + (-tuy) * wing, w1y = baseY + ( tux) * wing;
+    const w2x = baseX - (-tuy) * wing, w2y = baseY - ( tux) * wing;
+    const head = `<polyline points="${w1x.toFixed(1)},${w1y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}" fill="none" stroke="${accentColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}"/>`;
+    return `<path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${accentColor}" stroke-width="1.8" opacity="${opacity}" stroke-linecap="round"/>${head}`;
   }).join('');
 
   // ── Light up the cards connected to the focused chord ──
