@@ -549,29 +549,16 @@
   body.instrument-piano .real-book:not(.compose-interleaved) {
     display: none !important;
   }
-  /* In piano compose, ensure the chord-name cells stay visible with full
-     readable typography. */
-  body.instrument-piano .real-book.compose-interleaved .rb-cell {
-    display: flex !important;
-    background: #fdfcf3 !important;
-    color: var(--text) !important;
-    visibility: visible !important;
-    min-height: 64px !important;
-    border-bottom: 1px solid rgba(26,26,26,0.4) !important;
+  /* Piano mode: hide the chord-name cells in compose-interleaved too —
+     the chord name lives inside the staff SVG (Real-Book style) so a
+     second big name on top would be redundant. */
+  body.instrument-piano .real-book.compose-interleaved > .rb-cell {
+    display: none !important;
   }
-  body.instrument-piano .real-book.compose-interleaved .rb-cell .rb-roman,
-  body.instrument-piano .real-book.compose-interleaved .rb-cell .rb-chord {
-    display: block !important;
-    visibility: visible !important;
-    color: var(--text) !important;
-    opacity: 1 !important;
-  }
-  /* Fallback fixed sizes in case container-query units aren't applying */
-  body.instrument-piano .real-book.compose-interleaved .rb-cell .rb-roman {
-    font-size: 14px !important;
-  }
-  body.instrument-piano .real-book.compose-interleaved .rb-cell .rb-chord {
-    font-size: 26px !important;
+  /* With chord-name cells out of the way, give each tab cell more vertical
+     room — the staff and the embedded chord-name label breathe properly. */
+  body.instrument-piano .real-book.compose-interleaved > .rb-tab-cell {
+    min-height: 130px !important;
   }
   /* Piano PLAYBACK: row 1 (chord-name strip + cycle) hidden because the
      chord name is embedded in the staff SVG. NOT applied in compose mode —
@@ -6451,7 +6438,7 @@ function renderComposeStrip() {
       const showClef = (i % perRow === 0);
       const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
       const sizing = isMobile
-        ? {W: 100, H: 94, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman}
+        ? {W: 100, H: 128, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman}
         : {W: 130, H: 148, r: 6, minimal: true, showClef, chordName: cellChordName, roman: ch.roman};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
