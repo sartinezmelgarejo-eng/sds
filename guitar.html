@@ -542,6 +542,17 @@
     padding: 0 !important;
     background: #fdfcf3 !important;
   }
+  /* In piano mode the chord NAME row vanishes — the name is embedded above
+     the staff inside the SVG, Real-Book style. Saves a whole row of height.
+     - Playback Real Book: hide the chord-row container entirely.
+     - Compose strip (interleaved mode): hide only the chord-name cells,
+       not the tab cells (which share the same .real-book container). */
+  body.instrument-piano .real-book:not(.compose-interleaved) {
+    display: none !important;
+  }
+  body.instrument-piano .real-book.compose-interleaved > .rb-cell {
+    display: none !important;
+  }
   body.instrument-piano .real-book-tabs {
     border: none !important;
     background: #fdfcf3;
@@ -2065,10 +2076,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Budget the whole vertical space across both staves + a generous gap for
   // the middle-C ledger zone. Two staves × 4 line-spacings each + gap + pad
   // = H, so lineSp = (H - pad*2 - gap) / 8.
-  // padTop slightly tighter and padBot looser — chord tones drop below the
-  // bass staff more often than they rise above the treble, so favor the
-  // bottom with extra breathing room.
-  const padTop = 3;
+  // Top zone reserved for the chord-name label (Real-Book style above the
+  // staff). padBot a bit looser so low chord tones never clip.
+  const nameLabel = sizing?.chordName || '';
+  const romanLabel = sizing?.roman || '';
+  const labelH = (nameLabel || romanLabel) ? (sizing?.minimal ? 18 : 22) : 3;
+  const padTop = labelH;
   const padBot = (sizing?.minimal ? 7 : 9);
   const gapY = (sizing?.minimal ? 1.6 : 1.8);     // gap measured in line-spacings
   const lineSp = (H - padTop - padBot) / (8 + gapY);
@@ -2237,11 +2250,33 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     </g>`;
   });
 
+  // Chord-name label above the staff (Real-Book style). Drawn in OUTER
+  // (stretched) layer so the text starts flush with the cell's left edge
+  // regardless of letterboxing of the inner SVG.
+  let nameSvg = '';
+  if (nameLabel) {
+    const nameFs = sizing?.minimal ? 13 : 16;
+    const romanFs = sizing?.minimal ? 9 : 11;
+    const tx = 4;
+    const ty = labelH * 0.66;
+    nameSvg += `<text x="${tx}" y="${ty}" font-size="${nameFs}"
+                font-family="'Cormorant Garamond', Georgia, serif"
+                font-style="italic" font-weight="700" fill="#1a1a1a">${nameLabel}</text>`;
+    if (romanLabel) {
+      // Roman numeral sits just to the right of the chord name, smaller and dimmer
+      const nameApproxW = nameLabel.length * nameFs * 0.45;
+      nameSvg += `<text x="${tx + nameApproxW + 4}" y="${ty}" font-size="${romanFs}"
+                  font-family="'Cormorant Garamond', Georgia, serif"
+                  font-style="italic" font-weight="500" fill="#5a5a64"
+                  opacity="0.75">${romanLabel}</text>`;
+    }
+  }
   // Two-layer SVG: outer stretches (preserveAspectRatio=none) so staff lines
   // and bar-line reach the actual cell edges — adjacent cells connect into
   // one continuous score. Inner keeps aspect so clef + noteheads aren't
   // horizontally distorted.
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
+    ${nameSvg}
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
       ${clef}${ledgers}${notes}
@@ -4943,9 +4978,10 @@ class Player {
       // The colors live on the chord neck and bottom fretboard where they have room.
       // Clef only on the first cell of the row (the rest inherit it visually)
       const showClef = (i === 0);
+      const cellName = nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[ch.quality].sfx;
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: true, showClef})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: true, showClef, chordName: cellName, roman: ch.roman})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
@@ -6331,9 +6367,10 @@ function renderComposeStrip() {
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
       const perRow = isMobile ? 4 : 8;
       const showClef = (i % perRow === 0);
+      const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
       const sizing = isMobile
-        ? {W: 100, H: 94, r: 7, minimal: true, showClef}
-        : {W: 130, H: 148, r: 6, minimal: true, showClef};
+        ? {W: 100, H: 94, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman}
+        : {W: 130, H: 148, r: 6, minimal: true, showClef, chordName: cellChordName, roman: ch.roman};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
