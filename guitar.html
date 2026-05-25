@@ -2042,21 +2042,21 @@
   }
   #landscape-play .lp-staff-area {
     background: #fdfcf3;
-    border: 1px solid #d8cfb5;
-    border-radius: 6px;
+    border: 2px solid #1a1a1a;
+    border-radius: 0;
     overflow: hidden;
     min-height: 0;
   }
   #landscape-play .lp-bottom-row {
     display: grid;
-    grid-template-columns: 1fr 200px;     /* keys take left side, controls float over right */
+    grid-template-columns: 1fr 160px;     /* keys + brutalist control strip */
     gap: 6px;
     min-height: 0;
   }
   #landscape-play .lp-piano-area {
     background: #fdfcf3;
-    border: 1px solid #d8cfb5;
-    border-radius: 6px;
+    border: 2px solid #1a1a1a;
+    border-radius: 0;
     overflow: hidden;
     position: relative;
   }
@@ -2109,52 +2109,81 @@
     border-color: #6b6b6b;
   }
 
-  /* Corner controls (bottom-right). Floating buttons that proxy the
-     main toolbar's play / loop / key shift actions without leaving
-     the follow-along view. */
+  /* ── Brutalist controls ──
+     Hard black borders, no radius, no shadows, no blur. Buttons
+     read as physical switches stamped into the panel. When the
+     layout provides a #lp-controls-slot the strip is embedded
+     inline; otherwise it falls back to the bottom-right corner
+     (guitar mode). */
   #landscape-play .lp-controls {
-    position: absolute;
-    right: max(10px, env(safe-area-inset-right));
-    bottom: max(10px, env(safe-area-inset-bottom));
-    display: flex;
-    gap: 6px;
+    display: grid;
+    grid-template-rows: repeat(3, 1fr);
+    gap: 0;
     z-index: 2;
-    background: rgba(246, 239, 222, 0.92);
-    padding: 4px;
-    border-radius: 999px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
-    backdrop-filter: blur(4px);
+  }
+  /* Guitar fallback: still floating in the corner, brutalist look. */
+  #landscape-play > .lp-controls {
+    position: absolute;
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    grid-template-rows: none;
+    grid-auto-flow: column;
+    height: 44px;
+  }
+  /* Piano embedded: strip fills the controls-slot (right side of
+     the bottom row). Buttons stack vertically with no internal gap
+     and share a thick outer border with the panel. */
+  #landscape-play .lp-controls-slot {
+    border: 2px solid #1a1a1a;
+    background: #fdfcf3;
+    overflow: hidden;
+    display: flex;
+  }
+  #landscape-play .lp-controls-slot .lp-controls {
+    width: 100%;
+    height: 100%;
   }
   #landscape-play .lp-btn {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid #c8bf9f;
+    border: 0;
+    border-radius: 0;
     background: #fdfcf3;
     color: #1a1a1a;
-    font-size: 16px;
-    font-family: 'Cormorant Garamond', Georgia, serif;
-    font-weight: 600;
+    font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    font-weight: 800;
+    font-size: 18px;
     line-height: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     padding: 0;
+    margin: 0;
     -webkit-tap-highlight-color: transparent;
   }
-  #landscape-play .lp-btn:active { background: #f0e6c8; }
-  #landscape-play .lp-btn.active {
-    background: #fcecaa;
-    border-color: #c9a747;
+  /* Hard black dividers between stacked buttons. */
+  #landscape-play .lp-controls-slot .lp-btn + .lp-btn {
+    border-top: 2px solid #1a1a1a;
   }
+  /* Floating (guitar) variant: thick outer border + horizontal
+     dividers between buttons. */
+  #landscape-play > .lp-controls .lp-btn {
+    border: 2px solid #1a1a1a;
+    width: 44px;
+  }
+  #landscape-play > .lp-controls .lp-btn + .lp-btn { border-left: 0; }
+
+  #landscape-play .lp-btn:active { background: #1a1a1a; color: #fdfcf3; }
+  #landscape-play .lp-btn.active { background: #1a1a1a; color: #fdfcf3; }
   #landscape-play .lp-btn-play {
-    background: #059669;
-    color: #fff;
-    border-color: #047857;
-    font-size: 14px;
+    background: #1a1a1a;
+    color: #fdfcf3;
   }
-  #landscape-play .lp-btn-play.active { background: #dc2626; border-color: #991b1b; }
+  #landscape-play .lp-btn-play.active {
+    background: #dc2626;
+    color: #fdfcf3;
+  }
 </style>
 </head>
 <body class="keypad-open">
@@ -7687,6 +7716,7 @@ function lp_buildLayout(mode) {
       <div class="lp-staff-area" id="lp-staff-area"></div>
       <div class="lp-bottom-row">
         <div class="lp-piano-area" id="lp-piano-area"></div>
+        <div class="lp-controls-slot" id="lp-controls-slot"></div>
       </div>`;
   } else {
     body.innerHTML = `
@@ -7729,6 +7759,14 @@ function lp_enter(mode) {
     lp_park(slot.id);
     target.appendChild(el);
   });
+  // Embed the controls strip into the built layout (piano mode) or
+  // leave it floating in the overlay corner (guitar mode).
+  const controls = document.getElementById('lp-controls');
+  const slot = document.getElementById('lp-controls-slot');
+  if (controls) {
+    if (slot) slot.appendChild(controls);
+    else document.getElementById('landscape-play').appendChild(controls);
+  }
   lp_currentMode = mode;
 }
 function lp_exit() {
