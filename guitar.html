@@ -2957,42 +2957,48 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   let notes = '';
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
+    // Each slot is wrapped in a clickable group — click toggles its mute
+    // state (replacing the segment bar's functionality on the staff itself).
+    // A transparent rect covers the slot's column so the user can hit
+    // anywhere in the area, not only on a notehead.
+    let slotInner = '';
     if (subMute[s]) {
-      notes += drawRest(cx);
+      slotInner += drawRest(cx);
       slotStemTreble.push(null);
       slotStemBass.push(null);
-      continue;
-    }
-    notes += ledgersForSlot(cx);
-    positions.forEach((p, i) => {
-      const dx = offsetX[i] || 0;
-      const cxNote = cx + dx;
-      const deg = pcToDeg[p.pc];
-      const isRoot = deg === 'R';
-      const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
-      if (p.acc === '#') notes += svgSharp(cxNote - lineSp * 1.2, p.y);
-      else if (p.acc === 'b') notes += svgFlat(cxNote - lineSp * 1.1, p.y);
-      notes += drawHead(cxNote, p.y, color, isOpen);
-    });
-    if (hasStem) {
-      // For eighth notes we draw stems WITHOUT flags (no `withFlag`) and
-      // collect the stem-end positions to beam consecutive ones below.
-      // Non-eighth stems keep the simple stem (no flag, no beam needed).
-      const drawWithFlag = false;
-      if (treblePos.length) {
-        const r = drawStemForGroup(cx, treblePos, trebleMidY, drawWithFlag);
-        notes += r.svg;
-        slotStemTreble.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
-      } else slotStemTreble.push(null);
-      if (bassPos.length) {
-        const r = drawStemForGroup(cx, bassPos, bassMidY, drawWithFlag);
-        notes += r.svg;
-        slotStemBass.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
-      } else slotStemBass.push(null);
     } else {
-      slotStemTreble.push(null);
-      slotStemBass.push(null);
+      slotInner += ledgersForSlot(cx);
+      positions.forEach((p, i) => {
+        const dx = offsetX[i] || 0;
+        const cxNote = cx + dx;
+        const deg = pcToDeg[p.pc];
+        const isRoot = deg === 'R';
+        const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
+        if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2, p.y);
+        else if (p.acc === 'b') slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
+        slotInner += drawHead(cxNote, p.y, color, isOpen);
+      });
+      if (hasStem) {
+        const drawWithFlag = false;
+        if (treblePos.length) {
+          const r = drawStemForGroup(cx, treblePos, trebleMidY, drawWithFlag);
+          slotInner += r.svg;
+          slotStemTreble.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
+        } else slotStemTreble.push(null);
+        if (bassPos.length) {
+          const r = drawStemForGroup(cx, bassPos, bassMidY, drawWithFlag);
+          slotInner += r.svg;
+          slotStemBass.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
+        } else slotStemBass.push(null);
+      } else {
+        slotStemTreble.push(null);
+        slotStemBass.push(null);
+      }
     }
+    // Transparent hit-target covering the slot column over BOTH staves.
+    // Lives last in the group so it sits ON TOP of notes for clicks.
+    const hitRect = `<rect x="${cx - slotW/2}" y="${trebleTopY - lineSp}" width="${slotW}" height="${bassBotY - trebleTopY + 2 * lineSp}" fill="transparent" style="cursor:pointer" pointer-events="all"/>`;
+    notes += `<g class="staff-slot" data-staff-seg="${s}">${slotInner}${hitRect}</g>`;
   }
 
   // Beams for eighth notes — connect runs of consecutive non-muted slots
@@ -8241,6 +8247,24 @@ document.addEventListener('click', (ev) => {
     ev.stopPropagation();
     const cellIdx = parseInt(seg.dataset.subdivCell, 10);
     const segIdx  = parseInt(seg.dataset.subdivSeg, 10);
+    const seq = state.composedProgression;
+    if (!seq[cellIdx]) return;
+    const cell = seq[cellIdx];
+    if (!cell.subdivMute) cell.subdivMute = new Array(cell.subdivisions || 1).fill(false);
+    cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
+    renderComposeStrip();
+    return;
+  }
+  // ── Staff slot (piano mode): same toggle, but clicking the noteheads
+  //    on the partitura instead of the segment bar (which is hidden in
+  //    piano mode). Finds the parent compose cell to know which index. ──
+  const staffSlot = ev.target.closest('.staff-slot');
+  if (staffSlot) {
+    const parentCell = staffSlot.closest('[data-compose-idx]');
+    if (!parentCell) return;
+    ev.stopPropagation();
+    const cellIdx = parseInt(parentCell.dataset.composeIdx, 10);
+    const segIdx  = parseInt(staffSlot.dataset.staffSeg, 10);
     const seq = state.composedProgression;
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
