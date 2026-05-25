@@ -1134,26 +1134,30 @@
     overflow: hidden;
     min-height: 0;
   }
+  /* Grid (not flex) locks the two columns to exactly 48% / 52% regardless of
+     inner content size — flex was letting the alt-row's min-content blow up
+     the column even with min-width:0 + overflow:hidden in some browsers. */
   .bottom-bar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 48% 52%;
     border-top: 1px solid var(--line);
     background: var(--panel);
     flex-shrink: 0;
     min-height: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   .bottom-bar .alternatives {
-    flex: 0 0 48%;
-    width: 48%;
-    min-width: 0;            /* don't let flex's min-content-auto blow up the column */
+    min-width: 0;            /* grid items, same as flex, need this to let inner overflow scroll */
     box-sizing: border-box;
-    overflow: hidden;        /* clip any rogue child that ignores the 48% bound */
+    overflow: hidden;        /* inner alt-row's overflow-x:auto handles the actual scrolling */
     border-top: none;
     border-right: 1px solid var(--line);
   }
   .bottom-bar .fb-wrap {
-    flex: 1;
-    border-top: none;
     min-width: 0;
+    border-top: none;
+    overflow: hidden;
   }
 
   /* ─── Chord Map ─── */
