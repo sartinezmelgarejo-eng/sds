@@ -4573,7 +4573,7 @@ function setInstrument(inst) {
   }
   if (typeof renderChordPiano === 'function') renderChordPiano();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
-  if (player.playing && typeof player._renderRealBook === 'function') player._renderRealBook();
+  if ((player.playing || player.paused) && typeof player._renderRealBook === 'function') player._renderRealBook();
 }
 if (instrumentBtn) {
   instrumentBtn.addEventListener('click', () => {
@@ -6924,7 +6924,10 @@ class Player {
 
   _renderRealBook() {
     const el = document.getElementById('real-book');
-    if (!this.playing) {
+    // Keep the playback strip visible while paused too — the user
+    // wants the visualization frozen on the bar they paused on, not
+    // wiped back to compose view.
+    if (!this.playing && !this.paused) {
       el.hidden = true;
       const tEl = document.getElementById('real-book-tabs');
       if (tEl) tEl.hidden = true;
@@ -8574,7 +8577,7 @@ function renderLandscapeStandby() {
 function renderComposeInfo() {
   const el = document.getElementById('player-info');
   if (!el) return;
-  if (player && player.playing) return;          // player's _updateVisuals fills it
+  if (player && (player.playing || player.paused)) return;   // player owns the bar while playing OR paused
   const fcId = state.focusedChord;
   const map = currentMap();
   const ch = fcId && map.chordDefs[fcId];
