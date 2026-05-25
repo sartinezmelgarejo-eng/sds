@@ -7667,7 +7667,11 @@ function renderLandscapePlay() {
     const left    = document.getElementById('lp-left');
     const fc      = curDef;
     const root    = fc ? chordRoot(fc) : null;
-    const quality = fc ? QUALITIES[fc.quality] : null;
+    // renderChordStaff expects the quality NAME (string key into
+    // QUALITIES), not the resolved object — passing the object
+    // silently produced an empty SVG.
+    const qName   = fc ? fc.quality : null;
+    const quality = qName ? QUALITIES[qName] : null;
     const flats   = root != null ? useFlatsFor(root) : false;
     const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
     if (left) {
@@ -7684,7 +7688,7 @@ function renderLandscapePlay() {
           // baked in, harmonic-function tag color, etc. Larger W/H so it
           // fills the landscape pane gracefully.
           const cellName = (fc.name || nameOf(root, flats) + quality.sfx);
-          left.innerHTML = renderChordStaff(shape, root, quality, flats, {
+          left.innerHTML = renderChordStaff(shape, root, qName, flats, {
             W: 280, H: 180, r: 14,
             minimal: false,
             showClef: true,
