@@ -7759,16 +7759,17 @@ function renderComposeStrip() {
     }
     el.innerHTML = parts.join('');
     tabsEl.innerHTML = '';
-    // Auto-scroll so the most recently typed chord's whole pair is visible.
-    // 'start' (not 'nearest') so when a new row begins, the pair slides up
-    // to occupy the same top spot the first row had — instead of doing the
-    // minimum scroll and leaving the new row half-cut at the bottom.
+    // Auto-scroll the strip's INTERNAL scroll so the latest cell is at the
+    // top — without bubbling to ancestor scrollables (scrollIntoView would
+    // also scroll the page itself, which prevented the user from scrolling
+    // back up to see the first row).
     requestAnimationFrame(() => {
       const cur = state.instrument === 'piano'
         ? el.querySelector('.rb-tab-cell.current')
         : el.querySelector('.rb-cell.current');
-      if (cur && cur.scrollIntoView) {
-        cur.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      if (cur && el.scrollHeight > el.clientHeight) {
+        const target = cur.offsetTop - el.offsetTop;
+        el.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
       }
     });
   } else {
