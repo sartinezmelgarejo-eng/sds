@@ -7172,14 +7172,35 @@ function renderComposeStrip() {
 // focuses it so the user can audition / cycle inversions from there.
 // Attached once on the document so it survives every renderComposeStrip().
 document.addEventListener('click', (ev) => {
-  if (player.playing) return;   // playback owns the strip while AI is on
+  if (player.playing) return;
+
+  // ── Lock button: toggle lock on that specific slot ──
+  const lockBtn = ev.target.closest('.compose-edit-btn');
+  if (lockBtn) {
+    ev.stopPropagation();
+    const idx = parseInt(lockBtn.dataset.editIdx, 10);
+    const seq = state.composedProgression;
+    if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
+    if (state.composedSelectedIdx === idx) {
+      // Already locked on this slot — unlock
+      state.composedSelectedIdx = null;
+    } else {
+      // Lock this slot
+      state.composedSelectedIdx = idx;
+      const entry = seq[idx];
+      state.focusedChord = entry.chord;
+      state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+    }
+    renderAll();
+    renderComposeStrip();
+    return;
+  }
+
+  // ── Cell click: focus/audition that chord (does NOT lock) ──
   const cell = ev.target.closest('[data-compose-idx]');
   if (!cell) {
-    // Click outside any compose cell — clear selection so subsequent
-    // chord additions go back to appending at the end.
+    // Click outside any compose cell — clear lock
     if (state.composedSelectedIdx !== null) {
-      // Don't clear if the click landed on the inversion buttons or
-      // compose-pad controls (those operate ON the selection).
       const inControls = ev.target.closest('.compose-pad, .compose-btn, .compose-inv, .map-card');
       if (!inControls) {
         state.composedSelectedIdx = null;
@@ -7194,15 +7215,7 @@ document.addEventListener('click', (ev) => {
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
-  // Toggle selection: if already selected, deselect; otherwise select.
-  if (state.composedSelectedIdx === idx) {
-    state.composedSelectedIdx = null;
-    renderComposeStrip();
-    return;
-  }
-  // Mark this cell as the edit target — next chord pick / inversion cycle
-  // will REPLACE this slot instead of appending to the end of the strip.
-  state.composedSelectedIdx = idx;
+  // Just focus and audition — don't change lock state
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
   renderAll();
