@@ -3008,17 +3008,20 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (subN === 3 || subN === 5 || subN === 6 || subN === 7) {
     const firstX = slotX(0);
     const lastX  = slotX(subN - 1);
-    // Bracket sits just above the topmost notehead — but only when that
-    // notehead is above the staff (ledger-line territory). Once the top
-    // note enters the staff, the bracket parks just above the top staff
-    // line so the number doesn't get lost among the staff lines.
+    // Bracket follows the TOPMOST visual element of the chord:
+    //   - stem-down (common): the topmost notehead.
+    //   - stem-up   (low chord): the stem-end, which sits above the notes.
+    // Low chords drag the bracket downward; a ceiling near the top staff
+    // line keeps it from crowding the chord-name label above.
     const allYbk     = positions.map(p => p.y);
     const topNoteY   = allYbk.length ? Math.min(...allYbk) : trebleTopY;
-    // Bracket follows the topmost note downward (low chords drag it down),
-    // but never rises above this ceiling — keeps it from crowding the
-    // chord-name label.
+    const botNoteY   = allYbk.length ? Math.max(...allYbk) : trebleBotY;
+    const e4Ybk      = trebleBotY;                      // E4 = stem-flip threshold
+    const stemUpBk   = hasStem && allYbk.length && topNoteY >= e4Ybk;
+    const stemLenBk  = lineSp * 3.2;
+    const topElement = stemUpBk ? (topNoteY - stemLenBk) : topNoteY;
     const bracketCeil = trebleTopY + lineSp * 0.1;
-    const bracketY    = Math.max(bracketCeil, topNoteY - lineSp * 1.0);
+    const bracketY    = Math.max(bracketCeil, topElement - lineSp * 1.2);
     const tipH   = lineSp * 0.4;
     const numFs  = lineSp * 1.1;
     const numW   = numFs * 0.75;                     // gap in the bracket for the number
