@@ -5027,6 +5027,8 @@ class Player {
               bars: 1,
               roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
               composedShape: c.shape,
+              subdivisions: c.subdivisions || 1,
+              subdivMute: c.subdivMute ? [...c.subdivMute] : [],
             });
           }
         }
@@ -5202,6 +5204,11 @@ class Player {
     // Stop any pending bass plucks
     this.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
     this.bassOscillators = [];
+    // Cancel any in-flight rhythm-subdivision re-strikes
+    if (this._subdivTimers) {
+      this._subdivTimers.forEach(t => clearTimeout(t));
+      this._subdivTimers = [];
+    }
     state.playerVoicing = null;
     state.nextVoicing = null;
     state.progressionVoicings = {};
@@ -5373,11 +5380,35 @@ class Player {
 
     const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
     const vol = currentDroneVolume() * 1.8;
+
+    // Rhythmic subdivisions: if the current cell has subdivisions > 1, the
+    // bar is divided into N equal slots and the chord re-strikes on every
+    // un-muted slot. Slot 0 always plays at the bar boundary (this trigger).
+    const subN = (planned && planned.subdivisions) || 1;
+    const subMute = (planned && planned.subdivMute) || [];
+    const slot0Muted = subN > 1 && subMute[0];
     // Force re-attack: _triggerChord is only called at a NEW step boundary,
     // so even if the chord/voicing matches the previous step (e.g. "I I V"),
     // the user expects to hear the chord strike again. Continuation bars
     // inside a multi-bar step never reach this path — those just keep ringing.
-    chordDrone.start(notes, vol, true);
+    if (!slot0Muted) chordDrone.start(notes, vol, true);
+
+    // Schedule the remaining N-1 re-strikes via wall-clock timeouts. Audio
+    // precision is ~5–10ms — fine for chord stabs. Each timer is cleared
+    // when a new bar arrives so the bar boundary always wins.
+    if (this._subdivTimers) this._subdivTimers.forEach(t => clearTimeout(t));
+    this._subdivTimers = [];
+    if (subN > 1 && audioCtx) {
+      const barDur = (60 / metronome.bpm) * 4;
+      const slotDurMs = (barDur / subN) * 1000;
+      for (let s = 1; s < subN; s++) {
+        if (subMute[s]) continue;
+        const tid = setTimeout(() => {
+          chordDrone.start(notes, vol, true);
+        }, s * slotDurMs);
+        this._subdivTimers.push(tid);
+      }
+    }
 
     // Schedule bass plucks per the current section's bass pattern
     if (isBassEnabled() && audioCtx && this._currentStep()) {
@@ -5647,7 +5678,15 @@ class Player {
           shape = this._pickShape(ch.quality, root, segType, prevShape);
           if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
         }
-        const entry = { chord: seg.chord, barIdxInChord: b, keyPc: segKeyPc, voicingType: segType, shape };
+        const entry = {
+          chord: seg.chord,
+          barIdxInChord: b,
+          keyPc: segKeyPc,
+          voicingType: segType,
+          shape,
+          subdivisions: seg.subdivisions || 1,
+          subdivMute: seg.subdivMute || [],
+        };
         if (bar < 4) {
           this._cachedPage.push(entry);
         } else if (bar === 4) {
