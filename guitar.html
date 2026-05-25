@@ -7831,6 +7831,13 @@ function lp_exit() {
   if (!lp_currentMode) return;
   const slots = LP_SLOTS[lp_currentMode] || [];
   slots.forEach((slot) => lp_restore(slot.id));
+  // Rescue the controls element back to the overlay root before
+  // we wipe lp-body — otherwise the controls (a child of the slot
+  // inside lp-body) get destroyed and never come back.
+  const controls = document.getElementById('lp-controls');
+  const overlay  = document.getElementById('landscape-play');
+  if (controls && overlay && !overlay.contains(controls)) overlay.appendChild(controls);
+  else if (controls && overlay && controls.parentNode !== overlay) overlay.appendChild(controls);
   const body = document.getElementById('lp-body');
   if (body) { body.innerHTML = ''; body.className = 'lp-body'; }
   lp_currentMode = null;
