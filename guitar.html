@@ -7341,24 +7341,41 @@ document.addEventListener('click', e => {
   const cell = cells[i];
   if (cell.songIdx == null || cell.stepIdx == null) return;
   // Snap the player's position to this cell so resume starts here.
+  // Use barIdxInChord so a click on the 2nd bar of a 2-bar chord
+  // resumes from that 2nd bar (not from the chord's top).
   player.songIdx       = cell.songIdx;
   player.sectionIter   = cell.sectionIter || 0;
   player.currentStepIdx = cell.stepIdx;
   const step = player._currentStep();
-  if (step) player.barsRemaining = step.bars;
+  if (step) {
+    const consumed = cell.barIdxInChord || 0;
+    player.barsRemaining = Math.max(1, step.bars - consumed);
+  }
   // Recompute totalBars to match the page+i so the strip's
   // `currentIdx = totalBars % 4` highlights the new cell.
   const curPage = Math.floor(player.totalBars / 4);
   player.totalBars = curPage * 4 + i;
-  player._cachedPage = null;
+  // Anchor the next-trigger voicing chain on this exact shape so
+  // resume picks up with the SAME inversion the user just heard
+  // (without re-picking via the smoothest algorithm).
+  if (cell.shape) {
+    player.previousShape = cell.shape;
+    state.playerVoicing = { chord: cell.chord, shape: cell.shape };
+  }
   player._stopArmed = false;
-  // Audition the chord with its voicing now.
+  // Audition the chord directly using the strip's voicing — bypass
+  // focusedShape / userVoicing so we don't disturb the rest of the
+  // strip's chord-name highlighting or its cached voicings.
   ensureAudio();
-  state.focusedChord = cell.chord;
-  if (cell.shape) state.userVoicing = { shape: cell.shape };
-  player._updateVisuals();
-  if (typeof renderAll === 'function') renderAll();
-  ringFocusedChord();
+  if (cell.shape) {
+    const notes = cell.shape
+      .map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+      .filter(x => x !== null);
+    if (notes.length) chordDrone.start(notes, currentDroneVolume() * 1.8, true);
+  }
+  // Re-render just the playback strip so the "current" highlight
+  // moves to the clicked cell — without nuking the cached page.
+  player._renderRealBook();
   _refreshAutoPlayUI();
 });
 
