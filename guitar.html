@@ -7164,29 +7164,36 @@ function composeDeleteLast() {
   if (!state.composedProgression.length) return;
   _composeSaveUndo();
   const seq = state.composedProgression;
-  const selIdx = state.composedSelectedIdx;
-  if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
-    if (selIdx === 0) {
+  // Use locked index, or focused index, or fall back to last chord
+  const targetIdx = (state.composedSelectedIdx !== null && state.composedSelectedIdx >= 0 && state.composedSelectedIdx < seq.length)
+    ? state.composedSelectedIdx
+    : (state._composeFocusedIdx !== null && state._composeFocusedIdx >= 0 && state._composeFocusedIdx < seq.length)
+      ? state._composeFocusedIdx
+      : null;
+  if (targetIdx !== null && targetIdx < seq.length) {
+    if (targetIdx === 0) {
       // First chord — just remove it
       seq.splice(0, 1);
+      state.composedSelectedIdx = null;
+      state._composeFocusedIdx = null;
       if (!seq.length) {
-        state.composedSelectedIdx = null;
         state.userVoicing = null;
       } else {
-        state.composedSelectedIdx = 0;
+        state._composeFocusedIdx = 0;
         const newCur = seq[0];
         state.focusedChord = newCur.chord;
         state.userVoicing = { shape: newCur.shape };
       }
     } else {
       // Replace with a tie of the previous chord (extends previous)
-      const prev = seq[selIdx - 1];
-      seq[selIdx] = {
+      const prev = seq[targetIdx - 1];
+      seq[targetIdx] = {
         chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
         voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
         inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
       };
       state.composedSelectedIdx = null;
+      state._composeFocusedIdx = targetIdx - 1;
       state.focusedChord = prev.chord;
       state.userVoicing = { shape: prev.shape };
     }
