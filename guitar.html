@@ -7490,17 +7490,30 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
-  // Gentle page scroll on mobile when the FIRST chord goes in: scroll so
-  // that the "Song" block (AI + MIDI buttons + player info) sits at the
-  // top of the viewport. The strip lives just below it; everything above
-  // (key/sound/chords header) scrolls out of view.
-  if (wasEmpty && window.matchMedia && window.matchMedia('(max-width: 800px)').matches) {
-    requestAnimationFrame(() => {
-      const songBlock = document.querySelector('.song-block');
-      if (!songBlock) return;
-      const target = songBlock.getBoundingClientRect().top + window.scrollY;
-      window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
-    });
+  // Mobile auto-scroll: two stages.
+  //   1) On the FIRST chord — scroll so the "Song" block (AI/MIDI/player
+  //      info) sits at the top of the viewport. Strip is right below it.
+  //   2) When the user crosses into the 3rd pair-row (9th chord) — scroll
+  //      further up so even the Song block clears, giving the strip the
+  //      full viewport above the keypad.
+  const isMobileNow = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
+  if (isMobileNow) {
+    if (wasEmpty) {
+      requestAnimationFrame(() => {
+        const songBlock = document.querySelector('.song-block');
+        if (!songBlock) return;
+        const target = songBlock.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      });
+    } else if (seq.length === 9) {
+      // Entering the 3rd pair-row — push the strip itself to the viewport top
+      requestAnimationFrame(() => {
+        const area = document.querySelector('.rb-area');
+        if (!area) return;
+        const target = area.getBoundingClientRect().top + window.scrollY;
+        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+      });
+    }
   }
 }
 function composeCycleLastInversion(direction) {
