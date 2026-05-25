@@ -1127,6 +1127,21 @@
     border: 1px dashed rgba(0,0,0,0.3);
     opacity: 0.5;
   }
+  /* Playback subdiv bar — non-interactive indicator that pulses on the
+     slot currently sounding. */
+  .subdiv-bar.playback-bar { pointer-events: none; }
+  .subdiv-bar.playback-bar .subdiv-seg { cursor: default; opacity: 0.45; }
+  .subdiv-bar.playback-bar .subdiv-seg.muted { opacity: 0.25; }
+  .subdiv-seg.pb-on {
+    background: #f4c542 !important;
+    opacity: 1 !important;
+    box-shadow: 0 0 8px rgba(244,197,66,0.7), 0 0 2px rgba(244,197,66,1);
+    animation: subdivPulse 0.18s ease-out;
+  }
+  @keyframes subdivPulse {
+    0%   { transform: scaleY(1.6); }
+    100% { transform: scaleY(1); }
+  }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
             [ 1 ]
@@ -5913,7 +5928,20 @@ class Player {
             ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 200, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 175, r: 12, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
         : '';
-      return `<div class="${cls}">${svg}</div>`;
+      // Subdivision bar (read-only in playback). Slots get .pb-on by the
+      // beat loop as each one fires — see startBeatCounterLoop.
+      const subN = cell.subdivisions || 1;
+      const subMute = cell.subdivMute || [];
+      let pbBarHtml = '';
+      if (subN > 1) {
+        let segs = '';
+        for (let s = 0; s < subN; s++) {
+          const m = subMute[s] ? 'muted' : '';
+          segs += `<div class="subdiv-seg ${m}" data-pb-cell="${i}" data-pb-seg="${s}"></div>`;
+        }
+        pbBarHtml = `<div class="subdiv-bar playback-bar">${segs}</div>`;
+      }
+      return `<div class="${cls}">${svg}${pbBarHtml}</div>`;
     }).join('');
     el.innerHTML = cellsHtml;
     const tabsEl = document.getElementById('real-book-tabs');
@@ -7041,13 +7069,18 @@ function startBeatCounterLoop() {
   if (_beatLoopId) return;
   let lastBeat = -1;
   let lastCountIn = null;
+  let lastSubSlot = -1;
+  let lastSubCell = -1;
   function tick() {
     if (!player || !player.playing || !audioCtx) {
       _beatLoopId = null;
+      // Clear any lingering active-slot highlight on stop
+      document.querySelectorAll('.subdiv-seg.pb-on').forEach(el => el.classList.remove('pb-on'));
       return;
     }
     const beatDur = 60 / metronome.bpm;
-    const barStart = player.nextBarTime - beatDur * 4;
+    const barDur = beatDur * 4;
+    const barStart = player.nextBarTime - barDur;
     const elapsed = audioCtx.currentTime - barStart;
     const beatInBar = ((Math.floor(elapsed / beatDur) % 4) + 4) % 4;
     const inCountIn = !!(player._countInUntil && audioCtx.currentTime < player._countInUntil - 0.02);
@@ -7059,6 +7092,34 @@ function startBeatCounterLoop() {
       document.querySelectorAll('#player-info .pi-beat').forEach((el, i) => {
         el.classList.toggle('on', i === beatInBar);
       });
+    }
+    // Subdivision slot animation: highlight the segment currently sounding
+    // on the CURRENT cell's playback bar.
+    const cellInPage = player.totalBars % 4;
+    const planned = player._cachedPage && player._cachedPage[cellInPage];
+    const subN = (planned && planned.subdivisions) || 1;
+    if (subN > 1 && elapsed >= 0) {
+      const slotDur = barDur / subN;
+      const slot = Math.min(subN - 1, Math.max(0, Math.floor(elapsed / slotDur)));
+      const muted = (planned.subdivMute || [])[slot];
+      if (slot !== lastSubSlot || cellInPage !== lastSubCell) {
+        document.querySelectorAll('.subdiv-seg.pb-on').forEach(el => el.classList.remove('pb-on'));
+        if (!muted) {
+          const seg = document.querySelector(`[data-pb-cell="${cellInPage}"][data-pb-seg="${slot}"]`);
+          if (seg) {
+            // Force restart of the CSS animation by toggling the class off/on
+            seg.classList.remove('pb-on');
+            void seg.offsetWidth;
+            seg.classList.add('pb-on');
+          }
+        }
+        lastSubSlot = slot;
+        lastSubCell = cellInPage;
+      }
+    } else if (lastSubSlot !== -1) {
+      document.querySelectorAll('.subdiv-seg.pb-on').forEach(el => el.classList.remove('pb-on'));
+      lastSubSlot = -1;
+      lastSubCell = -1;
     }
     _beatLoopId = requestAnimationFrame(tick);
   }
