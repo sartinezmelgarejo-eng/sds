@@ -8302,13 +8302,19 @@ document.addEventListener('click', (ev) => {
   if (staffSlot) {
     const parentCell = staffSlot.closest('[data-compose-idx]');
     if (!parentCell) return;
-    ev.stopPropagation();
     const cellIdx = parseInt(parentCell.dataset.composeIdx, 10);
     const segIdx  = parseInt(staffSlot.dataset.staffSeg, 10);
     const seq = state.composedProgression;
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
-    if (!cell.subdivMute) cell.subdivMute = new Array(cell.subdivisions || 1).fill(false);
+    // Whole-note case (subdivisions === 1): clicking shouldn't mute
+    // the only slot — that's what the regular delete key is for. Let
+    // the click bubble down to the cell handler so it auditions the
+    // chord instead.
+    const subN = cell.subdivisions || 1;
+    if (subN <= 1) return;
+    ev.stopPropagation();
+    if (!cell.subdivMute) cell.subdivMute = new Array(subN).fill(false);
     cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
     renderComposeStrip();
     return;
