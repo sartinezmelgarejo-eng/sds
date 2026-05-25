@@ -2073,7 +2073,7 @@
   }
   #landscape-play .lp-bottom-row {
     display: grid;
-    grid-template-columns: 1fr 160px;       /* neck (fills) + controls */
+    grid-template-columns: 1fr 200px;       /* neck (fills) + controls (a bit roomier) */
     gap: 6px;
     min-height: 0;
   }
@@ -8362,17 +8362,27 @@ function lp_enter(mode) {
     lp_park(slot.id);
     target.appendChild(el);
   });
-  // The realistic guitar's viewBox is 1440×640 (≈2.25:1) — meet
-  // leaves big white bars on the sides of the wider landscape pane.
-  // Switch to `none` so it fills its box (slight horizontal stretch
-  // of strings/dots, but the chord shape stays totally readable).
-  // Restored on lp_exit so the main UI keeps its proper aspect.
-  const neck = document.getElementById('chord-neck');
-  if (neck && mode === 'guitar') {
-    if (!neck.dataset.lpOrigPar) {
-      neck.dataset.lpOrigPar = neck.getAttribute('preserveAspectRatio') || 'xMidYMid meet';
+  // The realistic guitar's default viewBox (1440×640 ≈ 2.25:1) is
+  // narrower than the landscape pane (~3:1). Instead of stretching
+  // (distorts strings), widen the SVG and show two extra frets so
+  // the natural aspect matches the box better — small letterbox
+  // remains, but the fretboard stays in proportion.
+  if (mode === 'guitar' && typeof CHORD_NECK_GEO !== 'undefined') {
+    if (!CHORD_NECK_GEO._lpOrig) {
+      CHORD_NECK_GEO._lpOrig = {
+        W: CHORD_NECK_GEO.W,
+        visibleFrets: CHORD_NECK_GEO.visibleFrets,
+        viewW: CHORD_NECK_GEO.viewW,
+        fretW: CHORD_NECK_GEO.fretW,
+        contentW: CHORD_NECK_GEO.contentW,
+      };
     }
-    neck.setAttribute('preserveAspectRatio', 'none');
+    CHORD_NECK_GEO.W = 1900;
+    CHORD_NECK_GEO.visibleFrets = 9;
+    CHORD_NECK_GEO.viewW    = CHORD_NECK_GEO.W - CHORD_NECK_GEO.labelsW;
+    CHORD_NECK_GEO.fretW    = CHORD_NECK_GEO.viewW / CHORD_NECK_GEO.visibleFrets;
+    CHORD_NECK_GEO.contentW = (CHORD_NECK_GEO.lastFret - CHORD_NECK_GEO.firstFret + 1) * CHORD_NECK_GEO.fretW;
+    if (typeof renderChordNeck === 'function') renderChordNeck();
   }
   // Embed the controls strip into the built layout (piano mode) or
   // leave it floating in the overlay corner (guitar mode).
@@ -8388,11 +8398,12 @@ function lp_exit() {
   if (!lp_currentMode) return;
   const slots = LP_SLOTS[lp_currentMode] || [];
   slots.forEach((slot) => lp_restore(slot.id));
-  // Restore the chord-neck SVG's preserveAspectRatio so the main
-  // UI doesn't end up with a distorted neck after rotating back.
-  const neck = document.getElementById('chord-neck');
-  if (neck && neck.dataset.lpOrigPar) {
-    neck.setAttribute('preserveAspectRatio', neck.dataset.lpOrigPar);
+  // Restore the chord-neck geo so portrait/desktop go back to the
+  // original 7-fret zoom.
+  if (typeof CHORD_NECK_GEO !== 'undefined' && CHORD_NECK_GEO._lpOrig) {
+    Object.assign(CHORD_NECK_GEO, CHORD_NECK_GEO._lpOrig);
+    delete CHORD_NECK_GEO._lpOrig;
+    if (typeof renderChordNeck === 'function') renderChordNeck();
   }
   // Rescue the controls element back to the overlay root before
   // we wipe lp-body — otherwise the controls (a child of the slot
