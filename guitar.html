@@ -2211,8 +2211,7 @@
        button proxies to the existing main-UI control by triggering
        a click (play/loop) or by mutating state.keyPc (key shift). -->
   <div class="lp-controls" id="lp-controls">
-    <button class="lp-btn" id="lp-key-down" title="Key down a semitone">♭</button>
-    <button class="lp-btn" id="lp-key-up"   title="Key up a semitone">♯</button>
+    <button class="lp-btn" id="lp-cycle"    title="Cycle key per loop">·</button>
     <button class="lp-btn" id="lp-loop"     title="Loop section">⟲</button>
     <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">▶</button>
   </div>
@@ -7679,9 +7678,23 @@ function renderLandscapePlay() {
       const sig = [curId, JSON.stringify(shape || null), root, flats].join('|');
       if (left.dataset.staffSig !== sig) {
         left.dataset.staffSig = sig;
-        left.innerHTML = (fc && quality && root != null)
-          ? renderChordStaff(shape, root, quality, flats, { minimal: false })
-          : '';
+        if (fc && quality && root != null) {
+          // Match the sizing/options used by the vertical compose-cell
+          // piano staff so it reads identically — clef shown, chord name
+          // baked in, harmonic-function tag color, etc. Larger W/H so it
+          // fills the landscape pane gracefully.
+          const cellName = (fc.name || nameOf(root, flats) + quality.sfx);
+          left.innerHTML = renderChordStaff(shape, root, quality, flats, {
+            W: 280, H: 180, r: 14,
+            minimal: false,
+            showClef: true,
+            chordName: cellName,
+            roman: fc.roman,
+            tag: fc.tag,
+          });
+        } else {
+          left.innerHTML = '';
+        }
       }
     }
   } else {
@@ -7745,10 +7758,9 @@ function renderLandscapePlay() {
 // main-UI action so the same code path runs (and so the main UI
 // stays in sync when the user rotates back to portrait).
 (function wireLandscapeControls() {
-  const playBtn = document.getElementById('lp-play');
-  const loopBtn = document.getElementById('lp-loop');
-  const keyUp   = document.getElementById('lp-key-up');
-  const keyDown = document.getElementById('lp-key-down');
+  const playBtn  = document.getElementById('lp-play');
+  const loopBtn  = document.getElementById('lp-loop');
+  const cycleBtn = document.getElementById('lp-cycle');
   if (playBtn) playBtn.addEventListener('click', () => {
     const real = document.getElementById('auto-play');
     if (real) real.click();
@@ -7757,12 +7769,13 @@ function renderLandscapePlay() {
     const real = document.getElementById('loop-toggle');
     if (real) real.click();
   });
-  const shiftKey = (delta) => {
-    state.keyPc = ((state.keyPc + delta) % 12 + 12) % 12;
-    if (typeof renderAll === 'function') renderAll();
-  };
-  if (keyUp)   keyUp.addEventListener('click',   () => shiftKey(+1));
-  if (keyDown) keyDown.addEventListener('click', () => shiftKey(-1));
+  // Key cycle: proxies the main #cycle-toggle button. Its tap
+  // rotates the cycle mode (off → semitones → fourths → …); we
+  // mirror its current label text in `lp_syncControls`.
+  if (cycleBtn) cycleBtn.addEventListener('click', () => {
+    const real = document.getElementById('cycle-toggle');
+    if (real) real.click();
+  });
 })();
 
 // Sync the corner buttons' visual state to match the main toolbar
@@ -7778,6 +7791,14 @@ function lp_syncControls() {
   const realLoop = document.getElementById('loop-toggle');
   if (loop && realLoop) {
     loop.classList.toggle('active', realLoop.classList.contains('active'));
+  }
+  // Cycle: mirror the main #cycle-toggle label (· / +1 / IV / etc.)
+  const cycle = document.getElementById('lp-cycle');
+  const realCycle = document.getElementById('cycle-toggle');
+  if (cycle && realCycle) {
+    cycle.textContent = realCycle.textContent || '·';
+    cycle.classList.toggle('active', realCycle.classList.contains('active'));
+    if (realCycle.title) cycle.title = realCycle.title;
   }
 }
 
