@@ -7137,7 +7137,7 @@ function renderComposeStrip() {
     return `<div class="${cls.join(' ')}"${idxAttr}>
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
-      <button class="${selCls}" data-edit-idx="${i}" title="select to replace">✎</button>
+      <button class="${selCls}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
     </div>`;
   };
 
@@ -7254,6 +7254,24 @@ document.addEventListener('keydown', e => {
     }
     if (e.key === 'Enter' && state.composedProgression.length) {
       e.preventDefault(); composePlay(); return;
+    }
+    // L = toggle lock on current/last chord slot for in-place replacement
+    if ((e.key === 'l' || e.key === 'L') && state.composedProgression.length) {
+      e.preventDefault();
+      const seq = state.composedProgression;
+      // If nothing selected, lock the last chord; if already locked, unlock
+      const target = state.composedSelectedIdx ?? (seq.length - 1);
+      if (state.composedSelectedIdx === target) {
+        state.composedSelectedIdx = null;
+      } else {
+        state.composedSelectedIdx = target;
+        const entry = seq[target];
+        state.focusedChord = entry.chord;
+        state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+      }
+      renderAll();
+      renderComposeStrip();
+      return;
     }
   }
   if (e.key === 'Escape' && state.composedProgression.length) {
