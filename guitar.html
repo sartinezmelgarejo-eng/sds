@@ -1389,9 +1389,9 @@
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
   }
-  /* Family separator: italic serif label written vertically. Matches the
-     Real Book chord-name typography — no harsh lines, just a soft sepia
-     accent that whispers the family name. */
+  /* Family separator: italic serif label written vertically, per-family
+     color set via inline style at render time so each voicing family has
+     its own visual identity. */
   .alt-divider {
     flex: 0 0 auto;
     align-self: stretch;
@@ -1405,11 +1405,10 @@
     font-weight: 600;
     font-size: 14px;
     letter-spacing: 0.8px;
-    color: #9d7a3a;
     writing-mode: vertical-rl;
     transform: rotate(180deg);
     white-space: nowrap;
-    opacity: 0.78;
+    opacity: 0.85;
   }
 
   /* ─── Fretboard ─── */
@@ -3035,13 +3034,21 @@ function renderAlternatives() {
     return c.stringSet || '';   // shells/triads/guides → just the set letter
   };
   const FAMILY = { drop2: 'Drop-2', shell: 'Shells', triad: 'Triads', guide: 'Guides', sus: 'Sus' };
+  // Per-family ink color so each voicing group has its own identity on the
+  // cream paper background. Tuned to coexist (not compete) with each other.
+  const FAMILY_COLOR = {
+    drop2: '#3a4050',   // charcoal — the default jazz voicing
+    shell: '#4a7a5a',   // muted forest green — guide-tone feel
+    triad: '#9a5a3a',   // warm terracotta — bright, clean
+    guide: '#5a6a8a',   // slate blue — minimal, cool
+    sus:   '#6a4a8a',   // muted violet — suspended, dreamy
+  };
 
   let lastType = null;
   cands.forEach((c, i) => {
     if (lastType !== c.type) {
-      // Divider BEFORE each new family — including the first one, so Drop-2
-      // gets its own label too.
-      html += `<div class="alt-divider">${FAMILY[c.type] || c.type}</div>`;
+      const color = FAMILY_COLOR[c.type] || '#3a3a40';
+      html += `<div class="alt-divider" style="color:${color}">${FAMILY[c.type] || c.type}</div>`;
       lastType = c.type;
     }
     const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
