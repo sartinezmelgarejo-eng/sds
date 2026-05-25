@@ -1032,6 +1032,8 @@
   .rb-cell:last-child { border-right: none; }
   /* Cells of the composed strip are clickable (audition + focus). */
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
+  body:not(.player-active) [data-compose-empty] { cursor: pointer; }
+  body:not(.player-active) [data-compose-empty]:hover { background: rgba(160,120,32,0.07); }
   body:not(.player-active) [data-compose-idx]:hover,
   body:not(.player-active) [data-compose-idx].compose-hover { background: rgba(160,120,32,0.10); }
   body:not(.player-active) [data-compose-idx].current,
@@ -4935,12 +4937,21 @@ class Player {
     //   • Loop OFF, A & B typed (9–16)  → both sections come from typed input
     if (state.composedProgression && state.composedProgression.length) {
       const buildSteps = (cells, label) => {
-        const steps = cells.map(c => ({
-          chord: c.chord,
-          bars: 1,
-          roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
-          composedShape: c.shape,
-        }));
+        // Merge consecutive same-chord cells (ties) into one step with bars > 1
+        const steps = [];
+        for (const c of cells) {
+          const prev = steps.length ? steps[steps.length - 1] : null;
+          if (prev && prev.chord === c.chord && c._tie) {
+            prev.bars++;
+          } else {
+            steps.push({
+              chord: c.chord,
+              bars: 1,
+              roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
+              composedShape: c.shape,
+            });
+          }
+        }
         return {
           label,
           progression: { name: `◇ Composed ${label}`, len: steps.length, steps },
@@ -7155,16 +7166,29 @@ function composeDeleteLast() {
   const seq = state.composedProgression;
   const selIdx = state.composedSelectedIdx;
   if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
-    // Delete the selected cell. Move selection back one (or clear if empty).
-    seq.splice(selIdx, 1);
-    if (!seq.length) {
-      state.composedSelectedIdx = null;
-      state.userVoicing = null;
+    if (selIdx === 0) {
+      // First chord — just remove it
+      seq.splice(0, 1);
+      if (!seq.length) {
+        state.composedSelectedIdx = null;
+        state.userVoicing = null;
+      } else {
+        state.composedSelectedIdx = 0;
+        const newCur = seq[0];
+        state.focusedChord = newCur.chord;
+        state.userVoicing = { shape: newCur.shape };
+      }
     } else {
-      state.composedSelectedIdx = Math.max(0, selIdx - 1);
-      const newCur = seq[state.composedSelectedIdx];
-      state.focusedChord = newCur.chord;
-      state.userVoicing  = { shape: newCur.shape };
+      // Replace with a tie of the previous chord (extends previous)
+      const prev = seq[selIdx - 1];
+      seq[selIdx] = {
+        chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
+        voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
+        inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
+      };
+      state.composedSelectedIdx = null;
+      state.focusedChord = prev.chord;
+      state.userVoicing = { shape: prev.shape };
     }
   } else {
     seq.pop();
@@ -7326,7 +7350,19 @@ function renderComposeStrip() {
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
-    if (!cell) return `<div class="${cls.join(' ')}"></div>`;
+    // Empty slot — clickable so the user can extend the previous chord
+    if (!cell) {
+      const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
+      return `<div class="${cls.join(' ')}"${emptyAttr}></div>`;
+    }
+    // Tie cell — shows a tie mark instead of chord name
+    if (cell._tie) {
+      if (isTab) return `<div class="${cls.join(' ')}"${idxAttr}></div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}>
+        <div class="rb-chord" style="opacity:0.4;font-size:28px">⌐</div>
+        <button class="${(i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn'}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
+      </div>`;
+    }
     const ch = map.chordDefs[cell.chord];
     if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
@@ -7404,6 +7440,23 @@ document.addEventListener('click', (ev) => {
       state.focusedChord = entry.chord;
       state.userVoicing = entry.shape ? { shape: entry.shape } : null;
     }
+    renderAll();
+    renderComposeStrip();
+    return;
+  }
+
+  // ── Empty cell click: extend the previous chord (tie) ──
+  const emptyCell = ev.target.closest('[data-compose-empty]');
+  if (emptyCell) {
+    const seq = state.composedProgression;
+    if (!seq.length || seq.length >= 16) return;
+    _composeSaveUndo();
+    const prev = seq[seq.length - 1];
+    seq.push({
+      chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
+      voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
+      inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
+    });
     renderAll();
     renderComposeStrip();
     return;
@@ -7637,19 +7690,26 @@ function _midiCollectComposed() {
   const ticksPerBeat = 480;
   const events = [];
   let tick = 0;
-  for (const cell of state.composedProgression) {
+  const barLen = ticksPerBeat * 4;
+  for (let i = 0; i < state.composedProgression.length; i++) {
+    const cell = state.composedProgression[i];
+    // Ties extend the previous chord — skip (duration already accounted for)
+    if (cell._tie) { tick += barLen; continue; }
     const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
-    if (!def) continue;
+    if (!def) { tick += barLen; continue; }
+    // Count consecutive ties after this cell
+    let bars = 1;
+    for (let j = i + 1; j < state.composedProgression.length && state.composedProgression[j]._tie; j++) bars++;
     let notes;
     if (cell.shape && cell.shape.some(f => f >= 0)) {
       notes = cell.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
     } else {
       const rootPc = (state.keyPc + def.deg) % 12;
       const q = QUALITIES[def.quality];
-      if (!q) continue;
+      if (!q) { tick += barLen; continue; }
       notes = q.ints.map(i => 48 + rootPc + i);
     }
-    const dur = ticksPerBeat * 4;
+    const dur = barLen * bars;
     for (const n of notes) {
       events.push({ tick, type: 'on', note: n, vel: 90 });
       events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
@@ -7775,12 +7835,17 @@ function _midiCollectBassComposed() {
   const ticksPerBeat = 480;
   const events = [];
   let tick = 0;
-  for (const cell of state.composedProgression) {
+  const barLen = ticksPerBeat * 4;
+  for (let i = 0; i < state.composedProgression.length; i++) {
+    const cell = state.composedProgression[i];
+    if (cell._tie) { tick += barLen; continue; }
     const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
-    if (!def) continue;
+    if (!def) { tick += barLen; continue; }
+    let bars = 1;
+    for (let j = i + 1; j < state.composedProgression.length && state.composedProgression[j]._tie; j++) bars++;
     const rootPc = (state.keyPc + def.deg) % 12;
     const note = bassMidiForPc(rootPc);
-    const dur = ticksPerBeat * 4;
+    const dur = barLen * bars;
     events.push({ tick, type: 'on', note, vel: 100 });
     events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
     tick += dur;
