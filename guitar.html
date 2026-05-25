@@ -1142,8 +1142,11 @@
     min-height: 0;
   }
   .bottom-bar .alternatives {
-    flex: 0 0 auto;
+    flex: 0 0 48%;
     width: 48%;
+    min-width: 0;            /* don't let flex's min-content-auto blow up the column */
+    box-sizing: border-box;
+    overflow: hidden;        /* clip any rogue child that ignores the 48% bound */
     border-top: none;
     border-right: 1px solid var(--line);
   }
@@ -1381,6 +1384,16 @@
     color: var(--text-faint);
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
+  }
+  /* Thin separator between voicing families. flex:none + width 1px keeps it
+     out of the height calculation; align-self stretch matches the cards. */
+  .alt-divider {
+    flex: 0 0 1px;
+    width: 1px;
+    align-self: stretch;
+    background: var(--line);
+    opacity: 0.55;
+    margin: 0 3px;
   }
 
   /* ─── Fretboard ─── */
@@ -2981,8 +2994,10 @@ function renderAlternatives() {
   const chordName = nameOf(root, flats) + QUALITIES[fc.quality].sfx;
   altName.textContent = `${fc.roman} · ${chordName}`;
 
-  const current = state.userVoicing || {stringSetIdx: 2, inversion: 0};
-  const currentKey = `${current.stringSetIdx}.${current.inversion}`;
+  // Master catalog — drop-2 → shells → triads → guides → sus, deduped.
+  const cands = allDistinctVoicings(fc.quality, root);
+  const shapeKey = (sh) => sh.map((f, i) => f >= 0 ? `${i}.${f}` : '').filter(Boolean).join(',');
+  const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
 
   const autoSel = state.userVoicing === null ? 'selected' : '';
   let html = `
@@ -2993,29 +3008,40 @@ function renderAlternatives() {
     </div>
   `;
 
-  for (let inv = 0; inv < 4; inv++) {
-    for (let ss = 0; ss < STRING_SETS.length; ss++) {
-      const sh = dropTwoVoicing(fc.quality, root, ss, inv);
-      if (!sh) continue;
-      const sel = (`${ss}.${inv}` === currentKey && state.userVoicing) ? 'selected' : '';
-      const invN = ['R','1st','2nd','3rd'][inv];
-      const label = `${invN} · ${STRING_SETS[ss].label}`;
-      const notes = sh.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
-      html += `
-        <div class="alt-card ${sel}" data-ss="${ss}" data-inv="${inv}">
-          ${renderMini(sh, root, fc.quality, flats, {W:88, H:92, r:7})}
-          <div class="ac-label">${label}</div>
-          <div class="ac-notes">${notes}</div>
-        </div>
-      `;
+  // Compact labels guaranteed to fit one line in the 100px-wide card.
+  const INV = ['R','1st','2nd','3rd'];
+  const SET = ['LOW','MID','TOP'];
+  const labelFor = (c) => {
+    if (c.type === 'drop2') return `${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
+    if (c.type === 'sus')   return `sus ${INV[c.inversion]}`;
+    if (c.type === 'shell') return `shell ${c.stringSet}`;
+    if (c.type === 'triad') return `triad ${c.stringSet}`;
+    if (c.type === 'guide') return `guide ${c.stringSet}`;
+    return c.type;
+  };
+
+  let lastType = null;
+  cands.forEach((c, i) => {
+    if (lastType !== null && lastType !== c.type) {
+      html += `<div class="alt-divider"></div>`;
     }
-  }
+    lastType = c.type;
+    const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
+    const notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
+    html += `
+      <div class="alt-card ${sel}" data-idx="${i}">
+        ${renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7})}
+        <div class="ac-label">${labelFor(c)}</div>
+        <div class="ac-notes">${notes}</div>
+      </div>
+    `;
+  });
 
   altRow.innerHTML = html;
+
   altRow.querySelectorAll('[data-auto]').forEach(c => {
     c.addEventListener('click', () => {
       state.userVoicing = null;
-      // Compose: if focused chord is the last typed, re-pick its voicing too
       if (!player.playing) {
         const seq = state.composedProgression;
         if (seq.length && seq[seq.length - 1].chord === fc.id) {
@@ -3034,24 +3060,42 @@ function renderAlternatives() {
       renderAll();
     });
   });
-  altRow.querySelectorAll('[data-ss]').forEach(c => {
-    c.addEventListener('click', () => {
-      const ss = +c.dataset.ss, inv = +c.dataset.inv;
-      state.userVoicing = {stringSetIdx: ss, inversion: inv};
-      const ch = currentMap().chordDefs[fc.id];
-      const r  = chordRoot(ch);
-      const sh = dropTwoVoicing(ch.quality, r, ss, inv);
-      // Compose: replace last chord's voicing if it matches the focused one
-      if (!player.playing && sh) {
+
+  altRow.querySelectorAll('[data-idx]').forEach(card => {
+    card.addEventListener('click', () => {
+      const c = cands[+card.dataset.idx];
+      if (!c) return;
+      state.userVoicing = {
+        shape: c.shape,
+        type: c.type,
+        stringSetIdx: c.stringSetIdx,
+        inversion: c.inversion,
+        stringSet: c.stringSet,
+      };
+      if (!player.playing) {
         const seq = state.composedProgression;
         if (seq.length && seq[seq.length - 1].chord === fc.id) {
-          seq[seq.length - 1].shape = sh;
+          seq[seq.length - 1].shape = c.shape;
+          seq[seq.length - 1].voicingType = c.type;
+          seq[seq.length - 1].stringSetIdx = c.stringSetIdx;
+          seq[seq.length - 1].inversion = c.inversion;
+          seq[seq.length - 1].stringSet = c.stringSet;
+          seq[seq.length - 1]._candIdx = +card.dataset.idx;
           renderComposeStrip();
         }
       }
-      applyAltToComping(fc.id, sh ? { shape: sh, stringSetIdx: ss, inversion: inv } : null);
+      applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion });
       renderAll();
     });
+  });
+
+  // Auto-scroll horizontally only (no vertical jump) so the selected card
+  // is in view after a cycle or click.
+  requestAnimationFrame(() => {
+    const sel = altRow.querySelector('.alt-card.selected');
+    if (!sel || altRow.clientWidth <= 0) return;
+    const target = sel.offsetLeft - altRow.clientWidth / 2 + sel.offsetWidth / 2;
+    altRow.scrollTo({ left: Math.max(0, target), behavior: 'smooth' });
   });
 }
 
