@@ -1931,24 +1931,38 @@
     background: #fff8e7;
     border: 1px solid #d8cfb5;
     border-radius: 8px;
-    overflow: hidden;
-    position: relative;          /* anchor for absolutely-positioned children */
+    overflow: auto;
+    position: relative;
     min-width: 0;
     min-height: 0;
   }
   #landscape-play .lp-left  { flex: 1 1 0; }
   #landscape-play .lp-right { flex: 1.4 1 0; }
-  /* Force any direct child (cloned SVG, wrapper div) to fill the pane.
-     The originals are sized by parent grids in the main UI, so without
-     this they collapse to their intrinsic size or to 0. */
-  #landscape-play .lp-pane > * {
-    position: absolute;
-    inset: 0;
+  /* Reparented live SVGs need to fill the pane (their default CSS
+     sizes them for the main layout). The staff SVG built per-update
+     just needs to scale via preserveAspectRatio. */
+  #landscape-play #chord-neck,
+  #landscape-play #chord-piano {
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  #landscape-play .lp-pane > svg:not([id]) {
     width: 100%;
     height: 100%;
     display: block;
   }
-  #landscape-play .lp-pane svg { width: 100%; height: 100%; display: block; }
+  /* Tabs clone: shrink-to-fit content so it stays at its natural
+     cell size and scrolls if it overflows. */
+  #landscape-play .lp-right .real-book-tabs,
+  #landscape-play .lp-right [class*="tabs"] {
+    width: max-content;
+    max-width: none;
+  }
   body.instrument-piano #landscape-play .lp-body { flex-direction: column; }
   body.instrument-piano #landscape-play .lp-left,
   body.instrument-piano #landscape-play .lp-right { flex: 1 1 0; width: 100%; }
@@ -7479,15 +7493,15 @@ function renderAll() {
    overlay deactivates, lp_exit() returns each element to its
    original parent at its original position.
 ═════════════════════════════════════════════════════════════ */
+// Only the live SVGs that benefit from the existing renderers keep
+// painting them are reparented. Other panes (tabs clone, staff) are
+// built fresh per update so they don't fight the original layout.
 const LP_SLOTS = {
   guitar: [
-    { id: 'chord-neck',     target: 'lp-left'  },
-    { id: 'real-book-tabs', target: 'lp-right' },
+    { id: 'chord-neck',  target: 'lp-left'  },
   ],
   piano: [
-    // 'staff' is a synthetic slot built fresh in lp-left every
-    // update; chord-piano is moved into lp-right.
-    { id: 'chord-piano',    target: 'lp-right' },
+    { id: 'chord-piano', target: 'lp-right' },
   ],
 };
 const lp_savedHomes = {};       // id -> { parent, nextSibling }
@@ -7564,10 +7578,10 @@ function renderLandscapePlay() {
   if (nextName) nextName.textContent = nxtDef ? (nxtDef.name || nxtId) : '—';
 
   // ── Body content ─────────────────────────────────────────
-  // chord-neck / chord-piano / real-book-tabs are already MOVED
-  // into the panes by lp_enter() — their normal renderers keep
-  // painting them in place. The only thing rebuilt per-update is
-  // the piano-mode staff in lp-left, which has no persistent DOM.
+  // Live elements (chord-neck for guitar, chord-piano for piano) are
+  // reparented by lp_enter so their existing renderers keep working.
+  // The OTHER pane is built fresh on every tick: tabs clone for
+  // guitar, staff SVG for piano.
   if (state.instrument === 'piano') {
     const left    = document.getElementById('lp-left');
     const fc      = curDef;
@@ -7575,8 +7589,25 @@ function renderLandscapePlay() {
     const quality = fc ? QUALITIES[fc.quality] : null;
     const flats   = root != null ? useFlatsFor(root) : false;
     const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
-    if (left && fc && quality && root != null) {
-      left.innerHTML = renderChordStaff(shape, root, quality, flats, { minimal: false });
+    if (left) {
+      left.innerHTML = (fc && quality && root != null)
+        ? renderChordStaff(shape, root, quality, flats, { minimal: false })
+        : '';
+    }
+  } else {
+    // Guitar: clone the compose tabs strip into lp-right. Cloning
+    // preserves the original cell sizing (the source uses grid auto
+    // sizing that becomes oversized when reparented full-width).
+    const right = document.getElementById('lp-right');
+    const tabsSrc = document.getElementById('real-book-tabs');
+    if (right) {
+      right.innerHTML = '';
+      if (tabsSrc) {
+        const clone = tabsSrc.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.removeAttribute('hidden');
+        right.appendChild(clone);
+      }
     }
   }
 
