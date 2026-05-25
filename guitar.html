@@ -3008,20 +3008,22 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (subN === 3 || subN === 5 || subN === 6 || subN === 7) {
     const firstX = slotX(0);
     const lastX  = slotX(subN - 1);
-    // Sit the bracket close to the top staff line — with stems usually
-    // hanging down (E4 threshold), there's room above the staff and this
-    // keeps the number from colliding with the chord-name label.
-    const bracketY = trebleTopY - lineSp * 0.15;
-    const tipH   = lineSp * 0.45;
-    const numFs  = lineSp * 1.6;
-    const numW   = numFs * 0.7;                      // gap in the bracket for the number
+    // Sit the bracket right at the top staff line and shrink the number
+    // so its visual center aligns with the bracket — keeps it close to
+    // the staff so it doesn't crowd the chord-name label above.
+    const bracketY = trebleTopY - lineSp * 0.05;
+    const tipH   = lineSp * 0.4;
+    const numFs  = lineSp * 1.1;
+    const numW   = numFs * 0.75;                     // gap in the bracket for the number
     const numX   = (firstX + lastX) / 2;
     const stk    = `stroke="#1a1a1a" stroke-width="0.9" stroke-linecap="round"`;
     notes += `<line x1="${firstX}" y1="${bracketY}" x2="${numX - numW/2}" y2="${bracketY}" ${stk}/>`;
     notes += `<line x1="${numX + numW/2}" y1="${bracketY}" x2="${lastX}" y2="${bracketY}" ${stk}/>`;
     notes += `<line x1="${firstX}" y1="${bracketY}" x2="${firstX}" y2="${bracketY + tipH}" ${stk}/>`;
     notes += `<line x1="${lastX}" y1="${bracketY}" x2="${lastX}" y2="${bracketY + tipH}" ${stk}/>`;
-    notes += `<text x="${numX}" y="${bracketY + numFs * 0.32}" text-anchor="middle"
+    // y is the text baseline; offset by ~0.35·fontSize so the glyph's
+    // optical center sits on bracketY.
+    notes += `<text x="${numX}" y="${bracketY + numFs * 0.36}" text-anchor="middle"
                 font-size="${numFs}" font-family="'Cormorant Garamond', Georgia, serif"
                 font-style="italic" font-weight="700" fill="#1a1a1a">${subN}</text>`;
   }
