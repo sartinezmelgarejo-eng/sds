@@ -7490,14 +7490,16 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
-  // Gentle page scroll on mobile when the FIRST chord goes in: bring the
-  // compose strip into the main view (header slides partially off-screen).
+  // Gentle page scroll on mobile when the FIRST chord goes in: scroll so
+  // that the "Song" block (AI + MIDI buttons + player info) sits at the
+  // top of the viewport. The strip lives just below it; everything above
+  // (key/sound/chords header) scrolls out of view.
   if (wasEmpty && window.matchMedia && window.matchMedia('(max-width: 800px)').matches) {
     requestAnimationFrame(() => {
-      const area = document.querySelector('.rb-area');
-      if (area && area.scrollIntoView) {
-        area.scrollIntoView({ block: 'start', behavior: 'smooth' });
-      }
+      const songBlock = document.querySelector('.song-block');
+      if (!songBlock) return;
+      const target = songBlock.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
     });
   }
 }
