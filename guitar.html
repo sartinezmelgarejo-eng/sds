@@ -7672,23 +7672,50 @@ function renderLandscapePlay() {
     const flats   = root != null ? useFlatsFor(root) : false;
     const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
     if (left) {
-      left.innerHTML = (fc && quality && root != null)
-        ? renderChordStaff(shape, root, quality, flats, { minimal: false })
-        : '';
+      // Cache key = chord + shape signature. Rebuilding the staff
+      // via innerHTML on every tick caused visible flicker AND audio
+      // stutter on iPhone (DOM thrash blocks the audio thread). Now
+      // we only rebuild when the *content* would actually change.
+      const sig = [curId, JSON.stringify(shape || null), root, flats].join('|');
+      if (left.dataset.staffSig !== sig) {
+        left.dataset.staffSig = sig;
+        left.innerHTML = (fc && quality && root != null)
+          ? renderChordStaff(shape, root, quality, flats, { minimal: false })
+          : '';
+      }
     }
   } else {
-    // Guitar: clone the compose tabs strip into lp-right. Cloning
-    // preserves the original cell sizing (the source uses grid auto
-    // sizing that becomes oversized when reparented full-width).
+    // Guitar: clone the compose tabs strip into lp-right. Cloned
+    // (not reparented) so the source keeps its compose layout. Use
+    // the source's innerHTML signature as a cache key so we don't
+    // wipe & rebuild the clone on every player tick — the strip
+    // contains 16 SVGs so it's expensive enough to thrash audio
+    // on mobile if we rebuild needlessly.
     const right = document.getElementById('lp-right');
     const tabsSrc = document.getElementById('real-book-tabs');
-    if (right) {
-      right.innerHTML = '';
-      if (tabsSrc) {
+    if (right && tabsSrc) {
+      const sig = tabsSrc.innerHTML.length + ':' + tabsSrc.children.length;
+      if (right.dataset.tabsSig !== sig) {
+        right.dataset.tabsSig = sig;
+        right.innerHTML = '';
         const clone = tabsSrc.cloneNode(true);
         clone.removeAttribute('id');
         clone.removeAttribute('hidden');
         right.appendChild(clone);
+      } else {
+        // Same content, just re-apply the `current` class so the
+        // highlighted cell follows the playback head.
+        const clone = right.firstElementChild;
+        if (clone) {
+          const srcCells = tabsSrc.querySelectorAll('.rb-tab-cell');
+          const dstCells = clone.querySelectorAll('.rb-tab-cell');
+          srcCells.forEach((s, i) => {
+            const d = dstCells[i];
+            if (!d) return;
+            d.classList.toggle('current',  s.classList.contains('current'));
+            d.classList.toggle('imminent', s.classList.contains('imminent'));
+          });
+        }
       }
     }
   }
