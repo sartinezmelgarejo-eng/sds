@@ -2115,7 +2115,10 @@
       <div class="lp-next-name" id="lp-next-name">—</div>
     </div>
   </div>
-  <div class="lp-body" id="lp-body"></div>
+  <div class="lp-body" id="lp-body">
+    <div class="lp-pane lp-left"  id="lp-left"></div>
+    <div class="lp-pane lp-right" id="lp-right"></div>
+  </div>
   <div class="lp-prog" id="lp-prog"></div>
 </div>
 
@@ -6574,12 +6577,16 @@ document.getElementById('auto-play').addEventListener('click', e => {
     e.target.textContent = '▶ AI';
     document.body.classList.remove('player-active');
     if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
+    // Return reparented elements to their home layout if we were in
+    // landscape follow-along mode.
+    if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   } else {
     player.start();
     e.target.classList.add('active');
     e.target.textContent = '⏸ AI';
     document.body.classList.add('player-active');
     if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
+    if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   }
 });
 
@@ -7465,19 +7472,83 @@ function renderAll() {
 /* ════════════════════════════════════════════════════════════
    LANDSCAPE PLAY VIEW
    A fullscreen "follow-along" overlay shown on mobile in
-   landscape orientation while the player is active. Cloned
-   instances of the existing fretboard / piano / staff are
-   reparented into the overlay so we don't duplicate render
-   logic. State changes (chord step, instrument, focus) ping
-   `renderLandscapePlay()` which rebuilds the cloned views.
+   landscape orientation while the player is active. We MOVE the
+   live #chord-neck / #chord-piano / #real-book-tabs elements
+   (and a freshly-built staff for piano mode) into the overlay so
+   the existing renderers keep painting them in place. When the
+   overlay deactivates, lp_exit() returns each element to its
+   original parent at its original position.
 ═════════════════════════════════════════════════════════════ */
+const LP_SLOTS = {
+  guitar: [
+    { id: 'chord-neck',     target: 'lp-left'  },
+    { id: 'real-book-tabs', target: 'lp-right' },
+  ],
+  piano: [
+    // 'staff' is a synthetic slot built fresh in lp-left every
+    // update; chord-piano is moved into lp-right.
+    { id: 'chord-piano',    target: 'lp-right' },
+  ],
+};
+const lp_savedHomes = {};       // id -> { parent, nextSibling }
+let   lp_currentMode = null;    // 'guitar' | 'piano' | null
+
+function lp_park(id) {
+  if (lp_savedHomes[id]) return;
+  const el = document.getElementById(id);
+  if (!el) return;
+  lp_savedHomes[id] = { parent: el.parentNode, next: el.nextSibling };
+}
+function lp_restore(id) {
+  const home = lp_savedHomes[id];
+  if (!home) return;
+  const el = document.getElementById(id);
+  if (el && home.parent) {
+    if (home.next && home.next.parentNode === home.parent) {
+      home.parent.insertBefore(el, home.next);
+    } else {
+      home.parent.appendChild(el);
+    }
+  }
+  delete lp_savedHomes[id];
+}
+function lp_enter(mode) {
+  if (lp_currentMode === mode) return;
+  if (lp_currentMode) lp_exit();
+  const slots = LP_SLOTS[mode];
+  if (!slots) return;
+  const left  = document.getElementById('lp-left');
+  const right = document.getElementById('lp-right');
+  if (!left || !right) return;
+  left.innerHTML = '';
+  right.innerHTML = '';
+  slots.forEach((slot) => {
+    const el = document.getElementById(slot.id);
+    if (!el) return;
+    lp_park(slot.id);
+    (slot.target === 'lp-left' ? left : right).appendChild(el);
+  });
+  lp_currentMode = mode;
+}
+function lp_exit() {
+  if (!lp_currentMode) return;
+  const left  = document.getElementById('lp-left');
+  const right = document.getElementById('lp-right');
+  const slots = LP_SLOTS[lp_currentMode] || [];
+  slots.forEach((slot) => lp_restore(slot.id));
+  if (left)  left.innerHTML  = '';
+  if (right) right.innerHTML = '';
+  lp_currentMode = null;
+}
+
 function renderLandscapePlay() {
   const overlay = document.getElementById('landscape-play');
   if (!overlay) return;
-  // Only do work when we're actually visible — saves churn while
-  // the user is in portrait mode.
-  if (!document.body.classList.contains('lp-on')) return;
-  if (!document.body.classList.contains('player-active')) return;
+  const onOverlay = document.body.classList.contains('lp-on')
+                 && document.body.classList.contains('player-active');
+  if (!onOverlay) { lp_exit(); return; }
+  // Enter / switch mode based on the current instrument.
+  lp_enter(state.instrument === 'piano' ? 'piano' : 'guitar');
 
   // ── Header: now-playing + next-up chord names ─────────────
   const curId = (player && player._currentChordId && player._currentChordId()) || state.focusedChord;
@@ -7492,71 +7563,20 @@ function renderLandscapePlay() {
   if (nowRoman) nowRoman.textContent = (curDef && curDef.roman) ? curDef.roman : '';
   if (nextName) nextName.textContent = nxtDef ? (nxtDef.name || nxtId) : '—';
 
-  // ── Body: clone the existing instrument view(s) ──────────
-  // For guitar: chord neck on the left (tabs/voicing), fretboard
-  // on the right. For piano: staff on top, keyboard on bottom.
-  const body = document.getElementById('lp-body');
-  if (body) {
-    body.innerHTML = '';
-    // Helper: clone a source element into a landscape pane, stripping
-    // its id (id collisions break re-renders) and forcing it to fill.
-    const cloneInto = (pane, sourceId) => {
-      const src = document.getElementById(sourceId);
-      if (!src) return;
-      const clone = src.cloneNode(true);
-      clone.removeAttribute('id');
-      clone.removeAttribute('hidden');
-      clone.style.width = '100%';
-      clone.style.height = '100%';
-      clone.style.display = 'block';
-      pane.appendChild(clone);
-    };
-
-    if (state.instrument === 'piano') {
-      // Top: staff (built from renderChordStaff). Bottom: piano clone.
-      // chordRoot() expects the chord DEFINITION (with `.deg`), not the
-      // chord id — earlier this passed the id string and silently
-      // produced NaN, leaving the staff blank.
-      const fc      = curDef;
-      const root    = fc ? chordRoot(fc) : null;
-      const quality = fc ? QUALITIES[fc.quality] : null;
-      const flats   = root != null ? useFlatsFor(root) : false;
-      const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
-      const top = document.createElement('div');
-      top.className = 'lp-pane lp-left';
-      if (fc && quality && root != null) {
-        top.innerHTML = renderChordStaff(shape, root, quality, flats, { minimal: false });
-      }
-      body.appendChild(top);
-      const bot = document.createElement('div');
-      bot.className = 'lp-pane lp-right';
-      cloneInto(bot, 'chord-piano');
-      body.appendChild(bot);
-    } else {
-      // Guitar: left = chord neck (current voicing). Right = the
-      // compose tabs strip, so the player can read the tab notation
-      // of the progression while playing.
-      const left = document.createElement('div');
-      left.className = 'lp-pane lp-left';
-      cloneInto(left, 'chord-neck');
-      body.appendChild(left);
-      const right = document.createElement('div');
-      right.className = 'lp-pane lp-right';
-      const tabsSrc = document.getElementById('real-book-tabs');
-      if (tabsSrc) {
-        const wrap = document.createElement('div');
-        wrap.style.width = '100%';
-        wrap.style.height = '100%';
-        wrap.style.overflowX = 'auto';
-        wrap.style.overflowY = 'hidden';
-        const clone = tabsSrc.cloneNode(true);
-        clone.removeAttribute('id');
-        clone.removeAttribute('hidden');
-        clone.style.height = '100%';
-        wrap.appendChild(clone);
-        right.appendChild(wrap);
-      }
-      body.appendChild(right);
+  // ── Body content ─────────────────────────────────────────
+  // chord-neck / chord-piano / real-book-tabs are already MOVED
+  // into the panes by lp_enter() — their normal renderers keep
+  // painting them in place. The only thing rebuilt per-update is
+  // the piano-mode staff in lp-left, which has no persistent DOM.
+  if (state.instrument === 'piano') {
+    const left    = document.getElementById('lp-left');
+    const fc      = curDef;
+    const root    = fc ? chordRoot(fc) : null;
+    const quality = fc ? QUALITIES[fc.quality] : null;
+    const flats   = root != null ? useFlatsFor(root) : false;
+    const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
+    if (left && fc && quality && root != null) {
+      left.innerHTML = renderChordStaff(shape, root, quality, flats, { minimal: false });
     }
   }
 
