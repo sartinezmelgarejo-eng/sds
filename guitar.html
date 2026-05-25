@@ -8258,9 +8258,24 @@ function _midiCollectComposed() {
       notes = q.ints.map(i => 48 + rootPc + i);
     }
     const dur = barLen * bars;
-    for (const n of notes) {
-      events.push({ tick, type: 'on', note: n, vel: 90 });
-      events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
+    // Rhythm subdivisions: split the chord into N slot strikes within the
+    // first bar (slot 0 = bar start). Muted slots emit nothing. The last
+    // un-muted slot's note-off extends to the end of the full duration so
+    // the chord rings through any tied bars instead of cutting on slot N-1.
+    const subN = Math.max(1, cell.subdivisions || 1);
+    const subMute = cell.subdivMute || [];
+    const slotDur = Math.floor(barLen / subN);  // subdivisions live inside ONE bar
+    let lastSlotStart = tick;
+    for (let s = 0; s < subN; s++) {
+      if (subMute[s]) continue;
+      const slotStart = tick + s * slotDur;
+      const isLast = (s === subN - 1) || subMute.slice(s + 1).every(Boolean);
+      const slotEnd = isLast ? (tick + dur - 1) : (slotStart + slotDur - 1);
+      for (const n of notes) {
+        events.push({ tick: slotStart, type: 'on', note: n, vel: 90 });
+        events.push({ tick: slotEnd, type: 'off', note: n, vel: 0 });
+      }
+      lastSlotStart = slotStart;
     }
     tick += dur;
   }
@@ -8302,9 +8317,22 @@ function _midiCollectSong() {
         }
         const dur = ticksPerBeat * 4 * (step.bars || 1);
         if (notes && notes.length) {
-          for (const n of notes) {
-            events.push({ tick, type: 'on', note: n, vel: 90 });
-            events.push({ tick: tick + dur - 1, type: 'off', note: n, vel: 0 });
+          // Rhythm subdivisions: split into N slot strikes inside the bar.
+          // Last un-muted slot extends to end of full duration so the chord
+          // rings through tied bars instead of cutting on slot N-1.
+          const barLen2 = ticksPerBeat * 4;
+          const subN = Math.max(1, step.subdivisions || 1);
+          const subMute = step.subdivMute || [];
+          const slotDur = Math.floor(barLen2 / subN);
+          for (let s = 0; s < subN; s++) {
+            if (subMute[s]) continue;
+            const slotStart = tick + s * slotDur;
+            const isLast = (s === subN - 1) || subMute.slice(s + 1).every(Boolean);
+            const slotEnd = isLast ? (tick + dur - 1) : (slotStart + slotDur - 1);
+            for (const n of notes) {
+              events.push({ tick: slotStart, type: 'on', note: n, vel: 90 });
+              events.push({ tick: slotEnd, type: 'off', note: n, vel: 0 });
+            }
           }
           tick += dur;
         }
