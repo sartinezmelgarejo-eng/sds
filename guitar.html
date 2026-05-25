@@ -2943,29 +2943,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
               dominant-baseline="alphabetic">${glyph}</text>`;
   };
 
-  // Split positions into treble / bass for separate stem drawing
-  const treblePos = positions.filter(p => p.useTreble);
-  const bassPos   = positions.filter(p => !p.useTreble);
-  const trebleMidY = trebleTopY + 2 * lineSp;   // middle line of treble staff
-  const bassMidY   = bassTopY   + 2 * lineSp;   // middle line of bass staff
-
-  // First pass: collect stem-end coordinates per slot per staff so we can
-  // beam consecutive eighth notes together (no individual flags).
-  const slotStemTreble = [];   // [{cx, endY, dir}] or null for muted slots
-  const slotStemBass   = [];
+  // Single shared stem across treble + bass (grand staff = one unit).
+  // Direction follows the topmost note: if it sits ABOVE F5 (the top
+  // treble line) the stem HANGS DOWN; otherwise it rises up. Matches
+  // classical engraving convention applied to the combined grand staff.
+  const slotStems = [];   // [{cx, endY, dir}] or null for muted slots
 
   let notes = '';
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
-    // Each slot is wrapped in a clickable group — click toggles its mute
-    // state (replacing the segment bar's functionality on the staff itself).
-    // A transparent rect covers the slot's column so the user can hit
-    // anywhere in the area, not only on a notehead.
     let slotInner = '';
     if (subMute[s]) {
       slotInner += drawRest(cx);
-      slotStemTreble.push(null);
-      slotStemBass.push(null);
+      slotStems.push(null);
     } else {
       slotInner += ledgersForSlot(cx);
       positions.forEach((p, i) => {
@@ -2978,25 +2968,23 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         else if (p.acc === 'b') slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
-      if (hasStem) {
-        const drawWithFlag = false;
-        if (treblePos.length) {
-          const r = drawStemForGroup(cx, treblePos, trebleMidY, drawWithFlag);
-          slotInner += r.svg;
-          slotStemTreble.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
-        } else slotStemTreble.push(null);
-        if (bassPos.length) {
-          const r = drawStemForGroup(cx, bassPos, bassMidY, drawWithFlag);
-          slotInner += r.svg;
-          slotStemBass.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
-        } else slotStemBass.push(null);
+      if (hasStem && positions.length) {
+        const allY = positions.map(p => p.y);
+        const topY = Math.min(...allY);   // smallest y = highest pitch
+        const botY = Math.max(...allY);   // largest y = lowest pitch
+        // F5 sits ON the top treble line (y = trebleTopY). If the topmost
+        // note is ABOVE F5 (y < trebleTopY), hang the stem down; else rise.
+        const dir = topY < trebleTopY ? 1 : -1;
+        const stemLen = lineSp * 3.2;
+        const stemX = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
+        const y1 = dir === -1 ? botY : topY;
+        const y2 = dir === -1 ? (topY - stemLen) : (botY + stemLen);
+        slotInner += `<line x1="${stemX}" y1="${y1}" x2="${stemX}" y2="${y2}" stroke="#1a1a1a" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
+        slotStems.push({ cx: stemX, endY: y2, dir });
       } else {
-        slotStemTreble.push(null);
-        slotStemBass.push(null);
+        slotStems.push(null);
       }
     }
-    // Transparent hit-target covering the slot column over BOTH staves.
-    // Lives last in the group so it sits ON TOP of notes for clicks.
     const hitRect = `<rect x="${cx - slotW/2}" y="${trebleTopY - lineSp}" width="${slotW}" height="${bassBotY - trebleTopY + 2 * lineSp}" fill="transparent" style="cursor:pointer" pointer-events="all"/>`;
     notes += `<g class="staff-slot" data-staff-seg="${s}">${slotInner}${hitRect}</g>`;
   }
@@ -3061,8 +3049,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       }
       return out;
     };
-    notes += drawBeamsAndFlags(slotStemTreble);
-    notes += drawBeamsAndFlags(slotStemBass);
+    notes += drawBeamsAndFlags(slotStems);
   }
 
   // Chord-name label above the staff (Real-Book style). Single <text> with
