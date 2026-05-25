@@ -3014,11 +3014,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     // line so the number doesn't get lost among the staff lines.
     const allYbk     = positions.map(p => p.y);
     const topNoteY   = allYbk.length ? Math.min(...allYbk) : trebleTopY;
-    const bracketCeil = trebleTopY - lineSp * 1.2;      // furthest up allowed
-    const bracketRest = trebleTopY - lineSp * 0.1;      // resting spot, almost on top staff line
-    const bracketY    = topNoteY < trebleTopY
-      ? Math.max(bracketCeil, topNoteY - lineSp * 0.6)
-      : bracketRest;
+    // Bracket follows the topmost note downward (low chords drag it down),
+    // but never rises above this ceiling — keeps it from crowding the
+    // chord-name label.
+    const bracketCeil = trebleTopY + lineSp * 0.1;
+    const bracketY    = Math.max(bracketCeil, topNoteY - lineSp * 0.5);
     const tipH   = lineSp * 0.4;
     const numFs  = lineSp * 1.1;
     const numW   = numFs * 0.75;                     // gap in the bracket for the number
