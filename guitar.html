@@ -5934,11 +5934,14 @@ class Player {
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 175, r: 12, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
         : '';
       // Subdivision bar (read-only in playback). Slots get .pb-on by the
-      // beat loop as each one fires — see startBeatCounterLoop.
+      // beat loop as each one fires — see startBeatCounterLoop. The bar is
+      // rendered ONLY on the cell that's actually sounding right now; other
+      // cells (especially the imminent/peek preview) stay clean so their
+      // rhythm doesn't read as "playing" when nothing's happening there yet.
       const subN = cell.subdivisions || 1;
       const subMute = cell.subdivMute || [];
       let pbBarHtml = '';
-      if (subN > 1) {
+      if (subN > 1 && i === currentIdx) {
         let segs = '';
         for (let s = 0; s < subN; s++) {
           const m = subMute[s] ? 'muted' : '';
