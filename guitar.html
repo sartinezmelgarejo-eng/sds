@@ -1116,19 +1116,25 @@
     border: 1px dashed rgba(0,0,0,0.3);
     opacity: 0.5;
   }
-  /* Popover that floats above the triangle to pick 1–8 subdivisions. */
+  /* Popover that floats near the badge — three rows: [1] / [2 4 8] / [3 5 6] */
   #subdiv-popover {
     position: fixed;
     display: none;
+    flex-direction: column;
+    align-items: center;
     background: var(--panel);
     border: 1.5px solid var(--accent);
     border-radius: 8px;
     padding: 4px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.18);
     z-index: 1000;
-    gap: 2px;
+    gap: 3px;
   }
   #subdiv-popover.open { display: flex; }
+  #subdiv-popover .subdiv-row {
+    display: flex;
+    gap: 3px;
+  }
   #subdiv-popover button {
     width: 26px; height: 26px;
     padding: 0;
@@ -7602,9 +7608,13 @@ function openSubdivPopover(triEl, cellIdx) {
   const pop = document.getElementById('subdiv-popover');
   const cur = state.composedProgression[cellIdx]?.subdivisions || 1;
   pop.dataset.cellIdx = cellIdx;
-  pop.innerHTML = [1,2,3,4,5,6,7,8].map(n =>
-    `<button data-subdiv-pick="${n}" class="${n === cur ? 'selected' : ''}">${n}</button>`
-  ).join('');
+  // Layout: row 1 = [1] (centered), row 2 = duple [2,4,8], row 3 = odd/triplet [3,5,6]
+  const mkBtn = (n) => `<button data-subdiv-pick="${n}" class="${n === cur ? 'selected' : ''}">${n}</button>`;
+  pop.innerHTML = `
+    <div class="subdiv-row">${mkBtn(1)}</div>
+    <div class="subdiv-row">${mkBtn(2)}${mkBtn(4)}${mkBtn(8)}</div>
+    <div class="subdiv-row">${mkBtn(3)}${mkBtn(5)}${mkBtn(6)}</div>
+  `;
   pop.classList.add('open');
   // Position above the triangle, centered horizontally
   const r = triEl.getBoundingClientRect();
