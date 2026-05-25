@@ -1060,6 +1060,82 @@
   .compose-edit-btn.active {
     background: var(--accent); color: #fff;
   }
+  /* ─── Rhythm subdivisions: tiny triangle picker + segment bar per cell ─── */
+  .subdiv-triangle {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 18px; height: 14px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 9px;
+    line-height: 1;
+    color: var(--text-faint);
+    opacity: 0.35;
+    transition: opacity 0.15s;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'SF Mono', monospace;
+    font-weight: 700;
+  }
+  [data-compose-idx]:hover .subdiv-triangle,
+  .subdiv-triangle.has-divs { opacity: 0.95; color: var(--accent); }
+  .subdiv-bar {
+    position: absolute;
+    bottom: 3px;
+    left: 6px;
+    right: 6px;
+    height: 4px;
+    display: flex;
+    gap: 1px;
+    z-index: 4;
+  }
+  .subdiv-seg {
+    flex: 1;
+    background: var(--accent);
+    border-radius: 1px;
+    opacity: 0.7;
+    cursor: pointer;
+    transition: opacity 0.1s, background 0.1s;
+  }
+  .subdiv-seg:hover { opacity: 1; }
+  .subdiv-seg.muted {
+    background: transparent;
+    border: 1px dashed rgba(0,0,0,0.25);
+    opacity: 0.35;
+  }
+  /* Popover that floats above the triangle to pick 1–8 subdivisions. */
+  #subdiv-popover {
+    position: fixed;
+    display: none;
+    background: var(--panel);
+    border: 1.5px solid var(--accent);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    z-index: 1000;
+    gap: 2px;
+  }
+  #subdiv-popover.open { display: flex; }
+  #subdiv-popover button {
+    width: 26px; height: 26px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg);
+    cursor: pointer;
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-dim);
+  }
+  #subdiv-popover button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #subdiv-popover button.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
   .rb-cell.current {
     background: #fcecaa;
   }
@@ -1702,6 +1778,7 @@
 <div class="sound-menu" id="voicing-menu" hidden></div>
 <div class="sound-menu" id="scope-menu" hidden></div>
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
+<div id="subdiv-popover"></div>
 <div class="sound-menu" id="rhythm-menu" hidden></div>
 
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
@@ -7393,7 +7470,22 @@ function renderComposeStrip() {
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
-      return `<div class="${cls.join(' ')}"${idxAttr}>${svg}</div>`;
+      // Rhythm subdivisions UI — triangle picker + segment toggles
+      const n = cell.subdivisions || 1;
+      const muteArr = cell.subdivMute || [];
+      const triClass = n > 1 ? 'subdiv-triangle has-divs' : 'subdiv-triangle';
+      const triLabel = n > 1 ? n : '▼';
+      let barHtml = '';
+      if (n > 1) {
+        let segs = '';
+        for (let s = 0; s < n; s++) {
+          const m = muteArr[s] ? 'muted' : '';
+          segs += `<div class="subdiv-seg ${m}" data-subdiv-cell="${i}" data-subdiv-seg="${s}"></div>`;
+        }
+        barHtml = `<div class="subdiv-bar">${segs}</div>`;
+      }
+      const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions">${triLabel}</button>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}>${svg}${triHtml}${barHtml}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
@@ -7434,8 +7526,85 @@ function renderComposeStrip() {
 // progression cell rings that chord (with its exact stored voicing) and
 // focuses it so the user can audition / cycle inversions from there.
 // Attached once on the document so it survives every renderComposeStrip().
+// Subdivision popover lifecycle: open near the clicked triangle (above
+// preferred, fallback below if no room). Click outside or Esc to close.
+function openSubdivPopover(triEl, cellIdx) {
+  const pop = document.getElementById('subdiv-popover');
+  const cur = state.composedProgression[cellIdx]?.subdivisions || 1;
+  pop.dataset.cellIdx = cellIdx;
+  pop.innerHTML = [1,2,3,4,5,6,7,8].map(n =>
+    `<button data-subdiv-pick="${n}" class="${n === cur ? 'selected' : ''}">${n}</button>`
+  ).join('');
+  pop.classList.add('open');
+  // Position above the triangle, centered horizontally
+  const r = triEl.getBoundingClientRect();
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = r.left + r.width / 2 - w / 2;
+  let top  = r.top - h - 6;
+  if (top < 8) top = r.bottom + 6;
+  left = Math.max(6, Math.min(left, window.innerWidth - w - 6));
+  pop.style.left = left + 'px';
+  pop.style.top  = top  + 'px';
+}
+function closeSubdivPopover() {
+  const pop = document.getElementById('subdiv-popover');
+  if (pop) { pop.classList.remove('open'); pop.dataset.cellIdx = ''; }
+}
+document.addEventListener('click', (ev) => {
+  // Close popover if click landed outside its body AND outside any triangle
+  if (ev.target.closest('#subdiv-popover') || ev.target.closest('.subdiv-triangle')) return;
+  closeSubdivPopover();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') closeSubdivPopover();
+});
+
 document.addEventListener('click', (ev) => {
   if (player.playing) return;
+
+  // ── Rhythm subdivision triangle: open the 1–8 picker popover ──
+  const triBtn = ev.target.closest('.subdiv-triangle');
+  if (triBtn) {
+    ev.stopPropagation();
+    const idx = parseInt(triBtn.dataset.subdivTri, 10);
+    const seq = state.composedProgression;
+    if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
+    openSubdivPopover(triBtn, idx);
+    return;
+  }
+  // ── Rhythm subdivision segment: toggle mute on click ──
+  const seg = ev.target.closest('.subdiv-seg');
+  if (seg) {
+    ev.stopPropagation();
+    const cellIdx = parseInt(seg.dataset.subdivCell, 10);
+    const segIdx  = parseInt(seg.dataset.subdivSeg, 10);
+    const seq = state.composedProgression;
+    if (!seq[cellIdx]) return;
+    const cell = seq[cellIdx];
+    if (!cell.subdivMute) cell.subdivMute = new Array(cell.subdivisions || 1).fill(false);
+    cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
+    renderComposeStrip();
+    return;
+  }
+  // ── Click in the subdivision popover: pick a count ──
+  const pickBtn = ev.target.closest('#subdiv-popover button[data-subdiv-pick]');
+  if (pickBtn) {
+    ev.stopPropagation();
+    const n = parseInt(pickBtn.dataset.subdivPick, 10);
+    const cellIdx = parseInt(document.getElementById('subdiv-popover').dataset.cellIdx, 10);
+    const seq = state.composedProgression;
+    if (!Number.isFinite(n) || !seq[cellIdx]) return;
+    const cell = seq[cellIdx];
+    cell.subdivisions = n;
+    cell.subdivMute = (n === 1)
+      ? []
+      : (cell.subdivMute && cell.subdivMute.length === n
+          ? cell.subdivMute
+          : new Array(n).fill(false));
+    closeSubdivPopover();
+    renderComposeStrip();
+    return;
+  }
 
   // ── Lock button: toggle lock on that specific slot ──
   const lockBtn = ev.target.closest('.compose-edit-btn');
