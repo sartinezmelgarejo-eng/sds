@@ -1035,6 +1035,19 @@
   [data-compose-idx].compose-selected:hover {
     background: rgba(232,144,52,0.30) !important;
   }
+  .compose-edit-btn {
+    position: absolute; top: 2px; right: 2px;
+    width: 20px; height: 20px; padding: 0;
+    border: none; border-radius: 50%;
+    background: rgba(0,0,0,0.06); color: var(--text-faint);
+    font-size: 11px; line-height: 20px; text-align: center;
+    cursor: pointer; opacity: 0; transition: opacity 0.15s;
+  }
+  [data-compose-idx]:hover .compose-edit-btn,
+  .compose-edit-btn.active { opacity: 1; }
+  .compose-edit-btn.active {
+    background: var(--accent); color: #fff;
+  }
   .rb-cell.current {
     background: #fcecaa;
   }
@@ -7036,9 +7049,11 @@ function renderComposeStrip() {
       return `<div class="${cls.join(' ')}"${idxAttr}>${svg}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
     return `<div class="${cls.join(' ')}"${idxAttr}>
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
+      <button class="${selCls}" data-edit-idx="${i}" title="select to replace">✎</button>
     </div>`;
   };
 
@@ -7095,6 +7110,12 @@ document.addEventListener('click', (ev) => {
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
+  // Toggle selection: if already selected, deselect; otherwise select.
+  if (state.composedSelectedIdx === idx) {
+    state.composedSelectedIdx = null;
+    renderComposeStrip();
+    return;
+  }
   // Mark this cell as the edit target — next chord pick / inversion cycle
   // will REPLACE this slot instead of appending to the end of the strip.
   state.composedSelectedIdx = idx;
