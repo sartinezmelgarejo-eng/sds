@@ -1163,6 +1163,13 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
+  /* Play mode (desktop + vertical mobile): reserve room at the bottom
+     of each tab cell so the playback subdivision bar gets its own
+     strip and stops overlapping the chord diagram. Landscape mobile
+     handles its own padding inside #landscape-play. */
+  body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
+    padding-bottom: 18px;
+  }
   body:not(.player-active) .subdiv-bar:not(.playback-bar) {
     height: 18px;
     bottom: 12px;  /* leave room below for the count badge (hangs at -9px) */
@@ -1218,14 +1225,13 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: taller subdivision bars that overlay the bottom of the
-     cell WITHOUT adding padding (the 70px cell is tight enough as-is).
-     The bar sits on top of the diagram's lower edge — acceptable since the
-     bottom frets are rarely the focus. */
+  /* Mobile playback: subdivision bar sits in the reserved bottom
+     strip of the cell (padding-bottom on rb-tab-cell), so the chord
+     diagram above is no longer crushed by an overlay. */
   @media (max-width: 800px) {
-    body.player-active .subdiv-bar.playback-bar {
+    body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
       height: 14px;
-      bottom: 2px;
+      bottom: 3px;
       left: 3px;
       right: 3px;
     }
@@ -1840,6 +1846,10 @@
     .rb-cycle { height: 56px; }
     .real-book-tabs { height: 85px; }
     .rb-loop { height: 85px; }   /* mobile: match the (shorter) tabs row */
+    /* In play mode the cells need extra vertical room so the
+       chord diagram + reserved subdiv bar don't crush each other. */
+    body.player-active:not(.lp-on) .real-book-tabs,
+    body.player-active:not(.lp-on) .rb-loop { height: 120px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
