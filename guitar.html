@@ -7536,7 +7536,21 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     if (wasEmpty) {
       requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
     } else if (seq.length === 9) {
-      requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.rb-area')));
+      // Entering the 3rd pair-row — scroll so the LATEST chord cell sits
+      // above the keypad (block:'end' aligns the cell with the viewport
+      // bottom). Then the new row + the latest chord are both visible.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const latest = document.querySelector('.rb-cell.current')
+                    || document.querySelector('.rb-tab-cell.current');
+        if (!latest) return;
+        // Page-only scroll: compute target Y so latest cell is ~250px from
+        // the bottom of viewport (above the ~290px keypad).
+        const rect = latest.getBoundingClientRect();
+        const absY = rect.top + (window.pageYOffset || 0);
+        const targetY = absY - (window.innerHeight - rect.height - 300);
+        try { window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' }); }
+        catch(_) { window.scrollTo(0, Math.max(0, targetY)); }
+      }));
     }
   }
 }
