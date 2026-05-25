@@ -2877,28 +2877,50 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       <ellipse cx="${cx}" cy="${cy}" rx="${noteR * 1.15}" ry="${noteR * 0.82}" fill="${color}" stroke="${color}" stroke-width="0.4"/>
     </g>`;
   };
-  // Helper: stem (vertical) — direction by staff side (treble up, bass down)
-  const drawStem = (cx, headY, useTreble, color, withFlag) => {
+  // Helper: stem that passes through ALL noteheads of a chord stack.
+  // Stem direction is determined by the chord's center vs the staff's
+  // middle line — high notes get down-stems (hanging), low notes get
+  // up-stems (rising), like classical engraving.
+  //   notesGroup: positions in the same staff
+  //   staffMidY: middle line of that staff (3rd line)
+  //   cx: slot center x
+  //   returns: { svg, stemEndX, stemEndY, stemDir }  — last 3 are for
+  //     beaming consecutive eighth notes together later.
+  const drawStemForGroup = (cx, notesGroup, staffMidY, withFlag) => {
+    if (!notesGroup.length) return { svg: '', stemEndX: 0, stemEndY: 0, dir: 0 };
+    const ys = notesGroup.map(p => p.y);
+    const minY = Math.min(...ys);   // highest pitch on screen (smaller y)
+    const maxY = Math.max(...ys);   // lowest pitch on screen (larger y)
+    const centerY = (minY + maxY) / 2;
+    // Up-stem (-1) if the chord's center is BELOW the staff middle
+    // (i.e., low notes), down-stem (+1) if ABOVE.
+    const dir = centerY > staffMidY ? -1 : 1;
     const stemLen = lineSp * 3.2;
-    const dir = useTreble ? -1 : 1;          // treble notes get up-stems
-    const x   = cx + (useTreble ? noteR * 1.1 : -noteR * 1.1);
-    const y1  = headY;
-    const y2  = headY + dir * stemLen;
-    let s = `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${color}" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
-    if (withFlag) {
-      // Single eighth-note flag (curl) at the end of the stem
-      const flagY = y2;
-      const flagDir = dir;
-      const flagW = lineSp * 1.1;
-      const flagH = lineSp * 1.6 * flagDir;
-      s += `<path d="M ${x} ${flagY}
-                    Q ${x + flagW * 0.6} ${flagY + flagH * 0.25},
-                      ${x + flagW * 0.9} ${flagY + flagH * 0.6}
-                    Q ${x + flagW * 0.4} ${flagY + flagH * 0.4},
-                      ${x} ${flagY + flagH * 0.5} Z"
-              fill="${color}"/>`;
+    const x = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
+    // Anchor at the FAR notehead (in stem direction). Extend past the
+    // other end of the chord stack plus stemLen.
+    let y1, y2;
+    if (dir === -1) {       // up-stem: anchored at bottom note, extends up past the top
+      y1 = maxY;
+      y2 = minY - stemLen;
+    } else {                // down-stem: anchored at top note, extends down past the bottom
+      y1 = minY;
+      y2 = maxY + stemLen;
     }
-    return s;
+    let svg = `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="#1a1a1a" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
+    if (withFlag) {
+      // Single eighth-note flag (curl) at the END of the stem.
+      const flagY = y2;
+      const flagW = lineSp * 1.1;
+      const flagH = lineSp * 1.6 * dir * -1;   // flag curls AWAY from chord (downwards for up-stem)
+      svg += `<path d="M ${x} ${flagY}
+                       Q ${x + flagW * 0.6} ${flagY + flagH * 0.25},
+                         ${x + flagW * 0.9} ${flagY + flagH * 0.6}
+                       Q ${x + flagW * 0.4} ${flagY + flagH * 0.4},
+                         ${x} ${flagY + flagH * 0.5} Z"
+                fill="#1a1a1a"/>`;
+    }
+    return { svg, stemEndX: x, stemEndY: y2, dir };
   };
   // Helper: rest glyph for a muted slot. Picks the rest shape matching
   // the slot's duration. Drawn in the middle gap between staves so it's
@@ -2921,21 +2943,27 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
               dominant-baseline="alphabetic">${glyph}</text>`;
   };
 
+  // Split positions into treble / bass for separate stem drawing
+  const treblePos = positions.filter(p => p.useTreble);
+  const bassPos   = positions.filter(p => !p.useTreble);
+  const trebleMidY = trebleTopY + 2 * lineSp;   // middle line of treble staff
+  const bassMidY   = bassTopY   + 2 * lineSp;   // middle line of bass staff
+
+  // First pass: collect stem-end coordinates per slot per staff so we can
+  // beam consecutive eighth notes together (no individual flags).
+  const slotStemTreble = [];   // [{cx, endY, dir}] or null for muted slots
+  const slotStemBass   = [];
+
   let notes = '';
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
     if (subMute[s]) {
       notes += drawRest(cx);
+      slotStemTreble.push(null);
+      slotStemBass.push(null);
       continue;
     }
-    // Per-slot ledger lines (above/below the staff, aligned with this slot)
     notes += ledgersForSlot(cx);
-    // Determine stem direction for THIS slot (use the chord's center pitch).
-    // Treble notes use up-stems, bass notes use down-stems. For chords
-    // spanning both staves, prefer the side with more notes.
-    const trebleCount = positions.filter(p => p.useTreble).length;
-    const useTreble = trebleCount >= positions.length - trebleCount;
-    // One accidental column per slot, just left of the noteheads
     positions.forEach((p, i) => {
       const dx = offsetX[i] || 0;
       const cxNote = cx + dx;
@@ -2946,13 +2974,67 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       else if (p.acc === 'b') notes += svgFlat(cxNote - lineSp * 1.1, p.y);
       notes += drawHead(cxNote, p.y, color, isOpen);
     });
-    // Single shared stem per slot — anchored on the OUTERMOST note in
-    // the stem direction (top for treble up-stem, bottom for bass down).
-    if (hasStem && positions.length) {
-      const sorted = [...positions].sort((a, b) => a.y - b.y);
-      const stemAnchorY = useTreble ? sorted[0].y : sorted[sorted.length - 1].y;
-      notes += drawStem(cx, stemAnchorY, useTreble, '#1a1a1a', hasFlag);
+    if (hasStem) {
+      // For eighth notes we draw stems WITHOUT flags (no `withFlag`) and
+      // collect the stem-end positions to beam consecutive ones below.
+      // Non-eighth stems keep the simple stem (no flag, no beam needed).
+      const drawWithFlag = false;
+      if (treblePos.length) {
+        const r = drawStemForGroup(cx, treblePos, trebleMidY, drawWithFlag);
+        notes += r.svg;
+        slotStemTreble.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
+      } else slotStemTreble.push(null);
+      if (bassPos.length) {
+        const r = drawStemForGroup(cx, bassPos, bassMidY, drawWithFlag);
+        notes += r.svg;
+        slotStemBass.push({ cx: r.stemEndX, endY: r.stemEndY, dir: r.dir });
+      } else slotStemBass.push(null);
+    } else {
+      slotStemTreble.push(null);
+      slotStemBass.push(null);
     }
+  }
+
+  // Beams for eighth notes — connect runs of consecutive non-muted slots
+  // with a horizontal bar at the stem ends. Single eighths (run of 1)
+  // fall back to a flag.
+  if (hasFlag && hasStem) {
+    const drawBeamsAndFlags = (stems) => {
+      let out = '';
+      let i = 0;
+      while (i < stems.length) {
+        if (!stems[i]) { i++; continue; }
+        // Find run of consecutive non-null stems
+        let j = i;
+        while (j < stems.length && stems[j]) j++;
+        const run = stems.slice(i, j);
+        if (run.length >= 2) {
+          // Beam: thick line connecting all stem ends in the run.
+          // Use the AVERAGE y of the endpoints so the beam stays straight
+          // even if the stems differ slightly in length.
+          const beamY = run.reduce((a, r) => a + r.endY, 0) / run.length;
+          const x1 = run[0].cx;
+          const x2 = run[run.length - 1].cx;
+          const thick = Math.max(1.6, lineSp * 0.4);
+          out += `<line x1="${x1}" y1="${beamY}" x2="${x2}" y2="${beamY}" stroke="#1a1a1a" stroke-width="${thick}" stroke-linecap="butt"/>`;
+        } else {
+          // Singleton — needs a flag.
+          const r = run[0];
+          const flagW = lineSp * 1.1;
+          const flagH = lineSp * 1.6 * r.dir * -1;
+          out += `<path d="M ${r.cx} ${r.endY}
+                          Q ${r.cx + flagW * 0.6} ${r.endY + flagH * 0.25},
+                            ${r.cx + flagW * 0.9} ${r.endY + flagH * 0.6}
+                          Q ${r.cx + flagW * 0.4} ${r.endY + flagH * 0.4},
+                            ${r.cx} ${r.endY + flagH * 0.5} Z"
+                    fill="#1a1a1a"/>`;
+        }
+        i = j;
+      }
+      return out;
+    };
+    notes += drawBeamsAndFlags(slotStemTreble);
+    notes += drawBeamsAndFlags(slotStemBass);
   }
 
   // Chord-name label above the staff (Real-Book style). Single <text> with
