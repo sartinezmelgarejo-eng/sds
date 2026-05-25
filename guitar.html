@@ -1054,9 +1054,11 @@
     letter-spacing: 0;
     pointer-events: none;
   }
-  /* Section loop gets an "A" badge in the same spot for symmetry. */
+  /* Section loop badge shows the ACTUAL section letter (A, B, …)
+     currently playing — pulled from data-section, which JS updates
+     on every section change. Falls back to 'A' if unset. */
   .rb-loop.active:not(.loop-song)::after {
-    content: 'A';
+    content: attr(data-section);
     position: absolute;
     top: 3px;
     right: 4px;
@@ -7038,6 +7040,7 @@ document.getElementById('loop-toggle').addEventListener('click', e => {
   }
   if (player.playing) player._renderRealBook();
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
+  if (typeof syncLoopSectionBadge === 'function') syncLoopSectionBadge();
 });
 
 // Cycle button — clicks through none → chromatic → fourths → none ...
@@ -8205,6 +8208,9 @@ function renderLandscapePlay() {
 
   // Keep the corner play / loop buttons in sync with the main UI.
   if (typeof lp_syncControls === 'function') lp_syncControls();
+  // Update the main loop button's section letter badge so the
+  // user sees A/B/etc. matching what's currently playing.
+  if (typeof syncLoopSectionBadge === 'function') syncLoopSectionBadge();
 
   // ── Progression strip at the bottom ──────────────────────
   const prog = document.getElementById('lp-prog');
@@ -8250,6 +8256,24 @@ function renderLandscapePlay() {
 
 // Sync the corner buttons' visual state to match the main toolbar
 // (playing → red ⏸ icon, loop active → highlighted).
+// Update the section letter shown in the loop button's badge. Reads
+// the live player section when one is playing; falls back to the
+// first section of the composed/generated song when idle so the
+// user sees which section will start when they hit play.
+function syncLoopSectionBadge() {
+  const btn = document.getElementById('loop-toggle');
+  if (!btn) return;
+  let label = 'A';
+  if (window.player && player.song && player.song.length) {
+    const idx = (player.playing && Number.isFinite(player.songIdx))
+      ? player.songIdx
+      : 0;
+    const sec = player.song[idx];
+    if (sec && sec.label) label = sec.label;
+  }
+  btn.dataset.section = label;
+}
+
 function lp_syncControls() {
   const play = document.getElementById('lp-play');
   if (play) {
