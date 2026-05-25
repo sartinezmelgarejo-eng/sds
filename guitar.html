@@ -1131,6 +1131,10 @@
   }
   /* Playback bar — non-interactive indicator. Only HERE do we transition
      and pulse, so the compose preview stays totally static. */
+  /* While dragging the subdivision badge, lock the page so the browser
+     can't scroll/zoom in either direction. */
+  body.dragging-subdiv { touch-action: none !important; overscroll-behavior: contain; user-select: none; }
+  body.dragging-subdiv * { user-select: none; }
   .subdiv-bar.playback-bar { pointer-events: none; }
   /* Belt-and-suspenders: even if a non-current cell somehow ends up with a
      playback bar in the DOM, hide it. Only the .current cell shows rhythm. */
@@ -7824,6 +7828,7 @@ document.addEventListener('keydown', (ev) => {
     document.removeEventListener('pointermove', onMove);
     document.removeEventListener('pointerup', onEnd);
     document.removeEventListener('pointercancel', onEnd);
+    document.body.classList.remove('dragging-subdiv');
     capturedEl = null;
     capturedPointerId = null;
     // Reset on next tick so the click handler can still read dragMoved.
@@ -7848,6 +7853,7 @@ document.addEventListener('keydown', (ev) => {
       capturedEl = tri;
       capturedPointerId = e.pointerId;
     } catch(_) {}
+    document.body.classList.add('dragging-subdiv');
     document.addEventListener('pointermove', onMove, {passive: false});
     document.addEventListener('pointerup', onEnd);
     document.addEventListener('pointercancel', onEnd);
