@@ -2021,9 +2021,65 @@
   #landscape-play .lp-right .rb-tab-cell:nth-last-child(-n+4) {
     border-bottom: none;
   }
-  body.instrument-piano #landscape-play .lp-body { flex-direction: column; }
-  body.instrument-piano #landscape-play .lp-left,
-  body.instrument-piano #landscape-play .lp-right { flex: 1 1 0; width: 100%; }
+  /* Piano landscape — totally different layout from guitar.
+     Top (~75%): the live #real-book-tabs strip, identical to the
+     vertical play view. Bottom: piano keys (left) and the floating
+     controls (right, absolute-positioned via .lp-controls).
+     Header + bottom progression strip are hidden — the staff cells
+     already carry chord names and the highlighted "current" cell. */
+  body.instrument-piano #landscape-play .lp-header,
+  body.instrument-piano #landscape-play .lp-prog { display: none; }
+  body.instrument-piano #landscape-play .lp-body {
+    flex-direction: column;
+    padding: 6px;
+    gap: 6px;
+  }
+  #landscape-play .lp-piano-layout {
+    display: grid !important;
+    grid-template-rows: 1fr 120px;
+    width: 100%;
+    height: 100%;
+  }
+  #landscape-play .lp-staff-area {
+    background: #fdfcf3;
+    border: 1px solid #d8cfb5;
+    border-radius: 6px;
+    overflow: hidden;
+    min-height: 0;
+  }
+  #landscape-play .lp-bottom-row {
+    display: grid;
+    grid-template-columns: 1fr 200px;     /* keys take left side, controls float over right */
+    gap: 6px;
+    min-height: 0;
+  }
+  #landscape-play .lp-piano-area {
+    background: #fdfcf3;
+    border: 1px solid #d8cfb5;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+  }
+  /* Reparented #real-book-tabs in piano landscape: rearrange the
+     16 cells into a 4-column grid so each bar is large and readable.
+     Matches the spirit of vertical compose-interleaved mode. */
+  #landscape-play .lp-staff-area > #real-book-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 1fr;
+    width: 100% !important;
+    height: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+  #landscape-play .lp-staff-area .rb-tab-cell {
+    border-right: 1px solid #d8cfb5;
+    border-bottom: 1px solid #d8cfb5;
+    min-width: 0;
+    min-height: 0;
+  }
+  #landscape-play .lp-staff-area .rb-tab-cell:nth-child(4n) { border-right: none; }
+  #landscape-play .lp-staff-area .rb-tab-cell:nth-last-child(-n+4) { border-bottom: none; }
 
   #landscape-play .lp-prog {
     display: flex;
@@ -7606,17 +7662,38 @@ function renderAll() {
    overlay deactivates, lp_exit() returns each element to its
    original parent at its original position.
 ═════════════════════════════════════════════════════════════ */
-// Only the live SVGs that benefit from the existing renderers keep
-// painting them are reparented. Other panes (tabs clone, staff) are
-// built fresh per update so they don't fight the original layout.
+// Per-mode slot map: which live element gets reparented into which
+// pane id. The originals' existing renderers keep painting them in
+// place. Anything else (tabs clone for guitar) is rebuilt per tick.
 const LP_SLOTS = {
   guitar: [
-    { id: 'chord-neck',  target: 'lp-left'  },
+    { id: 'chord-neck',     target: 'lp-left'  },
   ],
   piano: [
-    { id: 'chord-piano', target: 'lp-right' },
+    { id: 'real-book-tabs', target: 'lp-staff-area' },
+    { id: 'chord-piano',    target: 'lp-piano-area' },
   ],
 };
+
+// Build the inner DOM of #lp-body for a given mode. Called when the
+// mode changes (or first enter). Slots created here are the targets
+// for lp_enter's reparenting.
+function lp_buildLayout(mode) {
+  const body = document.getElementById('lp-body');
+  if (!body) return;
+  body.className = 'lp-body lp-' + mode + '-layout';
+  if (mode === 'piano') {
+    body.innerHTML = `
+      <div class="lp-staff-area" id="lp-staff-area"></div>
+      <div class="lp-bottom-row">
+        <div class="lp-piano-area" id="lp-piano-area"></div>
+      </div>`;
+  } else {
+    body.innerHTML = `
+      <div class="lp-pane lp-left"  id="lp-left"></div>
+      <div class="lp-pane lp-right" id="lp-right"></div>`;
+  }
+}
 const lp_savedHomes = {};       // id -> { parent, nextSibling }
 let   lp_currentMode = null;    // 'guitar' | 'piano' | null
 
@@ -7644,27 +7721,22 @@ function lp_enter(mode) {
   if (lp_currentMode) lp_exit();
   const slots = LP_SLOTS[mode];
   if (!slots) return;
-  const left  = document.getElementById('lp-left');
-  const right = document.getElementById('lp-right');
-  if (!left || !right) return;
-  left.innerHTML = '';
-  right.innerHTML = '';
+  lp_buildLayout(mode);
   slots.forEach((slot) => {
     const el = document.getElementById(slot.id);
-    if (!el) return;
+    const target = document.getElementById(slot.target);
+    if (!el || !target) return;
     lp_park(slot.id);
-    (slot.target === 'lp-left' ? left : right).appendChild(el);
+    target.appendChild(el);
   });
   lp_currentMode = mode;
 }
 function lp_exit() {
   if (!lp_currentMode) return;
-  const left  = document.getElementById('lp-left');
-  const right = document.getElementById('lp-right');
   const slots = LP_SLOTS[lp_currentMode] || [];
   slots.forEach((slot) => lp_restore(slot.id));
-  if (left)  left.innerHTML  = '';
-  if (right) right.innerHTML = '';
+  const body = document.getElementById('lp-body');
+  if (body) { body.innerHTML = ''; body.className = 'lp-body'; }
   lp_currentMode = null;
 }
 
@@ -7696,47 +7768,10 @@ function renderLandscapePlay() {
   // The OTHER pane is built fresh on every tick: tabs clone for
   // guitar, staff SVG for piano.
   if (state.instrument === 'piano') {
-    // Render the FOUR chords of the current section side-by-side,
-    // highlighting the one that's currently playing — mirrors the
-    // compose strip and gives the player context for what's next.
-    const left  = document.getElementById('lp-left');
-    const steps = player?._currentSection?.()?.progression?.steps || [];
-    const stepIdx = player?.currentStepIdx ?? -1;
-    const flats = useFlatsFor(state.keyPc);
-    const sig = steps.map(s => s.chord).join(',') + '|' + stepIdx + '|' + state.keyPc;
-    if (left && left.dataset.staffSig !== sig) {
-      left.dataset.staffSig = sig;
-      if (!steps.length) {
-        left.innerHTML = '';
-      } else {
-        const cellsHtml = steps.map((step, i) => {
-          const ch = map.chordDefs[step.chord];
-          if (!ch) return '<div class="lp-staff-cell"></div>';
-          const root = (state.keyPc + ch.deg) % 12;
-          const qObj = QUALITIES[ch.quality];
-          if (!qObj) return '<div class="lp-staff-cell"></div>';
-          const cellName = (ch.name || nameOf(root, flats) + qObj.sfx);
-          // Use the live voicing for the playing chord, the queued
-          // next-voicing for its successor; everything else falls
-          // back to the focused shape so the staff isn't empty.
-          let shape;
-          if (i === stepIdx) shape = state.playerVoicing?.shape || focusedShape()?.shape;
-          else if (state.nextVoicing && step.chord === state.nextVoicing.chord) shape = state.nextVoicing.shape;
-          else shape = focusedShape()?.shape;
-          const inner = renderChordStaff(shape, root, ch.quality, flats, {
-            W: 150, H: 170, r: 10,
-            minimal: false,
-            showClef: true,
-            chordName: cellName,
-            roman: ch.roman,
-            tag: ch.tag,
-          });
-          const cls = 'lp-staff-cell' + (i === stepIdx ? ' current' : '');
-          return `<div class="${cls}">${inner || ''}</div>`;
-        }).join('');
-        left.innerHTML = `<div class="lp-staff-row">${cellsHtml}</div>`;
-      }
-    }
+    // Piano landscape uses the LIVE #real-book-tabs (reparented by
+    // lp_enter) so its rendering matches vertical play mode exactly.
+    // Nothing to rebuild here — the strip's own renderer keeps it
+    // in sync as the player advances.
   } else {
     // Guitar: clone the compose tabs strip into lp-right. Cloned
     // (not reparented) so the source keeps its compose layout. Use
