@@ -2897,7 +2897,11 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
       s += `<rect x="${x1 - noteR}" y="${cy - noteR - 1}" width="${x2 - x1 + 2*noteR}" height="${2*noteR + 2}" rx="${noteR + 1}" fill="#1f1d18" opacity="0.13"/>`;
     });
   }
-  const minimal = sizing?.minimal === true;
+  // `minimal` covers both note-style AND label sizing (used on mobile).
+  // `bwNotes` is a finer flag that ONLY switches notes to black-and-white
+  // without shrinking the chord-name / roman labels — used on desktop
+  // compose where we want sober dots but keep the bigger labels.
+  const minimal = sizing?.minimal === true || sizing?.bwNotes === true;
   shape.forEach((fret, sIdx) => {
     const x = ml + sIdx * stringSp;
     if (fret < 0) {
@@ -7577,7 +7581,7 @@ function renderComposeStrip() {
       const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
       const sizing = isMobile
         ? {W: 100, H: 128, r: 7, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag}
-        : {W: 130, H: 148, r: 6, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag};
+        : {W: 130, H: 148, r: 6, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag};
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
