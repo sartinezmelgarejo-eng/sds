@@ -7808,8 +7808,11 @@ document.addEventListener('keydown', (ev) => {
     if (e.cancelable) e.preventDefault();
     const y = e.clientY;
     if (Math.abs(y - dragStartY) > 4) dragMoved = true;
-    const delta = Math.round((dragStartY - y) / 14);
-    const newN = clampN(dragStartN + delta);
+    // Either direction ADDS: drag UP or DOWN both increase the count. The
+    // farther you drag (in either direction), the higher the subdivision.
+    // 1 stays as the "center" rest value; max clamps at 8.
+    const distance = Math.round(Math.abs(y - dragStartY) / 14);
+    const newN = clampN(dragStartN + distance);
     const seq = state.composedProgression;
     const cell = seq[dragIdx];
     if (!cell || cell.subdivisions === newN) return;
