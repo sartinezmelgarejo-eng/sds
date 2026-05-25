@@ -8896,7 +8896,16 @@ document.addEventListener('click', (ev) => {
     const idx = parseInt(triBtn.dataset.subdivTri, 10);
     const seq = state.composedProgression;
     if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
-    openSubdivPopover(triBtn, idx);
+    // If the popover is already open for THIS cell, a second tap on
+    // the same badge closes it (toggle behaviour). Otherwise open
+    // (or re-open for a different cell).
+    const pop = document.getElementById('subdiv-popover');
+    if (pop && pop.classList.contains('open')
+        && parseInt(pop.dataset.cellIdx, 10) === idx) {
+      closeSubdivPopover();
+    } else {
+      openSubdivPopover(triBtn, idx);
+    }
     return;
   }
   // ── Rhythm subdivision segment: toggle mute on click ──
