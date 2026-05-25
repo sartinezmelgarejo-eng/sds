@@ -1116,25 +1116,32 @@
     border: 1px dashed rgba(0,0,0,0.3);
     opacity: 0.5;
   }
-  /* Popover that floats near the badge — three rows: [1] / [2 4 8] / [3 5 6] */
+  /* Popover laid out as a 3-column grid:
+       [1] [2] [3]
+           [4] [5]
+           [8] [6]
+     Column 1 = no subdivision. Column 2 = duple (2/4/8). Column 3 = triplet/odd (3/5/6). */
   #subdiv-popover {
     position: fixed;
     display: none;
-    flex-direction: column;
-    align-items: center;
+    grid-template-columns: repeat(3, auto);
+    gap: 3px;
     background: var(--panel);
     border: 1.5px solid var(--accent);
     border-radius: 8px;
     padding: 4px;
     box-shadow: 0 6px 18px rgba(0,0,0,0.18);
     z-index: 1000;
-    gap: 3px;
+    align-items: start;
   }
-  #subdiv-popover.open { display: flex; }
-  #subdiv-popover .subdiv-row {
-    display: flex;
-    gap: 3px;
-  }
+  #subdiv-popover.open { display: grid; }
+  #subdiv-popover button[data-subdiv-pick="1"] { grid-area: 1 / 1; }
+  #subdiv-popover button[data-subdiv-pick="2"] { grid-area: 1 / 2; }
+  #subdiv-popover button[data-subdiv-pick="3"] { grid-area: 1 / 3; }
+  #subdiv-popover button[data-subdiv-pick="4"] { grid-area: 2 / 2; }
+  #subdiv-popover button[data-subdiv-pick="5"] { grid-area: 2 / 3; }
+  #subdiv-popover button[data-subdiv-pick="8"] { grid-area: 3 / 2; }
+  #subdiv-popover button[data-subdiv-pick="6"] { grid-area: 3 / 3; }
   #subdiv-popover button {
     width: 26px; height: 26px;
     padding: 0;
@@ -7608,13 +7615,9 @@ function openSubdivPopover(triEl, cellIdx) {
   const pop = document.getElementById('subdiv-popover');
   const cur = state.composedProgression[cellIdx]?.subdivisions || 1;
   pop.dataset.cellIdx = cellIdx;
-  // Layout: row 1 = [1] (centered), row 2 = duple [2,4,8], row 3 = odd/triplet [3,5,6]
+  // Buttons in their natural source order — CSS grid-area positions them.
   const mkBtn = (n) => `<button data-subdiv-pick="${n}" class="${n === cur ? 'selected' : ''}">${n}</button>`;
-  pop.innerHTML = `
-    <div class="subdiv-row">${mkBtn(1)}</div>
-    <div class="subdiv-row">${mkBtn(2)}${mkBtn(4)}${mkBtn(8)}</div>
-    <div class="subdiv-row">${mkBtn(3)}${mkBtn(5)}${mkBtn(6)}</div>
-  `;
+  pop.innerHTML = [1,2,3,4,5,8,6].map(mkBtn).join('');
   pop.classList.add('open');
   // Position above the triangle, centered horizontally
   const r = triEl.getBoundingClientRect();
