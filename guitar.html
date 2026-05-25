@@ -6887,6 +6887,15 @@ class Player {
         composedShape: step.composedShape,  // honors user-typed inversions
         subdivisions: step.subdivisions || 1,
         subdivMute: step.subdivMute || [],
+        // Track song position so playback-strip cells can jump back
+        // to the exact (songIdx, stepIdx) for click-while-paused.
+        songIdx,
+        stepIdx,
+        sectionIter,
+        stepBarsTotal: step.bars,
+        // barsAlreadyConsumed tells the click handler how many bars
+        // of THIS step have already passed before this strip cell.
+        barsAlreadyConsumed: isFirst ? (step.bars - barsLeft) : 0,
       });
       totalBars += barsToShow;
       isFirst = false;
@@ -6957,12 +6966,16 @@ class Player {
         }
         const entry = {
           chord: seg.chord,
-          barIdxInChord: b,
+          barIdxInChord: (seg.barsAlreadyConsumed || 0) + b,
           keyPc: segKeyPc,
           voicingType: segType,
           shape,
           subdivisions: seg.subdivisions || 1,
           subdivMute: seg.subdivMute || [],
+          // Position info for jump-on-click while paused.
+          songIdx: seg.songIdx,
+          stepIdx: seg.stepIdx,
+          sectionIter: seg.sectionIter,
         };
         if (bar < 4) {
           this._cachedPage.push(entry);
@@ -7034,11 +7047,12 @@ class Player {
       const isCurrent = i === currentIdx;
       const isImminent = i === imminentIdx;
       const cls = `rb-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
+      const dataPos = ` data-pb-cell-idx="${i}"`;
       if (cell.barIdxInChord > 0) {
-        return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
+        return `<div class="${cls}"${dataPos}><div class="rb-continuation">%</div></div>`;
       }
       return `
-        <div class="${cls}">
+        <div class="${cls}"${dataPos}>
           <div class="rb-roman">${ch.roman}</div>
           <div class="rb-chord">${name}</div>
         </div>
@@ -7101,9 +7115,12 @@ class Player {
         }
         pbBarHtml = `<div class="subdiv-bar playback-bar">${segs}</div>`;
       }
-      return `<div class="${cls}">${svg}${pbBarHtml}</div>`;
+      return `<div class="${cls}" data-pb-cell-idx="${i}">${svg}${pbBarHtml}</div>`;
     }).join('');
     el.innerHTML = cellsHtml;
+    // Stash the cell array on the player so the global click handler
+    // can read (songIdx, stepIdx) for each visible strip cell.
+    this._stripCells = cells;
     const tabsEl = document.getElementById('real-book-tabs');
     if (tabsEl) {
       tabsEl.hidden = false;
@@ -7304,6 +7321,44 @@ document.getElementById('auto-play').addEventListener('click', () => {
   } else {
     player.start();
   }
+  _refreshAutoPlayUI();
+});
+
+// While paused, clicking a playback-strip cell auditions that chord
+// AND moves the playback head to it — so when you tap resume, the
+// song picks up from the chord you tapped. Doesn't fire mid-play
+// (jumpTo handles that scenario).
+document.addEventListener('click', e => {
+  if (!player.paused) return;
+  const cellEl = e.target.closest('[data-pb-cell-idx]');
+  if (!cellEl) return;
+  // Subdivision segments live inside cells — let them through to
+  // their own handler instead of triggering a jump.
+  if (e.target.closest('.subdiv-seg')) return;
+  const i = parseInt(cellEl.dataset.pbCellIdx, 10);
+  const cells = player._stripCells;
+  if (!cells || !cells[i]) return;
+  const cell = cells[i];
+  if (cell.songIdx == null || cell.stepIdx == null) return;
+  // Snap the player's position to this cell so resume starts here.
+  player.songIdx       = cell.songIdx;
+  player.sectionIter   = cell.sectionIter || 0;
+  player.currentStepIdx = cell.stepIdx;
+  const step = player._currentStep();
+  if (step) player.barsRemaining = step.bars;
+  // Recompute totalBars to match the page+i so the strip's
+  // `currentIdx = totalBars % 4` highlights the new cell.
+  const curPage = Math.floor(player.totalBars / 4);
+  player.totalBars = curPage * 4 + i;
+  player._cachedPage = null;
+  player._stopArmed = false;
+  // Audition the chord with its voicing now.
+  ensureAudio();
+  state.focusedChord = cell.chord;
+  if (cell.shape) state.userVoicing = { shape: cell.shape };
+  player._updateVisuals();
+  if (typeof renderAll === 'function') renderAll();
+  ringFocusedChord();
   _refreshAutoPlayUI();
 });
 
