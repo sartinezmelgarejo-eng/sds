@@ -7498,21 +7498,32 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   //      full viewport above the keypad.
   const isMobileNow = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
   if (isMobileNow) {
+    // Scroller on mobile is the body (we set overflow-y:auto on it). On
+    // iOS Safari window.scrollTo() can be a no-op when body is the actual
+    // scrolling element. scrollTo on body + scrollIntoView fallback covers
+    // both. RAF×2 to let layout settle after the render.
+    const scrollPageTo = (yDoc) => {
+      const top = Math.max(0, yDoc);
+      try { document.body.scrollTo({ top, behavior: 'smooth' }); } catch(_) {}
+      try { document.documentElement.scrollTo({ top, behavior: 'smooth' }); } catch(_) {}
+      try { window.scrollTo({ top, behavior: 'smooth' }); } catch(_) {}
+    };
+    const scrollIntoTarget = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return;
+      // Compute absolute Y inside whichever element is the scroller.
+      const scroller = document.body.scrollHeight > document.documentElement.scrollHeight
+        ? document.body : document.documentElement;
+      const top = el.getBoundingClientRect().top + (scroller.scrollTop || 0);
+      scrollPageTo(top);
+      // Belt-and-suspenders: also kick scrollIntoView in case the scroller
+      // isn't what we guessed (some Android browsers).
+      if (el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    };
     if (wasEmpty) {
-      requestAnimationFrame(() => {
-        const songBlock = document.querySelector('.song-block');
-        if (!songBlock) return;
-        const target = songBlock.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
     } else if (seq.length === 9) {
-      // Entering the 3rd pair-row — push the strip itself to the viewport top
-      requestAnimationFrame(() => {
-        const area = document.querySelector('.rb-area');
-        if (!area) return;
-        const target = area.getBoundingClientRect().top + window.scrollY;
-        window.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
-      });
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.rb-area')));
     }
   }
 }
