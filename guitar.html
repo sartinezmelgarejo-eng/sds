@@ -1858,6 +1858,119 @@
     .sound-menu-item { padding: 8px 12px; font-size: 13px; }
     .mixer-row { grid-template-columns: 60px 1fr 32px; }
   }
+
+  /* ──────────────────────────────────────────────────────────
+     LANDSCAPE PLAY OVERLAY
+     Hidden by default. The overlay is *only* shown when the
+     body has BOTH `player-active` AND `lp-on` — the latter is
+     set by a matchMedia listener for landscape orientation on
+     touch devices. Plain landscape (desktop) is ignored.
+  ────────────────────────────────────────────────────────── */
+  #landscape-play {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: #f6efde;
+    color: #1a1a1a;
+    flex-direction: column;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right)
+             env(safe-area-inset-bottom) env(safe-area-inset-left);
+    overflow: hidden;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  body.player-active.lp-on #landscape-play { display: flex; }
+  body.player-active.lp-on > main { visibility: hidden; }
+  body.player-active.lp-on { overflow: hidden; touch-action: none; }
+
+  #landscape-play .lp-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 6px 14px 4px;
+    border-bottom: 1px solid #d8cfb5;
+  }
+  #landscape-play .lp-now { display: flex; align-items: baseline; gap: 10px; }
+  #landscape-play .lp-now-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(22px, 5.5vh, 38px);
+    line-height: 1;
+  }
+  #landscape-play .lp-now-roman {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: clamp(14px, 3vh, 22px);
+    color: #6b6b6b;
+  }
+  #landscape-play .lp-next {
+    display: flex; align-items: baseline; gap: 8px;
+    opacity: 0.75;
+  }
+  #landscape-play .lp-next-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #6b6b6b;
+  }
+  #landscape-play .lp-next-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(16px, 3.5vh, 24px);
+  }
+  #landscape-play .lp-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    gap: 10px;
+    padding: 8px 10px;
+  }
+  /* Guitar mode: fretboard right, tabs/progression left.
+     Piano mode (set via body.instrument-piano): staff stacked
+     ABOVE the keyboard, both full-width. */
+  #landscape-play .lp-pane {
+    background: #fff8e7;
+    border: 1px solid #d8cfb5;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #landscape-play .lp-left  { flex: 1; min-width: 0; }
+  #landscape-play .lp-right { flex: 1.4; min-width: 0; }
+  #landscape-play .lp-left svg,
+  #landscape-play .lp-right svg { width: 100%; height: 100%; display: block; }
+  body.instrument-piano #landscape-play .lp-body { flex-direction: column; }
+  body.instrument-piano #landscape-play .lp-left,
+  body.instrument-piano #landscape-play .lp-right { flex: 1; width: 100%; }
+
+  #landscape-play .lp-prog {
+    display: flex;
+    gap: 4px;
+    padding: 4px 10px 8px;
+    overflow-x: auto;
+    border-top: 1px solid #d8cfb5;
+  }
+  #landscape-play .lp-cell {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: #f0e6c8;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 600;
+    font-size: clamp(12px, 2.6vh, 18px);
+    color: #4a3f2a;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  #landscape-play .lp-cell.playing {
+    background: #fcecaa;
+    border-color: #c9a747;
+    color: #1a1a1a;
+  }
+  #landscape-play .lp-cell.next-up {
+    border-color: #6b6b6b;
+  }
 </style>
 </head>
 <body class="keypad-open">
@@ -1973,6 +2086,29 @@
     </div>
   </div>
 </main>
+
+<!-- ─────────────────────────────────────────────────────────────
+     LANDSCAPE PLAY VIEW (mobile only).
+     Shown when: body.player-active AND landscape orientation AND
+     coarse pointer (touch device). Auto-toggled by an orientation
+     matchMedia listener that adds/removes body.lp-on. Content is
+     re-rendered by renderLandscapePlay(), called from the player's
+     _updateVisuals and a few entry points so it stays in sync.
+─────────────────────────────────────────────────────────────── -->
+<div id="landscape-play" aria-hidden="true">
+  <div class="lp-header">
+    <div class="lp-now">
+      <div class="lp-now-name" id="lp-now-name">—</div>
+      <div class="lp-now-roman" id="lp-now-roman"></div>
+    </div>
+    <div class="lp-next">
+      <div class="lp-next-label">next</div>
+      <div class="lp-next-name" id="lp-next-name">—</div>
+    </div>
+  </div>
+  <div class="lp-body" id="lp-body"></div>
+  <div class="lp-prog" id="lp-prog"></div>
+</div>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -6271,6 +6407,9 @@ class Player {
       tabsEl.hidden = false;
       tabsEl.innerHTML = tabsHtml;
     }
+    // Keep the landscape follow-along view in sync with each
+    // _updateVisuals tick (chord step changes, voicing updates, etc.).
+    if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   }
 
   jumpTo(chordId) {
@@ -7311,7 +7450,129 @@ function renderAll() {
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if (typeof renderComposePad === 'function') renderComposePad();
   renderComposeInfo();
+  if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
 }
+
+/* ════════════════════════════════════════════════════════════
+   LANDSCAPE PLAY VIEW
+   A fullscreen "follow-along" overlay shown on mobile in
+   landscape orientation while the player is active. Cloned
+   instances of the existing fretboard / piano / staff are
+   reparented into the overlay so we don't duplicate render
+   logic. State changes (chord step, instrument, focus) ping
+   `renderLandscapePlay()` which rebuilds the cloned views.
+═════════════════════════════════════════════════════════════ */
+function renderLandscapePlay() {
+  const overlay = document.getElementById('landscape-play');
+  if (!overlay) return;
+  // Only do work when we're actually visible — saves churn while
+  // the user is in portrait mode.
+  if (!document.body.classList.contains('lp-on')) return;
+  if (!document.body.classList.contains('player-active')) return;
+
+  // ── Header: now-playing + next-up chord names ─────────────
+  const curId = (player && player._currentChordId && player._currentChordId()) || state.focusedChord;
+  const nxtId = (player && player._nextChordId && player._nextChordId()) || null;
+  const map = currentMap();
+  const curDef = curId && map.chordDefs[curId];
+  const nxtDef = nxtId && map.chordDefs[nxtId];
+  const nowName = document.getElementById('lp-now-name');
+  const nowRoman = document.getElementById('lp-now-roman');
+  const nextName = document.getElementById('lp-next-name');
+  if (nowName)  nowName.textContent  = curDef ? (curDef.name || curId) : '—';
+  if (nowRoman) nowRoman.textContent = (curDef && curDef.roman) ? curDef.roman : '';
+  if (nextName) nextName.textContent = nxtDef ? (nxtDef.name || nxtId) : '—';
+
+  // ── Body: clone the existing instrument view(s) ──────────
+  // For guitar: chord neck on the left (tabs/voicing), fretboard
+  // on the right. For piano: staff on top, keyboard on bottom.
+  const body = document.getElementById('lp-body');
+  if (body) {
+    body.innerHTML = '';
+    if (state.instrument === 'piano') {
+      // Top: staff (use renderChordStaff string). Bottom: piano clone.
+      const fc = curDef;
+      const root = fc && chordRoot(curId);
+      const quality = fc && QUALITIES[fc.quality];
+      const flats = (root != null) && useFlatsFor(root);
+      const shape = state.playerVoicing?.shape || focusedShape()?.shape;
+      const top = document.createElement('div');
+      top.className = 'lp-pane lp-left';
+      if (fc && quality) {
+        top.innerHTML = renderChordStaff(shape, root, quality, flats, { minimal: false });
+      }
+      body.appendChild(top);
+      const bot = document.createElement('div');
+      bot.className = 'lp-pane lp-right';
+      const pianoSrc = document.getElementById('chord-piano');
+      if (pianoSrc) {
+        const clone = pianoSrc.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.style.width = '100%';
+        clone.style.height = '100%';
+        bot.appendChild(clone);
+      }
+      body.appendChild(bot);
+    } else {
+      // Guitar: left = chord neck (voicing), right = fretboard.
+      const left = document.createElement('div');
+      left.className = 'lp-pane lp-left';
+      const neckSrc = document.getElementById('chord-neck');
+      if (neckSrc) {
+        const clone = neckSrc.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.style.width = '100%';
+        clone.style.height = '100%';
+        left.appendChild(clone);
+      }
+      body.appendChild(left);
+      const right = document.createElement('div');
+      right.className = 'lp-pane lp-right';
+      const fbSrc = document.getElementById('fretboard-svg');
+      if (fbSrc) {
+        const clone = fbSrc.cloneNode(true);
+        clone.removeAttribute('id');
+        clone.style.width = '100%';
+        clone.style.height = '100%';
+        right.appendChild(clone);
+      }
+      body.appendChild(right);
+    }
+  }
+
+  // ── Progression strip at the bottom ──────────────────────
+  const prog = document.getElementById('lp-prog');
+  if (prog) {
+    prog.innerHTML = '';
+    const steps = player?._currentSection?.()?.progression?.steps || [];
+    const stepIdx = player?.currentStepIdx ?? -1;
+    steps.forEach((step, i) => {
+      const def = map.chordDefs[step.chord];
+      const div = document.createElement('div');
+      div.className = 'lp-cell';
+      if (i === stepIdx) div.classList.add('playing');
+      else if (i === stepIdx + 1) div.classList.add('next-up');
+      div.textContent = def ? (def.name || step.chord) : step.chord;
+      prog.appendChild(div);
+    });
+  }
+}
+
+// Toggle body.lp-on based on orientation + touch capability. The
+// overlay's CSS only paints when `lp-on` AND `player-active` are
+// both present, so we don't need to also gate on play state here.
+(function wireLandscapePlayToggle() {
+  const mql = window.matchMedia('(orientation: landscape) and (pointer: coarse)');
+  const apply = () => {
+    document.body.classList.toggle('lp-on', mql.matches);
+    if (mql.matches && typeof renderLandscapePlay === 'function') {
+      renderLandscapePlay();
+    }
+  };
+  if (mql.addEventListener) mql.addEventListener('change', apply);
+  else if (mql.addListener) mql.addListener(apply);   // Safari < 14
+  apply();
+})();
 
 // Compose-mode counterpart of the player's green info bar. While the AI isn't
 // playing, the bar still has useful real estate — show the focused chord and
