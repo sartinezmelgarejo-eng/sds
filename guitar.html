@@ -3221,8 +3221,9 @@ function renderKeyRow() {
 }
 
 // Re-bake the shape on every composed-progression cell using the CURRENT key.
-// Keeps each cell's voicing position (_candIdx into the master catalog) so the
-// user's chosen drop-2 / shell / inversion stays consistent across transpositions.
+// Matches by VOICING COORDINATES (type + string-set + inversion) so the user's
+// chosen drop-2 / shell / inversion is preserved exactly across transpositions.
+// Falls back to clamping _candIdx for legacy cells without meta.
 function rebuildComposedShapesForCurrentKey() {
   const seq = state.composedProgression;
   if (!seq || !seq.length) return;
@@ -3233,11 +3234,28 @@ function rebuildComposedShapesForCurrentKey() {
     const root = (state.keyPc + ch.deg) % 12;
     const cands = allDistinctVoicings(ch.quality, root);
     if (!cands.length) continue;
-    const idx = (typeof cell._candIdx === 'number' && cell._candIdx >= 0 && cell._candIdx < cands.length)
-      ? cell._candIdx : 0;
-    cell.shape = cands[idx].shape;
-    cell._candIdx = idx;
-    cell.voicingType = cands[idx].type;
+    let matchIdx = -1;
+    if (cell.voicingType) {
+      matchIdx = cands.findIndex(c =>
+        c.type === cell.voicingType &&
+        c.stringSetIdx === cell.stringSetIdx &&
+        c.inversion === cell.inversion &&
+        c.stringSet === cell.stringSet
+      );
+    }
+    if (matchIdx < 0) {
+      // Legacy cell or coordinates not available in new key — fall back to
+      // clamping the old _candIdx, otherwise default to the first candidate.
+      matchIdx = (typeof cell._candIdx === 'number' && cell._candIdx >= 0 && cell._candIdx < cands.length)
+        ? cell._candIdx : 0;
+    }
+    const c = cands[matchIdx];
+    cell.shape = c.shape;
+    cell._candIdx = matchIdx;
+    cell.voicingType = c.type;
+    cell.stringSetIdx = c.stringSetIdx;
+    cell.inversion = c.inversion;
+    cell.stringSet = c.stringSet;
   }
 }
 
@@ -6939,7 +6957,18 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   };
   const writeCell = (target, idx) => {
     const c = cands[idx];
-    return { chord: chordId, _candIdx: idx, shape: c.shape, voicingType: c.type };
+    return {
+      chord: chordId,
+      _candIdx: idx,
+      shape: c.shape,
+      voicingType: c.type,
+      // Persist the structural coordinates so transpositions can preserve
+      // the exact same voicing position (string set + inversion) instead
+      // of falling on a different one when the master catalog re-sorts.
+      stringSetIdx: c.stringSetIdx,
+      inversion: c.inversion,
+      stringSet: c.stringSet,
+    };
   };
 
   // ── EDIT MODE: a cell is selected → replace/cycle THAT slot ──
@@ -6977,7 +7006,15 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     const last = seq.length ? seq[seq.length - 1] : null;
     // Repeating the SAME chord (no Shift): keep the exact same voicing.
     if (last && last.chord === chordId) {
-      seq.push({ chord: chordId, _candIdx: last._candIdx, shape: last.shape, voicingType: last.voicingType });
+      seq.push({
+        chord: chordId,
+        _candIdx: last._candIdx,
+        shape: last.shape,
+        voicingType: last.voicingType,
+        stringSetIdx: last.stringSetIdx,
+        inversion: last.inversion,
+        stringSet: last.stringSet,
+      });
     } else {
       newIdx = pickBest(last ? last.shape : null);
       seq.push(writeCell(seq.length, newIdx));
