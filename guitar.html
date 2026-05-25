@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Guitarra</title>
 <link rel="manifest" href="pwa/manifest-guitar.json">
 <meta name="theme-color" content="#e6e3da">
@@ -67,7 +67,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 6px 16px;
+    padding: max(6px, env(safe-area-inset-top)) 16px 6px;  /* respect iPhone notch */
     border-bottom: 1px solid var(--line);
     background: var(--panel);
     flex-shrink: 0;
@@ -7522,17 +7522,26 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   //      full viewport above the keypad.
   const isMobileNow = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
   if (isMobileNow) {
-    // Document is the scroller on mobile (body height: auto, html height: auto,
-    // both overflow: visible). window.scrollTo() handles the page.
+    // Cross-browser page scroll. iOS Safari has historically been picky
+    // about which API actually fires — hit every known path:
+    //  1) window.scrollTo with smooth (modern Chrome / Safari 15.4+)
+    //  2) document.scrollingElement.scrollTop (always works on iOS)
+    //  3) document.documentElement.scrollTop (fallback)
+    //  4) window.scroll(x, y) (ancient API, never fails)
+    //  5) scrollIntoView (Android/desktop catch-all)
     const scrollIntoTarget = (sel) => {
       const el = document.querySelector(sel);
       if (!el) return;
-      const top = el.getBoundingClientRect().top + (window.pageYOffset || 0);
-      try { window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' }); } catch(_) {
-        window.scrollTo(0, Math.max(0, top));
+      const top = Math.max(0, el.getBoundingClientRect().top + (window.pageYOffset || window.scrollY || 0));
+      try { window.scrollTo({ top, behavior: 'smooth' }); } catch(_) {}
+      const se = document.scrollingElement || document.documentElement;
+      if (se) {
+        try { se.scrollTo({ top, behavior: 'smooth' }); } catch(_) { se.scrollTop = top; }
       }
-      // Belt-and-suspenders for Android browsers that ignore window.scrollTo.
-      if (el.scrollIntoView) el.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      try { window.scroll(0, top); } catch(_) {}
+      if (el.scrollIntoView) {
+        try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch(_) { el.scrollIntoView(); }
+      }
     };
     if (wasEmpty) {
       requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
