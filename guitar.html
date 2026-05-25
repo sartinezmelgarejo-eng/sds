@@ -2982,11 +2982,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         const allY = positions.map(p => p.y);
         const topY = Math.min(...allY);   // smallest y = highest pitch
         const botY = Math.max(...allY);   // largest y = lowest pitch
-        // F4 sits in the first space of the treble clef (just above the
-        // bottom E4 line). If the topmost note is ABOVE F4, hang the stem
-        // downward so it doesn't collide with notes/ledgers above.
-        const f4Y = trebleBotY - lineSp * 0.5;
-        const dir = topY < f4Y ? 1 : -1;
+        // E4 sits on the bottom line of the treble clef (y = trebleBotY).
+        // If the topmost note is ABOVE E4, hang the stem downward so it
+        // doesn't collide with notes/ledgers above.
+        const e4Y = trebleBotY;
+        const dir = topY < e4Y ? 1 : -1;
         const stemLen = lineSp * 3.2;
         const stemX = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
         const y1 = dir === -1 ? botY : topY;
@@ -3008,7 +3008,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (subN === 3 || subN === 5 || subN === 6 || subN === 7) {
     const firstX = slotX(0);
     const lastX  = slotX(subN - 1);
-    const bracketY = trebleTopY - lineSp * 0.5;     // just above the top staff line
+    // Sit the bracket close to the top staff line — with stems usually
+    // hanging down (E4 threshold), there's room above the staff and this
+    // keeps the number from colliding with the chord-name label.
+    const bracketY = trebleTopY - lineSp * 0.15;
     const tipH   = lineSp * 0.45;
     const numFs  = lineSp * 1.6;
     const numW   = numFs * 0.7;                      // gap in the bracket for the number
