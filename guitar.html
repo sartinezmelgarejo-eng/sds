@@ -1142,10 +1142,6 @@
   body.dragging-subdiv { touch-action: none !important; overscroll-behavior: contain; user-select: none; }
   body.dragging-subdiv * { user-select: none; }
   .subdiv-bar.playback-bar { pointer-events: none; }
-  /* Belt-and-suspenders: even if a non-current cell somehow ends up with a
-     playback bar in the DOM, hide it. Only the .current cell shows rhythm. */
-  .rb-tab-cell:not(.current) .subdiv-bar.playback-bar { display: none !important; }
-  .rb-tab-cell.imminent .subdiv-bar.playback-bar { display: none !important; }
   .subdiv-bar.playback-bar .subdiv-seg {
     cursor: default;
     opacity: 0.45;
@@ -5948,15 +5944,14 @@ class Player {
             ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 200, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 175, r: 12, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
         : '';
-      // Subdivision bar (read-only in playback). Slots get .pb-on by the
-      // beat loop as each one fires — see startBeatCounterLoop. The bar is
-      // rendered ONLY on the cell that's actually sounding right now; other
-      // cells (especially the imminent/peek preview) stay clean so their
-      // rhythm doesn't read as "playing" when nothing's happening there yet.
+      // Subdivision bar shown on EVERY cell that has subdivisions — so the
+      // user can see the rhythmic shape of each upcoming chord. The slot
+      // pulsing animation (.pb-on) only fires on the cell that's actually
+      // sounding right now — see startBeatCounterLoop.
       const subN = cell.subdivisions || 1;
       const subMute = cell.subdivMute || [];
       let pbBarHtml = '';
-      if (subN > 1 && i === currentIdx) {
+      if (subN > 1) {
         let segs = '';
         for (let s = 0; s < subN; s++) {
           const m = subMute[s] ? 'muted' : '';
