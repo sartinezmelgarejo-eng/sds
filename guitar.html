@@ -2948,6 +2948,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // treble line) the stem HANGS DOWN; otherwise it rises up. Matches
   // classical engraving convention applied to the combined grand staff.
   const slotStems = [];   // [{cx, endY, dir}] or null for muted slots
+  // Per-bar accidental memory: once a sharp/flat appears on a given pitch
+  // (identified by its staff y-position), subsequent slots in the same bar
+  // omit the accidental — standard music notation convention.
+  const accSeen = new Set();
 
   let notes = '';
   for (let s = 0; s < subN; s++) {
@@ -2964,8 +2968,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         const deg = pcToDeg[p.pc];
         const isRoot = deg === 'R';
         const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
-        if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2, p.y);
-        else if (p.acc === 'b') slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
+        if (p.acc === '#' || p.acc === 'b') {
+          const key = `${p.acc}@${p.y.toFixed(2)}`;
+          if (!accSeen.has(key)) {
+            accSeen.add(key);
+            if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2, p.y);
+            else slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
+          }
+        }
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
       if (hasStem && positions.length) {
