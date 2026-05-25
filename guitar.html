@@ -1122,46 +1122,69 @@
     border: 1px dashed rgba(0,0,0,0.3);
     opacity: 0.5;
   }
-  /* Popover laid out as a 3-column grid:
-       [1] [2] [3]
-           [4] [5]
-           [8] [6]
-     Column 1 = no subdivision. Column 2 = duple (2/4/8). Column 3 = triplet/odd (3/5/6). */
+  /* Popover laid out as a 2-column grid with the "1" centered on top:
+            [ 1 ]
+        [2]     [3]
+        [4]     [5]
+        [8]     [6]
+     Column 1 = duple (2/4/8). Column 2 = triplet/odd (3/5/6).
+     "1" spans both columns, centered. */
   #subdiv-popover {
     position: fixed;
     display: none;
-    grid-template-columns: repeat(3, auto);
-    gap: 3px;
-    background: var(--panel);
+    grid-template-columns: 38px 38px;
+    gap: 6px 10px;
+    background: linear-gradient(180deg, #fefcf2, #f5efd9);
     border: 1.5px solid var(--accent);
-    border-radius: 8px;
-    padding: 4px;
-    box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+    border-radius: 12px;
+    padding: 10px 12px 12px;
+    box-shadow: 0 10px 28px rgba(60,40,10,0.18), 0 2px 4px rgba(60,40,10,0.08);
     z-index: 1000;
-    align-items: start;
   }
   #subdiv-popover.open { display: grid; }
-  #subdiv-popover button[data-subdiv-pick="1"] { grid-area: 1 / 1; }
-  #subdiv-popover button[data-subdiv-pick="2"] { grid-area: 1 / 2; }
-  #subdiv-popover button[data-subdiv-pick="3"] { grid-area: 1 / 3; }
-  #subdiv-popover button[data-subdiv-pick="4"] { grid-area: 2 / 2; }
-  #subdiv-popover button[data-subdiv-pick="5"] { grid-area: 2 / 3; }
-  #subdiv-popover button[data-subdiv-pick="8"] { grid-area: 3 / 2; }
-  #subdiv-popover button[data-subdiv-pick="6"] { grid-area: 3 / 3; }
-  #subdiv-popover button {
-    width: 26px; height: 26px;
-    padding: 0;
-    border: 1px solid var(--line);
-    border-radius: 4px;
-    background: var(--bg);
-    cursor: pointer;
-    font-family: 'SF Mono', monospace;
-    font-size: 12px;
-    font-weight: 700;
-    color: var(--text-dim);
+  /* The "1" button — top, spans both columns, centered, slightly larger feel */
+  #subdiv-popover button[data-subdiv-pick="1"] {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 54px;
   }
-  #subdiv-popover button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-  #subdiv-popover button.selected { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* Duple column (2/4/8) — left */
+  #subdiv-popover button[data-subdiv-pick="2"] { grid-row: 2; grid-column: 1; }
+  #subdiv-popover button[data-subdiv-pick="4"] { grid-row: 3; grid-column: 1; }
+  #subdiv-popover button[data-subdiv-pick="8"] { grid-row: 4; grid-column: 1; }
+  /* Triplet/odd column (3/5/6) — right */
+  #subdiv-popover button[data-subdiv-pick="3"] { grid-row: 2; grid-column: 2; }
+  #subdiv-popover button[data-subdiv-pick="5"] { grid-row: 3; grid-column: 2; }
+  #subdiv-popover button[data-subdiv-pick="6"] { grid-row: 4; grid-column: 2; }
+  #subdiv-popover button {
+    width: 38px; height: 34px;
+    padding: 0;
+    border: 1.2px solid #d5c895;
+    border-radius: 8px;
+    background: linear-gradient(180deg, #fefcf2, #f0e6c4);
+    cursor: pointer;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 700;
+    color: #7a5818;
+    box-shadow: inset 0 -1.5px 0 rgba(140,100,30,0.15), 0 1px 1px rgba(60,40,10,0.05);
+    transition: transform 0.08s, box-shadow 0.1s, background 0.1s, color 0.1s, border-color 0.1s;
+  }
+  #subdiv-popover button:hover {
+    background: linear-gradient(180deg, #ffe9a4, #f0cc70);
+    border-color: var(--accent);
+    color: #5a3f0e;
+    transform: translateY(-1px);
+    box-shadow: inset 0 -1.5px 0 rgba(140,100,30,0.2), 0 3px 6px rgba(60,40,10,0.12);
+  }
+  #subdiv-popover button.selected {
+    background: linear-gradient(180deg, #c89530, var(--accent));
+    color: #fff;
+    border-color: #8a6310;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.25);
+    transform: translateY(0);
+  }
   .rb-cell.current {
     background: #fcecaa;
   }
@@ -7625,12 +7648,13 @@ function openSubdivPopover(triEl, cellIdx) {
   const mkBtn = (n) => `<button data-subdiv-pick="${n}" class="${n === cur ? 'selected' : ''}">${n}</button>`;
   pop.innerHTML = [1,2,3,4,5,8,6].map(mkBtn).join('');
   pop.classList.add('open');
-  // Position above the triangle, centered horizontally
+  // Position BELOW the badge, centered horizontally. Falls back to above
+  // only if the popover would clip the viewport bottom.
   const r = triEl.getBoundingClientRect();
   const w = pop.offsetWidth, h = pop.offsetHeight;
   let left = r.left + r.width / 2 - w / 2;
-  let top  = r.top - h - 6;
-  if (top < 8) top = r.bottom + 6;
+  let top  = r.bottom + 8;
+  if (top + h > window.innerHeight - 8) top = r.top - h - 8;
   left = Math.max(6, Math.min(left, window.innerWidth - w - 6));
   pop.style.left = left + 'px';
   pop.style.top  = top  + 'px';
