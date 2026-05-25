@@ -1389,23 +1389,26 @@
     font-family: 'SF Mono', monospace;
     letter-spacing: 0.3px;
   }
-  /* Family separator — clearly distinct from card borders so the user can
-     see at a glance where drop-2 / shells / triads / guides / sus split.
-     Accent-gold dashed line with breathing room on both sides. */
+  /* Family separator with the family NAME written vertically on it. The
+     cards lose their family prefix, the divider carries it instead. */
   .alt-divider {
-    flex: 0 0 2px;
-    width: 2px;
+    flex: 0 0 auto;
     align-self: stretch;
-    background: repeating-linear-gradient(
-      to bottom,
-      var(--accent) 0,
-      var(--accent) 4px,
-      transparent 4px,
-      transparent 8px
-    );
-    opacity: 0.8;
-    margin: 4px 8px;
-    border-radius: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 4px;
+    margin: 0 4px;
+    border-left: 1.5px dashed var(--accent);
+    color: var(--accent);
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2.5px;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    opacity: 0.85;
+    white-space: nowrap;
   }
 
   /* ─── Fretboard ─── */
@@ -3020,24 +3023,26 @@ function renderAlternatives() {
     </div>
   `;
 
-  // Compact labels guaranteed to fit one line in the 100px-wide card.
+  // Card labels are now JUST position info — the family name lives on the
+  // labeled divider that precedes each group.
   const INV = ['R','1st','2nd','3rd'];
   const SET = ['LOW','MID','TOP'];
   const labelFor = (c) => {
-    if (c.type === 'drop2') return `${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
-    if (c.type === 'sus')   return `sus ${INV[c.inversion]}`;
-    if (c.type === 'shell') return `shell ${c.stringSet}`;
-    if (c.type === 'triad') return `triad ${c.stringSet}`;
-    if (c.type === 'guide') return `guide ${c.stringSet}`;
-    return c.type;
+    if (c.type === 'drop2' || c.type === 'sus') {
+      return `${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
+    }
+    return c.stringSet || '';   // shells/triads/guides → just the set letter
   };
+  const FAMILY = { drop2: 'Drop-2', shell: 'Shells', triad: 'Triads', guide: 'Guides', sus: 'Sus' };
 
   let lastType = null;
   cands.forEach((c, i) => {
-    if (lastType !== null && lastType !== c.type) {
-      html += `<div class="alt-divider"></div>`;
+    if (lastType !== c.type) {
+      // Divider BEFORE each new family — including the first one, so Drop-2
+      // gets its own label too.
+      html += `<div class="alt-divider">${FAMILY[c.type] || c.type}</div>`;
+      lastType = c.type;
     }
-    lastType = c.type;
     const sel = (shapeKey(c.shape) === curKey) ? 'selected' : '';
     const notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
     html += `
