@@ -7445,18 +7445,24 @@ document.addEventListener('click', (ev) => {
     return;
   }
 
-  // ── Empty cell click: extend the previous chord (tie) ──
+  // ── Empty cell click: extend the previous chord with ties up to that slot ──
   const emptyCell = ev.target.closest('[data-compose-empty]');
   if (emptyCell) {
     const seq = state.composedProgression;
     if (!seq.length || seq.length >= 16) return;
+    const targetIdx = parseInt(emptyCell.dataset.composeEmpty, 10);
+    if (!Number.isFinite(targetIdx) || targetIdx < seq.length) return;
     _composeSaveUndo();
     const prev = seq[seq.length - 1];
-    seq.push({
+    const tieEntry = {
       chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
       voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
       inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
-    });
+    };
+    // Fill all slots from current end up to and including the clicked slot
+    while (seq.length <= targetIdx && seq.length < 16) {
+      seq.push(JSON.parse(JSON.stringify(tieEntry)));
+    }
     renderAll();
     renderComposeStrip();
     return;
