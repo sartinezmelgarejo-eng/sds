@@ -1075,7 +1075,8 @@
     border: 1.4px solid var(--accent);
     border-radius: 9px;
     background: #fdfcf3;
-    cursor: pointer;
+    cursor: ns-resize;          /* hint: drag vertically to change count, click to pick */
+    touch-action: none;         /* prevent page scroll while dragging on mobile */
     line-height: 13px;
     color: var(--accent);
     font-family: 'SF Mono', monospace;
@@ -7675,13 +7676,75 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') closeSubdivPopover();
 });
 
+// Vertical drag on the subdivision badge to change the count (like the BPM).
+// Drag UP increments, DRAG DOWN decrements. ~14 px per step. Clamped 1–8.
+// If the pointer barely moves, falls through to a click → opens the popover.
+(function() {
+  let dragIdx = null, dragStartY = null, dragStartN = null, dragMoved = false;
+  function clampN(n) { return Math.max(1, Math.min(8, n)); }
+  function onMove(e) {
+    if (dragIdx === null) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    if (Math.abs(y - dragStartY) > 4) dragMoved = true;
+    const delta = Math.round((dragStartY - y) / 14);
+    const newN = clampN(dragStartN + delta);
+    const seq = state.composedProgression;
+    const cell = seq[dragIdx];
+    if (!cell || cell.subdivisions === newN) return;
+    cell.subdivisions = newN;
+    cell.subdivMute = (newN === 1)
+      ? []
+      : (cell.subdivMute && cell.subdivMute.length === newN
+          ? cell.subdivMute
+          : new Array(newN).fill(false));
+    renderComposeStrip();
+  }
+  function onEnd() {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onEnd);
+    document.removeEventListener('touchmove', onMove);
+    document.removeEventListener('touchend', onEnd);
+    // Reset on next tick so the click handler can still read dragMoved
+    setTimeout(() => { dragIdx = null; dragMoved = false; }, 0);
+  }
+  function start(e, idx, y) {
+    const seq = state.composedProgression;
+    if (!seq[idx]) return;
+    dragIdx = idx; dragStartY = y; dragStartN = seq[idx].subdivisions || 1; dragMoved = false;
+  }
+  document.addEventListener('mousedown', e => {
+    if (player.playing) return;
+    const tri = e.target.closest('.subdiv-triangle');
+    if (!tri) return;
+    const idx = parseInt(tri.dataset.subdivTri, 10);
+    if (!Number.isFinite(idx)) return;
+    start(e, idx, e.clientY);
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onEnd);
+  });
+  document.addEventListener('touchstart', e => {
+    if (player.playing) return;
+    const tri = e.target.closest('.subdiv-triangle');
+    if (!tri) return;
+    const idx = parseInt(tri.dataset.subdivTri, 10);
+    if (!Number.isFinite(idx)) return;
+    start(e, idx, e.touches[0].clientY);
+    document.addEventListener('touchmove', onMove, {passive: true});
+    document.addEventListener('touchend', onEnd);
+  }, {passive: true});
+  window._subdivDragMoved = () => dragMoved;
+})();
+
 document.addEventListener('click', (ev) => {
   if (player.playing) return;
 
   // ── Rhythm subdivision triangle: open the 1–8 picker popover ──
+  // (Only if the user TAPPED — if they dragged vertically to change the
+  // count, the drag handler below sets _subdivDragMoved so we skip.)
   const triBtn = ev.target.closest('.subdiv-triangle');
   if (triBtn) {
     ev.stopPropagation();
+    if (window._subdivDragMoved && window._subdivDragMoved()) return;
     const idx = parseInt(triBtn.dataset.subdivTri, 10);
     const seq = state.composedProgression;
     if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
