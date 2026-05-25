@@ -7362,11 +7362,18 @@ function renderComposeStrip() {
       const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
       return `<div class="${cls.join(' ')}"${emptyAttr}></div>`;
     }
-    // Tie cell — shows a tie mark instead of chord name
+    // Tie cell — shows % continuation symbol (same as AI song view)
     if (cell._tie) {
-      if (isTab) return `<div class="${cls.join(' ')}"${idxAttr}></div>`;
+      if (isTab) {
+        const showClef = (i === 0);
+        const tSizing = isMobile
+          ? {W: 100, H: 128, minimal: true, showClef}
+          : {W: 130, H: 148, minimal: false, showClef};
+        const contSvg = (state.instrument === 'piano') ? renderContinuationStaff(tSizing) : '';
+        return `<div class="${cls.join(' ')}"${idxAttr}>${contSvg}</div>`;
+      }
       return `<div class="${cls.join(' ')}"${idxAttr}>
-        <div class="rb-chord" style="opacity:0.4;font-size:28px">⌐</div>
+        <div class="rb-continuation">%</div>
         <button class="${(i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn'}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
       </div>`;
     }
