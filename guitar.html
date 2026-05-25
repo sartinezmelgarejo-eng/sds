@@ -7536,15 +7536,21 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     if (wasEmpty) {
       requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
     } else if (seq.length === 9) {
-      // Entering the 3rd pair-row — scroll the LATEST TAB cell (the big
-      // one with the diagram, not the small chord-name above it) so its
-      // BOTTOM aligns with the viewport bottom. That puts the whole tab
-      // diagram in view, just above the keypad.
+      // Entering the 3rd pair-row — scroll the PAGE (not the strip's
+      // internal scroll) so the latest tab cell's bottom sits just above
+      // the keypad. Use window.scrollBy (delta from current viewport
+      // position) — bypasses scrollIntoView's ancestor cascade that was
+      // getting absorbed by the strip's own overflow scroll.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const tab = document.querySelector('.rb-tab-cell.current')
                   || document.querySelector('.rb-tab-cell[data-compose-idx="8"]');
-        if (tab && tab.scrollIntoView) {
-          tab.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        if (!tab) return;
+        const rect = tab.getBoundingClientRect();
+        const KEYPAD = 290;
+        const delta = rect.bottom - (window.innerHeight - KEYPAD - 10);
+        if (delta > 4) {
+          try { window.scrollBy({ top: delta, behavior: 'smooth' }); }
+          catch(_) { window.scrollBy(0, delta); }
         }
       }));
     }
