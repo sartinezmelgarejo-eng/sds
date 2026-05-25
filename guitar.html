@@ -1039,7 +1039,10 @@
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
   body:not(.player-active) [data-compose-empty] { cursor: pointer; }
   body:not(.player-active) [data-compose-empty]:hover { background: rgba(160,120,32,0.07); }
-  body:not(.player-active) [data-compose-idx]:hover,
+  /* Only the JS-driven .compose-hover class paints the background — no bare
+     :hover. Using :hover too caused a flicker because CSS painted the
+     directly-hovered cell instantly while the paired cell waited for the
+     JS event to add .compose-hover (a microsecond later but visible). */
   body:not(.player-active) [data-compose-idx].compose-hover { background: rgba(160,120,32,0.10); }
   body:not(.player-active) [data-compose-idx].current,
   body:not(.player-active) [data-compose-idx].current:hover { background: #fcecaa !important; }
@@ -7778,13 +7781,18 @@ document.addEventListener('keydown', (ev) => {
 
 // Vertical drag on the subdivision badge to change the count (like the BPM).
 // Drag UP increments, DRAG DOWN decrements. ~14 px per step. Clamped 1–8.
-// If the pointer barely moves, falls through to a click → opens the popover.
+// Uses POINTER events so mouse + touch + pen all work the same way, with
+// setPointerCapture so the drag survives the cursor leaving the badge.
 (function() {
   let dragIdx = null, dragStartY = null, dragStartN = null, dragMoved = false;
+  let capturedEl = null, capturedPointerId = null;
   function clampN(n) { return Math.max(1, Math.min(8, n)); }
   function onMove(e) {
     if (dragIdx === null) return;
-    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    // Block the browser from scrolling — touch-action:none on the badge
+    // helps but once the pointer leaves it, only preventDefault stops scroll.
+    if (e.cancelable) e.preventDefault();
+    const y = e.clientY;
     if (Math.abs(y - dragStartY) > 4) dragMoved = true;
     const delta = Math.round((dragStartY - y) / 14);
     const newN = clampN(dragStartN + delta);
@@ -7799,39 +7807,41 @@ document.addEventListener('keydown', (ev) => {
           : new Array(newN).fill(false));
     renderComposeStrip();
   }
-  function onEnd() {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onEnd);
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('touchend', onEnd);
-    // Reset on next tick so the click handler can still read dragMoved
+  function onEnd(e) {
+    if (capturedEl && capturedPointerId != null) {
+      try { capturedEl.releasePointerCapture(capturedPointerId); } catch(_) {}
+    }
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onEnd);
+    document.removeEventListener('pointercancel', onEnd);
+    capturedEl = null;
+    capturedPointerId = null;
+    // Reset on next tick so the click handler can still read dragMoved.
     setTimeout(() => { dragIdx = null; dragMoved = false; }, 0);
   }
-  function start(e, idx, y) {
+  document.addEventListener('pointerdown', e => {
+    if (player.playing) return;
+    const tri = e.target.closest('.subdiv-triangle');
+    if (!tri) return;
+    const idx = parseInt(tri.dataset.subdivTri, 10);
+    if (!Number.isFinite(idx)) return;
     const seq = state.composedProgression;
     if (!seq[idx]) return;
-    dragIdx = idx; dragStartY = y; dragStartN = seq[idx].subdivisions || 1; dragMoved = false;
-  }
-  document.addEventListener('mousedown', e => {
-    if (player.playing) return;
-    const tri = e.target.closest('.subdiv-triangle');
-    if (!tri) return;
-    const idx = parseInt(tri.dataset.subdivTri, 10);
-    if (!Number.isFinite(idx)) return;
-    start(e, idx, e.clientY);
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onEnd);
+    dragIdx = idx;
+    dragStartY = e.clientY;
+    dragStartN = seq[idx].subdivisions || 1;
+    dragMoved = false;
+    // Capture so subsequent move/up events fire on the SAME element even if
+    // the finger drifts off the badge — critical on mobile.
+    try {
+      tri.setPointerCapture(e.pointerId);
+      capturedEl = tri;
+      capturedPointerId = e.pointerId;
+    } catch(_) {}
+    document.addEventListener('pointermove', onMove, {passive: false});
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
   });
-  document.addEventListener('touchstart', e => {
-    if (player.playing) return;
-    const tri = e.target.closest('.subdiv-triangle');
-    if (!tri) return;
-    const idx = parseInt(tri.dataset.subdivTri, 10);
-    if (!Number.isFinite(idx)) return;
-    start(e, idx, e.touches[0].clientY);
-    document.addEventListener('touchmove', onMove, {passive: true});
-    document.addEventListener('touchend', onEnd);
-  }, {passive: true});
   window._subdivDragMoved = () => dragMoved;
 })();
 
