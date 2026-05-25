@@ -2972,9 +2972,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         const allY = positions.map(p => p.y);
         const topY = Math.min(...allY);   // smallest y = highest pitch
         const botY = Math.max(...allY);   // largest y = lowest pitch
-        // F5 sits ON the top treble line (y = trebleTopY). If the topmost
-        // note is ABOVE F5 (y < trebleTopY), hang the stem down; else rise.
-        const dir = topY < trebleTopY ? 1 : -1;
+        // F3 sits on the 4th line of the bass clef (bassTopY + lineSp).
+        // If the topmost note is ABOVE F3, hang the stem downward so it
+        // doesn't collide with notes/ledgers above the staff.
+        const f3Y = bassTopY + lineSp;
+        const dir = topY < f3Y ? 1 : -1;
         const stemLen = lineSp * 3.2;
         const stemX = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
         const y1 = dir === -1 ? botY : topY;
