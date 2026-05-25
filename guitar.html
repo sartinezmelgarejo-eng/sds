@@ -2254,7 +2254,7 @@
      (guitar mode). */
   #landscape-play .lp-controls {
     display: grid;
-    grid-template-rows: repeat(3, 1fr);
+    grid-auto-rows: 1fr;
     gap: 0;
     z-index: 2;
   }
@@ -2282,7 +2282,8 @@
   }
   #landscape-play .lp-controls-strip .lp-controls {
     grid-template-rows: none;
-    grid-template-columns: repeat(3, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
   }
   #landscape-play .lp-controls-strip .lp-btn + .lp-btn {
     border-top: 0;
@@ -2323,13 +2324,22 @@
   #landscape-play .lp-btn.active { background: #1a1a1a; color: #fdfcf3; }
   #landscape-play #lp-loop.active { background: #d4a017; color: #1a1a1a; border-color: #d4a017; }
   #landscape-play .lp-btn-play {
-    background: #1a1a1a;
+    background: #059669;
     color: #fdfcf3;
   }
   #landscape-play .lp-btn-play.active {
+    background: #1a1a1a;
+    color: #fdfcf3;
+  }
+  #landscape-play .lp-btn-play.paused {
+    background: #059669;
+    color: #fdfcf3;
+  }
+  #landscape-play .lp-btn-stop {
     background: #dc2626;
     color: #fdfcf3;
   }
+  #landscape-play .lp-btn-stop[hidden] { display: none !important; }
 
   /* ──────────────────────────────────────────────────────────
      LANDSCAPE STANDBY — big remote-control menu shown in
@@ -2627,6 +2637,7 @@
     <button class="lp-btn" id="lp-cycle"    title="Cycle key per loop">·</button>
     <button class="lp-btn" id="lp-loop"     title="Loop section">⟲</button>
     <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">▶</button>
+    <button class="lp-btn lp-btn-stop" id="lp-stop" title="Stop and reset" hidden>⏹</button>
   </div>
 </div>
 
@@ -8328,10 +8339,15 @@ function renderLandscapePlay() {
 // stays in sync when the user rotates back to portrait).
 (function wireLandscapeControls() {
   const playBtn  = document.getElementById('lp-play');
+  const stopBtn  = document.getElementById('lp-stop');
   const loopBtn  = document.getElementById('lp-loop');
   const cycleBtn = document.getElementById('lp-cycle');
   if (playBtn) playBtn.addEventListener('click', () => {
     const real = document.getElementById('auto-play');
+    if (real) real.click();
+  });
+  if (stopBtn) stopBtn.addEventListener('click', () => {
+    const real = document.getElementById('auto-stop');
     if (real) real.click();
   });
   if (loopBtn) loopBtn.addEventListener('click', () => {
@@ -8369,11 +8385,17 @@ function syncLoopSectionBadge() {
 
 function lp_syncControls() {
   const play = document.getElementById('lp-play');
+  const stop = document.getElementById('lp-stop');
+  const isPlaying = !!(window.player && window.player.playing);
+  const isPaused  = !!(window.player && window.player.paused);
   if (play) {
-    const isPlaying = !!(window.player && window.player.playing);
     play.textContent = isPlaying ? '⏸' : '▶';
     play.classList.toggle('active', isPlaying);
+    play.classList.toggle('paused', isPaused);
+    play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
   }
+  // Stop only shows when there's something to halt.
+  if (stop) stop.hidden = !(isPlaying || isPaused);
   const loop = document.getElementById('lp-loop');
   if (loop) {
     const isOn = loopMode !== 'off';
