@@ -1976,9 +1976,10 @@
   }
   #landscape-play .lp-guitar-layout {
     display: grid !important;
-    grid-template-rows: 1fr 160px;
+    grid-template-rows: 1fr 150px 38px;     /* tabs / neck (wide) / controls */
     width: 100%;
     height: 100%;
+    gap: 6px;
   }
   #landscape-play .lp-tabs-area {
     background: #fdfcf3;
@@ -1992,6 +1993,7 @@
     overflow: hidden;
     position: relative;
     min-width: 0;
+    min-height: 0;
   }
   /* Cloned tabs strip in lp-tabs-area: 4-col grid filling the area. */
   #landscape-play .lp-tabs-area .real-book-tabs {
@@ -2086,9 +2088,10 @@
   }
   #landscape-play .lp-piano-layout {
     display: grid !important;
-    grid-template-rows: 1fr 120px;
+    grid-template-rows: 1fr 110px 38px;     /* staff / piano keys / controls */
     width: 100%;
     height: 100%;
+    gap: 6px;
   }
   #landscape-play .lp-staff-area {
     background: #fdfcf3;
@@ -2097,18 +2100,13 @@
     overflow: hidden;
     min-height: 0;
   }
-  #landscape-play .lp-bottom-row {
-    display: grid;
-    grid-template-columns: 1fr 160px;     /* keys + brutalist control strip */
-    gap: 6px;
-    min-height: 0;
-  }
   #landscape-play .lp-piano-area {
     background: #fdfcf3;
     border: 2px solid #1a1a1a;
     border-radius: 0;
     overflow: hidden;
     position: relative;
+    min-width: 0;
   }
   /* Reparented #real-book-tabs in piano landscape: rearrange the
      16 cells into a 4-column grid so each bar is large and readable.
@@ -2180,9 +2178,9 @@
     grid-auto-flow: column;
     height: 44px;
   }
-  /* Piano embedded: strip fills the controls-slot (right side of
-     the bottom row). Buttons stack vertically with no internal gap
-     and share a thick outer border with the panel. */
+  /* Embedded controls strip — full-width brutalist bar at the
+     bottom of the layout. Buttons distribute horizontally with
+     hard black dividers between them. */
   #landscape-play .lp-controls-slot {
     border: 2px solid #1a1a1a;
     background: #fdfcf3;
@@ -2192,6 +2190,14 @@
   #landscape-play .lp-controls-slot .lp-controls {
     width: 100%;
     height: 100%;
+  }
+  #landscape-play .lp-controls-strip .lp-controls {
+    grid-template-rows: none;
+    grid-template-columns: repeat(3, 1fr);
+  }
+  #landscape-play .lp-controls-strip .lp-btn + .lp-btn {
+    border-top: 0;
+    border-left: 2px solid #1a1a1a;
   }
   #landscape-play .lp-btn {
     border: 0;
@@ -7764,20 +7770,16 @@ function lp_buildLayout(mode) {
   if (mode === 'piano') {
     body.innerHTML = `
       <div class="lp-staff-area" id="lp-staff-area"></div>
-      <div class="lp-bottom-row">
-        <div class="lp-piano-area" id="lp-piano-area"></div>
-        <div class="lp-controls-slot" id="lp-controls-slot"></div>
-      </div>`;
+      <div class="lp-piano-area" id="lp-piano-area"></div>
+      <div class="lp-controls-slot lp-controls-strip" id="lp-controls-slot"></div>`;
   } else {
-    // Guitar mirrors the piano layout: TABS strip on top (clone of
-    // #real-book-tabs, fills the area), bottom row with the
-    // realistic guitar neck (left) + brutalist controls (right).
+    // Three full-width rows: tabs (largest), realistic guitar neck
+    // (full width, more frets fit), and a thin brutalist controls
+    // strip at the very bottom.
     body.innerHTML = `
       <div class="lp-tabs-area"   id="lp-tabs-area"></div>
-      <div class="lp-bottom-row">
-        <div class="lp-guitar-area" id="lp-guitar-area"></div>
-        <div class="lp-controls-slot" id="lp-controls-slot"></div>
-      </div>`;
+      <div class="lp-guitar-area" id="lp-guitar-area"></div>
+      <div class="lp-controls-slot lp-controls-strip" id="lp-controls-slot"></div>`;
   }
 }
 const lp_savedHomes = {};       // id -> { parent, nextSibling }
