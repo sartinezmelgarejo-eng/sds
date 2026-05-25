@@ -7489,52 +7489,63 @@ function renderLandscapePlay() {
   const body = document.getElementById('lp-body');
   if (body) {
     body.innerHTML = '';
+    // Helper: clone a source element into a landscape pane, stripping
+    // its id (id collisions break re-renders) and forcing it to fill.
+    const cloneInto = (pane, sourceId) => {
+      const src = document.getElementById(sourceId);
+      if (!src) return;
+      const clone = src.cloneNode(true);
+      clone.removeAttribute('id');
+      clone.removeAttribute('hidden');
+      clone.style.width = '100%';
+      clone.style.height = '100%';
+      clone.style.display = 'block';
+      pane.appendChild(clone);
+    };
+
     if (state.instrument === 'piano') {
-      // Top: staff (use renderChordStaff string). Bottom: piano clone.
-      const fc = curDef;
-      const root = fc && chordRoot(curId);
-      const quality = fc && QUALITIES[fc.quality];
-      const flats = (root != null) && useFlatsFor(root);
-      const shape = state.playerVoicing?.shape || focusedShape()?.shape;
+      // Top: staff (built from renderChordStaff). Bottom: piano clone.
+      // chordRoot() expects the chord DEFINITION (with `.deg`), not the
+      // chord id — earlier this passed the id string and silently
+      // produced NaN, leaving the staff blank.
+      const fc      = curDef;
+      const root    = fc ? chordRoot(fc) : null;
+      const quality = fc ? QUALITIES[fc.quality] : null;
+      const flats   = root != null ? useFlatsFor(root) : false;
+      const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
       const top = document.createElement('div');
       top.className = 'lp-pane lp-left';
-      if (fc && quality) {
+      if (fc && quality && root != null) {
         top.innerHTML = renderChordStaff(shape, root, quality, flats, { minimal: false });
       }
       body.appendChild(top);
       const bot = document.createElement('div');
       bot.className = 'lp-pane lp-right';
-      const pianoSrc = document.getElementById('chord-piano');
-      if (pianoSrc) {
-        const clone = pianoSrc.cloneNode(true);
-        clone.removeAttribute('id');
-        clone.style.width = '100%';
-        clone.style.height = '100%';
-        bot.appendChild(clone);
-      }
+      cloneInto(bot, 'chord-piano');
       body.appendChild(bot);
     } else {
-      // Guitar: left = chord neck (voicing), right = fretboard.
+      // Guitar: left = chord neck (current voicing). Right = the
+      // compose tabs strip, so the player can read the tab notation
+      // of the progression while playing.
       const left = document.createElement('div');
       left.className = 'lp-pane lp-left';
-      const neckSrc = document.getElementById('chord-neck');
-      if (neckSrc) {
-        const clone = neckSrc.cloneNode(true);
-        clone.removeAttribute('id');
-        clone.style.width = '100%';
-        clone.style.height = '100%';
-        left.appendChild(clone);
-      }
+      cloneInto(left, 'chord-neck');
       body.appendChild(left);
       const right = document.createElement('div');
       right.className = 'lp-pane lp-right';
-      const fbSrc = document.getElementById('fretboard-svg');
-      if (fbSrc) {
-        const clone = fbSrc.cloneNode(true);
+      const tabsSrc = document.getElementById('real-book-tabs');
+      if (tabsSrc) {
+        const wrap = document.createElement('div');
+        wrap.style.width = '100%';
+        wrap.style.height = '100%';
+        wrap.style.overflowX = 'auto';
+        wrap.style.overflowY = 'hidden';
+        const clone = tabsSrc.cloneNode(true);
         clone.removeAttribute('id');
-        clone.style.width = '100%';
+        clone.removeAttribute('hidden');
         clone.style.height = '100%';
-        right.appendChild(clone);
+        wrap.appendChild(clone);
+        right.appendChild(wrap);
       }
       body.appendChild(right);
     }
