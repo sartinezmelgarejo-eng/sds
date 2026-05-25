@@ -6320,6 +6320,17 @@ class Player {
       this._subdivTimers.forEach(t => clearTimeout(t));
       this._subdivTimers = [];
     }
+    // Pause the rhythm too — remember whether it was playing so
+    // resume() can bring it back in the same on/off state.
+    this._metronomeWasOn = metronome.playing;
+    if (metronome.playing) {
+      metronome.stop();
+      if (typeof updateRhythmBtn === 'function') updateRhythmBtn();
+    }
+    // Reset barsRemaining to the full duration of the current chord
+    // so resume() replays it from the top instead of finishing mid-bar.
+    const step = this._currentStep();
+    if (step) this.barsRemaining = step.bars;
     this._updateVisuals();
   }
 
@@ -6333,10 +6344,25 @@ class Player {
     this.playing = true;
     this.paused = false;
     this._cachedPage = null;
-    // Re-anchor the scheduler to the audio clock NOW.
-    this.nextBarTime    = ctx.currentTime + 0.08;
-    this._countInUntil  = this.nextBarTime;
-    this._firstChordAt  = this.nextBarTime;
+    // Bring the metronome back if it was running when we paused, and
+    // sync the bar to its next downbeat so chord 1 lands clean.
+    if (this._metronomeWasOn) {
+      metronome.start();
+      if (typeof updateRhythmBtn === 'function') updateRhythmBtn();
+    }
+    const beatDur = 60 / metronome.bpm;
+    let firstBar;
+    if (metronome.playing) {
+      const downbeat = metronome.nextDownbeatTime();
+      firstBar = (downbeat !== null && downbeat > ctx.currentTime + 0.05)
+        ? downbeat
+        : ctx.currentTime + 0.08;
+    } else {
+      firstBar = ctx.currentTime + 0.08;
+    }
+    this.nextBarTime    = firstBar;
+    this._countInUntil  = firstBar;
+    this._firstChordAt  = firstBar;
     this.forceTriggerAtNextBar = true;
     this._updateVisuals();
     this.timer = setInterval(() => this._scheduler(), 30);
