@@ -2020,6 +2020,53 @@
   #landscape-play .lp-cell.next-up {
     border-color: #6b6b6b;
   }
+
+  /* Corner controls (bottom-right). Floating buttons that proxy the
+     main toolbar's play / loop / key shift actions without leaving
+     the follow-along view. */
+  #landscape-play .lp-controls {
+    position: absolute;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: max(10px, env(safe-area-inset-bottom));
+    display: flex;
+    gap: 6px;
+    z-index: 2;
+    background: rgba(246, 239, 222, 0.92);
+    padding: 4px;
+    border-radius: 999px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.18);
+    backdrop-filter: blur(4px);
+  }
+  #landscape-play .lp-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #c8bf9f;
+    background: #fdfcf3;
+    color: #1a1a1a;
+    font-size: 16px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 600;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #landscape-play .lp-btn:active { background: #f0e6c8; }
+  #landscape-play .lp-btn.active {
+    background: #fcecaa;
+    border-color: #c9a747;
+  }
+  #landscape-play .lp-btn-play {
+    background: #059669;
+    color: #fff;
+    border-color: #047857;
+    font-size: 14px;
+  }
+  #landscape-play .lp-btn-play.active { background: #dc2626; border-color: #991b1b; }
 </style>
 </head>
 <body class="keypad-open">
@@ -2160,6 +2207,15 @@
     <div class="lp-pane lp-right" id="lp-right"></div>
   </div>
   <div class="lp-prog" id="lp-prog"></div>
+  <!-- Corner controls: play/pause, loop, key shift down/up. Each
+       button proxies to the existing main-UI control by triggering
+       a click (play/loop) or by mutating state.keyPc (key shift). -->
+  <div class="lp-controls" id="lp-controls">
+    <button class="lp-btn" id="lp-key-down" title="Key down a semitone">♭</button>
+    <button class="lp-btn" id="lp-key-up"   title="Key up a semitone">♯</button>
+    <button class="lp-btn" id="lp-loop"     title="Loop section">⟲</button>
+    <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">▶</button>
+  </div>
 </div>
 
 <script>
@@ -7637,6 +7693,9 @@ function renderLandscapePlay() {
     }
   }
 
+  // Keep the corner play / loop buttons in sync with the main UI.
+  if (typeof lp_syncControls === 'function') lp_syncControls();
+
   // ── Progression strip at the bottom ──────────────────────
   const prog = document.getElementById('lp-prog');
   if (prog) {
@@ -7652,6 +7711,46 @@ function renderLandscapePlay() {
       div.textContent = def ? (def.name || step.chord) : step.chord;
       prog.appendChild(div);
     });
+  }
+}
+
+// Wire the four corner controls. Each button proxies the existing
+// main-UI action so the same code path runs (and so the main UI
+// stays in sync when the user rotates back to portrait).
+(function wireLandscapeControls() {
+  const playBtn = document.getElementById('lp-play');
+  const loopBtn = document.getElementById('lp-loop');
+  const keyUp   = document.getElementById('lp-key-up');
+  const keyDown = document.getElementById('lp-key-down');
+  if (playBtn) playBtn.addEventListener('click', () => {
+    const real = document.getElementById('auto-play');
+    if (real) real.click();
+  });
+  if (loopBtn) loopBtn.addEventListener('click', () => {
+    const real = document.getElementById('loop-toggle');
+    if (real) real.click();
+  });
+  const shiftKey = (delta) => {
+    state.keyPc = ((state.keyPc + delta) % 12 + 12) % 12;
+    if (typeof renderAll === 'function') renderAll();
+  };
+  if (keyUp)   keyUp.addEventListener('click',   () => shiftKey(+1));
+  if (keyDown) keyDown.addEventListener('click', () => shiftKey(-1));
+})();
+
+// Sync the corner buttons' visual state to match the main toolbar
+// (playing → red ⏸ icon, loop active → highlighted).
+function lp_syncControls() {
+  const play = document.getElementById('lp-play');
+  if (play) {
+    const isPlaying = !!(window.player && window.player.playing);
+    play.textContent = isPlaying ? '⏸' : '▶';
+    play.classList.toggle('active', isPlaying);
+  }
+  const loop = document.getElementById('lp-loop');
+  const realLoop = document.getElementById('loop-toggle');
+  if (loop && realLoop) {
+    loop.classList.toggle('active', realLoop.classList.contains('active'));
   }
 }
 
