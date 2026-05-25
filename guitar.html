@@ -2526,6 +2526,7 @@
     <div style="display:flex;gap:8px;align-items:center">
       <button class="auto-btn keypad-toggle" id="keypad-toggle" title="show/hide compose keypad">⌨</button>
       <button class="auto-btn" id="auto-play">▶ AI</button>
+      <button class="auto-btn" id="auto-stop" title="Stop and reset to start" hidden>⏹</button>
       <div class="midi-wrap" id="midi-wrap" style="display:none;position:relative">
         <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
         <div class="midi-menu" id="midi-menu" hidden></div>
@@ -6300,13 +6301,54 @@ class Player {
 
     this.timer = setInterval(() => this._scheduler(), 30);
     startBeatCounterLoop();
+    this.paused = false;
   }
 
-  stop() {
+  // Pause WITHOUT clearing position: halts the scheduler and silences
+  // audio, but keeps songIdx / currentStepIdx / barsRemaining intact so
+  // resume() can pick up exactly where we left off.
+  pause() {
     if (!this.playing) return;
     clearInterval(this.timer);
     this.timer = null;
     this.playing = false;
+    this.paused = true;
+    chordDrone.stop();
+    this.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
+    this.bassOscillators = [];
+    if (this._subdivTimers) {
+      this._subdivTimers.forEach(t => clearTimeout(t));
+      this._subdivTimers = [];
+    }
+    this._updateVisuals();
+  }
+
+  // Resume from a paused state — re-arm the scheduler using the saved
+  // song position. If we were never playing/paused, falls back to a
+  // fresh start so the button always does something sensible.
+  resume() {
+    if (this.playing) return;
+    if (!this.paused) { this.start(); return; }
+    const ctx = ensureAudio();
+    this.playing = true;
+    this.paused = false;
+    this._cachedPage = null;
+    // Re-anchor the scheduler to the audio clock NOW.
+    this.nextBarTime    = ctx.currentTime + 0.08;
+    this._countInUntil  = this.nextBarTime;
+    this._firstChordAt  = this.nextBarTime;
+    this.forceTriggerAtNextBar = true;
+    this._updateVisuals();
+    this.timer = setInterval(() => this._scheduler(), 30);
+    startBeatCounterLoop();
+  }
+
+  stop() {
+    if (!this.playing && !this.paused) return;
+    clearInterval(this.timer);
+    this.timer = null;
+    this.playing = false;
+    this.paused = false;
     chordDrone.stop();
     // Stop any pending bass plucks
     this.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
@@ -7126,30 +7168,52 @@ document.getElementById('bass-toggle').addEventListener('click', e => {
   if (!mixerMenu.hidden) renderMixerMenu();
 });
 
-document.getElementById('auto-play').addEventListener('click', e => {
+function _refreshAutoPlayUI() {
+  const play = document.getElementById('auto-play');
+  const stop = document.getElementById('auto-stop');
+  if (!play) return;
   if (player.playing) {
-    // Global pause: stop player + metronome (drones stay — user controls those)
-    player.stop();
-    if (metronome.playing) {
-      metronome.stop();
-      updateRhythmBtn();
-    }
-    e.target.classList.remove('active');
-    e.target.textContent = '▶ AI';
+    play.classList.add('active');
+    play.textContent = '⏸ AI';
+    play.title = 'Pause';
+    document.body.classList.add('player-active');
+  } else if (player.paused) {
+    play.classList.add('active');
+    play.textContent = '▶ AI';
+    play.title = 'Resume';
+    document.body.classList.add('player-active');
+  } else {
+    play.classList.remove('active');
+    play.textContent = '▶ AI';
+    play.title = 'Start';
     document.body.classList.remove('player-active');
-    if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
-    // Return reparented elements to their home layout if we were in
-    // landscape follow-along mode.
-    if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
-    if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
+  }
+  // Stop is only meaningful when there's something to halt.
+  if (stop) stop.hidden = !(player.playing || player.paused);
+  if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
+  if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
+  if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
+}
+
+document.getElementById('auto-play').addEventListener('click', () => {
+  if (player.playing) {
+    player.pause();
+  } else if (player.paused) {
+    player.resume();
   } else {
     player.start();
-    e.target.classList.add('active');
-    e.target.textContent = '⏸ AI';
-    document.body.classList.add('player-active');
-    if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
-    if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   }
+  _refreshAutoPlayUI();
+});
+
+document.getElementById('auto-stop').addEventListener('click', () => {
+  if (!player.playing && !player.paused) return;
+  player.stop();
+  if (metronome.playing) {
+    metronome.stop();
+    updateRhythmBtn();
+  }
+  _refreshAutoPlayUI();
 });
 
 /* ─── Pentatonic / scale box for the scale strip ─── */
