@@ -3212,9 +3212,33 @@ function renderKeyRow() {
     c.addEventListener('click', () => {
       state.keyPc = +c.dataset.pc;
       state.userVoicing = null;
+      // Re-compute each composed cell's voicing in the new key so the
+      // tabs / sheet music actually transpose with the chord names.
+      rebuildComposedShapesForCurrentKey();
       renderAll();
     });
   });
+}
+
+// Re-bake the shape on every composed-progression cell using the CURRENT key.
+// Keeps each cell's voicing position (_candIdx into the master catalog) so the
+// user's chosen drop-2 / shell / inversion stays consistent across transpositions.
+function rebuildComposedShapesForCurrentKey() {
+  const seq = state.composedProgression;
+  if (!seq || !seq.length) return;
+  const map = currentMap();
+  for (const cell of seq) {
+    const ch = map.chordDefs[cell.chord];
+    if (!ch) continue;                              // chord ID not in current tonality — leave stale
+    const root = (state.keyPc + ch.deg) % 12;
+    const cands = allDistinctVoicings(ch.quality, root);
+    if (!cands.length) continue;
+    const idx = (typeof cell._candIdx === 'number' && cell._candIdx >= 0 && cell._candIdx < cands.length)
+      ? cell._candIdx : 0;
+    cell.shape = cands[idx].shape;
+    cell._candIdx = idx;
+    cell.voicingType = cands[idx].type;
+  }
 }
 
 document.querySelectorAll('#tonality-toggle button').forEach(b => {
@@ -3222,6 +3246,7 @@ document.querySelectorAll('#tonality-toggle button').forEach(b => {
     state.tonality = b.dataset.tonality;
     state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
     state.userVoicing = null;
+    rebuildComposedShapesForCurrentKey();
     syncTonalityToggle();
     renderAll();
   });
