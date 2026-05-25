@@ -4159,6 +4159,12 @@ class Metronome {
     }
   }
   _advance() {
+    if (this.mode === 'drums') {
+      // Straight 8ths: 8 ticks per bar, no swing
+      this.nextTickTime += (60 / this.bpm) / 2; // eighth note
+      this.tickIdx = (this.tickIdx + 1) % 8;
+      return;
+    }
     if (this.mode === 'click' || this.mode === 'twofour') {
       this.nextTickTime += 60 / this.bpm;
       this.tickIdx = (this.tickIdx + 1) % 4;
@@ -4177,6 +4183,7 @@ class Metronome {
   _playTick(time, idx) {
     if (this.mode === 'click') this._click(time, idx === 0);
     else if (this.mode === 'twofour') this._twoFour(time, idx);
+    else if (this.mode === 'drums') this._drums(time, idx);
     else this._ride(time, idx);
   }
   _click(time, isDownbeat) {
@@ -4282,12 +4289,88 @@ class Metronome {
     ping.connect(pingEnv); pingEnv.connect(ctx.destination);
     ping.start(time); ping.stop(time + 0.05);
   }
+  _drums(time, idx) {
+    // Straight-8th rock beat (8 ticks per bar, no swing):
+    //   tick: 0  1  2  3  4  5  6  7
+    //   HH:  x  x  x  x  x  x  x  x   (every 8th)
+    //   KK:  x        x               (beats 1 and 3)
+    //   SN:        x        x         (beats 2 and 4)
+    const ctx = audioCtx;
+    const mv = chVol('metronome');
+    if (mv <= 0.001) return;
+
+    // Hi-hat on every 8th note
+    const hat = ctx.createBufferSource();
+    hat.buffer = Metronome._ensurePinkBuf(ctx);
+    const hatHp = ctx.createBiquadFilter();
+    hatHp.type = 'highpass'; hatHp.frequency.value = 7000; hatHp.Q.value = 0.6;
+    const hatEnv = ctx.createGain();
+    const hatVol = (idx % 2 === 0 ? 0.18 : 0.12) * mv; // downbeats slightly louder
+    hatEnv.gain.setValueAtTime(0.0001, time);
+    hatEnv.gain.exponentialRampToValueAtTime(hatVol, time + 0.002);
+    hatEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
+    hat.connect(hatHp); hatHp.connect(hatEnv); hatEnv.connect(ctx.destination);
+    hat.start(time); hat.stop(time + 0.08);
+
+    // Kick on beats 1 and 3 (ticks 0 and 4)
+    if (idx === 0 || idx === 4) {
+      const kick = ctx.createOscillator();
+      kick.type = 'sine';
+      kick.frequency.setValueAtTime(150, time);
+      kick.frequency.exponentialRampToValueAtTime(40, time + 0.12);
+      const kickEnv = ctx.createGain();
+      kickEnv.gain.setValueAtTime(0.0001, time);
+      kickEnv.gain.exponentialRampToValueAtTime(0.45 * mv, time + 0.005);
+      kickEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+      kick.connect(kickEnv); kickEnv.connect(ctx.destination);
+      kick.start(time); kick.stop(time + 0.3);
+      // Kick click transient
+      const kclick = ctx.createOscillator();
+      kclick.type = 'square';
+      kclick.frequency.value = 800;
+      const kcEnv = ctx.createGain();
+      kcEnv.gain.setValueAtTime(0.0001, time);
+      kcEnv.gain.exponentialRampToValueAtTime(0.08 * mv, time + 0.001);
+      kcEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.015);
+      kclick.connect(kcEnv); kcEnv.connect(ctx.destination);
+      kclick.start(time); kclick.stop(time + 0.02);
+    }
+
+    // Snare on beats 2 and 4 (ticks 2 and 6)
+    if (idx === 2 || idx === 6) {
+      const snare = ctx.createBufferSource();
+      snare.buffer = Metronome._ensurePinkBuf(ctx);
+      const snBp = ctx.createBiquadFilter();
+      snBp.type = 'bandpass'; snBp.frequency.value = 3000; snBp.Q.value = 0.8;
+      const snEnv = ctx.createGain();
+      snEnv.gain.setValueAtTime(0.0001, time);
+      snEnv.gain.exponentialRampToValueAtTime(0.35 * mv, time + 0.003);
+      snEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.15);
+      snare.connect(snBp); snBp.connect(snEnv); snEnv.connect(ctx.destination);
+      snare.start(time); snare.stop(time + 0.2);
+      // Snare body tone
+      const snTone = ctx.createOscillator();
+      snTone.type = 'triangle'; snTone.frequency.value = 180;
+      const stEnv = ctx.createGain();
+      stEnv.gain.setValueAtTime(0.0001, time);
+      stEnv.gain.exponentialRampToValueAtTime(0.12 * mv, time + 0.002);
+      stEnv.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+      snTone.connect(stEnv); stEnv.connect(ctx.destination);
+      snTone.start(time); snTone.stop(time + 0.1);
+    }
+  }
   setBpm(b) { this.bpm = Math.max(40, Math.min(280, b)); }
   setMode(m) { this.mode = m; this.tickIdx = 0; }
 
   // Time of the next bar's downbeat (beat 1). Used to sync the player.
   nextDownbeatTime() {
     if (!this.playing) return null;
+    if (this.mode === 'drums') {
+      // 8 ticks per bar (eighth notes); tickIdx 0 = beat 1
+      const eighthDur = (60 / this.bpm) / 2;
+      const ticksUntilOne = (8 - this.tickIdx) % 8;
+      return this.nextTickTime + ticksUntilOne * eighthDur;
+    }
     if (this.mode === 'click' || this.mode === 'twofour') {
       // 4 ticks per bar; tickIdx 0 = beat 1
       const beatDur = 60 / this.bpm;
@@ -4378,6 +4461,7 @@ const rhythmBtn = document.getElementById('rhythm-btn');
 const rhythmMenu = document.getElementById('rhythm-menu');
 const RHYTHM_OPTIONS = [
   {value: 'ride',    emoji: '🥁', label: 'Ride'},
+  {value: 'drums',   emoji: '🪨', label: 'Drums'},
   {value: 'twofour', emoji: '🎩', label: '2 & 4'},
   {value: 'click',   emoji: '🔔', label: 'Metronome'},
   {value: 'off',     emoji: '🔇', label: 'Off'},
