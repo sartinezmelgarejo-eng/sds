@@ -1961,6 +1961,38 @@
     height: 100%;
     display: block;
   }
+  /* Piano-mode staff row: 4 chord cells side-by-side, current one
+     highlighted. Mirrors the compose strip but at landscape scale. */
+  #landscape-play .lp-staff-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    width: 100%;
+    height: 100%;
+    padding: 4px;
+    box-sizing: border-box;
+  }
+  #landscape-play .lp-staff-cell {
+    background: #fdfcf3;
+    border: 1px solid #d8cfb5;
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+  #landscape-play .lp-staff-cell svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  #landscape-play .lp-staff-cell.current {
+    background: #fcecaa;
+    border-color: #c9a747;
+    box-shadow: 0 0 0 1px #c9a747 inset;
+  }
   /* Tabs clone inside the landscape overlay: re-arrange the 16 cells
      into a 4×4 grid (mirroring compose mode) so each cell is large
      enough to read. The cloned `.real-book-tabs` ships as a single
@@ -7664,41 +7696,45 @@ function renderLandscapePlay() {
   // The OTHER pane is built fresh on every tick: tabs clone for
   // guitar, staff SVG for piano.
   if (state.instrument === 'piano') {
-    const left    = document.getElementById('lp-left');
-    const fc      = curDef;
-    const root    = fc ? chordRoot(fc) : null;
-    // renderChordStaff expects the quality NAME (string key into
-    // QUALITIES), not the resolved object — passing the object
-    // silently produced an empty SVG.
-    const qName   = fc ? fc.quality : null;
-    const quality = qName ? QUALITIES[qName] : null;
-    const flats   = root != null ? useFlatsFor(root) : false;
-    const shape   = state.playerVoicing?.shape || focusedShape()?.shape;
-    if (left) {
-      // Cache key = chord + shape signature. Rebuilding the staff
-      // via innerHTML on every tick caused visible flicker AND audio
-      // stutter on iPhone (DOM thrash blocks the audio thread). Now
-      // we only rebuild when the *content* would actually change.
-      const sig = [curId, JSON.stringify(shape || null), root, flats].join('|');
-      if (left.dataset.staffSig !== sig) {
-        left.dataset.staffSig = sig;
-        if (fc && quality && root != null) {
-          // Match the sizing/options used by the vertical compose-cell
-          // piano staff so it reads identically — clef shown, chord name
-          // baked in, harmonic-function tag color, etc. Larger W/H so it
-          // fills the landscape pane gracefully.
-          const cellName = (fc.name || nameOf(root, flats) + quality.sfx);
-          left.innerHTML = renderChordStaff(shape, root, qName, flats, {
-            W: 280, H: 180, r: 14,
+    // Render the FOUR chords of the current section side-by-side,
+    // highlighting the one that's currently playing — mirrors the
+    // compose strip and gives the player context for what's next.
+    const left  = document.getElementById('lp-left');
+    const steps = player?._currentSection?.()?.progression?.steps || [];
+    const stepIdx = player?.currentStepIdx ?? -1;
+    const flats = useFlatsFor(state.keyPc);
+    const sig = steps.map(s => s.chord).join(',') + '|' + stepIdx + '|' + state.keyPc;
+    if (left && left.dataset.staffSig !== sig) {
+      left.dataset.staffSig = sig;
+      if (!steps.length) {
+        left.innerHTML = '';
+      } else {
+        const cellsHtml = steps.map((step, i) => {
+          const ch = map.chordDefs[step.chord];
+          if (!ch) return '<div class="lp-staff-cell"></div>';
+          const root = (state.keyPc + ch.deg) % 12;
+          const qObj = QUALITIES[ch.quality];
+          if (!qObj) return '<div class="lp-staff-cell"></div>';
+          const cellName = (ch.name || nameOf(root, flats) + qObj.sfx);
+          // Use the live voicing for the playing chord, the queued
+          // next-voicing for its successor; everything else falls
+          // back to the focused shape so the staff isn't empty.
+          let shape;
+          if (i === stepIdx) shape = state.playerVoicing?.shape || focusedShape()?.shape;
+          else if (state.nextVoicing && step.chord === state.nextVoicing.chord) shape = state.nextVoicing.shape;
+          else shape = focusedShape()?.shape;
+          const inner = renderChordStaff(shape, root, ch.quality, flats, {
+            W: 150, H: 170, r: 10,
             minimal: false,
             showClef: true,
             chordName: cellName,
-            roman: fc.roman,
-            tag: fc.tag,
+            roman: ch.roman,
+            tag: ch.tag,
           });
-        } else {
-          left.innerHTML = '';
-        }
+          const cls = 'lp-staff-cell' + (i === stepIdx ? ' current' : '');
+          return `<div class="${cls}">${inner || ''}</div>`;
+        }).join('');
+        left.innerHTML = `<div class="lp-staff-row">${cellsHtml}</div>`;
       }
     }
   } else {
