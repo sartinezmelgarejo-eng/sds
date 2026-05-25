@@ -7112,11 +7112,12 @@ function startBeatCounterLoop() {
       });
     }
     // Subdivision slot animation: highlight the segment currently sounding
-    // on the CURRENT cell's playback bar.
+    // on the CURRENT cell's playback bar. During count-in nothing's
+    // actually playing yet — keep the bar static.
     const cellInPage = player.totalBars % 4;
     const planned = player._cachedPage && player._cachedPage[cellInPage];
     const subN = (planned && planned.subdivisions) || 1;
-    if (subN > 1 && elapsed >= 0) {
+    if (subN > 1 && elapsed >= 0 && !inCountIn) {
       const slotDur = barDur / subN;
       const slot = Math.min(subN - 1, Math.max(0, Math.floor(elapsed / slotDur)));
       const muted = (planned.subdivMute || [])[slot];
@@ -7134,7 +7135,8 @@ function startBeatCounterLoop() {
         lastSubSlot = slot;
         lastSubCell = cellInPage;
       }
-    } else if (lastSubSlot !== -1) {
+    } else if (lastSubSlot !== -1 || inCountIn) {
+      // Either out of subdivisions or we're in count-in — clear any leftover.
       document.querySelectorAll('.subdiv-seg.pb-on').forEach(el => el.classList.remove('pb-on'));
       lastSubSlot = -1;
       lastSubCell = -1;
