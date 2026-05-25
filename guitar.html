@@ -7607,12 +7607,18 @@ function renderComposeStrip() {
       // staff continues unmarked (the eye carries the clef forward).
       const showClef = (i === 0);
       const cellChordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-      const sizing = isMobile
+      // Piano mode embeds chord name in the staff SVG (no separate name row).
+      // Guitar mode shows the name in the .rb-cell row above the tab — so we
+      // SKIP passing chordName to renderMini to avoid a double-display.
+      const sizingPiano = isMobile
         ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag}
         : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag};
+      const sizingGuitar = isMobile
+        ? {W: 100, H: 128, r: 8, minimal: true}
+        : {W: 130, H: 148, r: 11, bwNotes: true};
       const svg = state.instrument === 'piano'
-        ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
-        : renderMini(cell.shape, root, ch.quality, flats, sizing);
+        ? renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano)
+        : renderMini(cell.shape, root, ch.quality, flats, sizingGuitar);
       // Rhythm subdivisions UI — triangle picker is ALWAYS visible with the
       // current count inside (default 1). Segment bar appears only when N > 1.
       const n = cell.subdivisions || 1;
