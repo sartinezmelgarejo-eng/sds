@@ -2742,38 +2742,46 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
          + bassClefSVG(cx, bassClefY, lineSp, !!sizing?.minimal);
   }
 
-  // Ledger lines — drawn per-staff (treble or bass) based on each note's home
+  // Ledger lines — drawn later, per-slot, inside the notes loop so each
+  // slot's chord stack has its own short ledger lines aligned with its
+  // noteheads. Empty string here; appended to `notes` below.
   let ledgers = '';
-  const seenLedger = new Set();
-  for (const p of positions) {
-    const staffTop = p.useTreble ? trebleTopY : bassTopY;
-    const staffBot = staffTop + 4 * lineSp;
-    if (p.y > staffBot + lineSp * 0.3) {
-      let k = 1;
-      while (true) {
-        const ly = staffBot + k * lineSp;
-        if (ly > p.y + lineSp * 0.3) break;
-        const key = `b-${ly.toFixed(1)}`;
-        if (!seenLedger.has(key)) {
-          seenLedger.add(key);
-          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+  // Helper: ledger lines for a single slot, centered on cx, based on the
+  // current `positions` (same chord plays at every slot). Deduped per slot.
+  const ledgersForSlot = (cx) => {
+    let out = '';
+    const seen = new Set();
+    for (const p of positions) {
+      const staffTop = p.useTreble ? trebleTopY : bassTopY;
+      const staffBot = staffTop + 4 * lineSp;
+      if (p.y > staffBot + lineSp * 0.3) {
+        let k = 1;
+        while (true) {
+          const ly = staffBot + k * lineSp;
+          if (ly > p.y + lineSp * 0.3) break;
+          const key = `b-${ly.toFixed(1)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            out += `<line x1="${cx - 6}" y1="${ly}" x2="${cx + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+          }
+          k++;
         }
-        k++;
-      }
-    } else if (p.y < staffTop - lineSp * 0.3) {
-      let k = 1;
-      while (true) {
-        const ly = staffTop - k * lineSp;
-        if (ly < p.y - lineSp * 0.3) break;
-        const key = `a-${ly.toFixed(1)}`;
-        if (!seenLedger.has(key)) {
-          seenLedger.add(key);
-          ledgers += `<line x1="${noteX - 6}" y1="${ly}" x2="${noteX + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+      } else if (p.y < staffTop - lineSp * 0.3) {
+        let k = 1;
+        while (true) {
+          const ly = staffTop - k * lineSp;
+          if (ly < p.y - lineSp * 0.3) break;
+          const key = `a-${ly.toFixed(1)}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            out += `<line x1="${cx - 6}" y1="${ly}" x2="${cx + 6}" y2="${ly}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+          }
+          k++;
         }
-        k++;
       }
     }
-  }
+    return out;
+  };
 
   // Detect adjacent-stepwise pairs and offset one of them so noteheads don't overlap
   const offsetX = {};   // index -> x-offset for displaced notes
@@ -2817,28 +2825,126 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     ].join('');
   }
 
-  // Accidentals + noteheads. Whole-note style (hollow oval) so each chord
-  // reads as "lasts the whole bar". Only the root is colored — the rest
-  // are inked black to keep the chord stack clean.
-  let notes = '';
+  // Accidentals + noteheads — rhythm-aware. If the cell has subdivisions,
+  // render N noteheads spaced across the bar with the appropriate shape
+  // (whole / half / quarter / eighth), stems, and rests for muted slots.
+  // Falls back to a single whole note when subdivisions == 1.
+  const subN = Math.max(1, sizing?.subdivisions || 1);
+  const subMute = sizing?.subdivMute || [];
   const noteR = lineSp * 0.52;
-  positions.forEach((p, i) => {
-    const dx = offsetX[i] || 0;
-    const cx = noteX + dx;
-    const deg = pcToDeg[p.pc];
-    const isRoot = deg === 'R';
-    const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
-    if (p.acc === '#') {
-      notes += svgSharp(cx - lineSp * 1.2, p.y);
-    } else if (p.acc === 'b') {
-      notes += svgFlat(cx - lineSp * 1.1, p.y);
+  // Note SHAPE per subdivision count. (Odd values 3/5/6/7 reuse the
+  // closest power-of-two for now; tuplet brackets are a follow-up.)
+  //   1 → whole (open, no stem)
+  //   2 → half (open, stem)
+  //   3 → quarter (filled, stem) + 'triplet' feel
+  //   4 → quarter (filled, stem)
+  //   5–7 → eighth (filled, stem)
+  //   8 → eighth (filled, stem + beam if adjacent)
+  const noteKind = subN === 1 ? 'whole'
+                  : subN === 2 ? 'half'
+                  : (subN === 3 || subN === 4) ? 'quarter'
+                  : 'eighth';
+  const isOpen = noteKind === 'whole' || noteKind === 'half';
+  const hasStem = noteKind !== 'whole';
+  const hasFlag = noteKind === 'eighth';
+
+  // Lay out slot positions across the available bar width. Leave room for
+  // the clef at left and the bar-line at right. The first slot sits a
+  // little after the clef space, subsequent slots are evenly spaced.
+  const barStartX = Math.max(clefW + accW + 6, W * 0.20);
+  const barEndX   = W - 6;
+  const barWidth  = barEndX - barStartX;
+  const slotW     = barWidth / subN;
+  const slotX = (s) => barStartX + slotW * (s + 0.5);
+
+  // Helper: render one notehead (filled or open) at (cx, cy)
+  const drawHead = (cx, cy, color, open) => {
+    if (open) {
+      return `<g transform="rotate(-22 ${cx} ${cy})">
+        <ellipse cx="${cx}" cy="${cy}" rx="${noteR * 1.25}" ry="${noteR * 0.88}" fill="none" stroke="${color}" stroke-width="${noteR * 0.5}"/>
+      </g>`;
     }
-    // Whole note: tilted oval rendered as stroke-only so the staff lines
-    // pass visibly through the hollow center (classic engraving convention).
-    notes += `<g transform="rotate(-22 ${cx} ${p.y})">
-      <ellipse cx="${cx}" cy="${p.y}" rx="${noteR * 1.35}" ry="${noteR * 0.92}" fill="none" stroke="${color}" stroke-width="${noteR * 0.55}"/>
+    return `<g transform="rotate(-22 ${cx} ${cy})">
+      <ellipse cx="${cx}" cy="${cy}" rx="${noteR * 1.15}" ry="${noteR * 0.82}" fill="${color}" stroke="${color}" stroke-width="0.4"/>
     </g>`;
-  });
+  };
+  // Helper: stem (vertical) — direction by staff side (treble up, bass down)
+  const drawStem = (cx, headY, useTreble, color, withFlag) => {
+    const stemLen = lineSp * 3.2;
+    const dir = useTreble ? -1 : 1;          // treble notes get up-stems
+    const x   = cx + (useTreble ? noteR * 1.1 : -noteR * 1.1);
+    const y1  = headY;
+    const y2  = headY + dir * stemLen;
+    let s = `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${color}" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
+    if (withFlag) {
+      // Single eighth-note flag (curl) at the end of the stem
+      const flagY = y2;
+      const flagDir = dir;
+      const flagW = lineSp * 1.1;
+      const flagH = lineSp * 1.6 * flagDir;
+      s += `<path d="M ${x} ${flagY}
+                    Q ${x + flagW * 0.6} ${flagY + flagH * 0.25},
+                      ${x + flagW * 0.9} ${flagY + flagH * 0.6}
+                    Q ${x + flagW * 0.4} ${flagY + flagH * 0.4},
+                      ${x} ${flagY + flagH * 0.5} Z"
+              fill="${color}"/>`;
+    }
+    return s;
+  };
+  // Helper: rest glyph for a muted slot. Picks the rest shape matching
+  // the slot's duration. Drawn in the middle gap between staves so it's
+  // visible without clashing with notes above/below.
+  const drawRest = (cx) => {
+    const restY = middleCY;  // sits at middle-C line
+    const fs = lineSp * 2.4;
+    let glyph;
+    switch (noteKind) {
+      case 'whole':   glyph = '𝄻'; break;
+      case 'half':    glyph = '𝄼'; break;
+      case 'quarter': glyph = '𝄽'; break;
+      case 'eighth':  glyph = '𝄾'; break;
+      default:        glyph = '𝄽';
+    }
+    return `<text x="${cx}" y="${restY + lineSp * 0.5}" text-anchor="middle"
+              font-size="${fs}"
+              font-family="'Bravura Text','Petaluma','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola',serif"
+              fill="#1a1a1a" opacity="0.55"
+              dominant-baseline="alphabetic">${glyph}</text>`;
+  };
+
+  let notes = '';
+  for (let s = 0; s < subN; s++) {
+    const cx = slotX(s);
+    if (subMute[s]) {
+      notes += drawRest(cx);
+      continue;
+    }
+    // Per-slot ledger lines (above/below the staff, aligned with this slot)
+    notes += ledgersForSlot(cx);
+    // Determine stem direction for THIS slot (use the chord's center pitch).
+    // Treble notes use up-stems, bass notes use down-stems. For chords
+    // spanning both staves, prefer the side with more notes.
+    const trebleCount = positions.filter(p => p.useTreble).length;
+    const useTreble = trebleCount >= positions.length - trebleCount;
+    // One accidental column per slot, just left of the noteheads
+    positions.forEach((p, i) => {
+      const dx = offsetX[i] || 0;
+      const cxNote = cx + dx;
+      const deg = pcToDeg[p.pc];
+      const isRoot = deg === 'R';
+      const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
+      if (p.acc === '#') notes += svgSharp(cxNote - lineSp * 1.2, p.y);
+      else if (p.acc === 'b') notes += svgFlat(cxNote - lineSp * 1.1, p.y);
+      notes += drawHead(cxNote, p.y, color, isOpen);
+    });
+    // Single shared stem per slot — anchored on the OUTERMOST note in
+    // the stem direction (top for treble up-stem, bottom for bass down).
+    if (hasStem && positions.length) {
+      const sorted = [...positions].sort((a, b) => a.y - b.y);
+      const stemAnchorY = useTreble ? sorted[0].y : sorted[sorted.length - 1].y;
+      notes += drawStem(cx, stemAnchorY, useTreble, '#1a1a1a', hasFlag);
+    }
+  }
 
   // Chord-name label above the staff (Real-Book style). Single <text> with
   // a <tspan> for the roman numeral that uses dx for letter-by-letter
@@ -6002,7 +6108,7 @@ class Player {
       const isMobileNow = window.innerWidth <= 800;
       const svg = shape
         ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
+            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []})
             : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
         : '';
       // Subdivision bar shown on EVERY cell that has subdivisions — so the
@@ -7835,8 +7941,8 @@ function renderComposeStrip() {
       // Guitar mode shows the name in the .rb-cell row above the tab — so we
       // SKIP passing chordName to renderMini to avoid a double-display.
       const sizingPiano = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag}
-        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag};
+        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []}
+        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []};
       const sizingGuitar = isMobile
         ? {W: 100, H: 128, r: 8, minimal: true}
         : {W: 130, H: 148, r: 11, bwNotes: true};
