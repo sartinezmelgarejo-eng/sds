@@ -7866,6 +7866,20 @@ document.addEventListener('keydown', (ev) => {
     document.addEventListener('pointerup', onEnd);
     document.addEventListener('pointercancel', onEnd);
   });
+  // Right-click on the badge resets the subdivision count back to 1.
+  document.addEventListener('contextmenu', e => {
+    const tri = e.target.closest('.subdiv-triangle');
+    if (!tri) return;
+    e.preventDefault();
+    const idx = parseInt(tri.dataset.subdivTri, 10);
+    if (!Number.isFinite(idx)) return;
+    const seq = state.composedProgression;
+    const cell = seq[idx];
+    if (!cell) return;
+    cell.subdivisions = 1;
+    cell.subdivMute = [];
+    renderComposeStrip();
+  });
   window._subdivDragMoved = () => dragMoved;
 })();
 
