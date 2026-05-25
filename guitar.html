@@ -3001,6 +3001,28 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     notes += `<g class="staff-slot" data-staff-seg="${s}">${slotInner}${hitRect}</g>`;
   }
 
+  // Tuplet bracket for odd subdivisions (3, 5, 6, 7) — a horizontal line
+  // above the staff with downturned tips at each end and the count number
+  // floating in the middle. Matches classical engraving so the reader sees
+  // "this is 5-against-4" instead of just five eighth notes.
+  if (subN === 3 || subN === 5 || subN === 6 || subN === 7) {
+    const firstX = slotX(0);
+    const lastX  = slotX(subN - 1);
+    const bracketY = trebleTopY - lineSp * 0.5;     // just above the top staff line
+    const tipH   = lineSp * 0.45;
+    const numFs  = lineSp * 1.6;
+    const numW   = numFs * 0.7;                      // gap in the bracket for the number
+    const numX   = (firstX + lastX) / 2;
+    const stk    = `stroke="#1a1a1a" stroke-width="0.9" stroke-linecap="round"`;
+    notes += `<line x1="${firstX}" y1="${bracketY}" x2="${numX - numW/2}" y2="${bracketY}" ${stk}/>`;
+    notes += `<line x1="${numX + numW/2}" y1="${bracketY}" x2="${lastX}" y2="${bracketY}" ${stk}/>`;
+    notes += `<line x1="${firstX}" y1="${bracketY}" x2="${firstX}" y2="${bracketY + tipH}" ${stk}/>`;
+    notes += `<line x1="${lastX}" y1="${bracketY}" x2="${lastX}" y2="${bracketY + tipH}" ${stk}/>`;
+    notes += `<text x="${numX}" y="${bracketY + numFs * 0.32}" text-anchor="middle"
+                font-size="${numFs}" font-family="'Cormorant Garamond', Georgia, serif"
+                font-style="italic" font-weight="700" fill="#1a1a1a">${subN}</text>`;
+  }
+
   // Beams for eighth notes — connect runs of consecutive non-muted slots
   // with a horizontal bar at the stem ends. Single eighths (run of 1)
   // fall back to a flag.
