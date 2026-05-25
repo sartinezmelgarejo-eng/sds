@@ -3591,7 +3591,7 @@ class Drone {
     this.playing = false;
     this.targetVolume = 0.18;
   }
-  start(midiNotes, volume, forceRestart = false) {
+  start(midiNotes, volume, forceRestart = false, startAt = null) {
     // Avoid restarting if the pitches didn't change (prevents clicking on focus
     // changes). Skip this short-circuit when the caller is explicitly asking
     // for a re-strike — e.g. the bar scheduler hitting the same chord at the
@@ -3603,12 +3603,20 @@ class Drone {
       return;
     }
     const ctx = ensureAudio();
-    // Quick crossfade out of any previous master to avoid clicks
+    // `startAt` is the absolute audioCtx time when this strike should begin.
+    // Falls back to "now" when caller didn't schedule ahead. Clamped to the
+    // present if the caller passed a stale (past) time.
+    const t0 = Math.max(ctx.currentTime, startAt ?? ctx.currentTime);
+    // Quick crossfade out of any previous master to avoid clicks. The fade
+    // is anchored to NOW (not t0) so the old chord doesn't ring past the
+    // new strike when t0 is slightly in the future.
     if (this.playing && this.master) {
       const oldM = this.master, oldN = this.nodes;
-      const now = ctx.currentTime;
-      oldM.gain.cancelScheduledValues(now);
-      oldM.gain.linearRampToValueAtTime(0, now + 0.06);
+      const fadeStart = ctx.currentTime;
+      const fadeEnd = Math.min(t0, fadeStart + 0.06);
+      oldM.gain.cancelScheduledValues(fadeStart);
+      oldM.gain.linearRampToValueAtTime(0, fadeEnd);
+      const stopAt = fadeEnd + 0.03;
       setTimeout(() => {
         oldN.forEach(n => {
           try {
@@ -3619,7 +3627,7 @@ class Drone {
           } catch(e) {}
         });
         try { oldM.disconnect(); } catch(e) {}
-      }, 90);
+      }, Math.max(90, (stopAt - fadeStart) * 1000 + 20));
     } else {
       this._immediateStop();
     }
@@ -3635,7 +3643,6 @@ class Drone {
     this.master.connect(ctx.destination);
 
     const sortedNotes = [...midiNotes].sort((a,b) => a - b);
-    const now = ctx.currentTime;
     const timbre = droneTimbre;
 
     // Tremolo LFO only for Rhodes (the iconic wobble)
@@ -3647,13 +3654,13 @@ class Drone {
       lfoDepth.gain.value = 0.055;
       lfo.connect(lfoDepth);
       lfoDepth.connect(this.master.gain);
-      lfo.start(now);
+      lfo.start(t0);
       this.nodes.push({lfo});
     }
 
     sortedNotes.forEach((midi, i) => {
       const startOffset = timbre === 'pad' ? 0 : i * 0.006;
-      const t = now + startOffset;
+      const t = t0 + startOffset;
       if (timbre === 'pad') this._voicePad(midi, i, sortedNotes.length, t);
       else if (timbre === 'organ') this._voiceOrgan(midi, i, sortedNotes.length, t);
       else if (timbre === 'piano') this._voicePiano(midi, i, sortedNotes.length, t);
@@ -3661,11 +3668,11 @@ class Drone {
       else this._voiceRhodes(midi, i, sortedNotes.length, t);
     });
 
-    // Per-timbre master attack
+    // Per-timbre master attack — anchored at t0 so the strike lands exactly there
     const attack = timbre === 'pad' ? 0.4 : (timbre === 'organ' ? 0.18 : (timbre === 'piano' ? 0.05 : (timbre === 'jazzgtr' ? 0.04 : 0.06)));
-    this.master.gain.cancelScheduledValues(now);
-    this.master.gain.setValueAtTime(0, now);
-    this.master.gain.linearRampToValueAtTime(this.targetVolume, now + attack);
+    this.master.gain.cancelScheduledValues(t0);
+    this.master.gain.setValueAtTime(0, t0);
+    this.master.gain.linearRampToValueAtTime(this.targetVolume, t0 + attack);
     this.playing = true;
   }
 
@@ -5249,7 +5256,8 @@ class Player {
       // nextBarTime is the boundary AT THE END of bar 1
       const barDurNow = (60 / metronome.bpm) * 4;
       this.nextBarTime = fired + barDurNow;
-      this._triggerChord(this._currentChordId());
+      // Schedule the very first chord exactly at `fired` (audio time).
+      this._triggerChord(this._currentChordId(), fired);
       this._updateVisuals();
       return;
     }
@@ -5258,7 +5266,8 @@ class Player {
       // If user jumped, trigger the new chord at THIS bar boundary instead of advancing
       if (this.forceTriggerAtNextBar) {
         this.forceTriggerAtNextBar = false;
-        this._triggerChord(this._currentChordId());
+        // The bar that starts NOW lives at this.nextBarTime in audio time.
+        this._triggerChord(this._currentChordId(), this.nextBarTime);
         this.totalBars++;
         this._updateVisuals();
         this.nextBarTime += barDur;
@@ -5332,18 +5341,25 @@ class Player {
           }
         }
         this.barsRemaining = this._currentStep().bars;
-        this._triggerChord(this._currentChordId());
+        // Bar starts at this.nextBarTime in audio time — pass it through so
+        // chord + subdivisions all schedule sample-accurate relative to it.
+        this._triggerChord(this._currentChordId(), this.nextBarTime);
       }
       this._updateVisuals();
       this.nextBarTime += barDur;
     }
   }
 
-  _triggerChord(chordId) {
+  _triggerChord(chordId, barStartTime = null) {
     const map = currentMap();
     const ch = map.chordDefs[chordId];
     if (!ch) return;
     const root = (state.keyPc + ch.deg) % 12;
+    // Anchor: when this bar's chord should actually sound. Defaults to
+    // audioCtx.currentTime for legacy callers (e.g. user-driven jumps).
+    const t0 = (barStartTime != null && audioCtx)
+      ? Math.max(audioCtx.currentTime, barStartTime)
+      : (audioCtx ? audioCtx.currentTime : 0);
 
     // Make sure the plan covers the current page, and that its entry at our
     // current barInPage matches the chord we're triggering. If not, rebuild.
@@ -5381,31 +5397,34 @@ class Player {
     const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
     const vol = currentDroneVolume() * 1.8;
 
-    // Rhythmic subdivisions: if the current cell has subdivisions > 1, the
-    // bar is divided into N equal slots and the chord re-strikes on every
-    // un-muted slot. Slot 0 always plays at the bar boundary (this trigger).
+    // Rhythmic subdivisions: bar divided into N equal slots. Slot 0 fires
+    // AT t0 (the exact bar boundary in audio time). Remaining slots are
+    // pre-scheduled with their own audio start times, so even setTimeout
+    // jitter can't drift them — the audio engine fires them sample-accurate.
     const subN = (planned && planned.subdivisions) || 1;
     const subMute = (planned && planned.subdivMute) || [];
-    const slot0Muted = subN > 1 && subMute[0];
-    // Force re-attack: _triggerChord is only called at a NEW step boundary,
-    // so even if the chord/voicing matches the previous step (e.g. "I I V"),
-    // the user expects to hear the chord strike again. Continuation bars
-    // inside a multi-bar step never reach this path — those just keep ringing.
-    if (!slot0Muted) chordDrone.start(notes, vol, true);
-
-    // Schedule the remaining N-1 re-strikes via wall-clock timeouts. Audio
-    // precision is ~5–10ms — fine for chord stabs. Each timer is cleared
-    // when a new bar arrives so the bar boundary always wins.
     if (this._subdivTimers) this._subdivTimers.forEach(t => clearTimeout(t));
     this._subdivTimers = [];
+    const barDur = (60 / metronome.bpm) * 4;
+
+    // Force re-attack: _triggerChord is only called at a NEW step boundary,
+    // so even if the chord/voicing matches the previous step the strike fires
+    // again. Continuations (bars > 1 in one step) never reach this path.
+    if (!(subN > 1 && subMute[0])) {
+      chordDrone.start(notes, vol, true, t0);
+    }
+
     if (subN > 1 && audioCtx) {
-      const barDur = (60 / metronome.bpm) * 4;
-      const slotDurMs = (barDur / subN) * 1000;
       for (let s = 1; s < subN; s++) {
         if (subMute[s]) continue;
+        const slotAudioTime = t0 + (s / subN) * barDur;
+        // Wake up ~30 ms before the slot so Drone.start has time to wire up
+        // oscillators, then it schedules the actual strike AT slotAudioTime.
+        const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 30);
+        const fireAt = slotAudioTime;
         const tid = setTimeout(() => {
-          chordDrone.start(notes, vol, true);
-        }, s * slotDurMs);
+          chordDrone.start(notes, vol, true, fireAt);
+        }, wallWait);
         this._subdivTimers.push(tid);
       }
     }
