@@ -2208,6 +2208,9 @@ const state = {
   // adding a chord / cycling inversions / Backspace target this cell instead
   // of appending to the end. null = append mode (default).
   composedSelectedIdx: null,
+  // Strategy used by the "auto" card and by composeAddChord's default pick.
+  // Cycles via the auto card click: smoothest → low → high → random → ...
+  autoStrategy: 'smoothest',
 };
 
 function currentMap() { return CHORD_MAP[state.tonality]; }
@@ -3017,11 +3020,13 @@ function renderAlternatives() {
   const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
 
   const autoSel = state.userVoicing === null ? 'selected' : '';
+  const STRAT_LABEL = { smoothest: 'smoothest', low: 'low pos', high: 'high pos', random: 'random' };
+  const curStrat = state.autoStrategy || 'smoothest';
   let html = `
-    <div class="alt-card ${autoSel}" data-auto="1" style="justify-content:center">
+    <div class="alt-card ${autoSel}" data-auto="1" style="justify-content:center" title="click to cycle: smoothest → low pos → high pos → random">
       <div style="font-size:14px;color:var(--accent);font-weight:700;text-align:center;line-height:1.2;padding:24px 0">↻<br><span style="font-size:9px;text-transform:uppercase;letter-spacing:1px">auto</span></div>
-      <div class="ac-label">smoothest</div>
-      <div class="ac-notes">(re-pick)</div>
+      <div class="ac-label">${STRAT_LABEL[curStrat]}</div>
+      <div class="ac-notes">(click cycles)</div>
     </div>
   `;
 
@@ -3068,17 +3073,30 @@ function renderAlternatives() {
 
   altRow.querySelectorAll('[data-auto]').forEach(c => {
     c.addEventListener('click', () => {
+      // Cycle through the four strategies on each click.
+      const order = ['smoothest', 'low', 'high', 'random'];
+      const cur = state.autoStrategy || 'smoothest';
+      state.autoStrategy = order[(order.indexOf(cur) + 1) % order.length];
       state.userVoicing = null;
+      // If the focused chord is the last typed in compose, re-pick its
+      // voicing using the new strategy so the change is immediate.
       if (!player.playing) {
         const seq = state.composedProgression;
         if (seq.length && seq[seq.length - 1].chord === fc.id) {
           const ch = currentMap().chordDefs[fc.id];
           const r  = chordRoot(ch);
+          const all = allDistinctVoicings(ch.quality, r);
           const prev = seq.length > 1 ? seq[seq.length - 2].shape : null;
-          const sm = smoothestVoicing(ch.quality, r, prev);
-          if (sm) {
-            seq[seq.length - 1].shape = sm.shape;
-            seq[seq.length - 1]._candIdx = 0;
+          const idx = pickByStrategy(all, prev);
+          if (idx >= 0) {
+            const pk = all[idx];
+            const tail = seq[seq.length - 1];
+            tail.shape = pk.shape;
+            tail._candIdx = idx;
+            tail.voicingType = pk.type;
+            tail.stringSetIdx = pk.stringSetIdx;
+            tail.inversion = pk.inversion;
+            tail.stringSet = pk.stringSet;
             renderComposeStrip();
           }
         }
@@ -6976,6 +6994,39 @@ function composedCandidatesFor(quality, rootPc) {
   return cands;
 }
 
+// Strategy-aware voicing picker. Given a candidate list (from
+// allDistinctVoicings), the previous chord's shape (optional), and the
+// current state.autoStrategy, returns the index of the chosen voicing.
+//   smoothest — voice-leading + central register + drop-2 bias (default)
+//   low       — minimize avgFret (sit near the nut)
+//   high      — maximize avgFret (high on the neck)
+//   random    — uniform random pick
+function pickByStrategy(cands, prevShape) {
+  if (!cands || !cands.length) return -1;
+  const strat = state.autoStrategy || 'smoothest';
+  if (strat === 'random') return Math.floor(Math.random() * cands.length);
+  let bestIdx = 0, bestScore = Infinity;
+  cands.forEach((c, i) => {
+    const af = avgFret(c.shape);
+    const typePenalty = c.type === 'drop2' ? 0 : 60;
+    let score;
+    if (strat === 'low') {
+      score = af + typePenalty * 0.4;          // gentler bias so low-only sus/triads still win when no low drop-2 exists
+    } else if (strat === 'high') {
+      score = (15 - af) + typePenalty * 0.4;
+    } else {
+      // smoothest — original logic
+      const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
+      const reg = Math.abs(af - 7);
+      const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
+      const setPref = c.stringSetIdx === 0 ? 3 : 0;
+      score = m + registerCost + setPref + typePenalty;
+    }
+    if (score < bestScore) { bestScore = score; bestIdx = i; }
+  });
+  return bestIdx;
+}
+
 // ─── Undo stack for compose progression ───
 const _composeUndoStack = [];
 function _composeSaveUndo() {
@@ -7010,22 +7061,9 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   if (!cands.length) return;
   const seq = state.composedProgression;
 
-  const pickBest = (prevShape) => {
-    let bestIdx = 0, bestScore = Infinity;
-    cands.forEach((c, i) => {
-      const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
-      const af = avgFret(c.shape);
-      const reg = Math.abs(af - 7);
-      const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
-      const setPref = c.stringSetIdx === 0 ? 3 : 0;
-      // Strong bias toward drop-2 for the default — keeps the chord map and
-      // compose's initial picks coherent. Cycling escapes the bias entirely.
-      const typePenalty = c.type === 'drop2' ? 0 : 60;
-      const score = m + registerCost + setPref + typePenalty;
-      if (score < bestScore) { bestScore = score; bestIdx = i; }
-    });
-    return bestIdx;
-  };
+  // Strategy-driven picker (smoothest / low / high / random) shared with the
+  // auto card. The strategy lives in state.autoStrategy.
+  const pickBest = (prevShape) => pickByStrategy(cands, prevShape);
   const writeCell = (target, idx) => {
     const c = cands[idx];
     return {
