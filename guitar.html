@@ -812,7 +812,7 @@
     -webkit-tap-highlight-color: transparent;
   }
   .compose-btn:hover { background: #f5ecd0; }
-  .compose-btn:active { background: #fcecaa; }
+  .compose-btn:active, .compose-btn.flash { background: #fcecaa; }
   .compose-btn .deg {
     display: block;
     font-size: 9px;
@@ -7172,6 +7172,13 @@ document.addEventListener('keydown', e => {
   const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
+
+  // Flash the matching keypad button
+  const padBtn = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
+  if (padBtn) {
+    padBtn.classList.add('flash');
+    setTimeout(() => padBtn.classList.remove('flash'), 150);
+  }
 
   // Compose mode (AI not playing): append OR cycle last inversion with Shift
   if (!player.playing) {
