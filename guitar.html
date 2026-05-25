@@ -6855,6 +6855,28 @@ function composedCandidatesFor(quality, rootPc) {
   return cands;
 }
 
+// ─── Undo stack for compose progression ───
+const _composeUndoStack = [];
+function _composeSaveUndo() {
+  _composeUndoStack.push(JSON.parse(JSON.stringify(state.composedProgression)));
+  if (_composeUndoStack.length > 30) _composeUndoStack.shift();
+}
+function composeUndo() {
+  if (!_composeUndoStack.length) return;
+  state.composedProgression = _composeUndoStack.pop();
+  state.composedSelectedIdx = null;
+  state._composeFocusedIdx = null;
+  state.userVoicing = null;
+  if (state.composedProgression.length) {
+    const last = state.composedProgression[state.composedProgression.length - 1];
+    state.focusedChord = last.chord;
+    state.userVoicing = last.shape ? { shape: last.shape } : null;
+  }
+  if (chordDrone.playing) chordDrone.stop();
+  renderComposeStrip();
+  renderAll();
+}
+
 // Shared compose actions — used by both the keyboard handler and the touch keypad.
 function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const ch = currentMap().chordDefs[chordId];
@@ -6894,6 +6916,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     const cur = seq[selIdx];
     // Same chord without Shift → keep the current voicing (do nothing)
     if (cur.chord === chordId && !cycleInversion) return;
+    _composeSaveUndo();
     let newIdx;
     if (cycleInversion && cur.chord === chordId) {
       newIdx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
@@ -6911,6 +6934,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   }
 
   // ── APPEND MODE (no selection) ──
+  _composeSaveUndo();
   let newIdx;
   if (cycleInversion && seq.length && seq[seq.length - 1].chord === chordId) {
     const cur = seq[seq.length - 1];
@@ -6949,6 +6973,7 @@ function composeCycleLastInversion(direction) {
 }
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
+  _composeSaveUndo();
   const seq = state.composedProgression;
   const selIdx = state.composedSelectedIdx;
   if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
@@ -6977,6 +7002,7 @@ function composeDeleteLast() {
   renderAll();
 }
 function composeClear() {
+  if (state.composedProgression.length) _composeSaveUndo();
   state.composedProgression = [];
   state.composedSelectedIdx = null;
   state._composeFocusedIdx = null;
@@ -7031,6 +7057,7 @@ function renderComposePad() {
     <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion (Shift+←)">▼</button>
     <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion (Shift+→)">▲</button>
     <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
+    <button class="compose-btn compose-undo" data-act="undo" title="undo (Ctrl+Z)">↩</button>
     <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
     <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
   `;
@@ -7057,6 +7084,7 @@ function renderComposePad() {
       }
       const a = btn.dataset.act;
       if      (a === 'del')      composeDeleteLast();
+      else if (a === 'undo')     composeUndo();
       else if (a === 'clear')    composeClear();
       else if (a === 'play')     composePlay();
       // ▲ raises the voicing (higher pitch / higher on the neck), ▼ lowers it
@@ -7252,6 +7280,14 @@ document.addEventListener('keyup', e => {
 document.addEventListener('keydown', e => {
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+  // Ctrl/Cmd+Z → undo compose action
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    composeUndo();
+    return;
+  }
+
   if (e.metaKey || e.ctrlKey || e.altKey) return;
 
   // Spacebar → universal play/pause toggle (always available)
