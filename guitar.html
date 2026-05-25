@@ -1026,6 +1026,11 @@
   .rb-loop.active .repeat-dot {
     animation: repeat-pulse 1.8s ease-in-out infinite;
   }
+  /* Song loop: double bar thickens + brighter gold to distinguish from section loop */
+  .rb-loop.loop-song .repeat-thin {
+    width: 3px !important;
+    fill: #d4a017 !important;
+  }
   /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
   .rb-cycle {
     height: 52px;
@@ -2246,6 +2251,7 @@
 
   #landscape-play .lp-btn:active { background: #1a1a1a; color: #fdfcf3; }
   #landscape-play .lp-btn.active { background: #1a1a1a; color: #fdfcf3; }
+  #landscape-play #lp-loop.active { background: #d4a017; color: #1a1a1a; border-color: #d4a017; }
   #landscape-play .lp-btn-play {
     background: #1a1a1a;
     color: #fdfcf3;
@@ -2338,6 +2344,12 @@
     background: #fdfcf3;
     color: #1a1a1a;
   }
+  #landscape-standby .ls-btn.ls-loop-on {
+    background: #d4a017;
+    border-color: #d4a017;
+    color: #1a1a1a;
+    box-shadow: 0 0 12px #f4c54266;
+  }
 
   /* ── Key + tonality (top-left) ── */
   #landscape-standby .ls-key-group {
@@ -2376,6 +2388,9 @@
     font-weight: 700;
     font-size: clamp(28px, 7vh, 48px);
     line-height: 1;
+    cursor: ns-resize;
+    user-select: none;
+    touch-action: none;
   }
   #landscape-standby .ls-bpm-label {
     font-size: clamp(10px, 2vh, 14px);
@@ -4956,7 +4971,7 @@ class Drone {
 }
 
 let droneTimbre = 'piano';
-let loopMode = false;
+let loopMode = 'off';  // 'off' | 'section' | 'song'
 // Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
 let cycleMode = 'none';
 const CYCLE_OPTIONS = [
@@ -6057,7 +6072,7 @@ class Player {
         return {
           label,
           progression: { name: `◇ Composed ${label}`, len: steps.length, steps },
-          repeats: loopMode ? 1 : 2,
+          repeats: loopMode !== 'off' ? 1 : 2,
           voicingType: voicingPref !== 'all' ? voicingPref : 'drop2',
           bassPattern: this._pickBassPattern(),
         };
@@ -6066,7 +6081,7 @@ class Player {
       const bCells = state.composedProgression.slice(8, 16);
       const A_sec = buildSteps(aCells, 'A');
 
-      if (loopMode) {
+      if (loopMode === 'section') {
         // Pure compose-loop mode — single section, loops via loopMode flag
         return [A_sec];
       }
@@ -6298,7 +6313,7 @@ class Player {
           // Progression ended — check if we repeat or move to next section
           const section = this._currentSection();
           this.sectionIter++;
-          if (loopMode) {
+          if (loopMode === 'section') {
             // Lock to the current section indefinitely
             this.sectionIter = 0;
             this.currentStepIdx = 0;
@@ -6323,6 +6338,19 @@ class Player {
             this.sectionIter = 0;
             this.currentStepIdx = 0;
             if (this.songIdx >= this.song.length) {
+              if (loopMode === 'song') {
+                // Song loop — restart from the top of the same song
+                this.songIdx = 0;
+                if (cycleMode !== 'none') {
+                  const step = cycleMode === 'chromatic' ? 1 : 5;
+                  state.keyPc = (state.keyPc + step) % 12;
+                  if (this._homeKey) this._homeKey.keyPc = state.keyPc;
+                  state.progressionVoicings = {};
+                  state.userVoicing = null;
+                  this.previousShape = null;
+                  renderAll();
+                }
+              } else {
               // Low-probability "travel" — the new song's home shifts to a
               // musically related key, like a jam session drifting over time.
               if (Math.random() < 0.15) {
@@ -6339,11 +6367,12 @@ class Player {
               // Once the composed-seeded AABA has run its course, let the AI
               // wander off — clear the composed seed so the next song is fully
               // random territory.
-              if (state.composedProgression && state.composedProgression.length && !loopMode) {
+              if (state.composedProgression && state.composedProgression.length && loopMode === 'off') {
                 state.composedProgression = [];
               }
               this.song = this._generateSong();
               this.songIdx = 0;
+              }
             }
             // Apply this section's key/tonality (may modulate)
             this._applySectionKey();
@@ -6661,13 +6690,16 @@ class Player {
       if (stepIdx >= prog.steps.length) {
         stepIdx = 0;
         sectionIter++;
-        if (loopMode) {
+        if (loopMode === 'section') {
           sectionIter = 0;
           if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
         } else if (sectionIter >= section.repeats) {
           sectionIter = 0;
           songIdx++;
-          if (songIdx >= this.song.length) break;
+          if (songIdx >= this.song.length) {
+            if (loopMode === 'song') songIdx = 0;
+            else break;
+          }
         }
       }
     }
@@ -6918,12 +6950,18 @@ class Player {
 const player = new Player();
 
 document.getElementById('loop-toggle').addEventListener('click', e => {
-  loopMode = !loopMode;
-  e.currentTarget.classList.toggle('active', loopMode);
+  // Cycle: off → section → song → off
+  const LOOP_CYCLE = ['off', 'section', 'song'];
+  const idx = LOOP_CYCLE.indexOf(loopMode);
+  loopMode = LOOP_CYCLE[(idx + 1) % LOOP_CYCLE.length];
+  e.currentTarget.classList.toggle('active', loopMode !== 'off');
+  e.currentTarget.classList.toggle('loop-song', loopMode === 'song');
+  e.currentTarget.title = loopMode === 'off' ? 'loop off'
+    : loopMode === 'section' ? 'looping section' : 'looping song';
   // When turning loop OFF mid-play AND a composed progression is active, the AI
   // takes over: regenerate the song so the composed progression becomes the A
   // section of a full AABA (AI picks B as a bridge). "Take my hook and run with it."
-  if (player.playing && !loopMode && state.composedProgression.length) {
+  if (player.playing && loopMode === 'off' && state.composedProgression.length) {
     player.song = player._generateSong();
     player.songIdx = 0;
     player.sectionIter = 0;
@@ -6931,6 +6969,7 @@ document.getElementById('loop-toggle').addEventListener('click', e => {
     player._cachedPage = null;
   }
   if (player.playing) player._renderRealBook();
+  if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
 });
 
 // Cycle button — clicks through none → chromatic → fourths → none ...
@@ -8151,9 +8190,12 @@ function lp_syncControls() {
     play.classList.toggle('active', isPlaying);
   }
   const loop = document.getElementById('lp-loop');
-  const realLoop = document.getElementById('loop-toggle');
-  if (loop && realLoop) {
-    loop.classList.toggle('active', realLoop.classList.contains('active'));
+  if (loop) {
+    const isOn = loopMode !== 'off';
+    loop.classList.toggle('active', isOn);
+    loop.textContent = loopMode === 'song' ? '⟲🎵' : '⟲';
+    loop.title = loopMode === 'off' ? 'loop off'
+      : loopMode === 'section' ? 'looping section' : 'looping song';
   }
   // Cycle: mirror the main #cycle-toggle label (· / +1 / IV / etc.)
   const cycle = document.getElementById('lp-cycle');
@@ -8211,11 +8253,14 @@ function renderLandscapeStandby() {
   const bpmEl = document.getElementById('ls-bpm-val');
   if (bpmEl) bpmEl.textContent = metronome.bpm || 120;
 
-  // Loop button state
+  // Loop button state — yellow when on, label shows mode
   const loopBtn = document.getElementById('ls-loop');
-  const realLoop = document.getElementById('loop-toggle');
-  if (loopBtn && realLoop) {
-    loopBtn.classList.toggle('ls-active', realLoop.classList.contains('active'));
+  if (loopBtn) {
+    const isOn = loopMode !== 'off';
+    loopBtn.classList.toggle('ls-active', false);
+    loopBtn.classList.toggle('ls-loop-on', isOn);
+    loopBtn.textContent = loopMode === 'off' ? '⟲ Loop'
+      : loopMode === 'section' ? '⟲ Section' : '⟲ Song';
   }
 
   // Cycle button state
@@ -8260,24 +8305,43 @@ function renderLandscapeStandby() {
     renderLandscapeStandby();
   });
 
-  // BPM tap → cycle common tempos; drag for fine control later
+  // BPM drag up/down to adjust (mirrors the portrait BPM compact)
   const bpmEl = document.getElementById('ls-bpm-val');
   if (bpmEl) {
-    const TEMPOS = [80, 100, 120, 140, 160, 180, 200];
-    bpmEl.addEventListener('click', () => {
-      const cur = metronome.bpm || 120;
-      const next = TEMPOS.find(t => t > cur) || TEMPOS[0];
-      setBpm(next);
+    let dragY = null, dragBpm = null, moved = false;
+    function lsBpmMove(e) {
+      if (dragY === null) return;
+      const y = e.touches ? e.touches[0].clientY : e.clientY;
+      const delta = Math.round((dragY - y) / 3);
+      if (Math.abs(delta) > 0) moved = true;
+      setBpm(dragBpm + delta);
       renderLandscapeStandby();
+    }
+    function lsBpmEnd() {
+      dragY = null;
+      document.removeEventListener('mousemove', lsBpmMove);
+      document.removeEventListener('mouseup', lsBpmEnd);
+      document.removeEventListener('touchmove', lsBpmMove);
+      document.removeEventListener('touchend', lsBpmEnd);
+    }
+    bpmEl.addEventListener('mousedown', e => {
+      dragY = e.clientY; dragBpm = metronome.bpm; moved = false;
+      document.addEventListener('mousemove', lsBpmMove);
+      document.addEventListener('mouseup', lsBpmEnd);
     });
+    bpmEl.addEventListener('touchstart', e => {
+      dragY = e.touches[0].clientY; dragBpm = metronome.bpm; moved = false;
+      document.addEventListener('touchmove', lsBpmMove, {passive: true});
+      document.addEventListener('touchend', lsBpmEnd);
+    }, {passive: true});
   }
 
-  // Loop → proxy
+  // Loop → proxy the real loop-toggle (which now cycles 3 states)
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) loopBtn.addEventListener('click', () => {
     const real = document.getElementById('loop-toggle');
     if (real) real.click();
-    renderLandscapeStandby();
+    // renderLandscapeStandby is called by the loop-toggle handler
   });
 
   // Cycle → proxy
