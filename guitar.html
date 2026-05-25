@@ -576,12 +576,12 @@
   body.instrument-piano .real-book.compose-interleaved > .rb-tab-cell {
     min-height: 130px !important;
   }
-  /* Piano PLAYBACK: row 1 (chord-name strip + cycle) hidden because the
-     chord name is embedded in the staff SVG. NOT applied in compose mode —
-     compose-interleaved on mobile renders the WHOLE strip inside row 1
-     (chord cells + tab cells interleaved), so hiding row 1 there killed
-     the entire compose strip. */
-  body.instrument-piano.player-active .rb-row:first-child {
+  /* PLAYBACK: row 1 (chord-name strip + cycle) hidden because the chord
+     name is now embedded in the tab SVG itself — both piano AND guitar.
+     NOT applied in compose mode — compose-interleaved on mobile renders
+     the WHOLE strip inside row 1 (chord cells + tab cells interleaved),
+     so hiding row 1 there killed the entire compose strip. */
+  body.player-active .rb-row:first-child {
     display: none;
   }
   /* Wider buttons aligned with the two staves — cycle gets the treble half,
@@ -2822,7 +2822,12 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
 
   const W = sizing?.W || 160;
   const H = sizing?.H || 140;
-  const ml = 18, mr = 8, mt = 18, mb = 6;
+  const nameLabel  = sizing?.chordName;
+  const romanLabel = sizing?.roman;
+  const tag        = sizing?.tag;
+  // Reserve top space for the embedded chord-name label when caller asks for it.
+  const labelH = nameLabel ? (sizing?.minimal ? 16 : 24) : 0;
+  const ml = 18, mr = 8, mt = 18 + labelH, mb = 6;
   const innerW = W - ml - mr;
   const innerH = H - mt - mb;
   const stringSp = innerW / 5;
@@ -2936,7 +2941,31 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
       s += `<text x="${x}" y="${cy + 3.5}" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="#000">${label}</text>`;
     }
   });
-  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${s}</svg>`;
+  // Embedded chord-name label at the top of the SVG (Real-Book style) when
+  // caller passed chordName/roman/tag in sizing.
+  let nameSvg = '';
+  if (nameLabel) {
+    const TAG_COLOR = {
+      tonic:     '#059669',
+      predom:    '#a07820',
+      dom:       '#dc2626',
+      borrowed:  '#9333ea',
+      secondary: '#b45309',
+      picardy:   '#b45309',
+    };
+    const romanColor = TAG_COLOR[tag] || '#5a5a64';
+    const nameFs  = sizing?.minimal ? 14 : 19;
+    const romanFs = sizing?.minimal ? 10 : 12;
+    const ty      = labelH * 0.78;
+    const romanTspan = romanLabel
+      ? `<tspan dx="${sizing?.minimal ? 5 : 8}" font-size="${romanFs}" font-weight="700" fill="${romanColor}">${romanLabel}</tspan>`
+      : '';
+    nameSvg = `<text x="${W/2}" y="${ty}" text-anchor="middle"
+                 font-size="${nameFs}" font-family="'Cormorant Garamond', Georgia, serif"
+                 font-style="italic" font-weight="700" fill="#1a1a1a"
+                 letter-spacing="0.3"><tspan>${nameLabel}</tspan>${romanTspan}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${nameSvg}${s}</svg>`;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -5878,7 +5907,7 @@ class Player {
       const svg = shape
         ? (state.instrument === 'piano'
             ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag})
-            : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 80, r: 6, minimal: true}))
+            : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
         : '';
       return `<div class="${cls}">${svg}</div>`;
     }).join('');
