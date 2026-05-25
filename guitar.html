@@ -1284,6 +1284,13 @@
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-style: normal;
   }
+  /* Silent rest cell — a faint dot indicating the slot exists but is silent. */
+  .rb-rest {
+    font-size: 28px;
+    line-height: 1;
+    color: #b8b3a0;
+    opacity: 0.7;
+  }
   .rb-peek {
     flex: 0 0 auto;
     padding: 0 14px;
@@ -5169,11 +5176,19 @@ class Player {
     //   • Loop OFF, A & B typed (9–16)  → both sections come from typed input
     if (state.composedProgression && state.composedProgression.length) {
       const buildSteps = (cells, label) => {
-        // Merge consecutive same-chord cells (ties) into one step with bars > 1
+        // Merge consecutive same-chord cells (ties) into one step with bars > 1.
+        // Silent rest cells become their own steps with _silent flag so the
+        // trigger knows to skip the audio strike for that bar.
         const steps = [];
         for (const c of cells) {
           const prev = steps.length ? steps[steps.length - 1] : null;
-          if (prev && prev.chord === c.chord && c._tie) {
+          if (c._silent) {
+            // Merge consecutive silents into a single multi-bar rest.
+            if (prev && prev._silent) prev.bars++;
+            else steps.push({ chord: null, bars: 1, roman: '', _silent: true });
+            continue;
+          }
+          if (prev && !prev._silent && prev.chord === c.chord && c._tie) {
             prev.bars++;
           } else {
             steps.push({
@@ -5500,7 +5515,12 @@ class Player {
   _triggerChord(chordId, barStartTime = null) {
     const map = currentMap();
     const ch = map.chordDefs[chordId];
-    if (!ch) return;
+    if (!ch) {
+      // Null chordId = silent rest cell — actually go quiet (don't let the
+      // previous chord drone keep ringing through the rest).
+      if (chordDrone.playing) chordDrone.stop();
+      return;
+    }
     const root = (state.keyPc + ch.deg) % 12;
     // Anchor: when this bar's chord should actually sound. Defaults to
     // audioCtx.currentTime for legacy callers (e.g. user-driven jumps).
@@ -7560,13 +7580,27 @@ function composeDeleteLast() {
         state.userVoicing = { shape: newCur.shape };
       }
     } else {
-      // Replace with a tie of the previous chord (extends previous)
+      const targetCell = seq[targetIdx];
       const prev = seq[targetIdx - 1];
-      seq[targetIdx] = {
-        chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
-        voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
-        inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
-      };
+      if (targetCell._tie || targetCell._silent) {
+        // Deleting a TIE (or another silence) → leave a true silence/rest:
+        // the slot stays in place but plays nothing. Continuations that came
+        // after this tie also become silences (they no longer extend a chord).
+        seq[targetIdx] = { _silent: true };
+        // Any following ties were extending the now-broken chord — convert
+        // them to silences too so the gap is contiguous.
+        for (let j = targetIdx + 1; j < seq.length && seq[j]._tie; j++) {
+          seq[j] = { _silent: true };
+        }
+      } else {
+        // Deleting a real chord → replace with a tie of the previous chord
+        // (extends it), preserving the previous behavior.
+        seq[targetIdx] = {
+          chord: prev.chord, _candIdx: prev._candIdx, shape: prev.shape,
+          voicingType: prev.voicingType, stringSetIdx: prev.stringSetIdx,
+          inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
+        };
+      }
       state.composedSelectedIdx = null;
       state._composeFocusedIdx = targetIdx - 1;
       state.focusedChord = prev.chord;
@@ -7736,6 +7770,12 @@ function renderComposeStrip() {
     if (!cell) {
       const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
       return `<div class="${cls.join(' ')}"${emptyAttr}></div>`;
+    }
+    // Silent rest cell — slot exists but plays nothing. Rendered as a
+    // small dot/rest marker so the user sees the gap.
+    if (cell._silent) {
+      const restGlyph = isTab ? '' : '<span class="rb-rest" title="silence">·</span>';
+      return `<div class="${cls.join(' ')}"${idxAttr}>${restGlyph}</div>`;
     }
     // Tie cell — shows % continuation symbol (same as AI song view)
     if (cell._tie) {
@@ -8289,8 +8329,8 @@ function _midiCollectComposed() {
   const barLen = ticksPerBeat * 4;
   for (let i = 0; i < state.composedProgression.length; i++) {
     const cell = state.composedProgression[i];
-    // Ties extend the previous chord — skip (duration already accounted for)
-    if (cell._tie) { tick += barLen; continue; }
+    // Silent rests + ties — advance tick without emitting notes.
+    if (cell._silent || cell._tie) { tick += barLen; continue; }
     const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
     if (!def) { tick += barLen; continue; }
     // Count consecutive ties after this cell
@@ -8346,8 +8386,10 @@ function _midiCollectSong() {
     const repeats = section.repeats || 1;
     for (let r = 0; r < repeats; r++) {
       for (const step of prog.steps) {
+        // Silent rest step — advance tick but emit no notes.
+        if (step._silent) { tick += ticksPerBeat * 4 * (step.bars || 1); continue; }
         const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
-        if (!def) continue;
+        if (!def) { tick += ticksPerBeat * 4 * (step.bars || 1); continue; }
         let notes;
         if (step.composedShape && step.composedShape.some(f => f >= 0)) {
           notes = step.composedShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
@@ -8462,7 +8504,7 @@ function _midiCollectBassComposed() {
   const barLen = ticksPerBeat * 4;
   for (let i = 0; i < state.composedProgression.length; i++) {
     const cell = state.composedProgression[i];
-    if (cell._tie) { tick += barLen; continue; }
+    if (cell._silent || cell._tie) { tick += barLen; continue; }
     const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
     if (!def) { tick += barLen; continue; }
     let bars = 1;
@@ -8491,11 +8533,12 @@ function _midiCollectBassSong() {
     const repeats = section.repeats || 1;
     for (let r = 0; r < repeats; r++) {
       for (const step of prog.steps) {
+        const dur = ticksPerBeat * 4 * (step.bars || 1);
+        if (step._silent) { tick += dur; continue; }
         const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
-        if (!def) continue;
+        if (!def) { tick += dur; continue; }
         const rootPc = (secKey + def.deg) % 12;
         const note = bassMidiForPc(rootPc);
-        const dur = ticksPerBeat * 4 * (step.bars || 1);
         events.push({ tick, type: 'on', note, vel: 100 });
         events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
         tick += dur;
