@@ -8569,11 +8569,23 @@ document.addEventListener('click', (ev) => {
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
     // Whole-note case (subdivisions === 1): clicking shouldn't mute
-    // the only slot — that's what the regular delete key is for. Let
-    // the click bubble down to the cell handler so it auditions the
-    // chord instead.
+    // the only slot — that's what the regular delete key is for.
+    // Instead, audition the chord (same behaviour as clicking the cell
+    // in tab mode). We do it inline because this delegated handler
+    // returns before reaching the cell-click block further down.
     const subN = cell.subdivisions || 1;
-    if (subN <= 1) return;
+    if (subN <= 1) {
+      ev.stopPropagation();
+      if (!cell.chord) return;
+      ensureAudio();
+      state._composeFocusedIdx = cellIdx;
+      state.focusedChord = cell.chord;
+      state.userVoicing = cell.shape ? { shape: cell.shape } : null;
+      renderAll();
+      renderComposeStrip();
+      ringFocusedChord();
+      return;
+    }
     ev.stopPropagation();
     if (!cell.subdivMute) cell.subdivMute = new Array(subN).fill(false);
     cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
