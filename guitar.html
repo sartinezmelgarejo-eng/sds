@@ -1026,6 +1026,7 @@
   /* Cells of the composed strip are clickable (audition + focus). */
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
   body:not(.player-active) [data-compose-idx]:hover { background: rgba(160,120,32,0.10); }
+  body:not(.player-active) [data-compose-idx].current:hover { background: #fcecaa; }
   /* Selected compose cell — warm orange so the user knows the next chord /
      inversion change will EDIT this cell instead of appending a new one. */
   [data-compose-idx].compose-selected {
@@ -6925,6 +6926,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const cur = seq[seq.length - 1];
   const c = cands[cur._candIdx];
   state.focusedChord = chordId;
+  state._composeFocusedIdx = null; // reset to follow last chord
   state.userVoicing = c
     ? { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion }
     : { shape: cur.shape };
@@ -6973,6 +6975,7 @@ function composeDeleteLast() {
 function composeClear() {
   state.composedProgression = [];
   state.composedSelectedIdx = null;
+  state._composeFocusedIdx = null;
   state.userVoicing = null;
   // Reset focused chord back to the tonic so the neck preview clears too,
   // otherwise it keeps showing the chord that was just deleted from the strip.
@@ -7107,7 +7110,8 @@ function renderComposeStrip() {
   const renderCell = (cell, i, isTab) => {
     const cls = ['rb-cell'];
     if (isTab) cls[0] = 'rb-tab-cell';
-    if (i === seq.length - 1 && state.composedSelectedIdx === null) cls.push('current');
+    const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
+    if (i === focIdx) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
     if (i === 8) cls.push('section-divider');  // start of B
     // data-compose-idx lets the delegated click handler (below) find which
@@ -7216,6 +7220,7 @@ document.addEventListener('click', (ev) => {
   if (!entry || !entry.chord) return;
   ensureAudio();
   // Just focus and audition — don't change lock state
+  state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
   renderAll();
