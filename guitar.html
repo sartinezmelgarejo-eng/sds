@@ -316,6 +316,15 @@
     gap: 4px;
   }
   .auto-btn:hover { border-color: var(--line-2); color: var(--text); }
+  #auto-stop.armed {
+    animation: autoStopArmedPulse 0.7s ease-in-out infinite;
+    border-color: #dc2626 !important;
+    color: #dc2626 !important;
+  }
+  @keyframes autoStopArmedPulse {
+    0%, 100% { background: transparent; }
+    50%      { background: #dc2626; color: #fff !important; }
+  }
   .auto-btn.active {
     background: var(--tag-tonic);
     color: #fff;
@@ -2338,6 +2347,15 @@
   #landscape-play .lp-btn-stop {
     background: #dc2626;
     color: #fdfcf3;
+  }
+  /* When armed (waiting for confirm-tap to clear) the stop button
+     pulses so the user knows the next tap wipes everything. */
+  #landscape-play .lp-btn-stop.armed {
+    animation: lpStopArmedPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes lpStopArmedPulse {
+    0%, 100% { background: #dc2626; }
+    50%      { background: #fdfcf3; color: #dc2626; }
   }
   #landscape-play .lp-btn-stop[hidden] { display: none !important; }
 
@@ -6316,6 +6334,24 @@ class Player {
     this.paused = false;
   }
 
+  // Rewind position to the very beginning of the song without
+  // touching the playback state. If playing, the next bar will
+  // re-trigger from songIdx=0 / step 0; if paused, resume() will
+  // do so on the next tap.
+  rewind() {
+    this.songIdx = 0;
+    this.sectionIter = 0;
+    this.currentStepIdx = 0;
+    this.totalBars = 0;
+    this._cachedPage = null;
+    const step = this._currentStep();
+    if (step) this.barsRemaining = step.bars;
+    // If currently playing, schedule the re-trigger at the next bar
+    // boundary so the song restarts cleanly in time.
+    if (this.playing) this.forceTriggerAtNextBar = true;
+    this._updateVisuals();
+  }
+
   // Pause WITHOUT clearing position: halts the scheduler and silences
   // audio, but keeps songIdx / currentStepIdx / barsRemaining intact so
   // resume() can pick up exactly where we left off.
@@ -7230,13 +7266,19 @@ function _refreshAutoPlayUI() {
     document.body.classList.remove('player-active');
   }
   // Stop is only meaningful when there's something to halt.
-  if (stop) stop.hidden = !(player.playing || player.paused);
+  if (stop) {
+    stop.hidden = !(player.playing || player.paused);
+    stop.classList.toggle('armed', !!player._stopArmed);
+    stop.title = player._stopArmed ? 'Tap again to clear' : 'Rewind / stop';
+  }
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
 }
 
 document.getElementById('auto-play').addEventListener('click', () => {
+  // Touching play/pause disarms the "ready to clear" state on stop.
+  player._stopArmed = false;
   if (player.playing) {
     player.pause();
   } else if (player.paused) {
@@ -7249,6 +7291,17 @@ document.getElementById('auto-play').addEventListener('click', () => {
 
 document.getElementById('auto-stop').addEventListener('click', () => {
   if (!player.playing && !player.paused) return;
+  // Two-stage stop button:
+  //   1st tap → pause + rewind to start of song (visualization stays).
+  //   2nd tap → full clear (player.stop, hide playback view).
+  if (!player._stopArmed) {
+    if (player.playing) player.pause();
+    player.rewind();
+    player._stopArmed = true;
+    _refreshAutoPlayUI();
+    return;
+  }
+  player._stopArmed = false;
   player.stop();
   if (metronome.playing) {
     metronome.stop();
@@ -8396,7 +8449,11 @@ function lp_syncControls() {
     play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
   }
   // Stop only shows when there's something to halt.
-  if (stop) stop.hidden = !(isPlaying || isPaused);
+  if (stop) {
+    stop.hidden = !(isPlaying || isPaused);
+    stop.classList.toggle('armed', !!player._stopArmed);
+    stop.title = player._stopArmed ? 'Tap again to clear' : 'Rewind / stop';
+  }
   const loop = document.getElementById('lp-loop');
   if (loop) {
     const isOn = loopMode !== 'off';
