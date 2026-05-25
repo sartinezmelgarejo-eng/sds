@@ -7372,6 +7372,52 @@ function _buildMidiFile(events, label) {
   URL.revokeObjectURL(url);
 }
 
+// Bass-only collectors: one root note per chord in bass register
+function _midiCollectBassComposed() {
+  const ticksPerBeat = 480;
+  const events = [];
+  let tick = 0;
+  for (const cell of state.composedProgression) {
+    const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
+    if (!def) continue;
+    const rootPc = (state.keyPc + def.deg) % 12;
+    const note = bassMidiForPc(rootPc);
+    const dur = ticksPerBeat * 4;
+    events.push({ tick, type: 'on', note, vel: 100 });
+    events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+    tick += dur;
+  }
+  return events;
+}
+
+function _midiCollectBassSong() {
+  const ticksPerBeat = 480;
+  const events = [];
+  let tick = 0;
+  if (!player.song || !player.song.length) return events;
+  const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
+  for (const section of player.song) {
+    const secKey = section.keyPc ?? homeKey.keyPc;
+    const secTon = section.tonality ?? homeKey.tonality;
+    const prog = section.progression;
+    if (!prog || !prog.steps) continue;
+    const repeats = section.repeats || 1;
+    for (let r = 0; r < repeats; r++) {
+      for (const step of prog.steps) {
+        const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
+        if (!def) continue;
+        const rootPc = (secKey + def.deg) % 12;
+        const note = bassMidiForPc(rootPc);
+        const dur = ticksPerBeat * 4 * (step.bars || 1);
+        events.push({ tick, type: 'on', note, vel: 100 });
+        events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+        tick += dur;
+      }
+    }
+  }
+  return events;
+}
+
 // Show/hide MIDI wrap + manage menu
 function _updateMidiBtn() {
   const wrap = document.getElementById('midi-wrap');
@@ -7385,30 +7431,27 @@ const _midiMenu = document.getElementById('midi-menu');
 
 function _closeMidiMenu() { _midiMenu.hidden = true; }
 
+function _midiMenuBtn(label, fn) {
+  const b = document.createElement('button');
+  b.textContent = label;
+  b.onclick = () => { _closeMidiMenu(); fn(); };
+  return b;
+}
+
 document.getElementById('midi-export').addEventListener('click', () => {
   const hasComposed = state.composedProgression.length > 0;
   const hasSong = player.song && player.song.length > 0;
 
-  // Only one option available — export directly, no menu
-  if (hasComposed && !hasSong) {
-    _buildMidiFile(_midiCollectComposed(), 'composed');
-    return;
-  }
-  if (!hasComposed && hasSong) {
-    _buildMidiFile(_midiCollectSong(), 'song');
-    return;
-  }
-
-  // Both available — show chooser menu
+  // Always show menu now (bass option means ≥2 choices)
   _midiMenu.innerHTML = '';
-  const opt1 = document.createElement('button');
-  opt1.textContent = '◇ Composed progression';
-  opt1.onclick = () => { _closeMidiMenu(); _buildMidiFile(_midiCollectComposed(), 'composed'); };
-  const opt2 = document.createElement('button');
-  opt2.textContent = '♫ Full song (AABA)';
-  opt2.onclick = () => { _closeMidiMenu(); _buildMidiFile(_midiCollectSong(), 'song'); };
-  _midiMenu.appendChild(opt1);
-  _midiMenu.appendChild(opt2);
+  if (hasComposed) {
+    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — chords', () => _buildMidiFile(_midiCollectComposed(), 'composed')));
+    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — bass only', () => _buildMidiFile(_midiCollectBassComposed(), 'composed-bass')));
+  }
+  if (hasSong) {
+    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — chords', () => _buildMidiFile(_midiCollectSong(), 'song')));
+    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — bass only', () => _buildMidiFile(_midiCollectBassSong(), 'song-bass')));
+  }
   _midiMenu.hidden = false;
 });
 
