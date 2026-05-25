@@ -7897,27 +7897,37 @@ document.addEventListener('click', (ev) => {
   ringFocusedChord();
 });
 
-// Sync hover highlight between chord-name row and tab row so they
-// look like one unified cell when the mouse hovers over either.
+// Sync hover highlight between chord-name row and tab row so they read as
+// ONE cell. Uses bubbling mouseover/mouseout (mouseenter doesn't bubble,
+// so the previous version only fired once on area entry, not per cell).
 (function wireComposeHoverSync() {
   const area = document.querySelector('.rb-area');
   if (!area) return;
   let lastIdx = null;
-  area.addEventListener('mouseenter', (e) => {
-    const cell = e.target.closest ? e.target.closest('[data-compose-idx]') : null;
+  const clear = () => {
+    area.querySelectorAll('[data-compose-idx].compose-hover')
+        .forEach(el => el.classList.remove('compose-hover'));
+  };
+  area.addEventListener('mouseover', (e) => {
+    const cell = e.target.closest('[data-compose-idx]');
     if (!cell) return;
     const idx = cell.dataset.composeIdx;
     if (idx === lastIdx) return;
     lastIdx = idx;
-    area.querySelectorAll('[data-compose-idx].compose-hover').forEach(el => el.classList.remove('compose-hover'));
-    area.querySelectorAll(`[data-compose-idx="${idx}"]`).forEach(el => el.classList.add('compose-hover'));
-  }, true);
-  area.addEventListener('mouseleave', (e) => {
-    const cell = e.target.closest ? e.target.closest('[data-compose-idx]') : null;
-    if (!cell) return;
+    clear();
+    area.querySelectorAll(`[data-compose-idx="${idx}"]`)
+        .forEach(el => el.classList.add('compose-hover'));
+  });
+  area.addEventListener('mouseout', (e) => {
+    // Skip if the mouse is still moving INTO another paired cell — the
+    // mouseover that follows will refresh the highlight correctly.
+    const next = e.relatedTarget && e.relatedTarget.closest
+      ? e.relatedTarget.closest('[data-compose-idx]')
+      : null;
+    if (next) return;
     lastIdx = null;
-    area.querySelectorAll('[data-compose-idx].compose-hover').forEach(el => el.classList.remove('compose-hover'));
-  }, true);
+    clear();
+  });
 })();
 
 // Tracks voicing cycling for keyboard shortcuts.
