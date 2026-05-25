@@ -1026,7 +1026,8 @@
   .rb-cell:last-child { border-right: none; }
   /* Cells of the composed strip are clickable (audition + focus). */
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
-  body:not(.player-active) [data-compose-idx]:hover { background: rgba(160,120,32,0.10); }
+  body:not(.player-active) [data-compose-idx]:hover,
+  body:not(.player-active) [data-compose-idx].compose-hover { background: rgba(160,120,32,0.10); }
   body:not(.player-active) [data-compose-idx].current,
   body:not(.player-active) [data-compose-idx].current:hover { background: #fcecaa !important; }
   /* Selected compose cell — warm orange so the user knows the next chord /
@@ -7259,6 +7260,29 @@ document.addEventListener('click', (ev) => {
   renderComposeStrip();
   ringFocusedChord();
 });
+
+// Sync hover highlight between chord-name row and tab row so they
+// look like one unified cell when the mouse hovers over either.
+(function wireComposeHoverSync() {
+  const area = document.querySelector('.rb-area');
+  if (!area) return;
+  let lastIdx = null;
+  area.addEventListener('mouseenter', (e) => {
+    const cell = e.target.closest ? e.target.closest('[data-compose-idx]') : null;
+    if (!cell) return;
+    const idx = cell.dataset.composeIdx;
+    if (idx === lastIdx) return;
+    lastIdx = idx;
+    area.querySelectorAll('[data-compose-idx].compose-hover').forEach(el => el.classList.remove('compose-hover'));
+    area.querySelectorAll(`[data-compose-idx="${idx}"]`).forEach(el => el.classList.add('compose-hover'));
+  }, true);
+  area.addEventListener('mouseleave', (e) => {
+    const cell = e.target.closest ? e.target.closest('[data-compose-idx]') : null;
+    if (!cell) return;
+    lastIdx = null;
+    area.querySelectorAll('[data-compose-idx].compose-hover').forEach(el => el.classList.remove('compose-hover'));
+  }, true);
+})();
 
 // Tracks voicing cycling for keyboard shortcuts.
 //   Number 1–7                → select chord, play the screen-recommended voicing
