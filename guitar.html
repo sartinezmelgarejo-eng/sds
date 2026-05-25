@@ -1061,21 +1061,21 @@
   .compose-edit-btn.active {
     background: var(--accent); color: #fff;
   }
-  /* ─── Rhythm subdivisions: tiny triangle picker + segment bar per cell ─── */
+  /* ─── Rhythm subdivisions: triangle picker + segment bar per cell ─── */
   .subdiv-triangle {
     position: absolute;
-    bottom: 10px;
+    bottom: 14px;
     left: 50%;
     transform: translateX(-50%);
-    width: 18px; height: 14px;
+    width: 22px; height: 18px;
     padding: 0;
     border: none;
     background: transparent;
     cursor: pointer;
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1;
-    color: var(--text-faint);
-    opacity: 0.35;
+    color: var(--accent);
+    opacity: 0.7;                /* always visible — it's a permanent picker */
     transition: opacity 0.15s;
     z-index: 5;
     display: flex;
@@ -1085,30 +1085,31 @@
     font-weight: 700;
   }
   [data-compose-idx]:hover .subdiv-triangle,
-  .subdiv-triangle.has-divs { opacity: 0.95; color: var(--accent); }
+  .subdiv-triangle.has-divs { opacity: 1; }
   .subdiv-bar {
     position: absolute;
     bottom: 3px;
     left: 6px;
     right: 6px;
-    height: 4px;
+    height: 9px;                 /* thicker so segments are easier to tap */
     display: flex;
-    gap: 1px;
+    gap: 2px;
     z-index: 4;
   }
   .subdiv-seg {
     flex: 1;
     background: var(--accent);
-    border-radius: 1px;
-    opacity: 0.7;
+    border-radius: 2px;
+    opacity: 0.75;
     cursor: pointer;
     transition: opacity 0.1s, background 0.1s;
+    min-width: 8px;              /* hit target floor even at 8 subdivisions */
   }
   .subdiv-seg:hover { opacity: 1; }
   .subdiv-seg.muted {
     background: transparent;
-    border: 1px dashed rgba(0,0,0,0.25);
-    opacity: 0.35;
+    border: 1px dashed rgba(0,0,0,0.3);
+    opacity: 0.5;
   }
   /* Popover that floats above the triangle to pick 1–8 subdivisions. */
   #subdiv-popover {
@@ -7533,11 +7534,11 @@ function renderComposeStrip() {
       const svg = state.instrument === 'piano'
         ? renderChordStaff(cell.shape, root, ch.quality, flats, sizing)
         : renderMini(cell.shape, root, ch.quality, flats, sizing);
-      // Rhythm subdivisions UI — triangle picker + segment toggles
+      // Rhythm subdivisions UI — triangle picker is ALWAYS visible with the
+      // current count inside (default 1). Segment bar appears only when N > 1.
       const n = cell.subdivisions || 1;
       const muteArr = cell.subdivMute || [];
       const triClass = n > 1 ? 'subdiv-triangle has-divs' : 'subdiv-triangle';
-      const triLabel = n > 1 ? n : '▼';
       let barHtml = '';
       if (n > 1) {
         let segs = '';
@@ -7547,7 +7548,7 @@ function renderComposeStrip() {
         }
         barHtml = `<div class="subdiv-bar">${segs}</div>`;
       }
-      const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions">${triLabel}</button>`;
+      const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
       return `<div class="${cls.join(' ')}"${idxAttr}>${svg}${triHtml}${barHtml}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
