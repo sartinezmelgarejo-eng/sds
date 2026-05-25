@@ -779,7 +779,7 @@
 
   /* ─── Compose keypad ─── */
   .compose-pad {
-    display: flex;
+    display: none; /* desktop: hidden until toggled */
     flex-wrap: wrap;
     gap: 6px;
     background: var(--panel);
@@ -788,14 +788,10 @@
     justify-content: center;
     align-items: center;
   }
-  /* Controls drop to a second row */
-  .compose-pad .compose-inv,
-  .compose-pad .compose-del,
-  .compose-pad .compose-play,
-  .compose-pad .compose-clear {
-    margin-top: 2px;
-  }
-  /* Force line break before controls */
+  body.keypad-open .compose-pad { display: flex; }
+  .keypad-toggle { font-size: 13px !important; }
+  body.keypad-open .keypad-toggle { background: var(--accent); color: #fff; }
+  /* Controls gap from chord buttons */
   .compose-pad .compose-inv:first-of-type { margin-left: 18px; }
   body.player-active .compose-pad { display: none; }   /* hidden during playback */
   .compose-btn {
@@ -843,6 +839,7 @@
   /* Desktop: gap between chord buttons (1-7) and controls (▼▲⌫▶×) */
   /* ─── Mobile: phone-dialer pinned to the bottom of the viewport ─── */
   @media (max-width: 800px) {
+    .keypad-toggle { display: none !important; }
     .compose-pad {
       position: fixed;
       left: 0; right: 0;
@@ -1635,6 +1632,7 @@
   <div class="ctx-block song-block" style="flex:1;min-width:200px">
     <div class="ctx-label">Song</div>
     <div style="display:flex;gap:8px;align-items:center">
+      <button class="auto-btn keypad-toggle" id="keypad-toggle" title="show/hide compose keypad">⌨</button>
       <button class="auto-btn" id="auto-play">▶ AI</button>
       <div class="midi-wrap" id="midi-wrap" style="display:none;position:relative">
         <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
@@ -7471,6 +7469,11 @@ renderComposeStrip = function() {
   _origRenderComposeStrip.apply(this, arguments);
   _updateMidiBtn();
 };
+
+// Keypad toggle (desktop only — mobile always shows it)
+document.getElementById('keypad-toggle').addEventListener('click', () => {
+  document.body.classList.toggle('keypad-open');
+});
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
