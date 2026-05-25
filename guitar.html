@@ -7172,16 +7172,15 @@ document.addEventListener('keydown', e => {
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
 
-  // Flash the matching keypad button
-  const padBtn = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
-  if (padBtn) {
-    padBtn.classList.add('flash');
-    setTimeout(() => padBtn.classList.remove('flash'), 150);
-  }
-
   // Compose mode (AI not playing): append OR cycle last inversion with Shift
   if (!player.playing) {
     composeAddChord(chordId, e.shiftKey, _shiftSide === 'left' ? -1 : 1);
+    // Flash AFTER composeAddChord, which re-renders the pad via renderAll
+    const padBtn = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
+    if (padBtn) {
+      padBtn.classList.add('flash');
+      setTimeout(() => padBtn.classList.remove('flash'), 150);
+    }
     return;
   }
 
@@ -7223,6 +7222,13 @@ document.addEventListener('keydown', e => {
   } else {
     renderAll();
     ringFocusedChord();
+  }
+
+  // Flash keypad button (after any re-render)
+  const padBtn2 = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
+  if (padBtn2) {
+    padBtn2.classList.add('flash');
+    setTimeout(() => padBtn2.classList.remove('flash'), 150);
   }
 });
 
