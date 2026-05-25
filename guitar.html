@@ -8362,6 +8362,18 @@ function lp_enter(mode) {
     lp_park(slot.id);
     target.appendChild(el);
   });
+  // The realistic guitar's viewBox is 1440×640 (≈2.25:1) — meet
+  // leaves big white bars on the sides of the wider landscape pane.
+  // Switch to `none` so it fills its box (slight horizontal stretch
+  // of strings/dots, but the chord shape stays totally readable).
+  // Restored on lp_exit so the main UI keeps its proper aspect.
+  const neck = document.getElementById('chord-neck');
+  if (neck && mode === 'guitar') {
+    if (!neck.dataset.lpOrigPar) {
+      neck.dataset.lpOrigPar = neck.getAttribute('preserveAspectRatio') || 'xMidYMid meet';
+    }
+    neck.setAttribute('preserveAspectRatio', 'none');
+  }
   // Embed the controls strip into the built layout (piano mode) or
   // leave it floating in the overlay corner (guitar mode).
   const controls = document.getElementById('lp-controls');
@@ -8376,6 +8388,12 @@ function lp_exit() {
   if (!lp_currentMode) return;
   const slots = LP_SLOTS[lp_currentMode] || [];
   slots.forEach((slot) => lp_restore(slot.id));
+  // Restore the chord-neck SVG's preserveAspectRatio so the main
+  // UI doesn't end up with a distorted neck after rotating back.
+  const neck = document.getElementById('chord-neck');
+  if (neck && neck.dataset.lpOrigPar) {
+    neck.setAttribute('preserveAspectRatio', neck.dataset.lpOrigPar);
+  }
   // Rescue the controls element back to the overlay root before
   // we wipe lp-body — otherwise the controls (a child of the slot
   // inside lp-body) get destroyed and never come back.
