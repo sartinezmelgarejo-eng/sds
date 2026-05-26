@@ -6524,7 +6524,12 @@ class Player {
     state.progressionVoicings = {};
 
     const wasMetronomePlaying = metronome.playing;
-    if (!metronome.playing && currentRhythmMode !== 'off') {
+    // Defensive: if the metronome's playing flag is set but its
+    // scheduler may have been zombified (no timer, suspended audio
+    // context, etc.), force a clean restart whenever the user hits
+    // play. Cheap and avoids "drums went silent" mystery cases.
+    if (currentRhythmMode !== 'off') {
+      if (metronome.playing) metronome.stop();
       metronome.start();
       updateRhythmBtn();
     }
