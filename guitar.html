@@ -10518,8 +10518,19 @@ document.addEventListener('keydown', e => {
 
   // Compose-mode shortcuts (only when AI off)
   if (!player.playing) {
-    if (e.key === 'Backspace' && state.composedProgression.length) {
-      e.preventDefault(); composeDeleteLast(); return;
+    if (e.key === 'Backspace') {
+      if (state.composedProgression.length) {
+        e.preventDefault(); composeDeleteLast(); return;
+      }
+      // Nothing left to delete — if the player is paused (idle but
+      // visualization still on the bar), the natural fallback is
+      // "wipe everything and reset", same as tapping ⏹ stop/reset.
+      if (player.paused) {
+        e.preventDefault();
+        const stopBtn = document.getElementById('auto-stop');
+        if (stopBtn) stopBtn.click();
+        return;
+      }
     }
     if (e.key === 'Enter' && state.composedProgression.length) {
       e.preventDefault(); composePlay(); return;
