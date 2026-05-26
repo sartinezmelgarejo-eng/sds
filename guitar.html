@@ -1106,14 +1106,9 @@
     letter-spacing: 0;
     pointer-events: none;
   }
-  .m-tx-btn#m-tx-loop.loop-song::after { content: 'S'; color: #c14a17; }
+  .m-tx-btn#m-tx-loop.loop-song::after { content: 'S'; color: #1a1a1a; }
   .m-tx-btn#m-tx-loop.active:not(.loop-song)::after {
-    content: attr(data-section); color: #d4a017;
-  }
-  .m-tx-btn#m-tx-loop.loop-song {
-    background: #ffe9d4;
-    border-color: #c14a17;
-    color: #c14a17;
+    content: attr(data-section); color: #1a1a1a;
   }
   /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
   .rb-cycle {
@@ -1255,60 +1250,107 @@
     padding-bottom: 14px;
   }
 
-  /* ─── Mobile transport bar (vertical, below the realistic guitar) ───
-     Unifies play / stop / loop / cycle / edit into ONE strip so the
-     top toolbar can hand its space over to the green info bar.
-     Hidden by default; only shown in play mode on phone-sized
-     vertical viewports. Landscape (lp-on) has its own controls. */
+  /* ─── Mobile transport bar — DAW-inspired ───
+     Dark panel like a Logic / Ableton transport strip, with
+     state-coded circular buttons. Each button is a single tap
+     target with strong color semantics so the user knows what
+     each does at a glance:
+       Play  → green when idle/paused, dark when playing (⏸ icon)
+       Stop  → red, only visible when there's something to stop
+       Loop  → neutral when off, yellow on (section) / orange (song)
+       Cycle → neutral when off, indigo when on (PITCHED)
+       Edit  → neutral, only visible when relevant
+  */
   .m-transport {
     display: none;
-    gap: 6px;
-    padding: 6px 10px;
-    border-top: 1px solid var(--line);
-    background: var(--panel);
+    gap: 10px;
+    padding: 8px 14px;
+    border-top: 1px solid #0a0a0a;
+    background: linear-gradient(180deg, #2a2a2f 0%, #1d1d22 100%);
     justify-content: center;
     align-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
   }
   .m-transport .m-tx-btn {
-    min-width: 44px;
-    height: 38px;
-    padding: 0 10px;
-    background: #fdfcf3;
-    border: 1.5px solid #1a1a1a;
-    border-radius: 6px;
-    font-size: 15px;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    background: #3a3a40;
+    border: 1px solid #0a0a0a;
+    border-radius: 50%;
+    font-size: 17px;
     font-family: 'Inter', system-ui, sans-serif;
     font-weight: 700;
-    color: #1a1a1a;
+    color: #e5e7eb;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset,
+                0 2px 4px rgba(0,0,0,0.35);
+    transition: background 0.12s, color 0.12s, box-shadow 0.12s, border-color 0.12s;
   }
-  .m-transport .m-tx-btn:active { background: #f0e6c8; }
+  .m-transport .m-tx-btn:active {
+    box-shadow: 0 1px 2px rgba(0,0,0,0.4) inset;
+    transform: translateY(1px);
+  }
+  /* Generic "on" state for buttons that don't have a dedicated colour */
   .m-transport .m-tx-btn.active {
-    background: #fcecaa;
-    border-color: #c9a747;
-  }
-  .m-transport .m-tx-play {
-    background: #059669;
+    background: #4f46e5;        /* indigo — used by cycle */
+    border-color: #1e1b4b;
     color: #fff;
-    border-color: #047857;
+  }
+  /* Play / pause — Logic-style green pill */
+  .m-transport .m-tx-play {
+    background: #10b981;
+    border-color: #064e3b;
+    color: #fff;
+    font-size: 18px;
   }
   .m-transport .m-tx-play.active {
-    background: #1a1a1a;
-    border-color: #1a1a1a;
+    background: #1f2937;        /* almost-black when playing */
+    border-color: #000;
+    color: #fff;
   }
+  /* Stop — Ableton-ish red */
   .m-transport .m-tx-stop {
-    background: #fff;
-    color: #dc2626;
-    border-color: #dc2626;
+    background: #ef4444;
+    border-color: #7f1d1d;
+    color: #fff;
   }
   .m-transport .m-tx-stop.armed {
-    animation: mTxStopPulse 0.7s ease-in-out infinite;
+    animation: mTxStopPulse 0.65s ease-in-out infinite;
   }
   @keyframes mTxStopPulse {
-    0%, 100% { background: #dc2626; color: #fff; }
-    50%      { background: #fff;    color: #dc2626; }
+    0%, 100% { background: #ef4444; box-shadow: 0 0 0 0 rgba(239,68,68,0.7), 0 1px 0 rgba(255,255,255,0.08) inset; }
+    50%      { background: #fbbf24; box-shadow: 0 0 0 8px rgba(239,68,68,0.0),  0 1px 0 rgba(255,255,255,0.08) inset; }
+  }
+  /* Loop — section = yellow, song = orange (matches the badge colours) */
+  .m-transport #m-tx-loop.active {
+    background: #fbbf24;
+    border-color: #78350f;
+    color: #1a1a1a;
+  }
+  .m-transport #m-tx-loop.loop-song {
+    background: #f97316;
+    border-color: #7c2d12;
+    color: #1a1a1a;
+  }
+  /* Cycle — indigo when PITCHED is enabled */
+  .m-transport #m-tx-cycle.active {
+    background: #6366f1;
+    border-color: #1e1b4b;
+    color: #fff;
+  }
+  /* Edit — neutral but slightly lifted so it reads as "secondary action" */
+  .m-transport #m-tx-edit {
+    background: #4b5563;
+    border-color: #1f2937;
+    color: #f3f4f6;
+    font-size: 15px;
   }
   .m-transport .m-tx-btn[hidden] { display: none !important; }
   @media (max-width: 800px) {
