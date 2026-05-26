@@ -6594,11 +6594,32 @@ class Player {
     this.currentStepIdx = 0;
     this.totalBars = 0;
     this._cachedPage = null;
+    this._cachedPeek = null;
+    // Reset the voice-leading chain too — otherwise _pickShape would
+    // anchor the rewound first chord on whatever shape was last
+    // played, producing a different voicing than the user got when
+    // they originally hit play (which started with prevShape=null).
+    this.previousShape = null;
+    state.progressionVoicings = {};
     const step = this._currentStep();
     if (step) this.barsRemaining = step.bars;
     // If currently playing, schedule the re-trigger at the next bar
     // boundary so the song restarts cleanly in time.
     if (this.playing) this.forceTriggerAtNextBar = true;
+    // Pre-paint the first chord's voicing on the neck/piano so the
+    // user sees the rewound chord immediately (same trick used by
+    // start()'s pre-paint).
+    this._buildPagePlan();
+    const firstEntry = this._cachedPage && this._cachedPage[0];
+    if (firstEntry && firstEntry.shape && firstEntry.chord) {
+      state.playerVoicing = {
+        chord: firstEntry.chord,
+        shape: firstEntry.shape,
+        type:  firstEntry.voicingType || this.voicingType,
+      };
+      state.focusedChord = firstEntry.chord;
+      this.previousShape = firstEntry.shape;
+    }
     this._updateVisuals();
   }
 
