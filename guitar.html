@@ -3319,9 +3319,11 @@ function computeAllVoicings() {
       result[id] = state.progressionVoicings[id];
       continue;
     }
-    // 3. Predict using the SAME picker the player would use, so the card
-    //    shows the voicing that'll actually play. Falls back to smoothestVoicing
-    //    when the player isn't running (no _pickShape context).
+    // 3. Predict using the SAME picker the player / compose code would
+    //    use, so the card visually matches what'll sound on click.
+    //    During AI playback we honor the section's voicingType. Idle:
+    //    we run pickByStrategy on the master catalog — same call,
+    //    same deterministic seed → same pick as composeAddChord makes.
     const ch = map.chordDefs[id];
     const r = chordRoot(ch);
     if (player && player.playing) {
@@ -3329,7 +3331,14 @@ function computeAllVoicings() {
       if (!sh) sh = player._pickShape(ch.quality, r, 'drop2', focShape.shape);
       result[id] = sh ? { shape: sh, type: player.voicingType } : null;
     } else {
-      result[id] = smoothestVoicing(ch.quality, r, focShape.shape);
+      const cands = allDistinctVoicings(ch.quality, r);
+      if (cands.length) {
+        const idx = pickByStrategy(cands, focShape && focShape.shape);
+        const c = cands[idx];
+        result[id] = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion, stringSet: c.stringSet };
+      } else {
+        result[id] = smoothestVoicing(ch.quality, r, focShape.shape);
+      }
     }
   }
   return result;
@@ -9349,29 +9358,49 @@ const FAMILY_BIAS = {
   guide: 6,
   sus:   5,
 };
+// Deterministic per-candidate hash → noise in [-3, 3]. Used in place
+// of Math.random() so the picker returns the SAME family for the
+// same (chord, prev, family-coordinate) context. That way the map
+// card preview matches the chord that actually plays when clicked.
+function _seedNoise(seedStr) {
+  let h = 2166136261;
+  for (let i = 0; i < seedStr.length; i++) {
+    h ^= seedStr.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const u = ((h >>> 0) % 10000) / 10000;
+  return (u - 0.5) * 6;
+}
+function _shapeKey(sh) {
+  if (!sh) return '∅';
+  return sh.map((f, i) => f >= 0 ? `${i}:${f}` : '').filter(Boolean).join(',');
+}
 function pickByStrategy(cands, prevShape) {
   if (!cands || !cands.length) return -1;
   const strat = state.autoStrategy || 'smoothest';
   if (strat === 'random') return Math.floor(Math.random() * cands.length);
   let bestIdx = 0, bestScore = Infinity;
+  const prevKey = _shapeKey(prevShape);
   cands.forEach((c, i) => {
     const af = avgFret(c.shape);
     const typeBias = FAMILY_BIAS[c.type] ?? 4;
-    // Random ±3 jitter so near-tied scores don't always resolve to
-    // the same family (which is what made everything come out drop-2).
-    const jitter = (Math.random() - 0.5) * 6;
+    // Deterministic ±3 noise — keyed by family + this candidate's
+    // shape + the previous chord. Same context → same noise → same
+    // pick. Different context → different noise → real variety.
+    const seed = `${c.type}|${_shapeKey(c.shape)}|${prevKey}`;
+    const noise = _seedNoise(seed);
     let score;
     if (strat === 'low') {
-      score = af + typeBias + jitter;
+      score = af + typeBias + noise;
     } else if (strat === 'high') {
-      score = (15 - af) + typeBias + jitter;
+      score = (15 - af) + typeBias + noise;
     } else {
-      // smoothest: voice-leading + register + family bias + jitter
+      // smoothest: voice-leading + register + family bias + noise
       const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
       const reg = Math.abs(af - 7);
       const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
       const setPref = c.stringSetIdx === 0 ? 3 : 0;
-      score = m + registerCost + setPref + typeBias + jitter;
+      score = m + registerCost + setPref + typeBias + noise;
     }
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   });
