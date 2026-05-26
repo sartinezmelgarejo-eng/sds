@@ -3110,34 +3110,23 @@ function smoothestVoicing(quality, rootPc, sourceShape) {
 }
 
 function bestStartingVoicing(quality, rootPc) {
-  // Single source of truth: use the EXACT same candidate list + scoring as
-  // composeAddChord's no-previous-chord branch, so the voicing the map shows
-  // for the focused chord is always the one that gets played when the user
-  // clicks it (or types it as the first chord of a composed progression).
-  const cands = (typeof composedCandidatesFor === 'function')
-    ? composedCandidatesFor(quality, rootPc)
-    : (() => {
-        const out = [];
-        for (let ss = 0; ss < STRING_SETS.length; ss++) {
-          for (let inv = 0; inv < 4; inv++) {
-            const sh = dropTwoVoicing(quality, rootPc, ss, inv);
-            if (sh) out.push({ shape: sh, stringSetIdx: ss, inversion: inv });
-          }
-        }
-        return out;
-      })();
-  let best = null;
-  cands.forEach((c) => {
-    const af = avgFret(c.shape);
-    const reg = Math.abs(af - 7);
-    const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
-    const setPref = c.stringSetIdx === 0 ? 3 : 0;   // low-E set penalty
-    const score = registerCost + setPref;
-    if (!best || score < best.score) {
-      best = { shape: c.shape, stringSetIdx: c.stringSetIdx, inversion: c.inversion, score };
-    }
-  });
-  return best;
+  // Single source of truth: use the master catalog + the same
+  // pickByStrategy that composeAddChord runs (with no prevShape),
+  // so the map's focused-chord card matches what actually plays
+  // when the user clicks it as the first chord of a progression.
+  const cands = (typeof allDistinctVoicings === 'function')
+    ? allDistinctVoicings(quality, rootPc)
+    : [];
+  if (!cands.length) return null;
+  const idx = pickByStrategy(cands, null);
+  const c = cands[idx];
+  return {
+    shape: c.shape,
+    type: c.type,
+    stringSetIdx: c.stringSetIdx,
+    inversion: c.inversion,
+    stringSet: c.stringSet,
+  };
 }
 
 /* ─── Alt voicing types: triad, shell ─── */
