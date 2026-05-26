@@ -3053,6 +3053,40 @@ function avgFret(shape) {
   return fs.length ? fs.reduce((a,b)=>a+b,0) / fs.length : 0;
 }
 
+/* ─── Guitar playability filter ───
+   Validate a generated shape against ergonomic constraints:
+   - Fretted-note span ≤ 5 frets (≤6 in upper register where fingers
+     are physically closer).
+   - No mixing open strings with frets above 7 (jumping between nut
+     and a hand position 7+ frets up is awkward).
+   - Highest fret ≤ 17 (above that, comping voicings cease to be
+     useful — they're soloing register).
+
+   Returns true if the shape is realistically playable on guitar.
+   Gated by instrument: piano mode bypasses the check (no frets,
+   any note combination is valid). */
+function isPlayableShape(shape) {
+  if (!shape) return false;
+  const frets = shape.filter(f => f >= 0);
+  if (frets.length < 2) return true;     // single-note or empty: trivially OK
+  const fretted = frets.filter(f => f > 0);
+  const hasOpen = frets.some(f => f === 0);
+  if (fretted.length) {
+    const minF = Math.min(...fretted);
+    const maxF = Math.max(...fretted);
+    const span = maxF - minF;
+    // Upper-register fingers are closer together — allow one more
+    // fret of span past the 9th position.
+    const spanLimit = minF >= 9 ? 6 : 5;
+    if (span > spanLimit) return false;
+    if (maxF > 17) return false;
+    // Open string + a fingered fret far up the neck = ergonomic
+    // nightmare (would need to mute the open while reaching up).
+    if (hasOpen && maxF > 7) return false;
+  }
+  return true;
+}
+
 function smoothestVoicing(quality, rootPc, sourceShape) {
   // Score = voice-movement + register-cost
   // Sweet spot: avg fret 5–9 (comping range). Outside that, cost grows.
@@ -6105,6 +6139,16 @@ class Player {
     }
     if (!cands.length) return null;
 
+    // Drop candidates that fail the guitar playability filter
+    // (excessive span, open mixed with high frets, etc.). Piano
+    // mode keeps everything since frets are irrelevant.
+    if (state.instrument !== 'piano') {
+      const playable = cands.filter(isPlayableShape);
+      if (playable.length) cands.length = 0, cands.push(...playable);
+      // If NOTHING is playable, fall back to the raw list so we
+      // don't return null on an obscure chord.
+    }
+
     // No previous reference → strong pull to fret-6/7 sweet spot
     if (!prevShape) {
       let best = null;
@@ -9120,8 +9164,11 @@ function allDistinctVoicings(quality, rootPc) {
   const out = [];
   const seen = new Set();
   const keyOf = (sh) => sh.map((f, s) => f >= 0 ? `${s}.${f}` : '').filter(Boolean).sort().join(',');
+  // Skip the playability filter for piano (no fret constraints exist).
+  const needsPlayable = state.instrument !== 'piano';
   const add = (sh, type, meta = {}) => {
     if (!sh) return;
+    if (needsPlayable && !isPlayableShape(sh)) return;
     const k = keyOf(sh);
     if (seen.has(k)) return;
     seen.add(k);
