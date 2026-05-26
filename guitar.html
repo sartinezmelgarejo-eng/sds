@@ -5481,7 +5481,7 @@ class Drone {
 }
 
 let droneTimbre = 'piano';
-let loopMode = 'off';  // 'off' | 'section' | 'song'
+let loopMode = 'off';  // 'off' | 'bars-4' | 'bars-8' | 'song'
 // Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
 let cycleMode = 'none';
 // Labels show the semitone jump per loop with a leading "+" so it's
@@ -6663,8 +6663,10 @@ class Player {
       const bCells = state.composedProgression.slice(8, 16);
       const A_sec = buildSteps(aCells, 'A');
 
-      if (loopMode === 'section') {
-        // Pure compose-loop mode — single section, loops via loopMode flag
+      if (loopMode === 'bars-4' || loopMode === 'bars-8') {
+        // Fixed-bar loop: build a single A section out of the user's
+        // composition. The scheduler will snap back to bar 0 every N
+        // bars regardless of section structure.
         return [A_sec];
       }
 
@@ -7058,6 +7060,33 @@ class Player {
       }
       this.totalBars++;
       this.barsRemaining--;
+      // Fixed-bar loops (4 or 8): snap the whole position back to the
+      // start of the song whenever totalBars hits the loop length.
+      // Like "loop the head" practice.
+      const barsLoopLen = loopMode === 'bars-4' ? 4 : loopMode === 'bars-8' ? 8 : 0;
+      if (barsLoopLen && this.totalBars >= barsLoopLen) {
+        this.totalBars = 0;
+        this.songIdx = 0;
+        this.sectionIter = 0;
+        this.currentStepIdx = 0;
+        this.barsRemaining = this._currentStep().bars;
+        this._cachedPage = null;
+        this._cachedPeek = null;
+        // Apply PITCHED cycle on each loop iteration.
+        if (cycleMode !== 'none') {
+          const step = cycleMode === 'chromatic' ? 1 : 5;
+          state.keyPc = (state.keyPc + step) % 12;
+          if (this._homeKey) this._homeKey.keyPc = state.keyPc;
+          state.progressionVoicings = {};
+          state.userVoicing = null;
+          this.previousShape = null;
+          renderAll();
+        }
+        this._triggerChord(this._currentChordId(), this.nextBarTime);
+        this._updateVisuals();
+        this.nextBarTime += barDur;
+        return;
+      }
       if (this.barsRemaining <= 0) {
         // Advance to next step
         this.currentStepIdx++;
@@ -7066,23 +7095,7 @@ class Player {
           // Progression ended — check if we repeat or move to next section
           const section = this._currentSection();
           this.sectionIter++;
-          if (loopMode === 'section') {
-            // Lock to the current section indefinitely
-            this.sectionIter = 0;
-            this.currentStepIdx = 0;
-            // Key practice: when a cycle mode is active, advance the key on
-            // each loop iteration — practice the same progression through all 12 keys.
-            if (cycleMode !== 'none') {
-              const step = cycleMode === 'chromatic' ? 1 : 5; // fourths = +5 semitones
-              state.keyPc = (state.keyPc + step) % 12;
-              // Also update the player's "home" so modulations / stop-restore stay coherent
-              if (this._homeKey) this._homeKey.keyPc = state.keyPc;
-              state.progressionVoicings = {};
-              state.userVoicing = null;
-              this.previousShape = null;
-              renderAll();
-            }
-          } else if (this.sectionIter < section.repeats) {
+          if (this.sectionIter < section.repeats) {
             // Repeat same progression — keep same voicing type
             this.currentStepIdx = 0;
           } else {
@@ -7418,6 +7431,11 @@ class Player {
     // Track the key as we simulate forward
     let simKeyPc = state.keyPc;
     const cycleStep = cycleMode === 'chromatic' ? 1 : cycleMode === 'fourths' ? 5 : 0;
+    // Fixed-bar loops: the scheduler snaps to bar 0 every N bars,
+    // so the lookahead has to do the same or the strip preview
+    // will show bars that never actually play.
+    const barsLoopLen = loopMode === 'bars-4' ? 4 : loopMode === 'bars-8' ? 8 : 0;
+    let absoluteBars = this.totalBars;
     while (totalBars < n && safety++ < 30) {
       const section = this.song[songIdx];
       if (!section) break;
@@ -7451,23 +7469,29 @@ class Player {
         barsAlreadyConsumed: isFirst ? (step.bars - barsLeft) : 0,
       });
       totalBars += barsToShow;
+      absoluteBars += barsToShow;
       isFirst = false;
+      // Fixed-bar loop wrap: if the absolute position crosses the
+      // loop length, snap the simulation back to the song start.
+      if (barsLoopLen && absoluteBars >= barsLoopLen) {
+        absoluteBars = 0;
+        songIdx = 0;
+        sectionIter = 0;
+        stepIdx = 0;
+        barsLeft = this.song[0]?.progression?.steps?.[0]?.bars || 1;
+        if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
+        continue;
+      }
       stepIdx++;
       if (stepIdx >= prog.steps.length) {
         stepIdx = 0;
         sectionIter++;
-        if (loopMode === 'section') {
-          sectionIter = 0;
-          if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
-        } else if (sectionIter >= section.repeats) {
+        if (sectionIter >= section.repeats) {
           sectionIter = 0;
           songIdx++;
           if (songIdx >= this.song.length) {
             if (loopMode === 'song') {
               songIdx = 0;
-              // Mirror the actual scheduler: song-loop wraparound
-              // also bumps the key when PITCHED cycle is active, so
-              // the strip's preview matches what'll actually play.
               if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
             } else break;
           }
@@ -7763,14 +7787,16 @@ class Player {
 const player = new Player();
 
 document.getElementById('loop-toggle').addEventListener('click', e => {
-  // Cycle: off → section → song → off
-  const LOOP_CYCLE = ['off', 'section', 'song'];
+  // Cycle: off → 4 bars → 8 bars → song → off
+  const LOOP_CYCLE = ['off', 'bars-4', 'bars-8', 'song'];
   const idx = LOOP_CYCLE.indexOf(loopMode);
   loopMode = LOOP_CYCLE[(idx + 1) % LOOP_CYCLE.length];
   e.currentTarget.classList.toggle('active', loopMode !== 'off');
   e.currentTarget.classList.toggle('loop-song', loopMode === 'song');
   e.currentTarget.title = loopMode === 'off' ? 'loop off'
-    : loopMode === 'section' ? 'looping section' : 'looping song';
+    : loopMode === 'bars-4'  ? 'looping first 4 bars'
+    : loopMode === 'bars-8'  ? 'looping first 8 bars'
+                              : 'looping song';
   // When turning loop OFF mid-play AND a composed progression is active, the AI
   // takes over: regenerate the song so the composed progression becomes the A
   // section of a full AABA (AI picks B as a bridge). "Take my hook and run with it."
@@ -9311,23 +9337,14 @@ function renderLandscapePlay() {
 function syncLoopSectionBadge() {
   const btn = document.getElementById('loop-toggle');
   if (!btn) return;
-  // Show the total bar count of the section currently set to loop —
-  // more useful than a letter (you immediately know "this loop is 4
-  // bars / 8 bars / 16 bars"). Falls back to '?' if no song yet.
-  let label = '?';
-  if (window.player && player.song && player.song.length) {
-    const idx = (player.playing && Number.isFinite(player.songIdx))
-      ? player.songIdx
-      : 0;
-    const sec = player.song[idx];
-    if (sec && sec.progression && sec.progression.steps) {
-      const totalBars = sec.progression.steps.reduce((a, s) => a + (s.bars || 0), 0);
-      if (totalBars > 0) label = String(totalBars);
-    }
-  }
+  // Badge value matches the loop mode directly: "4" / "8" / "S".
+  // Empty when loop is off (no badge shown via :not(.active) CSS).
+  const label = loopMode === 'bars-4' ? '4'
+              : loopMode === 'bars-8' ? '8'
+              : loopMode === 'song'   ? 'S' : '';
   btn.dataset.section = label;
   // Propagate to the mobile transport loop button so its badge stays
-  // in sync with the same bar count.
+  // in sync.
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
 }
 
@@ -9361,7 +9378,9 @@ function lp_syncControls() {
       loop.dataset.section = realLoop.dataset.section;
     }
     loop.title = loopMode === 'off' ? 'loop off'
-      : loopMode === 'section' ? 'looping section' : 'looping song';
+      : loopMode === 'bars-4'  ? 'looping 4 bars'
+      : loopMode === 'bars-8'  ? 'looping 8 bars'
+                                 : 'looping song';
   }
   // Cycle: mirror the main #cycle-toggle label (· / +1 / IV / etc.)
   const cycle = document.getElementById('lp-cycle');
@@ -9452,8 +9471,10 @@ function renderLandscapeStandby() {
     const isOn = loopMode !== 'off';
     loopBtn.classList.toggle('ls-active', false);
     loopBtn.classList.toggle('ls-loop-on', isOn);
-    loopBtn.textContent = loopMode === 'off' ? '⟲ Loop'
-      : loopMode === 'section' ? '⟲ Section' : '⟲ Song';
+    loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
+      : loopMode === 'bars-4' ? '⟲ 4 bars'
+      : loopMode === 'bars-8' ? '⟲ 8 bars'
+                              : '⟲ Song';
   }
 
   // Cycle button state
