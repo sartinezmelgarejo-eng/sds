@@ -6742,12 +6742,17 @@ class Player {
     }
     const barDur = (60 / metronome.bpm) * 4;
     if (this.nextBarTime < audioCtx.currentTime + 0.12) {
-      // If user jumped, trigger the new chord at THIS bar boundary instead of advancing
+      // If user jumped, trigger the new chord at THIS bar boundary
+      // instead of advancing. Mirrors the count-in fire: we play the
+      // current bar without incrementing totalBars — the next normal
+      // tick will increment and advance the step naturally. (The
+      // earlier version incremented here AND in the next tick, which
+      // double-counted and made the player skip the bar after a
+      // paused-click jump, producing "wrong chord on page rollover".)
       if (this.forceTriggerAtNextBar) {
         this.forceTriggerAtNextBar = false;
         // The bar that starts NOW lives at this.nextBarTime in audio time.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
-        this.totalBars++;
         this._updateVisuals();
         this.nextBarTime += barDur;
         return;
