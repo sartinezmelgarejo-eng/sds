@@ -10804,11 +10804,17 @@ document.addEventListener('keydown', (ev) => {
     // helps but once the pointer leaves it, only preventDefault stops scroll.
     if (e.cancelable) e.preventDefault();
     const y = e.clientY;
-    if (Math.abs(y - dragStartY) > 4) dragMoved = true;
+    const movedPx = Math.abs(y - dragStartY);
+    // Wait until the pointer crosses an intentional-drag threshold
+    // before mutating subdivisions. Otherwise tap jitter (1-2 px on
+    // touchscreens) would compute distance=0 → newN=1 and wipe the
+    // current value before the user has actually intended to drag.
+    if (movedPx <= 8) return;
+    dragMoved = true;
     // 1 is ALWAYS the center value, regardless of where dragging started.
     // Drag distance (in either direction) maps to the count: 0 → 1,
     // 14px → 2, …, 98px → 8. Drag back to the start point to return to 1.
-    const distance = Math.round(Math.abs(y - dragStartY) / 14);
+    const distance = Math.round(movedPx / 14);
     const newN = clampN(1 + distance);
     const seq = state.composedProgression;
     const cell = seq[dragIdx];
