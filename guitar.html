@@ -7381,8 +7381,13 @@ class Player {
           sectionIter = 0;
           songIdx++;
           if (songIdx >= this.song.length) {
-            if (loopMode === 'song') songIdx = 0;
-            else break;
+            if (loopMode === 'song') {
+              songIdx = 0;
+              // Mirror the actual scheduler: song-loop wraparound
+              // also bumps the key when PITCHED cycle is active, so
+              // the strip's preview matches what'll actually play.
+              if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
+            } else break;
           }
         }
       }
