@@ -1298,6 +1298,21 @@
   .m-transport #m-tx-play  { flex: 30 1 0; }
   .m-transport #m-tx-stop  { flex: 20 1 0; }
   .m-transport #m-tx-edit  { flex: 20 1 0; }
+  /* SVG icons — guaranteed consistent rendering across all phones
+     (no emoji-font surprises). currentColor lets the icon flip to
+     white when the button hits its active dark background. */
+  .m-transport .m-tx-ico {
+    width: 22px;
+    height: 22px;
+    display: block;
+    pointer-events: none;
+  }
+  .m-transport .m-tx-play .m-tx-ico { width: 24px; height: 24px; }
+  /* Play / pause icon swap — pause is hidden by default, shown when
+     the play button is in its .active (playing) state. */
+  .m-transport .m-tx-play .m-tx-ico-pause { display: none; }
+  .m-transport .m-tx-play.active .m-tx-ico-play  { display: none; }
+  .m-transport .m-tx-play.active .m-tx-ico-pause { display: block; }
   /* Hard divider between adjacent buttons — the row reads as a
      single brutalist strip, not separate pills. */
   .m-transport .m-tx-btn + .m-tx-btn { border-left: 0; }
@@ -2820,10 +2835,19 @@
            controls so all their logic / state stays in one place. -->
       <div class="m-transport" id="m-transport" hidden>
         <button class="m-tx-btn" id="m-tx-cycle" title="PITCHED">·</button>
-        <button class="m-tx-btn" id="m-tx-loop" title="Loop">⟲</button>
-        <button class="m-tx-btn m-tx-play" id="m-tx-play" title="Play / pause">▶︎</button>
-        <button class="m-tx-btn m-tx-stop" id="m-tx-stop" title="Stop / reset" hidden>⏹︎</button>
-        <button class="m-tx-btn" id="m-tx-edit" title="Edit current chord" hidden>✏︎</button>
+        <button class="m-tx-btn" id="m-tx-loop" title="Loop">
+          <svg viewBox="0 0 24 24" class="m-tx-ico" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+        <button class="m-tx-btn m-tx-play" id="m-tx-play" title="Play / pause">
+          <svg viewBox="0 0 24 24" class="m-tx-ico m-tx-ico-play" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+          <svg viewBox="0 0 24 24" class="m-tx-ico m-tx-ico-pause" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="0.5"/><rect x="14" y="4" width="4" height="16" rx="0.5"/></svg>
+        </button>
+        <button class="m-tx-btn m-tx-stop" id="m-tx-stop" title="Stop / reset" hidden>
+          <svg viewBox="0 0 24 24" class="m-tx-ico" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
+        </button>
+        <button class="m-tx-btn" id="m-tx-edit" title="Edit current chord" hidden>
+          <svg viewBox="0 0 24 24" class="m-tx-ico" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l3.5-1 11-11-2.5-2.5-11 11z"/><path d="M14.5 6.5l3 3"/></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -7840,10 +7864,11 @@ function _refreshAutoPlayUI() {
 function syncMobileTransport() {
   const isPlaying = !!(typeof player !== 'undefined' && player && player.playing);
   const isPaused  = !!(typeof player !== 'undefined' && player && player.paused);
-  // Play / Pause
+  // Play / Pause — text content not touched anymore (SVG icons in
+  // the button swap via CSS based on .active). Just update class +
+  // title so the icon flips and assistive tech reads the state.
   const play = document.getElementById('m-tx-play');
   if (play) {
-    play.textContent = isPlaying ? '⏸︎' : '▶︎';
     play.classList.toggle('active', isPlaying);
     play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
   }
