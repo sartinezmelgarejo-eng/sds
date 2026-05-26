@@ -9335,6 +9335,19 @@ function composedCandidatesFor(quality, rootPc) {
 //   low       — minimize avgFret (sit near the nut)
 //   high      — maximize avgFret (high on the neck)
 //   random    — uniform random pick
+// Per-family bias used by the smoothest picker. Drop-2 stays the
+// "house default" but the other families now have realistic shots
+// of winning when their voice-leading is meaningfully better.
+// Calibrated against the Wes/Bickert/Pass mix ratios reported in
+// the pedagogy research — see also _pickVoicingType.
+const FAMILY_BIAS = {
+  drop2: 0,
+  drop3: 4,
+  shell: 6,
+  triad: 9,
+  guide: 14,
+  sus:   12,
+};
 function pickByStrategy(cands, prevShape) {
   if (!cands || !cands.length) return -1;
   const strat = state.autoStrategy || 'smoothest';
@@ -9342,19 +9355,19 @@ function pickByStrategy(cands, prevShape) {
   let bestIdx = 0, bestScore = Infinity;
   cands.forEach((c, i) => {
     const af = avgFret(c.shape);
-    const typePenalty = c.type === 'drop2' ? 0 : 60;
+    const typeBias = FAMILY_BIAS[c.type] ?? 8;
     let score;
     if (strat === 'low') {
-      score = af + typePenalty * 0.4;          // gentler bias so low-only sus/triads still win when no low drop-2 exists
+      score = af + typeBias * 0.3;
     } else if (strat === 'high') {
-      score = (15 - af) + typePenalty * 0.4;
+      score = (15 - af) + typeBias * 0.3;
     } else {
-      // smoothest — original logic
+      // smoothest: voice-leading + register + family preference
       const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
       const reg = Math.abs(af - 7);
       const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
       const setPref = c.stringSetIdx === 0 ? 3 : 0;
-      score = m + registerCost + setPref + typePenalty;
+      score = m + registerCost + setPref + typeBias;
     }
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   });
