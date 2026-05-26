@@ -9014,13 +9014,33 @@ function allDistinctVoicings(quality, rootPc) {
     out.push({ shape: sh, type, ...meta });
   };
   const byReg = (a, b) => avgFret(a.shape) - avgFret(b.shape);
+  // Octave-shift a shape by +12 frets on every fretted string. Same
+  // pitches, higher position. Returns null if any fret would exceed
+  // the playable range so callers can stop ascending.
+  const octaveUp = (sh) => {
+    const shifted = sh.map(f => f >= 0 ? f + 12 : -1);
+    return shifted.every(f => f === -1 || f <= N_FRETS) ? shifted : null;
+  };
+  // For each base voicing the builder returns, expand vertically by
+  // adding every higher-octave copy that still fits on the neck.
+  // Big range boost for chord types whose root sits low (drop-2 EADG
+  // set 0 inv 0 used to be the only option — now we get the 12-fret-up
+  // copy too, sometimes a third one in the upper register).
+  const withOctaves = (push, baseSh) => {
+    let sh = baseSh;
+    while (sh) {
+      push(sh);
+      sh = octaveUp(sh);
+    }
+  };
 
-  // 1. Drop-2 (3 string sets × 4 inversions)
+  // 1. Drop-2 (3 string sets × 4 inversions × N octaves)
   const drops = [];
   for (let ss = 0; ss < STRING_SETS.length; ss++) {
     for (let inv = 0; inv < 4; inv++) {
-      const sh = dropTwoVoicing(quality, rootPc, ss, inv);
-      if (sh) drops.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+      const base = dropTwoVoicing(quality, rootPc, ss, inv);
+      if (!base) continue;
+      withOctaves(sh => drops.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
     }
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
@@ -9028,33 +9048,37 @@ function allDistinctVoicings(quality, rootPc) {
   // 2. Shells (2 root-position string sets — no rotations on guitar)
   const shells = [];
   ['A','B'].forEach(t => {
-    const sh = shellVoicing(quality, rootPc, t);
-    if (sh) shells.push({ shape: sh, stringSet: t });
+    const base = shellVoicing(quality, rootPc, t);
+    if (!base) return;
+    withOctaves(sh => shells.push({ shape: sh, stringSet: t }), base);
   });
   shells.sort(byReg).forEach(s => add(s.shape, 'shell', { stringSet: s.stringSet }));
 
-  // 3. Triads (3 string positions)
+  // 3. Triads (3 string positions × N octaves)
   const triads = [];
   ['top','mid','low'].forEach(t => {
-    const sh = triadVoicing(quality, rootPc, t);
-    if (sh) triads.push({ shape: sh, stringSet: t });
+    const base = triadVoicing(quality, rootPc, t);
+    if (!base) return;
+    withOctaves(sh => triads.push({ shape: sh, stringSet: t }), base);
   });
   triads.sort(byReg).forEach(t => add(t.shape, 'triad', { stringSet: t.stringSet }));
 
-  // 4. Guide tones (2 string sets)
+  // 4. Guide tones (2 string sets × N octaves)
   const guides = [];
   ['A','B'].forEach(t => {
-    const sh = guideToneVoicing(quality, rootPc, t);
-    if (sh) guides.push({ shape: sh, stringSet: t });
+    const base = guideToneVoicing(quality, rootPc, t);
+    if (!base) return;
+    withOctaves(sh => guides.push({ shape: sh, stringSet: t }), base);
   });
   guides.sort(byReg).forEach(g => add(g.shape, 'guide', { stringSet: g.stringSet }));
 
-  // 5. Sus voicings (3 sets × 4 inversions)
+  // 5. Sus voicings (3 sets × 4 inversions × N octaves)
   const suss = [];
   for (let ss = 0; ss < STRING_SETS.length; ss++) {
     for (let inv = 0; inv < 4; inv++) {
-      const sh = susVoicing(quality, rootPc, ss, inv);
-      if (sh) suss.push({ shape: sh, stringSetIdx: ss, inversion: inv });
+      const base = susVoicing(quality, rootPc, ss, inv);
+      if (!base) continue;
+      withOctaves(sh => suss.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
     }
   }
   suss.sort(byReg).forEach(s => add(s.shape, 'sus', { stringSetIdx: s.stringSetIdx, inversion: s.inversion }));
