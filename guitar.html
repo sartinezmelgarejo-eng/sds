@@ -7655,9 +7655,10 @@ class Player {
       const cls = `rb-tab-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
       if (!cell) return `<div class="${cls}"></div>`;
       // Continuation bar (same chord still sounding from the previous bar).
-      // In piano mode draw an empty staff with a simile sign so the partitura
-      // reads as one continuous score; in guitar mode keep it empty since the
-      // chord-name row already shows the % continuation symbol.
+      // Piano mode: empty staff with a simile sign (continues the score).
+      // Guitar mode: show the same `%` simile glyph compose uses, since
+      // the chord-name row is hidden in play mode and the tab cell would
+      // otherwise be a blank black box.
       if (cell.barIdxInChord > 0) {
         if (state.instrument === 'piano') {
           // Clefs ONLY on the song's very first compás, never again — once
@@ -7665,7 +7666,7 @@ class Player {
           const showClefC = (i === 0 && this.totalBars < 3);
           return `<div class="${cls}">${renderContinuationStaff({W: 130, H: 148, minimal: window.innerWidth <= 800, showClef: showClefC})}</div>`;
         }
-        return `<div class="${cls}"></div>`;
+        return `<div class="${cls}"><div class="rb-continuation">%</div></div>`;
       }
       const ch = map.chordDefs[cell.chord];
       if (!ch) return `<div class="${cls}"></div>`;
