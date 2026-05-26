@@ -734,6 +734,16 @@
     pointer-events: none;
   }
   .kb-deg.dark { fill: #1a1a1a; }
+  /* Open-string indicators on the chord neck: ring pulses outward
+     to show the open string is vibrating, like a struck note. Two
+     overlapping pulses (one offset by half the cycle) keep the
+     animation continuous. */
+  @keyframes chordOpenPulse {
+    0%   { r: 22; opacity: 0.9; stroke-width: 3; }
+    100% { r: 56; opacity: 0;   stroke-width: 1; }
+  }
+  .chord-open-pulse   { animation: chordOpenPulse 1.5s ease-out infinite; }
+  .chord-open-pulse-2 { animation-delay: 0.75s; }
   .kb-octave-label {
     font-family: 'SF Mono', monospace;
     font-size: 9px;
@@ -8271,6 +8281,51 @@ function repaintChordNeckNotes() {
     s += _paintChordVoicing(liveShape, liveChordId, false, geo, staysSet);
   }
   notesG.innerHTML = s;
+  // Open strings (f === 0) sit at x = -fretW inside the pan group,
+  // which the clip-path hides. Render them OUTSIDE the pan in a
+  // separate group anchored to the labels strip so they're always
+  // visible — and pulse so the user sees the string is ringing.
+  const svg = document.getElementById('chord-neck');
+  let openG = svg && svg.querySelector('#chord-open-group');
+  if (!openG && svg) {
+    openG = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    openG.setAttribute('id', 'chord-open-group');
+    svg.appendChild(openG);
+  }
+  if (openG) {
+    openG.innerHTML = '';
+    if (liveShape && liveChordId) {
+      const map = currentMap();
+      const ch  = map.chordDefs[liveChordId];
+      if (ch) {
+        const root = (state.keyPc + ch.deg) % 12;
+        const q    = QUALITIES[ch.quality];
+        const degFromRoot = {};
+        q.ints.forEach((semi, i) => {
+          const pc = (root + semi) % 12;
+          if (!(pc in degFromRoot)) degFromRoot[pc] = q.degs[i];
+        });
+        const ss = (geo.H - geo.mt - geo.mb) / 5;
+        const cx = geo.labelsW - 28;
+        let parts = '';
+        for (let str = 0; str < 6; str++) {
+          if (liveShape[str] !== 0) continue;
+          const pc = noteAt(str, 0);
+          const deg = degFromRoot[pc] || '';
+          const color = intervalColor(deg);
+          const noteName = nameOf(pc, useFlatsFor(root));
+          const cy = geo.mt + (5 - str) * ss;
+          parts += `<g class="chord-open-mark">
+            <circle cx="${cx}" cy="${cy}" r="22" fill="${color}" stroke="#000" stroke-width="2.5"/>
+            <text x="${cx}" y="${cy + 6}" text-anchor="middle" font-size="18" font-weight="800" fill="#000" pointer-events="none">${noteName}</text>
+            <circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="${color}" stroke-width="3" class="chord-open-pulse"/>
+            <circle cx="${cx}" cy="${cy}" r="22" fill="none" stroke="${color}" stroke-width="3" class="chord-open-pulse chord-open-pulse-2"/>
+          </g>`;
+        }
+        openG.innerHTML = parts;
+      }
+    }
+  }
   paintPianoNotes();   // keep the piano lit-keys in sync
 }
 
