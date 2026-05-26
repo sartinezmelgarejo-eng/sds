@@ -7161,14 +7161,24 @@ class Player {
           shape = state.playerVoicing.shape;
         } else if (ch) {
           const root = (segKeyPc + ch.deg) % 12;
-          shape = this._pickShape(ch.quality, root, segType, prevShape);
-          if (!shape) shape = this._pickShape(ch.quality, root, 'drop2', prevShape);
+          // Function-based override: tonics, dominants, secondaries
+          // sometimes promote to their natural alternate family
+          // (drop-3 / shell) so each chord function has its own
+          // sonic personality, even within a uniform section.
+          var finalType = _voicingTypeForChord(
+            segType, ch.tag,
+            seg.songIdx ?? 0, seg.stepIdx ?? 0, seg.sectionIter ?? 0
+          );
+          shape = this._pickShape(ch.quality, root, finalType, prevShape);
+          if (!shape) { shape = this._pickShape(ch.quality, root, 'drop2', prevShape); finalType = 'drop2'; }
         }
         const entry = {
           chord: seg.chord,
           barIdxInChord: (seg.barsAlreadyConsumed || 0) + b,
           keyPc: segKeyPc,
-          voicingType: segType,
+          // Store the ACTUAL type picked (after function override) so
+          // the info bar / pause-click handler can label it correctly.
+          voicingType: (typeof finalType !== 'undefined') ? finalType : segType,
           shape,
           subdivisions: seg.subdivisions || 1,
           subdivMute: seg.subdivMute || [],
@@ -9376,6 +9386,46 @@ function composedCandidatesFor(quality, rootPc) {
 //   low       — minimize avgFret (sit near the nut)
 //   high      — maximize avgFret (high on the neck)
 //   random    — uniform random pick
+// Function-based voicing override: each harmonic function has a
+// "natural" alternate family that should win a fraction of the
+// time, even when the section's primary family is something else.
+// Lets the AI add color/contrast on dominants and tonics without
+// blowing up the section's overall texture.
+//   tonic     → drop-3 (fuller "arrival") ~25%
+//   predom    → shell  (lighter, pushing) ~30%
+//   dom       → drop-3 (bass color)       ~40%
+//   secondary → drop-3 (highlighted)      ~45%
+//   borrowed  → drop-3 (color chord)      ~45%
+const FUNCTION_OVERRIDE = {
+  tonic:     { alt: 'drop3', prob: 0.25 },
+  predom:    { alt: 'shell', prob: 0.30 },
+  dom:       { alt: 'drop3', prob: 0.40 },
+  secondary: { alt: 'drop3', prob: 0.45 },
+  borrowed:  { alt: 'drop3', prob: 0.45 },
+};
+// Decide the voicing type to use for one chord-event. The section
+// primary is the default; with FUNCTION_OVERRIDE probability we
+// promote the chord to its natural alternate family. Deterministic
+// per song position so re-rendering the same bar always picks the
+// same family (no flicker).
+function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIter) {
+  // Only override in 'all' preference mode — if user pinned a
+  // specific family, respect it.
+  if (voicingPref !== 'all') return primaryType;
+  if (!chordTag) return primaryType;
+  const override = FUNCTION_OVERRIDE[chordTag];
+  if (!override || override.alt === primaryType) return primaryType;
+  // Deterministic 0..1 hash seeded on song position + chord function.
+  const seed = `${songIdx}|${stepIdx}|${sectionIter}|${chordTag}|${primaryType}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const r = ((h >>> 0) % 10000) / 10000;
+  return r < override.prob ? override.alt : primaryType;
+}
+
 // Per-family bias used by the smoothest picker. Drop-2 stays the
 // "house default" but bias is small enough that the others win when
 // voice-leading is comparable. Random ±3 noise is added to every
