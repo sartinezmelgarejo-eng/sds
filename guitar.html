@@ -7060,23 +7060,28 @@ class Player {
       }
       this.totalBars++;
       this.barsRemaining--;
-      // Fixed-bar loops (4 or 8): snap the whole position back to the
-      // start of the song whenever totalBars hits the loop length.
-      // Like "loop the head" practice.
+      // Fixed-bar loops (4 or 8): snap back to the loopAnchor — the
+      // page boundary captured at the moment the user enabled the
+      // loop. So "4" loops the 4 cells visible in the strip right
+      // now, "8" loops two pages.
       const barsLoopLen = loopMode === 'bars-4' ? 4 : loopMode === 'bars-8' ? 8 : 0;
-      if (barsLoopLen && this.totalBars >= barsLoopLen) {
-        this.totalBars = 0;
-        this.songIdx = 0;
-        this.sectionIter = 0;
-        this.currentStepIdx = 0;
-        this.barsRemaining = this._currentStep().bars;
-        this._cachedPage = null;
-        this._cachedPeek = null;
+      if (barsLoopLen && this._loopAnchor
+          && this.totalBars >= this._loopAnchor.totalBars + barsLoopLen) {
+        const a = this._loopAnchor;
+        this.totalBars      = a.totalBars;
+        this.songIdx        = a.songIdx;
+        this.sectionIter    = a.sectionIter;
+        this.currentStepIdx = a.stepIdx;
+        this.barsRemaining  = this._currentStep().bars;
+        this._cachedPage    = null;
+        this._cachedPeek    = null;
         // Apply PITCHED cycle on each loop iteration.
         if (cycleMode !== 'none') {
           const step = cycleMode === 'chromatic' ? 1 : 5;
           state.keyPc = (state.keyPc + step) % 12;
           if (this._homeKey) this._homeKey.keyPc = state.keyPc;
+          // Update the anchor key too so the loop tracks the shift.
+          a.keyPc = state.keyPc;
           state.progressionVoicings = {};
           state.userVoicing = null;
           this.previousShape = null;
@@ -7471,14 +7476,16 @@ class Player {
       totalBars += barsToShow;
       absoluteBars += barsToShow;
       isFirst = false;
-      // Fixed-bar loop wrap: if the absolute position crosses the
-      // loop length, snap the simulation back to the song start.
-      if (barsLoopLen && absoluteBars >= barsLoopLen) {
-        absoluteBars = 0;
-        songIdx = 0;
-        sectionIter = 0;
-        stepIdx = 0;
-        barsLeft = this.song[0]?.progression?.steps?.[0]?.bars || 1;
+      // Fixed-bar loop wrap: snap back to the anchor (the page that
+      // was current when the user enabled the loop), not bar 0 of
+      // the song. Matches the scheduler's loopAnchor logic.
+      if (barsLoopLen && this._loopAnchor
+          && absoluteBars >= this._loopAnchor.totalBars + barsLoopLen) {
+        absoluteBars = this._loopAnchor.totalBars;
+        songIdx      = this._loopAnchor.songIdx;
+        sectionIter  = this._loopAnchor.sectionIter;
+        stepIdx      = this._loopAnchor.stepIdx;
+        barsLeft     = this.song[songIdx]?.progression?.steps?.[stepIdx]?.bars || 1;
         if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
         continue;
       }
@@ -7791,6 +7798,27 @@ document.getElementById('loop-toggle').addEventListener('click', e => {
   const LOOP_CYCLE = ['off', 'bars-4', 'bars-8', 'song'];
   const idx = LOOP_CYCLE.indexOf(loopMode);
   loopMode = LOOP_CYCLE[(idx + 1) % LOOP_CYCLE.length];
+  // Anchor the fixed-bar loops to the current page boundary (the 4
+  // cells the user can see in the strip). When the wrap fires the
+  // scheduler restores to this anchor instead of bar 0 of the song.
+  if (loopMode === 'bars-4' || loopMode === 'bars-8') {
+    const N = loopMode === 'bars-4' ? 4 : 8;
+    const cur = player.totalBars || 0;
+    const anchorBar = Math.floor(cur / N) * N;
+    const page = player._cachedPage;
+    // cells[0] of the current page sits at this anchorBar in song time —
+    // pull its (songIdx, stepIdx, sectionIter) so resume snaps cleanly.
+    const anchorCell = (page && page[0]) ? page[0] : null;
+    player._loopAnchor = {
+      totalBars:   anchorBar,
+      songIdx:     anchorCell?.songIdx ?? player.songIdx,
+      stepIdx:     anchorCell?.stepIdx ?? player.currentStepIdx,
+      sectionIter: anchorCell?.sectionIter ?? player.sectionIter,
+      keyPc:       state.keyPc,
+    };
+  } else {
+    player._loopAnchor = null;
+  }
   e.currentTarget.classList.toggle('active', loopMode !== 'off');
   e.currentTarget.classList.toggle('loop-song', loopMode === 'song');
   e.currentTarget.title = loopMode === 'off' ? 'loop off'
