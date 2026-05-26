@@ -1261,16 +1261,48 @@
     padding: 8px 12px;
     background: transparent;
     border: 0;
-    /* Stretch the bar across the same width as the chord neck above
-       — buttons share that footprint equally so the row feels like
-       one solid brutalist strip below the realistic guitar. */
     width: 100%;
     box-sizing: border-box;
   }
+  /* Brutalist 2-row layout — play/stop dominate the top (primary
+     transport), loop/cycle/edit form a thinner strip below
+     (modifiers + secondary action). Stop & edit collapse cleanly
+     when hidden via :has-driven grid-area overrides. */
+  body.player-active:not(.lp-on) .m-transport {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 64px 40px;
+    grid-template-areas:
+      "play play stop"
+      "loop cycle edit";
+  }
+  .m-transport #m-tx-play  { grid-area: play; }
+  .m-transport #m-tx-stop  { grid-area: stop; }
+  .m-transport #m-tx-loop  { grid-area: loop; }
+  .m-transport #m-tx-cycle { grid-area: cycle; }
+  .m-transport #m-tx-edit  { grid-area: edit; }
+  /* When stop is hidden, play takes the entire top row. */
+  body.player-active:not(.lp-on) .m-transport:not(:has(#m-tx-stop:not([hidden]))) {
+    grid-template-areas:
+      "play play play"
+      "loop cycle edit";
+  }
+  /* When edit is hidden, loop+cycle rebalance to fill bottom row. */
+  body.player-active:not(.lp-on) .m-transport:not(:has(#m-tx-edit:not([hidden]))) {
+    grid-template-areas:
+      "play play stop"
+      "loop loop cycle";
+  }
+  /* Both hidden: play full top, loop/cycle split bottom. */
+  body.player-active:not(.lp-on)
+    .m-transport:not(:has(#m-tx-stop:not([hidden]))):not(:has(#m-tx-edit:not([hidden]))) {
+    grid-template-areas:
+      "play play play"
+      "loop loop cycle";
+  }
   .m-transport .m-tx-btn {
-    flex: 1 1 0;
-    min-width: 0;
-    height: 56px;
+    width: 100%;
+    height: 100%;
     padding: 0;
     background: #fdfcf3;
     border: 2px solid #1a1a1a;
@@ -1288,6 +1320,10 @@
     line-height: 1;
     transition: background 0.1s, color 0.1s;
   }
+  /* Slightly smaller icons in the secondary row for visual hierarchy */
+  .m-transport #m-tx-loop,
+  .m-transport #m-tx-cycle,
+  .m-transport #m-tx-edit { font-size: 17px; }
   /* Hard divider between adjacent buttons — the row reads as a
      single brutalist strip, not separate pills. */
   .m-transport .m-tx-btn + .m-tx-btn { border-left: 0; }
@@ -1347,7 +1383,7 @@
     body.player-active .rb-loop { display: none !important; }
     /* Show the transport bar only when the player is active on
        a vertical mobile viewport (not in landscape). */
-    body.player-active:not(.lp-on) .m-transport { display: flex; }
+    body.player-active:not(.lp-on) .m-transport { display: grid; }
   }
   body:not(.player-active) .subdiv-bar:not(.playback-bar) {
     height: 18px;
