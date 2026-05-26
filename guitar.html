@@ -7003,8 +7003,12 @@ class Player {
     const iterTxt = section.repeats > 1
       ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
 
-    const voicingTxt = state.playerVoicing?.type
-      ? `<span class="pi-voicing">${state.playerVoicing.type} · ${this.bassPattern}</span>`
+    // Friendly voicing label matching the compose-mode info bar.
+    const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
+    const pvType = state.playerVoicing?.type;
+    const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
+    const voicingTxt = pvLabel
+      ? `<span class="pi-voicing">${pvLabel} · ${this.bassPattern}</span>`
       : '';
 
     // Step indicator — where we are within the current progression
@@ -7556,7 +7560,14 @@ document.addEventListener('click', e => {
   // (without re-picking via the smoothest algorithm).
   if (cell.shape) {
     player.previousShape = cell.shape;
-    state.playerVoicing = { chord: cell.chord, shape: cell.shape };
+    // Pull voicingType off the cell when available so the green info
+    // bar can label the audition correctly. Falls back to the player's
+    // current section type for AI-generated cells that don't carry it.
+    state.playerVoicing = {
+      chord: cell.chord,
+      shape: cell.shape,
+      type: cell.voicingType || player.voicingType,
+    };
   }
   player._stopArmed = false;
   // Audition the chord directly using the strip's voicing — bypass
