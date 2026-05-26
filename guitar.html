@@ -6554,6 +6554,25 @@ class Player {
 
     this.nextBarTime = firstBarStart;
     this._countInUntil = firstBarStart;            // scheduler treats this as dormant
+
+    // Pre-paint the first chord's voicing on the neck / piano BEFORE
+    // the count-in starts — otherwise the previews would show the
+    // notes from whatever was last focused, until the chord actually
+    // triggers a beat or two later. We don't START the audio here,
+    // we just publish the upcoming chord's shape into the same state
+    // fields _triggerChord uses, so the visualization is instantly
+    // correct.
+    this._buildPagePlan();
+    const firstEntry = this._cachedPage && this._cachedPage[0];
+    if (firstEntry && firstEntry.shape && firstEntry.chord) {
+      state.playerVoicing = {
+        chord: firstEntry.chord,
+        shape: firstEntry.shape,
+        type:  firstEntry.voicingType || this.voicingType,
+      };
+      state.focusedChord = firstEntry.chord;
+      this.previousShape = firstEntry.shape;
+    }
     this._updateVisuals();
 
     // Save the precise downbeat target so the scheduler can fire chord 1 itself
