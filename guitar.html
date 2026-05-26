@@ -4636,7 +4636,11 @@ function rebuildComposedShapesForCurrentKey() {
     const ch = map.chordDefs[cell.chord];
     if (!ch) continue;                              // chord ID not in current tonality — leave stale
     const root = (state.keyPc + ch.deg) % 12;
-    const cands = allDistinctVoicings(ch.quality, root);
+    // Use the FULL catalog (skip the guitar playability filter) so
+    // voicings defined while in piano mode keep their coordinate
+    // intact when the user transposes — even if the resulting shape
+    // would be too stretchy on guitar.
+    const cands = allDistinctVoicings(ch.quality, root, { allShapes: true });
     if (!cands.length) continue;
     let matchIdx = -1;
     if (cell.voicingType) {
@@ -9160,12 +9164,15 @@ const DEGREE_SHORTCUTS = {
    Each entry: {shape, type, ...meta}. meta carries stringSetIdx/inversion
    (drop-2/sus) or stringSet (shells/triads/guides) so the green info bar
    can describe what's currently selected. */
-function allDistinctVoicings(quality, rootPc) {
+function allDistinctVoicings(quality, rootPc, opts = {}) {
   const out = [];
   const seen = new Set();
   const keyOf = (sh) => sh.map((f, s) => f >= 0 ? `${s}.${f}` : '').filter(Boolean).sort().join(',');
-  // Skip the playability filter for piano (no fret constraints exist).
-  const needsPlayable = state.instrument !== 'piano';
+  // Skip the playability filter for piano (no fret constraints) or when
+  // an explicit opts.allShapes is passed — used by transpose-rebuild
+  // so a voicing defined in piano keeps its coordinate across keys
+  // even when the user later switches to guitar.
+  const needsPlayable = !opts.allShapes && state.instrument !== 'piano';
   const add = (sh, type, meta = {}) => {
     if (!sh) return;
     if (needsPlayable && !isPlayableShape(sh)) return;
