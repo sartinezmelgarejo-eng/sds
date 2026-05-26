@@ -1328,7 +1328,7 @@
     border-color: #1a1a1a;
   }
   .m-transport .m-tx-play.active {
-    background: #84cc16;          /* lime — bright "playing" state */
+    background: #22c55e;          /* clean bright green when playing */
     color: #1a1a1a;
     border-color: #1a1a1a;
   }
@@ -2554,19 +2554,53 @@
 
   #landscape-play .lp-btn:active { background: #1a1a1a; color: #fdfcf3; }
   #landscape-play .lp-btn.active { background: #1a1a1a; color: #fdfcf3; }
-  #landscape-play #lp-loop.active { background: #d4a017; color: #1a1a1a; border-color: #d4a017; }
+  /* Loop button: yellow when section-looping, orange when song-looping.
+     Same palette as the mobile transport for visual continuity. */
+  #landscape-play #lp-loop.active {
+    background: #fbbf24;
+    color: #1a1a1a;
+    border-color: #1a1a1a;
+  }
+  #landscape-play #lp-loop.loop-song {
+    background: #f97316;
+    color: #1a1a1a;
+  }
+  /* Badge over the landscape loop button (bar count when section,
+     "S" when song). Mirrors the toolbar / mobile transport badges. */
+  #landscape-play #lp-loop {
+    position: relative;
+  }
+  #landscape-play #lp-loop.loop-song::after,
+  #landscape-play #lp-loop.active:not(.loop-song)::after {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 800;
+    color: #1a1a1a;
+    pointer-events: none;
+  }
+  #landscape-play #lp-loop.loop-song::after { content: 'S'; }
+  #landscape-play #lp-loop.active:not(.loop-song)::after { content: attr(data-section); }
   #landscape-play .lp-btn-play {
     background: #059669;
     color: #fdfcf3;
   }
   #landscape-play .lp-btn-play.active {
-    background: #1a1a1a;
-    color: #fdfcf3;
+    background: #22c55e;          /* bright green when playing */
+    color: #1a1a1a;
   }
   #landscape-play .lp-btn-play.paused {
     background: #059669;
     color: #fdfcf3;
   }
+  /* SVG icons in landscape: same setup as mobile — currentColor so the
+     icon flips when the button inverts. */
+  #landscape-play .lp-ico { width: 28px; height: 28px; display: block; pointer-events: none; }
+  #landscape-play .lp-btn-play .lp-ico-pause { display: none; }
+  #landscape-play .lp-btn-play.active .lp-ico-play  { display: none; }
+  #landscape-play .lp-btn-play.active .lp-ico-pause { display: block; }
   #landscape-play .lp-btn-stop {
     background: #dc2626;
     color: #fdfcf3;
@@ -2906,10 +2940,17 @@
     </div>
     <!-- Middle row: pitch shift (left) + loop (right) split. -->
     <button class="lp-btn" id="lp-cycle"    title="PITCHED — key shift per loop">·</button>
-    <button class="lp-btn" id="lp-loop"     title="Loop section">⟲</button>
+    <button class="lp-btn" id="lp-loop"     title="Loop section">
+      <svg viewBox="0 0 24 24" class="lp-ico" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+    </button>
     <!-- Bottom row: play (left) + stop (right). -->
-    <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">▶</button>
-    <button class="lp-btn lp-btn-stop" id="lp-stop" title="Stop and reset" hidden>⏹</button>
+    <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">
+      <svg viewBox="0 0 24 24" class="lp-ico lp-ico-play" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+      <svg viewBox="0 0 24 24" class="lp-ico lp-ico-pause" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <button class="lp-btn lp-btn-stop" id="lp-stop" title="Stop and reset" hidden>
+      <svg viewBox="0 0 24 24" class="lp-ico" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
+    </button>
   </div>
 </div>
 
@@ -9295,7 +9336,8 @@ function lp_syncControls() {
   const isPlaying = !!(typeof player !== 'undefined' && player && player.playing);
   const isPaused  = !!(typeof player !== 'undefined' && player && player.paused);
   if (play) {
-    play.textContent = isPlaying ? '⏸︎' : '▶︎';
+    // SVG icons swap via CSS based on .active — don't touch textContent
+    // (would wipe the SVGs).
     play.classList.toggle('active', isPlaying);
     play.classList.toggle('paused', isPaused);
     play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
@@ -9310,7 +9352,13 @@ function lp_syncControls() {
   if (loop) {
     const isOn = loopMode !== 'off';
     loop.classList.toggle('active', isOn);
-    loop.textContent = loopMode === 'song' ? '⟲🎵' : '⟲';
+    loop.classList.toggle('loop-song', loopMode === 'song');
+    // Bar-count badge (matches the toolbar / mobile transport) so the
+    // user sees "this loop is N bars" at a glance.
+    const realLoop = document.getElementById('loop-toggle');
+    if (realLoop && realLoop.dataset.section) {
+      loop.dataset.section = realLoop.dataset.section;
+    }
     loop.title = loopMode === 'off' ? 'loop off'
       : loopMode === 'section' ? 'looping section' : 'looping song';
   }
