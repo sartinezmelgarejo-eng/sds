@@ -6178,6 +6178,24 @@ class Player {
 
     let best = null;
     const prevStrings = prevShape.map((f, i) => f >= 0 ? i : -1).filter(i => i >= 0).join(',');
+    // ── Goodrick rule prep ──
+    // Compute the MIDI pitches of prev's top voice + its set of
+    // (string,fret) pairs, so each candidate can be quickly tested
+    // for: common-tone, stepwise-top, or register-continuity.
+    const prevTopMidi = (() => {
+      let top = -Infinity;
+      for (let s = 0; s < 6; s++) {
+        if (prevShape[s] >= 0) {
+          const m = STRING_OPEN_MIDI[s] + prevShape[s];
+          if (m > top) top = m;
+        }
+      }
+      return top;
+    })();
+    const prevPairs = new Set();
+    for (let s = 0; s < 6; s++) {
+      if (prevShape[s] >= 0) prevPairs.add(`${s}.${prevShape[s]}`);
+    }
     for (const sh of filtered) {
       // Per-string voice movement on overlapping strings
       let moveSum = 0, overlapCount = 0;
@@ -6198,8 +6216,30 @@ class Player {
       let recoveryBias = 0;
       if (prevAvg > 9.5 && af < prevAvg - 0.5) recoveryBias = -2;
       if (prevAvg < 4 && af > prevAvg + 0.5) recoveryBias = -2;
-      // Weight: voice-leading * 1, region shift * 1.8, sweet-spot * 1, string set * 4, recovery * 1
-      const score = (overlapCount ? moveSum : 5) + regionShift * 1.8 + stringSetPenalty + regSpot + recoveryBias;
+      // ── Goodrick penalty ──
+      // A switch must preserve at least ONE of:
+      //   (a) common tone — a shared (string, fret) pair
+      //   (b) stepwise top voice — top note moves by ≤ M3 (4 semitones)
+      //   (c) register continuity — avg fret shift ≤ 2.0
+      // Breaking all three sounds like a jump-cut. Soft penalty so it's
+      // only chosen if no better option exists.
+      let hasCommon = false;
+      for (let s = 0; s < 6; s++) {
+        if (sh[s] >= 0 && prevPairs.has(`${s}.${sh[s]}`)) { hasCommon = true; break; }
+      }
+      let candTopMidi = -Infinity;
+      for (let s = 0; s < 6; s++) {
+        if (sh[s] >= 0) {
+          const m = STRING_OPEN_MIDI[s] + sh[s];
+          if (m > candTopMidi) candTopMidi = m;
+        }
+      }
+      const topStep = (prevTopMidi !== -Infinity && candTopMidi !== -Infinity)
+        ? Math.abs(candTopMidi - prevTopMidi) <= 4 : false;
+      const registerCont = regionShift <= 2.0;
+      const goodrickPenalty = (hasCommon || topStep || registerCont) ? 0 : 9;
+      // Weight: voice-leading * 1, region shift * 1.8, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9
+      const score = (overlapCount ? moveSum : 5) + regionShift * 1.8 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty;
       if (!best || score < best.score) best = {shape: sh, score};
     }
     return best ? best.shape : filtered[0];
