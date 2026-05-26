@@ -2958,6 +2958,40 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   return null;
 }
 
+/* ─── Drop-3 voicing ───
+   Same idea as drop-2 but we drop the 3rd voice from the TOP (not the
+   2nd) by an octave — producing a wider chord with an extra-spread
+   bass note. On guitar this still fits on adjacent 4-string sets
+   (the wider gap shows up as a 7- to 8-fret span). Drop-3 is the
+   "missing link" between shells (3-note, dense) and drop-2 (4-note,
+   compact): same chord-tone subset, more space, more bass presence.
+
+   References: Randy Vincent "Three-Note Voicings and Beyond", Jens
+   Larsen's voicing chain (shell → drop-3 → triad → drop-2).
+*/
+function dropThreeVoicing(quality, rootPc, stringSetIdx, inversion) {
+  const q = QUALITIES[quality];
+  if (!q || q.ints.length !== 4) return null;
+  let close = [...q.ints];
+  for (let i = 0; i < inversion; i++) {
+    close = [close[1], close[2], close[3], close[0] + 12];
+  }
+  // Drop the 3rd voice from the top (close[1]) down an octave.
+  const dropped = [close[0], close[1] - 12, close[2], close[3]].sort((a, b) => a - b);
+  const set = STRING_SETS[stringSetIdx].idx;
+  for (let oct = 24; oct <= 84; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = dropped.map(s => rootMidi + s);
+    const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
+}
+
 /* ─── Sus voicings ───
    Substitution voicing: rebuild any chord as a 4-note 7sus4 (R-4-5-7).
    The 3rd gets replaced by the 4th, the 7th is preserved (or defaults to b7
@@ -4274,11 +4308,12 @@ function renderAlternatives() {
     }
     return c.stringSet || '';   // shells/triads/guides → just the set letter
   };
-  const FAMILY = { drop2: 'Drop-2', shell: 'Shells', triad: 'Triads', guide: 'Guides', sus: 'Sus' };
+  const FAMILY = { drop2: 'Drop-2', drop3: 'Drop-3', shell: 'Shells', triad: 'Triads', guide: 'Guides', sus: 'Sus' };
   // Per-family ink color so each voicing group has its own identity on the
   // cream paper background. Tuned to coexist (not compete) with each other.
   const FAMILY_COLOR = {
     drop2: '#3a4050',   // charcoal — the default jazz voicing
+    drop3: '#2a5a6a',   // teal — wider voicing, more bass
     shell: '#4a7a5a',   // muted forest green — guide-tone feel
     triad: '#9a5a3a',   // warm terracotta — bright, clean
     guide: '#5a6a8a',   // slate blue — minimal, cool
@@ -5421,8 +5456,9 @@ document.addEventListener('click', e => {
 
 /* ─── Voicing-type preference ─── */
 const VOICING_OPTIONS = [
-  {value: 'all',   emoji: '🎼', label: 'All',    desc: 'mix of drop-2, shells, triads'},
+  {value: 'all',   emoji: '🎼', label: 'All',    desc: 'mix of drop-2, drop-3, shells, triads'},
   {value: 'drop2', emoji: '🎷', label: 'Drop-2', desc: '4-note jazz voicings'},
+  {value: 'drop3', emoji: '🎺', label: 'Drop-3', desc: 'wider 4-note voicings (extra bass spread)'},
   {value: 'shell', emoji: '🌰', label: 'Shells', desc: 'R + 3 + 7 guide tones'},
   {value: 'triad', emoji: '🔺', label: 'Triads', desc: '3-note R + 3 + 5'},
   {value: 'guide', emoji: '✌️', label: '3rds + 7ths', desc: 'shells without the root'},
@@ -6010,10 +6046,14 @@ class Player {
   _pickVoicingType() {
     // Honor user preference: if a specific type is chosen, always use it
     if (voicingPref !== 'all') return voicingPref;
-    // 'all' = mix of the rich voicings (no guide-tones in random mode)
+    // 'all' = mix of the rich voicings. Weighted to roughly match real
+    // recordings (Wes / Bickert / Pass averages from the pedagogy
+    // research): drop-2 still dominates but drop-3, shells and triads
+    // get meaningful air-time.
     const r = Math.random();
-    if (r < 0.70) return 'drop2';
-    if (r < 0.88) return 'shell';
+    if (r < 0.50) return 'drop2';
+    if (r < 0.68) return 'drop3';
+    if (r < 0.86) return 'shell';
     return 'triad';
   }
 
@@ -6024,6 +6064,13 @@ class Player {
       for (let ss = 0; ss < STRING_SETS.length; ss++) {
         for (let inv = 0; inv < 4; inv++) {
           const sh = dropTwoVoicing(quality, root, ss, inv);
+          if (sh) cands.push(sh);
+        }
+      }
+    } else if (type === 'drop3') {
+      for (let ss = 0; ss < STRING_SETS.length; ss++) {
+        for (let inv = 0; inv < 4; inv++) {
+          const sh = dropThreeVoicing(quality, root, ss, inv);
           if (sh) cands.push(sh);
         }
       }
@@ -9099,6 +9146,18 @@ function allDistinctVoicings(quality, rootPc) {
     }
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
+
+  // 1.5 Drop-3 (3 string sets × 4 inversions × N octaves) — wider
+  // 4-note voicings; the "missing link" between shells and drop-2.
+  const drop3s = [];
+  for (let ss = 0; ss < STRING_SETS.length; ss++) {
+    for (let inv = 0; inv < 4; inv++) {
+      const base = dropThreeVoicing(quality, rootPc, ss, inv);
+      if (!base) continue;
+      withOctaves(sh => drop3s.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
+    }
+  }
+  drop3s.sort(byReg).forEach(d => add(d.shape, 'drop3', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
 
   // 2. Shells (2 root-position string sets — no rotations on guitar)
   const shells = [];
