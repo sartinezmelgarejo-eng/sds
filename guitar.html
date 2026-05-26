@@ -6356,6 +6356,92 @@ const PROGRESSIONS = {
   ]
 };
 
+/* ─── Per-progression voicing preferences ───
+   Each progression gets its own family weights so a Bossa picks
+   drop-3 heavy, a Bach passage picks triads/shells, a Rhythm Changes
+   stays in drop-2 territory. Weights are taken VERBATIM (no blending
+   with global defaults). Progressions not listed fall back to the
+   default mix in _pickVoicingType.
+
+   Sister families (for coherence bonus when transitioning between
+   sections): drop2 ↔ drop3, shell ↔ triad. */
+const SISTER_FAMILY = {
+  drop2: 'drop3',
+  drop3: 'drop2',
+  shell: 'triad',
+  triad: 'shell',
+};
+const PROGRESSION_VOICING = {
+  // major
+  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0},
+  'I–IV–V–I':                     {drop2:35, drop3:10, shell:10, triad:45, sus:0},
+  'vi–IV–I–V':                    {drop2:40, drop3:15, shell:10, triad:35, sus:0},
+  'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0},
+  'I–V–vi–IV':                    {drop2:40, drop3:10, shell:10, triad:40, sus:0},
+  'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0},
+  'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0},
+  'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0},
+  'I–vii°–vi–V':                  {drop2:25, drop3:15, shell:20, triad:40, sus:0},
+  'ii–vii°–I (chromatic approach)':{drop2:45, drop3:15, shell:30, triad:10, sus:0},
+  'V7sus–V–I':                    {drop2:25, drop3:10, shell:10, triad:5,  sus:50},
+  'ii–V7sus–V–I':                 {drop2:30, drop3:10, shell:10, triad:5,  sus:45},
+  'I–V7sus–IV (modal)':           {drop2:25, drop3:10, shell:5,  triad:5,  sus:55},
+  'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0},
+  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0},
+  'I–IV (long)':                  {drop2:35, drop3:15, shell:15, triad:35, sus:0},
+  'Pop ballad I–V–vi–IV ×2':      {drop2:35, drop3:10, shell:10, triad:45, sus:0},
+  'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
+  'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0},
+  'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0},
+  'I – V/V – V – I':              {drop2:55, drop3:25, shell:15, triad:5,  sus:0},
+  'iii – V/ii – ii – V – I':      {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
+  'bII7 – I (tritone sub)':       {drop2:50, drop3:30, shell:15, triad:5,  sus:0},
+  'ii – bII7 – I':                {drop2:55, drop3:30, shell:10, triad:5,  sus:0},
+  'iv – I (borrowed)':            {drop2:40, drop3:35, shell:20, triad:5,  sus:0},
+  'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0},
+  'I – iv – bVII – I':            {drop2:30, drop3:50, shell:15, triad:5,  sus:0},
+  'AABA-A double':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0},
+  // minor
+  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
+  'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0},
+  'i–bVII–bVI–V7 (Andalusian)':   {drop2:20, drop3:30, shell:10, triad:40, sus:0},
+  'i–iv–bVII–bIII':               {drop2:30, drop3:45, shell:10, triad:15, sus:0},
+  'bVI–bVII–i':                   {drop2:25, drop3:35, shell:10, triad:30, sus:0},
+  'iiø–bII7–i (tritone sub)':     {drop2:55, drop3:25, shell:15, triad:5,  sus:0},
+  'iv–bII7–i':                    {drop2:55, drop3:25, shell:15, triad:5,  sus:0},
+  'vii°7–i Bach cadence':         {drop2:15, drop3:15, shell:25, triad:45, sus:0},
+  'i–IV–V7–i (parallel IV)':      {drop2:50, drop3:25, shell:15, triad:10, sus:0},
+  'iiø–V/V–V7–i':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
+  'V7sus–V7–i':                   {drop2:25, drop3:10, shell:10, triad:5,  sus:50},
+  'iiø–V7sus–V7–i':               {drop2:30, drop3:10, shell:10, triad:5,  sus:45},
+  'i–iv–V7–i (long)':             {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
+  'bIII–bVI–iiø–V7–i':            {drop2:45, drop3:30, shell:20, triad:5,  sus:0},
+  'Andalusian extended':          {drop2:15, drop3:30, shell:5,  triad:50, sus:0},
+  'Minor blues fragment':         {drop2:60, drop3:15, shell:20, triad:5,  sus:0},
+  'i–V/iv–iv–V7 turnaround':      {drop2:50, drop3:30, shell:15, triad:5,  sus:0},
+  'iiø–V7–iv–bII7–i':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0},
+  'i–IV–iiø–V7 (modal mix)':      {drop2:50, drop3:25, shell:15, triad:10, sus:0},
+  'Picardy ending':               {drop2:25, drop3:30, shell:25, triad:20, sus:0},
+  'bIII7 backdoor':               {drop2:30, drop3:50, shell:15, triad:5,  sus:0},
+  'Romance bossa':                {drop2:25, drop3:55, shell:15, triad:5,  sus:0},
+  'Minor AABA-A':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
+  'Jazz minor long':              {drop2:45, drop3:35, shell:15, triad:5,  sus:0},
+};
+
+// Weighted-random pick from a {family: weight} map. Sums weights and
+// rolls a number in [0, total), then walks the keys until reached.
+function _weightedPickFamily(weights) {
+  let total = 0;
+  for (const k in weights) total += weights[k];
+  if (total <= 0) return 'drop2';
+  let r = Math.random() * total;
+  for (const k in weights) {
+    r -= weights[k];
+    if (r <= 0) return k;
+  }
+  return Object.keys(weights)[0];
+}
+
 /* ─── AI Player — travels through real progressions with sections + repeats ─── */
 
 class Player {
@@ -6384,18 +6470,32 @@ class Player {
     return 'fifth';                     // root on 1, fifth on 3 — boom-chuck
   }
 
-  _pickVoicingType() {
+  _pickVoicingType(opts) {
     // Honor user preference: if a specific type is chosen, always use it
     if (voicingPref !== 'all') return voicingPref;
-    // 'all' = mix of the rich voicings. Drop-2 stays the comfortable
-    // default (~62% of sections) so most progressions feel familiar;
-    // the others get section-time so the player still hears texture
-    // variety across tunes.
-    const r = Math.random();
-    if (r < 0.62) return 'drop2';
-    if (r < 0.78) return 'drop3';
-    if (r < 0.92) return 'shell';
-    return 'triad';
+    // Progression-aware weights: each progression has its own family
+    // preference (bossa → drop-3, Bach → triads, etc.). Fall back to a
+    // sensible default mix if the progression isn't tagged.
+    const progName = opts && opts.progName;
+    const baseWeights = (progName && PROGRESSION_VOICING[progName])
+      || { drop2: 62, drop3: 16, shell: 14, triad: 8, sus: 0 };
+    // Clone so we don't mutate the master map when we apply continuity
+    // bonuses below.
+    const weights = Object.assign({}, baseWeights);
+    // Coherence bias: subsequent sections nudge toward the previous
+    // section's family for continuity. Same-identity sections (A→A)
+    // get a strong bonus; different identities (A→B, bridge) get a
+    // gentler one so the bridge can still contrast meaningfully.
+    const prev = opts && opts.prevType;
+    if (prev) {
+      const sameIdentity = !!(opts && opts.sameIdentity);
+      const bonus       = sameIdentity ? 80 : 25;
+      const sisterBonus = sameIdentity ? 20 : 10;
+      weights[prev] = (weights[prev] || 0) + bonus;
+      const sister = SISTER_FAMILY[prev];
+      if (sister) weights[sister] = (weights[sister] || 0) + sisterBonus;
+    }
+    return _weightedPickFamily(weights);
   }
 
   // Find the candidate shape of the chosen type that voice-leads best and stays anchored
@@ -6731,12 +6831,27 @@ class Player {
     // Pre-assign voicingType + bassPattern PER SECTION so playback is deterministic
     // (and the Real Book strip's lookahead can show the exact voicings that'll play).
     // Sections sharing the same identity (same A reused twice) keep the same type.
+    // Voicing pick is now progression-aware (per PROGRESSION_VOICING) and
+    // applies a continuity bonus from the previous section so AABA flows
+    // texturally instead of jumping families at random.
     const typeByLabel = {};
     const bassByLabel = {};
+    let prevType = null;
+    let prevLabel = null;
     return sections.map(s => {
-      const key = s.label + (s.modName || '');   // distinguish A_lifted from A_base
-      if (typeByLabel[key] === undefined) typeByLabel[key] = this._pickVoicingType();
+      const key = s.label + (s.modName || '');
+      if (typeByLabel[key] === undefined) {
+        const progName = s.progression && s.progression.name;
+        const sameIdentity = (prevLabel === key);
+        typeByLabel[key] = this._pickVoicingType({
+          progName,
+          prevType,
+          sameIdentity,
+        });
+      }
       if (bassByLabel[key] === undefined) bassByLabel[key] = this._pickBassPattern();
+      prevType = typeByLabel[key];
+      prevLabel = key;
       return { ...s, voicingType: typeByLabel[key], bassPattern: bassByLabel[key] };
     });
   }
