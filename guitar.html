@@ -2405,10 +2405,49 @@
   /* Stacked row layout: cycle, loop full-width; play + stop share
      the bottom row side-by-side. When stop is hidden, play spans
      the full row. */
-  #landscape-play #lp-cycle { grid-row: 1; grid-column: 1 / span 2; }
-  #landscape-play #lp-loop  { grid-row: 2; grid-column: 1 / span 2; }
+  /* Row 1: chord-info window spans full width.
+     Row 2: pitch shift (left) + loop (right).
+     Row 3: play (left) + stop (right). */
+  #landscape-play #lp-info  { grid-row: 1; grid-column: 1 / span 2; }
+  #landscape-play #lp-cycle { grid-row: 2; grid-column: 1; }
+  #landscape-play #lp-loop  { grid-row: 2; grid-column: 2; }
   #landscape-play #lp-play  { grid-row: 3; grid-column: 1; }
   #landscape-play #lp-stop  { grid-row: 3; grid-column: 2; }
+  /* Divider between cycle and loop (mirror the play/stop divider) */
+  #landscape-play #lp-loop {
+    border-top: 0 !important;
+    border-left: 2px solid #1a1a1a;
+  }
+  #landscape-play .lp-info {
+    background: #f0e6c8;
+    border: 0;
+    padding: 6px 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: hidden;
+    gap: 2px;
+  }
+  #landscape-play .lp-info-name {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-style: italic;
+    font-size: 18px;
+    color: #064e3b;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  #landscape-play .lp-info-sub {
+    font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    font-weight: 700;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    color: #4b5563;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
   #landscape-play .lp-controls:not(:has(#lp-stop:not([hidden]))) #lp-play {
     grid-column: 1 / span 2;
   }
@@ -2766,11 +2805,11 @@
            tabs strip. Buttons are proxies that .click() the real
            controls so all their logic / state stays in one place. -->
       <div class="m-transport" id="m-transport" hidden>
-        <button class="m-tx-btn" id="m-tx-loop" title="Loop">⟲</button>
-        <button class="m-tx-btn" id="m-tx-cycle" title="PITCHED">·</button>
         <button class="m-tx-btn m-tx-play" id="m-tx-play" title="Play / pause">▶</button>
         <button class="m-tx-btn m-tx-stop" id="m-tx-stop" title="Stop / reset" hidden>⏹</button>
-        <button class="m-tx-btn" id="m-tx-edit" title="Edit current chord" hidden>↩</button>
+        <button class="m-tx-btn" id="m-tx-loop" title="Loop">⟲</button>
+        <button class="m-tx-btn" id="m-tx-cycle" title="PITCHED">·</button>
+        <button class="m-tx-btn" id="m-tx-edit" title="Edit current chord" hidden>✏</button>
       </div>
     </div>
   </div>
@@ -2817,8 +2856,17 @@
        button proxies to the existing main-UI control by triggering
        a click (play/loop) or by mutating state.keyPc (key shift). -->
   <div class="lp-controls" id="lp-controls">
+    <!-- Top row: chord info "window" mirroring the green player-info
+         bar — shows the chord currently playing + its voicing, so
+         the user gets the same context they'd have on the main UI. -->
+    <div class="lp-info" id="lp-info">
+      <div class="lp-info-name" id="lp-info-name">—</div>
+      <div class="lp-info-sub"  id="lp-info-sub"></div>
+    </div>
+    <!-- Middle row: pitch shift (left) + loop (right) split. -->
     <button class="lp-btn" id="lp-cycle"    title="PITCHED — key shift per loop">·</button>
     <button class="lp-btn" id="lp-loop"     title="Loop section">⟲</button>
+    <!-- Bottom row: play (left) + stop (right). -->
     <button class="lp-btn lp-btn-play" id="lp-play" title="Play / pause">▶</button>
     <button class="lp-btn lp-btn-stop" id="lp-stop" title="Stop and reset" hidden>⏹</button>
   </div>
@@ -9220,6 +9268,33 @@ function lp_syncControls() {
     cycle.textContent = realCycle.textContent || '·';
     cycle.classList.toggle('active', realCycle.classList.contains('active'));
     if (realCycle.title) cycle.title = realCycle.title;
+  }
+  // Chord info window (top row of the landscape controls) — mirrors
+  // the green player-info bar: current chord name + voicing type.
+  const infoName = document.getElementById('lp-info-name');
+  const infoSub  = document.getElementById('lp-info-sub');
+  if (infoName && infoSub) {
+    const map = currentMap();
+    const flats = useFlatsFor(state.keyPc);
+    let chordId = null, type = null;
+    if (state.playerVoicing && state.playerVoicing.chord) {
+      chordId = state.playerVoicing.chord;
+      type    = state.playerVoicing.type;
+    } else if (state.focusedChord) {
+      chordId = state.focusedChord;
+    }
+    const ch = chordId ? map.chordDefs[chordId] : null;
+    if (ch) {
+      const root = (state.keyPc + ch.deg) % 12;
+      infoName.textContent = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+      const TLBL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
+      const typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
+      const roman = ch.roman || '';
+      infoSub.textContent = [roman, typeLabel].filter(Boolean).join(' · ');
+    } else {
+      infoName.textContent = '—';
+      infoSub.textContent = '';
+    }
   }
 }
 
