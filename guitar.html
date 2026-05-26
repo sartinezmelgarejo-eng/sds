@@ -7601,10 +7601,13 @@ document.addEventListener('click', e => {
     const consumed = cell.barIdxInChord || 0;
     player.barsRemaining = Math.max(1, step.bars - consumed);
   }
-  // Recompute totalBars to match the page+i so the strip's
-  // `currentIdx = totalBars % 4` highlights the new cell.
-  const curPage = Math.floor(player.totalBars / 4);
-  player.totalBars = curPage * 4 + i;
+  // Reset totalBars to a fresh page boundary so barInPage = 0 — that
+  // way, after we rebuild _cachedPage below, the new walk's cells[0]
+  // (which is now the clicked chord) lines up with currentIdx=0 in
+  // _renderRealBook. Without this, the highlight and the playing
+  // cell drift apart, and the player ends up triggering the chord
+  // at cells[i] of the OLD walk (which is a different bar entirely).
+  player.totalBars = Math.floor(player.totalBars / 4) * 4;
   // Anchor the next-trigger voicing chain on this exact shape so
   // resume picks up with the SAME inversion the user just heard
   // (without re-picking via the smoothest algorithm).
