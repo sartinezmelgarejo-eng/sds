@@ -1093,6 +1093,28 @@
     letter-spacing: 0;
     pointer-events: none;
   }
+  /* Mobile transport loop button mirrors the same A/S badge so the
+     section letter stays visible after the toolbar move. */
+  .m-tx-btn#m-tx-loop.loop-song::after,
+  .m-tx-btn#m-tx-loop.active:not(.loop-song)::after {
+    position: absolute;
+    top: 1px;
+    right: 3px;
+    font-family: 'SF Mono', monospace;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0;
+    pointer-events: none;
+  }
+  .m-tx-btn#m-tx-loop.loop-song::after { content: 'S'; color: #c14a17; }
+  .m-tx-btn#m-tx-loop.active:not(.loop-song)::after {
+    content: attr(data-section); color: #d4a017;
+  }
+  .m-tx-btn#m-tx-loop.loop-song {
+    background: #ffe9d4;
+    border-color: #c14a17;
+    color: #c14a17;
+  }
   /* Key-cycle button — tiny, sits next to the loop button. Only meaningful while looping. */
   .rb-cycle {
     height: 52px;
@@ -1231,6 +1253,77 @@
      handles its own padding inside #landscape-play. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
     padding-bottom: 14px;
+  }
+
+  /* ─── Mobile transport bar (vertical, below the realistic guitar) ───
+     Unifies play / stop / loop / cycle / edit into ONE strip so the
+     top toolbar can hand its space over to the green info bar.
+     Hidden by default; only shown in play mode on phone-sized
+     vertical viewports. Landscape (lp-on) has its own controls. */
+  .m-transport {
+    display: none;
+    gap: 6px;
+    padding: 6px 10px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+    justify-content: center;
+    align-items: center;
+  }
+  .m-transport .m-tx-btn {
+    min-width: 44px;
+    height: 38px;
+    padding: 0 10px;
+    background: #fdfcf3;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 6px;
+    font-size: 15px;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 700;
+    color: #1a1a1a;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .m-transport .m-tx-btn:active { background: #f0e6c8; }
+  .m-transport .m-tx-btn.active {
+    background: #fcecaa;
+    border-color: #c9a747;
+  }
+  .m-transport .m-tx-play {
+    background: #059669;
+    color: #fff;
+    border-color: #047857;
+  }
+  .m-transport .m-tx-play.active {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+  }
+  .m-transport .m-tx-stop {
+    background: #fff;
+    color: #dc2626;
+    border-color: #dc2626;
+  }
+  .m-transport .m-tx-stop.armed {
+    animation: mTxStopPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes mTxStopPulse {
+    0%, 100% { background: #dc2626; color: #fff; }
+    50%      { background: #fff;    color: #dc2626; }
+  }
+  .m-transport .m-tx-btn[hidden] { display: none !important; }
+  @media (max-width: 800px) {
+    /* Phone-sized: hide the duplicated top buttons. The keypad's
+       own play / clear / backspace already drive compose; the
+       new transport bar takes over once play mode kicks in. */
+    #auto-play,
+    #auto-stop,
+    #auto-edit { display: none !important; }
+    /* Hide the loop button at the end of the tabs row — it now
+       lives in the transport bar. */
+    body.player-active .rb-loop { display: none !important; }
+    /* Show the transport bar only when the player is active on
+       a vertical mobile viewport (not in landscape). */
+    body.player-active:not(.lp-on) .m-transport { display: flex; }
   }
   body:not(.player-active) .subdiv-bar:not(.playback-bar) {
     height: 18px;
@@ -2646,6 +2739,18 @@
         <div class="neck-label">chord</div>
         <svg class="scale-neck" id="chord-neck" preserveAspectRatio="xMidYMid meet"></svg>
         <svg class="piano-svg" id="chord-piano" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <!-- Mobile-only transport bar shown below the realistic guitar
+           while in play mode. Replaces the duplicated top toolbar
+           buttons + the loop button that lived at the end of the
+           tabs strip. Buttons are proxies that .click() the real
+           controls so all their logic / state stays in one place. -->
+      <div class="m-transport" id="m-transport" hidden>
+        <button class="m-tx-btn" id="m-tx-loop" title="Loop">⟲</button>
+        <button class="m-tx-btn" id="m-tx-cycle" title="PITCHED">·</button>
+        <button class="m-tx-btn m-tx-play" id="m-tx-play" title="Play / pause">▶</button>
+        <button class="m-tx-btn m-tx-stop" id="m-tx-stop" title="Stop / reset" hidden>⏹</button>
+        <button class="m-tx-btn" id="m-tx-edit" title="Edit current chord" hidden>↩</button>
       </div>
     </div>
   </div>
@@ -7639,7 +7744,69 @@ function _refreshAutoPlayUI() {
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
+  if (typeof syncMobileTransport === 'function') syncMobileTransport();
 }
+
+// Mirror state of the top-toolbar transport controls onto the mobile
+// transport bar (the one that lives below the realistic guitar in
+// vertical play mode). Same buttons, same logic — just a second face.
+function syncMobileTransport() {
+  const isPlaying = !!(typeof player !== 'undefined' && player && player.playing);
+  const isPaused  = !!(typeof player !== 'undefined' && player && player.paused);
+  // Play / Pause
+  const play = document.getElementById('m-tx-play');
+  if (play) {
+    play.textContent = isPlaying ? '⏸' : '▶';
+    play.classList.toggle('active', isPlaying);
+    play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
+  }
+  // Stop — only visible when there's something to halt; pulses while armed
+  const stop = document.getElementById('m-tx-stop');
+  if (stop) {
+    stop.hidden = !(isPlaying || isPaused);
+    stop.classList.toggle('armed', !!(player && player._stopArmed));
+  }
+  // Edit — same visibility rule as the top one
+  const edit = document.getElementById('m-tx-edit');
+  if (edit) edit.hidden = !(isPlaying || isPaused);
+  // Loop — copy label, active class, and section badge
+  const loop = document.getElementById('m-tx-loop');
+  const realLoop = document.getElementById('loop-toggle');
+  if (loop && realLoop) {
+    loop.classList.toggle('active', realLoop.classList.contains('active'));
+    loop.classList.toggle('loop-song', realLoop.classList.contains('loop-song'));
+    if (realLoop.dataset.section) loop.dataset.section = realLoop.dataset.section;
+    loop.title = realLoop.title || 'Loop';
+  }
+  // PITCHED cycle — mirror the label/state of the real cycle button
+  const cyc = document.getElementById('m-tx-cycle');
+  const realCyc = document.getElementById('cycle-toggle');
+  if (cyc && realCyc) {
+    cyc.textContent = realCyc.textContent || '·';
+    cyc.classList.toggle('active', realCyc.classList.contains('active'));
+    cyc.title = realCyc.title || 'PITCHED';
+  }
+}
+
+// Wire each mobile transport button to forward its click to the
+// matching real control. Once — at script load.
+(function wireMobileTransport() {
+  const proxies = [
+    ['m-tx-play',  'auto-play'],
+    ['m-tx-stop',  'auto-stop'],
+    ['m-tx-edit',  'auto-edit'],
+    ['m-tx-loop',  'loop-toggle'],
+    ['m-tx-cycle', 'cycle-toggle'],
+  ];
+  proxies.forEach(([proxyId, realId]) => {
+    const btn = document.getElementById(proxyId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const real = document.getElementById(realId);
+      if (real) real.click();
+    });
+  });
+})();
 
 document.getElementById('auto-play').addEventListener('click', () => {
   // Touching play/pause disarms the "ready to clear" state on stop.
@@ -8996,6 +9163,9 @@ function syncLoopSectionBadge() {
     if (sec && sec.label) label = sec.label;
   }
   btn.dataset.section = label;
+  // Propagate to the mobile transport loop button so its badge stays
+  // in sync with the same section letter.
+  if (typeof syncMobileTransport === 'function') syncMobileTransport();
 }
 
 function lp_syncControls() {
