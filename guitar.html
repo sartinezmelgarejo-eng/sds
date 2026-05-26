@@ -10108,9 +10108,16 @@ function composePlay() {
   // latter case it just starts the AI fresh, exactly like the header Play
   // button does (and gets the same 4-beat count-in).
   player.start();
-  const btn = document.getElementById('auto-play');
-  if (btn) { btn.classList.add('active'); btn.textContent = '⏸ AI'; }
-  document.body.classList.add('player-active');
+  // Re-run the full transport UI refresh so the mobile transport bar
+  // (and the top toolbar) get their stop / edit buttons + active
+  // classes synced — without this, starting from the keypad's ▶
+  // left the new mobile bar showing only loop/cycle/play.
+  if (typeof _refreshAutoPlayUI === 'function') _refreshAutoPlayUI();
+  else {
+    const btn = document.getElementById('auto-play');
+    if (btn) { btn.classList.add('active'); btn.textContent = '⏸ AI'; }
+    document.body.classList.add('player-active');
+  }
 }
 
 // Build the full compose keypad as a flat list of buttons. CSS positions them:
