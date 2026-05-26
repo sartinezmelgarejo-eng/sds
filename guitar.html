@@ -835,7 +835,11 @@
      it during play. Desktop keeps the keypad visible so the user
      can still type chords / cycle inversions while the AI plays. */
   @media (max-width: 800px) {
-    body.player-active .compose-pad { display: none; }
+    /* Only hide the keypad in play mode when there's no user
+       composition. When the user composed a progression, keep
+       the keypad visible during play so they can edit chords /
+       cycle inversions mid-playback. */
+    body.player-active:not(.has-composition) .compose-pad { display: none; }
   }
   .compose-btn {
     min-width: 42px;
@@ -10103,13 +10107,15 @@ function composeClear() {
   renderAll();
 }
 function composePlay() {
+  // Route the keypad's ▶ button through the same play/pause/resume
+  // logic the toolbar uses so the keypad doubles as a transport
+  // toggle while the AI is running (visible only on mobile with
+  // an active composition).
+  const real = document.getElementById('auto-play');
+  if (real) { real.click(); return; }
+  // Fallback: legacy direct-start (shouldn't normally hit this).
   if (player.playing) return;
-  // Works both with a typed composed progression AND without one — in the
-  // latter case it just starts the AI fresh, exactly like the header Play
-  // button does (and gets the same 4-beat count-in).
   player.start();
-  const btn = document.getElementById('auto-play');
-  if (btn) { btn.classList.add('active'); btn.textContent = '⏸ AI'; }
   document.body.classList.add('player-active');
 }
 
@@ -10187,6 +10193,12 @@ function renderComposeStrip() {
   const el = document.getElementById('real-book');
   const tabsEl = document.getElementById('real-book-tabs');
   if (!el || !tabsEl) return;
+  // Track whether we currently have a user-composed progression
+  // (regardless of whether AI is playing). The CSS uses this body
+  // class to decide if the compose keypad should stay visible
+  // during play mode — when there's a composition the user can
+  // edit-mid-play, when there isn't the keypad is hidden.
+  document.body.classList.toggle('has-composition', !!(state.composedProgression && state.composedProgression.length));
   if (player.playing) return;   // AI's own render takes over
 
   const seq = state.composedProgression;
