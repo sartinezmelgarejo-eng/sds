@@ -7601,13 +7601,13 @@ document.addEventListener('click', e => {
     const consumed = cell.barIdxInChord || 0;
     player.barsRemaining = Math.max(1, step.bars - consumed);
   }
-  // Reset totalBars to a fresh page boundary so barInPage = 0 — that
-  // way, after we rebuild _cachedPage below, the new walk's cells[0]
-  // (which is now the clicked chord) lines up with currentIdx=0 in
-  // _renderRealBook. Without this, the highlight and the playing
-  // cell drift apart, and the player ends up triggering the chord
-  // at cells[i] of the OLD walk (which is a different bar entirely).
-  player.totalBars = Math.floor(player.totalBars / 4) * 4;
+  // Keep totalBars at curPage*4 + i so barInPage = i — the clicked
+  // cell stays VISUALLY in place at strip position i. The cached
+  // page is already correct for those bars (it's a forward walk of
+  // the same song), so we don't rebuild it. Highlight + audio both
+  // come from cells[i] = the chord the user actually clicked.
+  const curPage = Math.floor(player.totalBars / 4);
+  player.totalBars = curPage * 4 + i;
   // Anchor the next-trigger voicing chain on this exact shape so
   // resume picks up with the SAME inversion the user just heard
   // (without re-picking via the smoothest algorithm).
@@ -7622,12 +7622,11 @@ document.addEventListener('click', e => {
       type: cell.voicingType || player.voicingType,
     };
   }
-  // Invalidate the cached page plan — its bar-by-bar walk was built
-  // from the OLD position. Without this, resume would replay the
-  // pre-jump trajectory (wrong chords, drift in voicings) while
-  // currentStepIdx says we're somewhere else.
-  player._cachedPage = null;
-  player._cachedPeek = null;
+  // Do NOT invalidate _cachedPage. The cells visible at index i and
+  // onward already represent the natural forward walk of the song
+  // — same trajectory the player would take after resuming from
+  // (cell.songIdx, cell.stepIdx). Invalidating would rebuild and
+  // visually shift the strip; keeping it preserves the layout.
   player._stopArmed = false;
   // Audition the chord directly using the strip's voicing — bypass
   // focusedShape / userVoicing so we don't disturb the rest of the
