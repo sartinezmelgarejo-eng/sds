@@ -6648,7 +6648,13 @@ class Player {
     const ctx = ensureAudio();
     this.playing = true;
     this.paused = false;
-    this._cachedPage = null;
+    // Do NOT invalidate _cachedPage here — when the user clicked a
+    // different cell while paused, the cache is exactly what we
+    // want to play (cells[barInPage] = the clicked chord/shape).
+    // Wiping it and rebuilding from the new (songIdx, stepIdx)
+    // would place the clicked chord at cells[0] but barInPage is
+    // still i, so the player would trigger cells[i] of the new
+    // walk — i bars in the future. Trust the cache.
     // Bring the metronome back if it was running when we paused, and
     // sync the bar to its next downbeat so chord 1 lands clean.
     if (this._metronomeWasOn) {
