@@ -3311,8 +3311,9 @@ function computeAllVoicings() {
     // 3. Predict using the SAME picker the player / compose code would
     //    use, so the card visually matches what'll sound on click.
     //    During AI playback we honor the section's voicingType. Idle:
-    //    we run pickByStrategy on the master catalog — same call,
-    //    same deterministic seed → same pick as composeAddChord makes.
+    //    we run pickByStrategy with the same prev-shape that
+    //    composeAddChord will see (last compose cell, or null when
+    //    the compose is empty) so the pick is identical.
     const ch = map.chordDefs[id];
     const r = chordRoot(ch);
     if (player && player.playing) {
@@ -3322,7 +3323,12 @@ function computeAllVoicings() {
     } else {
       const cands = allDistinctVoicings(ch.quality, r);
       if (cands.length) {
-        const idx = pickByStrategy(cands, focShape && focShape.shape);
+        // Mirror composeAddChord's prev-shape: last cell's shape if
+        // compose has content, otherwise null (first chord).
+        const seq = state.composedProgression;
+        const lastCell = seq && seq.length ? seq[seq.length - 1] : null;
+        const prevForPicker = lastCell && lastCell.shape ? lastCell.shape : null;
+        const idx = pickByStrategy(cands, prevForPicker);
         const c = cands[idx];
         result[id] = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion, stringSet: c.stringSet };
       } else {
