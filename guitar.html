@@ -7619,6 +7619,12 @@ document.addEventListener('click', e => {
       type: cell.voicingType || player.voicingType,
     };
   }
+  // Invalidate the cached page plan — its bar-by-bar walk was built
+  // from the OLD position. Without this, resume would replay the
+  // pre-jump trajectory (wrong chords, drift in voicings) while
+  // currentStepIdx says we're somewhere else.
+  player._cachedPage = null;
+  player._cachedPeek = null;
   player._stopArmed = false;
   // Audition the chord directly using the strip's voicing — bypass
   // focusedShape / userVoicing so we don't disturb the rest of the
