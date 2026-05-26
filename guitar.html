@@ -6268,8 +6268,14 @@ class Player {
         ? Math.abs(candTopMidi - prevTopMidi) <= 4 : false;
       const registerCont = regionShift <= 2.0;
       const goodrickPenalty = (hasCommon || topStep || registerCont) ? 0 : 9;
-      // Weight: voice-leading * 1, region shift * 1.8, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9
-      const score = (overlapCount ? moveSum : 5) + regionShift * 1.8 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty;
+      // Extra quadratic penalty for "register jumps" — even when
+      // voice-leading is decent, jumping more than 4 frets to a wildly
+      // different register sounds disjointed unless there's a clear
+      // reason (different family, new section). Soft so it can still
+      // happen when no closer voicing exists.
+      const jumpPenalty = regionShift > 4 ? Math.pow(regionShift - 4, 1.8) : 0;
+      // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1
+      const score = (overlapCount ? moveSum : 5) + regionShift * 2.4 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty + jumpPenalty;
       if (!best || score < best.score) best = {shape: sh, score};
     }
     return best ? best.shape : filtered[0];
@@ -9477,12 +9483,18 @@ function pickByStrategy(cands, prevShape) {
     } else if (strat === 'high') {
       score = (15 - af) + typeBias + noise;
     } else {
-      // smoothest: voice-leading + register + family bias + noise
+      // smoothest: voice-leading + sweet-spot + register-shift-from-prev
+      // + family bias + noise. The register-shift penalty keeps the
+      // picker from "jumping" to a wildly different fret area even
+      // when voice-leading score is OK — chords should stay in
+      // roughly the same hand position unless there's a clear win.
       const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
       const reg = Math.abs(af - 7);
       const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
       const setPref = c.stringSetIdx === 0 ? 3 : 0;
-      score = m + registerCost + setPref + typeBias + noise;
+      const regionShift = prevShape ? Math.abs(af - avgFret(prevShape)) : 0;
+      const jumpPenalty = regionShift > 4 ? Math.pow(regionShift - 4, 1.8) : 0;
+      score = m + registerCost + setPref + typeBias + noise + jumpPenalty;
     }
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   });
