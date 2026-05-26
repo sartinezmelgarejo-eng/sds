@@ -7175,6 +7175,14 @@ class Player {
   // Stored in `_cachedPage` (4 bars) + `_cachedPeek`. Both the strip render
   // AND the chord trigger READ from this — they cannot diverge.
   _buildPagePlan() {
+    // Promote the PREVIOUS peek (if any): when this rebuild is for the
+    // page immediately following the one whose peek we showed, the
+    // first cell's chord/shape should equal the peek we promised in
+    // the preview. Stash it so we can overwrite cells[0] below.
+    const promotedPeek = this._cachedPeek;
+    const wasFollowupPage = promotedPeek
+      && this._cachedPlanPage != null
+      && Math.floor(this.totalBars / 4) === this._cachedPlanPage + 1;
     this._cachedPage = [];
     this._cachedPeek = null;
     this._cachedPlanPage = Math.floor(this.totalBars / 4);   // tag for cache invalidation
@@ -7249,6 +7257,18 @@ class Player {
       }
     }
     while (this._cachedPage.length < 4) this._cachedPage.push(null);
+    // If we just rolled into the page that was previewed last bar,
+    // promote the previously-cached peek into cells[0] so the chord
+    // (and voicing) the user SAW in the imminent slot is what
+    // actually plays. Otherwise the preview can lie when re-picking
+    // produces a different family/inversion than was previewed.
+    if (wasFollowupPage && this._cachedPage[0] && promotedPeek
+        && promotedPeek.chord === this._cachedPage[0].chord) {
+      this._cachedPage[0] = promotedPeek;
+      // Also re-anchor the voice-leading chain from the promoted peek
+      // so cells[1..3] flow from it cleanly.
+      if (promotedPeek.shape) this.previousShape = promotedPeek.shape;
+    }
   }
 
   // Rebuild the plan only if it's stale (different page than what was cached,
