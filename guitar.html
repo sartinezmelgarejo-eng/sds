@@ -7983,6 +7983,10 @@ document.getElementById('cycle-toggle').addEventListener('click', e => {
   e.currentTarget.textContent = next.label;
   e.currentTarget.title = next.title;
   e.currentTarget.classList.toggle('active', cycleMode !== 'none');
+  // Push the new label/state to the mobile + landscape mirrors right
+  // away so the · / +1 / +5 visual is instant on every UI surface.
+  if (typeof syncMobileTransport === 'function') syncMobileTransport();
+  if (typeof lp_syncControls === 'function') lp_syncControls();
 });
 
 /* ─── Volume mixer popover ─── */
@@ -8149,6 +8153,12 @@ function syncMobileTransport() {
     btn.addEventListener('click', () => {
       const real = document.getElementById(realId);
       if (real) real.click();
+      // Re-sync the mobile transport mirror right away so labels /
+      // classes update on this tick — without it, cycle / loop
+      // mirrors looked frozen until the next playback tick.
+      if (typeof syncMobileTransport === 'function') syncMobileTransport();
+      // Landscape mirror too, in case the user is in landscape.
+      if (typeof lp_syncControls === 'function') lp_syncControls();
     });
   });
 })();
