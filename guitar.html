@@ -5481,7 +5481,7 @@ class Drone {
 }
 
 let droneTimbre = 'piano';
-let loopMode = 'off';  // 'off' | 'bars-4' | 'bars-8' | 'song'
+let loopMode = 'off';  // 'off' | 'bars-4' | 'section' | 'song'
 // Key-cycle modes: 'none' | 'chromatic' (+1 semitone per loop) | 'fourths' (+5)
 let cycleMode = 'none';
 // Labels show the semitone jump per loop with a leading "+" so it's
@@ -6663,10 +6663,10 @@ class Player {
       const bCells = state.composedProgression.slice(8, 16);
       const A_sec = buildSteps(aCells, 'A');
 
-      if (loopMode === 'bars-4' || loopMode === 'bars-8') {
-        // Fixed-bar loop: build a single A section out of the user's
-        // composition. The scheduler will snap back to bar 0 every N
-        // bars regardless of section structure.
+      if (loopMode === 'bars-4' || loopMode === 'section') {
+        // Anchored loop: build a single A section out of the user's
+        // composition. The scheduler will snap back to the anchor
+        // every N bars regardless of section structure.
         return [A_sec];
       }
 
@@ -7060,11 +7060,12 @@ class Player {
       }
       this.totalBars++;
       this.barsRemaining--;
-      // Fixed-bar loops (4 or 8): snap back to the loopAnchor — the
-      // page boundary captured at the moment the user enabled the
-      // loop. So "4" loops the 4 cells visible in the strip right
-      // now, "8" loops two pages.
-      const barsLoopLen = loopMode === 'bars-4' ? 4 : loopMode === 'bars-8' ? 8 : 0;
+      // Anchored loops (bars-4 or section): snap back to the
+      // loopAnchor captured at the moment the user enabled the loop.
+      // bars-4 loops the 4 visible strip cells; section loops the
+      // current section's bar length (4, 8, 16, whatever).
+      const anchorActive = (loopMode === 'bars-4' || loopMode === 'section') && this._loopAnchor;
+      const barsLoopLen = anchorActive ? this._loopAnchor.length : 0;
       if (barsLoopLen && this._loopAnchor
           && this.totalBars >= this._loopAnchor.totalBars + barsLoopLen) {
         const a = this._loopAnchor;
@@ -7436,10 +7437,10 @@ class Player {
     // Track the key as we simulate forward
     let simKeyPc = state.keyPc;
     const cycleStep = cycleMode === 'chromatic' ? 1 : cycleMode === 'fourths' ? 5 : 0;
-    // Fixed-bar loops: the scheduler snaps to bar 0 every N bars,
-    // so the lookahead has to do the same or the strip preview
-    // will show bars that never actually play.
-    const barsLoopLen = loopMode === 'bars-4' ? 4 : loopMode === 'bars-8' ? 8 : 0;
+    // Anchored loops: simulation has to mirror the scheduler's wrap
+    // so the strip preview matches the bars that'll actually play.
+    const anchorActive = (loopMode === 'bars-4' || loopMode === 'section') && this._loopAnchor;
+    const barsLoopLen = anchorActive ? this._loopAnchor.length : 0;
     let absoluteBars = this.totalBars;
     while (totalBars < n && safety++ < 30) {
       const section = this.song[songIdx];
@@ -7794,27 +7795,45 @@ class Player {
 const player = new Player();
 
 document.getElementById('loop-toggle').addEventListener('click', e => {
-  // Cycle: off → 4 bars → 8 bars → song → off
-  const LOOP_CYCLE = ['off', 'bars-4', 'bars-8', 'song'];
+  // Cycle: off → 4 bars → section → song → off
+  const LOOP_CYCLE = ['off', 'bars-4', 'section', 'song'];
   const idx = LOOP_CYCLE.indexOf(loopMode);
   loopMode = LOOP_CYCLE[(idx + 1) % LOOP_CYCLE.length];
-  // Anchor the fixed-bar loops to the current page boundary (the 4
-  // cells the user can see in the strip). When the wrap fires the
-  // scheduler restores to this anchor instead of bar 0 of the song.
-  if (loopMode === 'bars-4' || loopMode === 'bars-8') {
-    const N = loopMode === 'bars-4' ? 4 : 8;
+  // Anchor the bars-4 loop to the current page boundary (the 4 cells
+  // the user can see in the strip). Section loop anchors to the
+  // start of the section the player is currently in.
+  if (loopMode === 'bars-4') {
     const cur = player.totalBars || 0;
-    const anchorBar = Math.floor(cur / N) * N;
+    const anchorBar = Math.floor(cur / 4) * 4;
     const page = player._cachedPage;
-    // cells[0] of the current page sits at this anchorBar in song time —
-    // pull its (songIdx, stepIdx, sectionIter) so resume snaps cleanly.
     const anchorCell = (page && page[0]) ? page[0] : null;
     player._loopAnchor = {
+      kind: 'bars',
+      length: 4,
       totalBars:   anchorBar,
       songIdx:     anchorCell?.songIdx ?? player.songIdx,
       stepIdx:     anchorCell?.stepIdx ?? player.currentStepIdx,
       sectionIter: anchorCell?.sectionIter ?? player.sectionIter,
       keyPc:       state.keyPc,
+    };
+  } else if (loopMode === 'section') {
+    // Section anchor: start of the section the player is currently
+    // in. totalBars at section-start = current totalBars minus how
+    // many bars into the section we are.
+    const sec = player._currentSection?.();
+    const prog = sec?.progression;
+    const stepsBefore = prog?.steps?.slice(0, player.currentStepIdx) || [];
+    const barsConsumedInSection = stepsBefore.reduce((a, s) => a + (s.bars || 0), 0)
+                                + ((player._currentStep?.()?.bars || 0) - (player.barsRemaining || 0));
+    const sectionLen = (prog?.steps || []).reduce((a, s) => a + (s.bars || 0), 0) || 4;
+    player._loopAnchor = {
+      kind: 'section',
+      length: sectionLen,
+      totalBars: (player.totalBars || 0) - barsConsumedInSection,
+      songIdx: player.songIdx,
+      stepIdx: 0,
+      sectionIter: player.sectionIter,
+      keyPc: state.keyPc,
     };
   } else {
     player._loopAnchor = null;
@@ -7822,8 +7841,8 @@ document.getElementById('loop-toggle').addEventListener('click', e => {
   e.currentTarget.classList.toggle('active', loopMode !== 'off');
   e.currentTarget.classList.toggle('loop-song', loopMode === 'song');
   e.currentTarget.title = loopMode === 'off' ? 'loop off'
-    : loopMode === 'bars-4'  ? 'looping first 4 bars'
-    : loopMode === 'bars-8'  ? 'looping first 8 bars'
+    : loopMode === 'bars-4'  ? 'looping 4 bars (current page)'
+    : loopMode === 'section' ? 'looping current section'
                               : 'looping song';
   // When turning loop OFF mid-play AND a composed progression is active, the AI
   // takes over: regenerate the song so the composed progression becomes the A
@@ -9367,8 +9386,12 @@ function syncLoopSectionBadge() {
   if (!btn) return;
   // Badge value matches the loop mode directly: "4" / "8" / "S".
   // Empty when loop is off (no badge shown via :not(.active) CSS).
+  // Badge value matches the loop mode. For section, show the actual
+  // bar length of the anchored section (4 / 8 / 16 / etc.).
+  const sectionLen = (loopMode === 'section' && player._loopAnchor)
+    ? player._loopAnchor.length : 0;
   const label = loopMode === 'bars-4' ? '4'
-              : loopMode === 'bars-8' ? '8'
+              : loopMode === 'section' ? (sectionLen ? String(sectionLen) : 'S')
               : loopMode === 'song'   ? 'S' : '';
   btn.dataset.section = label;
   // Propagate to the mobile transport loop button so its badge stays
@@ -9407,7 +9430,7 @@ function lp_syncControls() {
     }
     loop.title = loopMode === 'off' ? 'loop off'
       : loopMode === 'bars-4'  ? 'looping 4 bars'
-      : loopMode === 'bars-8'  ? 'looping 8 bars'
+      : loopMode === 'section' ? 'looping section'
                                  : 'looping song';
   }
   // Cycle: mirror the main #cycle-toggle label (· / +1 / IV / etc.)
@@ -9501,7 +9524,7 @@ function renderLandscapeStandby() {
     loopBtn.classList.toggle('ls-loop-on', isOn);
     loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
       : loopMode === 'bars-4' ? '⟲ 4 bars'
-      : loopMode === 'bars-8' ? '⟲ 8 bars'
+      : loopMode === 'section' ? '⟲ Section'
                               : '⟲ Song';
   }
 
