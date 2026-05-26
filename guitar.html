@@ -3265,7 +3265,22 @@ function focusedShape() {
   if (state.userVoicing) {
     // If the user voicing carries a raw shape (shells/triads/AI voicings), use it directly.
     if (state.userVoicing.shape) {
-      return { shape: state.userVoicing.shape, ...state.userVoicing };
+      // If `type` (and friends) weren't passed in, derive them from
+      // the master catalog so the info bar can label the voicing
+      // correctly — otherwise it would fall back to "DROP-2" for
+      // every chord clicked from a compose cell.
+      const out = { shape: state.userVoicing.shape, ...state.userVoicing };
+      if (!out.type && fc && typeof allDistinctVoicings === 'function') {
+        const cands = allDistinctVoicings(fc.quality, root, { allShapes: true });
+        const match = cands.find(c => c.shape.every((f, i) => f === out.shape[i]));
+        if (match) {
+          out.type         = match.type;
+          out.stringSetIdx = match.stringSetIdx;
+          out.inversion    = match.inversion;
+          out.stringSet    = match.stringSet;
+        }
+      }
+      return out;
     }
     return {
       shape: dropTwoVoicing(fc.quality, root, state.userVoicing.stringSetIdx, state.userVoicing.inversion),
@@ -3276,13 +3291,24 @@ function focusedShape() {
   if (state.playerVoicing && state.playerVoicing.chord === state.focusedChord && state.playerVoicing.shape) {
     return { shape: state.playerVoicing.shape, type: state.playerVoicing.type };
   }
-  // Default: register-aware musical voicing
+  // Default: register-aware musical voicing.
+  // Propagate the FULL voicing metadata (type + stringSet/idx) so the
+  // green info bar can label it correctly — without `type`, the
+  // fallback used to say "DROP-2" for every chord, even when the
+  // pick was actually a shell / triad / drop-3.
   const v = bestStartingVoicing(fc.quality, root);
   if (v) {
-    return { shape: v.shape, stringSetIdx: v.stringSetIdx, inversion: v.inversion };
+    return {
+      shape: v.shape,
+      type: v.type,
+      stringSetIdx: v.stringSetIdx,
+      inversion: v.inversion,
+      stringSet: v.stringSet,
+    };
   }
   return {
     shape: dropTwoVoicing(fc.quality, root, 2, 0),
+    type: 'drop2',
     stringSetIdx: 2,
     inversion: 0,
   };
