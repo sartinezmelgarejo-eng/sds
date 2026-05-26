@@ -9336,17 +9336,18 @@ function composedCandidatesFor(quality, rootPc) {
 //   high      — maximize avgFret (high on the neck)
 //   random    — uniform random pick
 // Per-family bias used by the smoothest picker. Drop-2 stays the
-// "house default" but the other families now have realistic shots
-// of winning when their voice-leading is meaningfully better.
-// Calibrated against the Wes/Bickert/Pass mix ratios reported in
-// the pedagogy research — see also _pickVoicingType.
+// "house default" but bias is small enough that the others win when
+// voice-leading is comparable. Random ±3 noise is added to every
+// score so tied/near-tied cases break randomly across families
+// (not always to drop-2). Aim: real variety on subsequent picks,
+// drop-2 still ~half the time on average.
 const FAMILY_BIAS = {
   drop2: 0,
-  drop3: 4,
-  shell: 6,
-  triad: 9,
-  guide: 14,
-  sus:   12,
+  drop3: 1,
+  shell: 2,
+  triad: 3,
+  guide: 6,
+  sus:   5,
 };
 function pickByStrategy(cands, prevShape) {
   if (!cands || !cands.length) return -1;
@@ -9355,19 +9356,22 @@ function pickByStrategy(cands, prevShape) {
   let bestIdx = 0, bestScore = Infinity;
   cands.forEach((c, i) => {
     const af = avgFret(c.shape);
-    const typeBias = FAMILY_BIAS[c.type] ?? 8;
+    const typeBias = FAMILY_BIAS[c.type] ?? 4;
+    // Random ±3 jitter so near-tied scores don't always resolve to
+    // the same family (which is what made everything come out drop-2).
+    const jitter = (Math.random() - 0.5) * 6;
     let score;
     if (strat === 'low') {
-      score = af + typeBias * 0.3;
+      score = af + typeBias + jitter;
     } else if (strat === 'high') {
-      score = (15 - af) + typeBias * 0.3;
+      score = (15 - af) + typeBias + jitter;
     } else {
-      // smoothest: voice-leading + register + family preference
+      // smoothest: voice-leading + register + family bias + jitter
       const m = prevShape ? totalVoiceMovement(prevShape, c.shape) : 0;
       const reg = Math.abs(af - 7);
       const registerCost = reg <= 2 ? 0 : Math.pow(reg - 2, 1.5);
       const setPref = c.stringSetIdx === 0 ? 3 : 0;
-      score = m + registerCost + setPref + typeBias;
+      score = m + registerCost + setPref + typeBias + jitter;
     }
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   });
