@@ -10237,7 +10237,12 @@ function renderComposeStrip() {
   const el = document.getElementById('real-book');
   const tabsEl = document.getElementById('real-book-tabs');
   if (!el || !tabsEl) return;
-  if (player.playing) return;   // AI's own render takes over
+  // While the player owns the strip — both PLAYING and PAUSED — let
+  // its own render keep the playback view (tabs + realistic guitar
+  // are frozen on the bar the user is on). Without this, pausing a
+  // composed song reverted the strip back to the compose render and
+  // wiped the visible tabs.
+  if (player.playing || player.paused) return;
 
   const seq = state.composedProgression;
   if (!seq.length) {
