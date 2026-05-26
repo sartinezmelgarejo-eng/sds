@@ -9269,17 +9269,23 @@ function renderLandscapePlay() {
 function syncLoopSectionBadge() {
   const btn = document.getElementById('loop-toggle');
   if (!btn) return;
-  let label = 'A';
+  // Show the total bar count of the section currently set to loop —
+  // more useful than a letter (you immediately know "this loop is 4
+  // bars / 8 bars / 16 bars"). Falls back to '?' if no song yet.
+  let label = '?';
   if (window.player && player.song && player.song.length) {
     const idx = (player.playing && Number.isFinite(player.songIdx))
       ? player.songIdx
       : 0;
     const sec = player.song[idx];
-    if (sec && sec.label) label = sec.label;
+    if (sec && sec.progression && sec.progression.steps) {
+      const totalBars = sec.progression.steps.reduce((a, s) => a + (s.bars || 0), 0);
+      if (totalBars > 0) label = String(totalBars);
+    }
   }
   btn.dataset.section = label;
   // Propagate to the mobile transport loop button so its badge stays
-  // in sync with the same section letter.
+  // in sync with the same bar count.
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
 }
 
