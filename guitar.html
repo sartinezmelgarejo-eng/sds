@@ -2594,6 +2594,7 @@
       <button class="auto-btn keypad-toggle" id="keypad-toggle" title="show/hide compose keypad">⌨</button>
       <button class="auto-btn" id="auto-play">▶ AI</button>
       <button class="auto-btn" id="auto-stop" title="Stop and reset to start" hidden>⏹</button>
+      <button class="auto-btn" id="auto-edit" title="Exit & edit — stop, focus on current chord in compose" hidden>↩ Edit</button>
       <div class="midi-wrap" id="midi-wrap" style="display:none;position:relative">
         <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
         <div class="midi-menu" id="midi-menu" hidden></div>
@@ -6604,6 +6605,32 @@ class Player {
     // so resume() replays it from the top instead of finishing mid-bar.
     const step = this._currentStep();
     if (step) this.barsRemaining = step.bars;
+    // When pausing while a composition is driving the AI, select the
+    // current chord in the compose strip so the user can immediately
+    // edit it — same selection state they'd get from clicking the cell.
+    const curChord = this._currentChordId();
+    if (curChord && state.composedProgression && state.composedProgression.length) {
+      const idx = (this.currentStepIdx >= 0
+                   && this.currentStepIdx < state.composedProgression.length
+                   && state.composedProgression[this.currentStepIdx]?.chord === curChord)
+        ? this.currentStepIdx
+        : state.composedProgression.findIndex(c => c.chord === curChord);
+      if (idx >= 0) {
+        state.composedSelectedIdx = idx;
+        state._composeFocusedIdx  = idx;
+        state.focusedChord = curChord;
+        const cell = state.composedProgression[idx];
+        if (cell && cell.shape) {
+          state.userVoicing = {
+            shape: cell.shape,
+            type: cell.voicingType,
+            stringSetIdx: cell.stringSetIdx,
+            inversion: cell.inversion,
+            stringSet: cell.stringSet,
+          };
+        }
+      }
+    }
     this._updateVisuals();
   }
 
@@ -7527,6 +7554,8 @@ function _refreshAutoPlayUI() {
     stop.classList.toggle('armed', !!player._stopArmed);
     stop.title = player._stopArmed ? 'Tap again to clear' : 'Rewind / stop';
   }
+  const edit = document.getElementById('auto-edit');
+  if (edit) edit.hidden = !(player.playing || player.paused);
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
@@ -7626,6 +7655,56 @@ document.getElementById('auto-stop').addEventListener('click', () => {
     updateRhythmBtn();
   }
   _refreshAutoPlayUI();
+});
+
+// Exit-and-edit: stop the player completely and drop the user into
+// compose mode focused on the chord that was just playing — so they
+// can immediately edit the bar they were on. If the playing song
+// has no composition (pure AI), we still focus on the chord but
+// don't auto-create cells.
+document.getElementById('auto-edit').addEventListener('click', () => {
+  if (!player.playing && !player.paused) return;
+  // Capture the current chord BEFORE stop() wipes state.
+  const curChord = player._currentChordId && player._currentChordId();
+  // If there's an actual composition driving the AI, find the index
+  // that maps to the currently-playing chord and select it.
+  let selectIdx = -1;
+  if (curChord && state.composedProgression && state.composedProgression.length) {
+    const stepIdx = player.currentStepIdx ?? 0;
+    // Heuristic: stepIdx maps onto the composition slot (sections
+    // recycle composedProgression as their A material).
+    if (stepIdx >= 0 && stepIdx < state.composedProgression.length
+        && state.composedProgression[stepIdx]?.chord === curChord) {
+      selectIdx = stepIdx;
+    } else {
+      // Fallback: first compose cell whose chord matches.
+      selectIdx = state.composedProgression.findIndex(c => c.chord === curChord);
+    }
+  }
+  player._stopArmed = false;
+  player.stop();
+  if (metronome.playing) {
+    metronome.stop();
+    updateRhythmBtn();
+  }
+  if (curChord) state.focusedChord = curChord;
+  if (selectIdx >= 0) {
+    state.composedSelectedIdx = selectIdx;
+    state._composeFocusedIdx = selectIdx;
+    const cell = state.composedProgression[selectIdx];
+    if (cell && cell.shape) {
+      state.userVoicing = {
+        shape: cell.shape,
+        type: cell.voicingType,
+        stringSetIdx: cell.stringSetIdx,
+        inversion: cell.inversion,
+        stringSet: cell.stringSet,
+      };
+    }
+  }
+  _refreshAutoPlayUI();
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
 });
 
 /* ─── Pentatonic / scale box for the scale strip ─── */
