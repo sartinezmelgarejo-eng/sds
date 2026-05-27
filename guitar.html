@@ -6651,10 +6651,64 @@ let voicingPref = 'all';
 const voicingBtn  = document.getElementById('voicing-pref');
 const voicingMenu = document.getElementById('voicing-menu');
 
+// SVG illustrations per VOICE option — each one shows the note-stack
+// structure (4 dots dropped, 3 dots shell, 2 dots guide, etc.) so
+// the menu reads as a row of voicing "shapes" instead of arbitrary
+// emojis. Cell itself still displays the label text ("ALL", "DROP-2"
+// etc.); the drawings live only in the picker menu.
+const VOICE_ICONS = {
+  // ALL — mini musical staff with a few floating notes (echoes the
+  // original 🎼 emoji, says "mix of voicings" instantly)
+  all: `<svg viewBox="0 0 26 16">
+    <line x1="2" y1="4"  x2="24" y2="4"  stroke="#1a1a1a" stroke-width="0.55"/>
+    <line x1="2" y1="6.5" x2="24" y2="6.5" stroke="#1a1a1a" stroke-width="0.55"/>
+    <line x1="2" y1="9"  x2="24" y2="9"  stroke="#1a1a1a" stroke-width="0.55"/>
+    <line x1="2" y1="11.5" x2="24" y2="11.5" stroke="#1a1a1a" stroke-width="0.55"/>
+    <line x1="2" y1="14" x2="24" y2="14" stroke="#1a1a1a" stroke-width="0.55"/>
+    <ellipse cx="8"  cy="6.5" rx="1.6" ry="1.2" fill="#1a1a1a" transform="rotate(-20 8 6.5)"/>
+    <ellipse cx="14" cy="11.5" rx="1.6" ry="1.2" fill="#1a1a1a" transform="rotate(-20 14 11.5)"/>
+    <ellipse cx="20" cy="9"  rx="1.6" ry="1.2" fill="#1a1a1a" transform="rotate(-20 20 9)"/>
+  </svg>`,
+  // DROP-2 — big bold "2" with a down-arrow next to it
+  drop2: `<svg viewBox="0 0 26 16">
+    <text x="9" y="13.5" font-size="14" font-weight="900" font-family="'JetBrains Mono', monospace" fill="#1a1a1a" text-anchor="middle">2</text>
+    <path d="M 17 4 L 17 11 M 14.5 9 L 17 12 L 19.5 9" stroke="#1a1a1a" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  // DROP-3 — same pattern, "3"
+  drop3: `<svg viewBox="0 0 26 16">
+    <text x="9" y="13.5" font-size="14" font-weight="900" font-family="'JetBrains Mono', monospace" fill="#1a1a1a" text-anchor="middle">3</text>
+    <path d="M 17 4 L 17 11 M 14.5 9 L 17 12 L 19.5 9" stroke="#1a1a1a" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`,
+  // SHELL — half-shell silhouette (clam/scallop), ridge lines fanning out
+  shell: `<svg viewBox="0 0 26 16">
+    <path d="M 13 2.5 L 4 13.5 L 22 13.5 Z" fill="none" stroke="#1a1a1a" stroke-width="0.9"/>
+    <path d="M 13 2.5 L 13 13.5" stroke="#1a1a1a" stroke-width="0.5"/>
+    <path d="M 13 2.5 L 8.5 13.5" stroke="#1a1a1a" stroke-width="0.5"/>
+    <path d="M 13 2.5 L 17.5 13.5" stroke="#1a1a1a" stroke-width="0.5"/>
+    <path d="M 4 13.5 Q 13 11 22 13.5" fill="none" stroke="#1a1a1a" stroke-width="0.5"/>
+  </svg>`,
+  // TRIAD — solid filled triangle ▲
+  triad: `<svg viewBox="0 0 26 16">
+    <path d="M 13 2 L 22 14 L 4 14 Z" fill="#1a1a1a"/>
+  </svg>`,
+  // GUIDE — peace sign V (two fingers), echoes the original ✌️
+  guide: `<svg viewBox="0 0 26 16">
+    <path d="M 13 14 L 8 2" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M 13 14 L 18 2" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" fill="none"/>
+  </svg>`,
+  // SUS — wavy tilde (suspended / hanging feel)
+  sus: `<svg viewBox="0 0 26 16">
+    <path d="M 3 8 Q 7 3 11 8 T 19 8 T 23 8" fill="none" stroke="#1a1a1a" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>`,
+};
+
 function renderVoicingMenu() {
+  // Use the VOICE_ICONS drawings instead of emojis. Same monochrome
+  // dot-stack language so the row of voicings reads as a comparative
+  // shape chart (4 notes vs 3 vs 2, dropped intervals, sus offset).
   voicingMenu.innerHTML = VOICING_OPTIONS.map(v => `
     <div class="sound-menu-item ${v.value === voicingPref ? 'selected' : ''}" data-voicing="${v.value}">
-      <span>${v.emoji}</span>
+      <span class="menu-ico">${VOICE_ICONS[v.value] || ''}</span>
       <span style="flex:1">
         ${v.label}
         <span style="display:block;font-size:10px;opacity:0.6;font-style:italic">${v.desc}</span>
