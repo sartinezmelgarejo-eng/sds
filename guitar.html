@@ -10306,8 +10306,12 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const selIdx = state.composedSelectedIdx;
   if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
     const cur = seq[selIdx];
-    // Same chord without Shift → keep the current voicing, just audition
-    if (cur.chord === chordId && !cycleInversion) { ringFocusedChord(); return; }
+    // Same chord without Shift → keep the current voicing, just audition.
+    // BUT for tie / silent placeholders, even the same chord should
+    // replace — the user is converting the placeholder into a real strike.
+    if (cur.chord === chordId && !cycleInversion && !cur._tie && !cur._silent) {
+      ringFocusedChord(); return;
+    }
     _composeSaveUndo();
     let newIdx;
     if (cycleInversion && cur.chord === chordId) {
@@ -11040,10 +11044,17 @@ document.addEventListener('click', (ev) => {
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
-  // Just focus and audition — don't change lock state
+  // Focus + audition. For tie/silent cells, ALSO toggle the lock
+  // so the next chord button replaces this slot in-place (the lock
+  // button is opacity:0 on mobile, so without this the user had no
+  // way to enter edit mode on a % cell and a tap on the keypad
+  // would append at the end instead of replacing).
   state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+  if (entry._tie || entry._silent) {
+    state.composedSelectedIdx = (state.composedSelectedIdx === idx) ? null : idx;
+  }
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
