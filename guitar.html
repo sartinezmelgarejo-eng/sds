@@ -10323,6 +10323,9 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     const c = cands[newIdx];
     state.focusedChord = chordId;
     state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
+    // One-shot replace — clear the selection so the NEXT chord pick
+    // appends at the end again (back to normal compose flow).
+    state.composedSelectedIdx = null;
     renderAll();
     renderComposeStrip();
     ringFocusedChord();
@@ -11044,17 +11047,14 @@ document.addEventListener('click', (ev) => {
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
-  // Focus + audition. For tie/silent cells, ALSO toggle the lock
-  // so the next chord button replaces this slot in-place (the lock
-  // button is opacity:0 on mobile, so without this the user had no
-  // way to enter edit mode on a % cell and a tap on the keypad
-  // would append at the end instead of replacing).
+  // Tap a cell = focus + audit + arm a ONE-SHOT replace target. The
+  // next chord button replaces THIS cell and then auto-clears the
+  // selection so subsequent picks append at the end again. Tap the
+  // same cell twice to disarm without replacing.
   state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
-  if (entry._tie || entry._silent) {
-    state.composedSelectedIdx = (state.composedSelectedIdx === idx) ? null : idx;
-  }
+  state.composedSelectedIdx = (state.composedSelectedIdx === idx) ? null : idx;
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
