@@ -226,6 +226,113 @@
   .bpm-compact input.bpm-edit::-webkit-inner-spin-button,
   .bpm-compact input.bpm-edit::-webkit-outer-spin-button { display: none; }
 
+  /* ════════════════════════════════════════════════════════════
+     BRUTALIST CONTROL PANELS — Visual + Sound
+     A nod to Soviet poster typography: heavy mono caps, hard
+     black borders (2px), zero radius, zero shadows. State is
+     conveyed by inversion (black bg, cream text) — no glowing
+     accent color. Cells sit edge-to-edge sharing borders to
+     read as one panel, not separate pills.
+  ════════════════════════════════════════════════════════════ */
+  .vs-panel, .snd-panel {
+    display: inline-flex;
+    align-items: stretch;
+    border: 2px solid #1a1a1a;
+    background: #fdfcf3;
+  }
+  .vs-cell, .snd-cell {
+    appearance: none;
+    background: #fdfcf3;
+    color: #1a1a1a;
+    border: 0;
+    border-right: 2px solid #1a1a1a;
+    border-radius: 0;
+    margin: 0;
+    padding: 4px 12px 6px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 42px;
+    transition: background 0.08s, color 0.08s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vs-cell:last-child, .snd-cell:last-child { border-right: 0; }
+  /* Tiny header label (uppercase mono) above the value — only
+     for sound cells (the visual toggle is just GTR / PNO with no
+     sub-label). Pulled from the data-label attribute. */
+  .snd-cell::before {
+    content: attr(data-label);
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 1.4px;
+    opacity: 0.55;
+    line-height: 1;
+  }
+  .vs-cell { font-size: 13px; min-width: 44px; padding: 8px 14px; }
+  .snd-cell { font-size: 12px; min-width: 56px; }
+  .snd-cell .sc-val {
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.8px;
+  }
+  /* Hover — flat fill, no border colour shift. */
+  .vs-cell:hover, .snd-cell:hover { background: #f0e6c8; }
+  /* Active state = inversion. No green glow. */
+  .vs-cell.active,
+  .snd-cell.active {
+    background: #1a1a1a;
+    color: #fdfcf3;
+  }
+  .snd-cell.active::before { opacity: 0.65; }
+  /* Pressed — momentary darker invert for tactile feedback. */
+  .vs-cell:active, .snd-cell:active {
+    background: #1a1a1a;
+    color: #fdfcf3;
+  }
+  /* Mixer cell carries no semantic value — show its glyph centered. */
+  .snd-mix::before { opacity: 0.55; }
+  .snd-mix .sc-val { font-size: 18px; line-height: 1; }
+  /* BPM cell takes over the bpm-compact styles cleanly. */
+  .snd-bpm {
+    cursor: ns-resize !important;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .snd-bpm.dragging { background: #1a1a1a; color: #fdfcf3; }
+  .snd-bpm.dragging::before { opacity: 0.65; }
+  .snd-bpm .bpm-val { font-size: 14px; }
+  .snd-bpm input.bpm-edit {
+    width: 42px; padding: 0; background: transparent; color: inherit;
+    border: 0; font-family: inherit; font-size: 14px; font-weight: 800;
+    text-align: center; outline: none; text-transform: uppercase;
+  }
+  .snd-bpm input.bpm-edit::-webkit-inner-spin-button,
+  .snd-bpm input.bpm-edit::-webkit-outer-spin-button { display: none; }
+  /* On small screens, allow the panel to wrap rows without losing
+     edge-to-edge borders — cells stay flush within each row. */
+  @media (max-width: 800px) {
+    .vs-cell, .snd-cell { min-height: 36px; min-width: 0; padding: 3px 8px 5px; }
+    .snd-cell { font-size: 10px; }
+    .snd-cell .sc-val { font-size: 11px; }
+    .snd-cell::before { font-size: 7px; letter-spacing: 1px; }
+    .vs-cell { font-size: 11px; padding: 6px 10px; }
+    /* The generic mobile rule (.ctx-block > div) sets flex-wrap:wrap +
+       gap:4px on every header block — that would split the brutalist
+       panel into separate pills. Force zero gap so cells stay flush;
+       wrapping is fine but the shared-border look must be preserved. */
+    .vs-panel, .snd-panel { gap: 0 !important; flex-wrap: nowrap !important; }
+  }
+
   /* Sound popup menu */
   .sound-menu {
     position: fixed;
@@ -2929,17 +3036,33 @@
 
   <div class="spacer"></div>
 
+  <!-- ─── VISUAL: just the GTR/PNO view toggle. Pulled out of SOUND
+       because it doesn't change audio — only what the chord neck and
+       compose tabs render as. Two-cell brutalist toggle: clicked side
+       inverts (black bg, cream text). ─────────────────────────── -->
+  <div class="ctx-block">
+    <div class="ctx-label">Visual</div>
+    <div class="vs-panel" id="visual-panel">
+      <button class="vs-cell active" id="visual-guitar" data-inst="guitar" title="show guitar fretboard for chords">GTR</button>
+      <button class="vs-cell"        id="visual-piano"  data-inst="piano"  title="show piano keyboard for chords">PNO</button>
+    </div>
+  </div>
+
+  <!-- ─── SOUND: brutalist control-panel strip. Each cell shows a tiny
+       LABEL uppercase mono above and the current VALUE below. Click
+       opens that cell's picker (or toggles, for BASS). Active state is
+       conveyed by INVERSION (black/cream), not by a glowing fill —
+       calmer reading, fewer competing greens. ─────────────────── -->
   <div class="ctx-block">
     <div class="ctx-label">Sound</div>
-    <div style="display:flex;gap:6px;align-items:center">
-      <button class="auto-btn active" id="instrument-btn" style="font-weight:600" title="Toggle guitar / piano view">🎸</button>
-      <button class="auto-btn" id="mixer-btn" style="font-weight:600" title="open the volume mixer">🎚 Mix</button>
-      <button class="auto-btn active" id="bass-toggle" style="font-weight:600" title="mute/unmute bass">🎸 Bass</button>
-      <button class="auto-btn active" id="chord-sound" style="font-weight:600" title="click to pick chord sound">🎹 Piano</button>
-      <button class="auto-btn active" id="voicing-pref" style="font-weight:600" title="click to pick voicing type">🎼 All</button>
-      <button class="auto-btn" id="rhythm-btn" style="font-weight:600" title="rhythm style">🥁 Ride</button>
-      <div class="bpm-compact" id="bpm-compact" title="drag up/down or click to type BPM">
-        <span class="bpm-val" id="bpm-val">120</span>
+    <div class="snd-panel" id="sound-panel">
+      <button class="snd-cell active" id="bass-toggle" data-label="BASS" title="mute/unmute bass"><span class="sc-val">ON</span></button>
+      <button class="snd-cell" id="chord-sound" data-label="KEYS" title="click to pick chord sound"><span class="sc-val">PIANO</span></button>
+      <button class="snd-cell" id="voicing-pref" data-label="VOICE" title="click to pick voicing type"><span class="sc-val">ALL</span></button>
+      <button class="snd-cell" id="rhythm-btn" data-label="RHYTHM" title="rhythm style"><span class="sc-val">RIDE</span></button>
+      <button class="snd-cell snd-mix" id="mixer-btn" data-label="MIXER" title="open the volume mixer"><span class="sc-val">≡</span></button>
+      <div class="snd-cell snd-bpm bpm-compact" id="bpm-compact" data-label="BPM" title="drag up/down or click to type BPM">
+        <span class="sc-val bpm-val" id="bpm-val">120</span>
       </div>
     </div>
   </div>
@@ -5179,12 +5302,23 @@ function syncTonalityToggle() {
 }
 
 // ── Instrument toggle: single pill that flips between 🎸 and 🎹 ──
-const instrumentBtn = document.getElementById('instrument-btn');
+// Visual toggle is now a 2-cell brutalist switch (GTR / PNO). We keep
+// `instrumentBtn` as a virtual proxy so any legacy code that .click()s
+// it still flips the instrument — but the visible UI is the new pair.
+const vsGuitar = document.getElementById('visual-guitar');
+const vsPiano  = document.getElementById('visual-piano');
+const instrumentBtn = {
+  // Minimal shape so `.click()` still toggles; legacy callers (landscape
+  // proxy, etc.) used it just for the click.
+  click: () => setInstrument(state.instrument === 'guitar' ? 'piano' : 'guitar'),
+};
 function setInstrument(inst) {
   state.instrument = inst;
   document.body.classList.toggle('instrument-piano', inst === 'piano');
   document.body.classList.toggle('instrument-guitar', inst === 'guitar');
-  if (instrumentBtn) instrumentBtn.textContent = (inst === 'piano') ? '🎹' : '🎸';
+  // Brutalist 2-cell toggle: the picked side inverts (black bg, cream text).
+  if (vsGuitar) vsGuitar.classList.toggle('active', inst === 'guitar');
+  if (vsPiano)  vsPiano.classList.toggle('active',  inst === 'piano');
   // Piano mode: stack cycle + loop into a single right-column inside the
   // staff row, splitting vertically ~30/70. Guitar mode: restore them to
   // their original separate rows (cycle in row 1, loop in row 2).
@@ -5215,11 +5349,13 @@ function setInstrument(inst) {
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if ((player.playing || player.paused) && typeof player._renderRealBook === 'function') player._renderRealBook();
 }
-if (instrumentBtn) {
-  instrumentBtn.addEventListener('click', () => {
-    setInstrument(state.instrument === 'guitar' ? 'piano' : 'guitar');
-  });
-}
+// Wire the two visual cells — direct set instead of toggle so each
+// side is sticky (clicking the active side is a no-op rather than a
+// flip-back). Matches a physical 2-position switch.
+[vsGuitar, vsPiano].forEach(btn => {
+  if (!btn) return;
+  btn.addEventListener('click', () => setInstrument(btn.dataset.inst));
+});
 // Initial state
 document.body.classList.add('instrument-guitar');
 
@@ -5816,7 +5952,11 @@ function renderSoundMenu() {
       e.stopPropagation();
       droneTimbre = item.dataset.timbre;
       const s = SOUND_OPTIONS.find(o => o.value === droneTimbre);
-      soundBtn.textContent = `${s.emoji} ${s.label}`;
+      // Write into the inner .sc-val span — the brutalist panel uses
+      // data-label for the tiny header text and the span for the value.
+      const sv = soundBtn.querySelector('.sc-val');
+      if (sv) sv.textContent = s.label.toUpperCase();
+      else    soundBtn.textContent = s.label;
       soundMenu.hidden = true;
       if (tonicDrone.playing) {
         tonicDrone.lastNotes = null;
@@ -6027,7 +6167,9 @@ function renderVoicingMenu() {
       e.stopPropagation();
       voicingPref = item.dataset.voicing;
       const v = VOICING_OPTIONS.find(o => o.value === voicingPref);
-      voicingBtn.textContent = `${v.emoji} ${v.label}`;
+      const vv = voicingBtn.querySelector('.sc-val');
+      if (vv) vv.textContent = v.label.toUpperCase();
+      else    voicingBtn.textContent = v.label;
       voicingMenu.hidden = true;
       // Re-assign voicingType per section so the strip lookahead and the
       // player stay synchronized under the new preference.
@@ -6433,7 +6575,11 @@ const RHYTHM_OPTIONS = [
 
 function updateRhythmBtn() {
   const opt = RHYTHM_OPTIONS.find(o => o.value === currentRhythmMode);
-  rhythmBtn.textContent = `${opt.emoji} ${opt.label}`;
+  // Brutalist panel: write into the .sc-val span; label header comes
+  // from data-label via CSS.
+  const rv = rhythmBtn.querySelector('.sc-val');
+  if (rv) rv.textContent = opt.label.toUpperCase();
+  else    rhythmBtn.textContent = opt.label;
   if (currentRhythmMode === 'off') {
     rhythmBtn.classList.remove('active');
   } else {
@@ -8255,10 +8401,18 @@ document.addEventListener('click', e => {
 // Toggles the bass channel between 0 and the last non-zero level.
 let _bassLastVol = channelVols.bass || 0.7;
 document.getElementById('bass-toggle').addEventListener('click', e => {
+  // Helper: keep the .sc-val span's text in sync with state. The
+  // brutalist panel reads ON / OFF here; inversion via .active conveys
+  // the same info visually.
+  const setVal = (txt) => {
+    const v = e.currentTarget.querySelector('.sc-val');
+    if (v) v.textContent = txt;
+  };
   if (channelVols.bass > 0.001) {
     _bassLastVol = channelVols.bass;
     channelVols.bass = 0;
     e.currentTarget.classList.remove('active');
+    setVal('OFF');
     if (player.playing) {
       player.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
       player.bassOscillators = [];
@@ -8266,6 +8420,7 @@ document.getElementById('bass-toggle').addEventListener('click', e => {
   } else {
     channelVols.bass = _bassLastVol || 0.7;
     e.currentTarget.classList.add('active');
+    setVal('ON');
   }
   // Keep the mixer popover in sync if it's open
   if (!mixerMenu.hidden) renderMixerMenu();
@@ -11728,7 +11883,11 @@ renderAll = function() {
   });
   droneTimbre = soundPick;
   const sOpt = SOUND_OPTIONS.find(o => o.value === soundPick);
-  if (sOpt && soundBtn) soundBtn.textContent = `${sOpt.emoji} ${sOpt.label}`;
+  if (sOpt && soundBtn) {
+    const sv = soundBtn.querySelector('.sc-val');
+    if (sv) sv.textContent = sOpt.label.toUpperCase();
+    else    soundBtn.textContent = sOpt.label;
+  }
 
   // 🥁 Rhythm — drum/click pattern
   const rhythmPick = pickWeighted({
