@@ -11019,6 +11019,23 @@ function renderComposePad() {
       else if (a === 'inv-up')   composeCycleLastInversion(1);
       else if (a === 'inv-down') composeCycleLastInversion(-1);
     });
+    // Touch flash — iOS Safari doesn't always paint :active on tap
+    // (especially after scrollable ancestors enter the gesture mix), so
+    // mirror :active with a class we add on pointerdown and remove on
+    // pointerup/cancel. Same .flash class the keyboard shortcut path
+    // already drives, so the styling stays consistent.
+    const addFlash = (e) => {
+      const btn = e.target.closest('button.compose-btn');
+      if (!btn || !pad.contains(btn)) return;
+      btn.classList.add('flash');
+    };
+    const clearAllFlash = () => {
+      pad.querySelectorAll('.compose-btn.flash').forEach(b => b.classList.remove('flash'));
+    };
+    pad.addEventListener('pointerdown',   addFlash, { passive: true });
+    pad.addEventListener('pointerup',     clearAllFlash, { passive: true });
+    pad.addEventListener('pointercancel', clearAllFlash, { passive: true });
+    pad.addEventListener('pointerleave',  clearAllFlash, { passive: true });
   };
   tryAttach();
 })();
