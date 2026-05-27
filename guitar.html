@@ -248,16 +248,22 @@
     max-width: 100%;
   }
   .vs-snd-strip::-webkit-scrollbar { display: none; }
+  /* Soviet poster palette: warm cream paper with subtle noise grain,
+     deep ochre labels, brick-red active state instead of stark black.
+     The noise is an inline SVG (fractal turbulence) at very low alpha
+     — readable as PAPER, not noticeable as pattern. */
   .vs-panel, .snd-panel {
     display: inline-flex;
     align-items: stretch;
     border: 2px solid #1a1a1a;
-    background: #fdfcf3;
+    background-color: #f4ecd4;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.15  0 0 0 0 0.12  0 0 0 0 0.08  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
     flex-shrink: 0;
+    box-shadow: inset 0 0 0 1px rgba(60, 40, 10, 0.06);
   }
   .vs-cell, .snd-cell {
     appearance: none;
-    background: #fdfcf3;
+    background: transparent;             /* show the panel's paper texture */
     color: #1a1a1a;
     border: 0;
     border-right: 2px solid #1a1a1a;
@@ -280,15 +286,15 @@
     -webkit-tap-highlight-color: transparent;
   }
   .vs-cell:last-child, .snd-cell:last-child { border-right: 0; }
-  /* Tiny header label (uppercase mono) above the value — only
-     for sound cells (the visual toggle is just GTR / PNO with no
-     sub-label). Pulled from the data-label attribute. */
+  /* Tiny header label — Soviet ochre/mustard so it reads as printed
+     ink on the paper rather than just faded black. */
   .snd-cell::before {
     content: attr(data-label);
     font-size: 8px;
     font-weight: 700;
     letter-spacing: 1.4px;
-    opacity: 0.55;
+    color: #8a5a1a;
+    opacity: 0.85;
     line-height: 1;
   }
   .vs-cell { font-size: 13px; min-width: 44px; padding: 8px 14px; }
@@ -299,20 +305,23 @@
     line-height: 1;
     letter-spacing: 0.8px;
   }
-  /* Hover — flat fill, no border colour shift. */
-  .vs-cell:hover, .snd-cell:hover { background: #f0e6c8; }
-  /* Active state = inversion. No green glow. */
+  /* Hover — warmer cream tint, still showing the paper texture under it. */
+  .vs-cell:hover, .snd-cell:hover { background: rgba(160, 120, 32, 0.12); }
+  /* Active state — Soviet brick red instead of stark black. Reads
+     as a stamped INK BLOCK on the page; not as harsh as pure inversion. */
   .vs-cell.active,
   .snd-cell.active {
-    background: #1a1a1a;
-    color: #fdfcf3;
+    background: #a8231b;
+    color: #f8eed0;
+    text-shadow: 0 1px 0 rgba(0,0,0,0.18);
   }
-  .snd-cell.active::before { opacity: 0.65; }
+  .snd-cell.active::before { color: #f8d8c0; opacity: 0.9; }
   /* Pressed — momentary darker invert for tactile feedback. */
   .vs-cell:active, .snd-cell:active {
     background: #1a1a1a;
-    color: #fdfcf3;
+    color: #f8eed0;
   }
+  .vs-cell:active::before, .snd-cell:active::before { color: #f8d8c0; }
   /* Mixer cell carries no semantic value — show its glyph centered. */
   .snd-mix::before { opacity: 0.55; }
   .snd-mix .sc-val { font-size: 18px; line-height: 1; }
@@ -323,8 +332,8 @@
     -webkit-user-select: none;
     touch-action: none;
   }
-  .snd-bpm.dragging { background: #1a1a1a; color: #fdfcf3; }
-  .snd-bpm.dragging::before { opacity: 0.65; }
+  .snd-bpm.dragging { background: #a8231b; color: #f8eed0; }
+  .snd-bpm.dragging::before { color: #f8d8c0; opacity: 0.9; }
   .snd-bpm .bpm-val { font-size: 14px; }
   .snd-bpm input.bpm-edit {
     width: 42px; padding: 0; background: transparent; color: inherit;
