@@ -686,7 +686,15 @@
     align-self: stretch;
     padding: 4px 0;
   }
-  body:not(.player-active) .rb-area #player-info { display: none; }
+  /* Card relocates to .map-wrap during compose (handled by JS) — when
+     it sits there, give it the same width as the chord-map-host so it
+     reads as a sibling column rather than a wedge of free-floating text. */
+  .map-wrap > #player-info {
+    flex: 0 0 220px;
+    max-width: 220px;
+    padding: 6px 10px;
+    align-self: flex-start;
+  }
   /* When composing (no AI playing), the strip uses the FULL width of the bar
      so each chord cell has more room and the staff/diagram is readable. */
   body:not(.player-active) .rb-area { justify-content: stretch; gap: 0; }
@@ -2323,11 +2331,12 @@
        it to the right half; on a phone that squeezes the chord cells off-screen). */
     .rb-area { padding: 6px; justify-content: stretch; gap: 0; }
     .rb-stack { width: 100% !important; }
-    /* The desktop now-playing card to the left of the strip would
-       squish the cells on a phone — hide it on mobile. The card is
-       redundant on mobile anyway since the chord-map highlight and
-       m-transport's chord-info window already convey that state. */
-    .rb-area #player-info { display: none !important; }
+    /* The desktop now-playing card would squish the strip cells or the
+       chord-map on a phone — hide it in either home. Mobile already
+       conveys the same state via the chord-map highlight and the
+       m-transport's chord-info window. */
+    .rb-area #player-info,
+    .map-wrap > #player-info { display: none !important; }
     .real-book { height: 56px; }
     .rb-cycle { height: 56px; }
     .real-book-tabs { height: 85px; }
@@ -8494,6 +8503,32 @@ function _refreshAutoPlayUI() {
   if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
+  if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
+}
+
+// Move the now-playing card between containers based on mode so it
+// always has a dignified home:
+//   PLAY / PAUSE → lives inside .rb-area, left of the 4-bar partitura
+//   COMPOSE      → lives inside .map-wrap,  left of the chord map
+// The DOM node is the same in both spots — we just reparent it. No
+// duplicate state, no double-write of innerHTML.
+function relocatePlayerInfo() {
+  const card = document.getElementById('player-info');
+  if (!card) return;
+  const isPlayOrPause = !!(player && (player.playing || player.paused));
+  if (isPlayOrPause) {
+    const rb = document.querySelector('.rb-area');
+    const stack = rb && rb.querySelector('.rb-stack');
+    if (rb && stack && card.parentNode !== rb) {
+      rb.insertBefore(card, stack);
+    }
+  } else {
+    const mw = document.querySelector('.map-wrap');
+    const host = mw && mw.querySelector('.chord-map-host');
+    if (mw && host && card.parentNode !== mw) {
+      mw.insertBefore(card, host);
+    }
+  }
 }
 
 // Mirror state of the top-toolbar transport controls onto the mobile
@@ -12001,6 +12036,10 @@ renderAll = function() {
 })();
 
 renderAll();
+// Initial placement of the now-playing card. App boots in compose
+// mode, so the card belongs left of the chord map; without this it
+// would sit stranded in .rb-area until the first state transition.
+if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
 window.addEventListener('resize', () => {
   renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
