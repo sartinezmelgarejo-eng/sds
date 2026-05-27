@@ -11002,11 +11002,28 @@ function renderComposePad() {
     if (!pad) { setTimeout(tryAttach, 50); return; }
     if (pad.dataset.wired === '1') return;
     pad.dataset.wired = '1';
+    // Chord buttons (data-chord) fire on POINTERDOWN — like striking a
+    // real key: no wait for the finger to lift, no chance to "cancel"
+    // by sliding off. Cuts ~50ms of perceived latency vs the click path.
+    // The matching click is suppressed via _consumedPointer flag so the
+    // chord doesn't double-trigger.
+    let _consumedPointer = false;
+    pad.addEventListener('pointerdown', (e) => {
+      const btn = e.target.closest('button.compose-btn[data-chord]');
+      if (!btn || !pad.contains(btn)) return;
+      // Only primary pointer (left mouse / first finger) — avoid right-
+      // click and multi-touch double-triggers.
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      _consumedPointer = true;
+      composeAddChord(btn.dataset.chord, false);
+    });
     pad.addEventListener('click', (e) => {
       const btn = e.target.closest('button.compose-btn');
       if (!btn || !pad.contains(btn)) return;
       e.stopPropagation();
       if (btn.dataset.chord) {
+        // Already fired on pointerdown — swallow the duplicate click.
+        if (_consumedPointer) { _consumedPointer = false; return; }
         composeAddChord(btn.dataset.chord, false);
         return;
       }
