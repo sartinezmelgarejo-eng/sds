@@ -667,7 +667,9 @@
     border-bottom: 1px solid var(--line);
     padding: 8px 18px;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 16px;
   }
   .rb-stack {
     display: flex;
@@ -675,9 +677,19 @@
     width: 50%;
     gap: 4px;
   }
+  /* Now-playing card living inside .rb-area to the LEFT of the strip.
+     Takes the other 50% during play/pause; hidden during compose so
+     the strip can stretch to full width as before. */
+  .rb-area #player-info {
+    flex: 1 1 0;
+    min-width: 0;
+    align-self: stretch;
+    padding: 4px 0;
+  }
+  body:not(.player-active) .rb-area #player-info { display: none; }
   /* When composing (no AI playing), the strip uses the FULL width of the bar
      so each chord cell has more room and the staff/diagram is readable. */
-  body:not(.player-active) .rb-area { justify-content: stretch; }
+  body:not(.player-active) .rb-area { justify-content: stretch; gap: 0; }
   body:not(.player-active) .rb-stack { width: 100%; gap: 0; }
   /* Merge chord-name row and tab row into one visual unit when composing */
   body:not(.player-active) .real-book { border-bottom: none; }
@@ -2309,8 +2321,13 @@
 
     /* Real Book strip — span the full viewport width on mobile (desktop pins
        it to the right half; on a phone that squeezes the chord cells off-screen). */
-    .rb-area { padding: 6px; justify-content: stretch; }
+    .rb-area { padding: 6px; justify-content: stretch; gap: 0; }
     .rb-stack { width: 100% !important; }
+    /* The desktop now-playing card to the left of the strip would
+       squish the cells on a phone — hide it on mobile. The card is
+       redundant on mobile anyway since the chord-map highlight and
+       m-transport's chord-info window already convey that state. */
+    .rb-area #player-info { display: none !important; }
     .real-book { height: 56px; }
     .rb-cycle { height: 56px; }
     .real-book-tabs { height: 85px; }
@@ -3111,7 +3128,10 @@
         <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
         <div class="midi-menu" id="midi-menu" hidden></div>
       </div>
-      <div id="player-info"></div>
+      <!-- #player-info moved out of the header — now lives in the
+           rb-area to the LEFT of the 4-bar partitura. Frees the top
+           bar from the cramped "now playing" readout and gives that
+           data its own proper home next to the score. -->
     </div>
   </div>
 </header>
@@ -3134,6 +3154,11 @@
 <div id="map-mobile-backdrop" hidden></div>
 
 <div class="rb-area">
+  <!-- Now-playing readout — lives here so it sits to the LEFT of the
+       4-bar partitura instead of cramped in the top header. During
+       play/pause it's visible; during compose mode it's hidden so the
+       compose strip can stretch to full width as before. -->
+  <div id="player-info"></div>
   <div class="rb-stack">
     <div class="rb-row">
       <div class="real-book" id="real-book" hidden></div>
