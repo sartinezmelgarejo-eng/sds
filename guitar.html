@@ -6584,9 +6584,15 @@ const PROGRESSION_VOICING = {
   'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0},
   'I–vii°–vi–V':                  {drop2:25, drop3:15, shell:20, triad:40, sus:0},
   'ii–vii°–I (chromatic approach)':{drop2:45, drop3:15, shell:30, triad:10, sus:0},
-  'V7sus–V–I':                    {drop2:25, drop3:10, shell:10, triad:5,  sus:50},
-  'ii–V7sus–V–I':                 {drop2:30, drop3:10, shell:10, triad:5,  sus:45},
-  'I–V7sus–IV (modal)':           {drop2:25, drop3:10, shell:5,  triad:5,  sus:55},
+  // Note: sus weight is 0 here on purpose. The V7sus chord in these
+  // progressions is already SUS by quality, so it sounds sus even when
+  // voiced as drop-2 / drop-3 / shell. Putting sus weight > 0 forced
+  // the I and V7 chords to ALSO be voiced as 7sus4 — which sounded bad.
+  // The actual sus chord supplies the suspended color; the rest of the
+  // progression keeps normal jazz voicings around it.
+  'V7sus–V–I':                    {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
+  'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
+  'I–V7sus–IV (modal)':           {drop2:45, drop3:25, shell:15, triad:15, sus:0},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0},
   'I–IV (long)':                  {drop2:35, drop3:15, shell:15, triad:35, sus:0},
@@ -6613,8 +6619,11 @@ const PROGRESSION_VOICING = {
   'vii°7–i Bach cadence':         {drop2:15, drop3:15, shell:25, triad:45, sus:0},
   'i–IV–V7–i (parallel IV)':      {drop2:50, drop3:25, shell:15, triad:10, sus:0},
   'iiø–V/V–V7–i':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
-  'V7sus–V7–i':                   {drop2:25, drop3:10, shell:10, triad:5,  sus:50},
-  'iiø–V7sus–V7–i':               {drop2:30, drop3:10, shell:10, triad:5,  sus:45},
+  // Same logic as the major-key sus progressions above — sus weight 0
+  // because the V7sus chord carries the suspended color via its quality;
+  // forcing sus voicings on the other chords (i, V7) sounded bad.
+  'V7sus–V7–i':                   {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
+  'iiø–V7sus–V7–i':               {drop2:60, drop3:20, shell:15, triad:5,  sus:0},
   'i–iv–V7–i (long)':             {drop2:55, drop3:20, shell:20, triad:5,  sus:0},
   'bIII–bVI–iiø–V7–i':            {drop2:45, drop3:30, shell:20, triad:5,  sus:0},
   'Andalusian extended':          {drop2:15, drop3:30, shell:5,  triad:50, sus:0},
@@ -11687,6 +11696,65 @@ renderAll = function() {
   }
   return _origRenderAll.apply(this, arguments);
 };
+
+// ─── Startup randomizer ────────────────────────────────────────
+// On each fresh page load, roll the default Chord Sound / Rhythm /
+// Instrument view / BPM from the weighted distributions below.
+// Voicing preference and Bass are intentionally left at their compile-
+// time defaults ('all' / on) per the user's spec. No localStorage —
+// every new session re-rolls.
+(function rollStartupDefaults() {
+  // Pick a key from a {value: weight} map. Weights are relative, no
+  // need to sum to 100 — but we use percentages here for legibility.
+  const pickWeighted = (map) => {
+    const entries = Object.entries(map);
+    const total = entries.reduce((a, [, w]) => a + w, 0);
+    if (total <= 0) return entries[0][0];
+    let r = Math.random() * total;
+    for (const [k, w] of entries) {
+      r -= w;
+      if (r <= 0) return k;
+    }
+    return entries[entries.length - 1][0];
+  };
+
+  // 🎹 Chord Sound — instrument that plays the chords
+  const soundPick = pickWeighted({
+    rhodes:  5,
+    piano:   60,
+    jazzgtr: 15,
+    pad:     10,
+    organ:   10,
+  });
+  droneTimbre = soundPick;
+  const sOpt = SOUND_OPTIONS.find(o => o.value === soundPick);
+  if (sOpt && soundBtn) soundBtn.textContent = `${sOpt.emoji} ${sOpt.label}`;
+
+  // 🥁 Rhythm — drum/click pattern
+  const rhythmPick = pickWeighted({
+    ride:    50,
+    drums:   15,
+    twofour: 25,
+    click:   5,
+    off:     5,
+  });
+  applyRhythmMode(rhythmPick);
+
+  // 🎸 Instrument view — guitar fretboard vs piano keyboard
+  const instPick = pickWeighted({ guitar: 65, piano: 35 });
+  setInstrument(instPick);
+
+  // ⏱ BPM — first pick a range, then a uniform integer inside it
+  const bpmRange = pickWeighted({
+    '90-110':  30,
+    '110-130': 40,
+    '130-150': 20,
+    '150-170': 10,
+  });
+  const [lo, hi] = bpmRange.split('-').map(Number);
+  const bpm = lo + Math.floor(Math.random() * (hi - lo + 1));
+  setBpm(bpm);
+})();
 
 renderAll();
 window.addEventListener('resize', () => {
