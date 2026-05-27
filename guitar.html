@@ -10302,8 +10302,13 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     };
   };
 
-  // ── EDIT MODE: a cell is selected → replace/cycle THAT slot ──
-  const selIdx = state.composedSelectedIdx;
+  // ── EDIT MODE: either an explicit lock (composedSelectedIdx,
+  // persistent until cleared) OR a one-shot replace target armed by
+  // tapping a cell (_oneShotReplaceIdx, cleared after this call).
+  const oneShot = state._oneShotReplaceIdx;
+  const selIdx  = (oneShot !== null && oneShot !== undefined && oneShot >= 0 && oneShot < seq.length)
+    ? oneShot
+    : state.composedSelectedIdx;
   if (selIdx !== null && selIdx >= 0 && selIdx < seq.length) {
     const cur = seq[selIdx];
     // Same chord without Shift → keep the current voicing, just audition.
@@ -10323,9 +10328,11 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     const c = cands[newIdx];
     state.focusedChord = chordId;
     state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
-    // One-shot replace — clear the selection so the NEXT chord pick
-    // appends at the end again (back to normal compose flow).
-    state.composedSelectedIdx = null;
+    // One-shot replace path — clear the arm so the NEXT chord pick
+    // appends at the end again (back to normal compose flow). The
+    // persistent lock (composedSelectedIdx via 🔓 button) is left
+    // alone here; only the user can release it explicitly.
+    state._oneShotReplaceIdx = null;
     renderAll();
     renderComposeStrip();
     ringFocusedChord();
@@ -11047,14 +11054,17 @@ document.addEventListener('click', (ev) => {
   const entry = seq[idx];
   if (!entry || !entry.chord) return;
   ensureAudio();
-  // Tap a cell = focus + audit + arm a ONE-SHOT replace target. The
-  // next chord button replaces THIS cell and then auto-clears the
-  // selection so subsequent picks append at the end again. Tap the
-  // same cell twice to disarm without replacing.
+  // Tap a cell = focus + audit + silently arm a ONE-SHOT replace
+  // target. NO visual lock indicator — the next chord button just
+  // replaces this slot in place, then clears the arm so subsequent
+  // picks append at the end. Tap a different cell to re-aim. Use
+  // a separate _oneShotReplaceIdx so the existing composedSelectedIdx
+  // (which DOES drive the orange "locked" highlight via the explicit
+  // 🔓 button) stays untouched.
   state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
-  state.composedSelectedIdx = (state.composedSelectedIdx === idx) ? null : idx;
+  state._oneShotReplaceIdx = (state._oneShotReplaceIdx === idx) ? null : idx;
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
