@@ -11023,14 +11023,29 @@ function renderComposePad() {
     // (especially after scrollable ancestors enter the gesture mix), so
     // mirror :active with a class we add on pointerdown and remove on
     // pointerup/cancel. Same .flash class the keyboard shortcut path
-    // already drives, so the styling stays consistent.
+    // already drives, so the styling stays consistent. Minimum visible
+    // duration (MIN_MS) guarantees that ultra-fast taps still paint a
+    // visible flash — without it, pointerdown+pointerup inside the
+    // same frame would add+remove the class before any paint happened.
+    const MIN_MS = 110;
+    const flashStart = new WeakMap();
     const addFlash = (e) => {
       const btn = e.target.closest('button.compose-btn');
       if (!btn || !pad.contains(btn)) return;
       btn.classList.add('flash');
+      flashStart.set(btn, performance.now());
+    };
+    const scheduleClear = (btn) => {
+      const started = flashStart.get(btn) || 0;
+      const elapsed = performance.now() - started;
+      const wait = Math.max(0, MIN_MS - elapsed);
+      setTimeout(() => {
+        btn.classList.remove('flash');
+        flashStart.delete(btn);
+      }, wait);
     };
     const clearAllFlash = () => {
-      pad.querySelectorAll('.compose-btn.flash').forEach(b => b.classList.remove('flash'));
+      pad.querySelectorAll('.compose-btn.flash').forEach(scheduleClear);
     };
     pad.addEventListener('pointerdown',   addFlash, { passive: true });
     pad.addEventListener('pointerup',     clearAllFlash, { passive: true });
