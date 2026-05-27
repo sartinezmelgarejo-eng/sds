@@ -234,11 +234,26 @@
      accent color. Cells sit edge-to-edge sharing borders to
      read as one panel, not separate pills.
   ════════════════════════════════════════════════════════════ */
+  /* Wrapper that keeps Visual + Sound together as one logical row.
+     nowrap = never split onto two rows; if the combined width exceeds
+     the viewport on mobile, the strip scrolls horizontally instead. */
+  .vs-snd-strip {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    max-width: 100%;
+  }
+  .vs-snd-strip::-webkit-scrollbar { display: none; }
   .vs-panel, .snd-panel {
     display: inline-flex;
     align-items: stretch;
     border: 2px solid #1a1a1a;
     background: #fdfcf3;
+    flex-shrink: 0;
   }
   .vs-cell, .snd-cell {
     appearance: none;
@@ -331,6 +346,15 @@
        panel into separate pills. Force zero gap so cells stay flush;
        wrapping is fine but the shared-border look must be preserved. */
     .vs-panel, .snd-panel { gap: 0 !important; flex-wrap: nowrap !important; }
+    /* Same fight for the Visual+Sound wrapper: keep nowrap and the
+       10px panel gap, override the generic 4px. */
+    .vs-snd-strip { flex-wrap: nowrap !important; gap: 8px !important; }
+    /* Mobile: shave a couple more pixels off each cell so the full
+       VISUAL + 6-cell SOUND strip fits within a phone width. */
+    .vs-cell, .snd-cell { padding: 3px 6px 4px; }
+    .snd-cell { font-size: 9px; }
+    .snd-cell .sc-val { font-size: 10px; }
+    .snd-cell::before { font-size: 7px; letter-spacing: 0.8px; }
   }
 
   /* Sound popup menu */
@@ -3036,31 +3060,26 @@
 
   <div class="spacer"></div>
 
-  <!-- ─── VISUAL: just the GTR/PNO view toggle. Pulled out of SOUND
-       because it doesn't change audio — only what the chord neck and
-       compose tabs render as. Two-cell brutalist toggle: clicked side
-       inverts (black bg, cream text). ─────────────────────────── -->
+  <!-- ─── VISUAL + SOUND: both brutalist panels wrapped in a single
+       ctx-block so they always share a row (no double-row wrapping on
+       mobile). They stay visually distinct via the 10px gap; if the
+       full strip overflows on tight phones, the inner container
+       scrolls horizontally rather than splitting onto two rows. ── -->
   <div class="ctx-block">
-    <div class="vs-panel" id="visual-panel">
-      <button class="vs-cell active" id="visual-guitar" data-inst="guitar" title="show guitar fretboard for chords">GTR</button>
-      <button class="vs-cell"        id="visual-piano"  data-inst="piano"  title="show piano keyboard for chords">PNO</button>
-    </div>
-  </div>
-
-  <!-- ─── SOUND: brutalist control-panel strip. Each cell shows a tiny
-       LABEL uppercase mono above and the current VALUE below. Click
-       opens that cell's picker (or toggles, for BASS). Active state is
-       conveyed by INVERSION (black/cream), not by a glowing fill —
-       calmer reading, fewer competing greens. ─────────────────── -->
-  <div class="ctx-block">
-    <div class="snd-panel" id="sound-panel">
-      <button class="snd-cell active" id="bass-toggle" data-label="BASS" title="mute/unmute bass"><span class="sc-val">ON</span></button>
-      <button class="snd-cell" id="chord-sound" data-label="KEYS" title="click to pick chord sound"><span class="sc-val">PIANO</span></button>
-      <button class="snd-cell" id="voicing-pref" data-label="VOICE" title="click to pick voicing type"><span class="sc-val">ALL</span></button>
-      <button class="snd-cell" id="rhythm-btn" data-label="RHYTHM" title="rhythm style"><span class="sc-val">RIDE</span></button>
-      <button class="snd-cell snd-mix" id="mixer-btn" data-label="MIXER" title="open the volume mixer"><span class="sc-val">≡</span></button>
-      <div class="snd-cell snd-bpm bpm-compact" id="bpm-compact" data-label="BPM" title="drag up/down or click to type BPM">
-        <span class="sc-val bpm-val" id="bpm-val">120</span>
+    <div class="vs-snd-strip">
+      <div class="vs-panel" id="visual-panel">
+        <button class="vs-cell active" id="visual-guitar" data-inst="guitar" title="show guitar fretboard for chords">GTR</button>
+        <button class="vs-cell"        id="visual-piano"  data-inst="piano"  title="show piano keyboard for chords">PNO</button>
+      </div>
+      <div class="snd-panel" id="sound-panel">
+        <button class="snd-cell active" id="bass-toggle" data-label="BASS" title="mute/unmute bass"><span class="sc-val">ON</span></button>
+        <button class="snd-cell" id="chord-sound" data-label="KEYS" title="click to pick chord sound"><span class="sc-val">PIANO</span></button>
+        <button class="snd-cell" id="voicing-pref" data-label="VOICE" title="click to pick voicing type"><span class="sc-val">ALL</span></button>
+        <button class="snd-cell" id="rhythm-btn" data-label="RHYTHM" title="rhythm style"><span class="sc-val">RIDE</span></button>
+        <button class="snd-cell snd-mix" id="mixer-btn" data-label="MIXER" title="open the volume mixer"><span class="sc-val">≡</span></button>
+        <div class="snd-cell snd-bpm bpm-compact" id="bpm-compact" data-label="BPM" title="drag up/down or click to type BPM">
+          <span class="sc-val bpm-val" id="bpm-val">120</span>
+        </div>
       </div>
     </div>
   </div>
