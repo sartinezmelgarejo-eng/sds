@@ -864,11 +864,6 @@
     line-height: 1;
     margin-top: 1px;
   }
-  .compose-btn.compose-play {
-    background: #e8f7ef;
-    border-color: var(--tag-tonic);
-    color: #047857;
-  }
   .compose-btn.compose-del,
   .compose-btn.compose-clear {
     font-family: 'SF Mono', monospace;
@@ -923,7 +918,6 @@
     .compose-pad .compose-btn[data-n="7"]          { grid-row: 3; grid-column: 2; }
     .compose-pad .compose-btn[data-act="inv-up"]   { grid-row: 3; grid-column: 3; }
     .compose-pad .compose-btn[data-act="del"]      { grid-row: 4; grid-column: 1; }
-    .compose-pad .compose-btn[data-act="play"]     { grid-row: 4; grid-column: 2; }
     .compose-pad .compose-btn[data-act="clear"]    { grid-row: 4; grid-column: 3; }
 
     /* Padding so the bottom-pinned keypad doesn't cover the content above */
@@ -1153,6 +1147,17 @@
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
   body:not(.player-active) [data-compose-empty] { cursor: pointer; }
   body:not(.player-active) [data-compose-empty]:hover { background: rgba(160,120,32,0.07); }
+  /* Drag-and-drop reorder feedback (desktop). Source dims; valid drop
+     targets get a thin highlighted border so the user sees where the
+     swap will land. */
+  body:not(.player-active) [draggable="true"] { cursor: grab; }
+  body:not(.player-active) [draggable="true"]:active { cursor: grabbing; }
+  .rb-cell.dragging, .rb-tab-cell.dragging { opacity: 0.4; }
+  .rb-cell.drop-target, .rb-tab-cell.drop-target {
+    background: rgba(34, 197, 94, 0.18);
+    outline: 2px dashed #047857;
+    outline-offset: -3px;
+  }
   /* Only the JS-driven .compose-hover class paints the background — no bare
      :hover. Using :hover too caused a flicker because CSS painted the
      directly-hovered cell instantly while the paired cell waited for the
@@ -1363,6 +1368,126 @@
     font-size: 15px;
   }
   .m-transport .m-tx-btn[hidden] { display: none !important; }
+
+  /* ─── Desktop unified transport bar ───────────────────────────
+     Lives in the top toolbar where ▶ AI / ⏹ / ↩ Edit used to sit.
+     Same brutalist DNA as .m-transport but scaled for the desktop
+     header strip: shorter height, tighter padding. Hidden on mobile
+     (m-transport takes over there).
+  ─────────────────────────────────────────────────────────────── */
+  .d-transport {
+    display: inline-flex;
+    gap: 0;
+    align-items: stretch;
+    height: 34px;
+  }
+  .d-transport .d-tx-btn {
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    background: #fdfcf3;
+    border: 1.5px solid #1a1a1a;
+    border-radius: 0;
+    font-size: 14px;
+    font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+    font-weight: 800;
+    color: #1a1a1a;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background 0.1s, color 0.1s;
+    font-variant-emoji: text;
+  }
+  .d-transport #d-tx-cycle { min-width: 36px; }
+  .d-transport #d-tx-loop  { min-width: 40px; }
+  .d-transport #d-tx-play  { min-width: 64px; padding: 0 16px; }
+  .d-transport #d-tx-stop  { min-width: 40px; }
+  .d-transport #d-tx-edit  { min-width: 40px; }
+  .d-transport .d-tx-ico {
+    width: 16px;
+    height: 16px;
+    display: block;
+    pointer-events: none;
+  }
+  .d-transport .d-tx-play .d-tx-ico { width: 18px; height: 18px; }
+  .d-transport .d-tx-play .d-tx-ico-pause { display: none; }
+  .d-transport .d-tx-play.active .d-tx-ico-play  { display: none; }
+  .d-transport .d-tx-play.active .d-tx-ico-pause { display: block; }
+  .d-transport .d-tx-btn + .d-tx-btn { border-left: 0; }
+  .d-transport .d-tx-btn:hover { background: #f5ecd0; }
+  .d-transport .d-tx-btn:active { background: #1a1a1a; color: #fdfcf3; }
+  .d-transport .d-tx-btn.active { background: #1a1a1a; color: #fdfcf3; }
+  .d-transport .d-tx-play {
+    background: #059669;
+    color: #fdfcf3;
+    border-color: #1a1a1a;
+  }
+  .d-transport .d-tx-play:hover { background: #047857; }
+  .d-transport .d-tx-play.active {
+    background: #22c55e;
+    color: #1a1a1a;
+    border-color: #1a1a1a;
+  }
+  .d-transport .d-tx-stop {
+    background: #dc2626;
+    color: #fdfcf3;
+  }
+  .d-transport .d-tx-stop:hover { background: #b91c1c; }
+  .d-transport .d-tx-stop.armed {
+    animation: dTxStopPulse 0.7s ease-in-out infinite;
+  }
+  @keyframes dTxStopPulse {
+    0%, 100% { background: #dc2626; color: #fdfcf3; }
+    50%      { background: #fdfcf3; color: #dc2626; }
+  }
+  .d-transport #d-tx-loop.active {
+    background: #fbbf24;
+    color: #1a1a1a;
+  }
+  .d-transport #d-tx-loop.loop-song {
+    background: #f97316;
+    color: #1a1a1a;
+  }
+  .d-transport #d-tx-cycle.active {
+    background: #4f46e5;
+    color: #fdfcf3;
+  }
+  /* Loop badge — bar count (or "S") in the corner, mirrors loop-toggle */
+  .d-transport #d-tx-loop::after {
+    content: attr(data-section);
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 8px;
+    font-weight: 800;
+    line-height: 1;
+    pointer-events: none;
+  }
+  .d-transport #d-tx-loop:not([data-section]):after,
+  .d-transport #d-tx-loop[data-section=""]:after { content: none; }
+  /* Stop / edit toggle via [hidden] — but keep their slot in the
+     layout so the toolbar width never reflows when play is pressed.
+     visibility:hidden preserves the box; display:none would shift the
+     whole header. */
+  .d-transport .d-tx-btn[hidden] {
+    display: flex !important;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  /* The original top auto-play / auto-stop / auto-edit buttons are now
+     just hidden proxy targets — d-transport drives all visuals. JS still
+     reads / clicks them, but they should never paint. */
+  #auto-play, #auto-stop, #auto-edit { display: none !important; }
+  /* Mobile: the m-transport bar in the chord panel owns transport.
+     Hide the desktop bar entirely to avoid duplicates. */
+  @media (max-width: 800px) {
+    .d-transport { display: none !important; }
+  }
+
   @media (max-width: 800px) {
     /* Phone-sized: hide the duplicated top buttons. The keypad's
        own play / clear / backspace already drive compose; the
@@ -2810,9 +2935,31 @@
     <div class="ctx-label">Song</div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="auto-btn keypad-toggle" id="keypad-toggle" title="show/hide compose keypad">⌨</button>
-      <button class="auto-btn" id="auto-play">▶ AI</button>
+      <button class="auto-btn" id="auto-play" hidden>▶ AI</button>
       <button class="auto-btn" id="auto-stop" title="Stop and reset to start" hidden>⏹</button>
       <button class="auto-btn" id="auto-edit" title="Exit & edit — stop, focus on current chord in compose" hidden>↩ Edit</button>
+      <!-- Desktop unified transport bar — brutalist single row that
+           replaces the old ▶ AI / ⏹ / ↩ Edit trio. Buttons proxy to
+           the real (now hidden) controls so all logic stays in one
+           place. Cycle + Loop are mirrored here too so transport
+           lives in one strip. Hidden on mobile (m-transport owns
+           that role there). -->
+      <div class="d-transport" id="d-transport">
+        <button class="d-tx-btn" id="d-tx-cycle" title="PITCHED">·</button>
+        <button class="d-tx-btn" id="d-tx-loop" title="Loop">
+          <svg viewBox="0 0 24 24" class="d-tx-ico" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.5l4 4-4 4"/><path d="M3 12.5v-2a4 4 0 0 1 4-4h14"/><path d="M7 21.5l-4-4 4-4"/><path d="M21 11.5v2a4 4 0 0 1-4 4H3"/></svg>
+        </button>
+        <button class="d-tx-btn d-tx-play" id="d-tx-play" title="Start">
+          <svg viewBox="0 0 24 24" class="d-tx-ico d-tx-ico-play" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+          <svg viewBox="0 0 24 24" class="d-tx-ico d-tx-ico-pause" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="0.5"/><rect x="14" y="4" width="4" height="16" rx="0.5"/></svg>
+        </button>
+        <button class="d-tx-btn d-tx-stop" id="d-tx-stop" title="Stop / reset" hidden>
+          <svg viewBox="0 0 24 24" class="d-tx-ico" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
+        </button>
+        <button class="d-tx-btn" id="d-tx-edit" title="Edit current chord" hidden>
+          <svg viewBox="0 0 24 24" class="d-tx-ico" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l3.5-1 11-11-2.5-2.5-11 11z"/><path d="M14.5 6.5l3 3"/></svg>
+        </button>
+      </div>
       <div class="midi-wrap" id="midi-wrap" style="display:none;position:relative">
         <button class="auto-btn midi-export-btn" id="midi-export" title="Export as MIDI file">⬇ MIDI</button>
         <div class="midi-menu" id="midi-menu" hidden></div>
@@ -4677,6 +4824,28 @@ function renderAlternatives() {
 
   altRow.innerHTML = html;
 
+  // Resolve which composed-strip cell the alt voicing should modify:
+  // explicit selection > focused cell > last cell that matches fc.id.
+  // Returns -1 if no cell matches or the player owns the strip.
+  const _altTargetIdx = () => {
+    if (player.playing) return -1;
+    const seq = state.composedProgression;
+    if (!seq.length) return -1;
+    const tryIdx = (idx) => (idx != null && idx >= 0 && idx < seq.length
+                             && seq[idx] && !seq[idx]._tie && !seq[idx]._silent
+                             && seq[idx].chord === fc.id) ? idx : -1;
+    let t = tryIdx(state.composedSelectedIdx);
+    if (t >= 0) return t;
+    t = tryIdx(state._composeFocusedIdx);
+    if (t >= 0) return t;
+    // Fall back to the LAST cell matching fc.id (covers the typical
+    // "just typed this chord" case where nothing is explicitly focused).
+    for (let i = seq.length - 1; i >= 0; i--) {
+      if (seq[i] && !seq[i]._tie && !seq[i]._silent && seq[i].chord === fc.id) return i;
+    }
+    return -1;
+  };
+
   altRow.querySelectorAll('[data-auto]').forEach(c => {
     c.addEventListener('click', () => {
       // Cycle through the four strategies on each click.
@@ -4684,27 +4853,27 @@ function renderAlternatives() {
       const cur = state.autoStrategy || 'smoothest';
       state.autoStrategy = order[(order.indexOf(cur) + 1) % order.length];
       state.userVoicing = null;
-      // If the focused chord is the last typed in compose, re-pick its
-      // voicing using the new strategy so the change is immediate.
-      if (!player.playing) {
-        const seq = state.composedProgression;
-        if (seq.length && seq[seq.length - 1].chord === fc.id) {
-          const ch = currentMap().chordDefs[fc.id];
-          const r  = chordRoot(ch);
-          const all = allDistinctVoicings(ch.quality, r);
-          const prev = seq.length > 1 ? seq[seq.length - 2].shape : null;
-          const idx = pickByStrategy(all, prev);
-          if (idx >= 0) {
-            const pk = all[idx];
-            const tail = seq[seq.length - 1];
-            tail.shape = pk.shape;
-            tail._candIdx = idx;
-            tail.voicingType = pk.type;
-            tail.stringSetIdx = pk.stringSetIdx;
-            tail.inversion = pk.inversion;
-            tail.stringSet = pk.stringSet;
-            renderComposeStrip();
-          }
+      // Re-pick the voicing of whichever cell the user is editing (selected
+      // > focused > last-matching) using the new strategy. Was previously
+      // hard-coded to the tail of the progression.
+      const seq = state.composedProgression;
+      const targetIdx = _altTargetIdx();
+      if (targetIdx >= 0) {
+        const ch = currentMap().chordDefs[fc.id];
+        const r  = chordRoot(ch);
+        const all = allDistinctVoicings(ch.quality, r);
+        const prev = targetIdx > 0 ? seq[targetIdx - 1].shape : null;
+        const idx = pickByStrategy(all, prev);
+        if (idx >= 0) {
+          const pk = all[idx];
+          const target = seq[targetIdx];
+          target.shape = pk.shape;
+          target._candIdx = idx;
+          target.voicingType = pk.type;
+          target.stringSetIdx = pk.stringSetIdx;
+          target.inversion = pk.inversion;
+          target.stringSet = pk.stringSet;
+          renderComposeStrip();
         }
       }
       applyAltToComping(fc.id, null);
@@ -4723,17 +4892,19 @@ function renderAlternatives() {
         inversion: c.inversion,
         stringSet: c.stringSet,
       };
-      if (!player.playing) {
-        const seq = state.composedProgression;
-        if (seq.length && seq[seq.length - 1].chord === fc.id) {
-          seq[seq.length - 1].shape = c.shape;
-          seq[seq.length - 1].voicingType = c.type;
-          seq[seq.length - 1].stringSetIdx = c.stringSetIdx;
-          seq[seq.length - 1].inversion = c.inversion;
-          seq[seq.length - 1].stringSet = c.stringSet;
-          seq[seq.length - 1]._candIdx = +card.dataset.idx;
-          renderComposeStrip();
-        }
+      // Apply the new voicing to whichever cell the user is editing —
+      // selected > focused > last-matching — not always the tail.
+      const seq = state.composedProgression;
+      const targetIdx = _altTargetIdx();
+      if (targetIdx >= 0) {
+        const target = seq[targetIdx];
+        target.shape = c.shape;
+        target.voicingType = c.type;
+        target.stringSetIdx = c.stringSetIdx;
+        target.inversion = c.inversion;
+        target.stringSet = c.stringSet;
+        target._candIdx = +card.dataset.idx;
+        renderComposeStrip();
       }
       applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion });
       renderAll();
@@ -8101,40 +8272,56 @@ function _refreshAutoPlayUI() {
 function syncMobileTransport() {
   const isPlaying = !!(typeof player !== 'undefined' && player && player.playing);
   const isPaused  = !!(typeof player !== 'undefined' && player && player.paused);
-  // Play / Pause — text content not touched anymore (SVG icons in
-  // the button swap via CSS based on .active). Just update class +
-  // title so the icon flips and assistive tech reads the state.
-  const play = document.getElementById('m-tx-play');
-  if (play) {
-    play.classList.toggle('active', isPlaying);
-    play.title = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
-  }
-  // Stop — only visible when there's something to halt; pulses while armed
-  const stop = document.getElementById('m-tx-stop');
-  if (stop) {
-    stop.hidden = !(isPlaying || isPaused);
-    stop.classList.toggle('armed', !!(player && player._stopArmed));
-  }
-  // Edit — same visibility rule as the top one
-  const edit = document.getElementById('m-tx-edit');
-  if (edit) edit.hidden = !(isPlaying || isPaused);
-  // Loop — copy label, active class, and section badge
-  const loop = document.getElementById('m-tx-loop');
-  const realLoop = document.getElementById('loop-toggle');
-  if (loop && realLoop) {
-    loop.classList.toggle('active', realLoop.classList.contains('active'));
-    loop.classList.toggle('loop-song', realLoop.classList.contains('loop-song'));
-    if (realLoop.dataset.section) loop.dataset.section = realLoop.dataset.section;
-    loop.title = realLoop.title || 'Loop';
-  }
-  // PITCHED cycle — mirror the label/state of the real cycle button
-  const cyc = document.getElementById('m-tx-cycle');
-  const realCyc = document.getElementById('cycle-toggle');
-  if (cyc && realCyc) {
-    cyc.textContent = realCyc.textContent || '·';
-    cyc.classList.toggle('active', realCyc.classList.contains('active'));
-    cyc.title = realCyc.title || 'PITCHED';
-  }
+  const stopArmed = !!(player && player._stopArmed);
+  const showAux   = isPlaying || isPaused;          // stop / edit visible?
+  const realLoop  = document.getElementById('loop-toggle');
+  const realCyc   = document.getElementById('cycle-toggle');
+  const loopActive   = !!(realLoop && realLoop.classList.contains('active'));
+  const loopSong     = !!(realLoop && realLoop.classList.contains('loop-song'));
+  const loopBadge    = (realLoop && realLoop.dataset.section) || '';
+  const loopTitle    = (realLoop && realLoop.title) || 'Loop';
+  const cycActive    = !!(realCyc && realCyc.classList.contains('active'));
+  const cycLabel     = (realCyc && realCyc.textContent) || '·';
+  const cycTitle     = (realCyc && realCyc.title) || 'PITCHED';
+  const playTitle    = isPlaying ? 'Pause' : isPaused ? 'Resume' : 'Start';
+
+  // Diff helpers — only touch the DOM when the value actually changes.
+  // Writing every tick caused style recalc storms that made the audio
+  // scheduler hiccup. These no-op writes when the state already matches.
+  const setClass = (el, name, on) => {
+    if (!el) return;
+    if (el.classList.contains(name) !== on) el.classList.toggle(name, on);
+  };
+  const setTitle = (el, t) => { if (el && el.title !== t) el.title = t; };
+  const setHidden = (el, h) => { if (el && el.hidden !== h) el.hidden = h; };
+  const setText  = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+  const setData  = (el, key, v) => {
+    if (!el) return;
+    if (v) { if (el.dataset[key] !== v) el.dataset[key] = v; }
+    else if (el.dataset[key] != null) delete el.dataset[key];
+  };
+  // Apply one transport bar (mobile or desktop) given its id prefix.
+  const applyBar = (pre) => {
+    const play = document.getElementById(pre + 'play');
+    setClass(play, 'active', isPlaying);
+    setTitle(play, playTitle);
+    const stop = document.getElementById(pre + 'stop');
+    setHidden(stop, !showAux);
+    setClass(stop, 'armed', stopArmed);
+    const edit = document.getElementById(pre + 'edit');
+    setHidden(edit, !showAux);
+    const loop = document.getElementById(pre + 'loop');
+    setClass(loop, 'active', loopActive);
+    setClass(loop, 'loop-song', loopSong);
+    setData(loop, 'section', loopBadge);
+    setTitle(loop, loopTitle);
+    const cyc = document.getElementById(pre + 'cycle');
+    setText(cyc, cycLabel);
+    setClass(cyc, 'active', cycActive);
+    setTitle(cyc, cycTitle);
+  };
+  applyBar('m-tx-');
+  applyBar('d-tx-');
 }
 
 // Wire each mobile transport button to forward its click to the
@@ -8146,6 +8333,12 @@ function syncMobileTransport() {
     ['m-tx-edit',  'auto-edit'],
     ['m-tx-loop',  'loop-toggle'],
     ['m-tx-cycle', 'cycle-toggle'],
+    // Desktop transport bar (top toolbar) — same proxy pattern
+    ['d-tx-play',  'auto-play'],
+    ['d-tx-stop',  'auto-stop'],
+    ['d-tx-edit',  'auto-edit'],
+    ['d-tx-loop',  'loop-toggle'],
+    ['d-tx-cycle', 'cycle-toggle'],
   ];
   proxies.forEach(([proxyId, realId]) => {
     const btn = document.getElementById(proxyId);
@@ -10451,17 +10644,39 @@ function composeDeleteLast() {
       : null;
   if (targetIdx !== null && targetIdx < seq.length) {
     if (targetIdx === 0) {
-      // First chord — just remove it
-      seq.splice(0, 1);
-      state.composedSelectedIdx = null;
-      state._composeFocusedIdx = null;
-      if (!seq.length) {
-        state.userVoicing = null;
+      // First chord — behaves like the others now: a chord at slot 0
+      // collapses to a silent rest (so songs can START on silence);
+      // an already-silent slot 0 splices out (true delete). This lets
+      // the user delete OR rest the first slot without touching the
+      // rest of the progression.
+      const cur = seq[0];
+      if (cur._silent) {
+        seq.splice(0, 1);
+        state.composedSelectedIdx = null;
+        state._composeFocusedIdx = null;
+        if (!seq.length) {
+          state.userVoicing = null;
+        } else {
+          state._composeFocusedIdx = 0;
+          const newCur = seq[0];
+          if (!newCur._silent && !newCur._tie) {
+            state.focusedChord = newCur.chord;
+            state.userVoicing = { shape: newCur.shape };
+          } else {
+            state.userVoicing = null;
+          }
+        }
       } else {
+        // Chord (or tie) at slot 0 → convert to silent rest. Any
+        // following ties were extending this chord; convert them
+        // to rests too so the gap is contiguous.
+        seq[0] = { _silent: true };
+        for (let j = 1; j < seq.length && seq[j]._tie; j++) {
+          seq[j] = { _silent: true };
+        }
+        state.composedSelectedIdx = null;
         state._composeFocusedIdx = 0;
-        const newCur = seq[0];
-        state.focusedChord = newCur.chord;
-        state.userVoicing = { shape: newCur.shape };
+        state.userVoicing = null;
       }
     } else {
       const targetCell = seq[targetIdx];
@@ -10566,7 +10781,6 @@ function renderComposePad() {
     <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion (Shift+←)">▼</button>
     <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion (Shift+→)">▲</button>
     <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
-    <button class="compose-btn compose-play" data-act="play" title="play (Enter)">▶</button>
     <button class="compose-btn compose-clear" data-act="clear" title="clear all (Escape)">×</button>
   `;
   // Per-button handlers are no longer attached here — see the single delegated
@@ -10594,7 +10808,6 @@ function renderComposePad() {
       if      (a === 'del')      composeDeleteLast();
       else if (a === 'undo')     composeUndo();
       else if (a === 'clear')    composeClear();
-      else if (a === 'play')     composePlay();
       // ▲ raises the voicing (higher pitch / higher on the neck), ▼ lowers it
       else if (a === 'inv-up')   composeCycleLastInversion(1);
       else if (a === 'inv-down') composeCycleLastInversion(-1);
@@ -10662,6 +10875,11 @@ function renderComposeStrip() {
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
+    // Desktop only: make filled cells draggable so the user can reorder
+    // (swap) the progression. Mobile is gated by isMobile to avoid
+    // conflicts with the touch handlers + because native HTML5 DnD
+    // doesn't work well on touch.
+    const dragAttr = (!isMobile && cell && i < seq.length) ? ' draggable="true"' : '';
     // Empty slot — clickable so the user can extend the previous chord
     if (!cell) {
       const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
@@ -10671,7 +10889,7 @@ function renderComposeStrip() {
     // small dot/rest marker so the user sees the gap.
     if (cell._silent) {
       const restGlyph = isTab ? '' : '<span class="rb-rest" title="silence">·</span>';
-      return `<div class="${cls.join(' ')}"${idxAttr}>${restGlyph}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${restGlyph}</div>`;
     }
     // Tie cell — shows % continuation symbol (same as AI song view)
     if (cell._tie) {
@@ -10681,9 +10899,9 @@ function renderComposeStrip() {
           ? {W: 100, H: 128, minimal: true, showClef}
           : {W: 130, H: 148, minimal: false, showClef};
         const contSvg = (state.instrument === 'piano') ? renderContinuationStaff(tSizing) : '';
-        return `<div class="${cls.join(' ')}"${idxAttr}>${contSvg}</div>`;
+        return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${contSvg}</div>`;
       }
-      return `<div class="${cls.join(' ')}"${idxAttr}>
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
         <div class="rb-continuation">%</div>
         <button class="${(i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn'}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
       </div>`;
@@ -10692,7 +10910,7 @@ function renderComposeStrip() {
     if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
     if (isTab) {
-      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}></div>`;
+      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}></div>`;
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
       // Clef only on the very first compose cell — once you're past it, the
       // staff continues unmarked (the eye carries the clef forward).
@@ -10726,11 +10944,11 @@ function renderComposeStrip() {
       }
       // Just a pill badge with the count — clean, no triangle silhouette.
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
-      return `<div class="${cls.join(' ')}"${idxAttr}>${svg}${triHtml}${barHtml}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${svg}${triHtml}${barHtml}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
-    return `<div class="${cls.join(' ')}"${idxAttr}>
+    return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
       <button class="${selCls}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
@@ -10803,6 +11021,115 @@ document.addEventListener('click', (ev) => {
 document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape') closeSubdivPopover();
 });
+
+// ─── Drag-and-drop reorder for the compose strip (desktop only) ───
+// User can drag a filled cell and drop it on another filled cell to
+// SWAP positions (preserving song length). Dropping on a trailing
+// empty cell moves the chord to the end of the sequence. Mobile is
+// skipped — touch DnD with HTML5 is fragile, and the strip already
+// has tap-to-jump / tap-to-replace touch UX.
+(function() {
+  let dragFromIdx = null;
+
+  // Find the strip cell ancestor (chord or tab row, filled or empty).
+  const cellOf = (target) => target && target.closest && target.closest('[data-compose-idx], [data-compose-empty]');
+
+  // Clear any lingering drop-target highlight across the whole strip.
+  const clearDropTargets = () => {
+    document.querySelectorAll('.rb-cell.drop-target, .rb-tab-cell.drop-target').forEach(c => c.classList.remove('drop-target'));
+  };
+
+  document.addEventListener('dragstart', (e) => {
+    const cell = cellOf(e.target);
+    if (!cell || cell.dataset.composeIdx == null) return;
+    // Don't initiate drag from inner controls (edit btn, subdiv badge, etc).
+    if (e.target.closest('.compose-edit-btn, .subdiv-triangle, .subdiv-bar, .subdiv-seg')) {
+      e.preventDefault();
+      return;
+    }
+    dragFromIdx = parseInt(cell.dataset.composeIdx, 10);
+    try {
+      e.dataTransfer.effectAllowed = 'move';
+      // Some browsers need data set to actually start the drag.
+      e.dataTransfer.setData('text/plain', String(dragFromIdx));
+    } catch {}
+    // Subtle visual: dim the source so the user sees what's being dragged.
+    cell.classList.add('dragging');
+    // Also dim the sibling row (tab cell mirroring same idx) so both
+    // halves of the same step show the dragging state.
+    document.querySelectorAll(`[data-compose-idx="${dragFromIdx}"]`).forEach(c => c.classList.add('dragging'));
+  });
+
+  document.addEventListener('dragover', (e) => {
+    if (dragFromIdx === null) return;
+    const cell = cellOf(e.target);
+    if (!cell) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'move'; } catch {}
+    // Update target highlight — only one cell at a time, sibling row too.
+    const tIdx = cell.dataset.composeIdx != null ? cell.dataset.composeIdx : cell.dataset.composeEmpty;
+    if (tIdx == null) return;
+    // Don't highlight the source cell as a drop target.
+    if (cell.dataset.composeIdx != null && parseInt(cell.dataset.composeIdx, 10) === dragFromIdx) {
+      clearDropTargets();
+      return;
+    }
+    // Clear stale targets then set the new pair.
+    clearDropTargets();
+    const sel = cell.dataset.composeIdx != null
+      ? `[data-compose-idx="${tIdx}"]`
+      : `[data-compose-empty="${tIdx}"]`;
+    document.querySelectorAll(sel).forEach(c => c.classList.add('drop-target'));
+  });
+
+  document.addEventListener('drop', (e) => {
+    if (dragFromIdx === null) return;
+    const cell = cellOf(e.target);
+    if (!cell) { dragFromIdx = null; clearDropTargets(); return; }
+    e.preventDefault();
+    const from = dragFromIdx;
+    const seq = state.composedProgression;
+    if (from < 0 || from >= seq.length) {
+      dragFromIdx = null; clearDropTargets(); return;
+    }
+    // Deep clone the source so subdivisions / shape arrays don't share refs.
+    const copy = JSON.parse(JSON.stringify(seq[from]));
+    // Snapshot for undo before any mutation.
+    const snapshot = () => {
+      if (typeof _composeUndoStack !== 'undefined') {
+        _composeUndoStack.push(JSON.parse(JSON.stringify(seq)));
+      }
+    };
+    if (cell.dataset.composeIdx != null) {
+      const to = parseInt(cell.dataset.composeIdx, 10);
+      if (to !== from && to >= 0 && to < seq.length) {
+        snapshot();
+        seq[to] = copy;
+        renderComposeStrip();
+      }
+    } else if (cell.dataset.composeEmpty != null) {
+      // Drop on a trailing empty cell at index `to`. If `to` is past
+      // the current end, fill the gap (seq.length .. to-1) with silent
+      // rests, then place the duplicate at index `to`. This lets the
+      // user drag e.g. from bar 2 to bar 4 and get a rest at bar 3.
+      const to = parseInt(cell.dataset.composeEmpty, 10);
+      if (to >= seq.length && to < 16) {
+        snapshot();
+        while (seq.length < to) seq.push({ _silent: true });
+        seq.push(copy);
+        renderComposeStrip();
+      }
+    }
+    dragFromIdx = null;
+    clearDropTargets();
+  });
+
+  document.addEventListener('dragend', () => {
+    dragFromIdx = null;
+    document.querySelectorAll('.dragging').forEach(c => c.classList.remove('dragging'));
+    clearDropTargets();
+  });
+})();
 
 // Vertical drag on the subdivision badge to change the count (like the BPM).
 // Drag UP increments, DRAG DOWN decrements. ~14 px per step. Clamped 1–8.
