@@ -11191,8 +11191,13 @@ document.addEventListener('keydown', e => {
 
   // Shift+digit may produce a punctuation glyph ("@", "#", ...) instead of the
   // digit on US layouts — fall back to e.code "Digit1"–"Digit7" in that case.
+  // Also accept the numeric keypad ("Numpad1"–"Numpad7") so desktop users
+  // with a 10-key get the same shortcut.
   let n = parseInt(e.key);
-  if (isNaN(n) && e.code && e.code.startsWith('Digit')) n = parseInt(e.code.slice(5));
+  if (isNaN(n) && e.code) {
+    if (e.code.startsWith('Digit'))  n = parseInt(e.code.slice(5));
+    else if (e.code.startsWith('Numpad')) n = parseInt(e.code.slice(6));
+  }
   if (n < 1 || n > 7) return;
   const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
   if (!chordId || !currentMap().chordDefs[chordId]) return;
