@@ -3856,6 +3856,7 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
 const DROP3_STRING_SETS = [
   {idx: [0, 2, 3, 4], label: 'E-DGB', sub: 'low'},   // E low, skip A, then D-G-B
   {idx: [1, 3, 4, 5], label: 'A-GBe', sub: 'mid'},   // A low, skip D, then G-B-e
+  {idx: [0, 3, 4, 5], label: 'E-GBe', sub: 'spread'},// E low, skip A+D, then G-B-e (widest)
 ];
 
 function dropThreeVoicing(quality, rootPc, stringSetIdx, inversion) {
@@ -4011,11 +4012,16 @@ function bestStartingVoicing(quality, rootPc) {
 /* ─── Alt voicing types: triad, shell ─── */
 
 // Triad (R, 3rd or b3rd, 5th or b5th) — no 7th
-function triadVoicing(quality, rootPc, stringSetType = 'top') {
+function triadVoicing(quality, rootPc, stringSetType = 'top', inversion = 0) {
   const q = QUALITIES[quality];
   if (!q || q.ints.length < 3) return null;
-  // First three chord tones = R, 3 (or b3), 5 (or b5)
-  const ints = [q.ints[0], q.ints[1], q.ints[2]];
+  // First three chord tones = R, 3 (or b3), 5 (or b5).
+  // Apply inversion by rotating: root pos = [R, 3, 5]; 1st inv = [3, 5, R+12];
+  // 2nd inv = [5, R+12, 3+12]. Same logic as drop voicings, just 3 voices.
+  let ints = [q.ints[0], q.ints[1], q.ints[2]];
+  for (let i = 0; i < inversion; i++) {
+    ints = [ints[1], ints[2], ints[0] + 12];
+  }
   // Three-string sets to choose from
   const sets = {
     'top':  [3, 4, 5],   // G-B-E
@@ -5261,7 +5267,10 @@ function renderAlternatives() {
     if (c.type === 'drop2' || c.type === 'sus') {
       return `${INV[c.inversion]} · ${SET[c.stringSetIdx]}`;
     }
-    return c.stringSet || '';   // shells/triads/guides → just the set letter
+    if (c.type === 'triad' && c.inversion != null) {
+      return `${INV[c.inversion]} · ${(c.stringSet || '').toUpperCase()}`;
+    }
+    return c.stringSet || '';   // shells / guides → just the set letter
   };
   const FAMILY = { drop2: 'Drop-2', drop3: 'Drop-3', shell: 'Shells', triad: 'Triads', guide: 'Guides', sus: 'Sus' };
   // Per-family ink color so each voicing group has its own identity on the
@@ -7507,7 +7516,17 @@ class Player {
       // No rotations: shell inversions sit awkwardly on guitar.
       ['A','B'].forEach(t => { const sh = shellVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'triad') {
-      ['top','mid','low'].forEach(t => { const sh = triadVoicing(quality, root, t); if (sh) cands.push(sh); });
+      // 3 string sets × 3 inversions = up to 9 triad candidates per chord.
+      // Was previously root-position only (3 candidates) — opens up the
+      // tighter 1st/2nd-inversion shapes that guitarists actually use
+      // (Beatles, Pat Metheny, gospel sus/triads). The picker chooses
+      // smoothest from the larger pool.
+      ['top','mid','low'].forEach(t => {
+        for (let inv = 0; inv < 3; inv++) {
+          const sh = triadVoicing(quality, root, t, inv);
+          if (sh) cands.push(sh);
+        }
+      });
     } else if (type === 'guide') {
       ['A','B'].forEach(t => { const sh = guideToneVoicing(quality, root, t); if (sh) cands.push(sh); });
     } else if (type === 'sus') {
@@ -11139,14 +11158,16 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   });
   shells.sort(byReg).forEach(s => add(s.shape, 'shell', { stringSet: s.stringSet }));
 
-  // 3. Triads (3 string positions × N octaves)
+  // 3. Triads (3 string positions × 3 inversions × N octaves)
   const triads = [];
   ['top','mid','low'].forEach(t => {
-    const base = triadVoicing(quality, rootPc, t);
-    if (!base) return;
-    withOctaves(sh => triads.push({ shape: sh, stringSet: t }), base);
+    for (let inv = 0; inv < 3; inv++) {
+      const base = triadVoicing(quality, rootPc, t, inv);
+      if (!base) continue;
+      withOctaves(sh => triads.push({ shape: sh, stringSet: t, inversion: inv }), base);
+    }
   });
-  triads.sort(byReg).forEach(t => add(t.shape, 'triad', { stringSet: t.stringSet }));
+  triads.sort(byReg).forEach(t => add(t.shape, 'triad', { stringSet: t.stringSet, inversion: t.inversion }));
 
   // 4. Guide tones (2 string sets × N octaves)
   const guides = [];
