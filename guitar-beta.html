@@ -1341,17 +1341,10 @@
   }
   .map-card.popup.hover:hover,
   .map-card.popup.hover.touch-over {
-    background: var(--accent, #a07820);
-    color: #faf3e3;
-    box-shadow: 0 8px 22px rgba(160,120,32,0.40), 0 2px 6px rgba(26,26,26,0.20);
+    /* Lift + accent ring — no background inversion so text stays readable */
+    box-shadow: 0 0 0 2px var(--accent, #a07820), 0 8px 22px rgba(160,120,32,0.38), 0 2px 6px rgba(26,26,26,0.18);
     transform: translateY(-2px) scale(1.04);
   }
-  .map-card.popup.hover:hover .mc-roman,
-  .map-card.popup.hover:hover .mc-name,
-  .map-card.popup.hover:hover .mc-popup-funclabel,
-  .map-card.popup.hover.touch-over .mc-roman,
-  .map-card.popup.hover.touch-over .mc-name,
-  .map-card.popup.hover.touch-over .mc-popup-funclabel { color: #faf3e3 !important; }
   .map-card.popup.hover .mc-popup-funclabel {
     font-family: 'SF Mono', monospace;
     font-size: 8.5px;
@@ -1383,6 +1376,7 @@
     animation: persistentPopupPulse 0.85s ease-in-out infinite;
     transform: none !important;
     z-index: 55 !important;
+    transition: none !important;  /* no cream→green blink on click */
   }
   .map-card.popup.persistent .mc-popup-funclabel {
     color: var(--tag-tonic) !important;
@@ -4283,9 +4277,11 @@ const CHORD_MAP = {
       'vi':   {roman:'vi',   deg:9,  quality:'m7',   tag:'tonic'},
       'vii':  {roman:'viiø', deg:11, quality:'m7b5', tag:'dom'},     // diatonic leading-tone (functions as dom upper-structure)
       'V7sus':{roman:'V7sus',deg:7,  quality:'7sus4',tag:'dom'},     // suspended dom — common pre-V setup
-      // Secondary dominants (in nodes)
-      'V_V':  {roman:'V/V',  deg:2,  quality:'7',    tag:'secondary', resolvesTo:'V'},
-      'V_ii': {roman:'V/ii', deg:9,  quality:'7',    tag:'secondary', resolvesTo:'ii'},
+      // Secondary dominants (in nodes). `sii` = the secondary ii that
+      // forms the full ii–V of the target (vi acts as ii-of-V; Em7b5 is
+      // the ii-of-ii). Used to draw / pop the "2" in front of the "5".
+      'V_V':  {roman:'V/V',  deg:2,  quality:'7',    tag:'secondary', resolvesTo:'V',  sii:'vi'},
+      'V_ii': {roman:'V/ii', deg:9,  quality:'7',    tag:'secondary', resolvesTo:'ii', sii:'iiø_ii'},
       // Borrowed / modal interchange (in nodes)
       'iv':   {roman:'iv',   deg:5,  quality:'m7',   tag:'borrowed',  borrowedFrom:'parallel minor'},
       'bVII': {roman:'bVII', deg:10, quality:'7',    tag:'borrowed',  borrowedFrom:'parallel minor'},
@@ -4297,9 +4293,9 @@ const CHORD_MAP = {
       // (resolvesTo) or near the tonic (borrowedFrom). Keeps the map clean
       // while letting progressions reach for the full functional palette.
       // Secondary dominants — completing the V/X family
-      'V_iii':  {roman:'V/iii',  deg:11, quality:'7', tag:'secondary', resolvesTo:'iii',  popup:true},
-      'V_IV':   {roman:'V/IV',   deg:0,  quality:'7', tag:'secondary', resolvesTo:'IV',   popup:true},
-      'V_vi':   {roman:'V/vi',   deg:4,  quality:'7', tag:'secondary', resolvesTo:'vi',   popup:true},
+      'V_iii':  {roman:'V/iii',  deg:11, quality:'7', tag:'secondary', resolvesTo:'iii',  popup:true, sii:'iiø_iii'},
+      'V_IV':   {roman:'V/IV',   deg:0,  quality:'7', tag:'secondary', resolvesTo:'IV',   popup:true, sii:'ii_IV'},
+      'V_vi':   {roman:'V/vi',   deg:4,  quality:'7', tag:'secondary', resolvesTo:'vi',   popup:true, sii:'vii'},
       'V_bVII': {roman:'V/bVII', deg:5,  quality:'7', tag:'secondary', resolvesTo:'bVII', popup:true},
       // Tritone subs of secondary dominants
       'bII7_V':   {roman:'bII7/V',   deg:8,  quality:'7', tag:'secondary', resolvesTo:'V',   popup:true},
@@ -4310,6 +4306,13 @@ const CHORD_MAP = {
       'bVImaj7': {roman:'bVImaj7', deg:8,  quality:'maj7', tag:'borrowed', borrowedFrom:'parallel minor', popup:true},
       // Major-key half-diminished ii (Stella opening, modal-minor borrow)
       'iiø':    {roman:'iiø',   deg:2,  quality:'m7b5', tag:'borrowed',  resolvesTo:'V', popup:true},
+      // Secondary ii's — the "2" of a secondary ii–V. Popup-only and shown
+      // ONLY chained in front of their secondary dominant (siiOf), never as
+      // a standalone approach (no resolvesTo). Together with the V/X they
+      // spell the full ii–V of a non-tonic degree.
+      'iiø_ii':  {roman:'iiø/ii',  deg:4, quality:'m7b5', tag:'secondary', siiOf:'V_ii',  popup:true},
+      'iiø_iii': {roman:'iiø/iii', deg:6, quality:'m7b5', tag:'secondary', siiOf:'V_iii', popup:true},
+      'ii_IV':   {roman:'ii/IV',   deg:7, quality:'m7',   tag:'secondary', siiOf:'V_IV',  popup:true},
     },
     nodes: {
       // ── PREDOMINANT column (left, x=50) — descending-5ths chain reads top→bottom ──
@@ -4357,6 +4360,9 @@ const CHORD_MAP = {
       // Secondaries to their targets
       {from:'n_V_V', to:'n_V'},
       {from:'n_V_ii',to:'n_ii'},
+      // Secondary ii → its secondary V: vi acts as the "2" of V/V, so the
+      // ii–V-of-V (Am7→D7) reads as a link between two permanent nodes.
+      {from:'n_vi',  to:'n_V_V'},
       // vii° — diatonic leading-tone, resolves to I; IV → vii° is the classic Bach approach
       {from:'n_vii', to:'n_I'},
       {from:'n_IV',  to:'n_vii'},
@@ -5980,6 +5986,23 @@ function _findApproachesTo(chordId) {
   return approaches;
 }
 
+// When a chord on the map is the designated "sii" of a popup secondary
+// dominant (e.g. viiø is the sii of V/vi), returns that dominant's
+// resolvesTo target so the caller can auto-show the full ii–V popup chain.
+// Only matches on-map siis (popup siis are already handled by siiOf chains).
+function _findChainTargetForSii(siiChordId) {
+  const map = currentMap();
+  if (!map) return null;
+  const defs = map.chordDefs;
+  for (const id in defs) {
+    const ch = defs[id];
+    if (ch.popup && ch.sii === siiChordId && !defs[siiChordId]?.popup) {
+      return ch.resolvesTo || null;
+    }
+  }
+  return null;
+}
+
 // ─── Logical grid for popup placement ───
 // The chord map IS a grid: 5 rows × 4 cols (with a potential extra
 // column on the left for expansion). Each existing chord occupies one
@@ -6096,6 +6119,44 @@ function _getPopupSlot(targetNode, targetChordId, idx, popupW, popupH, gap) {
   return { x, y };
 }
 
+// The cell most recently claimed by _getPopupSlot — lets a chained
+// secondary ii anchor itself next to the dominant popup just placed.
+function _lastPopupCell() {
+  return _popupOccupiedThisPass.length
+    ? _popupOccupiedThisPass[_popupOccupiedThisPass.length - 1]
+    : null;
+}
+
+// Like _findNearestEmptyCell but anchored at an explicit {col,row} cell
+// instead of a chord id. Used to seat the chained secondary ii right
+// beside its secondary-V popup, which owns no fixed grid cell of its own.
+function _getPopupSlotNearCell(anchorCell) {
+  if (!anchorCell) return { x: MAP_DIMS.width - POPUP_GRID.W - 8, y: MAP_DIMS.height - POPUP_GRID.H - 8 };
+  const tonality = state.tonality === 'minor' ? 'minor' : 'major';
+  const cellMap = CHORD_GRID_CELL[tonality] || {};
+  const numRows = POPUP_GRID.rows.length, numCols = POPUP_GRID.cols.length;
+  const occupied = new Set();
+  for (const id in cellMap) { const c = cellMap[id]; occupied.add(`${c.col},${c.row}`); }
+  for (const cell of _popupOccupiedThisPass) occupied.add(`${cell.col},${cell.row}`);
+  for (let ring = 1; ring <= Math.max(numRows, numCols); ring++) {
+    const candidates = [];
+    for (let dc = -ring; dc <= ring; dc++) for (let dr = -ring; dr <= ring; dr++) {
+      if (Math.abs(dc) !== ring && Math.abs(dr) !== ring) continue;
+      const c = anchorCell.col + dc, r = anchorCell.row + dr;
+      if (c < 0 || c >= numCols || r < 0 || r >= numRows) continue;
+      if (occupied.has(`${c},${r}`)) continue;
+      candidates.push({ col: c, row: r, dist: Math.abs(dc) + Math.abs(dr) });
+    }
+    if (candidates.length) {
+      candidates.sort((a, b) => a.dist - b.dist);
+      const pick = { col: candidates[0].col, row: candidates[0].row };
+      _popupOccupiedThisPass.push(pick);
+      return { x: POPUP_GRID.cols[pick.col], y: POPUP_GRID.rows[pick.row] };
+    }
+  }
+  return { x: MAP_DIMS.width - POPUP_GRID.W - 8, y: MAP_DIMS.height - POPUP_GRID.H - 8 };
+}
+
 function _renderHoverPopups(chordId) {
   if (!chordId) return;
   // Skip if the player is engaged — compose-only feature.
@@ -6103,6 +6164,25 @@ function _renderHoverPopups(chordId) {
   const wrap = document.getElementById('chord-map');
   const arrowsSvg = document.getElementById('map-arrows');
   if (!wrap) return;
+  // ── Pre-clear route check ──
+  // Compute approaches BEFORE touching the DOM so we can bail or re-route
+  // without wiping visible popups. Key case: hovering viiø (no popup
+  // approaches of its own) redirects to the vi chain so V/vi stays clickable.
+  const approaches = _findApproachesTo(chordId);
+  if (!approaches.some(a => a.isPopup)) {
+    if (typeof _findChainTargetForSii === 'function') {
+      const chainTarget = _findChainTargetForSii(chordId);
+      if (chainTarget) {
+        // Already showing the right chain → stay put; otherwise re-route.
+        if (_hoverChordId !== chainTarget) {
+          _hoverChordId = chainTarget;
+          _renderHoverPopups(chainTarget);
+        }
+        return;
+      }
+    }
+    if (!approaches.length) return;   // no approaches at all — bail without clearing
+  }
   // Clear any prior hover popups (but leave playback popups alone)
   Array.from(wrap.querySelectorAll('.map-card.popup.hover')).forEach(el => el.remove());
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
@@ -6114,8 +6194,7 @@ function _renderHoverPopups(chordId) {
     if (map.nodes[nid].chord === chordId) { targetNode = map.nodes[nid]; break; }
   }
   if (!targetNode) return;
-  const approaches = _findApproachesTo(chordId);
-  if (!approaches.length) return;
+  // (approaches already computed above — no second call needed)
   const flats = useFlatsFor(state.keyPc);
   const POPUP_W = 96, POPUP_H = 104, GAP = 18;
 
@@ -6129,10 +6208,208 @@ function _renderHoverPopups(chordId) {
 
   // Functional label for each popup based on its metadata.
   const labelFor = (ch) => {
+    if (ch.siiOf) return 'SECONDARY ii';
     if (ch.tag === 'secondary') return 'SECONDARY DOM';
     if (ch.borrowedFrom) return 'MODAL INTERCHANGE';
     if (ch.tag === 'borrowed' && /^bII7/.test(ch.roman)) return 'TRITONE SUB';
     return 'APPROACH';
+  };
+
+  // Locate an on-map node by chord id (null if popup-only).
+  const findNodeFor = (cid) => {
+    for (const nid in map.nodes) if (map.nodes[nid].chord === cid) return map.nodes[nid];
+    return null;
+  };
+
+  // Build a clickable popup card for a popup-only chord at (x, y).
+  // Shared by the secondary-dominant approach and its chained ii.
+  const buildPopupCard = (appId, chDef, x, y) => {
+    const root = (state.keyPc + chDef.deg) % 12;
+    const chordName = nameOf(root, flats) + QUALITIES[chDef.quality].sfx;
+    let shape = null;
+    if (typeof bestStartingVoicing === 'function') {
+      const v = bestStartingVoicing(chDef.quality, root);
+      if (v) shape = v.shape;
+    }
+    const miniSvg = shape && typeof renderMini === 'function'
+      ? renderMini(shape, root, chDef.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
+      : '';
+    const card = document.createElement('div');
+    card.className = `map-card popup hover tag-${chDef.tag}`;
+    card.style.left = `${x}px`;
+    card.style.top = `${y}px`;
+    card.style.width = `${POPUP_W}px`;
+    card.style.height = `${POPUP_H}px`;
+    card.dataset.chord = appId;
+    card.dataset.popup = '1';
+    card.innerHTML = `
+      <div class="mc-popup-funclabel">${labelFor(chDef)}</div>
+      <div class="mc-top">
+        <span class="mc-roman">${chDef.roman}</span>
+        <span class="mc-name">${chordName}</span>
+      </div>
+      <div class="mc-svg-wrap">${miniSvg}</div>
+    `;
+    card.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const chDefs = (currentMap() || {}).chordDefs || {};
+      const isSecondaryIi = !!(chDefs[appId] && chDefs[appId].siiOf);
+
+      if (isSecondaryIi) {
+        // ── Secondary-ii chain step ──
+        // composeAddChord → renderAll → renderChordMap wipes every .map-card,
+        // which would destroy the whole visible chain. To keep "2 stays green,
+        // 5 stays clickable at exactly the same spot", we:
+        //   1. Snapshot every hover-popup card + arrow BEFORE the wipe
+        //   2. Call composeAddChord (wipe happens inside)
+        //   3. Re-inject the cards at their original pixel positions:
+        //      the ii card gets persistent (green) styling, the V card gets
+        //      a fresh click listener so it's still usable.
+        const mapWrap   = document.getElementById('chord-map');
+        const svgArrows = document.getElementById('map-arrows');
+
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId:    c.dataset.chord,
+          isIi:     c.dataset.chord === appId,
+          left:     c.style.left,
+          top:      c.style.top,
+          width:    c.style.width,
+          height:   c.style.height,
+          innerHTML: c.innerHTML,
+          className: c.className,   // snapshot BEFORE adding persistent
+        }));
+        // Pre-apply persistent to the ii card NOW so it goes green instantly
+        // (transition:none on .persistent means no white flash).
+        card.classList.add('persistent');
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
+
+        _persistentPopupChordId = null;
+        _persistentPopupNode    = null;
+        if (typeof composeAddChord === 'function') {
+          composeAddChord(appId, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
+        }
+
+        // Re-inject at original positions.
+        _hoverChordId = chordId;
+        snapCards.forEach(snap => {
+          const el = document.createElement('div');
+          // ii → persistent (green pulse); V partners → normal hover (clickable).
+          el.className = snap.isIi
+            ? snap.className + ' persistent'
+            : snap.className;
+          el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
+          el.dataset.chord  = snap.appId;
+          el.dataset.popup  = '1';
+          el.innerHTML      = snap.innerHTML;
+          if (!snap.isIi) {
+            // Reattach click handler so V is still composable.
+            const vAppId = snap.appId;
+            el.addEventListener('click', (ev2) => {
+              ev2.stopPropagation();
+              _persistentPopupChordId = vAppId;
+              _persistentPopupNode    = chordId;
+              if (typeof composeAddChord === 'function') {
+                composeAddChord(vAppId, ev2.shiftKey, _shiftSide === 'left' ? -1 : 1);
+              }
+              _clearHoverPopups();
+            });
+          }
+          mapWrap.appendChild(el);
+        });
+        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        return;
+      }
+
+      // ── Secondary-V chain step (clicking the dominant first) ──
+      // Mirror of the ii-first path: if the clicked popup IS the dominant
+      // (has a popup sii), keep the ii partner visible at its original position
+      // so the user can click it second (both-ways chain navigation).
+      const isSecondaryV = !!(chDefs[appId]?.sii && chDefs[chDefs[appId].sii]?.popup);
+
+      if (isSecondaryV) {
+        const mapWrap   = document.getElementById('chord-map');
+        const svgArrows = document.getElementById('map-arrows');
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId:    c.dataset.chord,
+          isV:      c.dataset.chord === appId,
+          left:     c.style.left,
+          top:      c.style.top,
+          width:    c.style.width,
+          height:   c.style.height,
+          innerHTML: c.innerHTML,
+          className: c.className,
+        }));
+        card.classList.add('persistent');
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
+        _persistentPopupChordId = null;
+        _persistentPopupNode    = null;
+        if (typeof composeAddChord === 'function') {
+          composeAddChord(appId, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
+        }
+        _hoverChordId = chordId;
+        snapCards.forEach(snap => {
+          const el = document.createElement('div');
+          el.className = snap.isV
+            ? snap.className + ' persistent'   // V = green
+            : snap.className;                   // ii partner = still clickable
+          el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
+          el.dataset.chord  = snap.appId;
+          el.dataset.popup  = '1';
+          el.innerHTML      = snap.innerHTML;
+          if (!snap.isV) {
+            const iiAppId = snap.appId;
+            el.addEventListener('click', (ev2) => {
+              ev2.stopPropagation();
+              _persistentPopupChordId = iiAppId;
+              _persistentPopupNode    = chordId;
+              if (typeof composeAddChord === 'function') {
+                composeAddChord(iiAppId, ev2.shiftKey, _shiftSide === 'left' ? -1 : 1);
+              }
+              _clearHoverPopups();
+            });
+          }
+          mapWrap.appendChild(el);
+        });
+        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        return;
+      }
+
+      // ── Normal popup click ──
+      // Pre-apply persistent immediately so the card goes green on click
+      // with no transition (transition:none on .persistent prevents the
+      // cream→white→green blink).
+      card.classList.add('persistent');
+      _persistentPopupChordId = appId;
+      _persistentPopupNode   = chordId;
+      // Save exact pixel position so _redrawPersistentPopup re-uses the
+      // same slot (not always slot-0 which would shift slot-1 cards).
+      _persistentPopupPos = { x: parseFloat(card.style.left), y: parseFloat(card.style.top) };
+      if (typeof composeAddChord === 'function') {
+        composeAddChord(appId, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
+      }
+      _clearHoverPopups();
+    });
+    return card;
+  };
+
+  // Generic two-point connector arrow (used for the ii → V link, which
+  // points to the dominant card rather than the hovered target).
+  const drawArrowPts = (fromX, fromY, toX, toY) => {
+    if (!arrowsSvg) return;
+    const dx = toX - fromX, dy = toY - fromY;
+    const mx = fromX + dx * 0.5;
+    const my = fromY + dy * 0.5 - 16;
+    const ns = 'http://www.w3.org/2000/svg';
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('class', 'hover-arrow');
+    path.setAttribute('d', `M ${fromX} ${fromY} Q ${mx} ${my} ${toX} ${toY}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'var(--accent, #a07820)');
+    path.setAttribute('stroke-width', '1.8');
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('marker-end', 'url(#ah-hl)');
+    path.setAttribute('opacity', '0.85');
+    arrowsSvg.appendChild(path);
   };
 
   // Helper to draw a connector arrow from any (x, y) to the target chord.
@@ -6163,67 +6440,57 @@ function _renderHoverPopups(chordId) {
     const appId = approach.id;
     const ch = map.chordDefs[appId];
     if (!ch) return;
+    // `domAnchor` = the point the secondary V occupies, so its chained
+    // secondary ii can draw an arrow INTO it (ii → V), not into the target.
+    // `domNode` / `domCell` tell the ii where to seat itself.
+    let domAnchorX, domAnchorY, domNode = null, domCell = null;
     // ── Case A: approach is ALREADY a card on the map ──
     // Don't create a popup, just draw a connector arrow from its
     // existing card to the hovered target. This handles V/ii, V/V,
     // etc. — the secondary dominants permanently visible on the map.
     if (!approach.isPopup) {
-      let approachNode = null;
-      for (const nid in map.nodes) {
-        if (map.nodes[nid].chord === appId) { approachNode = map.nodes[nid]; break; }
-      }
-      if (approachNode) {
-        drawArrowFrom(approachNode.x + 48, approachNode.y + 50);
-      }
-      return;
+      domNode = findNodeFor(appId);
+      if (!domNode) return;
+      domAnchorX = domNode.x + 48;
+      domAnchorY = domNode.y + 50;
+      drawArrowFrom(domAnchorX, domAnchorY);
+    } else {
+      // ── Case B: approach is popup-only — render its card + arrow ──
+      const { x, y } = _getPopupSlot(targetNode, chordId, popupSlotIdx, POPUP_W, POPUP_H, GAP);
+      popupSlotIdx++;
+      domCell = _lastPopupCell();
+      const card = buildPopupCard(appId, ch, x, y);
+      wrap.appendChild(card);
+      domAnchorX = x + POPUP_W / 2;
+      domAnchorY = y + POPUP_H / 2;
+      // Connector arrow from this popup's center to the target.
+      drawArrowFrom(domAnchorX, domAnchorY);
     }
-    // ── Case B: approach is popup-only — render its card + arrow ──
-    const { x, y } = _getPopupSlot(targetNode, chordId, popupSlotIdx, POPUP_W, POPUP_H, GAP);
-    popupSlotIdx++;
-    const root = (state.keyPc + ch.deg) % 12;
-    const chordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
-    let shape = null;
-    if (typeof bestStartingVoicing === 'function') {
-      const v = bestStartingVoicing(ch.quality, root);
-      if (v) shape = v.shape;
-    }
-    const miniSvg = shape && typeof renderMini === 'function'
-      ? renderMini(shape, root, ch.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
-      : '';
-    const card = document.createElement('div');
-    card.className = `map-card popup hover tag-${ch.tag}`;
-    card.style.left = `${x}px`;
-    card.style.top = `${y}px`;
-    card.style.width = `${POPUP_W}px`;
-    card.style.height = `${POPUP_H}px`;
-    card.dataset.chord = appId;
-    card.dataset.popup = '1';
-    card.innerHTML = `
-      <div class="mc-popup-funclabel">${labelFor(ch)}</div>
-      <div class="mc-top">
-        <span class="mc-roman">${ch.roman}</span>
-        <span class="mc-name">${chordName}</span>
-      </div>
-      <div class="mc-svg-wrap">${miniSvg}</div>
-    `;
-    // Click → drop this chord into the compose strip + pin THIS popup
-    // as the "currently composing" active indicator. The pin survives
-    // the renderChordMap wipe that composeAddChord triggers, because
-    // we save the chord IDs and renderChordMap calls _redrawPersistentPopup
-    // at the end of its rebuild.
-    card.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      // Save the pin BEFORE composeAddChord so the redraw can pick it up.
-      _persistentPopupChordId = appId;
-      _persistentPopupNode = chordId;
-      if (typeof composeAddChord === 'function') {
-        composeAddChord(appId, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
+    // ── Chain the secondary ii in front of this secondary dominant ──
+    // Completes the ii–V-of-X: if the "2" is already an on-map node
+    // (vi for V/V, viiø for V/vi) just connect it; otherwise materialize
+    // it as its own popup seated right beside the dominant.
+    if (ch.sii) {
+      const siiId = ch.sii;
+      const siiCh = map.chordDefs[siiId];
+      if (siiCh) {
+        const siiNode = findNodeFor(siiId);
+        if (siiNode) {
+          // On-map "2" → arrow from its card into the dominant.
+          drawArrowPts(siiNode.x + 48, siiNode.y + 50, domAnchorX, domAnchorY);
+        } else if (siiCh.popup) {
+          // Popup-only "2" → seat it next to the V (node's grid cell in
+          // Case A, the just-placed popup's cell in Case B), arrow into the V.
+          const slot = domNode
+            ? _getPopupSlot(domNode, appId, popupSlotIdx, POPUP_W, POPUP_H, GAP)
+            : _getPopupSlotNearCell(domCell);
+          popupSlotIdx++;
+          const siiCard = buildPopupCard(siiId, siiCh, slot.x, slot.y);
+          wrap.appendChild(siiCard);
+          drawArrowPts(slot.x + POPUP_W / 2, slot.y + POPUP_H / 2, domAnchorX, domAnchorY);
+        }
       }
-      _clearHoverPopups();
-    });
-    wrap.appendChild(card);
-    // Connector arrow from this popup's center to the target.
-    drawArrowFrom(x + POPUP_W / 2, y + POPUP_H / 2);
+    }
   });
 }
 
@@ -6233,6 +6500,7 @@ function _renderHoverPopups(chordId) {
 // system so it survives mouseleave / new hovers.
 let _persistentPopupChordId = null;
 let _persistentPopupNode = null;     // remembered target node for re-render
+let _persistentPopupPos  = null;     // exact {x,y} the card occupied when clicked
 
 function _clearHoverPopups() {
   const wrap = document.getElementById('chord-map');
@@ -6266,6 +6534,7 @@ function _clearPersistentPopup() {
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
   _persistentPopupChordId = null;
   _persistentPopupNode = null;
+  _persistentPopupPos  = null;
 }
 
 // Re-render the persistent popup from its saved (approachId, targetId).
@@ -6289,10 +6558,12 @@ function _redrawPersistentPopup() {
   if (!targetNode) return;
   const flats = useFlatsFor(state.keyPc);
   const POPUP_W = 96, POPUP_H = 104, GAP = 18;
-  // Same centralized slot as the other popup renderers, so a chord's
-  // approaches always live in the same spot regardless of how they
-  // arrived (playback, hover, or persistent post-click).
-  const { x, y } = _getPopupSlot(targetNode, _persistentPopupNode, 0, POPUP_W, POPUP_H, GAP);
+  // Prefer the exact pixel position saved at click time — this preserves
+  // whichever slot the card occupied (slot 1 cards used to jump to slot 0).
+  // Fall back to the slot allocator for cases where no position was saved
+  // (e.g. page reload restoring a persisted state).
+  const { x, y } = _persistentPopupPos
+    || _getPopupSlot(targetNode, _persistentPopupNode, 0, POPUP_W, POPUP_H, GAP);
   const root = (state.keyPc + ch.deg) % 12;
   const chordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
   let shape = null;
@@ -6431,12 +6702,98 @@ function _setupChordMapTouch() {
     const under = document.elementFromPoint(t.clientX, t.clientY);
     const popUnder = under && under.closest && under.closest('.map-card.popup.hover');
     if (popUnder) {
-      // Released on a popup → add THAT chord and pin it as persistent.
+      // Released on a popup → add THAT chord.
       const appId = popUnder.dataset.chord;
-      _persistentPopupChordId = appId;
-      _persistentPopupNode = _touchState.origChordId;
-      if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
-      _clearHoverPopups();
+      const chDefs = (currentMap() || {}).chordDefs || {};
+      const isSecondaryIi = !!(chDefs[appId] && chDefs[appId].siiOf);
+      const origChordId = _touchState.origChordId;
+
+      if (isSecondaryIi) {
+        // Same save/restore logic as the desktop click path: keep the ii green
+        // and the V partner visible at its original position after the wipe.
+        const mapWrap   = document.getElementById('chord-map');
+        const svgArrows = document.getElementById('map-arrows');
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId: c.dataset.chord, isIi: c.dataset.chord === appId,
+          left: c.style.left, top: c.style.top,
+          width: c.style.width, height: c.style.height,
+          innerHTML: c.innerHTML, className: c.className,
+        }));
+        // Pre-apply persistent to the ii card for instant green (no blink).
+        popUnder.classList.add('persistent');
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
+        _persistentPopupChordId = null;
+        _persistentPopupNode    = null;
+        if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
+        _hoverChordId = origChordId;
+        snapCards.forEach(snap => {
+          const el = document.createElement('div');
+          el.className = snap.isIi ? snap.className + ' persistent' : snap.className;
+          el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
+          el.dataset.chord = snap.appId;
+          el.dataset.popup = '1';
+          el.innerHTML = snap.innerHTML;
+          if (!snap.isIi) {
+            const vAppId = snap.appId;
+            el.addEventListener('click', (ev2) => {
+              ev2.stopPropagation();
+              _persistentPopupChordId = vAppId;
+              _persistentPopupNode    = origChordId;
+              if (typeof composeAddChord === 'function') composeAddChord(vAppId, false, 1);
+              _clearHoverPopups();
+            });
+          }
+          mapWrap.appendChild(el);
+        });
+        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+      } else {
+        const isSecondaryV = !!(chDefs[appId]?.sii && chDefs[chDefs[appId].sii]?.popup);
+        if (isSecondaryV) {
+          // V-first touch path: keep the ii partner visible.
+          const mapWrap   = document.getElementById('chord-map');
+          const svgArrows = document.getElementById('map-arrows');
+          const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+            appId: c.dataset.chord, isV: c.dataset.chord === appId,
+            left: c.style.left, top: c.style.top,
+            width: c.style.width, height: c.style.height,
+            innerHTML: c.innerHTML, className: c.className,
+          }));
+          popUnder.classList.add('persistent');
+          const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
+          _persistentPopupChordId = null;
+          _persistentPopupNode    = null;
+          if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
+          _hoverChordId = origChordId;
+          snapCards.forEach(snap => {
+            const el = document.createElement('div');
+            el.className = snap.isV ? snap.className + ' persistent' : snap.className;
+            el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
+            el.dataset.chord = snap.appId;
+            el.dataset.popup = '1';
+            el.innerHTML = snap.innerHTML;
+            if (!snap.isV) {
+              const iiAppId = snap.appId;
+              el.addEventListener('click', (ev2) => {
+                ev2.stopPropagation();
+                _persistentPopupChordId = iiAppId;
+                _persistentPopupNode    = origChordId;
+                if (typeof composeAddChord === 'function') composeAddChord(iiAppId, false, 1);
+                _clearHoverPopups();
+              });
+            }
+            mapWrap.appendChild(el);
+          });
+          if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        } else {
+          // Pre-apply persistent for instant green on touch (no blink).
+          popUnder.classList.add('persistent');
+          _persistentPopupChordId = appId;
+          _persistentPopupNode    = origChordId;
+          _persistentPopupPos = { x: parseFloat(popUnder.style.left), y: parseFloat(popUnder.style.top) };
+          if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
+          _clearHoverPopups();
+        }
+      }
     } else {
       const origOver = under && under.closest && under.closest('.map-card') === _touchState.origCard;
       if (origOver) {
@@ -6479,6 +6836,10 @@ function _setupChordMapTouch() {
       if (!card || card.classList.contains('popup')) return;
       const chordId = card.dataset.chord;
       if (!chordId || chordId === _hoverChordId) return;
+      // If hovering the on-map sii for the currently-shown chain context,
+      // don't re-trigger — keeps V/vi popup stable while cursor is on viiø.
+      if (_hoverChordId && typeof _findChainTargetForSii === 'function' &&
+          _findChainTargetForSii(chordId) === _hoverChordId) return;
       // Cancel any pending exit + restart the delay for the new chord.
       clearTimeout(_hoverExitTimer);
       clearTimeout(_hoverTimer);
@@ -6493,7 +6854,23 @@ function _setupChordMapTouch() {
     wrap.addEventListener('mouseleave', () => {
       clearTimeout(_hoverTimer);
       clearTimeout(_hoverExitTimer);
-      _hoverExitTimer = setTimeout(_clearHoverPopups, HOVER_EXIT_GRACE_MS);
+      _hoverExitTimer = setTimeout(() => {
+        _clearHoverPopups();
+        // Restore on-map-sii chain after hover clears (viiø → V/vi).
+        if (!player.playing && !player.paused) {
+          const fc = state.focusedChord;
+          if (fc) {
+            const chainTarget = _findChainTargetForSii(fc);
+            const chDefs = (currentMap() || {}).chordDefs || {};
+            const persistentIsPairV = _persistentPopupChordId &&
+              chDefs[_persistentPopupChordId]?.sii === fc;
+            if (chainTarget && !persistentIsPairV) {
+              _hoverChordId = chainTarget;
+              _renderHoverPopups(chainTarget);
+            }
+          }
+        }
+      }, HOVER_EXIT_GRACE_MS);
     });
     // A real click on a card should clear any showing hover popups
     // immediately — the user committed to the regular chord, not the
@@ -6506,6 +6883,20 @@ function _setupChordMapTouch() {
       clearTimeout(_hoverTimer);
       clearTimeout(_hoverExitTimer);
       _clearHoverPopups();
+      // Restore on-map-sii chain when the newly-focused chord is an sii.
+      if (!player.playing && !player.paused) {
+        const fc = state.focusedChord;
+        if (fc) {
+          const chainTarget = _findChainTargetForSii(fc);
+          const chDefs = (currentMap() || {}).chordDefs || {};
+          const persistentIsPairV = _persistentPopupChordId &&
+            chDefs[_persistentPopupChordId]?.sii === fc;
+          if (chainTarget && !persistentIsPairV) {
+            _hoverChordId = chainTarget;
+            _renderHoverPopups(chainTarget);
+          }
+        }
+      }
     });
     // Mobile: press-and-hold reveals popups, release on one to plug it.
     _setupChordMapTouch();
@@ -6846,6 +7237,28 @@ function renderChordMap() {
   // Re-draw the persistent hover popup (if any) after every map rebuild,
   // so the "currently composing" highlight survives renderAll → wipe.
   if (typeof _redrawPersistentPopup === 'function') _redrawPersistentPopup();
+  // Auto-show approach popups whenever a chord with popup-only approaches is
+  // focused (compose mode only). This lets the user always see the ii–V chain
+  // for the current chord and trace/extend it without having to hover first.
+  if (!player.playing && !player.paused &&
+      typeof _findChainTargetForSii === 'function' && typeof _renderHoverPopups === 'function') {
+    // Auto-popup only for on-map sii chords (e.g. viiø): these have no
+    // hover popups of their own, so showing the chain target's popups is
+    // the only way for the user to see where they lead. Regular chords
+    // (iii, IV, V, vi…) already show approaches on hover — no need to
+    // force them open on focus, which was creating visual noise.
+    const fc = state.focusedChord;
+    if (fc) {
+      const chainTarget = _findChainTargetForSii(fc);
+      const chDefs = (currentMap() || {}).chordDefs || {};
+      const persistentIsPairV = _persistentPopupChordId &&
+        chDefs[_persistentPopupChordId]?.sii === fc;
+      if (chainTarget && !persistentIsPairV) {
+        _hoverChordId = chainTarget;
+        _renderHoverPopups(chainTarget);
+      }
+    }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -11471,6 +11884,15 @@ function _refreshAutoPlayUI() {
     play.textContent = '▶ AI';
     play.title = 'Start';
     document.body.classList.remove('player-active');
+  }
+  // The mobile chord-map overlay is a compose-time tool that pins a fixed
+  // slot over the bottom of the viewport. In play mode its Map/Keys toggle
+  // is hidden, which would otherwise strand the user behind the map with no
+  // way back and the transport buried. Entering play exits map mode.
+  if ((player.playing || player.paused) && document.body.classList.contains('map-overlay-open')) {
+    document.body.classList.remove('map-overlay-open');
+    const mapToggle = document.getElementById('map-mobile-toggle');
+    if (mapToggle) mapToggle.textContent = '🗺 Map';
   }
   // Stop is only meaningful when there's something to halt.
   if (stop) {
