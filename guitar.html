@@ -1716,9 +1716,12 @@
     background: #fdfcf3;
     height: 150px;
   }
-  body.player-active .real-book-tabs {
+  body.player-active:not(.lp-on) .real-book-tabs {
     height: 100%;
-    min-height: 150px;
+    /* On wider viewports the cells become very wide; scale height up
+       proportionally so chord diagrams keep readable proportions.
+       Caps at 320px so the strip never eats too much of the viewport. */
+    min-height: clamp(220px, 18vw, 320px);
   }
   /* Play mode: hide the inline loop button next to the tabs — there's
      already a loop control elsewhere in the play-mode chrome, and
@@ -2740,6 +2743,10 @@
     height: 800px;
     transform: scale(0.85);
     transform-origin: top left;
+    /* Prevent iOS/Android long-press text selection on the whole map */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   .map-arrows {
     position: absolute;
@@ -3187,7 +3194,7 @@
        don't crush each other — but staying close to the compose
        look (which uses a similar ~100px footprint per pair). */
     body.player-active:not(.lp-on) .real-book-tabs,
-    body.player-active:not(.lp-on) .rb-loop { height: 100px; }
+    body.player-active:not(.lp-on) .rb-loop { height: 150px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
@@ -6183,8 +6190,8 @@ function _renderHoverPopups(chordId) {
     }
     if (!approaches.length) return;   // no approaches at all — bail without clearing
   }
-  // Clear any prior hover popups (but leave playback popups alone)
-  Array.from(wrap.querySelectorAll('.map-card.popup.hover')).forEach(el => el.remove());
+  // Clear any prior hover popups — preserve persistent (clicked/active) cards.
+  Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
   const map = currentMap();
   if (!map) return;
@@ -6387,7 +6394,8 @@ function _renderHoverPopups(chordId) {
       if (typeof composeAddChord === 'function') {
         composeAddChord(appId, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
       }
-      _clearHoverPopups();
+      // No _clearHoverPopups() here — renderChordMap already wipes the DOM
+      // and auto-popup re-establishes the connection cards for the focused chord.
     });
     return card;
   };
@@ -6456,15 +6464,26 @@ function _renderHoverPopups(chordId) {
       drawArrowFrom(domAnchorX, domAnchorY);
     } else {
       // ── Case B: approach is popup-only — render its card + arrow ──
-      const { x, y } = _getPopupSlot(targetNode, chordId, popupSlotIdx, POPUP_W, POPUP_H, GAP);
-      popupSlotIdx++;
-      domCell = _lastPopupCell();
-      const card = buildPopupCard(appId, ch, x, y);
-      wrap.appendChild(card);
-      domAnchorX = x + POPUP_W / 2;
-      domAnchorY = y + POPUP_H / 2;
-      // Connector arrow from this popup's center to the target.
-      drawArrowFrom(domAnchorX, domAnchorY);
+      // If this chord is already showing as the persistent popup, reuse its
+      // existing position instead of creating a duplicate card.
+      const existingPersistent = (appId === _persistentPopupChordId)
+        ? wrap.querySelector(`.map-card.popup.persistent[data-chord="${appId}"]`)
+        : null;
+      if (existingPersistent) {
+        domAnchorX = parseFloat(existingPersistent.style.left) + POPUP_W / 2;
+        domAnchorY = parseFloat(existingPersistent.style.top) + POPUP_H / 2;
+        drawArrowFrom(domAnchorX, domAnchorY);
+        domCell = null; // no new cell allocated
+      } else {
+        const { x, y } = _getPopupSlot(targetNode, chordId, popupSlotIdx, POPUP_W, POPUP_H, GAP);
+        popupSlotIdx++;
+        domCell = _lastPopupCell();
+        const card = buildPopupCard(appId, ch, x, y);
+        wrap.appendChild(card);
+        domAnchorX = x + POPUP_W / 2;
+        domAnchorY = y + POPUP_H / 2;
+        drawArrowFrom(domAnchorX, domAnchorY);
+      }
     }
     // ── Chain the secondary ii in front of this secondary dominant ──
     // Completes the ii–V-of-X: if the "2" is already an on-map node
@@ -6636,6 +6655,9 @@ function _setupChordMapTouch() {
   const wrap = document.getElementById('chord-map');
   if (!wrap) return false;
 
+  // Prevent iOS/Android native long-press context menu from stealing the hold.
+  wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
   wrap.addEventListener('touchstart', (e) => {
     if (player.playing || player.paused) return;
     if (e.touches.length !== 1) return;
@@ -6644,6 +6666,10 @@ function _setupChordMapTouch() {
     if (!card || card.classList.contains('popup')) return;
     const chordId = card.dataset.chord;
     if (!chordId) return;
+    // CSS user-select:none + -webkit-touch-callout:none on .chord-map already
+    // blocks native text-selection and the iOS callout. We do NOT call
+    // e.preventDefault() here because it would suppress the synthetic click
+    // that short taps need to reach the card's click handler.
     _touchState = {
       startX: t.clientX,
       startY: t.clientY,
@@ -6660,7 +6686,7 @@ function _setupChordMapTouch() {
       // Light haptic if the device supports it — confirms the hold landed.
       if (navigator.vibrate) try { navigator.vibrate(15); } catch(e) {}
     }, TOUCH_HOLD_MS);
-  }, { passive: true });
+  });
 
   wrap.addEventListener('touchmove', (e) => {
     if (!_touchState) return;
@@ -6791,7 +6817,7 @@ function _setupChordMapTouch() {
           _persistentPopupNode    = origChordId;
           _persistentPopupPos = { x: parseFloat(popUnder.style.left), y: parseFloat(popUnder.style.top) };
           if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
-          _clearHoverPopups();
+          // renderChordMap wipes + rebuilds — no manual _clearHoverPopups needed.
         }
       }
     } else {
@@ -6856,17 +6882,22 @@ function _setupChordMapTouch() {
       clearTimeout(_hoverExitTimer);
       _hoverExitTimer = setTimeout(() => {
         _clearHoverPopups();
-        // Restore on-map-sii chain after hover clears (viiø → V/vi).
+        // Restore connections for focused chord after hover clears.
         if (!player.playing && !player.paused) {
           const fc = state.focusedChord;
-          if (fc) {
-            const chainTarget = _findChainTargetForSii(fc);
-            const chDefs = (currentMap() || {}).chordDefs || {};
-            const persistentIsPairV = _persistentPopupChordId &&
-              chDefs[_persistentPopupChordId]?.sii === fc;
-            if (chainTarget && !persistentIsPairV) {
-              _hoverChordId = chainTarget;
-              _renderHoverPopups(chainTarget);
+          const chDefs = (currentMap() || {}).chordDefs || {};
+          if (fc && fc !== 'I' && fc !== 'i') {
+            const fcApproaches = _findApproachesTo(fc);
+            if (fcApproaches.some(a => a.isPopup)) {
+              _hoverChordId = fc; _renderHoverPopups(fc);
+            } else {
+              const chainTarget = _findChainTargetForSii(fc);
+              const persistentIsPairV = _persistentPopupChordId && chDefs[_persistentPopupChordId]?.sii === fc;
+              if (chainTarget && !persistentIsPairV) {
+                _hoverChordId = chainTarget; _renderHoverPopups(chainTarget);
+              } else if (chDefs[fc]?.resolvesTo) {
+                _hoverChordId = chDefs[fc].resolvesTo; _renderHoverPopups(chDefs[fc].resolvesTo);
+              }
             }
           }
         }
@@ -6883,17 +6914,22 @@ function _setupChordMapTouch() {
       clearTimeout(_hoverTimer);
       clearTimeout(_hoverExitTimer);
       _clearHoverPopups();
-      // Restore on-map-sii chain when the newly-focused chord is an sii.
+      // Show connections for the newly-focused chord (all chords except I/i).
       if (!player.playing && !player.paused) {
         const fc = state.focusedChord;
-        if (fc) {
-          const chainTarget = _findChainTargetForSii(fc);
-          const chDefs = (currentMap() || {}).chordDefs || {};
-          const persistentIsPairV = _persistentPopupChordId &&
-            chDefs[_persistentPopupChordId]?.sii === fc;
-          if (chainTarget && !persistentIsPairV) {
-            _hoverChordId = chainTarget;
-            _renderHoverPopups(chainTarget);
+        const chDefs = (currentMap() || {}).chordDefs || {};
+        if (fc && fc !== 'I' && fc !== 'i') {
+          const fcApproaches = _findApproachesTo(fc);
+          if (fcApproaches.some(a => a.isPopup)) {
+            _hoverChordId = fc; _renderHoverPopups(fc);
+          } else {
+            const chainTarget = _findChainTargetForSii(fc);
+            const persistentIsPairV = _persistentPopupChordId && chDefs[_persistentPopupChordId]?.sii === fc;
+            if (chainTarget && !persistentIsPairV) {
+              _hoverChordId = chainTarget; _renderHoverPopups(chainTarget);
+            } else if (chDefs[fc]?.resolvesTo) {
+              _hoverChordId = chDefs[fc].resolvesTo; _renderHoverPopups(chDefs[fc].resolvesTo);
+            }
           }
         }
       }
@@ -7241,21 +7277,31 @@ function renderChordMap() {
   // focused (compose mode only). This lets the user always see the ii–V chain
   // for the current chord and trace/extend it without having to hover first.
   if (!player.playing && !player.paused &&
-      typeof _findChainTargetForSii === 'function' && typeof _renderHoverPopups === 'function') {
-    // Auto-popup only for on-map sii chords (e.g. viiø): these have no
-    // hover popups of their own, so showing the chain target's popups is
-    // the only way for the user to see where they lead. Regular chords
-    // (iii, IV, V, vi…) already show approaches on hover — no need to
-    // force them open on focus, which was creating visual noise.
+      typeof _renderHoverPopups === 'function') {
     const fc = state.focusedChord;
-    if (fc) {
-      const chainTarget = _findChainTargetForSii(fc);
-      const chDefs = (currentMap() || {}).chordDefs || {};
-      const persistentIsPairV = _persistentPopupChordId &&
-        chDefs[_persistentPopupChordId]?.sii === fc;
-      if (chainTarget && !persistentIsPairV) {
-        _hoverChordId = chainTarget;
-        _renderHoverPopups(chainTarget);
+    const chDefs = (currentMap() || {}).chordDefs || {};
+    if (fc && fc !== 'I' && fc !== 'i') {
+      const fcApproaches = _findApproachesTo(fc);
+      if (fcApproaches.some(a => a.isPopup)) {
+        // Regular map chord with popup approaches → show them.
+        _hoverChordId = fc;
+        _renderHoverPopups(fc);
+      } else {
+        // Check on-map sii (e.g. viiø → chain to vi) or popup chord
+        // focused (e.g. V/vi focused → show siblings approaching vi).
+        const chainTarget = typeof _findChainTargetForSii === 'function'
+          ? _findChainTargetForSii(fc) : null;
+        const persistentIsPairV = _persistentPopupChordId &&
+          chDefs[_persistentPopupChordId]?.sii === fc;
+        if (chainTarget && !persistentIsPairV) {
+          _hoverChordId = chainTarget;
+          _renderHoverPopups(chainTarget);
+        } else if (chDefs[fc]?.resolvesTo) {
+          // Popup chord is focused — show all approaches to its target so
+          // the user sees the full connection picture (siblings + sii arrow).
+          _hoverChordId = chDefs[fc].resolvesTo;
+          _renderHoverPopups(chDefs[fc].resolvesTo);
+        }
       }
     }
   }
