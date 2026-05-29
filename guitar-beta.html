@@ -1587,9 +1587,11 @@
   }
   /* Mobile playback: match the height compose-interleaved uses so the
      chord-name + staff render at the exact same size you see while
-     composing (the right-button column sits beside, sized to match). */
+     composing (the right-button column sits beside, sized to match).
+     Play mode is excluded — there the cell carries its own aspect-ratio
+     so the staff doesn't get vertically stretched. */
   @media (max-width: 800px) {
-    body.instrument-piano .real-book-tabs {
+    body.instrument-piano:not(.player-active) .real-book-tabs {
       height: 140px;
     }
   }
@@ -3266,9 +3268,17 @@
     /* In play mode the cells need a touch more vertical room than
        the 85px default so the chord diagram + reserved subdiv bar
        don't crush each other — but staying close to the compose
-       look (which uses a similar ~100px footprint per pair). */
-    body.player-active:not(.lp-on) .real-book-tabs,
+       look (which uses a similar ~100px footprint per pair).
+       The strip itself sizes to its cells (height: auto) and each
+       cell carries an aspect-ratio matching its SVG content, so:
+         • guitar chord diagrams (1:1 viewBox) stop letterboxing
+         • piano staves (130:148 viewBox) stop stretching — the
+           outer `preserveAspectRatio="none"` now scales evenly
+           because the cell aspect equals the viewBox aspect. */
+    body.player-active:not(.lp-on) .real-book-tabs { height: auto; }
     body.player-active:not(.lp-on) .rb-loop { height: 150px; }
+    body.player-active:not(.lp-on) .rb-tab-cell { aspect-ratio: 1 / 1; height: auto; }
+    body.instrument-piano.player-active:not(.lp-on) .rb-tab-cell { aspect-ratio: 130 / 148; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
