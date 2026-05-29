@@ -3265,18 +3265,28 @@
     body.player-active .rb-cycle,
     body.player-active .rb-loop,
     body.player-active .right-btn-stack { display: none !important; }
-    /* Mobile portrait play mode. Cells flex-share the strip width
-       (4 across the viewport ⇒ each cell ≈ 25vw wide). To stop the
-       chord-diagram SVG (1:1 viewBox) from letterboxing and the
-       piano-staff SVG (130:148 viewBox, outer preserveAspectRatio=
-       none) from stretching, the strip height is driven directly by
-       the viewport — matching the cells' natural aspect:
-         • guitar: 25vw tall  → cell ≈ 25vw × 25vw (1:1)
-         • piano:  25vw × 148/130 ≈ 28.5vw tall → cell aspect 130:148
-       Cells keep flex:1 so they still divide horizontally; the SVG
-       fills the cell uniformly because both axes scale together. */
-    body.player-active:not(.lp-on) .real-book-tabs { height: 25vw; }
-    body.instrument-piano.player-active:not(.lp-on) .real-book-tabs { height: calc(25vw * 148 / 130); }
+    /* Mobile portrait play mode. Each .rb-tab-cell carries an
+       aspect-ratio matching its SVG viewBox so:
+         • guitar chord diagrams (1:1) fill the cell — no letterbox
+         • piano staves (130:148) keep correct vertical proportions —
+           the outer staff SVG's preserveAspectRatio=none then scales
+           both axes by the same factor so lines and noteheads stay
+           proportional
+       `min-width: 0` overrides flex's default `min-width: auto`
+       (which would have forced each cell to be at least its content's
+       natural width, blowing the strip past the viewport when the
+       chord-name SVG had a wider intrinsic size). With that, cells
+       shrink properly to vw/4 and the strip auto-fits to that height. */
+    body.player-active:not(.lp-on) .real-book-tabs { height: auto; }
+    body.player-active:not(.lp-on) .rb-tab-cell {
+      aspect-ratio: 1 / 1;
+      min-width: 0;
+      min-height: 0;
+      height: auto;
+    }
+    body.instrument-piano.player-active:not(.lp-on) .rb-tab-cell {
+      aspect-ratio: 130 / 148;
+    }
     body.player-active:not(.lp-on) .rb-loop { height: 150px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
