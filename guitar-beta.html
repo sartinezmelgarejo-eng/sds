@@ -2740,6 +2740,10 @@
     height: 800px;
     transform: scale(0.85);
     transform-origin: top left;
+    /* Prevent iOS/Android long-press text selection on the whole map */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
   }
   .map-arrows {
     position: absolute;
@@ -6648,6 +6652,9 @@ function _setupChordMapTouch() {
   const wrap = document.getElementById('chord-map');
   if (!wrap) return false;
 
+  // Prevent iOS/Android native long-press context menu from stealing the hold.
+  wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+
   wrap.addEventListener('touchstart', (e) => {
     if (player.playing || player.paused) return;
     if (e.touches.length !== 1) return;
@@ -6656,6 +6663,9 @@ function _setupChordMapTouch() {
     if (!card || card.classList.contains('popup')) return;
     const chordId = card.dataset.chord;
     if (!chordId) return;
+    // Prevent the browser's native long-press text-selection / callout so
+    // our hold timer gets a clean run. Non-passive so preventDefault works.
+    e.preventDefault();
     _touchState = {
       startX: t.clientX,
       startY: t.clientY,
@@ -6672,7 +6682,7 @@ function _setupChordMapTouch() {
       // Light haptic if the device supports it — confirms the hold landed.
       if (navigator.vibrate) try { navigator.vibrate(15); } catch(e) {}
     }, TOUCH_HOLD_MS);
-  }, { passive: true });
+  });
 
   wrap.addEventListener('touchmove', (e) => {
     if (!_touchState) return;
