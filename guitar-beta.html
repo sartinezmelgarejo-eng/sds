@@ -1263,7 +1263,7 @@
   }
   .map-card.playing {
     border-color: var(--tag-tonic) !important;
-    background: #e8f7ef !important;
+    background: #cbf0e0 !important;
     animation: playingPulse 0.55s ease-in-out infinite;
     z-index: 20 !important;
     opacity: 1 !important;
@@ -1280,10 +1280,15 @@
      highlight via the existing animations. */
   .map-card.popup {
     position: absolute;
-    border: 1.6px dashed #b8b4a4;
+    /* Annotation treatment: solid thin border (not dashed = not "disabled"),
+       lighter warm-white background so it floats visually above the sandy map,
+       softer shadow, and rounder corners vs the 8px map cards — reads as a
+       reference label, not a peer card. The 4px function-colored left border
+       (from .tag-* rules) still encodes the harmonic role. */
+    border: 1px solid rgba(180,170,150,0.45);
     background: var(--panel);
-    border-radius: 6px;
-    box-shadow: 0 4px 14px rgba(26,26,26,0.18), 0 1px 3px rgba(26,26,26,0.10);
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(26,26,26,0.11), 0 1px 3px rgba(26,26,26,0.06);
     padding: 6px 4px 4px;
     display: flex;
     flex-direction: column;
@@ -1296,8 +1301,8 @@
        be obscured by a card behind them. */
     z-index: 50 !important;
   }
-  .map-card.popup.next-up { border-style: dashed; border-color: #d4a843; }
-  .map-card.popup.playing { border-style: dashed; border-color: var(--tag-tonic); }
+  .map-card.popup.next-up { border-color: #d4a843; }
+  .map-card.popup.playing { border-color: var(--tag-tonic); }
   .map-card.popup .mc-svg-wrap {
     flex: 1 1 auto;
     display: flex;
@@ -1716,9 +1721,25 @@
     background: #fdfcf3;
     height: 150px;
   }
-  body.player-active .real-book-tabs {
+  body.player-active:not(.lp-on) .real-book-tabs {
     height: 100%;
-    min-height: 150px;
+    /* On wider viewports the cells become very wide; scale height up
+       proportionally so chord diagrams keep readable proportions.
+       Caps at 320px so the strip never eats too much of the viewport. */
+    min-height: clamp(220px, 18vw, 320px);
+  }
+  /* ── Desktop play mode: keep rb-area self-contained ──
+     • flex-shrink:0 prevents the bar from being squeezed by <main>.
+     • overflow:hidden stops player-info content from overflowing
+       downward and painting over the chord map / guitar neck below.
+     • min-height matches the tab strip's own min-height so
+       align-items:stretch always makes both sides the same height. */
+  @media (min-width: 801px) {
+    body.player-active:not(.lp-on) .rb-area {
+      flex-shrink: 0;
+      overflow: hidden;
+      min-height: clamp(220px, 18vw, 320px);
+    }
   }
   /* Play mode: hide the inline loop button next to the tabs — there's
      already a loop control elsewhere in the play-mode chrome, and
@@ -2760,7 +2781,7 @@
     border-radius: 8px;
     padding: 5px 5px 6px;
     cursor: pointer;
-    transition: opacity 0.18s, border-color 0.12s, box-shadow 0.18s;
+    transition: opacity 0.22s ease, filter 0.22s ease, border-color 0.12s, box-shadow 0.18s;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -2786,11 +2807,22 @@
     box-shadow: 0 4px 18px rgba(31,29,24,0.08);
     z-index: 4;
   }
-  .map-card.tag-tonic     { border-left: 3px solid var(--tag-tonic); }
-  .map-card.tag-predom    { border-left: 3px solid var(--tag-predom); }
-  .map-card.tag-dom       { border-left: 3px solid var(--tag-dom); }
-  .map-card.tag-borrowed  { border-left: 3px solid var(--tag-borrowed); }
-  .map-card.tag-secondary { border-left: 3px solid #b45309; }
+  /* Function stripe + very light background tint — hub keeps its own
+     full amber border as the tonal-center marker; all other cards
+     (including popups) share the same color language. Tints are kept
+     very faint so they add temperature without darkening the card. */
+  .map-card:not(.hub).tag-tonic     { border-left: 4px solid var(--tag-tonic);    background: rgba(5,150,105,0.035); }
+  .map-card.tag-predom              { border-left: 4px solid var(--tag-predom);   background: rgba(160,120,32,0.035); }
+  .map-card.tag-dom                 { border-left: 4px solid var(--tag-dom);      background: rgba(220,38,38,0.030); }
+  .map-card.tag-borrowed            { border-left: 4px solid var(--tag-borrowed); background: rgba(147,51,234,0.040); }
+  .map-card.tag-secondary           { border-left: 4px solid #b45309;             background: rgba(180,83,9,0.040); }
+  /* Popup cards get a more visible function tint so they're distinguishable
+     from the clean neutral on-map connected cards they float beside. */
+  .map-card.popup.tag-tonic     { background: rgba(5,150,105,0.055); }
+  .map-card.popup.tag-predom    { background: rgba(160,120,32,0.055); }
+  .map-card.popup.tag-dom       { background: rgba(220,38,38,0.050); }
+  .map-card.popup.tag-borrowed  { background: rgba(147,51,234,0.055); }
+  .map-card.popup.tag-secondary { background: rgba(180,83,9,0.055); }
 
   /* Satellite (non-diatonic): smaller and dimmer than diatonic chords */
   .map-card.satellite {
@@ -2828,11 +2860,11 @@
     position: absolute;
     top: 5px;
     right: 5px;
-    width: 6px;
-    height: 6px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: var(--accent);
-    opacity: 0.55;
+    background: var(--tag-tonic);
+    opacity: 0.82;
     pointer-events: none;
   }
   /* Don't show the dot when the card is already the live or upcoming chord */
@@ -2843,15 +2875,41 @@
   body.player-active .map-card:not(.in-progression):not(.playing):not(.next-up) {
     opacity: 0.55;
   }
+  /* In play mode: in-progression chords get a green border so they read as
+     "this chord is in my song" above the dimmed non-progression cards. */
+  body.player-active .map-card.in-progression:not(.playing):not(.next-up):not(.focused) {
+    border-color: rgba(5,150,105,0.40) !important;
+  }
+  /* ── Compose-mode visual hierarchy ──
+     When a non-hub chord is focused, idle cards step back (dim + desaturate)
+     so the connected zone (focused + related + hover-target + popups) pops forward.
+     Scoped to :not(.player-active) so it never interferes with playback highlights. */
+  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub))
+    .map-card:not(.focused):not(.related):not(.playing):not(.next-up):not(.popup):not(.hover-target) {
+    opacity: 0.38;
+    filter: saturate(0.55);
+  }
+  /* Connected on-map cards: full brightness, no function tint — clean and neutral.
+     The border-left stripe still encodes harmonic role without washing the card. */
+  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub)) .map-card.related:not(.popup) {
+    opacity: 1 !important;
+    filter: none !important;
+    background: var(--panel) !important;
+  }
+  /* Hover-target card stays fully bright while its approach popups are showing */
+  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub)) .map-card.hover-target {
+    opacity: 1 !important;
+    filter: none !important;
+  }
   /* Diatonic: emphasize with subtle shadow + thicker border */
   .map-card.diatonic {
     box-shadow: 0 1px 4px rgba(31,29,24,0.07);
     border-width: 1.5px;
   }
   .map-card.focused {
-    border-color: var(--accent);
-    background: #fff8e6;
-    box-shadow: 0 6px 22px rgba(31,29,24,0.10), 0 0 0 2px rgba(160,120,32,0.22);
+    border-color: var(--tag-tonic);
+    background: #e0f5eb !important;   /* !important: beats the :not(.popup) tint specificity */
+    box-shadow: 0 6px 22px rgba(31,29,24,0.10), 0 0 0 2px rgba(5,150,105,0.30);
     z-index: 15;
     opacity: 1;
   }
@@ -3131,13 +3189,15 @@
       padding: 8px 10px;
     }
     body.map-overlay-open .chord-map {
-      /* Pin to top-center of the host and translate the WIDE box left by half
-         its own width before scaling. This is the only reliable way to center
-         a box that is wider than its container — flex justify-content falls
-         back to start when content overflows. */
+      /* Pin to a JS-driven center offset and translate the WIDE box left by
+         half its own width before scaling. The action-buttons column on the
+         right eats real estate, so the center has to shift LEFT of the true
+         viewport center — otherwise the map's left side hugs empty space
+         while its right side bumps into the buttons. JS sets --map-cx based
+         on actual available width per device. */
       position: absolute;
       top: 8px;
-      left: 50%;
+      left: var(--map-cx, 50%);
       transform: translateX(-50%) scale(var(--map-scale, 0.6));
       transform-origin: top center;
       width: 540px;
@@ -3191,7 +3251,7 @@
        don't crush each other — but staying close to the compose
        look (which uses a similar ~100px footprint per pair). */
     body.player-active:not(.lp-on) .real-book-tabs,
-    body.player-active:not(.lp-on) .rb-loop { height: 100px; }
+    body.player-active:not(.lp-on) .rb-loop { height: 150px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
     .rb-cell { padding: 4px 2px; }
     .rb-cell .rb-roman { font-size: 11px; }
@@ -5970,6 +6030,7 @@ let _popupLastShown = { cur: null, nxt: null };
 // without ever needing it permanently on the map.
 let _hoverTimer = null;
 let _hoverChordId = null;
+let _hoverAllowedIds = null;  // non-null when current hover render was restricted to a subset
 const HOVER_DELAY_MS = 450;
 const HOVER_EXIT_GRACE_MS = 220;
 let _hoverExitTimer = null;
@@ -6002,6 +6063,24 @@ function _findChainTargetForSii(siiChordId) {
     const ch = defs[id];
     if (ch.popup && ch.sii === siiChordId && !defs[siiChordId]?.popup) {
       return ch.resolvesTo || null;
+    }
+  }
+  return null;
+}
+
+// Companion to _findChainTargetForSii: returns the popup V chord's own ID
+// instead of its resolvesTo target. Used to restrict hover popups to only
+// the one chord directly connected to the on-map sii — not all approaches
+// to the shared resolution target (e.g. don't show bII7/vi just because
+// viiø is selected; only show the V/vi that actually pairs with viiø).
+function _findSiiVChordId(siiChordId) {
+  const map = currentMap();
+  if (!map) return null;
+  const defs = map.chordDefs;
+  for (const id in defs) {
+    const ch = defs[id];
+    if (ch.popup && ch.sii === siiChordId && !defs[siiChordId]?.popup) {
+      return id;
     }
   }
   return null;
@@ -6161,7 +6240,7 @@ function _getPopupSlotNearCell(anchorCell) {
   return { x: MAP_DIMS.width - POPUP_GRID.W - 8, y: MAP_DIMS.height - POPUP_GRID.H - 8 };
 }
 
-function _renderHoverPopups(chordId) {
+function _renderHoverPopups(chordId, allowedIds) {
   if (!chordId) return;
   // Skip if the player is engaged — compose-only feature.
   if (player.playing || player.paused) return;
@@ -6178,15 +6257,22 @@ function _renderHoverPopups(chordId) {
       const chainTarget = _findChainTargetForSii(chordId);
       if (chainTarget) {
         // Already showing the right chain → stay put; otherwise re-route.
+        // Pass allowedIds restricted to the specific V chord paired with
+        // this sii so that unrelated approaches to chainTarget (e.g. bII7)
+        // don't appear just because they share the same resolution target.
         if (_hoverChordId !== chainTarget) {
           _hoverChordId = chainTarget;
-          _renderHoverPopups(chainTarget);
+          const vId = _findSiiVChordId(chordId);
+          _renderHoverPopups(chainTarget, vId ? new Set([vId]) : null);
         }
         return;
       }
     }
     if (!approaches.length) return;   // no approaches at all — bail without clearing
   }
+  // Record whether this render is restricted so the mousemove guard can let
+  // a direct hover on the same chord override with the full set of approaches.
+  _hoverAllowedIds = allowedIds || null;
   // Clear any prior hover popups — preserve persistent (clicked/active) cards.
   Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
@@ -6440,8 +6526,14 @@ function _renderHoverPopups(chordId) {
 
   // Allocate grid slots only for popup-only approaches; on-map ones use
   // their own existing position for the arrow source.
+  // When allowedIds is set, restrict to only the directly-connected chords
+  // (e.g. when viiø is focused, show only V/vi — not bII7/vi — even though
+  // both share 'vi' as their resolution target).
+  const visibleApproaches = allowedIds
+    ? approaches.filter(a => allowedIds.has(a.id))
+    : approaches;
   let popupSlotIdx = 0;
-  approaches.forEach((approach) => {
+  visibleApproaches.forEach((approach) => {
     const appId = approach.id;
     const ch = map.chordDefs[appId];
     if (!ch) return;
@@ -6536,6 +6628,7 @@ function _clearHoverPopups() {
     Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent)')).forEach(el => el.remove());
   }
   _hoverChordId = null;
+  _hoverAllowedIds = null;
 }
 
 // Drop the persistent popup (called when the user composes another
@@ -6663,8 +6756,15 @@ function _setupChordMapTouch() {
     if (!card || card.classList.contains('popup')) return;
     const chordId = card.dataset.chord;
     if (!chordId) return;
-    // Prevent the browser's native long-press text-selection / callout so
-    // our hold timer gets a clean run. Non-passive so preventDefault works.
+    // We're in compose mode tracking a valid tap. Call preventDefault to:
+    //   1. Block the iOS callout / text-selection magnifier (belt-and-suspenders
+    //      alongside the CSS user-select:none on .chord-map).
+    //   2. Suppress the browser-generated synthetic click that would fire ~300ms
+    //      after touchend — we'll fire it ourselves in touchend for short taps
+    //      so we stay in full control of timing.
+    // IMPORTANT: this runs ONLY when all guards above passed (compose mode, single
+    // finger, on a non-popup card), so playing/paused taps and popup-card taps
+    // are unaffected and still get their native click.
     e.preventDefault();
     _touchState = {
       startX: t.clientX,
@@ -6713,8 +6813,12 @@ function _setupChordMapTouch() {
     clearTimeout(_touchHoldTimer);
     const wasHold = _touchState.popupsShown;
     if (!wasHold) {
-      // Short tap — let the normal click handler do its thing.
+      // Short tap — touchstart's e.preventDefault() blocked the native click,
+      // so we fire it manually here. This is 100% reliable across all iOS/Android
+      // versions, whereas relying on the synthetic click after preventDefault is not.
+      const cardToClick = _touchState.origCard;
       _touchState = null;
+      cardToClick.click();
       return;
     }
     // Hold released — decide what to add based on final finger position.
@@ -6857,7 +6961,10 @@ function _setupChordMapTouch() {
       // isn't the same one already showing popups.
       if (!card || card.classList.contains('popup')) return;
       const chordId = card.dataset.chord;
-      if (!chordId || chordId === _hoverChordId) return;
+      // Allow re-triggering if the current hover was restricted (allowedIds set)
+      // — e.g. after viiø focus set _hoverChordId='vi' showing only V/vi,
+      // the user directly hovering vi should see ALL approaches (bII7 etc.).
+      if (!chordId || (chordId === _hoverChordId && !_hoverAllowedIds)) return;
       // If hovering the on-map sii for the currently-shown chain context,
       // don't re-trigger — keeps V/vi popup stable while cursor is on viiø.
       if (_hoverChordId && typeof _findChainTargetForSii === 'function' &&
@@ -6890,7 +6997,8 @@ function _setupChordMapTouch() {
               const chainTarget = _findChainTargetForSii(fc);
               const persistentIsPairV = _persistentPopupChordId && chDefs[_persistentPopupChordId]?.sii === fc;
               if (chainTarget && !persistentIsPairV) {
-                _hoverChordId = chainTarget; _renderHoverPopups(chainTarget);
+                const vId = _findSiiVChordId(fc);
+                _hoverChordId = chainTarget; _renderHoverPopups(chainTarget, vId ? new Set([vId]) : null);
               } else if (chDefs[fc]?.resolvesTo) {
                 _hoverChordId = chDefs[fc].resolvesTo; _renderHoverPopups(chDefs[fc].resolvesTo);
               }
@@ -6922,7 +7030,8 @@ function _setupChordMapTouch() {
             const chainTarget = _findChainTargetForSii(fc);
             const persistentIsPairV = _persistentPopupChordId && chDefs[_persistentPopupChordId]?.sii === fc;
             if (chainTarget && !persistentIsPairV) {
-              _hoverChordId = chainTarget; _renderHoverPopups(chainTarget);
+              const vId = _findSiiVChordId(fc);
+              _hoverChordId = chainTarget; _renderHoverPopups(chainTarget, vId ? new Set([vId]) : null);
             } else if (chDefs[fc]?.resolvesTo) {
               _hoverChordId = chDefs[fc].resolvesTo; _renderHoverPopups(chDefs[fc].resolvesTo);
             }
@@ -7290,8 +7399,9 @@ function renderChordMap() {
         const persistentIsPairV = _persistentPopupChordId &&
           chDefs[_persistentPopupChordId]?.sii === fc;
         if (chainTarget && !persistentIsPairV) {
+          const vId = typeof _findSiiVChordId === 'function' ? _findSiiVChordId(fc) : null;
           _hoverChordId = chainTarget;
-          _renderHoverPopups(chainTarget);
+          _renderHoverPopups(chainTarget, vId ? new Set([vId]) : null);
         } else if (chDefs[fc]?.resolvesTo) {
           // Popup chord is focused — show all approaches to its target so
           // the user sees the full connection picture (siblings + sii arrow).
@@ -13945,12 +14055,16 @@ function startBeatCounterLoop() {
     mapEl.style.setProperty('--map-scale', '1');
     mapEl.style.width  = '540px';
     mapEl.style.height = '800px';
-    // Measure real content extents
-    let contentW = 540, contentH = 800;
+    // Measure ACTUAL content extents — no nominal floor. The 540×800 box was
+    // padding the bounding box past the real cards, making scaleH artificially
+    // small and leaving empty space below the bottom row of cards on mobile.
+    let contentW = 0, contentH = 0;
     mapEl.querySelectorAll('.map-card').forEach(c => {
       contentW = Math.max(contentW, c.offsetLeft + c.offsetWidth);
       contentH = Math.max(contentH, c.offsetTop  + c.offsetHeight);
     });
+    // Defensive fallback if no cards rendered yet
+    if (contentW < 1 || contentH < 1) { contentW = 540; contentH = 800; }
     // Use the visual viewport when available — innerHeight on mobile lies while
     // the URL bar is showing, which was making the slot too tall and spilling
     // past the top of the actual visible area.
@@ -13960,8 +14074,18 @@ function startBeatCounterLoop() {
     // Reserve room for the toggle bar + safe area below AND the header above
     const toggleBarH = 48;
     const headerH    = 60;
-    const padX = 24, padY = 18;
-    const availW = Math.max(0, vw - padX);
+    // The action-buttons column (▼/▲/⌫/▶/×) sits at right:6px, width:52px on
+    // mobile when map-overlay-open. The map can't grow into that strip without
+    // colliding, so subtract it from the usable horizontal area and recenter
+    // the map within what's actually left.
+    const rightColW = 58;   // 6px right offset + 52px button width
+    const padX = 16, padY = 18;   // 8px breathing room on each side
+    const availW = Math.max(0, vw - rightColW - padX);
+    // Center the map within the LEFT-of-buttons area, not the full viewport.
+    // mapCx = leftPad + availW/2 → pulls the grid left so the empty space
+    // we used to see between the left edge and the leftmost card disappears.
+    const mapCx = (padX / 2) + (availW / 2);
+    mapEl.style.setProperty('--map-cx', mapCx.toFixed(2) + 'px');
     // Cap the slot to a sensible fraction of the visual viewport so even on
     // small phones the map can never be taller than what's actually visible.
     // Reserve room for the compose strip too (~280px on mobile) so the chord
@@ -15443,6 +15567,32 @@ document.addEventListener('keydown', e => {
     }
     if (e.key === 'Enter' && state.composedProgression.length) {
       e.preventDefault(); composePlay(); return;
+    }
+    // ←/→ = step through the composed progression (audition each chord)
+    if (!player.paused && (e.key === 'ArrowRight' || e.key === 'ArrowLeft') &&
+        state.composedProgression.length) {
+      e.preventDefault();
+      const seq = state.composedProgression;
+      const dir = e.key === 'ArrowRight' ? 1 : -1;
+      const cur = state._composeFocusedIdx;
+      let idx;
+      if (cur === null || cur === undefined) {
+        idx = dir > 0 ? 0 : seq.length - 1;
+      } else {
+        idx = cur + dir;
+        if (idx < 0) idx = 0;
+        if (idx >= seq.length) idx = seq.length - 1;
+      }
+      const entry = seq[idx];
+      if (!entry || !entry.chord) return;
+      ensureAudio();
+      state._composeFocusedIdx = idx;
+      state.focusedChord = entry.chord;
+      state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+      renderAll();
+      renderComposeStrip();
+      ringFocusedChord();
+      return;
     }
     // L = toggle lock on current/last chord slot for in-place replacement
     if ((e.key === 'l' || e.key === 'L') && state.composedProgression.length) {
