@@ -6666,10 +6666,16 @@ function _setupChordMapTouch() {
     if (!card || card.classList.contains('popup')) return;
     const chordId = card.dataset.chord;
     if (!chordId) return;
-    // CSS user-select:none + -webkit-touch-callout:none on .chord-map already
-    // blocks native text-selection and the iOS callout. We do NOT call
-    // e.preventDefault() here because it would suppress the synthetic click
-    // that short taps need to reach the card's click handler.
+    // We're in compose mode tracking a valid tap. Call preventDefault to:
+    //   1. Block the iOS callout / text-selection magnifier (belt-and-suspenders
+    //      alongside the CSS user-select:none on .chord-map).
+    //   2. Suppress the browser-generated synthetic click that would fire ~300ms
+    //      after touchend — we'll fire it ourselves in touchend for short taps
+    //      so we stay in full control of timing.
+    // IMPORTANT: this runs ONLY when all guards above passed (compose mode, single
+    // finger, on a non-popup card), so playing/paused taps and popup-card taps
+    // are unaffected and still get their native click.
+    e.preventDefault();
     _touchState = {
       startX: t.clientX,
       startY: t.clientY,
@@ -6717,8 +6723,12 @@ function _setupChordMapTouch() {
     clearTimeout(_touchHoldTimer);
     const wasHold = _touchState.popupsShown;
     if (!wasHold) {
-      // Short tap — let the normal click handler do its thing.
+      // Short tap — touchstart's e.preventDefault() blocked the native click,
+      // so we fire it manually here. This is 100% reliable across all iOS/Android
+      // versions, whereas relying on the synthetic click after preventDefault is not.
+      const cardToClick = _touchState.origCard;
       _touchState = null;
+      cardToClick.click();
       return;
     }
     // Hold released — decide what to add based on final finger position.
