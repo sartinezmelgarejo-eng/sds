@@ -886,20 +886,27 @@
       font-weight: 700;
       margin-bottom: 4px;
     }
-    /* CHORD block — chord NAME is the hero (what you actually play),
-       function label sits as a small caption, roman numeral anchors
-       the bottom in tag-tonic green as the harmonic-analysis lens.
-       Stacked vertically; pi-block already centers content vertically
-       inside its grid area. */
+    /* CHORD block — chord NAME at the top is color-coded by harmonic
+       function (tonic green / dom red / predom amber / borrowed purple /
+       secondary brown), telling the eye instantly what the chord is
+       doing in the key. The roman sits at the bottom as a big dark
+       anchor — strong but neutral, like the title in print. Context
+       caption (function name in words) floats between them. */
     #player-info .pi-chord-name {
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
       font-weight: 700;
       font-size: 76px;
       line-height: 0.9;
-      color: #1a1a1a;
+      color: #1a1a1a;             /* fallback before tag class kicks in */
       letter-spacing: -1px;
+      transition: color 0.18s ease;
     }
+    #player-info .pi-chord-name.tag-tonic     { color: var(--tag-tonic); }
+    #player-info .pi-chord-name.tag-predom    { color: var(--tag-predom); }
+    #player-info .pi-chord-name.tag-dom       { color: var(--tag-dom); }
+    #player-info .pi-chord-name.tag-borrowed  { color: var(--tag-borrowed); }
+    #player-info .pi-chord-name.tag-secondary { color: #b45309; }
     #player-info .pi-chord-context {
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
@@ -913,10 +920,10 @@
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
       font-weight: 700;
-      font-size: 64px;
-      line-height: 0.9;
-      color: var(--tag-tonic);
-      letter-spacing: -1.2px;
+      font-size: 90px;
+      line-height: 0.85;
+      color: #1a1a1a;
+      letter-spacing: -1.5px;
     }
     /* VOICING block — DRAWING-FIRST layout. The dot-stack icon sits
        large at the top so the voicing is recognizable visually before
@@ -11355,7 +11362,7 @@ class Player {
     const desktopHtml = `
       <div class="pi-grid">
         <div class="pi-block pi-block-chord">
-          <div class="pi-chord-name">${curName || '—'}</div>
+          <div class="pi-chord-name${curCh?.tag ? ' tag-' + curCh.tag : ''}">${curName || '—'}</div>
           ${shortCtx ? `<div class="pi-chord-context">${shortCtx}</div>` : ''}
           ${curRoman ? `<div class="pi-chord-roman">${curRoman}</div>` : ''}
         </div>
@@ -11428,7 +11435,7 @@ class Player {
       const name  = block.querySelector('.pi-chord-name');
       const roman = block.querySelector('.pi-chord-roman');
       const NAME_BASE  = 76;
-      const ROMAN_BASE = 64;
+      const ROMAN_BASE = 90;
       const fitLine = (el, base) => {
         if (!el) return;
         el.style.fontSize = base + 'px';
