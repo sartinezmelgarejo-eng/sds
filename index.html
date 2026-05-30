@@ -1169,6 +1169,18 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     s=s.replace(/\x00(\d+)\x00/g,(_,i)=>ph[+i]);
     return s;
   }
+  // Wrap the first line (everything up to the first \n) in <b> so the
+  // headline reads as bold in the feed. Posts here follow a consistent
+  // pattern: emoji + headline on line 1, blank line, body — so the
+  // first newline reliably separates the headline from the body. If
+  // the post is single-line (no \n) we leave it alone (would otherwise
+  // bold the entire post). Existing inline tags (<u>, <b>, <a>, <i>)
+  // inside the headline are preserved and end up nested inside the <b>.
+  function boldFirstLine(s){
+    const i=s.indexOf('\n');
+    if(i<=0) return s;
+    return '<b class="hd">'+s.slice(0,i)+'</b>'+s.slice(i);
+  }
 
   // Task metadata — chip label + color. Paleta Pantone institucional (más editorial que bandera literal).
   const TASK_META={
@@ -1271,7 +1283,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             <div class="meta-row">
               <span class="time">${esc(t.slice(11,16))}</span>
             </div>
-            <div class="txt">${safeTxt(x.text)}</div>
+            <div class="txt">${boldFirstLine(safeTxt(x.text))}</div>
             ${sourceCardBody}
             <div class="footer">
               <span class="date">${esc(t.slice(0,10))}</span>
