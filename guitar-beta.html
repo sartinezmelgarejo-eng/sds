@@ -16339,10 +16339,17 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Show/hide MIDI wrap + manage menu
+// Show/hide MIDI wrap + manage menu. Also self-heals: if the wrap got
+// orphaned somewhere (e.g. stuck in <body> after a rescue with no
+// reattach completing, or never moved off the original header on
+// first paint) and there's a #pi-midi-slot waiting for it, move it.
+// Runs every tick from _refreshAutoPlayUI so any inconsistency clears
+// itself on the next frame.
 function _updateMidiBtn() {
   const wrap = document.getElementById('midi-wrap');
   if (!wrap) return;
+  const slot = document.getElementById('pi-midi-slot');
+  if (slot && wrap.parentElement !== slot) slot.appendChild(wrap);
   const hasComposed = state.composedProgression.length > 0;
   const hasSong = player.song && player.song.length > 0;
   wrap.style.display = (hasComposed || hasSong) ? '' : 'none';
