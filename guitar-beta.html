@@ -3265,28 +3265,28 @@
     body.player-active .rb-cycle,
     body.player-active .rb-loop,
     body.player-active .right-btn-stack { display: none !important; }
-    /* Mobile portrait play mode. Each .rb-tab-cell carries an
-       aspect-ratio matching its SVG viewBox so:
-         • guitar chord diagrams (1:1) fill the cell — no letterbox
-         • piano staves (130:148) keep correct vertical proportions —
-           the outer staff SVG's preserveAspectRatio=none then scales
-           both axes by the same factor so lines and noteheads stay
-           proportional
-       `min-width: 0` overrides flex's default `min-width: auto`
-       (which would have forced each cell to be at least its content's
-       natural width, blowing the strip past the viewport when the
-       chord-name SVG had a wider intrinsic size). With that, cells
-       shrink properly to vw/4 and the strip auto-fits to that height. */
+    /* Mobile portrait play mode. Each .rb-tab-cell gets an explicit
+       width via flex-basis so aspect-ratio has a concrete dimension
+       to compute height from. Without the explicit width the auto-
+       sizing chain (rb-row flex:1 → strip flex:1 → cell flex:1 1 0
+       → aspect-ratio circular) collapses to zero in some engines.
+
+       Width = (100vw − 15px) / 4
+         15px = rb-area horizontal padding (12px) + strip border (3px)
+         With box-sizing:border-box, this is the cell's outer width.
+
+       aspect-ratio then drives cell height:
+         • guitar  1:1     → cell ≈ vw/4 × vw/4
+         • piano  130:148  → cell ≈ vw/4 × (vw/4 × 1.138)
+
+       The strip's desktop min-height: clamp(220px,18vw,320px) at line
+       1731 isn't scoped to desktop, so we reset it here. */
     body.player-active:not(.lp-on) .real-book-tabs {
       height: auto;
-      /* Reset the desktop-intended `min-height: clamp(220px, 18vw, 320px)`
-         from line 1731 (which leaks into mobile because that rule isn't
-         scoped to @media min-width:801px). Without this reset the strip
-         was forced to ≥220px tall, which forced each aspect-ratio cell
-         to ≥220px wide, blowing 4 cells past the viewport. */
       min-height: 0;
     }
     body.player-active:not(.lp-on) .rb-tab-cell {
+      flex: 0 0 calc((100vw - 15px) / 4);
       aspect-ratio: 1 / 1;
       min-width: 0;
       min-height: 0;
