@@ -1010,6 +1010,17 @@
       align-items: stretch;
       width: 100%;
     }
+    /* Compose-mode pills wrap to multiple rows once they exceed the
+       card width — the user can write progressions longer than 8
+       chords without them spilling out of the now-playing card. */
+    #player-info .pi-prog-pills.compose-pills {
+      flex-wrap: wrap;
+      row-gap: 5px;
+    }
+    #player-info .pi-prog-pills.compose-pills .pi-prog-pill {
+      flex: 0 0 auto;        /* natural width, not stretched 1fr */
+      min-width: 32px;
+    }
     #player-info .pi-prog-pill {
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
@@ -14122,11 +14133,17 @@ function renderComposeInfo() {
   } else {
     progNameHtml = `<div class="pi-prog-name" style="opacity:.55">no chords yet</div>`;
   }
+  // Rescue the MIDI export wrap BEFORE setting innerHTML — same pattern
+  // the player-mode _updateVisuals uses (line ~11541). Without this,
+  // the midi-wrap (with its click handlers + dropdown state) would be
+  // destroyed every time renderComposeInfo runs.
+  const midiW = document.getElementById('midi-wrap');
+  if (midiW && el.contains(midiW)) document.body.appendChild(midiW);
   // Build the same pi-grid structure the player-mode card uses, so all
   // the Real Book frame / color-coded name / dramatic roman styling is
-  // reused. The compose-specific CSS overrides at line ~1473 stack the
-  // blocks vertically when player-info is relocated into .map-wrap;
-  // otherwise it falls back to the play-mode 3-col layout.
+  // reused. Includes a #pi-midi-slot so the MIDI button can reattach
+  // after the innerHTML wipe — lets the user export composed chords
+  // without entering play mode.
   el.innerHTML = `
     <div class="pi-grid">
       <div class="pi-block pi-block-chord">
@@ -14144,13 +14161,23 @@ function renderComposeInfo() {
       </div>
       <div class="pi-block pi-block-prog">
         ${progNameHtml}
-        ${pillsHtml ? `<div class="pi-prog-pills">${pillsHtml}</div>` : ''}
+        ${pillsHtml ? `<div class="pi-prog-pills compose-pills">${pillsHtml}</div>` : ''}
       </div>
       <div class="pi-meta">
         <span class="pi-meta-val pi-meta-key">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+        <span class="pi-meta-spacer"></span>
+        <span id="pi-midi-slot" class="pi-midi-slot"></span>
       </div>
     </div>
   `;
+  // Reattach the MIDI wrap to its slot (matches play-mode behavior).
+  if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
+    const slot = document.getElementById('pi-midi-slot');
+    if (slot && midiW) slot.appendChild(midiW);
+  } else if (midiW && document.body.contains(midiW) && !el.contains(midiW)) {
+    const headerHome = document.querySelector('.header') || document.body;
+    headerHome.appendChild(midiW);
+  }
   // Auto-fit the chord-name + roman to the (narrow) compose column.
   requestAnimationFrame(() => {
     const block = el.querySelector('.pi-block-chord');
