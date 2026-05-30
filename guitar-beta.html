@@ -14098,11 +14098,35 @@ function renderComposeInfo() {
   const ctxFunction = FUNC_LABEL[tag] || '';
   const keyName = nameOf(state.keyPc, flats);
   const tq = state.tonality === 'major' ? 'MAJ' : 'MIN';
+  // Voicing icon — same SVG bank the play-mode card pulls from
+  const voiceIcon = (typeRaw && typeof VOICE_ICONS !== 'undefined' && VOICE_ICONS[typeRaw])
+    ? VOICE_ICONS[typeRaw] : '';
+  // Compose progression pills — show the user's currently-composed
+  // strip (state.composedProgression). Each entry is {chord, _tie, _silent, ...}.
+  // Highlight the focused index if any, else just list.
+  const seq = state.composedProgression || [];
+  const focusedIdx = (state.composedSelectedIdx != null && state.composedSelectedIdx >= 0)
+    ? state.composedSelectedIdx
+    : (state._composeFocusedIdx != null ? state._composeFocusedIdx : -1);
+  let pillsHtml = '';
+  let progNameHtml = '';
+  if (seq.length) {
+    pillsHtml = seq.map((step, i) => {
+      if (!step || step._silent) return '';
+      let cls = 'pi-prog-pill';
+      if (i === focusedIdx) cls += ' now';
+      const stepRoman = (map.chordDefs[step.chord]?.roman) || step.chord || '·';
+      return `<span class="${cls}">${stepRoman}</span>`;
+    }).join('');
+    progNameHtml = `<div class="pi-prog-name">composed · ${seq.length} ${seq.length === 1 ? 'chord' : 'chords'}</div>`;
+  } else {
+    progNameHtml = `<div class="pi-prog-name" style="opacity:.55">no chords yet</div>`;
+  }
   // Build the same pi-grid structure the player-mode card uses, so all
   // the Real Book frame / color-coded name / dramatic roman styling is
-  // reused — just stacked vertically in the 220px compose sidebar via
-  // the `.map-wrap > #player-info .pi-grid` overrides in the CSS block
-  // around line 1473.
+  // reused. The compose-specific CSS overrides at line ~1473 stack the
+  // blocks vertically when player-info is relocated into .map-wrap;
+  // otherwise it falls back to the play-mode 3-col layout.
   el.innerHTML = `
     <div class="pi-grid">
       <div class="pi-block pi-block-chord">
@@ -14112,14 +14136,18 @@ function renderComposeInfo() {
       </div>
       <div class="pi-block pi-block-voicing">
         <div class="pi-voicing-row">
+          <span class="pi-voicing-icon">${voiceIcon}</span>
           <span class="pi-voicing-family">${typeLabel}</span>
-          ${posTxt ? `<span class="pi-voicing-variant">${posTxt}</span>` : ''}
         </div>
-        ${detail ? `<div class="pi-voicing-variant">${detail}</div>` : ''}
+        ${detail ? `<div class="pi-voicing-variant">${detail}${posTxt ? ' · ' + posTxt : ''}</div>` : (posTxt ? `<div class="pi-voicing-variant">${posTxt}</div>` : '')}
         ${fretTxt ? `<div class="pi-voicing-bass">${fretTxt}</div>` : ''}
       </div>
+      <div class="pi-block pi-block-prog">
+        ${progNameHtml}
+        ${pillsHtml ? `<div class="pi-prog-pills">${pillsHtml}</div>` : ''}
+      </div>
       <div class="pi-meta">
-        <span class="pi-meta-val">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+        <span class="pi-meta-val pi-meta-key">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
       </div>
     </div>
   `;
