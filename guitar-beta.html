@@ -877,44 +877,37 @@
       font-weight: 700;
       margin-bottom: 4px;
     }
-    /* CHORD block — roman numeral is the GRAND HEADLINE. Sets the
-       hierarchy of the whole panel. Chord name sits below as the
-       concrete realization of the function; context line is italic. */
-    /* Roman + chord name on the same baseline: the roman is the giant
-       glyph, the chord name sits at the bottom-right as a small
-       appendage (no stacking, no margin). */
-    #player-info .pi-chord-row {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      line-height: 0.85;
+    /* CHORD block — chord NAME is the hero (what you actually play),
+       function label sits as a small caption, roman numeral anchors
+       the bottom in tag-tonic green as the harmonic-analysis lens.
+       Stacked vertically; pi-block already centers content vertically
+       inside its grid area. */
+    #player-info .pi-chord-name {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 76px;
+      line-height: 0.9;
+      color: #1a1a1a;
+      letter-spacing: -1px;
+    }
+    #player-info .pi-chord-context {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic;
+      font-size: 16px;
+      color: var(--text-dim);
+      margin-top: 6px;
+      margin-bottom: 8px;
+      letter-spacing: 0.3px;
     }
     #player-info .pi-chord-roman {
       font-family: 'Cormorant Garamond', Georgia, serif;
       font-style: italic;
       font-weight: 700;
-      font-size: 130px;
-      line-height: 0.85;
-      color: #1a1a1a;
-      letter-spacing: -1.5px;
-      margin-top: -4px;
-    }
-    #player-info .pi-chord-name {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-style: italic;
-      font-weight: 700;
-      font-size: 32px;
-      line-height: 1;
+      font-size: 64px;
+      line-height: 0.9;
       color: var(--tag-tonic);
-      letter-spacing: -0.2px;
-    }
-    #player-info .pi-chord-context {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-style: italic;
-      font-size: 13px;
-      color: var(--text-dim);
-      margin-top: 4px;
-      letter-spacing: 0.2px;
+      letter-spacing: -1.2px;
     }
     /* VOICING block — DRAWING-FIRST layout. The dot-stack icon sits
        large at the top so the voicing is recognizable visually before
@@ -11353,11 +11346,9 @@ class Player {
     const desktopHtml = `
       <div class="pi-grid">
         <div class="pi-block pi-block-chord">
-          <div class="pi-chord-row">
-            <span class="pi-chord-roman">${curRoman || '—'}</span>
-            ${curName ? `<span class="pi-chord-name">${curName}</span>` : ''}
-          </div>
+          <div class="pi-chord-name">${curName || '—'}</div>
           ${shortCtx ? `<div class="pi-chord-context">${shortCtx}</div>` : ''}
+          ${curRoman ? `<div class="pi-chord-roman">${curRoman}</div>` : ''}
         </div>
         <div class="pi-block pi-block-voicing">
           <div class="pi-voicing-row">
@@ -11415,33 +11406,30 @@ class Player {
       </div>
     `;
 
-    // Auto-fit the chord row (roman + name) to the chord block width.
-    // Long roman IDs (bVII, iiø, bII7, etc.) plus a long chord name
-    // (Cmaj7, Bbm7b5, etc.) can blow past the column at 160/38px.
-    // Measure after layout and scale both down proportionally if needed.
+    // Auto-fit the chord block's two big lines (chord name + roman)
+    // to the block width — long names like "Bbm7b5" or long romans
+    // like "iiø/iii" can otherwise blow past the column at 76/64px.
+    // Each line is independent now (vertical stack), so measure each
+    // separately rather than scaling together.
     const _fitChordRow = () => {
-      const row = document.querySelector('#player-info .pi-chord-row');
-      if (!row) return;
-      const block = row.parentElement;
-      const maxW = block ? block.clientWidth : 0;
+      const block = document.querySelector('#player-info .pi-block-chord');
+      if (!block) return;
+      const maxW = block.clientWidth;
       if (!maxW) return;
-      const roman = row.querySelector('.pi-chord-roman');
-      const name  = row.querySelector('.pi-chord-name');
-      if (!roman) return;
-      const ROMAN_BASE = 130;
-      const NAME_BASE  = 32;
-      // Reset to base sizes first so measurement isn't biased by a
-      // previous scale-down on the same DOM element.
-      roman.style.fontSize = ROMAN_BASE + 'px';
-      if (name) name.style.fontSize = NAME_BASE + 'px';
-      // Measure the row's intrinsic content width vs the block.
-      // scrollWidth gives the overflow-aware width.
-      const rowW = row.scrollWidth;
-      if (rowW <= maxW) return;
-      // Scale uniformly; clamp so we don't go absurdly tiny.
-      const scale = Math.max(0.5, maxW / rowW);
-      roman.style.fontSize = (ROMAN_BASE * scale) + 'px';
-      if (name) name.style.fontSize = (NAME_BASE * scale) + 'px';
+      const name  = block.querySelector('.pi-chord-name');
+      const roman = block.querySelector('.pi-chord-roman');
+      const NAME_BASE  = 76;
+      const ROMAN_BASE = 64;
+      const fitLine = (el, base) => {
+        if (!el) return;
+        el.style.fontSize = base + 'px';
+        const w = el.scrollWidth;
+        if (w <= maxW) return;
+        const scale = Math.max(0.5, maxW / w);
+        el.style.fontSize = (base * scale) + 'px';
+      };
+      fitLine(name, NAME_BASE);
+      fitLine(roman, ROMAN_BASE);
     };
 
     // Rescue the MIDI export wrap BEFORE the innerHTML wipe — otherwise
