@@ -5111,9 +5111,22 @@ function shellVoicing(quality, rootPc, type = 'A') {
    STATE
    ════════════════════════════════════════════════════════════ */
 
+// Weighted-random starting key + tonality so the app doesn't always
+// open at C major. C gets 3× the weight of any other key (≈21%);
+// 'major' gets 2× the weight of 'minor' (≈67%). User can still pick
+// any key/tonality via the key-row UI + tonality toggle for the session.
+const _pickStartKeyPc = () => {
+  const weights = [3,1,1,1,1,1,1,1,1,1,1,1];  // index = pitch class, C=0
+  const total = weights.reduce((a, b) => a + b, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < 12; i++) { r -= weights[i]; if (r <= 0) return i; }
+  return 0;
+};
+const _pickStartTonality = () => Math.random() < (2/3) ? 'major' : 'minor';
+
 const state = {
-  keyPc: 0,
-  tonality: 'major',
+  keyPc: _pickStartKeyPc(),
+  tonality: _pickStartTonality(),
   instrument: 'guitar',     // 'guitar' | 'piano' — swaps chord neck for piano keyboard
   display: 'notes',
   focusedChord: 'I',
