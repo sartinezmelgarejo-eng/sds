@@ -11188,8 +11188,11 @@ class Player {
 
     // Roman labels are still useful (shows the FUNCTION of the chord in the
     // current key) but live as quiet captions next to the bigger chord name.
-    const curRoman = curStep?.chord || '';
-    const nxtRoman = nxtId || '';
+    // Prefer the chord def's `roman` (with proper "/" notation for secondaries
+    // — V/V, V/ii, iiø/iii) over the internal chord ID (V_V, V_ii) which is
+    // ugly and confuses.
+    const curRoman = curCh?.roman || curStep?.chord || '';
+    const nxtRoman = nxtCh?.roman || nxtId || '';
 
     const modBadge = section.modName
       ? `<span class="pi-badge mod">↗ ${section.modName}</span>` : '';
@@ -11293,7 +11296,10 @@ class Player {
       if (i < this.currentStepIdx) cls += ' done';
       else if (i === this.currentStepIdx) cls += ' now';
       const bars = step.bars || 1;
-      return `<span class="${cls}" style="flex:${bars} 1 0;" data-bars="${bars}">${step.chord}</span>`;
+      // Look up the chord def so the pill shows the readable roman
+      // ("V/V") instead of the internal chord ID ("V_V").
+      const stepRoman = map.chordDefs[step.chord]?.roman || step.chord;
+      return `<span class="${cls}" style="flex:${bars} 1 0;" data-bars="${bars}">${stepRoman}</span>`;
     }).join('');
 
     // Build a clean descriptor-only name. Strips the chord sequence
