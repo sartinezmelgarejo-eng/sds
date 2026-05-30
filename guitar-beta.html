@@ -14182,6 +14182,11 @@ function renderComposeInfo() {
     const headerHome = document.querySelector('.header') || document.body;
     headerHome.appendChild(midiW);
   }
+  // Update MIDI button visibility (the wrap carries an inline
+  // style="display:none" from its original HTML; _updateMidiBtn
+  // clears it when there's something to export). Without this, the
+  // button stays hidden in compose mode after reattach.
+  if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   // Auto-fit the chord-name + roman to the (narrow) compose column.
   requestAnimationFrame(() => {
     const block = el.querySelector('.pi-block-chord');
@@ -16001,11 +16006,15 @@ renderAll = function() {
   setBpm(bpm);
 })();
 
-renderAll();
-// Initial placement of the now-playing card. App boots in compose
-// mode, so the card belongs left of the chord map; without this it
-// would sit stranded in .rb-area until the first state transition.
+// Initial placement of the now-playing card BEFORE renderAll — app
+// boots in compose mode, so the card belongs left of the chord map.
+// Doing this first ensures renderComposeInfo measures + auto-fits
+// the chord name/roman against the FINAL container width (.map-wrap,
+// ~220px), not against the wider .rb-area origin (which led to fonts
+// being sized too big and the card looking off until the user
+// resized the window to trigger a reflow).
 if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
+renderAll();
 window.addEventListener('resize', () => {
   renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
