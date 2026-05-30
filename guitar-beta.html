@@ -10933,7 +10933,13 @@ class Player {
     document.querySelectorAll('.map-card.playing, .map-card.next-up, .map-card.about-to-start').forEach(c => {
       c.classList.remove('playing', 'next-up', 'about-to-start');
     });
-    document.getElementById('player-info').innerHTML = '';
+    // Rescue the MIDI export wrap before wiping innerHTML — otherwise
+    // it gets destroyed on stop and the next play+_updateVisuals can't
+    // find it to reattach (button disappears until tab reload).
+    const _piEl = document.getElementById('player-info');
+    const _midiW = document.getElementById('midi-wrap');
+    if (_piEl && _midiW && _piEl.contains(_midiW)) document.body.appendChild(_midiW);
+    if (_piEl) _piEl.innerHTML = '';
     document.getElementById('real-book').hidden = true;
     const _tabsHide = document.getElementById('real-book-tabs');
     if (_tabsHide) _tabsHide.hidden = true;
