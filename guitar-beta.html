@@ -45,10 +45,10 @@
   .midi-export-btn { font-size: 11px !important; padding: 2px 8px !important; opacity: 0.7; }
   .midi-export-btn:hover { opacity: 1; }
   .midi-menu {
-    /* Portaled to document.body via JS on open (escapes the
-       overflow:hidden on .rb-area in play mode that was clipping it).
-       JS sets position:fixed + top/left from the button's rect, so
-       the in-CSS top/left here are just fallbacks. */
+    /* position:fixed escapes the .rb-area overflow:hidden clipping
+       in play mode (no ancestor creates a containing block via
+       transform/filter, so fixed is relative to the viewport).
+       JS sets top/left from the button's rect on each open. */
     position: fixed; z-index: 10000;
     background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px;
     padding: 4px 0; min-width: 150px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
@@ -16339,17 +16339,10 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Show/hide MIDI wrap + manage menu. Also self-heals: if the wrap got
-// orphaned somewhere (e.g. stuck in <body> after a rescue with no
-// reattach completing, or never moved off the original header on
-// first paint) and there's a #pi-midi-slot waiting for it, move it.
-// Runs every tick from _refreshAutoPlayUI so any inconsistency clears
-// itself on the next frame.
+// Show/hide MIDI wrap based on whether there's anything to export.
 function _updateMidiBtn() {
   const wrap = document.getElementById('midi-wrap');
   if (!wrap) return;
-  const slot = document.getElementById('pi-midi-slot');
-  if (slot && wrap.parentElement !== slot) slot.appendChild(wrap);
   const hasComposed = state.composedProgression.length > 0;
   const hasSong = player.song && player.song.length > 0;
   wrap.style.display = (hasComposed || hasSong) ? '' : 'none';
@@ -16380,27 +16373,21 @@ document.getElementById('midi-export').addEventListener('click', (e) => {
     _midiMenu.appendChild(_midiMenuBtn('♫ Full song — chords', () => _buildMidiFile(_midiCollectSong(), 'song')));
     _midiMenu.appendChild(_midiMenuBtn('♫ Full song — bass only', () => _buildMidiFile(_midiCollectBassSong(), 'song-bass')));
   }
-  // Portal the menu to <body> so it escapes the overflow:hidden +
-  // any z-index/stacking-context traps on its original ancestors
-  // (in play mode the .rb-area clips children). Position it just
-  // below the button using fixed coords from the button's rect.
-  if (_midiMenu.parentElement !== document.body) document.body.appendChild(_midiMenu);
-  const btn = e.currentTarget;
-  const r = btn.getBoundingClientRect();
-  _midiMenu.style.top  = (r.bottom + 4) + 'px';
-  _midiMenu.style.left = r.left + 'px';
+  // Position the menu via viewport coords because it's position:fixed.
+  // Right-align to the button (the button often lives on the right
+  // side of the meta strip, so a left-anchored menu would extend past
+  // the viewport edge).
+  const r = e.currentTarget.getBoundingClientRect();
+  _midiMenu.style.top   = (r.bottom + 4) + 'px';
+  _midiMenu.style.right = (window.innerWidth - r.right) + 'px';
+  _midiMenu.style.left  = 'auto';
   _midiMenu.hidden = false;
 });
 
-// Close menu on outside click. Now that the menu is portaled to
-// <body>, "outside" means not the menu itself AND not the midi-wrap.
+// Close menu on outside click
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.midi-wrap') && !e.target.closest('.midi-menu')) _closeMidiMenu();
+  if (!e.target.closest('.midi-wrap')) _closeMidiMenu();
 });
-// Hide on scroll/resize — the fixed coords would otherwise stay
-// pinned to the original viewport position while the button moves.
-window.addEventListener('scroll', _closeMidiMenu, true);
-window.addEventListener('resize', _closeMidiMenu);
 
 const _origRenderComposeStrip = renderComposeStrip;
 renderComposeStrip = function() {
