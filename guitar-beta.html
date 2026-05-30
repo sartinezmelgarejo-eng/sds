@@ -3265,35 +3265,32 @@
     body.player-active .rb-cycle,
     body.player-active .rb-loop,
     body.player-active .right-btn-stack { display: none !important; }
-    /* Mobile portrait play mode. Each .rb-tab-cell gets an explicit
-       width via flex-basis so aspect-ratio has a concrete dimension
-       to compute height from. Without the explicit width the auto-
-       sizing chain (rb-row flex:1 → strip flex:1 → cell flex:1 1 0
-       → aspect-ratio circular) collapses to zero in some engines.
+    /* Mobile portrait play mode. The strip carries an explicit height
+       computed from the cells' expected width — this avoids the
+       aspect-ratio/align-items:stretch conflict that was collapsing
+       the cells to zero height (SVG invisible, "rendered behind the
+       background").
 
-       Width = (100vw − 15px) / 4
-         15px = rb-area horizontal padding (12px) + strip border (3px)
-         With box-sizing:border-box, this is the cell's outer width.
+       Strip width  = viewport − 12px (rb-area padding) − 3px (strip border)
+                    = 100vw − 15px
+       Cell width   = strip width / 4 = (100vw − 15px) / 4
+       Strip height = cell width × SVG aspect ratio
+         • guitar (1:1):   strip height = (100vw − 15px) / 4
+         • piano  (130:148): strip height = (100vw − 15px) / 4 × 148 / 130
 
-       aspect-ratio then drives cell height:
-         • guitar  1:1     → cell ≈ vw/4 × vw/4
-         • piano  130:148  → cell ≈ vw/4 × (vw/4 × 1.138)
-
-       The strip's desktop min-height: clamp(220px,18vw,320px) at line
-       1731 isn't scoped to desktop, so we reset it here. */
+       Cells keep their default `flex: 1 1 0` (from line 1771) and
+       stretch vertically to fill the strip — so cell aspect == strip
+       aspect == SVG viewBox aspect. The chord-diagram SVG fills cleanly
+       (no letterbox); the piano staff outer SVG with
+       preserveAspectRatio="none" scales evenly in both axes (no
+       vertical stretch). The desktop min-height clamp at line 1731
+       isn't scoped to desktop, so we reset it. */
     body.player-active:not(.lp-on) .real-book-tabs {
-      height: auto;
+      height: calc((100vw - 15px) / 4);
       min-height: 0;
     }
-    body.player-active:not(.lp-on) .rb-tab-cell {
-      flex: 0 0 calc((100vw - 15px) / 4);
-      aspect-ratio: 1 / 1;
-      min-width: 0;
-      min-height: 0;
-      height: auto;
-    }
-    body.instrument-piano.player-active:not(.lp-on) .rb-tab-cell {
-      aspect-ratio: 130 / 148;
+    body.instrument-piano.player-active:not(.lp-on) .real-book-tabs {
+      height: calc((100vw - 15px) / 4 * 148 / 130);
     }
     body.player-active:not(.lp-on) .rb-loop { height: 150px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
