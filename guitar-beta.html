@@ -45,7 +45,11 @@
   .midi-export-btn { font-size: 11px !important; padding: 2px 8px !important; opacity: 0.7; }
   .midi-export-btn:hover { opacity: 1; }
   .midi-menu {
-    position: absolute; top: 100%; left: 0; z-index: 999;
+    /* Portaled to document.body via JS on open (escapes the
+       overflow:hidden on .rb-area in play mode that was clipping it).
+       JS sets position:fixed + top/left from the button's rect, so
+       the in-CSS top/left here are just fallbacks. */
+    position: fixed; z-index: 10000;
     background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px;
     padding: 4px 0; min-width: 150px; box-shadow: 0 4px 12px rgba(0,0,0,.15);
   }
@@ -16355,7 +16359,7 @@ function _midiMenuBtn(label, fn) {
   return b;
 }
 
-document.getElementById('midi-export').addEventListener('click', () => {
+document.getElementById('midi-export').addEventListener('click', (e) => {
   const hasComposed = state.composedProgression.length > 0;
   const hasSong = player.song && player.song.length > 0;
 
@@ -16369,13 +16373,27 @@ document.getElementById('midi-export').addEventListener('click', () => {
     _midiMenu.appendChild(_midiMenuBtn('♫ Full song — chords', () => _buildMidiFile(_midiCollectSong(), 'song')));
     _midiMenu.appendChild(_midiMenuBtn('♫ Full song — bass only', () => _buildMidiFile(_midiCollectBassSong(), 'song-bass')));
   }
+  // Portal the menu to <body> so it escapes the overflow:hidden +
+  // any z-index/stacking-context traps on its original ancestors
+  // (in play mode the .rb-area clips children). Position it just
+  // below the button using fixed coords from the button's rect.
+  if (_midiMenu.parentElement !== document.body) document.body.appendChild(_midiMenu);
+  const btn = e.currentTarget;
+  const r = btn.getBoundingClientRect();
+  _midiMenu.style.top  = (r.bottom + 4) + 'px';
+  _midiMenu.style.left = r.left + 'px';
   _midiMenu.hidden = false;
 });
 
-// Close menu on outside click
+// Close menu on outside click. Now that the menu is portaled to
+// <body>, "outside" means not the menu itself AND not the midi-wrap.
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.midi-wrap')) _closeMidiMenu();
+  if (!e.target.closest('.midi-wrap') && !e.target.closest('.midi-menu')) _closeMidiMenu();
 });
+// Hide on scroll/resize — the fixed coords would otherwise stay
+// pinned to the original viewport position while the button moves.
+window.addEventListener('scroll', _closeMidiMenu, true);
+window.addEventListener('resize', _closeMidiMenu);
 
 const _origRenderComposeStrip = renderComposeStrip;
 renderComposeStrip = function() {
