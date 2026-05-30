@@ -14066,13 +14066,12 @@ function renderComposeInfo() {
   const flats = useFlatsFor(state.keyPc);
   const root  = (state.keyPc + ch.deg) % 12;
   const name  = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+  const roman = ch.roman || '';
+  const tag   = ch.tag || '';
   const fs    = focusedShape();
-  // Voicing-type label — prefer explicit type from userVoicing/focusedShape;
-  // fall back to the global voicingPref when nothing more specific is known.
   const typeRaw = fs?.type || state.userVoicing?.type || (window.voicingPref && voicingPref !== 'all' ? voicingPref : 'drop2');
   const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
   const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
-  // Inversion + string-set when available (drop-2 path).
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
   const INV_LABEL = ['root pos', '1st inv', '2nd inv', '3rd inv'];
   const inv = fs?.inversion;
@@ -14081,16 +14080,11 @@ function renderComposeInfo() {
   if (Number.isInteger(inv) && Number.isInteger(ss)) {
     detail = `${INV_LABEL[inv] || ('inv ' + inv)} · ${SET_LABEL[ss] || ('set ' + ss)} set`;
   }
-  // Average fret as a quick "where on the neck" reading.
   let fretTxt = '';
   if (fs?.shape) {
     const af = Math.round(avgFret(fs.shape));
-    if (Number.isFinite(af) && af > 0) fretTxt = `fret&nbsp;${af}`;
+    if (Number.isFinite(af) && af > 0) fretTxt = `fret ${af}`;
   }
-  // Position counter inside the current voicing family — "3/12" tells the
-  // user how many more voicings live in this technique before cycling
-  // wraps. Only shown in compose mode (the AI's own info bar is busy with
-  // progression state and doesn't need this).
   let posTxt = '';
   if (fs?.shape && typeRaw) {
     const family = allDistinctVoicings(ch.quality, root).filter(c => c.type === typeRaw);
@@ -14099,26 +14093,55 @@ function renderComposeInfo() {
       if (idx >= 0) posTxt = `${idx + 1}/${family.length}`;
     }
   }
-  // Key chip (matches the player's pi-key styling).
+  // Function-in-words for the context caption (same FUNC_LABEL map as play mode)
+  const FUNC_LABEL = { tonic:'tonic', dom:'dominant', predom:'pre-dominant', secondary:'secondary', borrowed:'borrowed' };
+  const ctxFunction = FUNC_LABEL[tag] || '';
   const keyName = nameOf(state.keyPc, flats);
   const tq = state.tonality === 'major' ? 'MAJ' : 'MIN';
-  const keyHtml = `<span class="pi-key">${keyName}<span class="pi-key-q">${tq}</span></span>`;
-  // Chord name uses the same italic-serif pi-prog class so it visually
-  // rhymes with the playback bar's progression name.
-  const chordHtml = `<span class="pi-prog">${name}</span>`;
-  const romanHtml = `<span class="pi-iter">${ch.roman}</span>`;
-  const posChip   = posTxt ? `<span class="pi-step">${posTxt}</span>` : '';
-  const typeHtml  = `<span class="pi-voicing">${typeLabel}${detail ? ' · ' + detail : ''}</span>${posChip}`;
-  const fretHtml  = fretTxt ? `<span class="pi-iter">${fretTxt}</span>` : '';
+  // Build the same pi-grid structure the player-mode card uses, so all
+  // the Real Book frame / color-coded name / dramatic roman styling is
+  // reused — just stacked vertically in the 220px compose sidebar via
+  // the `.map-wrap > #player-info .pi-grid` overrides in the CSS block
+  // around line 1473.
   el.innerHTML = `
-    ${keyHtml}
-    <span class="pi-div"></span>
-    ${chordHtml}
-    ${romanHtml}
-    <span class="pi-div"></span>
-    ${typeHtml}
-    ${fretHtml ? '<span class="pi-spacer"></span>' + fretHtml : ''}
+    <div class="pi-grid">
+      <div class="pi-block pi-block-chord">
+        <div class="pi-chord-name${tag ? ' tag-' + tag : ''}">${name}</div>
+        ${ctxFunction ? `<div class="pi-chord-context">${ctxFunction}</div>` : ''}
+        ${roman ? `<div class="pi-chord-roman">${roman}</div>` : ''}
+      </div>
+      <div class="pi-block pi-block-voicing">
+        <div class="pi-voicing-row">
+          <span class="pi-voicing-family">${typeLabel}</span>
+          ${posTxt ? `<span class="pi-voicing-variant">${posTxt}</span>` : ''}
+        </div>
+        ${detail ? `<div class="pi-voicing-variant">${detail}</div>` : ''}
+        ${fretTxt ? `<div class="pi-voicing-bass">${fretTxt}</div>` : ''}
+      </div>
+      <div class="pi-meta">
+        <span class="pi-meta-val">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+      </div>
+    </div>
   `;
+  // Auto-fit the chord-name + roman to the (narrow) compose column.
+  requestAnimationFrame(() => {
+    const block = el.querySelector('.pi-block-chord');
+    if (!block) return;
+    const maxW = block.clientWidth - 32;  // subtract horizontal padding
+    if (!maxW || maxW < 1) return;
+    const nameEl = block.querySelector('.pi-chord-name');
+    const romanEl = block.querySelector('.pi-chord-roman');
+    const NAME_BASE = 42, ROMAN_BASE = 64;
+    const fit = (e, base) => {
+      if (!e) return;
+      e.style.fontSize = base + 'px';
+      const w = e.scrollWidth;
+      if (w <= maxW) return;
+      e.style.fontSize = Math.max(0.5, maxW / w) * base + 'px';
+    };
+    fit(nameEl, NAME_BASE);
+    fit(romanEl, ROMAN_BASE);
+  });
 }
 
 // ─── Beat counter loop: drives the 1-2-3-4 lights in the player-info bar ───
