@@ -1014,16 +1014,20 @@
       align-items: stretch;
       width: 100%;
     }
-    /* Compose-mode pills wrap to multiple rows once they exceed the
-       card width — the user can write progressions longer than 8
-       chords without them spilling out of the now-playing card. */
+    /* Compose-mode pills: a strict 4-per-row grid regardless of how
+       long each chord name is. Was a flex-wrap row before, which let
+       longer names (V7sus, bII7) push the wrap point down to 3/row.
+       Grid with repeat(4, 1fr) gives each pill exactly 25% of the
+       row width; long names get ellipsis-truncated by the existing
+       overflow:hidden + text-overflow:ellipsis on .pi-prog-pill. */
     #player-info .pi-prog-pills.compose-pills {
-      flex-wrap: wrap;
-      row-gap: 5px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 5px;
     }
     #player-info .pi-prog-pills.compose-pills .pi-prog-pill {
-      flex: 0 0 auto;        /* natural width, not stretched 1fr */
-      min-width: 32px;
+      width: auto;
+      min-width: 0;
     }
     #player-info .pi-prog-pill {
       font-family: 'Cormorant Garamond', Georgia, serif;
