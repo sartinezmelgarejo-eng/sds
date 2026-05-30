@@ -2,7 +2,7 @@
 <html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SdS — Apps</title>
 <link rel="manifest" href="pwa/manifest-index.json"><meta name="theme-color" content="#180a0e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Bodoni+Moda:ital,opsz,wght@0,6..96,700;0,6..96,800;0,6..96,900;1,6..96,700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#f0f2f5;color:#1e293b;font-family:'Playfair Display',Georgia,serif;height:100vh;display:flex;flex-direction:column;align-items:center;padding:24px 28px 20px;overflow:hidden}
@@ -105,52 +105,58 @@ body.sidebar-fullscreen .main > .grid{display:none}
 body.sidebar-fullscreen .sidebar-resize{
   background:rgba(232,216,176,.25);
 }
-/* Reader typography in fullscreen — dramatic NYT-style editorial
-   headlines via Playfair Display (loaded in <head>), comfortable
-   body text, no line-clamp truncation, items stacked as magazine
-   articles (image hero on top → headline → body), centered with
-   a max reading width. Higher specificity (4 classes) to override
-   the .spacious mode rules that otherwise win.
-   Selector chain: body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item
-   That's 4 classes — beats .sidebar .m-tg-list.spacious .m-tg-item (also 4). */
+/* Reader typography in fullscreen — magazine CARD layout. Each post
+   is a horizontal split: ~50/50 image on the left, content on the
+   right. The headline uses Bodoni Moda (high-contrast modern serif,
+   Vogue/editorial feel — more dramatic than Playfair). Higher
+   specificity (4 classes) to override the .spacious mode rules. */
 body.sidebar-fullscreen .sidebar .m-tg-list{
-  padding:32px 24px 48px;
+  padding:40px 28px 60px;
   display:block;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item{
-  max-width:760px;
-  margin:0 auto 40px;
-  padding:0 0 28px;
+  max-width:1200px;
+  margin:0 auto 56px;
+  padding:0;
   background:transparent;
   border:none;
-  border-bottom:1px solid rgba(232,216,176,.18);
   border-radius:0;
   border-left:none;
-  display:flex;
-  flex-direction:column;
-  gap:0;
+  border-bottom:1px solid rgba(232,216,176,.18);
+  padding-bottom:48px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:36px;
   cursor:default;
+  align-items:start;
+  scroll-margin-top:24px;  /* keyboard navigation lands here */
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item:hover{background:transparent}
-/* Hero image: full reading width, magazine cover style */
+/* Hero image / source-card-as-hero: fills the left column */
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item > img,
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .source-card.source-as-hero{
-  width:100%;max-width:none;
-  height:auto;max-height:380px;
-  object-fit:cover;
+  width:100%;max-width:none;max-height:none;
+  height:auto;
+  margin:0;border-radius:0;
   align-self:stretch;
-  margin:0 0 18px;
-  border-radius:0;
-  flex-shrink:1;
+}
+body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item > img{
+  object-fit:cover;aspect-ratio:4/3;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .source-card.source-as-hero{
-  display:flex;flex-direction:column;
+  display:flex;flex-direction:column;background:transparent;border:none;padding:0;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .source-card.source-as-hero .src-img{
-  width:100%;height:auto;max-height:340px;object-fit:cover;border-radius:0;
+  width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:0;
+  background:transparent;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .source-card.source-as-hero .src-body{
-  padding:8px 0 0;
+  padding:10px 0 0;font-size:11px;
+}
+/* If a post has no image, the body still occupies right column —
+   left column shows empty space (acceptable). */
+body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item.no-img{
+  grid-template-columns:1fr;max-width:760px;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .body{
   flex:1;min-width:0;width:100%;padding:0;
@@ -158,23 +164,25 @@ body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .body{
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .meta-row{
   font-size:11px;letter-spacing:1.8px;text-transform:uppercase;
   color:#a08a5a;
-  margin-bottom:8px;
+  margin-bottom:10px;
   font-family:'SF Mono',monospace;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt{
-  font-size:17px;line-height:1.65;color:#e8d8b0;font-weight:400;
+  font-size:16.5px;line-height:1.7;color:#e8d8b0;font-weight:400;
   -webkit-line-clamp:unset;display:block;overflow:visible;
 }
+/* THE headline — Bodoni Moda, high-contrast editorial serif.
+   Bigger and more dramatic than Playfair. */
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt b.hd{
-  font-family:'Playfair Display','Cormorant Garamond',Georgia,serif;
-  font-size:36px;line-height:1.12;letter-spacing:-.6px;
-  font-weight:700;font-style:normal;
+  font-family:'Bodoni Moda','Playfair Display',Didot,'Bodoni 72',Georgia,serif;
+  font-size:46px;line-height:1.05;letter-spacing:-.8px;
+  font-weight:800;font-style:normal;
   color:#fdfcf3;
   display:block;
-  margin:6px 0 16px;
+  margin:0 0 22px;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .footer{
-  margin-top:18px;font-size:11px;color:#a08a5a;
+  margin-top:22px;font-size:11px;color:#a08a5a;
   display:flex;align-items:center;justify-content:space-between;
 }
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .footer .open-tg{
@@ -182,11 +190,22 @@ body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .footer .open-tg{
   padding:3px 9px;border-radius:5px;background:rgba(90,180,230,.12);
 }
 body.sidebar-fullscreen .sidebar .d-feed-chips{
-  max-width:760px;margin:0 auto;padding:14px 0 0;
+  max-width:1200px;margin:0 auto;padding:14px 0 0;
+}
+/* Visual hint of the focused/active item for arrow-key nav */
+body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item.reader-current .txt b.hd{
+  color:#fff;
+}
+@media (max-width:1100px){
+  body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item{gap:24px}
+  body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt b.hd{font-size:36px}
 }
 @media (max-width:720px){
-  body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt b.hd{font-size:26px;line-height:1.18}
-  body.sidebar-fullscreen .sidebar .m-tg-list{padding:18px 16px}
+  body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item{
+    grid-template-columns:1fr;gap:14px;margin-bottom:36px;padding-bottom:30px;
+  }
+  body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt b.hd{font-size:28px;line-height:1.12}
+  body.sidebar-fullscreen .sidebar .m-tg-list{padding:20px 16px}
 }
 .more-overlay.open{opacity:1;pointer-events:auto}
 .more-panel{
@@ -1495,6 +1514,38 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     window.addEventListener('resize',()=>{
       const w=document.querySelector('.sidebar').offsetWidth;
       applyFullscreen(w);
+    });
+    // Arrow-key navigation between posts when in fullscreen reader.
+    // ↓ scrolls to the next .m-tg-item; ↑ to the previous one. The
+    // 'current' item is the one whose top is at or just above the
+    // visible scroll top. Smooth scroll + scroll-margin-top from CSS
+    // keeps it from butting into the chips strip.
+    document.addEventListener('keydown',e=>{
+      if(!document.body.classList.contains('sidebar-fullscreen'))return;
+      // Don't hijack typing
+      if(e.target && (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'))return;
+      if(e.key!=='ArrowDown'&&e.key!=='ArrowUp'&&e.key!=='j'&&e.key!=='k')return;
+      const list=document.querySelector('.sidebar .m-tg-list');
+      if(!list)return;
+      const items=[...list.querySelectorAll('.m-tg-item')];
+      if(!items.length)return;
+      const listRect=list.getBoundingClientRect();
+      // Find current: first item whose top is within (or just below) the
+      // top edge of the list. Use 80px tolerance for the chips strip.
+      const tol=80;
+      let cur=0;
+      for(let i=0;i<items.length;i++){
+        const r=items[i].getBoundingClientRect();
+        if(r.top-listRect.top<=tol+1) cur=i;
+        else break;
+      }
+      const dir=(e.key==='ArrowDown'||e.key==='j')?1:-1;
+      const next=Math.max(0,Math.min(items.length-1,cur+dir));
+      if(next===cur && dir>0)return;  // already at the end
+      e.preventDefault();
+      items.forEach(it=>it.classList.remove('reader-current'));
+      items[next].classList.add('reader-current');
+      items[next].scrollIntoView({behavior:'smooth',block:'start'});
     });
   })();
 
