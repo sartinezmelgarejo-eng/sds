@@ -7048,6 +7048,27 @@ function _setupChordMapTouch() {
       // don't re-trigger — keeps V/vi popup stable while cursor is on viiø.
       if (_hoverChordId && typeof _findChainTargetForSii === 'function' &&
           _findChainTargetForSii(chordId) === _hoverChordId) return;
+      // Menu-bridge guard: if the cursor is inside (or within a small
+      // forgiveness ring of) any currently-visible popup, don't trigger
+      // a new hover — the user is most likely navigating toward that
+      // popup and we shouldn't yank it out by replacing it with another
+      // chord's popups that may land in the same grid cell. Without
+      // this guard, mousing from a chord to its popup that crosses an
+      // adjacent chord's bbox swaps the popups mid-travel.
+      const existingPopups = wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)');
+      if (existingPopups.length > 0) {
+        const POPUP_BRIDGE_PAD = 28;   // px forgiveness around each popup rect
+        const mx = e.clientX, my = e.clientY;
+        for (const pop of existingPopups) {
+          const r = pop.getBoundingClientRect();
+          if (mx >= r.left - POPUP_BRIDGE_PAD && mx <= r.right + POPUP_BRIDGE_PAD &&
+              my >= r.top  - POPUP_BRIDGE_PAD && my <= r.bottom + POPUP_BRIDGE_PAD) {
+            // Inside the safe zone — cancel any pending swap and bail.
+            clearTimeout(_hoverTimer);
+            return;
+          }
+        }
+      }
       // Cancel any pending exit + restart the delay for the new chord.
       clearTimeout(_hoverExitTimer);
       clearTimeout(_hoverTimer);
