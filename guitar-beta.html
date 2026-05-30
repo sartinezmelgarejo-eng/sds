@@ -1471,13 +1471,59 @@
     padding: 4px 0;
   }
   /* When #player-info gets relocated into .map-wrap (compose mode),
-     the desktop @media dashboard styles below would otherwise still
-     apply — pi-grid would render as a 3-column grid inside a 220px
-     sidebar, stacking on top of the chord map. Force the desktop
-     dashboard OFF and keep the original flat-row layout via .pi-mobile
-     when inside the compose sidebar. */
-  .map-wrap > #player-info .pi-grid    { display: none !important; }
-  .map-wrap > #player-info .pi-mobile  { display: contents !important; }
+     keep the same pi-grid blocks the play-mode card uses (Real Book
+     chord frame, color-coded name, big roman, voicing/prog/meta) —
+     just restack them top-to-bottom in a single 220px column so the
+     compose sidebar mirrors the play card's aesthetic vertically.
+     pi-mobile (the old flat row) is suppressed. */
+  .map-wrap > #player-info .pi-mobile  { display: none !important; }
+  .map-wrap > #player-info .pi-grid    {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto auto;
+    column-gap: 0;
+    row-gap: 14px;
+    width: 100%;
+    flex: 0 0 auto;
+    align-items: stretch;
+  }
+  .map-wrap > #player-info .pi-block.pi-block-chord,
+  .map-wrap > #player-info .pi-block-voicing,
+  .map-wrap > #player-info .pi-block-prog,
+  .map-wrap > #player-info .pi-meta {
+    grid-row: auto;
+    grid-column: 1;
+  }
+  /* Reset the play-mode negative margins (those eat rb-area's padding;
+     here the parent is the .map-wrap sidebar with its own padding) and
+     shrink the frame paddings so the card fits the 220px column. */
+  .map-wrap > #player-info .pi-block.pi-block-chord {
+    margin: 0;
+    padding: 18px 14px;
+    gap: 8px;
+  }
+  .map-wrap > #player-info .pi-chord-name {
+    font-size: 42px;
+    line-height: 1;
+    letter-spacing: -0.6px;
+  }
+  .map-wrap > #player-info .pi-chord-context {
+    font-size: 14px;
+  }
+  .map-wrap > #player-info .pi-chord-roman {
+    font-size: 64px;
+    line-height: 0.9;
+    letter-spacing: -1px;
+  }
+  .map-wrap > #player-info .pi-block {
+    align-items: center;
+    text-align: center;
+  }
+  .map-wrap > #player-info .pi-meta {
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-top: 10px;
+  }
 
   /* Card relocates to .map-wrap during compose (handled by JS) — when
      it sits there, it becomes a tall vertical panel matching the
