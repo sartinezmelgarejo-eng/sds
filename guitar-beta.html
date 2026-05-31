@@ -7498,39 +7498,24 @@ function renderChordMap() {
       <div class="mc-svg-wrap">${svg}</div>
     `;
     card.addEventListener('click', (ev) => {
-      // Compose mode: tapping a map card = typing that chord into the strip.
-      // The map IS the dialer when the AI isn't engaged at all. PAUSED
-      // counts as engaged — the user just wants to preview chords while
-      // the song waits — so we DON'T route into compose; we audition.
       const engaged = player.playing || player.paused;
-      if (!engaged && currentMap().chordDefs[node.chord]) {
+      // Play view: audition the clicked chord without disturbing the
+      // player's visualization (no focus change, no renderAll). The next
+      // scheduled bar continues as planned.
+      if (engaged) {
+        if (v?.shape) auditionChord(node.chord, { shape: v.shape, silentVisual: true });
+        return;
+      }
+      // Compose mode: tapping a map card types that chord into the strip.
+      if (currentMap().chordDefs[node.chord]) {
         composeAddChord(node.chord, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
         return;
       }
-
-      // Player-active path: focus + jump
-      const displayed = v;
+      // Fallback: focus + ring (chord not in current map's dialer).
       state.focusedChord = node.chord;
-      state.userVoicing = displayed?.shape
-        ? { shape: displayed.shape, ...displayed }
-        : null;
-
-      // While the AI is engaged (playing or paused), clicking a chord
-      // auditions it (plays once, visually focuses) but does NOT
-      // permanently jump the progression — the next scheduled bar
-      // overwrites the audition. To force a real jump, use the keyboard.
-      if (engaged) {
-        auditionChord(node.chord);
-      }
+      state.userVoicing = v?.shape ? { shape: v.shape, ...v } : null;
       renderAll();
       ringFocusedChord();
-      // After renderAll, re-apply playing/next-up classes if player engaged
-      if (engaged) {
-        document.querySelectorAll('.map-card').forEach(c => {
-          if (c.dataset.chord === player.currentChord) c.classList.add('playing');
-          else if (c.dataset.chord === player.nextChord) c.classList.add('next-up');
-        });
-      }
     });
     wrap.appendChild(card);
   }
@@ -9008,15 +8993,19 @@ function ringFocusedChord() {
 // A timeout also reverts the visual focus to the chord that's actually
 // sounding, so the highlight doesn't get stuck on the auditioned card.
 let _auditionRevertTimer = null;
-function auditionChord(chordId) {
+function auditionChord(chordId, opts = {}) {
   // PAUSED counts — the user is still in play mode, just stopped audio.
   if (!player.playing && !player.paused) return;
   ensureAudio();
-  const fs = focusedShape();
-  if (!fs?.shape) return;
-  const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  // Caller can pass a shape directly (preview audition that bypasses
+  // state.focusedChord — keeps the player's visualization untouched).
+  const shape = opts.shape || (focusedShape() && focusedShape().shape);
+  if (!shape) return;
+  const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
   if (!notes.length) return;
   chordDrone.start(notes, currentDroneVolume() * 1.8, true);
+  // No focus mutation happened, so there's nothing to revert.
+  if (opts.silentVisual) return;
   // Revert the focused chord back to whatever the player is on after a few
   // seconds (or sooner if the user clicks again — the timer is replaced).
   if (_auditionRevertTimer) clearTimeout(_auditionRevertTimer);
@@ -9026,7 +9015,6 @@ function auditionChord(chordId) {
     state.focusedChord = player.currentChord || state.focusedChord;
     state.userVoicing = null;
     renderAll();
-    // Re-apply playing / next-up classes lost during renderAll
     document.querySelectorAll('.map-card').forEach(c => {
       if (c.dataset.chord === player.currentChord) c.classList.add('playing');
       else if (c.dataset.chord === player.nextChord) c.classList.add('next-up');
