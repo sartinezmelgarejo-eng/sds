@@ -1886,6 +1886,26 @@
   .rb-cell.section-divider, .rb-tab-cell.section-divider {
     border-left: 3px double #a07820;
   }
+  /* Small A/B badge in the top-left corner of the first cell of each section.
+     Absolutely-positioned so it doesn't disturb the existing chord-cell layout. */
+  .rb-section-tag {
+    position: absolute;
+    top: 3px;
+    left: 4px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: rgba(245, 239, 217, 0.92);
+    color: #5e4818;
+    border: 1px solid rgba(160, 120, 32, 0.55);
+    pointer-events: none;
+    z-index: 3;
+    line-height: 1;
+  }
+  .rb-section-tag.rb-section-b { color: #8a4818; border-color: rgba(138, 72, 24, 0.55); }
   /* Section-toggle chip shown above the compose strip in toggle-mode AI
      captures — single chip naming the section being edited, tap to cycle
      to the next one. Warm-gold palette matches the existing strip trim. */
@@ -15507,6 +15527,16 @@ function renderComposeStrip() {
   el.classList.toggle('compose-interleaved', isMobile);
   tabsEl.hidden = isMobile ? true : false;
 
+  // Small A/B badge on the first cell of each section, shown only when both
+  // sections actually have content (i.e. user has typed past the divider, or
+  // a dual-section capture is loaded). Single-section captures get no badge.
+  const showSectionBadges = !state._composeIsSingleSection && seq.length > dividerAt;
+  const sectionBadgeFor = (i) => {
+    if (!showSectionBadges) return '';
+    if (i === 0)          return '<span class="rb-section-tag rb-section-a">A</span>';
+    if (i === dividerAt)  return '<span class="rb-section-tag rb-section-b">B</span>';
+    return '';
+  };
   const renderCell = (cell, i, isTab) => {
     const cls = ['rb-cell'];
     if (isTab) cls[0] = 'rb-tab-cell';
@@ -15514,6 +15544,7 @@ function renderComposeStrip() {
     if (i === focIdx) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
     if (i === dividerAt && !state._composeIsSingleSection) cls.push('section-divider');  // start of B
+    const sectionTag = isTab ? '' : sectionBadgeFor(i);
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
@@ -15525,13 +15556,13 @@ function renderComposeStrip() {
     // Empty slot — clickable so the user can extend the previous chord
     if (!cell) {
       const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
-      return `<div class="${cls.join(' ')}"${emptyAttr}></div>`;
+      return `<div class="${cls.join(' ')}"${emptyAttr}>${sectionTag}</div>`;
     }
     // Silent rest cell — slot exists but plays nothing. Rendered as a
     // small dot/rest marker so the user sees the gap.
     if (cell._silent) {
       const restGlyph = isTab ? '' : '<span class="rb-rest" title="silence">·</span>';
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${restGlyph}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${restGlyph}</div>`;
     }
     // Tie cell — shows % continuation symbol (same as AI song view)
     if (cell._tie) {
@@ -15544,6 +15575,7 @@ function renderComposeStrip() {
         return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${contSvg}</div>`;
       }
       return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
+        ${sectionTag}
         <div class="rb-continuation">%</div>
         <button class="${(i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn'}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
       </div>`;
@@ -15591,6 +15623,7 @@ function renderComposeStrip() {
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
     return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
+      ${sectionTag}
       <div class="rb-roman">${ch.roman}</div>
       <div class="rb-chord">${name}</div>
       <button class="${selCls}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>
