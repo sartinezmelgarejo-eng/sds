@@ -14581,12 +14581,14 @@ function renderComposeInfo() {
   // AABA structure picker — reuses the play-mode picker's id/class so the
   // existing #pi-song-picker click delegation opens _openSongStructMenu.
   // Source: captured song's structureStr if loaded, else state.songStructure.
+  // For 'RANDOM' (the default), show literal AABA so the picker doesn't
+  // re-roll a different shape on every re-render while composing.
   const cap = state._capturedSong;
   const pickerStr = cap
     ? cap.structureStr
-    : (typeof _resolveSongStructure === 'function'
-        ? _resolveSongStructure(state.songStructure || 'AABA')
-        : (state.songStructure || 'AABA'));
+    : (state.songStructure && state.songStructure !== 'RANDOM'
+        ? state.songStructure
+        : 'AABA');
   const _pickerStructDef = (typeof SONG_STRUCTURES !== 'undefined')
     ? SONG_STRUCTURES.find(s => s.id === pickerStr) : null;
   const _pickerIsSelfContained = !!(_pickerStructDef && _pickerStructDef.formType);
