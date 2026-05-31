@@ -730,11 +730,19 @@
     gap: 4px;
     align-items: center;
   }
-  /* Mobile MIDI slot — leftmost chip in the .pi-mobile flat-row. */
-  #player-info .pi-mobile #pi-midi-slot-mobile {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 8px;
+  /* Mobile: MIDI button sits as a SIBLING of #player-info in the
+     .song-block flex row — outside the green now-playing bar but at
+     the same height. Keep the button compact and aligned. */
+  @media (max-width: 800px) {
+    .song-block > div:last-child > #midi-wrap {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+    }
+    .song-block > div:last-child > #midi-wrap .midi-export-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
   }
   /* Mobile native <select> structure picker — invisible <select> overlays
      the visible AABA summary. OS bottom-sheet handles the picker UI. */
@@ -11917,7 +11925,6 @@ class Player {
         ${travelBadge}
         ${modBadge}
         ${beatsHtml}
-        <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
       </div>
     `;
 
@@ -11983,15 +11990,18 @@ class Player {
     piEl.innerHTML = desktopHtml + mobileHtml;
 
     // Reattach the MIDI wrap. Desktop: into the .pi-grid meta slot.
-    // Mobile: into the .pi-mobile flat-row's dedicated slot so the button
-    // lives inline with the voicing-spec + AABA picker, instead of
-    // getting orphaned at the bottom of the body.
+    // Mobile: as a sibling of #player-info inside .song-block's flex row
+    // so MIDI sits OUTSIDE the green now-playing bar but at the same row.
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
       const slot = document.getElementById('pi-midi-slot');
       if (slot && midiW) slot.appendChild(midiW);
-    } else {
-      const slotM = document.getElementById('pi-midi-slot-mobile');
-      if (slotM && midiW) slotM.appendChild(midiW);
+    } else if (midiW) {
+      const songRow = document.querySelector('.song-block > div:last-child');
+      if (songRow && piEl && songRow.contains(piEl)) {
+        songRow.insertBefore(midiW, piEl);
+      } else if (songRow) {
+        songRow.appendChild(midiW);
+      }
     }
 
     // Now that the DOM is in place and laid out, fit the chord row.
@@ -14788,8 +14798,6 @@ function renderComposeInfo() {
         </div>
       </div>
       <div class="pi-mobile">
-        <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
-        <span class="pi-div"></span>
         <span style="opacity:.55">no chords yet</span>
         <span class="pi-spacer"></span>
         ${mobilePickerBail}
@@ -14798,9 +14806,14 @@ function renderComposeInfo() {
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
       const slotBail = document.getElementById('pi-midi-slot');
       if (slotBail && midiWBail) slotBail.appendChild(midiWBail);
-    } else {
-      const slotBailM = document.getElementById('pi-midi-slot-mobile');
-      if (slotBailM && midiWBail) slotBailM.appendChild(midiWBail);
+    } else if (midiWBail) {
+      const songRowBail = document.querySelector('.song-block > div:last-child');
+      const piElBail = document.getElementById('player-info');
+      if (songRowBail && piElBail && songRowBail.contains(piElBail)) {
+        songRowBail.insertBefore(midiWBail, piElBail);
+      } else if (songRowBail) {
+        songRowBail.appendChild(midiWBail);
+      }
     }
     return;
   }
@@ -14901,20 +14914,26 @@ function renderComposeInfo() {
       </div>
     </div>
     <div class="pi-mobile">
-      <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
-      <span class="pi-div"></span>
       <span class="pi-prog">${typeLabel}</span>
       <span class="pi-spacer"></span>
       ${(typeof _buildMobileStructSelect === 'function') ? _buildMobileStructSelect(pickerLabels, activeLabel, cap) : ''}
     </div>
   `;
-  // Reattach the MIDI wrap to its slot (matches play-mode behavior).
+  // Reattach the MIDI wrap. Desktop: into the .pi-grid meta slot.
+  // Mobile: as a sibling of #player-info inside .song-block's flex row,
+  // so it visually sits OUTSIDE the green now-playing bar but at the
+  // same height (matches the older cleaner aesthetic the user wants).
   if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
     const slot = document.getElementById('pi-midi-slot');
     if (slot && midiW) slot.appendChild(midiW);
-  } else {
-    const slotM = document.getElementById('pi-midi-slot-mobile');
-    if (slotM && midiW) slotM.appendChild(midiW);
+  } else if (midiW) {
+    const songRow = document.querySelector('.song-block > div:last-child');
+    const piEl = document.getElementById('player-info');
+    if (songRow && piEl && songRow.contains(piEl)) {
+      songRow.insertBefore(midiW, piEl);
+    } else if (songRow) {
+      songRow.appendChild(midiW);
+    }
   }
   // Update MIDI button visibility (the wrap carries an inline
   // style="display:none" from its original HTML; _updateMidiBtn
