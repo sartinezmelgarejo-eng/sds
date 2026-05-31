@@ -730,7 +730,8 @@
     gap: 4px;
     align-items: center;
   }
-  /* Mobile tap target: pad so finger taps register on the small segments. */
+  /* Mobile tap target: pad so finger taps register on the small segments.
+     button reset — strip default browser chrome so it blends in. */
   #player-info .pi-song-picker-mobile {
     padding: 6px 4px;
     cursor: pointer;
@@ -738,6 +739,13 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
   }
   /* Mobile-side AABA letters (compose flat-row) — bigger than inherited
      body text so the picker is obviously tappable. Mirrors the desktop
@@ -14635,10 +14643,10 @@ function renderComposeInfo() {
     if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
     const flatsBail = useFlatsFor(state.keyPc);
     const keyNameBail = nameOf(state.keyPc, flatsBail);
-    const mobilePickerBail = `<span class="pi-meta-song pi-song-picker-mobile" title="click to change song structure"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
+    const mobilePickerBail = `<button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(typeof _songStructMenuEl!=='undefined'&&_songStructMenuEl){_closeSongStructMenu();}else if(typeof _openSongStructMenu==='function'){_openSongStructMenu(this);}return false;"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
       const isActive = (lab === activeLabel) && (cap || i === 0);
       return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
-    }).join('')}</span></span>`;
+    }).join('')}</span></button>`;
     el.innerHTML = `
       <div class="pi-grid pi-grid-minimal">
         <div class="pi-meta">
@@ -14764,14 +14772,14 @@ function renderComposeInfo() {
       ${posTxt ? `<span class="pi-div"></span><span>${posTxt}</span>` : ''}
       ${fretTxt ? `<span class="pi-div"></span><span>${fretTxt}</span>` : ''}
       <span class="pi-spacer"></span>
-      <span class="pi-meta-song pi-song-picker-mobile" title="click to change song structure">
+      <button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(typeof _songStructMenuEl!=='undefined'&&_songStructMenuEl){_closeSongStructMenu();}else if(typeof _openSongStructMenu==='function'){_openSongStructMenu(this);}return false;">
         <span class="pi-meta-song-letters">
           ${pickerLabels.map((lab, i) => {
             const isActive = (lab === activeLabel) && (cap || i === 0);
             return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
           }).join('')}
         </span>
-      </span>
+      </button>
     </div>
   `;
   // Reattach the MIDI wrap to its slot (matches play-mode behavior).
