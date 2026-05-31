@@ -2262,11 +2262,12 @@
     .compose-pad .compose-btn[data-act="play"]     { grid-row: 4; grid-column: 2; }
     .compose-pad .compose-btn[data-act="clear"]    { grid-row: 4; grid-column: 3; }
 
-    /* Padding so the bottom-pinned keypad doesn't cover the content above */
+    /* Padding so the bottom-pinned keypad doesn't cover the content above
+       AND the last row's subdivision pill (hangs below cell) is fully
+       visible above the keypad. */
     body:not(.player-active) main,
     body:not(.player-active) .rb-area {
-      /* 4 rows × 54px + 3 gaps × 10px + 28px padding ≈ 280px */
-      padding-bottom: 290px;
+      padding-bottom: 340px;
     }
     /* Mobile compose: unlock page scroll. Body grows with content (height
        auto), html grows with body. The DOCUMENT scrolls naturally — most
@@ -15950,7 +15951,9 @@ function renderComposeStrip() {
     // (cell 8) for hand-composed strips with content past it.
     if (badgeByIdx[i] && i > 0) cls.push('section-divider');
     else if (i === dividerAt && !state._composeIsSingleSection && !cap) cls.push('section-divider');
-    const sectionTag = isTab ? '' : sectionBadgeFor(i);
+    // Badge on BOTH chord row and tab/staff row so the section marker is
+    // visible regardless of which row the user is looking at.
+    const sectionTag = sectionBadgeFor(i);
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
@@ -15978,7 +15981,7 @@ function renderComposeStrip() {
           ? {W: 100, H: 128, minimal: true, showClef}
           : {W: 130, H: 148, minimal: false, showClef};
         const contSvg = (state.instrument === 'piano') ? renderContinuationStaff(tSizing) : '';
-        return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${contSvg}</div>`;
+        return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${contSvg}</div>`;
       }
       return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
         ${sectionTag}
@@ -15990,7 +15993,7 @@ function renderComposeStrip() {
     if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
     if (isTab) {
-      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}></div>`;
+      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}</div>`;
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
       // Clef only on the very first compose cell — once you're past it, the
       // staff continues unmarked (the eye carries the clef forward).
@@ -16024,7 +16027,7 @@ function renderComposeStrip() {
       }
       // Just a pill badge with the count — clean, no triangle silhouette.
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${svg}${triHtml}${barHtml}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${svg}${triHtml}${barHtml}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
