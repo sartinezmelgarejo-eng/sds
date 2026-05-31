@@ -724,27 +724,6 @@
     color: var(--tag-tonic);
     letter-spacing: 0.3px;
   }
-  /* Compose-mode now-playing card — minimal AABA picker + MIDI slot for
-     captured songs. Lets the user rearrange / grow the structure without
-     starting playback. */
-  #player-info .pi-compose-capture {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    padding: 6px 10px;
-    background: #faf3e3;
-    border: 1px solid #d8c98a;
-    border-radius: 6px;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 12px;
-  }
-  #player-info .pi-cc-label {
-    color: #8a6818;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 1.4px;
-    opacity: 0.85;
-  }
   /* AABA form bar — compact segmented strip */
   #player-info .pi-form {
     display: inline-flex;
@@ -12456,7 +12435,6 @@ function _refreshAutoPlayUI() {
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
   if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
   if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
-  if (typeof renderCaptureNowPlaying === 'function') renderCaptureNowPlaying();
 }
 
 // Move the now-playing card between containers based on mode + screen.
@@ -12964,51 +12942,6 @@ function renderCaptureSectionTabs() {
     const len = cap.sections[lab].cells.length;
     return `<button class="capture-section-chip${active}" data-section="${lab}" title="Edit section ${lab} (${len} bars)"><span class="capture-section-label">${lab}</span><span class="capture-section-bars">${len}b</span></button>`;
   }).join('');
-}
-
-// Populate the now-playing card with a minimal AABA picker during compose
-// mode so the user can rearrange / grow the captured song's structure
-// without starting playback. Picker sits left of the MIDI button, same as
-// during play. Restored content lets the existing #pi-song-picker click
-// delegation work unchanged.
-function renderCaptureNowPlaying() {
-  const piEl = document.getElementById('player-info');
-  if (!piEl) return;
-  const cap = state._capturedSong;
-  const playing = (typeof player !== 'undefined' && player && (player.playing || player.paused));
-  // During play, player._updateVisuals owns this card — do nothing.
-  if (playing) return;
-  // No capture: leave the card empty (stop() already cleared it).
-  if (!cap) {
-    if (piEl.dataset.composeCapture === '1') {
-      const midiW = document.getElementById('midi-wrap');
-      if (midiW && piEl.contains(midiW)) document.body.appendChild(midiW);
-      piEl.innerHTML = '';
-      delete piEl.dataset.composeCapture;
-    }
-    return;
-  }
-  // Rescue MIDI wrap before innerHTML wipe so its handlers survive.
-  const midiW = document.getElementById('midi-wrap');
-  if (midiW && piEl.contains(midiW)) document.body.appendChild(midiW);
-  const letters = cap.structureStr.split('').map((lab, i) => {
-    let c = 'ms-l';
-    if (i === 0) c += ' now';
-    return `<span class="${c}">${lab}</span>`;
-  }).join('');
-  piEl.innerHTML = `
-    <div class="pi-compose-capture">
-      <span class="pi-cc-label">SONG</span>
-      <span class="pi-meta-song" id="pi-song-picker" title="click to change song structure">
-        <span class="pi-meta-song-letters">${letters}</span>
-      </span>
-      <span id="pi-midi-slot" class="pi-midi-slot"></span>
-    </div>
-  `;
-  piEl.dataset.composeCapture = '1';
-  // Reattach the MIDI wrap to its slot if available.
-  const slot = piEl.querySelector('#pi-midi-slot');
-  if (slot && midiW) slot.appendChild(midiW);
 }
 
 (function wireCaptureSectionTabs() {
@@ -14603,7 +14536,49 @@ function renderComposeInfo() {
   const fcId = state.focusedChord;
   const map = currentMap();
   const ch = fcId && map.chordDefs[fcId];
-  if (!ch) { el.innerHTML = ''; return; }
+  // AABA structure picker — reuses the play-mode picker's id/class so the
+  // existing #pi-song-picker click delegation opens _openSongStructMenu.
+  // Source: captured song's structureStr if loaded, else state.songStructure.
+  const cap = state._capturedSong;
+  const pickerStr = cap
+    ? cap.structureStr
+    : (typeof _resolveSongStructure === 'function'
+        ? _resolveSongStructure(state.songStructure || 'AABA')
+        : (state.songStructure || 'AABA'));
+  const activeLabel = cap ? cap.activeLabel : (pickerStr[0] || '');
+  const songPickerHtml = `
+    <span class="pi-meta-song" id="pi-song-picker" title="click to change song structure">
+      <span class="pi-meta-song-letters">
+        ${pickerStr.split('').map((lab, i) => {
+          const isActive = (lab === activeLabel) && (cap || i === 0);
+          return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
+        }).join('')}
+      </span>
+    </span>
+  `;
+  // Always render a minimal card (picker + key + MIDI) even when no chord
+  // is focused, so the user can pick a structure from the start.
+  if (!ch) {
+    const midiWBail = document.getElementById('midi-wrap');
+    if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
+    const flatsBail = useFlatsFor(state.keyPc);
+    const keyNameBail = nameOf(state.keyPc, flatsBail);
+    el.innerHTML = `
+      <div class="pi-grid pi-grid-minimal">
+        <div class="pi-meta">
+          <span class="pi-meta-val pi-meta-key">${keyNameBail} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+          <span class="pi-meta-spacer"></span>
+          ${songPickerHtml}
+          <span id="pi-midi-slot" class="pi-midi-slot"></span>
+        </div>
+      </div>
+    `;
+    if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
+      const slotBail = document.getElementById('pi-midi-slot');
+      if (slotBail && midiWBail) slotBail.appendChild(midiWBail);
+    }
+    return;
+  }
   const flats = useFlatsFor(state.keyPc);
   const root  = (state.keyPc + ch.deg) % 12;
   const name  = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
@@ -14696,6 +14671,7 @@ function renderComposeInfo() {
       <div class="pi-meta">
         <span class="pi-meta-val pi-meta-key">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
         <span class="pi-meta-spacer"></span>
+        ${songPickerHtml}
         <span id="pi-midi-slot" class="pi-midi-slot"></span>
       </div>
     </div>
@@ -15618,7 +15594,6 @@ function renderComposeStrip() {
   const tabsEl = document.getElementById('real-book-tabs');
   if (!el || !tabsEl) return;
   if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
-  if (typeof renderCaptureNowPlaying === 'function') renderCaptureNowPlaying();
   // While the player owns the strip — both PLAYING and PAUSED — let
   // its own render keep the playback view (tabs + realistic guitar
   // are frozen on the bar the user is on). Without this, pausing a
