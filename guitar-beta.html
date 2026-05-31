@@ -17178,21 +17178,26 @@ function _openSongStructMenu(anchor) {
   `;
   }).join('');
   menu.innerHTML = randomItem + presetItems;
-  // Position below the anchor element, clamped to viewport. Uses fixed
-  // positioning (set via .song-struct-menu CSS) so coordinates are pure
-  // viewport, no scrollY math needed.
   document.body.appendChild(menu);
-  const rect = anchor.getBoundingClientRect();
-  const menuW = menu.offsetWidth || 240;
-  const menuH = menu.offsetHeight || 320;
   const vpW = window.innerWidth || document.documentElement.clientWidth;
-  const vpH = window.innerHeight || document.documentElement.clientHeight;
-  let left = rect.left;
-  if (left + menuW > vpW - 8) left = Math.max(8, vpW - menuW - 8);
-  let top = rect.bottom + 4;
-  if (top + menuH > vpH - 8) top = Math.max(8, rect.top - menuH - 4);
-  menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top  = `${Math.max(8, top)}px`;
+  // Mobile (< 720px): center the menu modal-style for maximum reliability
+  // (no anchor positioning quirks across mobile webviews).
+  if (vpW < 720) {
+    menu.style.left = '50%';
+    menu.style.top = '50%';
+    menu.style.transform = 'translate(-50%, -50%)';
+  } else {
+    const rect = anchor.getBoundingClientRect();
+    const menuW = menu.offsetWidth || 240;
+    const menuH = menu.offsetHeight || 320;
+    const vpH = window.innerHeight || document.documentElement.clientHeight;
+    let left = rect.left;
+    if (left + menuW > vpW - 8) left = Math.max(8, vpW - menuW - 8);
+    let top = rect.bottom + 4;
+    if (top + menuH > vpH - 8) top = Math.max(8, rect.top - menuH - 4);
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top  = `${Math.max(8, top)}px`;
+  }
   // Click an item → set structure + regenerate song.
   menu.addEventListener('click', (e) => {
     const item = e.target.closest('[data-struct]');
