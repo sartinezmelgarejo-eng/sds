@@ -14609,6 +14609,10 @@ function renderComposeInfo() {
     if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
     const flatsBail = useFlatsFor(state.keyPc);
     const keyNameBail = nameOf(state.keyPc, flatsBail);
+    const mobilePickerBail = `<span class="pi-form pi-song-picker-mobile" title="click to change song structure">${pickerLabels.map((lab, i) => {
+      const isActive = (lab === activeLabel) && (cap || i === 0);
+      return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
+    }).join('')}</span>`;
     el.innerHTML = `
       <div class="pi-grid pi-grid-minimal">
         <div class="pi-meta">
@@ -14617,6 +14621,13 @@ function renderComposeInfo() {
           ${songPickerHtml}
           <span id="pi-midi-slot" class="pi-midi-slot"></span>
         </div>
+      </div>
+      <div class="pi-mobile">
+        <span class="pi-prog">${keyNameBail} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+        <span class="pi-div"></span>
+        <span style="opacity:.55">no chords yet</span>
+        <span class="pi-spacer"></span>
+        ${mobilePickerBail}
       </div>
     `;
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
@@ -14720,6 +14731,21 @@ function renderComposeInfo() {
         ${songPickerHtml}
         <span id="pi-midi-slot" class="pi-midi-slot"></span>
       </div>
+    </div>
+    <div class="pi-mobile">
+      <span class="pi-prog">${typeLabel}</span>
+      <span class="pi-div"></span>
+      <span class="pi-meta-val${tag ? ' tag-' + tag : ''}">${name}${roman ? ` <i style="opacity:.7">${roman}</i>` : ''}</span>
+      <span class="pi-div"></span>
+      <span>${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+      ${seq.length ? `<span class="pi-div"></span><span style="opacity:.75">composed · ${seq.length} ${seq.length === 1 ? 'chord' : 'chords'}</span>` : ''}
+      <span class="pi-spacer"></span>
+      <span class="pi-form pi-song-picker-mobile" title="click to change song structure">
+        ${pickerLabels.map((lab, i) => {
+          const isActive = (lab === activeLabel) && (cap || i === 0);
+          return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
+        }).join('')}
+      </span>
     </div>
   `;
   // Reattach the MIDI wrap to its slot (matches play-mode behavior).
