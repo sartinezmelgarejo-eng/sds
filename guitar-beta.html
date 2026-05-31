@@ -17349,6 +17349,22 @@ document.getElementById('keypad-toggle').addEventListener('click', () => {
   document.body.classList.toggle('keypad-open');
 });
 
+// Normalise body classes on every page-visible event (fires on fresh load
+// AND on bfcache restore from iOS Safari / Android Chrome's back-forward
+// cache). Without this, mobile users who close the tab with map-overlay-open
+// or player-active set would come back to a hidden keypad and no way to
+// start a progression. pageshow runs in both cold-load and bfcache cases —
+// DOMContentLoaded would skip the bfcache restore.
+window.addEventListener('pageshow', () => {
+  document.body.classList.remove('map-overlay-open');
+  document.body.classList.remove('player-active');
+  if (!document.body.classList.contains('keypad-open')) {
+    document.body.classList.add('keypad-open');
+  }
+  const mapToggle = document.getElementById('map-mobile-toggle');
+  if (mapToggle) mapToggle.textContent = '🗺 Map';
+});
+
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('pwa/sw.js').catch(() => {});
