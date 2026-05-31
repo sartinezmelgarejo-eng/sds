@@ -730,12 +730,13 @@
     gap: 4px;
     align-items: center;
   }
-  /* Mobile structure picker — a button styled like the AABA letters; tap
-     opens the custom brutalist menu (same as desktop). */
+  /* Mobile native <select> structure picker — invisible <select> overlays
+     the visible AABA summary. OS bottom-sheet handles the picker UI. */
   #player-info .pi-song-struct-mobile {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    padding: 6px 10px;
+    padding: 4px 8px;
     -webkit-tap-highlight-color: rgba(160, 120, 32, 0.18);
   }
   #player-info .pi-song-struct-summary {
@@ -746,6 +747,21 @@
     line-height: 1;
     letter-spacing: 2px;
     color: var(--tag-tonic, #059669);
+    pointer-events: none;
+  }
+  #player-info .pi-song-struct-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
   }
   /* Mobile tap target: pad so finger taps register on the small segments.
      button reset — strip default browser chrome so it blends in. */
@@ -17111,15 +17127,40 @@ window._openSongStructMenu = (...a) => _openSongStructMenu(...a);
 window._closeSongStructMenu = (...a) => _closeSongStructMenu(...a);
 window._isSongStructMenuOpen = () => !!_songStructMenuEl;
 
-// Mobile structure picker: a real <button> that opens the same custom
-// brutalist menu the desktop picker uses. Click binding is attached
-// directly after render (see renderComposeInfo).
+// Mobile structure picker: native <select> overlaid on the AABA summary.
+// OS-level picker UI — guaranteed reliable across every mobile browser.
 function _buildMobileStructSelect(labels, activeLabel, cap) {
+  const current = (cap && cap.structureStr) || state.songStructure || 'AABA';
+  const opts = [];
+  opts.push(`<option value="RANDOM"${current === 'RANDOM' ? ' selected' : ''}>↻ RANDOM</option>`);
+  for (const s of SONG_STRUCTURES) {
+    const lab = s.formType ? s.id.replace('_', ' ') : s.id;
+    const sel = s.id === current ? ' selected' : '';
+    opts.push(`<option value="${s.id}"${sel}>${lab}${s.rare ? ' (rare)' : ''}</option>`);
+  }
   const summary = labels.join(' ') || 'AABA';
-  return `<button type="button" class="pi-song-struct-mobile pi-song-picker-mobile" aria-label="Change song structure">
-    <span class="pi-song-struct-summary">${summary}</span>
-  </button>`;
+  return `<span class="pi-song-struct-mobile">
+    <span class="pi-song-struct-summary" aria-hidden="true">${summary}</span>
+    <select class="pi-song-struct-select" aria-label="Song structure" onchange="window._onMobileStructPick(this)">${opts.join('')}</select>
+  </span>`;
 }
+
+window._onMobileStructPick = function (sel) {
+  const id = sel && sel.value;
+  if (!id) return;
+  state.songStructure = id;
+  if (typeof player !== 'undefined' && player) {
+    player.song = player._generateSong();
+    player.songIdx = 0;
+    player.sectionIter = 0;
+    player.currentStepIdx = 0;
+    if (typeof player._applySectionKey === 'function') player._applySectionKey();
+    if (typeof renderAll === 'function') renderAll();
+    if (player.playing && typeof player._updateVisuals === 'function') {
+      player._updateVisuals();
+    }
+  }
+};
 
 // Resolve state.songStructure → an actual letter sequence string.
 // The literal value 'RANDOM' rolls a fresh non-rare structure each
