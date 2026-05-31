@@ -14947,7 +14947,11 @@ function renderComposeInfo() {
   // mouse + pointerup for touch (more reliable than synthesized click on
   // some mobile webviews like the Claude app's WKWebView). One handler each,
   // guarded by a tiny window-level cooldown so they don't double-fire.
-  el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
+  // Defensive direct binding on the picker(s) — mobile uses
+  // .pi-song-picker-mobile, desktop uses #pi-song-picker. Document-level
+  // delegation should handle both, but binding here too removes any
+  // ambiguity caused by event-propagation quirks.
+  el.querySelectorAll('.pi-song-picker-mobile, #pi-song-picker').forEach(picker => {
     const handle = (ev) => {
       const now = Date.now();
       if (now - (window._pickerLastFire || 0) < 300) return;
