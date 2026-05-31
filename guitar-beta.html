@@ -15549,12 +15549,15 @@ function renderComposePad() {
     // The matching click is suppressed via _consumedPointer flag so the
     // chord doesn't double-trigger.
     let _consumedPointer = false;
+    // In play view (playing or paused) the keypad doesn't add chords —
+    // the visible strip belongs to the player, not the composer. Same
+    // logic for the Delete button: first press reverts to edit mode.
+    const _inPlayView = () => !!(player && (player.playing || player.paused));
     pad.addEventListener('pointerdown', (e) => {
       const btn = e.target.closest('button.compose-btn[data-chord]');
       if (!btn || !pad.contains(btn)) return;
-      // Only primary pointer (left mouse / first finger) — avoid right-
-      // click and multi-touch double-triggers.
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (_inPlayView()) return;
       _consumedPointer = true;
       composeAddChord(btn.dataset.chord, false);
     });
@@ -15563,17 +15566,23 @@ function renderComposePad() {
       if (!btn || !pad.contains(btn)) return;
       e.stopPropagation();
       if (btn.dataset.chord) {
-        // Already fired on pointerdown — swallow the duplicate click.
+        if (_inPlayView()) return;
         if (_consumedPointer) { _consumedPointer = false; return; }
         composeAddChord(btn.dataset.chord, false);
         return;
       }
       const a = btn.dataset.act;
-      if      (a === 'del')      composeDeleteLast();
+      if (a === 'del') {
+        if (_inPlayView()) {
+          const editBtn = document.getElementById('auto-edit');
+          if (editBtn) editBtn.click();
+          return;
+        }
+        composeDeleteLast();
+      }
       else if (a === 'undo')     composeUndo();
       else if (a === 'clear')    composeClear();
       else if (a === 'play')     composePlay();
-      // ▲ raises the voicing (higher pitch / higher on the neck), ▼ lowers it
       else if (a === 'inv-up')   composeCycleLastInversion(1);
       else if (a === 'inv-down') composeCycleLastInversion(-1);
     });
@@ -16314,12 +16323,11 @@ document.addEventListener('keydown', e => {
   }
 
   // Playback-mode shortcuts (active when the player owns the strip).
-  // Enter  → click the big ⏹ stop button (2-stage: rewind, then clear).
-  // Escape → click ✏ edit (exits playback, focuses the current chord
-  //          in compose mode); a second Escape afterwards still falls
-  //          through to the compose-mode "deselect → clear" chain.
-  // ←/→    → step the playback head one bar back / forward through
-  //          the strip while paused (crosses pages automatically).
+  // Enter     → click the big ⏹ stop button (2-stage: rewind, then clear).
+  // Escape    → click ✏ edit (exits playback, focuses current chord).
+  // Backspace → same as Escape: first press reverts to edit mode instead
+  //             of nuking composition cells (which the user can't see).
+  // ←/→       → step the playback head one bar back / forward while paused.
   if (player.playing || player.paused) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -16327,7 +16335,7 @@ document.addEventListener('keydown', e => {
       if (stopBtn) stopBtn.click();
       return;
     }
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'Backspace') {
       e.preventDefault();
       const editBtn = document.getElementById('auto-edit');
       if (editBtn) editBtn.click();
@@ -16431,10 +16439,11 @@ document.addEventListener('keydown', e => {
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
 
-  // Compose mode (AI not playing): append OR cycle last inversion with Shift
-  if (!player.playing) {
+  // Compose mode (AI not playing AND not paused): append / cycle inversion.
+  // While paused the strip belongs to the player, so chord input falls
+  // through to the audition path below instead of mutating the comp.
+  if (!player.playing && !player.paused) {
     composeAddChord(chordId, e.shiftKey, _shiftSide === 'left' ? -1 : 1);
-    // Flash AFTER composeAddChord, which re-renders the pad via renderAll
     const padBtn = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
     if (padBtn) {
       padBtn.classList.add('flash');
