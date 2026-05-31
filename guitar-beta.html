@@ -1898,33 +1898,40 @@
     border: 1px solid #a07820;
     color: #5e4818;
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 11px;
     font-weight: 700;
-    padding: 4px 11px;
+    padding: 3px 11px;
     border-radius: 4px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 9px;
     letter-spacing: 0.5px;
+    line-height: 1;
   }
   .capture-section-chip:hover  { background: #f0e6c8; }
   .capture-section-chip:active { background: #e8d9a8; }
   .capture-section-label {
     color: #1a1a1a;
-    font-size: 13px;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .capture-section-meta {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+    border-left: 1px solid rgba(160, 120, 32, 0.4);
+    padding-left: 8px;
   }
   .capture-section-bars {
     font-size: 9px;
     font-weight: 500;
-    opacity: 0.65;
+    opacity: 0.7;
   }
   .capture-section-cycle {
     color: #8a6818;
-    font-size: 10px;
-    opacity: 0.85;
-    border-left: 1px solid rgba(160, 120, 32, 0.4);
-    padding-left: 8px;
+    font-size: 9px;
+    opacity: 0.95;
   }
 
   /* ─── Compose keypad ─── */
@@ -10743,9 +10750,12 @@ class Player {
         }
       }
       const sectionLen = steps.reduce((n, s) => n + (s.bars || 1), 0) || 1;
+      const baseName = sec.progName || `Section ${label}`;
+      const edited = sec.originalSig !== undefined && JSON.stringify(sec.cells || []) !== sec.originalSig;
+      const progName = edited ? `${baseName} (edited)` : baseName;
       return {
         label,
-        progression: { name: `◇ Edited ${label}`, len: sectionLen, steps },
+        progression: { name: progName, len: sectionLen, steps },
         repeats: sec.repeats || 1,
         voicingType: sec.voicingType || 'drop2',
         bassPattern: sec.bassPattern || this._pickBassPattern(),
@@ -12338,6 +12348,7 @@ function _refreshAutoPlayUI() {
   if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
   if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
+  if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
 }
 
 // Move the now-playing card between containers based on mode + screen.
@@ -12744,8 +12755,12 @@ function _captureSongSections(song) {
   const sectionsByLabel = {};
   for (const lab of labelOrder) {
     const sec = labelToSection[lab];
+    const cells = _captureSectionAsCells(sec);
     sectionsByLabel[lab] = {
-      cells: _captureSectionAsCells(sec),
+      cells,
+      // Frozen snapshot used to detect whether the user touched this section
+      // (so the song name can keep its origin + " (edited)" suffix).
+      originalSig: JSON.stringify(cells),
       progName: sec.progression && sec.progression.name,
       voicingType: sec.voicingType,
       bassPattern: sec.bassPattern,
@@ -12792,12 +12807,14 @@ function _switchCapturedSection(label) {
 }
 
 // One chip above the strip showing the section you're editing; tap to cycle
-// to the next captured section. Hidden when there's nothing to switch to.
+// to the next captured section. Hidden in play/pause and when there's
+// nothing to switch to.
 function renderCaptureSectionTabs() {
   const el = document.getElementById('capture-section-tabs');
   if (!el) return;
   const cap = state._capturedSong;
-  if (!cap || cap.mode !== 'toggle' || cap.uniqueLabels.length < 2) {
+  const playing = (typeof player !== 'undefined' && player && (player.playing || player.paused));
+  if (!cap || cap.mode !== 'toggle' || cap.uniqueLabels.length < 2 || playing) {
     if (!el.hidden) { el.hidden = true; el.innerHTML = ''; }
     return;
   }
@@ -12806,7 +12823,7 @@ function renderCaptureSectionTabs() {
   const len = cap.sections[lab].cells.length;
   const i = cap.uniqueLabels.indexOf(lab);
   const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-  el.innerHTML = `<button class="capture-section-chip" data-cycle="1" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></button>`;
+  el.innerHTML = `<button class="capture-section-chip" data-cycle="1" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-meta"><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></span></button>`;
 }
 
 (function wireCaptureSectionTabs() {
