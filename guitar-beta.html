@@ -11765,6 +11765,30 @@ class Player {
       fitLine(name, NAME_BASE);
       fitLine(roman, ROMAN_BASE);
     };
+    // Shrink every roman-numeral pill by the same factor when at least one
+    // is being ellipsis-truncated (12-bar blues etc.). Preserves the
+    // bars-proportional widths since the container width isn't touched,
+    // and keeps the now/done size hierarchy (22/18 base ratio) intact.
+    const _fitPillRow = () => {
+      const pills = document.querySelectorAll('#player-info .pi-prog-pill');
+      if (!pills.length) return;
+      // Reset to CSS defaults so we re-measure cleanly each tick.
+      pills.forEach(p => { p.style.fontSize = ''; });
+      let maxRatio = 1;
+      pills.forEach(p => {
+        const cw = p.clientWidth;
+        if (!cw) return;
+        const ratio = p.scrollWidth / cw;
+        if (ratio > maxRatio) maxRatio = ratio;
+      });
+      if (maxRatio <= 1) return;
+      const MIN_SCALE = 0.45;
+      const scale = Math.max(MIN_SCALE, 1 / maxRatio);
+      pills.forEach(p => {
+        const base = p.classList.contains('now') ? 22 : 18;
+        p.style.fontSize = (base * scale) + 'px';
+      });
+    };
 
     // Rescue the MIDI export wrap BEFORE the innerHTML wipe — otherwise
     // setting innerHTML below would destroy the wrap (along with its
@@ -11793,6 +11817,7 @@ class Player {
     // requestAnimationFrame so the browser has done at least one paint
     // pass — otherwise clientWidth can be 0 during the first render.
     requestAnimationFrame(_fitChordRow);
+    requestAnimationFrame(_fitPillRow);
 
     // Don't stomp the focus / userVoicing while an audition is active.
     // Clicking a chord card sets up a 3.5s revert timer; until it fires
