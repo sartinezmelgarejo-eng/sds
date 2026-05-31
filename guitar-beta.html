@@ -1886,6 +1886,40 @@
   .rb-cell.section-divider, .rb-tab-cell.section-divider {
     border-left: 3px double #a07820;
   }
+  /* Section-toggle chip bar shown above the compose strip in toggle-mode
+     AI captures — lets the user swap which section's cells are loaded. */
+  #capture-section-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px 8px 2px;
+    flex-wrap: wrap;
+  }
+  .capture-section-chip {
+    background: #f5efd9;
+    border: 1px solid #a07820;
+    color: #5e4818;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    letter-spacing: 0.5px;
+  }
+  .capture-section-chip:hover { background: #f0e6c8; }
+  .capture-section-chip.active {
+    background: #1a1a1a;
+    color: #fdfcf3;
+    border-color: #1a1a1a;
+  }
+  .capture-section-bars {
+    font-size: 9px;
+    font-weight: 500;
+    opacity: 0.65;
+  }
 
   /* ─── Compose keypad ─── */
   .compose-pad {
@@ -4263,6 +4297,9 @@
        play/pause it's visible; during compose mode it's hidden so the
        compose strip can stretch to full width as before. -->
   <div id="player-info"></div>
+  <!-- Section toggle chips — shown when a captured AI song has multiple
+       sections that don't fit in the strip simultaneously. -->
+  <div id="capture-section-tabs" hidden></div>
   <div class="rb-stack">
     <div class="rb-row">
       <div class="real-book" id="real-book" hidden></div>
@@ -10457,6 +10494,9 @@ class Player {
   }
 
   _generateSong() {
+    // Captured AI song with user edits → bypass the standard composed-seed
+    // path and rebuild the same structure with the edited cells.
+    if (state._capturedSong) return this._generateFromCaptured();
     // Snapshot the home key so we can restore + measure modulations from it
     const homePc = state.keyPc;
     const homeTonality = state.tonality;
@@ -10662,6 +10702,53 @@ class Player {
       prevLabel = key;
       return { ...s, voicingType: typeByLabel[key], bassPattern: bassByLabel[key] };
     });
+  }
+
+  // Rebuild a song from state._capturedSong's per-section cells, preserving
+  // the original AI structure (AABA/ABAB/etc.), repeats and modulations.
+  // Inverse of _captureSectionAsCells: merges consecutive _tie cells back into
+  // multi-bar steps so the player schedules each held chord correctly.
+  _generateFromCaptured() {
+    if (typeof _syncCapturedFromCompose === 'function') _syncCapturedFromCompose();
+    const cap = state._capturedSong;
+    this._homeKey = cap.homeKey ? { ...cap.homeKey } : { keyPc: state.keyPc, tonality: state.tonality };
+    const map = currentMap();
+    const buildSection = (label) => {
+      const sec = cap.sections[label];
+      const steps = [];
+      for (const c of (sec.cells || [])) {
+        const prev = steps.length ? steps[steps.length - 1] : null;
+        if (c._silent) {
+          if (prev && prev._silent) prev.bars++;
+          else steps.push({ chord: null, bars: 1, roman: '', _silent: true });
+          continue;
+        }
+        if (prev && !prev._silent && prev.chord === c.chord && c._tie) {
+          prev.bars++;
+        } else {
+          steps.push({
+            chord: c.chord,
+            bars: 1,
+            roman: (map.chordDefs[c.chord] && map.chordDefs[c.chord].roman) || c.chord,
+            composedShape: c.shape,
+            subdivisions: c.subdivisions || 1,
+            subdivMute: c.subdivMute ? [...c.subdivMute] : [],
+          });
+        }
+      }
+      const sectionLen = steps.reduce((n, s) => n + (s.bars || 1), 0) || 1;
+      return {
+        label,
+        progression: { name: `◇ Edited ${label}`, len: sectionLen, steps },
+        repeats: sec.repeats || 1,
+        voicingType: sec.voicingType || 'drop2',
+        bassPattern: sec.bassPattern || this._pickBassPattern(),
+        keyPc: sec.keyPc,
+        tonality: sec.tonality,
+        modName: sec.modName,
+      };
+    };
+    return cap.structureStr.split('').map(lab => buildSection(lab));
   }
 
   // Apply the key/tonality of the current section. Called when songIdx advances.
@@ -11071,6 +11158,8 @@ class Player {
               if (state.composedProgression && state.composedProgression.length && loopMode === 'off') {
                 state.composedProgression = [];
                 state._composeIsSingleSection = false;
+                state._capturedSong = null;
+                state._composeASectionLen = null;
               }
               this.song = this._generateSong();
               this.songIdx = 0;
@@ -12634,34 +12723,157 @@ function _captureSectionAsCells(section) {
   return cells;
 }
 
+// Snapshot every unique section in player.song with its progression cells
+// and metadata (voicingType, repeats, key, etc.) so play-time reconstruction
+// preserves the AI song's structure with the user's edits applied.
+function _captureSongSections(song) {
+  const labelToSection = {};
+  const labelOrder = [];
+  for (const s of song) {
+    if (!labelToSection[s.label]) {
+      labelToSection[s.label] = s;
+      labelOrder.push(s.label);
+    }
+  }
+  const sectionsByLabel = {};
+  for (const lab of labelOrder) {
+    const sec = labelToSection[lab];
+    sectionsByLabel[lab] = {
+      cells: _captureSectionAsCells(sec),
+      progName: sec.progression && sec.progression.name,
+      voicingType: sec.voicingType,
+      bassPattern: sec.bassPattern,
+      repeats: sec.repeats || 1,
+      keyPc: sec.keyPc,
+      tonality: sec.tonality,
+      modName: sec.modName,
+    };
+  }
+  return { sections: sectionsByLabel, uniqueLabels: labelOrder };
+}
+
+// Write the current visible compose-strip cells back into _capturedSong so
+// switching sections / pressing Play picks up the latest edits.
+function _syncCapturedFromCompose() {
+  const cap = state._capturedSong;
+  if (!cap) return;
+  if (cap.mode === 'dense') {
+    const aLab = cap.uniqueLabels[0];
+    const bLab = cap.uniqueLabels[1];
+    const split = state._composeASectionLen ?? cap.sections[aLab].cells.length;
+    cap.sections[aLab].cells = state.composedProgression.slice(0, split);
+    if (bLab) cap.sections[bLab].cells = state.composedProgression.slice(split);
+  } else if (cap.activeLabel && cap.sections[cap.activeLabel]) {
+    cap.sections[cap.activeLabel].cells = [...state.composedProgression];
+  }
+}
+
+// Toggle-mode handler: stash current edits, load the other section's cells.
+function _switchCapturedSection(label) {
+  const cap = state._capturedSong;
+  if (!cap || !cap.sections[label] || label === cap.activeLabel) return;
+  _syncCapturedFromCompose();
+  cap.activeLabel = label;
+  state.composedProgression = cap.sections[label].cells.map(c => ({ ...c }));
+  state._composeASectionLen = state.composedProgression.length;
+  state._composeIsSingleSection = true;
+  state.composedSelectedIdx = null;
+  state._composeFocusedIdx = null;
+  state.userVoicing = null;
+  renderCaptureSectionTabs();
+  renderComposeStrip();
+  if (typeof renderAll === 'function') renderAll();
+}
+
+// Render the A/B chip bar above the compose strip in toggle-mode captures.
+function renderCaptureSectionTabs() {
+  const el = document.getElementById('capture-section-tabs');
+  if (!el) return;
+  const cap = state._capturedSong;
+  if (!cap || cap.mode !== 'toggle' || cap.uniqueLabels.length < 2) {
+    if (!el.hidden) { el.hidden = true; el.innerHTML = ''; }
+    return;
+  }
+  el.hidden = false;
+  el.innerHTML = cap.uniqueLabels.map(lab => {
+    const active = (lab === cap.activeLabel) ? ' active' : '';
+    const len = cap.sections[lab].cells.length;
+    return `<button class="capture-section-chip${active}" data-section="${lab}" title="Edit section ${lab} (${len} bars)">${lab}<span class="capture-section-bars">${len}b</span></button>`;
+  }).join('');
+}
+
+(function wireCaptureSectionTabs() {
+  const tryAttach = () => {
+    const el = document.getElementById('capture-section-tabs');
+    if (!el) { setTimeout(tryAttach, 50); return; }
+    if (el.dataset.wired === '1') return;
+    el.dataset.wired = '1';
+    el.addEventListener('click', (e) => {
+      const btn = e.target.closest('.capture-section-chip');
+      if (!btn) return;
+      _switchCapturedSection(btn.dataset.section);
+    });
+  };
+  tryAttach();
+})();
+
 // Exit-and-edit: stop the player completely and drop the user into
-// compose mode focused on the chord that was just playing — so they
-// can immediately edit the bar they were on. If the player was running
-// a pure AI song (no composition seed), capture the current section's
-// bars into composedProgression first so there's something to edit.
+// compose mode focused on the chord that was just playing. If the
+// player was running a pure AI song, capture all of its unique sections
+// into _capturedSong first, choose dense (A+B both visible, ≤8 bars
+// each) or toggle (chips switch between sections) layout, and load the
+// currently-playing section so editing starts where you were listening.
 document.getElementById('auto-edit').addEventListener('click', () => {
   if (!player.playing && !player.paused) return;
   const curChord = player._currentChordId && player._currentChordId();
   let selectIdx = -1;
 
-  // AI capture path: pure AI playing → snapshot the current section.
+  // AI capture path: pure AI playing → snapshot all unique sections.
   if (!state.composedProgression.length && player.song && player.song.length) {
+    const { sections, uniqueLabels } = _captureSongSections(player.song);
     const curSection = player.song[player.songIdx];
+    const currentLabel = (curSection && sections[curSection.label]) ? curSection.label : uniqueLabels[0];
+    const allShort = uniqueLabels.every(lab => sections[lab].cells.length <= 8);
+    let mode;
+    if (uniqueLabels.length === 1)                mode = 'single';
+    else if (uniqueLabels.length === 2 && allShort) mode = 'dense';
+    else                                           mode = 'toggle';
+    state._capturedSong = {
+      sections,
+      uniqueLabels,
+      structureStr: player.song.map(s => s.label).join(''),
+      homeKey: player._homeKey ? { ...player._homeKey } : null,
+      activeLabel: currentLabel,
+      mode,
+    };
+    // Map currentStepIdx → bar index within the playing section.
+    let barInSection = 0;
     if (curSection) {
-      const captured = _captureSectionAsCells(curSection);
-      if (captured.length) {
-        state.composedProgression = captured;
-        // Captured content is one continuous section — suppress the A/B
-        // divider at cell 8 so 12-bar progressions don't look split.
-        state._composeIsSingleSection = true;
-        const steps = curSection.progression.steps;
-        let cellIdx = 0;
-        for (let i = 0; i < (player.currentStepIdx || 0) && i < steps.length; i++) {
-          cellIdx += (steps[i].bars || 1);
-        }
-        if (cellIdx < captured.length) selectIdx = cellIdx;
+      const steps = curSection.progression.steps;
+      for (let i = 0; i < (player.currentStepIdx || 0) && i < steps.length; i++) {
+        barInSection += (steps[i].bars || 1);
       }
     }
+    if (mode === 'dense') {
+      const aLab = uniqueLabels[0], bLab = uniqueLabels[1];
+      state.composedProgression = [
+        ...sections[aLab].cells.map(c => ({ ...c })),
+        ...sections[bLab].cells.map(c => ({ ...c })),
+      ];
+      state._composeASectionLen = sections[aLab].cells.length;
+      state._composeIsSingleSection = false;
+      selectIdx = (currentLabel === aLab)
+        ? barInSection
+        : sections[aLab].cells.length + barInSection;
+    } else {
+      const lab = (mode === 'single') ? uniqueLabels[0] : currentLabel;
+      state._capturedSong.activeLabel = lab;
+      state.composedProgression = sections[lab].cells.map(c => ({ ...c }));
+      state._composeASectionLen = state.composedProgression.length;
+      state._composeIsSingleSection = true;
+      selectIdx = barInSection;
+    }
+    if (selectIdx >= state.composedProgression.length) selectIdx = -1;
   }
 
   // Composition path: find the cell matching the currently-playing chord.
@@ -15031,6 +15243,8 @@ function composeClear() {
   state._composeFocusedIdx = null;
   state.userVoicing = null;
   state._composeIsSingleSection = false;
+  state._capturedSong = null;
+  state._composeASectionLen = null;
   // Reset focused chord back to the tonic so the neck preview clears too,
   // otherwise it keeps showing the chord that was just deleted from the strip.
   const tonicId = state.tonality === 'major' ? 'I' : 'i';
@@ -15181,6 +15395,7 @@ function renderComposeStrip() {
   const el = document.getElementById('real-book');
   const tabsEl = document.getElementById('real-book-tabs');
   if (!el || !tabsEl) return;
+  if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
   // While the player owns the strip — both PLAYING and PAUSED — let
   // its own render keep the playback view (tabs + realistic guitar
   // are frozen on the bar the user is on). Without this, pausing a
@@ -15200,6 +15415,7 @@ function renderComposeStrip() {
     tabsEl.innerHTML = '';
     return;
   }
+  const dividerAt = state._composeASectionLen ?? 8;
   el.hidden = false;
   const map = currentMap();
   const flats = useFlatsFor(state.keyPc);
@@ -15229,7 +15445,7 @@ function renderComposeStrip() {
     const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
     if (i === focIdx) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
-    if (i === 8 && !state._composeIsSingleSection) cls.push('section-divider');  // start of B
+    if (i === dividerAt && !state._composeIsSingleSection) cls.push('section-divider');  // start of B
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
