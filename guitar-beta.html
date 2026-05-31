@@ -14697,7 +14697,7 @@ function renderComposeInfo() {
     if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
     const flatsBail = useFlatsFor(state.keyPc);
     const keyNameBail = nameOf(state.keyPc, flatsBail);
-    const mobilePickerBail = `<button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(typeof _songStructMenuEl!=='undefined'&&_songStructMenuEl){_closeSongStructMenu();}else if(typeof _openSongStructMenu==='function'){_openSongStructMenu(this);}return false;"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
+    const mobilePickerBail = `<button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(window._isSongStructMenuOpen&&window._isSongStructMenuOpen()){window._closeSongStructMenu();}else if(window._openSongStructMenu){window._openSongStructMenu(this);}return false;"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
       const isActive = (lab === activeLabel) && (cap || i === 0);
       return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
     }).join('')}</span></button>`;
@@ -14826,7 +14826,7 @@ function renderComposeInfo() {
       ${posTxt ? `<span class="pi-div"></span><span>${posTxt}</span>` : ''}
       ${fretTxt ? `<span class="pi-div"></span><span>${fretTxt}</span>` : ''}
       <span class="pi-spacer"></span>
-      <button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(typeof _songStructMenuEl!=='undefined'&&_songStructMenuEl){_closeSongStructMenu();}else if(typeof _openSongStructMenu==='function'){_openSongStructMenu(this);}return false;">
+      <button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(window._isSongStructMenuOpen&&window._isSongStructMenuOpen()){window._closeSongStructMenu();}else if(window._openSongStructMenu){window._openSongStructMenu(this);}return false;">
         <span class="pi-meta-song-letters">
           ${pickerLabels.map((lab, i) => {
             const isActive = (lab === activeLabel) && (cap || i === 0);
@@ -14849,22 +14849,9 @@ function renderComposeInfo() {
   // clears it when there's something to export). Without this, the
   // button stays hidden in compose mode after reattach.
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
-  // Direct-bind the song-structure picker on the mobile flat-row. The
-  // document-level delegation gets swallowed somewhere in the touch path
-  // on Android Yandex / iOS through the `display:contents` wrapper, so
-  // attach the handler straight to the element. ONLY `click` — adding
-  // `touchend` makes tap fire twice (open + immediate close).
-  el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
-    picker.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (typeof _songStructMenuEl !== 'undefined' && _songStructMenuEl) {
-        _closeSongStructMenu();
-      } else if (typeof _openSongStructMenu === 'function') {
-        _openSongStructMenu(picker);
-      }
-    });
-  });
+  // The mobile picker uses an inline onclick attribute (see the button
+  // template above) — DO NOT add a second listener here, otherwise both
+  // fire on tap and the second one closes the menu the first just opened.
   // Auto-fit the chord-name + roman to the (narrow) compose column.
   // Two-pass shrink with a low floor so long names like "Bbm7b5" / "iiø/iii"
   // stay inside the box instead of clipping out the right edge.
@@ -17083,6 +17070,12 @@ function _midiCollectBassSong() {
   }
   return events;
 }
+
+// Expose picker helpers to window so the inline onclick on the mobile
+// AABA button can reach them under every browser scope quirk.
+window._openSongStructMenu = (...a) => _openSongStructMenu(...a);
+window._closeSongStructMenu = (...a) => _closeSongStructMenu(...a);
+window._isSongStructMenuOpen = () => !!_songStructMenuEl;
 
 // Resolve state.songStructure → an actual letter sequence string.
 // The literal value 'RANDOM' rolls a fresh non-rare structure each
