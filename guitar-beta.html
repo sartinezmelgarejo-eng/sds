@@ -1886,13 +1886,12 @@
   .rb-cell.section-divider, .rb-tab-cell.section-divider {
     border-left: 3px double #a07820;
   }
-  /* Section-toggle chip bar shown above the compose strip in toggle-mode
-     AI captures — lets the user swap which section's cells are loaded. */
+  /* Section-toggle chip shown above the compose strip in toggle-mode AI
+     captures — single chip naming the section being edited, tap to cycle
+     to the next one. Warm-gold palette matches the existing strip trim. */
   #capture-section-tabs {
     display: flex;
-    gap: 4px;
     padding: 4px 8px 2px;
-    flex-wrap: wrap;
   }
   .capture-section-chip {
     background: #f5efd9;
@@ -1901,24 +1900,31 @@
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 11px;
     font-weight: 700;
-    padding: 3px 10px;
+    padding: 4px 11px;
     border-radius: 4px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 8px;
     letter-spacing: 0.5px;
   }
-  .capture-section-chip:hover { background: #f0e6c8; }
-  .capture-section-chip.active {
-    background: #1a1a1a;
-    color: #fdfcf3;
-    border-color: #1a1a1a;
+  .capture-section-chip:hover  { background: #f0e6c8; }
+  .capture-section-chip:active { background: #e8d9a8; }
+  .capture-section-label {
+    color: #1a1a1a;
+    font-size: 13px;
   }
   .capture-section-bars {
     font-size: 9px;
     font-weight: 500;
     opacity: 0.65;
+  }
+  .capture-section-cycle {
+    color: #8a6818;
+    font-size: 10px;
+    opacity: 0.85;
+    border-left: 1px solid rgba(160, 120, 32, 0.4);
+    padding-left: 8px;
   }
 
   /* ─── Compose keypad ─── */
@@ -12785,7 +12791,8 @@ function _switchCapturedSection(label) {
   if (typeof renderAll === 'function') renderAll();
 }
 
-// Render the A/B chip bar above the compose strip in toggle-mode captures.
+// One chip above the strip showing the section you're editing; tap to cycle
+// to the next captured section. Hidden when there's nothing to switch to.
 function renderCaptureSectionTabs() {
   const el = document.getElementById('capture-section-tabs');
   if (!el) return;
@@ -12795,11 +12802,11 @@ function renderCaptureSectionTabs() {
     return;
   }
   el.hidden = false;
-  el.innerHTML = cap.uniqueLabels.map(lab => {
-    const active = (lab === cap.activeLabel) ? ' active' : '';
-    const len = cap.sections[lab].cells.length;
-    return `<button class="capture-section-chip${active}" data-section="${lab}" title="Edit section ${lab} (${len} bars)">${lab}<span class="capture-section-bars">${len}b</span></button>`;
-  }).join('');
+  const lab = cap.activeLabel;
+  const len = cap.sections[lab].cells.length;
+  const i = cap.uniqueLabels.indexOf(lab);
+  const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
+  el.innerHTML = `<button class="capture-section-chip" data-cycle="1" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></button>`;
 }
 
 (function wireCaptureSectionTabs() {
@@ -12811,7 +12818,11 @@ function renderCaptureSectionTabs() {
     el.addEventListener('click', (e) => {
       const btn = e.target.closest('.capture-section-chip');
       if (!btn) return;
-      _switchCapturedSection(btn.dataset.section);
+      const cap = state._capturedSong;
+      if (!cap || cap.uniqueLabels.length < 2) return;
+      const i = cap.uniqueLabels.indexOf(cap.activeLabel);
+      const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
+      _switchCapturedSection(next);
     });
   };
   tryAttach();
