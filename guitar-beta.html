@@ -17173,10 +17173,15 @@ function _openSongStructMenu(anchor) {
   _songStructMenuEl = menu;
 }
 // Delegated click listener — survives #player-info innerHTML rewrites.
-// Catches both the desktop picker (#pi-song-picker) and its mobile twin
-// (.pi-song-picker-mobile rendered inside .pi-mobile).
+// Only handles the DESKTOP picker (#pi-song-picker). The mobile picker
+// uses its own inline onclick attribute; double-handling here would close
+// the menu the inline just opened.
 document.addEventListener('click', (e) => {
-  const songEl = e.target.closest('#pi-song-picker, .pi-song-picker-mobile');
+  if (e.target.closest('.pi-song-picker-mobile')) {
+    // Mobile picker — inline onclick owns it. Don't touch the menu state.
+    return;
+  }
+  const songEl = e.target.closest('#pi-song-picker');
   if (songEl) {
     e.stopPropagation();
     if (_songStructMenuEl) _closeSongStructMenu();
