@@ -11070,6 +11070,7 @@ class Player {
               // random territory.
               if (state.composedProgression && state.composedProgression.length && loopMode === 'off') {
                 state.composedProgression = [];
+                state._composeIsSingleSection = false;
               }
               this.song = this._generateSong();
               this.songIdx = 0;
@@ -12650,6 +12651,9 @@ document.getElementById('auto-edit').addEventListener('click', () => {
       const captured = _captureSectionAsCells(curSection);
       if (captured.length) {
         state.composedProgression = captured;
+        // Captured content is one continuous section — suppress the A/B
+        // divider at cell 8 so 12-bar progressions don't look split.
+        state._composeIsSingleSection = true;
         const steps = curSection.progression.steps;
         let cellIdx = 0;
         for (let i = 0; i < (player.currentStepIdx || 0) && i < steps.length; i++) {
@@ -15026,6 +15030,7 @@ function composeClear() {
   state.composedSelectedIdx = null;
   state._composeFocusedIdx = null;
   state.userVoicing = null;
+  state._composeIsSingleSection = false;
   // Reset focused chord back to the tonic so the neck preview clears too,
   // otherwise it keeps showing the chord that was just deleted from the strip.
   const tonicId = state.tonality === 'major' ? 'I' : 'i';
@@ -15224,7 +15229,7 @@ function renderComposeStrip() {
     const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
     if (i === focIdx) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
-    if (i === 8) cls.push('section-divider');  // start of B
+    if (i === 8 && !state._composeIsSingleSection) cls.push('section-divider');  // start of B
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
