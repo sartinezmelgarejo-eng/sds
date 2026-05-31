@@ -14947,11 +14947,9 @@ function renderComposeInfo() {
   // mouse + pointerup for touch (more reliable than synthesized click on
   // some mobile webviews like the Claude app's WKWebView). One handler each,
   // guarded by a tiny window-level cooldown so they don't double-fire.
-  // Defensive direct binding on the picker(s) — mobile uses
-  // .pi-song-picker-mobile, desktop uses #pi-song-picker. Document-level
-  // delegation should handle both, but binding here too removes any
-  // ambiguity caused by event-propagation quirks.
-  el.querySelectorAll('.pi-song-picker-mobile, #pi-song-picker').forEach(picker => {
+  // Direct-bind only for the mobile picker — desktop uses the existing
+  // document-level delegation on #pi-song-picker.
+  el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
     const handle = (ev) => {
       const now = Date.now();
       if (now - (window._pickerLastFire || 0) < 300) return;
@@ -17343,15 +17341,11 @@ function _openSongStructMenu(anchor) {
   _songStructMenuEl = menu;
 }
 // Delegated click listener — survives #player-info innerHTML rewrites.
-// Only handles the DESKTOP picker (#pi-song-picker). The mobile picker
-// uses its own inline onclick attribute; double-handling here would close
-// the menu the inline just opened.
+// Handles BOTH the desktop #pi-song-picker and the play-mode mobile
+// .pi-song-picker-mobile (compose-mode mobile uses a native <select>
+// with onchange, so it doesn't go through this path at all).
 document.addEventListener('click', (e) => {
-  if (e.target.closest('.pi-song-picker-mobile')) {
-    // Mobile picker — inline onclick owns it. Don't touch the menu state.
-    return;
-  }
-  const songEl = e.target.closest('#pi-song-picker');
+  const songEl = e.target.closest('#pi-song-picker, .pi-song-picker-mobile');
   if (songEl) {
     e.stopPropagation();
     if (_songStructMenuEl) _closeSongStructMenu();
