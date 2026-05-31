@@ -724,6 +724,27 @@
     color: var(--tag-tonic);
     letter-spacing: 0.3px;
   }
+  /* Compose-mode now-playing card — minimal AABA picker + MIDI slot for
+     captured songs. Lets the user rearrange / grow the structure without
+     starting playback. */
+  #player-info .pi-compose-capture {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px;
+    background: #faf3e3;
+    border: 1px solid #d8c98a;
+    border-radius: 6px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 12px;
+  }
+  #player-info .pi-cc-label {
+    color: #8a6818;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 1.4px;
+    opacity: 0.85;
+  }
   /* AABA form bar — compact segmented strip */
   #player-info .pi-form {
     display: inline-flex;
@@ -1925,79 +1946,40 @@
      to the next one. Warm-gold palette matches the existing strip trim. */
   #capture-section-tabs {
     display: flex;
-    gap: 6px;
+    gap: 5px;
     padding: 4px 8px 2px;
     align-items: center;
     flex-wrap: wrap;
-  }
-  .capture-struct-chip {
-    background: #f0e6c8;
-    border: 1px solid #1a1a1a;
-    color: #1a1a1a;
-    font-family: 'SF Mono', 'Fira Code', monospace;
-    font-weight: 800;
-    padding: 3px 11px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 9px;
-    letter-spacing: 0.6px;
-    line-height: 1;
-  }
-  .capture-struct-chip:hover  { background: #e8d9a8; }
-  .capture-struct-chip:active { background: #d8c98a; }
-  .capture-struct-label {
-    font-size: 13px;
-    letter-spacing: 1.2px;
-  }
-  .capture-struct-cycle {
-    color: #5e4818;
-    font-size: 9px;
-    opacity: 0.85;
-    border-left: 1px solid rgba(0,0,0,0.25);
-    padding-left: 8px;
   }
   .capture-section-chip {
     background: #f5efd9;
     border: 1px solid #a07820;
     color: #5e4818;
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-weight: 700;
-    padding: 3px 11px;
+    font-weight: 800;
+    padding: 3px 10px;
     border-radius: 4px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 9px;
+    gap: 6px;
     letter-spacing: 0.5px;
     line-height: 1;
   }
   .capture-section-chip:hover  { background: #f0e6c8; }
-  .capture-section-chip:active { background: #e8d9a8; }
-  .capture-section-label {
-    color: #1a1a1a;
-    font-size: 16px;
-    font-weight: 800;
+  .capture-section-chip.active {
+    background: linear-gradient(135deg, #d4a04a 0%, #b07820 100%);
+    color: #fffaef;
+    border-color: #8a5818;
+    box-shadow: 0 1px 2px rgba(160, 120, 32, 0.4), inset 0 1px 0 rgba(255,255,255,0.22);
   }
-  .capture-section-meta {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 3px;
-    align-items: flex-start;
-    border-left: 1px solid rgba(160, 120, 32, 0.4);
-    padding-left: 8px;
-  }
+  .capture-section-label { font-size: 13px; }
   .capture-section-bars {
     font-size: 9px;
     font-weight: 500;
     opacity: 0.7;
   }
-  .capture-section-cycle {
-    color: #8a6818;
-    font-size: 9px;
-    opacity: 0.95;
-  }
+  .capture-section-chip.active .capture-section-bars { opacity: 0.85; }
 
   /* ─── Compose keypad ─── */
   .compose-pad {
@@ -12486,6 +12468,7 @@ function _refreshAutoPlayUI() {
   if (typeof syncMobileTransport === 'function') syncMobileTransport();
   if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
   if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
+  if (typeof renderCaptureNowPlaying === 'function') renderCaptureNowPlaying();
 }
 
 // Move the now-playing card between containers based on mode + screen.
@@ -12976,32 +12959,68 @@ function _switchCapturedSection(label) {
   if (typeof renderAll === 'function') renderAll();
 }
 
-// Chip bar above the strip — shown whenever a captured AI song is loaded
-// in compose mode. Always shows a structure chip (tap to rearrange / add
-// sections); also shows a section-cycle chip when there are 2+ sections
-// in toggle mode. Hidden during play/pause.
+// Section chips above the strip — one per captured section, active chip
+// highlighted. Hidden during play/pause and when there's only one section.
 function renderCaptureSectionTabs() {
   const el = document.getElementById('capture-section-tabs');
   if (!el) return;
   const cap = state._capturedSong;
   const playing = (typeof player !== 'undefined' && player && (player.playing || player.paused));
-  if (!cap || playing) {
+  if (!cap || cap.mode !== 'toggle' || cap.uniqueLabels.length < 2 || playing) {
     if (!el.hidden) { el.hidden = true; el.innerHTML = ''; }
     return;
   }
   el.hidden = false;
-  let html = '';
-  // Structure chip — always visible while a capture is loaded.
-  html += `<button class="capture-struct-chip" title="Change song structure — rearrange sections or add new ones"><span class="capture-struct-label">${cap.structureStr}</span><span class="capture-struct-cycle">↻ shape</span></button>`;
-  // Section-cycle chip — only in toggle mode with multiple sections.
-  if (cap.mode === 'toggle' && cap.uniqueLabels.length >= 2) {
-    const lab = cap.activeLabel;
+  el.innerHTML = cap.uniqueLabels.map(lab => {
+    const active = (lab === cap.activeLabel) ? ' active' : '';
     const len = cap.sections[lab].cells.length;
-    const i = cap.uniqueLabels.indexOf(lab);
-    const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-    html += `<button class="capture-section-chip" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-meta"><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></span></button>`;
+    return `<button class="capture-section-chip${active}" data-section="${lab}" title="Edit section ${lab} (${len} bars)"><span class="capture-section-label">${lab}</span><span class="capture-section-bars">${len}b</span></button>`;
+  }).join('');
+}
+
+// Populate the now-playing card with a minimal AABA picker during compose
+// mode so the user can rearrange / grow the captured song's structure
+// without starting playback. Picker sits left of the MIDI button, same as
+// during play. Restored content lets the existing #pi-song-picker click
+// delegation work unchanged.
+function renderCaptureNowPlaying() {
+  const piEl = document.getElementById('player-info');
+  if (!piEl) return;
+  const cap = state._capturedSong;
+  const playing = (typeof player !== 'undefined' && player && (player.playing || player.paused));
+  // During play, player._updateVisuals owns this card — do nothing.
+  if (playing) return;
+  // No capture: leave the card empty (stop() already cleared it).
+  if (!cap) {
+    if (piEl.dataset.composeCapture === '1') {
+      const midiW = document.getElementById('midi-wrap');
+      if (midiW && piEl.contains(midiW)) document.body.appendChild(midiW);
+      piEl.innerHTML = '';
+      delete piEl.dataset.composeCapture;
+    }
+    return;
   }
-  el.innerHTML = html;
+  // Rescue MIDI wrap before innerHTML wipe so its handlers survive.
+  const midiW = document.getElementById('midi-wrap');
+  if (midiW && piEl.contains(midiW)) document.body.appendChild(midiW);
+  const letters = cap.structureStr.split('').map((lab, i) => {
+    let c = 'ms-l';
+    if (i === 0) c += ' now';
+    return `<span class="${c}">${lab}</span>`;
+  }).join('');
+  piEl.innerHTML = `
+    <div class="pi-compose-capture">
+      <span class="pi-cc-label">SONG</span>
+      <span class="pi-meta-song" id="pi-song-picker" title="click to change song structure">
+        <span class="pi-meta-song-letters">${letters}</span>
+      </span>
+      <span id="pi-midi-slot" class="pi-midi-slot"></span>
+    </div>
+  `;
+  piEl.dataset.composeCapture = '1';
+  // Reattach the MIDI wrap to its slot if available.
+  const slot = piEl.querySelector('#pi-midi-slot');
+  if (slot && midiW) slot.appendChild(midiW);
 }
 
 (function wireCaptureSectionTabs() {
@@ -13011,19 +13030,9 @@ function renderCaptureSectionTabs() {
     if (el.dataset.wired === '1') return;
     el.dataset.wired = '1';
     el.addEventListener('click', (e) => {
-      const structBtn = e.target.closest('.capture-struct-chip');
-      if (structBtn) {
-        if (typeof _songStructMenuEl !== 'undefined' && _songStructMenuEl) _closeSongStructMenu();
-        else if (typeof _openSongStructMenu === 'function') _openSongStructMenu(structBtn);
-        return;
-      }
-      const sectionBtn = e.target.closest('.capture-section-chip');
-      if (!sectionBtn) return;
-      const cap = state._capturedSong;
-      if (!cap || cap.uniqueLabels.length < 2) return;
-      const i = cap.uniqueLabels.indexOf(cap.activeLabel);
-      const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-      _switchCapturedSection(next);
+      const btn = e.target.closest('.capture-section-chip');
+      if (!btn) return;
+      _switchCapturedSection(btn.dataset.section);
     });
   };
   tryAttach();
@@ -15612,6 +15621,7 @@ function renderComposeStrip() {
   const tabsEl = document.getElementById('real-book-tabs');
   if (!el || !tabsEl) return;
   if (typeof renderCaptureSectionTabs === 'function') renderCaptureSectionTabs();
+  if (typeof renderCaptureNowPlaying === 'function') renderCaptureNowPlaying();
   // While the player owns the strip — both PLAYING and PAUSED — let
   // its own render keep the playback view (tabs + realistic guitar
   // are frozen on the bar the user is on). Without this, pausing a
