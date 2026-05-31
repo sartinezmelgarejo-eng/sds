@@ -730,6 +730,12 @@
     gap: 4px;
     align-items: center;
   }
+  /* Mobile MIDI slot — inline chip next to the AABA picker in .pi-mobile. */
+  #player-info .pi-mobile #pi-midi-slot-mobile {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+  }
   /* Mobile native <select> structure picker — invisible <select> overlays
      the visible AABA summary. OS bottom-sheet handles the picker UI. */
   #player-info .pi-song-struct-mobile {
@@ -11911,6 +11917,7 @@ class Player {
         ${travelBadge}
         ${modBadge}
         ${beatsHtml}
+        <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
       </div>
     `;
 
@@ -11975,16 +11982,16 @@ class Player {
 
     piEl.innerHTML = desktopHtml + mobileHtml;
 
-    // Reattach the MIDI wrap to the desktop meta-strip slot. The slot
-    // is hidden under 720px (media query), so on mobile we leave the
-    // wrap back in the header where it lived originally.
+    // Reattach the MIDI wrap. Desktop: into the .pi-grid meta slot.
+    // Mobile: into the .pi-mobile flat-row's dedicated slot so the button
+    // lives inline with the voicing-spec + AABA picker, instead of
+    // getting orphaned at the bottom of the body.
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
       const slot = document.getElementById('pi-midi-slot');
       if (slot && midiW) slot.appendChild(midiW);
-    } else if (midiW && document.body.contains(midiW) && !piEl.contains(midiW)) {
-      // Mobile: put it back where _updateMidiBtn expects it.
-      const headerHome = document.querySelector('.header') || document.body;
-      headerHome.appendChild(midiW);
+    } else {
+      const slotM = document.getElementById('pi-midi-slot-mobile');
+      if (slotM && midiW) slotM.appendChild(midiW);
     }
 
     // Now that the DOM is in place and laid out, fit the chord row.
@@ -14786,11 +14793,15 @@ function renderComposeInfo() {
         <span style="opacity:.55">no chords yet</span>
         <span class="pi-spacer"></span>
         ${mobilePickerBail}
+        <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
       </div>
     `;
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
       const slotBail = document.getElementById('pi-midi-slot');
       if (slotBail && midiWBail) slotBail.appendChild(midiWBail);
+    } else {
+      const slotBailM = document.getElementById('pi-midi-slot-mobile');
+      if (slotBailM && midiWBail) slotBailM.appendChild(midiWBail);
     }
     return;
   }
@@ -14897,15 +14908,16 @@ function renderComposeInfo() {
       ${fretTxt ? `<span class="pi-div"></span><span>${fretTxt}</span>` : ''}
       <span class="pi-spacer"></span>
       ${(typeof _buildMobileStructSelect === 'function') ? _buildMobileStructSelect(pickerLabels, activeLabel, cap) : ''}
+      <span id="pi-midi-slot-mobile" class="pi-midi-slot"></span>
     </div>
   `;
   // Reattach the MIDI wrap to its slot (matches play-mode behavior).
   if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
     const slot = document.getElementById('pi-midi-slot');
     if (slot && midiW) slot.appendChild(midiW);
-  } else if (midiW && document.body.contains(midiW) && !el.contains(midiW)) {
-    const headerHome = document.querySelector('.header') || document.body;
-    headerHome.appendChild(midiW);
+  } else {
+    const slotM = document.getElementById('pi-midi-slot-mobile');
+    if (slotM && midiW) slotM.appendChild(midiW);
   }
   // Update MIDI button visibility (the wrap carries an inline
   // style="display:none" from its original HTML; _updateMidiBtn
