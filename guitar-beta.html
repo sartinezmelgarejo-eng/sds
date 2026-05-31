@@ -12570,27 +12570,89 @@ document.getElementById('auto-stop').addEventListener('click', () => {
   _refreshAutoPlayUI();
 });
 
+// Find the cands index for a given shape so subsequent cycling
+// (Shift+number) starts from the voicing the user heard.
+function _candIdxForShape(quality, root, shape) {
+  if (!shape || quality == null || root == null) return 0;
+  const cands = allDistinctVoicings(quality, root);
+  for (let i = 0; i < cands.length; i++) {
+    const s = cands[i] && cands[i].shape;
+    if (s && s.length === shape.length && s.every((v, j) => v === shape[j])) return i;
+  }
+  return 0;
+}
+
+// Expand a player.song section's progression.steps into per-bar compose
+// cells, carrying current voicings so the capture matches what's playing.
+function _captureSectionAsCells(section) {
+  if (!section || !section.progression) return [];
+  const map = currentMap();
+  const cells = [];
+  for (const step of section.progression.steps) {
+    const bars = step.bars || 1;
+    if (step._silent || !step.chord) {
+      for (let b = 0; b < bars; b++) cells.push({ _silent: true });
+      continue;
+    }
+    const ch = map.chordDefs[step.chord];
+    const cached = state.progressionVoicings[step.chord];
+    const shape = (cached && cached.shape) || step.composedShape || null;
+    const voicingType = (cached && cached.type) || section.voicingType;
+    const cell = {
+      chord: step.chord,
+      shape,
+      voicingType,
+      subdivisions: step.subdivisions || 1,
+      subdivMute: step.subdivMute ? [...step.subdivMute] : [],
+    };
+    if (cached) {
+      if (cached.stringSetIdx !== undefined) cell.stringSetIdx = cached.stringSetIdx;
+      if (cached.inversion !== undefined) cell.inversion = cached.inversion;
+      if (cached.stringSet !== undefined) cell.stringSet = cached.stringSet;
+    }
+    if (ch && shape) cell._candIdx = _candIdxForShape(ch.quality, chordRoot(ch), shape);
+    cells.push(cell);
+    for (let b = 1; b < bars; b++) {
+      cells.push({ chord: step.chord, _tie: true, shape, voicingType });
+    }
+  }
+  return cells;
+}
+
 // Exit-and-edit: stop the player completely and drop the user into
 // compose mode focused on the chord that was just playing — so they
-// can immediately edit the bar they were on. If the playing song
-// has no composition (pure AI), we still focus on the chord but
-// don't auto-create cells.
+// can immediately edit the bar they were on. If the player was running
+// a pure AI song (no composition seed), capture the current section's
+// bars into composedProgression first so there's something to edit.
 document.getElementById('auto-edit').addEventListener('click', () => {
   if (!player.playing && !player.paused) return;
-  // Capture the current chord BEFORE stop() wipes state.
   const curChord = player._currentChordId && player._currentChordId();
-  // If there's an actual composition driving the AI, find the index
-  // that maps to the currently-playing chord and select it.
   let selectIdx = -1;
-  if (curChord && state.composedProgression && state.composedProgression.length) {
+
+  // AI capture path: pure AI playing → snapshot the current section.
+  if (!state.composedProgression.length && player.song && player.song.length) {
+    const curSection = player.song[player.songIdx];
+    if (curSection) {
+      const captured = _captureSectionAsCells(curSection);
+      if (captured.length) {
+        state.composedProgression = captured;
+        const steps = curSection.progression.steps;
+        let cellIdx = 0;
+        for (let i = 0; i < (player.currentStepIdx || 0) && i < steps.length; i++) {
+          cellIdx += (steps[i].bars || 1);
+        }
+        if (cellIdx < captured.length) selectIdx = cellIdx;
+      }
+    }
+  }
+
+  // Composition path: find the cell matching the currently-playing chord.
+  if (selectIdx < 0 && curChord && state.composedProgression.length) {
     const stepIdx = player.currentStepIdx ?? 0;
-    // Heuristic: stepIdx maps onto the composition slot (sections
-    // recycle composedProgression as their A material).
     if (stepIdx >= 0 && stepIdx < state.composedProgression.length
         && state.composedProgression[stepIdx]?.chord === curChord) {
       selectIdx = stepIdx;
     } else {
-      // Fallback: first compose cell whose chord matches.
       selectIdx = state.composedProgression.findIndex(c => c.chord === curChord);
     }
   }
