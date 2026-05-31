@@ -10744,8 +10744,25 @@ class Player {
     cap.structureStr = desiredStruct;
     this._homeKey = cap.homeKey ? { ...cap.homeKey } : { keyPc: state.keyPc, tonality: state.tonality };
     const map = currentMap();
+    // Self-contained forms (BLUES, JAZZ_BLUES) are ONE labeled section, not
+    // a letter sequence — don't split them character-by-character.
+    const structDef = (typeof SONG_STRUCTURES !== 'undefined')
+      ? SONG_STRUCTURES.find(s => s.id === desiredStruct) : null;
+    const isSelfContained = !!(structDef && structDef.formType);
+    const structureLabels = isSelfContained
+      ? [desiredStruct]
+      : desiredStruct.split('');
+    // Purge any letter-split pollution from earlier capture passes (a prior
+    // bug split 'BLUES' into B/L/U/E/S sections — drop those phantoms).
+    if (isSelfContained) {
+      cap.uniqueLabels = cap.uniqueLabels.filter(l => l === desiredStruct);
+      for (const k of Object.keys(cap.sections)) {
+        if (k !== desiredStruct) delete cap.sections[k];
+      }
+      if (!cap.uniqueLabels.length) cap.uniqueLabels.push(desiredStruct);
+    }
     // Grow cap.sections for any structure label we haven't captured yet.
-    for (const lab of [...new Set(desiredStruct.split(''))]) {
+    for (const lab of [...new Set(structureLabels)]) {
       if (cap.sections[lab]) continue;
       const usedNames = Object.values(cap.sections).map(s => s.progName).filter(Boolean);
       const role = lab === 'A' ? 'A' : (lab === 'B' ? 'B' : 'C');
@@ -10810,7 +10827,7 @@ class Player {
         modName: sec.modName,
       };
     };
-    return cap.structureStr.split('').map(lab => buildSection(lab));
+    return structureLabels.map(lab => buildSection(lab));
   }
 
   // If the user pressed Edit and selected a bar, advance songIdx/stepIdx so
@@ -14570,11 +14587,15 @@ function renderComposeInfo() {
     : (typeof _resolveSongStructure === 'function'
         ? _resolveSongStructure(state.songStructure || 'AABA')
         : (state.songStructure || 'AABA'));
-  const activeLabel = cap ? cap.activeLabel : (pickerStr[0] || '');
+  const _pickerStructDef = (typeof SONG_STRUCTURES !== 'undefined')
+    ? SONG_STRUCTURES.find(s => s.id === pickerStr) : null;
+  const _pickerIsSelfContained = !!(_pickerStructDef && _pickerStructDef.formType);
+  const pickerLabels = _pickerIsSelfContained ? [pickerStr] : pickerStr.split('');
+  const activeLabel = cap ? cap.activeLabel : (pickerLabels[0] || '');
   const songPickerHtml = `
     <span class="pi-meta-song" id="pi-song-picker" title="click to change song structure">
       <span class="pi-meta-song-letters">
-        ${pickerStr.split('').map((lab, i) => {
+        ${pickerLabels.map((lab, i) => {
           const isActive = (lab === activeLabel) && (cap || i === 0);
           return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
         }).join('')}
