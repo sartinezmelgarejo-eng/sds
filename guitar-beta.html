@@ -867,10 +867,17 @@
      key/voicing/beats. Both structures are rendered into the DOM by
      _updateVisuals; CSS picks which one is visible. */
   #player-info .pi-grid { display: none; }
-  /* Mobile wrapper is transparent to the flex layout so its inner spans
-     act as direct flex children of #player-info (preserves the original
-     flat-row design). On desktop the media query below flips this off. */
-  #player-info .pi-mobile { display: contents; }
+  /* Mobile wrapper: real flex container (was `display: contents` but that
+     intermittently swallowed pointer events on some mobile WebViews — the
+     AABA picker tap was registering visually but the click never reached
+     the bound handler). Inline-flex preserves the inline-row appearance. */
+  #player-info .pi-mobile {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
   @media (min-width: 720px) {
     #player-info {
       flex-direction: column;
@@ -1325,13 +1332,15 @@
   }
   /* Song-structure picker menu — global (mobile too). The desktop block
      above lives inside a min-width:720px media query and never applied on
-     phones, so the menu rendered as an invisible default-styled div. */
+     phones, so the menu rendered as an invisible default-styled div.
+     `position: fixed` so it's reliably viewport-anchored regardless of
+     any ancestor's transform / containing block. */
   .song-struct-menu {
-    position: absolute;
+    position: fixed;
     background: #faf3e3;
     border: 2px solid #1a1a1a;
     padding: 4px 0;
-    z-index: 1000;
+    z-index: 10000;
     min-width: 220px;
     max-width: calc(100vw - 16px);
     max-height: calc(100vh - 32px);
@@ -17150,9 +17159,9 @@ function _openSongStructMenu(anchor) {
   `;
   }).join('');
   menu.innerHTML = randomItem + presetItems;
-  // Position below the anchor element, clamped to viewport so the menu
-  // never spills off-screen (especially on mobile where the picker sits
-  // at the right edge and the 220px-wide menu would overflow otherwise).
+  // Position below the anchor element, clamped to viewport. Uses fixed
+  // positioning (set via .song-struct-menu CSS) so coordinates are pure
+  // viewport, no scrollY math needed.
   document.body.appendChild(menu);
   const rect = anchor.getBoundingClientRect();
   const menuW = menu.offsetWidth || 240;
@@ -17164,7 +17173,7 @@ function _openSongStructMenu(anchor) {
   let top = rect.bottom + 4;
   if (top + menuH > vpH - 8) top = Math.max(8, rect.top - menuH - 4);
   menu.style.left = `${Math.max(8, left)}px`;
-  menu.style.top  = `${Math.max(8, top) + window.scrollY}px`;
+  menu.style.top  = `${Math.max(8, top)}px`;
   // Click an item → set structure + regenerate song.
   menu.addEventListener('click', (e) => {
     const item = e.target.closest('[data-struct]');
