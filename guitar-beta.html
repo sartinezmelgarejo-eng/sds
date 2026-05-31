@@ -10767,6 +10767,43 @@ class Player {
     return cap.structureStr.split('').map(lab => buildSection(lab));
   }
 
+  // If the user pressed Edit and selected a bar, advance songIdx/stepIdx so
+  // playback resumes at that bar (snapped to the start of the held chord if
+  // they tapped a tie cell). No-op outside captured-song mode.
+  _applyCapturedStartPosition() {
+    const cap = state._capturedSong;
+    if (!cap || !this.song || !this.song.length) return;
+    let cellIdx = state.composedSelectedIdx;
+    if (cellIdx == null || cellIdx < 0) cellIdx = state._composeFocusedIdx;
+    if (cellIdx == null || cellIdx < 0) return;
+    let targetLabel, cellInSection;
+    if (cap.mode === 'dense') {
+      const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
+      const aLen = cap.sections[aLab].cells.length;
+      if (cellIdx < aLen) { targetLabel = aLab;   cellInSection = cellIdx; }
+      else                { targetLabel = bLab;   cellInSection = cellIdx - aLen; }
+    } else {
+      targetLabel = cap.activeLabel;
+      cellInSection = cellIdx;
+    }
+    const targetSongIdx = this.song.findIndex(s => s.label === targetLabel);
+    if (targetSongIdx < 0) return;
+    const steps = this.song[targetSongIdx].progression.steps || [];
+    if (!steps.length) return;
+    let cellsConsumed = 0;
+    let targetStepIdx = steps.length - 1;
+    for (let i = 0; i < steps.length; i++) {
+      const bars = steps[i].bars || 1;
+      if (cellsConsumed + bars > cellInSection) { targetStepIdx = i; break; }
+      cellsConsumed += bars;
+    }
+    this.songIdx = targetSongIdx;
+    this.currentStepIdx = targetStepIdx;
+    this.barsRemaining = steps[targetStepIdx].bars || 1;
+    this.forceTriggerAtNextBar = true;
+    if (typeof this._applySectionKey === 'function') this._applySectionKey();
+  }
+
   // Apply the key/tonality of the current section. Called when songIdx advances.
   _applySectionKey() {
     const section = this._currentSection();
@@ -10798,6 +10835,9 @@ class Player {
     this.sectionIter = 0;
     this.currentStepIdx = 0;
     this.barsRemaining = this._currentStep().bars;
+    // After Edit on an AI song: jump to the cell the user had selected so
+    // playback resumes where they were listening, not from bar 0.
+    this._applyCapturedStartPosition();
     // Read voicingType + bassPattern from the section (pre-assigned at song generation)
     this.voicingType = this._currentSection().voicingType || this._pickVoicingType();
     this.bassPattern = this._currentSection().bassPattern || this._pickBassPattern();
