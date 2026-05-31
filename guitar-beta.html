@@ -14788,11 +14788,12 @@ function renderComposeInfo() {
   // button stays hidden in compose mode after reattach.
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   // Direct-bind the song-structure picker on the mobile flat-row. The
-  // document-level delegation works on desktop but the picker sits inside
-  // a `display:contents` wrapper on mobile which has been flaky for
-  // tap-through on iOS. Binding directly removes any ambiguity.
+  // document-level delegation gets swallowed somewhere in the touch path
+  // on Android Yandex / iOS through the `display:contents` wrapper, so
+  // attach the handler straight to the element. ONLY `click` — adding
+  // `touchend` makes tap fire twice (open + immediate close).
   el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
-    const handler = (ev) => {
+    picker.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
       if (typeof _songStructMenuEl !== 'undefined' && _songStructMenuEl) {
@@ -14800,9 +14801,7 @@ function renderComposeInfo() {
       } else if (typeof _openSongStructMenu === 'function') {
         _openSongStructMenu(picker);
       }
-    };
-    picker.addEventListener('click', handler);
-    picker.addEventListener('touchend', handler);
+    });
   });
   // Auto-fit the chord-name + roman to the (narrow) compose column.
   // Two-pass shrink with a low floor so long names like "Bbm7b5" / "iiø/iii"
