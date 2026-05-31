@@ -14690,6 +14690,8 @@ function renderComposeInfo() {
   // button stays hidden in compose mode after reattach.
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
   // Auto-fit the chord-name + roman to the (narrow) compose column.
+  // Two-pass shrink with a low floor so long names like "Bbm7b5" / "iiø/iii"
+  // stay inside the box instead of clipping out the right edge.
   requestAnimationFrame(() => {
     const block = el.querySelector('.pi-block-chord');
     if (!block) return;
@@ -14701,9 +14703,17 @@ function renderComposeInfo() {
     const fit = (e, base) => {
       if (!e) return;
       e.style.fontSize = base + 'px';
-      const w = e.scrollWidth;
+      let w = e.scrollWidth;
       if (w <= maxW) return;
-      e.style.fontSize = Math.max(0.5, maxW / w) * base + 'px';
+      let size = Math.max(0.3, maxW / w) * base;
+      e.style.fontSize = size + 'px';
+      // Second pass — text reflow at the new size sometimes leaves a
+      // few pixels of overflow. Trim once more if still too wide.
+      w = e.scrollWidth;
+      if (w > maxW) {
+        size = Math.max(0.3, (maxW / w) * size);
+        e.style.fontSize = size + 'px';
+      }
     };
     fit(nameEl, NAME_BASE);
     fit(romanEl, ROMAN_BASE);
