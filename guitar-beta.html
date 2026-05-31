@@ -10747,13 +10747,45 @@ class Player {
 
   // Rebuild a song from state._capturedSong's per-section cells, preserving
   // the original AI structure (AABA/ABAB/etc.), repeats and modulations.
-  // Inverse of _captureSectionAsCells: merges consecutive _tie cells back into
-  // multi-bar steps so the player schedules each held chord correctly.
+  // Honors live state.songStructure changes (user picks a new shape via the
+  // AABA dashboard picker) by adding AI-picked sections for any new labels.
   _generateFromCaptured() {
     if (typeof _syncCapturedFromCompose === 'function') _syncCapturedFromCompose();
     const cap = state._capturedSong;
+    const desiredStruct = (typeof _resolveSongStructure === 'function')
+      ? _resolveSongStructure(state.songStructure || cap.structureStr)
+      : (state.songStructure || cap.structureStr);
+    cap.structureStr = desiredStruct;
     this._homeKey = cap.homeKey ? { ...cap.homeKey } : { keyPc: state.keyPc, tonality: state.tonality };
     const map = currentMap();
+    // Grow cap.sections for any structure label we haven't captured yet.
+    for (const lab of [...new Set(desiredStruct.split(''))]) {
+      if (cap.sections[lab]) continue;
+      const usedNames = Object.values(cap.sections).map(s => s.progName).filter(Boolean);
+      const role = lab === 'A' ? 'A' : (lab === 'B' ? 'B' : 'C');
+      const picked = this._pickProgression(usedNames[0], role);
+      if (!picked) continue;
+      const stub = {
+        label: lab,
+        progression: picked,
+        voicingType: (typeof voicingPref !== 'undefined' && voicingPref !== 'all')
+          ? voicingPref
+          : this._pickVoicingType({ progName: picked.name }),
+        bassPattern: this._pickBassPattern(),
+        repeats: this._repeatsFor(picked),
+      };
+      const cells = _captureSectionAsCells(stub);
+      cap.sections[lab] = {
+        cells,
+        originalSig: JSON.stringify(cells),
+        progName: picked.name,
+        voicingType: stub.voicingType,
+        bassPattern: stub.bassPattern,
+        repeats: stub.repeats,
+      };
+      if (!cap.uniqueLabels.includes(lab)) cap.uniqueLabels.push(lab);
+    }
+    if (typeof _reloadCapturedStrip === 'function') _reloadCapturedStrip({ keepActive: true });
     const buildSection = (label) => {
       const sec = cap.sections[label];
       const steps = [];
@@ -12857,6 +12889,39 @@ function _syncCapturedFromCompose() {
   }
 }
 
+// Re-derive compose-strip state from _capturedSong (mode + composedProgression
+// + divider position). Used after _generateFromCaptured grows the captured
+// song with new sections, so the toggle chip + strip reflect the new shape.
+function _reloadCapturedStrip(opts = {}) {
+  const cap = state._capturedSong;
+  if (!cap) return;
+  if (cap.uniqueLabels.length === 1) {
+    cap.mode = 'single';
+  } else {
+    const allShort = cap.uniqueLabels.every(lab => cap.sections[lab].cells.length <= 8);
+    cap.mode = (cap.uniqueLabels.length === 2 && allShort) ? 'dense' : 'toggle';
+  }
+  if (!cap.sections[cap.activeLabel]) cap.activeLabel = cap.uniqueLabels[0];
+  if (cap.mode === 'dense') {
+    const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
+    state.composedProgression = [
+      ...cap.sections[aLab].cells.map(c => ({ ...c })),
+      ...cap.sections[bLab].cells.map(c => ({ ...c })),
+    ];
+    state._composeASectionLen = cap.sections[aLab].cells.length;
+    state._composeIsSingleSection = false;
+  } else {
+    state.composedProgression = cap.sections[cap.activeLabel].cells.map(c => ({ ...c }));
+    state._composeASectionLen = state.composedProgression.length;
+    state._composeIsSingleSection = true;
+  }
+  if (!opts.keepActive) {
+    state.composedSelectedIdx = null;
+    state._composeFocusedIdx = null;
+    state.userVoicing = null;
+  }
+}
+
 // Toggle-mode handler: stash current edits, load the other section's cells.
 function _switchCapturedSection(label) {
   const cap = state._capturedSong;
@@ -12934,14 +12999,18 @@ document.getElementById('auto-edit').addEventListener('click', () => {
     if (uniqueLabels.length === 1)                mode = 'single';
     else if (uniqueLabels.length === 2 && allShort) mode = 'dense';
     else                                           mode = 'toggle';
+    const structureStr = player.song.map(s => s.label).join('');
     state._capturedSong = {
       sections,
       uniqueLabels,
-      structureStr: player.song.map(s => s.label).join(''),
+      structureStr,
       homeKey: player._homeKey ? { ...player._homeKey } : null,
       activeLabel: currentLabel,
       mode,
     };
+    // Sync the dashboard picker so it reflects what's actually loaded
+    // (instead of e.g. "RANDOM") and the user can rearrange/extend it.
+    if (structureStr && structureStr.length) state.songStructure = structureStr;
     // Map currentStepIdx → bar index within the playing section.
     let barInSection = 0;
     if (curSection) {
