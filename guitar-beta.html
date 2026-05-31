@@ -14697,7 +14697,7 @@ function renderComposeInfo() {
     if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
     const flatsBail = useFlatsFor(state.keyPc);
     const keyNameBail = nameOf(state.keyPc, flatsBail);
-    const mobilePickerBail = `<button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(window._isSongStructMenuOpen&&window._isSongStructMenuOpen()){window._closeSongStructMenu();}else if(window._openSongStructMenu){window._openSongStructMenu(this);}return false;"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
+    const mobilePickerBail = `<button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure"><span class="pi-meta-song-letters">${pickerLabels.map((lab, i) => {
       const isActive = (lab === activeLabel) && (cap || i === 0);
       return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
     }).join('')}</span></button>`;
@@ -14826,7 +14826,7 @@ function renderComposeInfo() {
       ${posTxt ? `<span class="pi-div"></span><span>${posTxt}</span>` : ''}
       ${fretTxt ? `<span class="pi-div"></span><span>${fretTxt}</span>` : ''}
       <span class="pi-spacer"></span>
-      <button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure" onclick="event.preventDefault();event.stopPropagation();if(window._isSongStructMenuOpen&&window._isSongStructMenuOpen()){window._closeSongStructMenu();}else if(window._openSongStructMenu){window._openSongStructMenu(this);}return false;">
+      <button type="button" class="pi-meta-song pi-song-picker-mobile" title="click to change song structure">
         <span class="pi-meta-song-letters">
           ${pickerLabels.map((lab, i) => {
             const isActive = (lab === activeLabel) && (cap || i === 0);
@@ -14849,9 +14849,25 @@ function renderComposeInfo() {
   // clears it when there's something to export). Without this, the
   // button stays hidden in compose mode after reattach.
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
-  // The mobile picker uses an inline onclick attribute (see the button
-  // template above) — DO NOT add a second listener here, otherwise both
-  // fire on tap and the second one closes the menu the first just opened.
+  // Bind the picker toggle directly on every render. Uses click for desktop
+  // mouse + pointerup for touch (more reliable than synthesized click on
+  // some mobile webviews like the Claude app's WKWebView). One handler each,
+  // guarded by a tiny window-level cooldown so they don't double-fire.
+  el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
+    const handle = (ev) => {
+      const now = Date.now();
+      if (now - (window._pickerLastFire || 0) < 300) return;
+      window._pickerLastFire = now;
+      if (ev) {
+        ev.preventDefault && ev.preventDefault();
+        ev.stopPropagation && ev.stopPropagation();
+      }
+      if (_songStructMenuEl) _closeSongStructMenu();
+      else _openSongStructMenu(picker);
+    };
+    picker.addEventListener('click', handle);
+    picker.addEventListener('pointerup', handle);
+  });
   // Auto-fit the chord-name + roman to the (narrow) compose column.
   // Two-pass shrink with a low floor so long names like "Bbm7b5" / "iiø/iii"
   // stay inside the box instead of clipping out the right edge.
