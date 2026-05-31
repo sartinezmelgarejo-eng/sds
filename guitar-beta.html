@@ -12583,11 +12583,15 @@ function _candIdxForShape(quality, root, shape) {
 }
 
 // Expand a player.song section's progression.steps into per-bar compose
-// cells, carrying current voicings so the capture matches what's playing.
+// cells. Shape priority: cached voicing (what user just heard) → composed
+// shape from the step → freshly picked, voice-led from the previous cell
+// so cells past the current bar still render their tab/staff cleanly.
 function _captureSectionAsCells(section) {
   if (!section || !section.progression) return [];
   const map = currentMap();
   const cells = [];
+  const sectionType = section.voicingType || (player && player.voicingType) || 'drop2';
+  let prevShape = (player && player.previousShape) || null;
   for (const step of section.progression.steps) {
     const bars = step.bars || 1;
     if (step._silent || !step.chord) {
@@ -12596,8 +12600,17 @@ function _captureSectionAsCells(section) {
     }
     const ch = map.chordDefs[step.chord];
     const cached = state.progressionVoicings[step.chord];
-    const shape = (cached && cached.shape) || step.composedShape || null;
-    const voicingType = (cached && cached.type) || section.voicingType;
+    let shape = (cached && cached.shape) || step.composedShape || null;
+    let voicingType = (cached && cached.type) || sectionType;
+    if (!shape && ch && player && typeof player._pickShape === 'function') {
+      const root = chordRoot(ch);
+      const eq = (typeof effectiveQuality === 'function') ? effectiveQuality(step, ch) : ch.quality;
+      shape = player._pickShape(eq, root, voicingType, prevShape);
+      if (!shape) {
+        shape = player._pickShape(eq, root, 'drop2', prevShape);
+        voicingType = 'drop2';
+      }
+    }
     const cell = {
       chord: step.chord,
       shape,
@@ -12612,6 +12625,7 @@ function _captureSectionAsCells(section) {
     }
     if (ch && shape) cell._candIdx = _candIdxForShape(ch.quality, chordRoot(ch), shape);
     cells.push(cell);
+    if (shape) prevShape = shape;
     for (let b = 1; b < bars; b++) {
       cells.push({ chord: step.chord, _tie: true, shape, voicingType });
     }
