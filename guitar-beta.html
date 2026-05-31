@@ -2245,7 +2245,11 @@
        so it stays pinned no matter where the page is scrolled. */
     html, body:not(.player-active) {
       height: auto !important;
-      min-height: 100vh;
+      /* +50vh extra so the page is taller than the viewport and we can
+         scroll the header off-screen on first chord. Without this, body
+         collapsed to <100vh (main is empty on compose) and scrollTo +
+         manual swipe were both no-ops. */
+      min-height: calc(100vh + 50vh);
       overflow: visible !important;
     }
     body:not(.player-active) {
@@ -15553,10 +15557,11 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       }
     };
     if (wasEmpty) {
-      // Scroll the strip (.rb-area) to the top of the viewport so the
-      // user's first typed chord lands prominently above the keypad,
-      // not buried under whatever header content is showing.
-      requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.rb-area')));
+      // Scroll the .song-block (which carries the voicing-spec / AABA row
+      // on mobile via #player-info) to the top of viewport so the header
+      // chrome above it scrolls off and the strip is the prominent thing
+      // on screen along with its now-playing readout.
+      requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
     } else if (seq.length === 9) {
       // Entering the 3rd pair-row — scroll the PAGE (not the strip's
       // internal scroll) so the latest tab cell's bottom sits just above
