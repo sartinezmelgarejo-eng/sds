@@ -1925,7 +1925,38 @@
      to the next one. Warm-gold palette matches the existing strip trim. */
   #capture-section-tabs {
     display: flex;
+    gap: 6px;
     padding: 4px 8px 2px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .capture-struct-chip {
+    background: #f0e6c8;
+    border: 1px solid #1a1a1a;
+    color: #1a1a1a;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-weight: 800;
+    padding: 3px 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    letter-spacing: 0.6px;
+    line-height: 1;
+  }
+  .capture-struct-chip:hover  { background: #e8d9a8; }
+  .capture-struct-chip:active { background: #d8c98a; }
+  .capture-struct-label {
+    font-size: 13px;
+    letter-spacing: 1.2px;
+  }
+  .capture-struct-cycle {
+    color: #5e4818;
+    font-size: 9px;
+    opacity: 0.85;
+    border-left: 1px solid rgba(0,0,0,0.25);
+    padding-left: 8px;
   }
   .capture-section-chip {
     background: #f5efd9;
@@ -12945,24 +12976,32 @@ function _switchCapturedSection(label) {
   if (typeof renderAll === 'function') renderAll();
 }
 
-// One chip above the strip showing the section you're editing; tap to cycle
-// to the next captured section. Hidden in play/pause and when there's
-// nothing to switch to.
+// Chip bar above the strip — shown whenever a captured AI song is loaded
+// in compose mode. Always shows a structure chip (tap to rearrange / add
+// sections); also shows a section-cycle chip when there are 2+ sections
+// in toggle mode. Hidden during play/pause.
 function renderCaptureSectionTabs() {
   const el = document.getElementById('capture-section-tabs');
   if (!el) return;
   const cap = state._capturedSong;
   const playing = (typeof player !== 'undefined' && player && (player.playing || player.paused));
-  if (!cap || cap.mode !== 'toggle' || cap.uniqueLabels.length < 2 || playing) {
+  if (!cap || playing) {
     if (!el.hidden) { el.hidden = true; el.innerHTML = ''; }
     return;
   }
   el.hidden = false;
-  const lab = cap.activeLabel;
-  const len = cap.sections[lab].cells.length;
-  const i = cap.uniqueLabels.indexOf(lab);
-  const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-  el.innerHTML = `<button class="capture-section-chip" data-cycle="1" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-meta"><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></span></button>`;
+  let html = '';
+  // Structure chip — always visible while a capture is loaded.
+  html += `<button class="capture-struct-chip" title="Change song structure — rearrange sections or add new ones"><span class="capture-struct-label">${cap.structureStr}</span><span class="capture-struct-cycle">↻ shape</span></button>`;
+  // Section-cycle chip — only in toggle mode with multiple sections.
+  if (cap.mode === 'toggle' && cap.uniqueLabels.length >= 2) {
+    const lab = cap.activeLabel;
+    const len = cap.sections[lab].cells.length;
+    const i = cap.uniqueLabels.indexOf(lab);
+    const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
+    html += `<button class="capture-section-chip" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-meta"><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></span></button>`;
+  }
+  el.innerHTML = html;
 }
 
 (function wireCaptureSectionTabs() {
@@ -12972,8 +13011,14 @@ function renderCaptureSectionTabs() {
     if (el.dataset.wired === '1') return;
     el.dataset.wired = '1';
     el.addEventListener('click', (e) => {
-      const btn = e.target.closest('.capture-section-chip');
-      if (!btn) return;
+      const structBtn = e.target.closest('.capture-struct-chip');
+      if (structBtn) {
+        if (typeof _songStructMenuEl !== 'undefined' && _songStructMenuEl) _closeSongStructMenu();
+        else if (typeof _openSongStructMenu === 'function') _openSongStructMenu(structBtn);
+        return;
+      }
+      const sectionBtn = e.target.closest('.capture-section-chip');
+      if (!sectionBtn) return;
       const cap = state._capturedSong;
       if (!cap || cap.uniqueLabels.length < 2) return;
       const i = cap.uniqueLabels.indexOf(cap.activeLabel);
