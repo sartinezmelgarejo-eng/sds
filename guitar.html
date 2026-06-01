@@ -12887,6 +12887,18 @@ function syncMobileTransport() {
   });
 })();
 
+// Mobile composer scrolls the page deep down to follow the strip; on play
+// the strip moves to the top of a much shorter layout, so the user can be
+// stranded looking at the chord neck / transport with the strip off the
+// top of the viewport. Snap back to top on every play-mode entry.
+function _scrollPageTopOnMobile() {
+  if (!window.matchMedia || !window.matchMedia('(max-width: 800px)').matches) return;
+  requestAnimationFrame(() => {
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    catch(_) { window.scrollTo(0, 0); }
+  });
+}
+
 document.getElementById('auto-play').addEventListener('click', () => {
   // Touching play/pause disarms the "ready to clear" state on stop.
   player._stopArmed = false;
@@ -12894,8 +12906,10 @@ document.getElementById('auto-play').addEventListener('click', () => {
     player.pause();
   } else if (player.paused) {
     player.resume();
+    _scrollPageTopOnMobile();
   } else {
     player.start();
+    _scrollPageTopOnMobile();
   }
   _refreshAutoPlayUI();
 });
@@ -15877,6 +15891,7 @@ function composePlay() {
   // latter case it just starts the AI fresh, exactly like the header Play
   // button does (and gets the same 4-beat count-in).
   player.start();
+  if (typeof _scrollPageTopOnMobile === 'function') _scrollPageTopOnMobile();
   // Re-run the full transport UI refresh so the mobile transport bar
   // (and the top toolbar) get their stop / edit buttons + active
   // classes synced — without this, starting from the keypad's ▶
