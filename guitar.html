@@ -730,6 +730,91 @@
     gap: 4px;
     align-items: center;
   }
+  /* Mobile: MIDI button sits as a SIBLING of #player-info in the
+     .song-block flex row — outside the green now-playing bar but at
+     the same height. Keep the button compact and aligned. */
+  @media (max-width: 800px) {
+    .song-block > div:last-child > #midi-wrap {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+    }
+    .song-block > div:last-child > #midi-wrap .midi-export-btn {
+      padding: 6px 10px;
+      font-size: 11px;
+    }
+  }
+  /* Mobile native <select> structure picker — invisible <select> overlays
+     the visible AABA summary. OS bottom-sheet handles the picker UI. */
+  #player-info .pi-song-struct-mobile {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    -webkit-tap-highlight-color: rgba(160, 120, 32, 0.18);
+  }
+  #player-info .pi-song-struct-summary {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    letter-spacing: 2px;
+    color: var(--tag-tonic, #059669);
+    pointer-events: none;
+  }
+  #player-info .pi-song-struct-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  /* Mobile tap target: pad so finger taps register on the small segments.
+     button reset — strip default browser chrome so it blends in. */
+  #player-info .pi-song-picker-mobile {
+    padding: 6px 4px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: rgba(160, 120, 32, 0.18);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    margin: 0;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  /* Mobile-side AABA letters (compose flat-row) — bigger than inherited
+     body text so the picker is obviously tappable. Mirrors the desktop
+     .pi-meta-song-letters look but works outside the 720px media query. */
+  #player-info .pi-song-picker-mobile .pi-meta-song-letters {
+    display: inline-flex;
+    gap: 4px;
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-weight: 700;
+    font-size: 16px;
+    line-height: 1;
+    color: rgba(5,150,105,0.55);
+  }
+  #player-info .pi-song-picker-mobile .ms-l { padding: 0 2px; }
+  #player-info .pi-song-picker-mobile .ms-l.now {
+    color: var(--tag-tonic);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+    font-size: 18px;
+  }
   #player-info .pi-form-seg {
     min-width: 14px;
     height: 5px;
@@ -829,10 +914,17 @@
      key/voicing/beats. Both structures are rendered into the DOM by
      _updateVisuals; CSS picks which one is visible. */
   #player-info .pi-grid { display: none; }
-  /* Mobile wrapper is transparent to the flex layout so its inner spans
-     act as direct flex children of #player-info (preserves the original
-     flat-row design). On desktop the media query below flips this off. */
-  #player-info .pi-mobile { display: contents; }
+  /* Mobile wrapper: real flex container (was `display: contents` but that
+     intermittently swallowed pointer events on some mobile WebViews — the
+     AABA picker tap was registering visually but the click never reached
+     the bound handler). Inline-flex preserves the inline-row appearance. */
+  #player-info .pi-mobile {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
   @media (min-width: 720px) {
     #player-info {
       flex-direction: column;
@@ -1285,6 +1377,62 @@
       color: #faf3e3 !important;
     }
   }
+  /* Song-structure picker menu — global (mobile too). The desktop block
+     above lives inside a min-width:720px media query and never applied on
+     phones, so the menu rendered as an invisible default-styled div.
+     `position: fixed` so it's reliably viewport-anchored regardless of
+     any ancestor's transform / containing block. */
+  .song-struct-menu {
+    position: fixed;
+    background: #faf3e3;
+    border: 2px solid #1a1a1a;
+    padding: 4px 0;
+    z-index: 10000;
+    min-width: 220px;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+    box-shadow: 4px 4px 0 rgba(26,26,26,0.15);
+    font-family: 'SF Mono', monospace;
+  }
+  .song-struct-menu .ssm-item {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+  .song-struct-menu .ssm-item:hover { background: rgba(5,150,105,0.12); }
+  .song-struct-menu .ssm-item.selected {
+    background: var(--tag-tonic);
+    color: #faf3e3;
+  }
+  .song-struct-menu .ssm-label {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--ink, #1a1a1a);
+  }
+  .song-struct-menu .ssm-item.selected .ssm-label,
+  .song-struct-menu .ssm-item.selected .ssm-desc { color: #faf3e3; }
+  .song-struct-menu .ssm-desc {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 1px;
+    text-transform: none;
+    letter-spacing: 0.2px;
+  }
+  .song-struct-menu .ssm-rare {
+    font-size: 8px;
+    color: var(--text-faint);
+    letter-spacing: 1px;
+    margin-left: 6px;
+    vertical-align: 1px;
+    font-weight: 400;
+  }
+  .song-struct-menu .ssm-item.selected .ssm-rare { color: rgba(250,243,227,0.7); }
   /* Refine the modulation / travel badges — finer, greener */
   #player-info .pi-badge {
     font-style: italic;
@@ -1914,53 +2062,65 @@
     color: #f0faff;
     box-shadow: 0 1px 2px rgba(46, 107, 133, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
   }
+  .rb-section-tag.rb-section-c {
+    background: linear-gradient(135deg, #c8744a 0%, #8a3e1c 100%);
+    color: #fff5ee;
+    box-shadow: 0 1px 2px rgba(138, 62, 28, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  .rb-section-tag.rb-section-d {
+    background: linear-gradient(135deg, #8a7ab8 0%, #5a4880 100%);
+    color: #f5f0ff;
+    box-shadow: 0 1px 2px rgba(90, 72, 128, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
+  .rb-section-tag.rb-section-e {
+    background: linear-gradient(135deg, #5aa078 0%, #2e6845 100%);
+    color: #effff5;
+    box-shadow: 0 1px 2px rgba(46, 104, 69, 0.45), inset 0 1px 0 rgba(255,255,255,0.25);
+  }
   /* Section-toggle chip shown above the compose strip in toggle-mode AI
      captures — single chip naming the section being edited, tap to cycle
      to the next one. Warm-gold palette matches the existing strip trim. */
   #capture-section-tabs {
     display: flex;
+    flex-direction: column;
+    gap: 4px;
     padding: 4px 8px 2px;
+    align-items: flex-start;
   }
+  /* The `hidden` HTML attribute is `display: none` in the UA stylesheet
+     but loses to the id rule above, so the empty element kept taking
+     flex-row space inside .rb-area (8px horizontal padding) and pushed
+     the strip right. Force-hide when the attribute is set. */
+  #capture-section-tabs[hidden] { display: none !important; }
   .capture-section-chip {
     background: #f5efd9;
     border: 1px solid #a07820;
     color: #5e4818;
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-weight: 700;
-    padding: 3px 11px;
+    font-weight: 800;
+    padding: 3px 10px;
     border-radius: 4px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
-    gap: 9px;
+    gap: 6px;
     letter-spacing: 0.5px;
     line-height: 1;
   }
   .capture-section-chip:hover  { background: #f0e6c8; }
-  .capture-section-chip:active { background: #e8d9a8; }
-  .capture-section-label {
-    color: #1a1a1a;
-    font-size: 16px;
-    font-weight: 800;
+  .capture-section-chip.active {
+    background: linear-gradient(135deg, #d4a04a 0%, #b07820 100%);
+    color: #fffaef;
+    border-color: #8a5818;
+    box-shadow: 0 1px 2px rgba(160, 120, 32, 0.4), inset 0 1px 0 rgba(255,255,255,0.22);
   }
-  .capture-section-meta {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 3px;
-    align-items: flex-start;
-    border-left: 1px solid rgba(160, 120, 32, 0.4);
-    padding-left: 8px;
-  }
+  .capture-section-label { font-size: 13px; }
   .capture-section-bars {
     font-size: 9px;
     font-weight: 500;
     opacity: 0.7;
   }
-  .capture-section-cycle {
-    color: #8a6818;
-    font-size: 9px;
-    opacity: 0.95;
-  }
+  .capture-section-chip.active .capture-section-bars { opacity: 0.85; }
 
   /* ─── Compose keypad ─── */
   .compose-pad {
@@ -2102,11 +2262,12 @@
     .compose-pad .compose-btn[data-act="play"]     { grid-row: 4; grid-column: 2; }
     .compose-pad .compose-btn[data-act="clear"]    { grid-row: 4; grid-column: 3; }
 
-    /* Padding so the bottom-pinned keypad doesn't cover the content above */
+    /* Padding so the bottom-pinned keypad doesn't cover the content above
+       AND the last row's subdivision pill (hangs below cell) is fully
+       visible above the keypad. */
     body:not(.player-active) main,
     body:not(.player-active) .rb-area {
-      /* 4 rows × 54px + 3 gaps × 10px + 28px padding ≈ 280px */
-      padding-bottom: 290px;
+      padding-bottom: 340px;
     }
     /* Mobile compose: unlock page scroll. Body grows with content (height
        auto), html grows with body. The DOCUMENT scrolls naturally — most
@@ -2114,7 +2275,11 @@
        so it stays pinned no matter where the page is scrolled. */
     html, body:not(.player-active) {
       height: auto !important;
-      min-height: 100vh;
+      /* +50vh extra so the page is taller than the viewport and we can
+         scroll the header off-screen on first chord. Without this, body
+         collapsed to <100vh (main is empty on compose) and scrollTo +
+         manual swipe were both no-ops. */
+      min-height: calc(100vh + 50vh);
       overflow: visible !important;
     }
     body:not(.player-active) {
@@ -2132,18 +2297,13 @@
     body:not(.player-active) .real-book.compose-interleaved {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      /* Rows take their natural content size (NOT redistributed when more
-         rows appear). So adding a 5th chord just makes the grid taller and
-         the container scrolls — existing rows keep their full size. */
       grid-auto-rows: min-content;
       height: auto;
-      /* Let the strip grow tall enough for 2 full pair-rows. The page
-         itself scrolls naturally to access overflow (auto-scroll inside
-         the strip stays scoped via el.scrollTo so it doesn't trap the
-         page scroll position). */
-      max-height: 580px;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      /* No internal scroll cap — let the strip grow with content so
+         stacked captures (AABAC etc.) show every section, and the PAGE
+         scrolls past them naturally. */
+      max-height: none;
+      overflow: visible;
     }
     body:not(.player-active) .real-book.compose-interleaved .rb-cell {
       min-height: 38px;
@@ -3419,8 +3579,26 @@
 
     /* Real Book strip — span the full viewport width on mobile (desktop pins
        it to the right half; on a phone that squeezes the chord cells off-screen). */
-    .rb-area { padding: 6px; justify-content: stretch; gap: 0; }
-    .rb-stack { width: 100% !important; }
+    .rb-area {
+      padding: 6px 0 !important;
+      margin: 0 !important;
+      width: 100% !important;
+      justify-content: stretch;
+      gap: 0;
+    }
+    .rb-stack {
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    .rb-row { margin: 0 !important; padding: 0 !important; }
+    /* Drop the strip's outer LEFT/RIGHT borders on mobile so the cells go
+       edge-to-edge with the viewport. Keep top/bottom borders so the strip
+       still reads as a framed band. */
+    .real-book, .real-book-tabs {
+      border-left: none !important;
+      border-right: none !important;
+    }
     /* On mobile the card lives back in the header song-block (its
        original home). If for any reason a stale node lingers in the
        desktop containers, hide it there — the song-block copy is the
@@ -3447,12 +3625,14 @@
        the cells to zero height (SVG invisible, "rendered behind the
        background").
 
-       Strip width  = viewport − 12px (rb-area padding) − 3px (strip border)
-                    = 100vw − 15px
-       Cell width   = strip width / 4 = (100vw − 15px) / 4
+       Strip width  = viewport − 3px (strip border) — the .rb-area now has
+                      zero horizontal padding on mobile so the strip uses
+                      the full viewport width.
+                    = 100vw − 3px
+       Cell width   = strip width / 4 = (100vw − 3px) / 4
        Strip height = cell width × SVG aspect ratio
-         • guitar (1:1):   strip height = (100vw − 15px) / 4
-         • piano  (130:148): strip height = (100vw − 15px) / 4 × 148 / 130
+         • guitar (1:1):   strip height = (100vw − 3px) / 4
+         • piano  (130:148): strip height = (100vw − 3px) / 4 × 148 / 130
 
        Cells keep their default `flex: 1 1 0` (from line 1771) and
        stretch vertically to fill the strip — so cell aspect == strip
@@ -3462,11 +3642,11 @@
        vertical stretch). The desktop min-height clamp at line 1731
        isn't scoped to desktop, so we reset it. */
     body.player-active:not(.lp-on) .real-book-tabs {
-      height: calc((100vw - 15px) / 4);
+      height: calc(100vw / 4);
       min-height: 0;
     }
     body.instrument-piano.player-active:not(.lp-on) .real-book-tabs {
-      height: calc((100vw - 15px) / 4 * 148 / 130);
+      height: calc(100vw / 4 * 148 / 130);
     }
     body.player-active:not(.lp-on) .rb-loop { height: 150px; }
     /* Chord cells: more breathing room, bigger chord names — they ARE the content */
@@ -7479,39 +7659,24 @@ function renderChordMap() {
       <div class="mc-svg-wrap">${svg}</div>
     `;
     card.addEventListener('click', (ev) => {
-      // Compose mode: tapping a map card = typing that chord into the strip.
-      // The map IS the dialer when the AI isn't engaged at all. PAUSED
-      // counts as engaged — the user just wants to preview chords while
-      // the song waits — so we DON'T route into compose; we audition.
       const engaged = player.playing || player.paused;
-      if (!engaged && currentMap().chordDefs[node.chord]) {
+      // Play view: audition the clicked chord without disturbing the
+      // player's visualization (no focus change, no renderAll). The next
+      // scheduled bar continues as planned.
+      if (engaged) {
+        if (v?.shape) auditionChord(node.chord, { shape: v.shape, silentVisual: true });
+        return;
+      }
+      // Compose mode: tapping a map card types that chord into the strip.
+      if (currentMap().chordDefs[node.chord]) {
         composeAddChord(node.chord, ev.shiftKey, _shiftSide === 'left' ? -1 : 1);
         return;
       }
-
-      // Player-active path: focus + jump
-      const displayed = v;
+      // Fallback: focus + ring (chord not in current map's dialer).
       state.focusedChord = node.chord;
-      state.userVoicing = displayed?.shape
-        ? { shape: displayed.shape, ...displayed }
-        : null;
-
-      // While the AI is engaged (playing or paused), clicking a chord
-      // auditions it (plays once, visually focuses) but does NOT
-      // permanently jump the progression — the next scheduled bar
-      // overwrites the audition. To force a real jump, use the keyboard.
-      if (engaged) {
-        auditionChord(node.chord);
-      }
+      state.userVoicing = v?.shape ? { shape: v.shape, ...v } : null;
       renderAll();
       ringFocusedChord();
-      // After renderAll, re-apply playing/next-up classes if player engaged
-      if (engaged) {
-        document.querySelectorAll('.map-card').forEach(c => {
-          if (c.dataset.chord === player.currentChord) c.classList.add('playing');
-          else if (c.dataset.chord === player.nextChord) c.classList.add('next-up');
-        });
-      }
     });
     wrap.appendChild(card);
   }
@@ -8989,15 +9154,19 @@ function ringFocusedChord() {
 // A timeout also reverts the visual focus to the chord that's actually
 // sounding, so the highlight doesn't get stuck on the auditioned card.
 let _auditionRevertTimer = null;
-function auditionChord(chordId) {
+function auditionChord(chordId, opts = {}) {
   // PAUSED counts — the user is still in play mode, just stopped audio.
   if (!player.playing && !player.paused) return;
   ensureAudio();
-  const fs = focusedShape();
-  if (!fs?.shape) return;
-  const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  // Caller can pass a shape directly (preview audition that bypasses
+  // state.focusedChord — keeps the player's visualization untouched).
+  const shape = opts.shape || (focusedShape() && focusedShape().shape);
+  if (!shape) return;
+  const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
   if (!notes.length) return;
   chordDrone.start(notes, currentDroneVolume() * 1.8, true);
+  // No focus mutation happened, so there's nothing to revert.
+  if (opts.silentVisual) return;
   // Revert the focused chord back to whatever the player is on after a few
   // seconds (or sooner if the user clicks again — the timer is replaced).
   if (_auditionRevertTimer) clearTimeout(_auditionRevertTimer);
@@ -9007,7 +9176,6 @@ function auditionChord(chordId) {
     state.focusedChord = player.currentChord || state.focusedChord;
     state.userVoicing = null;
     renderAll();
-    // Re-apply playing / next-up classes lost during renderAll
     document.querySelectorAll('.map-card').forEach(c => {
       if (c.dataset.chord === player.currentChord) c.classList.add('playing');
       else if (c.dataset.chord === player.nextChord) c.classList.add('next-up');
@@ -10758,8 +10926,25 @@ class Player {
     cap.structureStr = desiredStruct;
     this._homeKey = cap.homeKey ? { ...cap.homeKey } : { keyPc: state.keyPc, tonality: state.tonality };
     const map = currentMap();
+    // Self-contained forms (BLUES, JAZZ_BLUES) are ONE labeled section, not
+    // a letter sequence — don't split them character-by-character.
+    const structDef = (typeof SONG_STRUCTURES !== 'undefined')
+      ? SONG_STRUCTURES.find(s => s.id === desiredStruct) : null;
+    const isSelfContained = !!(structDef && structDef.formType);
+    const structureLabels = isSelfContained
+      ? [desiredStruct]
+      : desiredStruct.split('');
+    // Purge any letter-split pollution from earlier capture passes (a prior
+    // bug split 'BLUES' into B/L/U/E/S sections — drop those phantoms).
+    if (isSelfContained) {
+      cap.uniqueLabels = cap.uniqueLabels.filter(l => l === desiredStruct);
+      for (const k of Object.keys(cap.sections)) {
+        if (k !== desiredStruct) delete cap.sections[k];
+      }
+      if (!cap.uniqueLabels.length) cap.uniqueLabels.push(desiredStruct);
+    }
     // Grow cap.sections for any structure label we haven't captured yet.
-    for (const lab of [...new Set(desiredStruct.split(''))]) {
+    for (const lab of [...new Set(structureLabels)]) {
       if (cap.sections[lab]) continue;
       const usedNames = Object.values(cap.sections).map(s => s.progName).filter(Boolean);
       const role = lab === 'A' ? 'A' : (lab === 'B' ? 'B' : 'C');
@@ -10824,7 +11009,7 @@ class Player {
         modName: sec.modName,
       };
     };
-    return cap.structureStr.split('').map(lab => buildSection(lab));
+    return structureLabels.map(lab => buildSection(lab));
   }
 
   // If the user pressed Edit and selected a bar, advance songIdx/stepIdx so
@@ -11779,6 +11964,30 @@ class Player {
       fitLine(name, NAME_BASE);
       fitLine(roman, ROMAN_BASE);
     };
+    // Shrink every roman-numeral pill by the same factor when at least one
+    // is being ellipsis-truncated (12-bar blues etc.). Preserves the
+    // bars-proportional widths since the container width isn't touched,
+    // and keeps the now/done size hierarchy (22/18 base ratio) intact.
+    const _fitPillRow = () => {
+      const pills = document.querySelectorAll('#player-info .pi-prog-pill');
+      if (!pills.length) return;
+      // Reset to CSS defaults so we re-measure cleanly each tick.
+      pills.forEach(p => { p.style.fontSize = ''; });
+      let maxRatio = 1;
+      pills.forEach(p => {
+        const cw = p.clientWidth;
+        if (!cw) return;
+        const ratio = p.scrollWidth / cw;
+        if (ratio > maxRatio) maxRatio = ratio;
+      });
+      if (maxRatio <= 1) return;
+      const MIN_SCALE = 0.45;
+      const scale = Math.max(MIN_SCALE, 1 / maxRatio);
+      pills.forEach(p => {
+        const base = p.classList.contains('now') ? 22 : 18;
+        p.style.fontSize = (base * scale) + 'px';
+      });
+    };
 
     // Rescue the MIDI export wrap BEFORE the innerHTML wipe — otherwise
     // setting innerHTML below would destroy the wrap (along with its
@@ -11791,22 +12000,26 @@ class Player {
 
     piEl.innerHTML = desktopHtml + mobileHtml;
 
-    // Reattach the MIDI wrap to the desktop meta-strip slot. The slot
-    // is hidden under 720px (media query), so on mobile we leave the
-    // wrap back in the header where it lived originally.
+    // Reattach the MIDI wrap. Desktop: into the .pi-grid meta slot.
+    // Mobile: as a sibling of #player-info inside .song-block's flex row
+    // so MIDI sits OUTSIDE the green now-playing bar but at the same row.
     if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
       const slot = document.getElementById('pi-midi-slot');
       if (slot && midiW) slot.appendChild(midiW);
-    } else if (midiW && document.body.contains(midiW) && !piEl.contains(midiW)) {
-      // Mobile: put it back where _updateMidiBtn expects it.
-      const headerHome = document.querySelector('.header') || document.body;
-      headerHome.appendChild(midiW);
+    } else if (midiW) {
+      const songRow = document.querySelector('.song-block > div:last-child');
+      if (songRow && piEl && songRow.contains(piEl)) {
+        songRow.insertBefore(midiW, piEl);
+      } else if (songRow) {
+        songRow.appendChild(midiW);
+      }
     }
 
     // Now that the DOM is in place and laid out, fit the chord row.
     // requestAnimationFrame so the browser has done at least one paint
     // pass — otherwise clientWidth can be 0 during the first render.
     requestAnimationFrame(_fitChordRow);
+    requestAnimationFrame(_fitPillRow);
 
     // Don't stomp the focus / userVoicing while an audition is active.
     // Clicking a chord card sets up a 3.5s revert timer; until it fires
@@ -12873,48 +13086,58 @@ function _captureSongSections(song) {
   return { sections: sectionsByLabel, uniqueLabels: labelOrder };
 }
 
-// Write the current visible compose-strip cells back into _capturedSong so
-// switching sections / pressing Play picks up the latest edits.
+// Write the current visible compose-strip cells back into _capturedSong by
+// slicing composedProgression at each boundary. The last section absorbs
+// any extra cells the user appended past its original end.
 function _syncCapturedFromCompose() {
   const cap = state._capturedSong;
   if (!cap) return;
-  if (cap.mode === 'dense') {
-    const aLab = cap.uniqueLabels[0];
-    const bLab = cap.uniqueLabels[1];
-    const split = state._composeASectionLen ?? cap.sections[aLab].cells.length;
-    cap.sections[aLab].cells = state.composedProgression.slice(0, split);
-    if (bLab) cap.sections[bLab].cells = state.composedProgression.slice(split);
-  } else if (cap.activeLabel && cap.sections[cap.activeLabel]) {
-    cap.sections[cap.activeLabel].cells = [...state.composedProgression];
+  const bounds = cap.boundaries || [];
+  if (!bounds.length) {
+    if (cap.activeLabel && cap.sections[cap.activeLabel]) {
+      cap.sections[cap.activeLabel].cells = [...state.composedProgression];
+    }
+    return;
+  }
+  for (let i = 0; i < bounds.length; i++) {
+    const b = bounds[i];
+    const next = bounds[i + 1];
+    const end = next ? next.start : state.composedProgression.length;
+    if (cap.sections[b.label]) {
+      cap.sections[b.label].cells = state.composedProgression.slice(b.start, end);
+    }
+  }
+  // Refresh stored lengths so future renders pick up appended cells in
+  // the trailing section.
+  for (let i = 0; i < bounds.length; i++) {
+    const sec = cap.sections[bounds[i].label];
+    if (sec) bounds[i].len = sec.cells.length;
   }
 }
 
-// Re-derive compose-strip state from _capturedSong (mode + composedProgression
-// + divider position). Used after _generateFromCaptured grows the captured
-// song with new sections, so the toggle chip + strip reflect the new shape.
+// Concatenate every captured section's cells into one tall strip and
+// record where each section starts (`cap.boundaries`) so the renderer can
+// place A/B/C badges and _syncCapturedFromCompose can split cells back
+// into the per-section arrays at play time.
 function _reloadCapturedStrip(opts = {}) {
   const cap = state._capturedSong;
   if (!cap) return;
-  if (cap.uniqueLabels.length === 1) {
-    cap.mode = 'single';
-  } else {
-    const allShort = cap.uniqueLabels.every(lab => cap.sections[lab].cells.length <= 8);
-    cap.mode = (cap.uniqueLabels.length === 2 && allShort) ? 'dense' : 'toggle';
-  }
+  cap.mode = 'stacked';
   if (!cap.sections[cap.activeLabel]) cap.activeLabel = cap.uniqueLabels[0];
-  if (cap.mode === 'dense') {
-    const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
-    state.composedProgression = [
-      ...cap.sections[aLab].cells.map(c => ({ ...c })),
-      ...cap.sections[bLab].cells.map(c => ({ ...c })),
-    ];
-    state._composeASectionLen = cap.sections[aLab].cells.length;
-    state._composeIsSingleSection = false;
-  } else {
-    state.composedProgression = cap.sections[cap.activeLabel].cells.map(c => ({ ...c }));
-    state._composeASectionLen = state.composedProgression.length;
-    state._composeIsSingleSection = true;
+  const flat = [];
+  const boundaries = [];
+  for (const lab of cap.uniqueLabels) {
+    const sec = cap.sections[lab];
+    if (!sec || !sec.cells) continue;
+    boundaries.push({ label: lab, start: flat.length, len: sec.cells.length });
+    for (const c of sec.cells) flat.push({ ...c });
   }
+  state.composedProgression = flat;
+  cap.boundaries = boundaries;
+  // Reset legacy split-at-cell-8 markers — the new badge system uses
+  // cap.boundaries instead.
+  state._composeASectionLen = null;
+  state._composeIsSingleSection = (cap.uniqueLabels.length === 1);
   if (!opts.keepActive) {
     state.composedSelectedIdx = null;
     state._composeFocusedIdx = null;
@@ -12939,9 +13162,8 @@ function _switchCapturedSection(label) {
   if (typeof renderAll === 'function') renderAll();
 }
 
-// One chip above the strip showing the section you're editing; tap to cycle
-// to the next captured section. Hidden in play/pause and when there's
-// nothing to switch to.
+// Section chips above the strip — one per captured section, active chip
+// highlighted. Hidden during play/pause and when there's only one section.
 function renderCaptureSectionTabs() {
   const el = document.getElementById('capture-section-tabs');
   if (!el) return;
@@ -12952,11 +13174,11 @@ function renderCaptureSectionTabs() {
     return;
   }
   el.hidden = false;
-  const lab = cap.activeLabel;
-  const len = cap.sections[lab].cells.length;
-  const i = cap.uniqueLabels.indexOf(lab);
-  const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-  el.innerHTML = `<button class="capture-section-chip" data-cycle="1" title="Editing section ${lab} (${len} bars) — tap for ${next}"><span class="capture-section-label">${lab}</span><span class="capture-section-meta"><span class="capture-section-bars">${len}b</span><span class="capture-section-cycle">⇄ ${next}</span></span></button>`;
+  el.innerHTML = cap.uniqueLabels.map(lab => {
+    const active = (lab === cap.activeLabel) ? ' active' : '';
+    const len = cap.sections[lab].cells.length;
+    return `<button class="capture-section-chip${active}" data-section="${lab}" title="Edit section ${lab} (${len} bars)"><span class="capture-section-label">${lab}</span><span class="capture-section-bars">${len}b</span></button>`;
+  }).join('');
 }
 
 (function wireCaptureSectionTabs() {
@@ -12968,11 +13190,7 @@ function renderCaptureSectionTabs() {
     el.addEventListener('click', (e) => {
       const btn = e.target.closest('.capture-section-chip');
       if (!btn) return;
-      const cap = state._capturedSong;
-      if (!cap || cap.uniqueLabels.length < 2) return;
-      const i = cap.uniqueLabels.indexOf(cap.activeLabel);
-      const next = cap.uniqueLabels[(i + 1) % cap.uniqueLabels.length];
-      _switchCapturedSection(next);
+      _switchCapturedSection(btn.dataset.section);
     });
   };
   tryAttach();
@@ -12989,16 +13207,12 @@ document.getElementById('auto-edit').addEventListener('click', () => {
   const curChord = player._currentChordId && player._currentChordId();
   let selectIdx = -1;
 
-  // AI capture path: pure AI playing → snapshot all unique sections.
+  // AI capture path: pure AI playing → snapshot all unique sections and
+  // stack them into one tall scrollable strip with A/B/C badges.
   if (!state.composedProgression.length && player.song && player.song.length) {
     const { sections, uniqueLabels } = _captureSongSections(player.song);
     const curSection = player.song[player.songIdx];
     const currentLabel = (curSection && sections[curSection.label]) ? curSection.label : uniqueLabels[0];
-    const allShort = uniqueLabels.every(lab => sections[lab].cells.length <= 8);
-    let mode;
-    if (uniqueLabels.length === 1)                mode = 'single';
-    else if (uniqueLabels.length === 2 && allShort) mode = 'dense';
-    else                                           mode = 'toggle';
     const structureStr = player.song.map(s => s.label).join('');
     state._capturedSong = {
       sections,
@@ -13006,12 +13220,14 @@ document.getElementById('auto-edit').addEventListener('click', () => {
       structureStr,
       homeKey: player._homeKey ? { ...player._homeKey } : null,
       activeLabel: currentLabel,
-      mode,
+      mode: 'stacked',
     };
-    // Sync the dashboard picker so it reflects what's actually loaded
-    // (instead of e.g. "RANDOM") and the user can rearrange/extend it.
     if (structureStr && structureStr.length) state.songStructure = structureStr;
-    // Map currentStepIdx → bar index within the playing section.
+    // _reloadCapturedStrip concatenates all sections into composedProgression
+    // and stores the boundaries used for badge placement + sync.
+    _reloadCapturedStrip();
+    // Map currentStepIdx → bar index within the playing section, then add
+    // that section's offset so selectIdx lands in the stacked strip.
     let barInSection = 0;
     if (curSection) {
       const steps = curSection.progression.steps;
@@ -13019,25 +13235,8 @@ document.getElementById('auto-edit').addEventListener('click', () => {
         barInSection += (steps[i].bars || 1);
       }
     }
-    if (mode === 'dense') {
-      const aLab = uniqueLabels[0], bLab = uniqueLabels[1];
-      state.composedProgression = [
-        ...sections[aLab].cells.map(c => ({ ...c })),
-        ...sections[bLab].cells.map(c => ({ ...c })),
-      ];
-      state._composeASectionLen = sections[aLab].cells.length;
-      state._composeIsSingleSection = false;
-      selectIdx = (currentLabel === aLab)
-        ? barInSection
-        : sections[aLab].cells.length + barInSection;
-    } else {
-      const lab = (mode === 'single') ? uniqueLabels[0] : currentLabel;
-      state._capturedSong.activeLabel = lab;
-      state.composedProgression = sections[lab].cells.map(c => ({ ...c }));
-      state._composeASectionLen = state.composedProgression.length;
-      state._composeIsSingleSection = true;
-      selectIdx = barInSection;
-    }
+    const bnd = (state._capturedSong.boundaries || []).find(b => b.label === currentLabel);
+    selectIdx = bnd ? bnd.start + barInSection : barInSection;
     if (selectIdx >= state.composedProgression.length) selectIdx = -1;
   }
 
@@ -14555,7 +14754,71 @@ function renderComposeInfo() {
   const fcId = state.focusedChord;
   const map = currentMap();
   const ch = fcId && map.chordDefs[fcId];
-  if (!ch) { el.innerHTML = ''; return; }
+  // AABA structure picker — reuses the play-mode picker's id/class so the
+  // existing #pi-song-picker click delegation opens _openSongStructMenu.
+  // Source: captured song's structureStr if loaded, else state.songStructure.
+  // For 'RANDOM' (the default), show literal AABA so the picker doesn't
+  // re-roll a different shape on every re-render while composing.
+  const cap = state._capturedSong;
+  const pickerStr = cap
+    ? cap.structureStr
+    : (state.songStructure && state.songStructure !== 'RANDOM'
+        ? state.songStructure
+        : 'AABA');
+  const _pickerStructDef = (typeof SONG_STRUCTURES !== 'undefined')
+    ? SONG_STRUCTURES.find(s => s.id === pickerStr) : null;
+  const _pickerIsSelfContained = !!(_pickerStructDef && _pickerStructDef.formType);
+  const pickerLabels = _pickerIsSelfContained ? [pickerStr] : pickerStr.split('');
+  const activeLabel = cap ? cap.activeLabel : (pickerLabels[0] || '');
+  const songPickerHtml = `
+    <span class="pi-meta-song" id="pi-song-picker" title="click to change song structure">
+      <span class="pi-meta-song-letters">
+        ${pickerLabels.map((lab, i) => {
+          const isActive = (lab === activeLabel) && (cap || i === 0);
+          return `<span class="ms-l${isActive ? ' now' : ''}">${lab}</span>`;
+        }).join('')}
+      </span>
+    </span>
+  `;
+  // Always render a minimal card (picker + key + MIDI) even when no chord
+  // is focused, so the user can pick a structure from the start.
+  if (!ch) {
+    const midiWBail = document.getElementById('midi-wrap');
+    if (midiWBail && el.contains(midiWBail)) document.body.appendChild(midiWBail);
+    const flatsBail = useFlatsFor(state.keyPc);
+    const keyNameBail = nameOf(state.keyPc, flatsBail);
+    const mobilePickerBail = (typeof _buildMobileStructSelect === 'function')
+      ? _buildMobileStructSelect(pickerLabels, activeLabel, cap)
+      : '';
+    el.innerHTML = `
+      <div class="pi-grid pi-grid-minimal">
+        <div class="pi-meta">
+          <span class="pi-meta-val pi-meta-key">${keyNameBail} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
+          <span class="pi-meta-spacer"></span>
+          ${songPickerHtml}
+          <span id="pi-midi-slot" class="pi-midi-slot"></span>
+        </div>
+      </div>
+      <div class="pi-mobile">
+        <span style="opacity:.55">no chords yet</span>
+        <span class="pi-spacer"></span>
+        ${mobilePickerBail}
+      </div>
+    `;
+    if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
+      const slotBail = document.getElementById('pi-midi-slot');
+      if (slotBail && midiWBail) slotBail.appendChild(midiWBail);
+    } else if (midiWBail) {
+      const songRowBail = document.querySelector('.song-block > div:last-child');
+      const piElBail = document.getElementById('player-info');
+      if (songRowBail && piElBail && songRowBail.contains(piElBail)) {
+        songRowBail.insertBefore(midiWBail, piElBail);
+      } else if (songRowBail) {
+        songRowBail.appendChild(midiWBail);
+      }
+    }
+    return;
+  }
   const flats = useFlatsFor(state.keyPc);
   const root  = (state.keyPc + ch.deg) % 12;
   const name  = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
@@ -14648,24 +14911,62 @@ function renderComposeInfo() {
       <div class="pi-meta">
         <span class="pi-meta-val pi-meta-key">${keyName} ${state.tonality === 'major' ? 'maj' : 'min'}</span>
         <span class="pi-meta-spacer"></span>
+        ${songPickerHtml}
         <span id="pi-midi-slot" class="pi-midi-slot"></span>
       </div>
     </div>
+    <div class="pi-mobile">
+      <span class="pi-prog">${typeLabel}</span>
+      ${detail ? `<span class="pi-div"></span><span>${detail}</span>` : ''}
+      <span class="pi-spacer"></span>
+      ${(typeof _buildMobileStructSelect === 'function') ? _buildMobileStructSelect(pickerLabels, activeLabel, cap) : ''}
+    </div>
   `;
-  // Reattach the MIDI wrap to its slot (matches play-mode behavior).
+  // Reattach the MIDI wrap. Desktop: into the .pi-grid meta slot.
+  // Mobile: as a sibling of #player-info inside .song-block's flex row,
+  // so it visually sits OUTSIDE the green now-playing bar but at the
+  // same height (matches the older cleaner aesthetic the user wants).
   if (window.matchMedia && window.matchMedia('(min-width: 720px)').matches) {
     const slot = document.getElementById('pi-midi-slot');
     if (slot && midiW) slot.appendChild(midiW);
-  } else if (midiW && document.body.contains(midiW) && !el.contains(midiW)) {
-    const headerHome = document.querySelector('.header') || document.body;
-    headerHome.appendChild(midiW);
+  } else if (midiW) {
+    const songRow = document.querySelector('.song-block > div:last-child');
+    const piEl = document.getElementById('player-info');
+    if (songRow && piEl && songRow.contains(piEl)) {
+      songRow.insertBefore(midiW, piEl);
+    } else if (songRow) {
+      songRow.appendChild(midiW);
+    }
   }
   // Update MIDI button visibility (the wrap carries an inline
   // style="display:none" from its original HTML; _updateMidiBtn
   // clears it when there's something to export). Without this, the
   // button stays hidden in compose mode after reattach.
   if (typeof _updateMidiBtn === 'function') _updateMidiBtn();
+  // Bind the picker toggle directly on every render. Uses click for desktop
+  // mouse + pointerup for touch (more reliable than synthesized click on
+  // some mobile webviews like the Claude app's WKWebView). One handler each,
+  // guarded by a tiny window-level cooldown so they don't double-fire.
+  // Direct-bind only for the mobile picker — desktop uses the existing
+  // document-level delegation on #pi-song-picker.
+  el.querySelectorAll('.pi-song-picker-mobile').forEach(picker => {
+    const handle = (ev) => {
+      const now = Date.now();
+      if (now - (window._pickerLastFire || 0) < 300) return;
+      window._pickerLastFire = now;
+      if (ev) {
+        ev.preventDefault && ev.preventDefault();
+        ev.stopPropagation && ev.stopPropagation();
+      }
+      if (_songStructMenuEl) _closeSongStructMenu();
+      else _openSongStructMenu(picker);
+    };
+    picker.addEventListener('click', handle);
+    picker.addEventListener('pointerup', handle);
+  });
   // Auto-fit the chord-name + roman to the (narrow) compose column.
+  // Two-pass shrink with a low floor so long names like "Bbm7b5" / "iiø/iii"
+  // stay inside the box instead of clipping out the right edge.
   requestAnimationFrame(() => {
     const block = el.querySelector('.pi-block-chord');
     if (!block) return;
@@ -14677,9 +14978,17 @@ function renderComposeInfo() {
     const fit = (e, base) => {
       if (!e) return;
       e.style.fontSize = base + 'px';
-      const w = e.scrollWidth;
+      let w = e.scrollWidth;
       if (w <= maxW) return;
-      e.style.fontSize = Math.max(0.5, maxW / w) * base + 'px';
+      let size = Math.max(0.3, maxW / w) * base;
+      e.style.fontSize = size + 'px';
+      // Second pass — text reflow at the new size sometimes leaves a
+      // few pixels of overflow. Trim once more if still too wide.
+      w = e.scrollWidth;
+      if (w > maxW) {
+        size = Math.max(0.3, (maxW / w) * size);
+        e.style.fontSize = size + 'px';
+      }
     };
     fit(nameEl, NAME_BASE);
     fit(romanEl, ROMAN_BASE);
@@ -15281,6 +15590,10 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       }
     };
     if (wasEmpty) {
+      // Scroll the .song-block (which carries the voicing-spec / AABA row
+      // on mobile via #player-info) to the top of viewport so the header
+      // chrome above it scrolls off and the strip is the prominent thing
+      // on screen along with its now-playing readout.
       requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
     } else if (seq.length === 9) {
       // Entering the 3rd pair-row — scroll the PAGE (not the strip's
@@ -15489,12 +15802,15 @@ function renderComposePad() {
     // The matching click is suppressed via _consumedPointer flag so the
     // chord doesn't double-trigger.
     let _consumedPointer = false;
+    // In play view (playing or paused) the keypad doesn't add chords —
+    // the visible strip belongs to the player, not the composer. Same
+    // logic for the Delete button: first press reverts to edit mode.
+    const _inPlayView = () => !!(player && (player.playing || player.paused));
     pad.addEventListener('pointerdown', (e) => {
       const btn = e.target.closest('button.compose-btn[data-chord]');
       if (!btn || !pad.contains(btn)) return;
-      // Only primary pointer (left mouse / first finger) — avoid right-
-      // click and multi-touch double-triggers.
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (_inPlayView()) return;
       _consumedPointer = true;
       composeAddChord(btn.dataset.chord, false);
     });
@@ -15503,17 +15819,23 @@ function renderComposePad() {
       if (!btn || !pad.contains(btn)) return;
       e.stopPropagation();
       if (btn.dataset.chord) {
-        // Already fired on pointerdown — swallow the duplicate click.
+        if (_inPlayView()) return;
         if (_consumedPointer) { _consumedPointer = false; return; }
         composeAddChord(btn.dataset.chord, false);
         return;
       }
       const a = btn.dataset.act;
-      if      (a === 'del')      composeDeleteLast();
+      if (a === 'del') {
+        if (_inPlayView()) {
+          const editBtn = document.getElementById('auto-edit');
+          if (editBtn) editBtn.click();
+          return;
+        }
+        composeDeleteLast();
+      }
       else if (a === 'undo')     composeUndo();
       else if (a === 'clear')    composeClear();
       else if (a === 'play')     composePlay();
-      // ▲ raises the voicing (higher pitch / higher on the neck), ▼ lowers it
       else if (a === 'inv-up')   composeCycleLastInversion(1);
       else if (a === 'inv-down') composeCycleLastInversion(-1);
     });
@@ -15589,11 +15911,10 @@ function renderComposeStrip() {
   const isMobile = window.matchMedia && window.matchMedia('(max-width: 800px)').matches;
   let MAX_CELLS;
   if (isMobile) {
-    // 4-per-row scrollable layout: grow in groups of 4
-    if (seq.length <= 4)       MAX_CELLS = 4;
-    else if (seq.length <= 8)  MAX_CELLS = 8;
-    else if (seq.length <= 12) MAX_CELLS = 12;
-    else                       MAX_CELLS = 16;
+    // 4-per-row scrollable layout: grow in groups of 4 with NO cap so
+    // stacked captures (AABAC etc.) can show every section's cells. The
+    // page scrolls naturally past the strip when it gets tall.
+    MAX_CELLS = Math.max(4, Math.ceil(seq.length / 4) * 4);
   } else {
     MAX_CELLS = seq.length > 8 ? 16 : 8;
   }
@@ -15604,15 +15925,23 @@ function renderComposeStrip() {
   el.classList.toggle('compose-interleaved', isMobile);
   tabsEl.hidden = isMobile ? true : false;
 
-  // Small A/B badge on the first cell of each section, shown only when both
-  // sections actually have content (i.e. user has typed past the divider, or
-  // a dual-section capture is loaded). Single-section captures get no badge.
-  const showSectionBadges = !state._composeIsSingleSection && seq.length > dividerAt;
+  // Section badges — render a small A/B/C/... chip at the first cell of
+  // each section. Two sources:
+  //   1) Captured AI song (cap.boundaries) → multi-section stacked strip.
+  //   2) Hand-composed strip past cell 8 → legacy A/B at the dividerAt.
+  const cap = state._capturedSong;
+  const badgeByIdx = {};
+  if (cap && cap.boundaries && cap.boundaries.length && cap.uniqueLabels.length > 1) {
+    for (const b of cap.boundaries) badgeByIdx[b.start] = b.label;
+  } else if (!state._composeIsSingleSection && seq.length > dividerAt) {
+    badgeByIdx[0] = 'A';
+    badgeByIdx[dividerAt] = 'B';
+  }
   const sectionBadgeFor = (i) => {
-    if (!showSectionBadges) return '';
-    if (i === 0)          return '<span class="rb-section-tag rb-section-a">A</span>';
-    if (i === dividerAt)  return '<span class="rb-section-tag rb-section-b">B</span>';
-    return '';
+    const lab = badgeByIdx[i];
+    if (!lab) return '';
+    const cls = `rb-section-tag rb-section-${lab.toLowerCase()}`;
+    return `<span class="${cls}">${lab}</span>`;
   };
   const renderCell = (cell, i, isTab) => {
     const cls = ['rb-cell'];
@@ -15620,8 +15949,13 @@ function renderComposeStrip() {
     const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
     if (i === focIdx) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
-    if (i === dividerAt && !state._composeIsSingleSection) cls.push('section-divider');  // start of B
-    const sectionTag = isTab ? '' : sectionBadgeFor(i);
+    // Section divider: at any captured boundary or at the legacy dividerAt
+    // (cell 8) for hand-composed strips with content past it.
+    if (badgeByIdx[i] && i > 0) cls.push('section-divider');
+    else if (i === dividerAt && !state._composeIsSingleSection && !cap) cls.push('section-divider');
+    // Badge ONLY on the tab/sheet-music row — it's the more prominent
+    // visual block and rendering on both rows duplicates the chip.
+    const sectionTag = isTab ? sectionBadgeFor(i) : '';
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
@@ -15649,7 +15983,7 @@ function renderComposeStrip() {
           ? {W: 100, H: 128, minimal: true, showClef}
           : {W: 130, H: 148, minimal: false, showClef};
         const contSvg = (state.instrument === 'piano') ? renderContinuationStaff(tSizing) : '';
-        return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${contSvg}</div>`;
+        return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${contSvg}</div>`;
       }
       return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
         ${sectionTag}
@@ -15661,7 +15995,7 @@ function renderComposeStrip() {
     if (!ch) return `<div class="${cls.join(' ')}"></div>`;
     const root = chordRoot(ch);
     if (isTab) {
-      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}></div>`;
+      if (!cell.shape) return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}</div>`;
       // Clef only at the start of each visual row: mobile = 4 per row, desktop = 8 per row
       // Clef only on the very first compose cell — once you're past it, the
       // staff continues unmarked (the eye carries the clef forward).
@@ -15695,7 +16029,7 @@ function renderComposeStrip() {
       }
       // Just a pill badge with the count — clean, no triangle silhouette.
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${svg}${triHtml}${barHtml}</div>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${svg}${triHtml}${barHtml}</div>`;
     }
     const name = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
@@ -16253,12 +16587,11 @@ document.addEventListener('keydown', e => {
   }
 
   // Playback-mode shortcuts (active when the player owns the strip).
-  // Enter  → click the big ⏹ stop button (2-stage: rewind, then clear).
-  // Escape → click ✏ edit (exits playback, focuses the current chord
-  //          in compose mode); a second Escape afterwards still falls
-  //          through to the compose-mode "deselect → clear" chain.
-  // ←/→    → step the playback head one bar back / forward through
-  //          the strip while paused (crosses pages automatically).
+  // Enter     → click the big ⏹ stop button (2-stage: rewind, then clear).
+  // Escape    → click ✏ edit (exits playback, focuses current chord).
+  // Backspace → same as Escape: first press reverts to edit mode instead
+  //             of nuking composition cells (which the user can't see).
+  // ←/→       → step the playback head one bar back / forward while paused.
   if (player.playing || player.paused) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -16266,7 +16599,7 @@ document.addEventListener('keydown', e => {
       if (stopBtn) stopBtn.click();
       return;
     }
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'Backspace') {
       e.preventDefault();
       const editBtn = document.getElementById('auto-edit');
       if (editBtn) editBtn.click();
@@ -16370,10 +16703,11 @@ document.addEventListener('keydown', e => {
   if (!chordId || !currentMap().chordDefs[chordId]) return;
   e.preventDefault();
 
-  // Compose mode (AI not playing): append OR cycle last inversion with Shift
-  if (!player.playing) {
+  // Compose mode (AI not playing AND not paused): append / cycle inversion.
+  // While paused the strip belongs to the player, so chord input falls
+  // through to the audition path below instead of mutating the comp.
+  if (!player.playing && !player.paused) {
     composeAddChord(chordId, e.shiftKey, _shiftSide === 'left' ? -1 : 1);
-    // Flash AFTER composeAddChord, which re-renders the pad via renderAll
     const padBtn = document.querySelector(`.compose-pad .compose-btn[data-n="${n}"]`);
     if (padBtn) {
       padBtn.classList.add('flash');
@@ -16865,6 +17199,47 @@ function _midiCollectBassSong() {
   return events;
 }
 
+// NOTE: do NOT alias these onto window — in non-strict mode the top-level
+// `function _openSongStructMenu` already IS window._openSongStructMenu, so
+// `window._openSongStructMenu = (...a) => _openSongStructMenu(...a)` would
+// reassign the global to a self-calling arrow → infinite recursion on
+// click. The functions are reachable directly; no aliasing needed.
+
+// Mobile structure picker: native <select> overlaid on the AABA summary.
+// OS-level picker UI — guaranteed reliable across every mobile browser.
+function _buildMobileStructSelect(labels, activeLabel, cap) {
+  const current = (cap && cap.structureStr) || state.songStructure || 'AABA';
+  const opts = [];
+  opts.push(`<option value="RANDOM"${current === 'RANDOM' ? ' selected' : ''}>↻ RANDOM</option>`);
+  for (const s of SONG_STRUCTURES) {
+    const lab = s.formType ? s.id.replace('_', ' ') : s.id;
+    const sel = s.id === current ? ' selected' : '';
+    opts.push(`<option value="${s.id}"${sel}>${lab}${s.rare ? ' (rare)' : ''}</option>`);
+  }
+  const summary = labels.join(' ') || 'AABA';
+  return `<span class="pi-song-struct-mobile">
+    <span class="pi-song-struct-summary" aria-hidden="true">${summary}</span>
+    <select class="pi-song-struct-select" aria-label="Song structure" onchange="window._onMobileStructPick(this)">${opts.join('')}</select>
+  </span>`;
+}
+
+window._onMobileStructPick = function (sel) {
+  const id = sel && sel.value;
+  if (!id) return;
+  state.songStructure = id;
+  if (typeof player !== 'undefined' && player) {
+    player.song = player._generateSong();
+    player.songIdx = 0;
+    player.sectionIter = 0;
+    player.currentStepIdx = 0;
+    if (typeof player._applySectionKey === 'function') player._applySectionKey();
+    if (typeof renderAll === 'function') renderAll();
+    if (player.playing && typeof player._updateVisuals === 'function') {
+      player._updateVisuals();
+    }
+  }
+};
+
 // Resolve state.songStructure → an actual letter sequence string.
 // The literal value 'RANDOM' rolls a fresh non-rare structure each
 // time it's called (so every new song gen gets a different shape),
@@ -16922,11 +17297,26 @@ function _openSongStructMenu(anchor) {
   `;
   }).join('');
   menu.innerHTML = randomItem + presetItems;
-  // Position below the anchor element.
   document.body.appendChild(menu);
-  const rect = anchor.getBoundingClientRect();
-  menu.style.left = `${rect.left}px`;
-  menu.style.top  = `${rect.bottom + 4 + window.scrollY}px`;
+  const vpW = window.innerWidth || document.documentElement.clientWidth;
+  // Mobile (< 720px): center the menu modal-style for maximum reliability
+  // (no anchor positioning quirks across mobile webviews).
+  if (vpW < 720) {
+    menu.style.left = '50%';
+    menu.style.top = '50%';
+    menu.style.transform = 'translate(-50%, -50%)';
+  } else {
+    const rect = anchor.getBoundingClientRect();
+    const menuW = menu.offsetWidth || 240;
+    const menuH = menu.offsetHeight || 320;
+    const vpH = window.innerHeight || document.documentElement.clientHeight;
+    let left = rect.left;
+    if (left + menuW > vpW - 8) left = Math.max(8, vpW - menuW - 8);
+    let top = rect.bottom + 4;
+    if (top + menuH > vpH - 8) top = Math.max(8, rect.top - menuH - 4);
+    menu.style.left = `${Math.max(8, left)}px`;
+    menu.style.top  = `${Math.max(8, top)}px`;
+  }
   // Click an item → set structure + regenerate song.
   menu.addEventListener('click', (e) => {
     const item = e.target.closest('[data-struct]');
@@ -16951,8 +17341,11 @@ function _openSongStructMenu(anchor) {
   _songStructMenuEl = menu;
 }
 // Delegated click listener — survives #player-info innerHTML rewrites.
+// Handles BOTH the desktop #pi-song-picker and the play-mode mobile
+// .pi-song-picker-mobile (compose-mode mobile uses a native <select>
+// with onchange, so it doesn't go through this path at all).
 document.addEventListener('click', (e) => {
-  const songEl = e.target.closest('#pi-song-picker');
+  const songEl = e.target.closest('#pi-song-picker, .pi-song-picker-mobile');
   if (songEl) {
     e.stopPropagation();
     if (_songStructMenuEl) _closeSongStructMenu();
@@ -17028,6 +17421,22 @@ renderComposeStrip = function() {
 // Keypad toggle (desktop only — mobile always shows it)
 document.getElementById('keypad-toggle').addEventListener('click', () => {
   document.body.classList.toggle('keypad-open');
+});
+
+// Normalise body classes on every page-visible event (fires on fresh load
+// AND on bfcache restore from iOS Safari / Android Chrome's back-forward
+// cache). Without this, mobile users who close the tab with map-overlay-open
+// or player-active set would come back to a hidden keypad and no way to
+// start a progression. pageshow runs in both cold-load and bfcache cases —
+// DOMContentLoaded would skip the bfcache restore.
+window.addEventListener('pageshow', () => {
+  document.body.classList.remove('map-overlay-open');
+  document.body.classList.remove('player-active');
+  if (!document.body.classList.contains('keypad-open')) {
+    document.body.classList.add('keypad-open');
+  }
+  const mapToggle = document.getElementById('map-mobile-toggle');
+  if (mapToggle) mapToggle.textContent = '🗺 Map';
 });
 
 // Register the shared service worker so this app installs / works offline
