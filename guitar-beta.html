@@ -15445,6 +15445,14 @@ function composeUndo() {
   renderAll();
 }
 
+// Maximum chords a hand-composed progression can hold. Mobile uses a
+// 4-per-row scrollable grid that handles arbitrary length, so we allow
+// 40 (5 sections of 8 → A/B/C/D/E). Desktop is a flex row that gets
+// too narrow past 16, so the legacy cap stays there.
+function _composeMax() {
+  return (window.matchMedia && window.matchMedia('(max-width: 800px)').matches) ? 40 : 16;
+}
+
 // Shared compose actions — used by both the keyboard handler and the touch keypad.
 function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   const ch = currentMap().chordDefs[chordId];
@@ -15532,7 +15540,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     newIdx = (cur._candIdx + direction + cands.length) % cands.length;
     seq[seq.length - 1] = writeCell(seq.length - 1, newIdx);
   } else {
-    if (seq.length >= 16) return;
+    if (seq.length >= _composeMax()) return;
     const last = seq.length ? seq[seq.length - 1] : null;
     // Repeating the SAME chord (no Shift): keep the exact same voicing.
     if (last && last.chord === chordId) {
@@ -15973,7 +15981,7 @@ function renderComposeStrip() {
     const dragAttr = (!isMobile && cell && i < seq.length) ? ' draggable="true"' : '';
     // Empty slot — clickable so the user can extend the previous chord
     if (!cell) {
-      const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < 16) ? ` data-compose-empty="${i}"` : '';
+      const emptyAttr = (i >= seq.length && seq.length > 0 && seq.length < _composeMax()) ? ` data-compose-empty="${i}"` : '';
       return `<div class="${cls.join(' ')}"${emptyAttr}>${sectionTag}</div>`;
     }
     // Silent rest cell — slot exists but plays nothing. Rendered as a
@@ -16231,7 +16239,7 @@ document.addEventListener('keydown', (ev) => {
       // rests, then place the duplicate at index `to`. This lets the
       // user drag e.g. from bar 2 to bar 4 and get a rest at bar 3.
       const to = parseInt(cell.dataset.composeEmpty, 10);
-      if (to >= seq.length && to < 16) {
+      if (to >= seq.length && to < _composeMax()) {
         snapshot();
         while (seq.length < to) seq.push({ _silent: true });
         seq.push(copy);
@@ -16461,7 +16469,7 @@ document.addEventListener('click', (ev) => {
   const emptyCell = ev.target.closest('[data-compose-empty]');
   if (emptyCell) {
     const seq = state.composedProgression;
-    if (!seq.length || seq.length >= 16) return;
+    if (!seq.length || seq.length >= _composeMax()) return;
     const targetIdx = parseInt(emptyCell.dataset.composeEmpty, 10);
     if (!Number.isFinite(targetIdx) || targetIdx < seq.length) return;
     _composeSaveUndo();
@@ -16472,7 +16480,7 @@ document.addEventListener('click', (ev) => {
       inversion: prev.inversion, stringSet: prev.stringSet, _tie: true,
     };
     // Fill all slots from current end up to and including the clicked slot
-    while (seq.length <= targetIdx && seq.length < 16) {
+    while (seq.length <= targetIdx && seq.length < _composeMax()) {
       seq.push(JSON.parse(JSON.stringify(tieEntry)));
     }
     renderAll();
