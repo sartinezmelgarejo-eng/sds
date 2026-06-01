@@ -4972,23 +4972,24 @@ const TRIAD_SUFFIX_OF_7 = {
 };
 
 // If the voicing omits the 7th tone of a 7-chord, return the triad-only
-// display name (e.g. Dm7 → Dm). Returns null when nothing should change:
-// no shape, the chord has no 7th to drop, the voicing actually includes
-// it, or the quality isn't in the simplification map.
-function chordNameForVoicing(ch, shape, flats) {
-  if (!ch || !shape) return null;
-  const q = QUALITIES[ch.quality];
+// display name (e.g. Dm7 → Dm). Takes quality + root directly so callers
+// that work with qualityOverrides (Jobim 7#11, jazz blues 7alt) or
+// per-cell key cycles can pass their effective values. Returns null when
+// nothing should change: no shape, quality has no 7th, voicing actually
+// includes the 7th, or quality isn't in the simplification map.
+function chordNameForVoicing(quality, root, shape, flats) {
+  if (!shape) return null;
+  const q = QUALITIES[quality];
   if (!q) return null;
   // 7th-family intervals: 9 = bb7 (dim7), 10 = b7, 11 = maj7.
   const seventhInts = q.ints.filter(i => i === 9 || i === 10 || i === 11);
   if (!seventhInts.length) return null;
-  const root = chordRoot(ch);
   const pcs = new Set();
   for (let s = 0; s < shape.length; s++) {
     if (shape[s] >= 0) pcs.add((STRING_OPEN_MIDI[s] + shape[s]) % 12);
   }
   if (seventhInts.some(i => pcs.has((root + i) % 12))) return null;
-  const suffix = TRIAD_SUFFIX_OF_7[ch.quality];
+  const suffix = TRIAD_SUFFIX_OF_7[quality];
   if (suffix === undefined) return null;
   return nameOf(root, flats) + suffix;
 }
@@ -6794,12 +6795,13 @@ function _renderHoverPopups(chordId, allowedIds) {
   // Shared by the secondary-dominant approach and its chained ii.
   const buildPopupCard = (appId, chDef, x, y) => {
     const root = (state.keyPc + chDef.deg) % 12;
-    const chordName = nameOf(root, flats) + QUALITIES[chDef.quality].sfx;
     let shape = null;
     if (typeof bestStartingVoicing === 'function') {
       const v = bestStartingVoicing(chDef.quality, root);
       if (v) shape = v.shape;
     }
+    const chordName = chordNameForVoicing(chDef.quality, root, shape, flats)
+      || (nameOf(root, flats) + QUALITIES[chDef.quality].sfx);
     const miniSvg = shape && typeof renderMini === 'function'
       ? renderMini(shape, root, chDef.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
       : '';
@@ -7153,12 +7155,13 @@ function _redrawPersistentPopup() {
   const { x, y } = _persistentPopupPos
     || _getPopupSlot(targetNode, _persistentPopupNode, 0, POPUP_W, POPUP_H, GAP);
   const root = (state.keyPc + ch.deg) % 12;
-  const chordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
   let shape = null;
   if (typeof bestStartingVoicing === 'function') {
     const v = bestStartingVoicing(ch.quality, root);
     if (v) shape = v.shape;
   }
+  const chordName = chordNameForVoicing(ch.quality, root, shape, flats)
+    || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
   const miniSvg = shape && typeof renderMini === 'function'
     ? renderMini(shape, root, ch.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
     : '';
@@ -7628,7 +7631,6 @@ function _renderPopupCards(curId, nxtId, isLastBar) {
     const stepNow = (typeof player !== 'undefined' && player && isPlaying)
       ? player._currentStep() : null;
     const eq = effectiveQuality(stepNow, ch);
-    const chordName = nameOf(root, flats) + QUALITIES[eq].sfx;
     // Prefer the live played shape when this is the current sounding
     // chord (so the popup shows the EXACT inversion you're hearing).
     // Otherwise compute a best-starting voicing for the chord.
@@ -7639,6 +7641,8 @@ function _renderPopupCards(curId, nxtId, isLastBar) {
       const v = bestStartingVoicing(eq, root);
       if (v) shape = v.shape;
     }
+    const chordName = chordNameForVoicing(eq, root, shape, flats)
+      || (nameOf(root, flats) + QUALITIES[eq].sfx);
     const miniSvg = shape && typeof renderMini === 'function'
       ? renderMini(shape, root, eq, flats, { W: POPUP_W - 8, H: POPUP_H - 38, r: 6.5 })
       : '';
@@ -7706,7 +7710,8 @@ function renderChordMap() {
     const ch = map.chordDefs[node.chord];
     const root = chordRoot(ch);
     const v = voicings[node.chord];
-    const chordName = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+    const chordName = chordNameForVoicing(ch.quality, root, v?.shape, flats)
+      || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
     const isFocus = node.chord === state.focusedChord;
     const isHub = node.hub;
     const card = document.createElement('div');
@@ -7908,7 +7913,8 @@ function renderAlternatives() {
   const fc = focusedChord();
   const root = chordRoot(fc);
   const flats = useFlatsFor(root);
-  const chordName = nameOf(root, flats) + QUALITIES[fc.quality].sfx;
+  const chordName = chordNameForVoicing(fc.quality, root, state.userVoicing?.shape, flats)
+    || (nameOf(root, flats) + QUALITIES[fc.quality].sfx);
   altName.textContent = `${fc.roman} · ${chordName}`;
 
   // Master catalog — drop-2 → shells → triads → guides → sus, deduped.
@@ -11774,8 +11780,18 @@ class Player {
       : null;
     const curEffQ = effectiveQuality(curStep, curCh);
     const nxtEffQ = effectiveQuality(nxtStep, nxtCh);
-    const curName = curCh ? (nameOf((state.keyPc + curCh.deg) % 12, flats) + QUALITIES[curEffQ].sfx) : '';
-    const nxtName = nxtCh ? (nameOf((state.keyPc + nxtCh.deg) % 12, flats) + QUALITIES[nxtEffQ].sfx) : '';
+    const curRoot = curCh ? (state.keyPc + curCh.deg) % 12 : 0;
+    const nxtRoot = nxtCh ? (state.keyPc + nxtCh.deg) % 12 : 0;
+    // Live shape for current chord — drops the 7 from the name when the
+    // sounding voicing is a triad. Next chord has no shape yet, so its
+    // name stays canonical.
+    const curLiveShape = (state.playerVoicing && state.playerVoicing.chord === curId)
+      ? state.playerVoicing.shape : null;
+    const curName = curCh
+      ? (chordNameForVoicing(curEffQ, curRoot, curLiveShape, flats)
+         || (nameOf(curRoot, flats) + QUALITIES[curEffQ].sfx))
+      : '';
+    const nxtName = nxtCh ? (nameOf(nxtRoot, flats) + QUALITIES[nxtEffQ].sfx) : '';
     const barsLabel = this.barsRemaining === 1 ? '1 bar' : `${this.barsRemaining} bars`;
 
     const section = this._currentSection();
@@ -12397,7 +12413,8 @@ class Player {
       // from _buildPagePlan via the cell. Falls back to canonical quality.
       const cellEffQ = (cell.qualityOverride && QUALITIES[cell.qualityOverride])
         ? cell.qualityOverride : ch.quality;
-      const name = nameOf(root, cellFlats) + QUALITIES[cellEffQ].sfx;
+      const name = chordNameForVoicing(cellEffQ, root, cellVoicings[i], cellFlats)
+        || (nameOf(root, cellFlats) + QUALITIES[cellEffQ].sfx);
       const isCurrent = i === currentIdx;
       const isImminent = i === imminentIdx;
       const cls = `rb-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
@@ -12447,7 +12464,8 @@ class Player {
       const showClef = (i === 0 && this.totalBars < 3);
       const tabEffQ = (cell.qualityOverride && QUALITIES[cell.qualityOverride])
         ? cell.qualityOverride : ch.quality;
-      const cellName = nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[tabEffQ].sfx;
+      const cellName = chordNameForVoicing(tabEffQ, root, shape, cellFlats)
+        || (nameOf((cellKeyPc + ch.deg) % 12, cellFlats) + QUALITIES[tabEffQ].sfx);
       // Mobile playback inherits the same minimal sizing compose uses, so the
       // chord name is the same on-screen size whether you're composing or the
       // AI is playing.
@@ -14609,7 +14627,13 @@ function lp_syncControls() {
     const ch = chordId ? map.chordDefs[chordId] : null;
     if (ch) {
       const root = (state.keyPc + ch.deg) % 12;
-      infoName.textContent = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
+      // Match the live played voicing when available so the name drops the
+      // 7 if the sounding shape is just the triad.
+      const liveShape = (state.playerVoicing && state.playerVoicing.chord === chordId)
+        ? state.playerVoicing.shape
+        : state.userVoicing?.shape;
+      infoName.textContent = chordNameForVoicing(ch.quality, root, liveShape, flats)
+        || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
       const TLBL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
       const typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
       const roman = ch.roman || '';
@@ -14893,10 +14917,13 @@ function renderComposeInfo() {
   }
   const flats = useFlatsFor(state.keyPc);
   const root  = (state.keyPc + ch.deg) % 12;
-  const name  = nameOf(root, flats) + QUALITIES[ch.quality].sfx;
   const roman = ch.roman || '';
   const tag   = ch.tag || '';
   const fs    = focusedShape();
+  // Use the focused voicing's shape to drop the 7 when it's not actually
+  // being played in this voicing.
+  const name  = chordNameForVoicing(ch.quality, root, fs?.shape, flats)
+    || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
   const typeRaw = fs?.type || state.userVoicing?.type || (window.voicingPref && voicingPref !== 'all' ? voicingPref : 'drop2');
   const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
   const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
@@ -16130,7 +16157,7 @@ function renderComposeStrip() {
       const showClef = (i === 0);
       // When the voicing skips the 7th, drop the "7"/"m7"/"maj7" suffix so
       // the name matches what's sounding (Dm7 voiced D-F-A → "Dm").
-      const cellChordName = chordNameForVoicing(ch, cell.shape, flats)
+      const cellChordName = chordNameForVoicing(ch.quality, root, cell.shape, flats)
         || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
       // Piano mode embeds chord name in the staff SVG (no separate name row).
       // Guitar mode shows the name in the .rb-cell row above the tab — so we
@@ -16166,7 +16193,7 @@ function renderComposeStrip() {
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
       return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${svg}${triHtml}${barHtml}</div>`;
     }
-    const name = chordNameForVoicing(ch, cell.shape, flats)
+    const name = chordNameForVoicing(ch.quality, root, cell.shape, flats)
       || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
     const selCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
     return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>
