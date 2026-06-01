@@ -15595,15 +15595,16 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       // chrome above it scrolls off and the strip is the prominent thing
       // on screen along with its now-playing readout.
       requestAnimationFrame(() => requestAnimationFrame(() => scrollIntoTarget('.song-block')));
-    } else if (seq.length === 9) {
-      // Entering the 3rd pair-row — scroll the PAGE (not the strip's
-      // internal scroll) so the latest tab cell's bottom sits just above
-      // the keypad. Use window.scrollBy (delta from current viewport
-      // position) — bypasses scrollIntoView's ancestor cascade that was
-      // getting absorbed by the strip's own overflow scroll.
+    } else if (seq.length >= 9 && (seq.length - 1) % 4 === 0) {
+      // Entering any new pair-row from the 3rd onward (chord 9, 13, 17, …)
+      // — scroll the PAGE (not the strip's internal scroll) so the latest
+      // tab cell's bottom sits just above the keypad. Use window.scrollBy
+      // (delta from current viewport position) — bypasses scrollIntoView's
+      // ancestor cascade that was getting absorbed by the strip's own
+      // overflow scroll.
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const tab = document.querySelector('.rb-tab-cell.current')
-                  || document.querySelector('.rb-tab-cell[data-compose-idx="8"]');
+                  || document.querySelector(`.rb-tab-cell[data-compose-idx="${seq.length - 1}"]`);
         if (!tab) return;
         const rect = tab.getBoundingClientRect();
         const KEYPAD = 290;
