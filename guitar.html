@@ -4952,46 +4952,53 @@ function intervalColor(label) {
 function noteAt(s, f) { return (STRING_OPEN_MIDI[s] + f) % 12; }
 function nameOf(pc, useFlats) { return (useFlats ? FLAT_NAMES : SHARP_NAMES)[pc]; }
 
-// Display suffix to use for the underlying triad of each 7-chord quality.
-// Looked up by chordNameForVoicing when the played voicing omits the 7th.
-// Qualities not in this map are never simplified (e.g. 6, m6, sus — no 7th
-// to drop). The roman numeral and harmonic-function tag don't change.
-const TRIAD_SUFFIX_OF_7 = {
-  'maj7':  '',       // major triad
-  '7':     '',       // dominant → major triad once b7 drops
-  'm7':    'm',
-  'm7b5':  '°',
-  'dim7':  '°',
-  'mMaj7': 'm',
-  '7sus4': 'sus4',
-  '7#11':  '',
-  '9sus4': 'sus4',
-  '7alt':  '',
-  'm9':    'm',
-  'maj9':  '',
+// Ordered degradation rules per quality. Rules are checked top-down; the
+// first one whose `missingInts` are ALL absent from the voicing wins, and
+// its `suffix` replaces the canonical one. Roman / tag don't change.
+//
+// Reading guide:
+//   - The 7th-family interval (10/11/9) goes FIRST so the chord falls all
+//     the way to its triad when the 7 isn't played.
+//   - Extensions (9 = 2, #11 = 6, alt b9 = 1) go AFTER, so a voicing that
+//     keeps the 7 but drops only the extension downgrades one notch
+//     (Cm9 played as C-Eb-G-Bb → "Cm7", not "Cm").
+// Qualities without a 7th (6, m6, sus2, sus4) aren't here — never degraded.
+const DEGRADE_RULES_BY_QUALITY = {
+  'maj7':  [{ missingInts: [11], suffix: ''     }],
+  '7':     [{ missingInts: [10], suffix: ''     }],
+  'm7':    [{ missingInts: [10], suffix: 'm'    }],
+  'm7b5':  [{ missingInts: [10], suffix: '°'    }],
+  'dim7':  [{ missingInts: [9],  suffix: '°'    }],
+  'mMaj7': [{ missingInts: [11], suffix: 'm'    }],
+  '7sus4': [{ missingInts: [10], suffix: 'sus4' }],
+  '7#11':  [{ missingInts: [10], suffix: ''     }, { missingInts: [6], suffix: '7'    }],
+  '9sus4': [{ missingInts: [10], suffix: 'sus4' }, { missingInts: [2], suffix: '7sus4'}],
+  '7alt':  [{ missingInts: [10], suffix: ''     }, { missingInts: [1, 6], suffix: '7' }],
+  'm9':    [{ missingInts: [10], suffix: 'm'    }, { missingInts: [2], suffix: 'm7'   }],
+  'maj9':  [{ missingInts: [11], suffix: ''     }, { missingInts: [2], suffix: 'maj7' }],
 };
 
-// If the voicing omits the 7th tone of a 7-chord, return the triad-only
-// display name (e.g. Dm7 → Dm). Takes quality + root directly so callers
-// that work with qualityOverrides (Jobim 7#11, jazz blues 7alt) or
-// per-cell key cycles can pass their effective values. Returns null when
-// nothing should change: no shape, quality has no 7th, voicing actually
-// includes the 7th, or quality isn't in the simplification map.
+// Return a degraded display name when the voicing skips the tones that
+// define the canonical quality (Dm7 voiced D-F-A → "Dm"; Cm9 voiced
+// C-Eb-G-Bb → "Cm7"). Takes quality + root directly so callers that work
+// with qualityOverrides (Jobim 7#11, jazz blues 7alt) or per-cell key
+// cycles can pass their effective values. Returns null when nothing
+// should change (no shape, voicing actually includes the chord tone,
+// quality not in the rules table).
 function chordNameForVoicing(quality, root, shape, flats) {
   if (!shape) return null;
-  const q = QUALITIES[quality];
-  if (!q) return null;
-  // 7th-family intervals: 9 = bb7 (dim7), 10 = b7, 11 = maj7.
-  const seventhInts = q.ints.filter(i => i === 9 || i === 10 || i === 11);
-  if (!seventhInts.length) return null;
+  const rules = DEGRADE_RULES_BY_QUALITY[quality];
+  if (!rules) return null;
   const pcs = new Set();
   for (let s = 0; s < shape.length; s++) {
     if (shape[s] >= 0) pcs.add((STRING_OPEN_MIDI[s] + shape[s]) % 12);
   }
-  if (seventhInts.some(i => pcs.has((root + i) % 12))) return null;
-  const suffix = TRIAD_SUFFIX_OF_7[quality];
-  if (suffix === undefined) return null;
-  return nameOf(root, flats) + suffix;
+  for (const rule of rules) {
+    if (rule.missingInts.every(i => !pcs.has((root + i) % 12))) {
+      return nameOf(root, flats) + rule.suffix;
+    }
+  }
+  return null;
 }
 function useFlatsFor(pc) { return ROOTS[pc].prefer === 'flat'; }
 
