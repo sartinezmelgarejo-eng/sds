@@ -2097,13 +2097,6 @@
   .rb-section-tag.rb-section-c { color: #7a3618; background: none; }
   .rb-section-tag.rb-section-d { color: #524076; background: none; }
   .rb-section-tag.rb-section-e { color: #2a6040; background: none; }
-  /* Piano/sheet mode: the embedded chord name in the staff SVG occupies
-     the top-left of the cell, so anchor the section letter to the
-     top-RIGHT corner instead to avoid colliding with it. */
-  body.instrument-piano .rb-section-tag {
-    left: auto;
-    right: 5px;
-  }
   /* Section-toggle chip shown above the compose strip in toggle-mode AI
      captures — single chip naming the section being edited, tap to cycle
      to the next one. Warm-gold palette matches the existing strip trim. */
@@ -6253,7 +6246,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     // compose. romanFs matches rb-roman's 11 px.
     const nameFs = sizing?.minimal ? 14 : 20;
     const romanFs = sizing?.minimal ? 10 : 12;
-    const tx = showClef ? clefW + 4 : 4;
+    // When the cell is the start of a new section, the HTML .rb-section-tag
+    // chip sits at the cell's top-left (~3-17px in cell coords). Push the
+    // chord name to the right so they don't overlap. Clef cells already
+    // start the name at clefW+4 (past the chip), so no shift needed there.
+    const sectionShift = (sizing?.sectionLabel && !showClef) ? (sizing?.minimal ? 12 : 16) : 0;
+    const tx = showClef ? clefW + 4 : 4 + sectionShift;
     const ty = labelH * 0.85;
     const romanColor = TAG_COLOR[sizing?.tag] || '#5a5a64';
     const romanTspan = romanLabel
@@ -16093,9 +16091,13 @@ function renderComposeStrip() {
       // Piano mode embeds chord name in the staff SVG (no separate name row).
       // Guitar mode shows the name in the .rb-cell row above the tab — so we
       // SKIP passing chordName to renderMini to avoid a double-display.
+      // sectionLabel — when set, renderChordStaff shifts the embedded chord
+      // name a few pixels to the right so the .rb-section-tag chip (which
+      // sits at the cell's top-left in piano mode) doesn't overlap it.
+      const sectionLabel = badgeByIdx[i] || null;
       const sizingPiano = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []}
-        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []};
+        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel}
+        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel};
       const sizingGuitar = isMobile
         ? {W: 100, H: 128, r: 8, minimal: true}
         : {W: 130, H: 148, r: 11, bwNotes: true};
