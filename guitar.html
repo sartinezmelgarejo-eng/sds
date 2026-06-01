@@ -15935,8 +15935,14 @@ function renderComposeStrip() {
   if (cap && cap.boundaries && cap.boundaries.length && cap.uniqueLabels.length > 1) {
     for (const b of cap.boundaries) badgeByIdx[b.start] = b.label;
   } else if (!state._composeIsSingleSection && seq.length > dividerAt) {
-    badgeByIdx[0] = 'A';
-    badgeByIdx[dividerAt] = 'B';
+    // Hand-composed: sections of `dividerAt` chords each (default 8).
+    // Tag A/B/C/D/E at 0, 8, 16, 24, 32 as the user fills past each.
+    // CSS classes rb-section-{a..e} exist for these five.
+    const labels = ['A','B','C','D','E'];
+    for (let s = 0; s < labels.length; s++) {
+      const start = s * dividerAt;
+      if (start === 0 || seq.length > start) badgeByIdx[start] = labels[s];
+    }
   }
   const sectionBadgeFor = (i) => {
     const lab = badgeByIdx[i];
