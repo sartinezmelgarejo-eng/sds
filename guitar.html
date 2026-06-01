@@ -2030,14 +2030,27 @@
   .rb-tab-cell:last-child { border-right: none; }
   .rb-tab-cell.current,
   .rb-tab-cell.current:hover { background: #fcecaa !important; }
-  /* Desktop compose past 16 chords: turn the strip into a horizontal
-     scroller. Cells pin to a fixed min-width so they don't shrink into
-     unreadable slivers when the seq goes past 16. JS keeps the chord
-     strip and the tab strip's scrollLeft in sync. */
-  .real-book.compose-hscroll,
-  .real-book-tabs.compose-hscroll {
+  /* Desktop compose past 16 chords: turn the WHOLE strip area into a
+     single horizontal scroller. Overflow lives on .rb-stack (the column
+     that holds both rows) so the chord-name row and the tab row move
+     as one block — they cannot desync. Each strip grows to its natural
+     content width inside the stack. The single scrollbar sits at the
+     bottom of the stack, below the tab row, so it never covers the
+     subdivision badges / repeat counter at the bottom of the cells. */
+  body:not(.player-active) .rb-stack.compose-hscroll {
     overflow-x: auto;
     scrollbar-width: thin;
+  }
+  body:not(.player-active) .rb-stack.compose-hscroll > .rb-row {
+    width: max-content;
+  }
+  .real-book.compose-hscroll,
+  .real-book-tabs.compose-hscroll {
+    /* Parent .rb-stack handles the scrolling now — let cells overflow
+       this strip horizontally so the parent scroller can see them. */
+    overflow: visible;
+    width: max-content;
+    flex: 0 0 auto;
   }
   .real-book.compose-hscroll > .rb-cell { flex: 0 0 90px; min-width: 90px; }
   .real-book-tabs.compose-hscroll > .rb-tab-cell { flex: 0 0 90px; min-width: 90px; }
@@ -15647,19 +15660,25 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       }));
     }
   } else if (seq.length > 16) {
-    // Desktop past 16: the strip is a horizontal scroller. Bring the
-    // freshly-added cell into view on the tab strip; the scroll-sync
-    // mirrors it to the chord-name strip above.
+    // Desktop past 16: the WHOLE .rb-stack is the horizontal scroller.
+    // Bring the freshly-added cell into view by scrolling the stack so
+    // its right edge sits just inside the visible area. Both rows move
+    // together because they share the same scroll container.
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const tabsStrip = document.getElementById('real-book-tabs');
-      if (!tabsStrip) return;
+      const stack = tabsStrip && tabsStrip.closest('.rb-stack');
+      if (!tabsStrip || !stack) return;
       const tab = tabsStrip.querySelector('.rb-tab-cell.current')
                 || tabsStrip.querySelector(`.rb-tab-cell[data-compose-idx="${seq.length - 1}"]`);
       if (!tab) return;
-      const right = tab.offsetLeft + tab.offsetWidth;
-      const target = Math.max(0, right - tabsStrip.clientWidth + 16);
-      try { tabsStrip.scrollTo({ left: target, behavior: 'smooth' }); }
-      catch(_) { tabsStrip.scrollLeft = target; }
+      // Cell's left within the stack's scrollable content.
+      const left = tab.getBoundingClientRect().left
+                 - stack.getBoundingClientRect().left
+                 + stack.scrollLeft;
+      const right = left + tab.offsetWidth;
+      const target = Math.max(0, right - stack.clientWidth + 16);
+      try { stack.scrollTo({ left: target, behavior: 'smooth' }); }
+      catch(_) { stack.scrollLeft = target; }
     }));
   }
 }
@@ -15971,10 +15990,14 @@ function renderComposeStrip() {
   // the main strip only. Tabs container is hidden so the whole grid scrolls as one.
   el.classList.toggle('compose-interleaved', isMobile);
   // Desktop: turn on horizontal scroll once we're past 16 cells. The CSS
-  // flips the cells to a fixed min-width and the container to overflow-x.
+  // applies overflow-x to the SHARED parent (.rb-stack) so both rows scroll
+  // as a unit — they cannot desync. Each strip flexes to its natural
+  // content width inside the stack.
   const wantHscroll = !isMobile && seq.length > 16;
   el.classList.toggle('compose-hscroll', wantHscroll);
   tabsEl.classList.toggle('compose-hscroll', wantHscroll);
+  const stack = el.closest('.rb-stack');
+  if (stack) stack.classList.toggle('compose-hscroll', wantHscroll);
   tabsEl.hidden = isMobile ? true : false;
 
   // Section badges — render a small A/B/C/... chip at the first cell of
@@ -17488,24 +17511,6 @@ document.getElementById('midi-export').addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('.midi-wrap')) _closeMidiMenu();
 });
-
-// Desktop compose past 16: the chord strip and tab strip are siblings
-// with independent overflow-x scrollers. Mirror scrollLeft between them
-// so the chord-name row never desyncs from the tab row underneath.
-(() => {
-  const a = document.getElementById('real-book');
-  const b = document.getElementById('real-book-tabs');
-  if (!a || !b) return;
-  let syncing = false;
-  const link = (from, to) => from.addEventListener('scroll', () => {
-    if (syncing) return;
-    syncing = true;
-    to.scrollLeft = from.scrollLeft;
-    syncing = false;
-  }, { passive: true });
-  link(a, b);
-  link(b, a);
-})();
 
 const _origRenderComposeStrip = renderComposeStrip;
 renderComposeStrip = function() {
