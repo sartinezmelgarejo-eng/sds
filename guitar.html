@@ -10767,11 +10767,17 @@ class Player {
       const structureStr = _resolveSongStructure(state.songStructure);
       const letters = structureStr.split('');
       const uniqueLetters = [...new Set(letters)];
-      // Section A is the composed one; everything else (B/C/D…) gets
-      // AI-picked progressions, OR uses the user's typed B if present.
+      // Section A is the composed one; B/C/D/E come from the user's
+      // composed strip if they typed cells past chord 8/16/24/32.
+      // Anything still missing gets AI-picked below.
       const progByLabel = { A: A_sec };
       if (bCells.length > 0) {
         progByLabel.B = buildSteps(bCells, 'B');
+      }
+      const extraRanges = [['C', 16, 24], ['D', 24, 32], ['E', 32, 40]];
+      for (const [lab, start, end] of extraRanges) {
+        const cells = state.composedProgression.slice(start, end);
+        if (cells.length > 0) progByLabel[lab] = buildSteps(cells, lab);
       }
       for (const lab of uniqueLetters) {
         if (progByLabel[lab]) continue;
@@ -15565,6 +15571,11 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   state.userVoicing = c
     ? { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion }
     : { shape: cur.shape };
+  // Auto-switch song structure when the user composes their way into a
+  // new section. Each threshold fires once-per-cross — the user can
+  // override afterwards via the SONG picker and the new pick stays.
+  if (seq.length === 17) state.songStructure = 'ABAC';
+  else if (seq.length === 25) state.songStructure = 'ABCD';
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
