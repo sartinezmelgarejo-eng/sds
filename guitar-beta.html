@@ -17199,11 +17199,11 @@ function _midiCollectBassSong() {
   return events;
 }
 
-// Expose picker helpers to window so the inline onclick on the mobile
-// AABA button can reach them under every browser scope quirk.
-window._openSongStructMenu = (...a) => _openSongStructMenu(...a);
-window._closeSongStructMenu = (...a) => _closeSongStructMenu(...a);
-window._isSongStructMenuOpen = () => !!_songStructMenuEl;
+// NOTE: do NOT alias these onto window — in non-strict mode the top-level
+// `function _openSongStructMenu` already IS window._openSongStructMenu, so
+// `window._openSongStructMenu = (...a) => _openSongStructMenu(...a)` would
+// reassign the global to a self-calling arrow → infinite recursion on
+// click. The functions are reachable directly; no aliasing needed.
 
 // Mobile structure picker: native <select> overlaid on the AABA summary.
 // OS-level picker UI — guaranteed reliable across every mobile browser.
@@ -17345,14 +17345,7 @@ function _openSongStructMenu(anchor) {
 // .pi-song-picker-mobile (compose-mode mobile uses a native <select>
 // with onchange, so it doesn't go through this path at all).
 document.addEventListener('click', (e) => {
-  // TEMP DEBUG: log every doc click, including what the picker check sees.
-  const t = e.target;
-  const tag = t && t.tagName;
-  const id = t && t.id;
-  const cls = t && (t.className && t.className.toString ? t.className.toString().slice(0,40) : '');
   const songEl = e.target.closest('#pi-song-picker, .pi-song-picker-mobile');
-  document.title = 'CLK ' + tag + (id ? '#'+id : '') + (cls ? '.' + cls.split(' ')[0] : '') + (songEl ? ' →PICKER' : '');
-  setTimeout(() => { document.title = 'Guitarra'; }, 1800);
   if (songEl) {
     e.stopPropagation();
     if (_songStructMenuEl) _closeSongStructMenu();
