@@ -17397,14 +17397,28 @@ document.getElementById('midi-export').addEventListener('click', (e) => {
       () => _buildMidiBundle(_midiCollectSong(), _midiCollectBassSong(), 'song')));
   }
   // Position the menu via viewport coords because it's position:fixed.
-  // Right-align to the button (the button often lives on the right
-  // side of the meta strip, so a left-anchored menu would extend past
-  // the viewport edge).
+  // Desktop: button sits on the right of the meta strip, so right-aligning
+  // works. Mobile: button sits on the left, so right-aligning pushes the
+  // menu past the left edge of the viewport. Detect the overflow case and
+  // switch to left-aligning, clamping to the viewport either way.
   const r = e.currentTarget.getBoundingClientRect();
-  _midiMenu.style.top   = (r.bottom + 4) + 'px';
-  _midiMenu.style.right = (window.innerWidth - r.right) + 'px';
-  _midiMenu.style.left  = 'auto';
+  // Reveal off-screen first so offsetWidth measures the populated menu.
+  _midiMenu.style.top   = '-9999px';
+  _midiMenu.style.left  = '0';
+  _midiMenu.style.right = 'auto';
   _midiMenu.hidden = false;
+  const menuW = _midiMenu.offsetWidth;
+  const pad = 8;
+  let left = r.right - menuW;          // right-align to button
+  if (left < pad) {
+    left = r.left;                      // fall back to left-align
+    if (left + menuW > window.innerWidth - pad) {
+      left = window.innerWidth - menuW - pad;
+    }
+  }
+  left = Math.max(pad, left);
+  _midiMenu.style.top  = (r.bottom + 4) + 'px';
+  _midiMenu.style.left = left + 'px';
 });
 
 // Close menu on outside click
