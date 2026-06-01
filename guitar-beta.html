@@ -16044,10 +16044,14 @@ function renderComposeStrip() {
     // (cell 8) for hand-composed strips with content past it.
     if (badgeByIdx[i] && i > 0) cls.push('section-divider');
     else if (i === dividerAt && !state._composeIsSingleSection && !cap) cls.push('section-divider');
-    // Badge on the chord-NAME row only — sits in the top-left corner of
-    // the cell, above the roman/chord-name. Putting it on the tab row
-    // landed it inside the chord diagram which read as cluttered.
-    const sectionTag = !isTab ? sectionBadgeFor(i) : '';
+    // Badge sits in the top-left corner of whichever row is actually
+    // visible. Guitar mode keeps both rows, so we put it on the chord-
+    // NAME row so it doesn't crowd the chord diagram. Piano mode hides
+    // the chord-name row entirely (chord name lives inside the staff
+    // SVG), so the badge has to live on the tab/staff cell instead.
+    const isPiano = state.instrument === 'piano';
+    const tagRow = isPiano ? isTab : !isTab;
+    const sectionTag = tagRow ? sectionBadgeFor(i) : '';
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
