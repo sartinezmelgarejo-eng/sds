@@ -918,16 +918,27 @@
      intermittently swallowed pointer events on some mobile WebViews — the
      AABA picker tap was registering visually but the click never reached
      the bound handler). Inline-flex preserves the inline-row appearance. */
-  /* Slim two-row mobile dashboard: row 1 holds time-related context
-     (key, section letters, beats), row 2 holds musical context (prog
-     name, voicing). Each row is its own flex container so the beats
-     stay aligned to the right edge instead of getting pushed off the
-     visible viewport when the prog name gets long. */
+  /* Base mobile container — used by compose/standby (single inline row
+     with voicing-first). Play mode adds .pi-mobile-play to flip it into
+     the two-row dashboard; standby keeps this row layout so the voicing
+     stays the main focus. */
   #player-info .pi-mobile {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+  }
+  /* Play-mode only: switch the same container into a two-row dashboard.
+     Row 1 holds time-related context (key, section letters, beats),
+     row 2 holds musical context (prog name, voicing). Each row is its
+     own flex container so the beats stay aligned to the right edge
+     instead of getting pushed off-viewport when the prog name gets
+     long. */
+  #player-info .pi-mobile.pi-mobile-play {
     display: flex;
     flex-direction: column;
     gap: 3px;
-    width: 100%;
   }
   #player-info .pi-mobile-row {
     display: flex;
@@ -12716,7 +12727,7 @@ class Player {
         </div>`
       : '';
     const mobileHtml = `
-      <div class="pi-mobile">
+      <div class="pi-mobile pi-mobile-play">
         <div class="pi-mobile-row pi-mobile-top">
           ${keyHtml}
           <span class="pi-form pi-song-picker-mobile" title="click to change song structure">
