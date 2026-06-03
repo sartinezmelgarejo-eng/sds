@@ -5581,6 +5581,12 @@ const state = {
   // / ABA) on every song generation. User can lock to a specific
   // structure (or pick a rare one) via the SONG picker in #player-info.
   songStructure: 'RANDOM',
+  // When songStructure is 'RANDOM', the landscape standby pre-rolls a
+  // structure here so the user can see what's coming before pressing play.
+  // _resolveSongStructure consumes this value at play time (returns it
+  // and clears) so the player gets exactly the structure that was shown.
+  // null when not pre-rolled (locked-mode or first load before standby).
+  songStructureUpcoming: null,
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -14740,9 +14746,18 @@ function renderLandscapeStandby() {
   const bpmEl = document.getElementById('ls-bpm-val');
   if (bpmEl) bpmEl.textContent = metronome.bpm || 120;
 
-  // Song structure
+  // Song structure — if RANDOM, pre-roll a structure so the user can see
+  // what's coming; show with a "~" prefix to mark it's a random pick.
+  // Locked modes (AABA, ABAB, BLUES…) just show the structure id plain.
   const songEl = document.getElementById('ls-song-val');
-  if (songEl) songEl.textContent = state.songStructure;
+  if (songEl) {
+    if (state.songStructure === 'RANDOM') {
+      if (!state.songStructureUpcoming) _rerollSongStructure();
+      songEl.textContent = '~' + (state.songStructureUpcoming || 'AABA');
+    } else {
+      songEl.textContent = state.songStructure;
+    }
+  }
 
   // Loop button state — yellow when on, label shows mode
   const loopBtn = document.getElementById('ls-loop');
@@ -14800,12 +14815,19 @@ function renderLandscapeStandby() {
 
   // Song structure tap → cycle through non-rare structures
   // (rare ones — AABACA/ABAC/ABBA/etc — stay accessible only from the portrait menu)
+  // Landing on RANDOM forces a fresh pre-roll so the user gets a new pick each
+  // time they cycle back around.
   const songValEl = document.getElementById('ls-song-val');
   if (songValEl) {
     const songCycle = ['RANDOM', ...SONG_STRUCTURES.filter(s => !s.rare).map(s => s.id)];
     songValEl.addEventListener('click', () => {
       const i = songCycle.indexOf(state.songStructure);
       state.songStructure = songCycle[(i + 1) % songCycle.length];
+      if (state.songStructure === 'RANDOM') {
+        _rerollSongStructure();
+      } else {
+        state.songStructureUpcoming = null;
+      }
       renderLandscapeStandby();
     });
   }
@@ -17475,9 +17497,35 @@ window._onMobileStructPick = function (sel) {
 // weighted by each entry's `weight` (default 1) so the canonical
 // AABA / ABAB come up more often than the deeper cuts.
 // Any other value is returned uppercased (default 'AABA').
+// Roll a fresh common (non-rare) song structure and stash it in
+// state.songStructureUpcoming. Called by the landscape standby on entry
+// (when songStructure is RANDOM) and when the user cycle-taps back to
+// RANDOM. _resolveSongStructure reads and clears this value at play time.
+function _rerollSongStructure() {
+  const common = SONG_STRUCTURES.filter(s => !s.rare);
+  if (!common.length) { state.songStructureUpcoming = 'AABA'; return; }
+  const total = common.reduce((sum, s) => sum + (s.weight || 1), 0);
+  let r = Math.random() * total;
+  for (const s of common) {
+    r -= (s.weight || 1);
+    if (r <= 0) { state.songStructureUpcoming = s.id; return; }
+  }
+  state.songStructureUpcoming = common[common.length - 1].id;
+}
+
 function _resolveSongStructure(raw) {
   if (!raw) return 'AABA';
   if (raw === 'RANDOM') {
+    // Prefer the pre-rolled value if the standby UI rolled one — that's
+    // what the user just saw, so use it. Then clear so the next RANDOM
+    // play gets a fresh roll (via the standby on re-entry).
+    if (state.songStructureUpcoming) {
+      const v = state.songStructureUpcoming;
+      state.songStructureUpcoming = null;
+      return v;
+    }
+    // Fallback: no pre-roll cached (player invoked from a path that
+    // bypassed the standby). Roll fresh on the spot — original behavior.
     const common = SONG_STRUCTURES.filter(s => !s.rare);
     if (!common.length) return 'AABA';
     const total = common.reduce((sum, s) => sum + (s.weight || 1), 0);
