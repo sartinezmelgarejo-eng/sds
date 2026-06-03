@@ -4727,6 +4727,17 @@
   #landscape-standby .ls-tuner-strings .ts-cell.match.in-tune { background: #4ade80; border-color: #4ade80; }
   #landscape-standby .ls-tuner-strings .ts-cell.match.near    { background: #fbbf24; border-color: #fbbf24; }
   #landscape-standby .ls-tuner-strings .ts-cell.match.off     { background: #f87171; border-color: #f87171; }
+  /* Tap to ring the open-string reference tone. cursor + pulse provide the
+     affordance; the audio side schedules a brief plucked tone in the JS. */
+  #landscape-standby .ls-tuner-strings .ts-cell { cursor: pointer; user-select: none; }
+  #landscape-standby .ls-tuner-strings .ts-cell.pluck-pulse {
+    animation: lsTunerStringPluck 320ms ease-out;
+  }
+  @keyframes lsTunerStringPluck {
+    0%   { transform: scale(1.0); }
+    18%  { transform: scale(1.14); }
+    100% { transform: scale(1.0); }
+  }
 
   /* Status line — bottom centered (mic permission hints, "play a string") */
   #landscape-standby .ls-tuner-status { display: none; }
@@ -18899,6 +18910,65 @@ window._tuner = (function setupTuner() {
     muteUntil = 0;
     paintIdle('play a string');
   }
+
+  // Reference-tone pluck for tap-to-ring. Three-harmonic additive synth
+  // (1× triangle, 2×/3× sine) with a fast attack + ~1.6s exponential
+  // decay — close enough to a plucked string for ear-tuning. Goes
+  // straight to ctx.destination (independent of the chord drone path so
+  // it works even if the player isn't loaded). muteUntil bumps so the
+  // mic-driven YIN tick skips the next ~1.7s and can't echo-detect the
+  // reference tone as the user's own playing.
+  function playStringTone(freq) {
+    if (!ctx) ctx = ensureAudio();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0  = ctx.currentTime;
+    const dur = 1.6;
+    const harmonics = [
+      { mul: 1, amp: 0.20, type: 'triangle' },
+      { mul: 2, amp: 0.07, type: 'sine'     },
+      { mul: 3, amp: 0.03, type: 'sine'     },
+    ];
+    harmonics.forEach(h => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = h.type;
+      osc.frequency.setValueAtTime(freq * h.mul, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(h.amp, t0 + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0002, t0 + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    });
+    muteUntil = t0 + dur + 0.1;
+    // Reset the lock-feedback state so the tuner's "play a string"
+    // arming logic doesn't immediately fire a green flash when the
+    // reference tone itself happens to be perfectly in tune. The tone
+    // is muted from YIN anyway, but the in-tune frame counter would
+    // otherwise persist from before the tap.
+    inTuneFrames = 0;
+    armed = false;       // require an actual out-of-tune drift to re-arm
+  }
+
+  // Wire tap-on-string-cell → reference pluck. Event delegation on the
+  // wrapper so the wiring outlives any future innerHTML rebuilds.
+  (function wireStringPluck() {
+    const wrap = document.getElementById('ls-tuner-strings');
+    if (!wrap) return;
+    wrap.addEventListener('click', e => {
+      const cell = e.target.closest('.ts-cell');
+      if (!cell) return;
+      const num = parseInt(cell.dataset.string, 10);
+      const s = STRINGS.find(x => x.num === num);
+      if (!s) return;
+      playStringTone(s.freq);
+      // Restart the pulse animation by removing + re-adding the class
+      cell.classList.remove('pluck-pulse');
+      void cell.offsetWidth;
+      cell.classList.add('pluck-pulse');
+    });
+  })();
 
   return { start, stop };
 })();
