@@ -10693,6 +10693,33 @@ class Player {
   // boundaries even though two sections both have a "page 0".
   _sectionPageIdx() { return Math.floor((this.totalBars - this._sectionStartBar) / 4); }
 
+  // Walk back `n` bars within the CURRENT section. Returns an array of
+  // {stepIdx, barInStep} entries in chronological order (oldest first) for
+  // use by _buildPagePlan when filling page cells BEFORE the current bar
+  // (so the user's starting chord lands at its natural page position
+  // instead of being forced into cell-0).
+  _walkBackInSection(n) {
+    const section = this.song?.[this.songIdx];
+    if (!section || !n) return [];
+    const steps = section.progression?.steps || [];
+    if (!steps.length) return [];
+    let stepIdx = this.currentStepIdx;
+    const curStep = steps[stepIdx];
+    let barInStep = curStep ? Math.max(0, (curStep.bars || 1) - this.barsRemaining) : 0;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      if (barInStep > 0) {
+        barInStep--;
+      } else {
+        stepIdx--;
+        if (stepIdx < 0) break;  // hit section start
+        barInStep = (steps[stepIdx]?.bars || 1) - 1;
+      }
+      out.unshift({ stepIdx, barInStep });
+    }
+    return out;
+  }
+
   _pickBassPattern() {
     const r = Math.random();
     if (r < 0.28) return 'whole';       // root on beat 1 only — sparse, ballad
@@ -11415,13 +11442,11 @@ class Player {
     this.songIdx = targetSongIdx;
     this.currentStepIdx = targetStepIdx;
     this.barsRemaining = steps[targetStepIdx].bars || 1;
-    // Jumping into the middle of a section means we land on the cell the
-    // user selected. Anchor _sectionStartBar so subsequent page math is
-    // measured from THIS landing point's section start — for simplicity,
-    // treat the jump-target's section as starting now. The first page after
-    // a jump will land the target cell at cell-0, which matches the user's
-    // mental model ("play from here").
-    this._sectionStartBar = this.totalBars;
+    // Anchor _sectionStartBar so the clicked cell lands at its NATURAL
+    // position within a 4-cell page (e.g. chord 6 → barInPage=1, second
+    // cell), not forced to cell-0. The "section's bar 0" is virtually
+    // `cellInSection` bars before the current totalBars.
+    this._sectionStartBar = this.totalBars - cellInSection;
     this._cachedPage = null;
     this._cachedPeek = null;
     this.forceTriggerAtNextBar = true;
@@ -12561,6 +12586,41 @@ class Player {
     this._cachedPage = [];
     this._cachedPeek = null;
     this._cachedPlanPage = this._sectionPageIdx();   // tag for cache invalidation (section-relative)
+    // Backfill cells 0..(barInPage-1) with the chords that come BEFORE the
+    // current bar within the current section, so the current bar lands at
+    // its natural page position. Example: starting play at chord 6 with a
+    // 4-cell page makes barInPage=1, so cell 0 shows chord 5, cell 1 shows
+    // chord 6 (current). If the walk runs off the section's start, the
+    // remaining leading cells stay null.
+    const barInPage = this._pageBarIdx();
+    if (barInPage > 0) {
+      const priorBars = this._walkBackInSection(barInPage);
+      const section = this.song?.[this.songIdx];
+      const steps = section?.progression?.steps || [];
+      const sectionKeyPc = (section?.keyPc !== undefined) ? section.keyPc : state.keyPc;
+      const sectionTonality = (section?.tonality !== undefined) ? section.tonality : state.tonality;
+      const map = CHORD_MAP[sectionTonality] || currentMap();
+      for (let i = 0; i < barInPage - priorBars.length; i++) this._cachedPage.push(null);
+      for (const pb of priorBars) {
+        const step = steps[pb.stepIdx];
+        if (!step) { this._cachedPage.push(null); continue; }
+        const ch = map.chordDefs[step.chord];
+        if (!ch) { this._cachedPage.push(null); continue; }
+        this._cachedPage.push({
+          chord: step.chord,
+          qualityOverride: step.qualityOverride || null,
+          barIdxInChord: pb.barInStep,
+          keyPc: sectionKeyPc,
+          voicingType: this.voicingType,
+          shape: step.composedShape || null,
+          subdivisions: step.subdivisions || 1,
+          subdivMute: step.subdivMute || [],
+          songIdx: this.songIdx,
+          stepIdx: pb.stepIdx,
+          sectionIter: this.sectionIter,
+        });
+      }
+    }
     const lookahead = this._lookAheadBars(8);
     // Start the chain from the actual last-played shape — same context the
     // next real trigger will be in.
@@ -12662,9 +12722,11 @@ class Player {
           this._cachedPeek = entry;
           break outer;
         }
-        if (bar < 4) {
+        // Use _cachedPage.length so backfilled "prior" cells (added before
+        // this loop when barInPage > 0) count toward the 4-cell page total.
+        if (this._cachedPage.length < 4) {
           this._cachedPage.push(entry);
-        } else if (bar === 4) {
+        } else {
           this._cachedPeek = entry;
           break outer;
         }
