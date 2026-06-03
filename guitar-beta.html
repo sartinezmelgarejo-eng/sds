@@ -4342,10 +4342,15 @@
     cursor: pointer;
   }
 
-  /* ── BPM (bottom-left) ── */
-  #landscape-standby .ls-bpm {
+  /* ── BPM + Song structure pair (bottom-left) ── */
+  #landscape-standby .ls-bottom-group {
     grid-column: 1;
     grid-row: 2;
+    display: flex;
+    gap: 28px;
+    align-items: flex-start;
+  }
+  #landscape-standby .ls-bpm {
     font-variant-numeric: tabular-nums;
   }
   #landscape-standby .ls-bpm-val {
@@ -4358,6 +4363,21 @@
     touch-action: none;
   }
   #landscape-standby .ls-bpm-label {
+    font-size: clamp(10px, 2vh, 14px);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 2px;
+  }
+  #landscape-standby .ls-song-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(22px, 5.5vh, 38px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+  }
+  #landscape-standby .ls-song-label {
     font-size: clamp(10px, 2vh, 14px);
     opacity: 0.5;
     text-transform: uppercase;
@@ -4668,10 +4688,16 @@
       <div class="ls-key" id="ls-key">C</div>
       <div class="ls-tonality" id="ls-tonality">major</div>
     </div>
-    <!-- Left bottom: BPM -->
-    <div class="ls-bpm">
-      <div class="ls-bpm-val" id="ls-bpm-val">120</div>
-      <div class="ls-bpm-label">bpm</div>
+    <!-- Left bottom: BPM + Song structure -->
+    <div class="ls-bottom-group">
+      <div class="ls-bpm">
+        <div class="ls-bpm-val" id="ls-bpm-val">120</div>
+        <div class="ls-bpm-label">bpm</div>
+      </div>
+      <div class="ls-song">
+        <div class="ls-song-val" id="ls-song-val">RANDOM</div>
+        <div class="ls-song-label">song</div>
+      </div>
     </div>
     <!-- Center: big play -->
     <button class="ls-play" id="ls-play" title="Start AI player">▶</button>
@@ -14714,6 +14740,10 @@ function renderLandscapeStandby() {
   const bpmEl = document.getElementById('ls-bpm-val');
   if (bpmEl) bpmEl.textContent = metronome.bpm || 120;
 
+  // Song structure
+  const songEl = document.getElementById('ls-song-val');
+  if (songEl) songEl.textContent = state.songStructure;
+
   // Loop button state — yellow when on, label shows mode
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) {
@@ -14767,6 +14797,18 @@ function renderLandscapeStandby() {
     btns.forEach(b => { if (b.dataset.tonality === target) b.click(); });
     renderLandscapeStandby();
   });
+
+  // Song structure tap → cycle through non-rare structures
+  // (rare ones — AABACA/ABAC/ABBA/etc — stay accessible only from the portrait menu)
+  const songValEl = document.getElementById('ls-song-val');
+  if (songValEl) {
+    const songCycle = ['RANDOM', ...SONG_STRUCTURES.filter(s => !s.rare).map(s => s.id)];
+    songValEl.addEventListener('click', () => {
+      const i = songCycle.indexOf(state.songStructure);
+      state.songStructure = songCycle[(i + 1) % songCycle.length];
+      renderLandscapeStandby();
+    });
+  }
 
   // BPM drag up/down to adjust (mirrors the portrait BPM compact)
   const bpmEl = document.getElementById('ls-bpm-val');
