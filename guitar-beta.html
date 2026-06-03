@@ -4400,6 +4400,33 @@
   #landscape-standby.metronome-mode {
     background: #181c22;
   }
+  /* Key + tonality don't make sense in metronome mode — hide them and
+     put the TAP-tempo control in their grid slot instead (adjacent to BPM). */
+  #landscape-standby.metronome-mode .ls-key-group { display: none; }
+  /* TAP element — only visible in metronome mode, occupies the key-group slot */
+  #landscape-standby .ls-tap { display: none; }
+  #landscape-standby.metronome-mode .ls-tap {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    text-align: center;
+  }
+  #landscape-standby .ls-tap-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(40px, 10vh, 72px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    min-width: 1.2em;
+  }
+  #landscape-standby .ls-tap-label {
+    font-size: clamp(12px, 2.5vh, 18px);
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
   /* Hide the song chip in metronome mode (replaced by beat indicator) */
   #landscape-standby.metronome-mode .ls-song { display: none; }
   /* Show beat indicator only in metronome mode */
@@ -4424,6 +4451,16 @@
     background: #fdfcf3;
     border-color: #fdfcf3;
     transform: scale(1.25);
+  }
+  /* Downbeat dot (first beat of the bar) — outline + fill in ámbar to
+     mark where the compás starts. Same gold as ls-loop-on for visual
+     consistency. */
+  #landscape-standby .ls-beat-indicator .beat-dot.downbeat {
+    border-color: rgba(212,160,23,0.7);
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot.downbeat.on {
+    background: #d4a017;
+    border-color: #d4a017;
   }
 
   /* ── Mode pager dots (· ●) at top center, indicates band vs metronome ── */
@@ -4740,10 +4777,15 @@
     <span class="pg-dot" data-mode="metronome"></span>
   </div>
   <div class="ls-grid">
-    <!-- Left top: key + tonality -->
+    <!-- Left top: key + tonality (band mode only — hidden in metro) -->
     <div class="ls-key-group">
       <div class="ls-key" id="ls-key">C</div>
       <div class="ls-tonality" id="ls-tonality">major</div>
+    </div>
+    <!-- Left top: TAP tempo (metro mode only — same slot as key-group) -->
+    <div class="ls-tap">
+      <div class="ls-tap-val" id="ls-tap">TAP</div>
+      <div class="ls-tap-label">tempo</div>
     </div>
     <!-- Left bottom: BPM -->
     <div class="ls-bpm">
@@ -4762,13 +4804,11 @@
     <div class="ls-song">
       <div class="ls-song-val" id="ls-song-val">RANDOM</div>
     </div>
-    <!-- Bottom center: Beat indicator — metronome mode only -->
-    <div class="ls-beat-indicator" id="ls-beat-indicator">
-      <span class="beat-dot" data-beat="0"></span>
-      <span class="beat-dot" data-beat="1"></span>
-      <span class="beat-dot" data-beat="2"></span>
-      <span class="beat-dot" data-beat="3"></span>
-    </div>
+    <!-- Bottom center: Beat indicator — metronome mode only.
+         Dots are generated dynamically in renderLandscapeStandby so the
+         count tracks state.metroBeatsPerBar (3-7) and the first dot gets
+         the .downbeat class for visual emphasis on the "1". -->
+    <div class="ls-beat-indicator" id="ls-beat-indicator"></div>
   </div>
 </div>
 
@@ -5656,6 +5696,12 @@ const state = {
   // repurposes PLAY (= metronome on/off), Loop (= TAP tempo), and the
   // bottom chip (= 4-dot beat indicator pulsed by Metronome._onUITick).
   standbyMode: 'band',
+  // Metronome-mode controls (only meaningful when standbyMode === 'metronome').
+  // metroBeatsPerBar drives both the beat indicator dot count and (in click
+  // mode) the metronome's tick pattern — downbeat lands every N ticks.
+  // metroAccelOn = true makes the metronome auto-accelerate +5 BPM every 4 bars.
+  metroBeatsPerBar: 4,
+  metroAccelOn: false,
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -9605,6 +9651,13 @@ class Metronome {
     this.timer = null;
     this.scheduleAhead = 0.12;
     this.lookAheadMs = 25;
+    // Standalone-metronome controls (used by the landscape standby's
+    // metronome mode). beatsPerBar reshapes the click-mode tick pattern
+    // so downbeat lands every N ticks instead of every 4. _barCount and
+    // _accelOn drive the auto-accelerate feature (+5 BPM every 4 bars).
+    this.beatsPerBar = 4;
+    this._barCount = 0;
+    this._accelOn = false;
   }
   // Lazy-init a long pink-noise buffer once per audio context. Reused for both
   // the ride shimmer wash and the 2&4 hi-hat. Pink noise sounds random regardless,
@@ -9638,6 +9691,7 @@ class Metronome {
     const ctx = ensureAudio();
     this.playing = true;
     this.tickIdx = 0;
+    this._barCount = 0;
     this.nextTickTime = ctx.currentTime + 0.08;
     this.timer = setInterval(() => this._scheduler(), this.lookAheadMs);
   }
@@ -9663,7 +9717,23 @@ class Metronome {
     }
     if (this.mode === 'click' || this.mode === 'twofour') {
       this.nextTickTime += 60 / this.bpm;
-      this.tickIdx = (this.tickIdx + 1) % 4;
+      // Use custom beatsPerBar (3-7) only in click mode; twofour keeps 4
+      // because its backbeat semantics assume 4/4. The visual beat indicator
+      // still shows beatsPerBar dots regardless of the underlying pattern.
+      const period = (this.mode === 'click') ? (this.beatsPerBar || 4) : 4;
+      const prev = this.tickIdx;
+      this.tickIdx = (this.tickIdx + 1) % period;
+      // Bar completed (tickIdx wrapped back to 0) — bump bar counter
+      // and apply accel if armed.
+      if (this.tickIdx === 0 && prev !== 0) {
+        this._barCount++;
+        if (this._accelOn && this._barCount > 0 && this._barCount % 4 === 0) {
+          // Defer the BPM bump so it doesn't mutate state mid-scheduler loop
+          setTimeout(() => {
+            if (typeof setBpm === 'function') setBpm(this.bpm + 5);
+          }, 0);
+        }
+      }
     } else {
       // Jazz ride: 6 hits per bar in triplet feel at triplet positions [0, 3, 5, 6, 9, 11] of 12
       const positions = [0, 3, 5, 6, 9, 11];
@@ -9901,10 +9971,14 @@ metronome._onUITick = (idx, mode) => {
   if (state.standbyMode !== 'metronome') return;
   const dots = document.querySelectorAll('#ls-beat-indicator .beat-dot');
   if (!dots.length) return;
+  // dots.length === metroBeatsPerBar (regenerated in renderLandscapeStandby).
+  // click mode reshapes its tickIdx to match beatsPerBar so idx % N is exact.
+  // Other modes keep their native cycles; we map them to the N-dot strip.
+  const N = dots.length;
   let beat;
-  if (mode === 'drums') beat = Math.floor(idx / 2) % 4;       // 8th notes → quarters
-  else if (mode === 'ride') beat = Math.floor(idx / 1.5) % 4; // 6 ride hits/bar → ~4 quarters
-  else beat = idx % 4;                                         // click / twofour
+  if (mode === 'drums') beat = Math.floor(idx / 2) % N;       // 8th notes → quarters
+  else if (mode === 'ride') beat = Math.floor(idx / 1.5) % N; // 6 ride hits/bar → ~N quarters
+  else beat = idx % N;                                         // click / twofour
   dots.forEach((d, i) => d.classList.toggle('on', i === beat));
 };
 
@@ -14837,6 +14911,35 @@ function renderLandscapeStandby() {
     });
   }
 
+  // Play button glyph — pause icon when the metronome is currently
+  // ticking, so the user sees their toggle landed. Band mode always
+  // shows ▶ (the player has its own state during play).
+  const playBtn = document.getElementById('ls-play');
+  if (playBtn) {
+    playBtn.textContent = (isMetro && metronome.playing) ? '⏸' : '▶';
+  }
+
+  // Beat indicator dots — regenerate to match metroBeatsPerBar (3-7).
+  // First dot gets the .downbeat class so the "1" is visually distinct.
+  // Also propagate beatsPerBar to the metronome so its tick pattern follows.
+  if (isMetro) {
+    const indicator = document.getElementById('ls-beat-indicator');
+    if (indicator) {
+      const n = Math.max(3, Math.min(7, state.metroBeatsPerBar || 4));
+      if (indicator.children.length !== n) {
+        indicator.innerHTML = '';
+        for (let i = 0; i < n; i++) {
+          const dot = document.createElement('span');
+          dot.className = 'beat-dot' + (i === 0 ? ' downbeat' : '');
+          dot.dataset.beat = String(i);
+          indicator.appendChild(dot);
+        }
+      }
+    }
+    metronome.beatsPerBar = state.metroBeatsPerBar || 4;
+    metronome._accelOn = !!state.metroAccelOn;
+  }
+
   // Key display
   const keyEl = document.getElementById('ls-key');
   if (keyEl) {
@@ -14867,11 +14970,12 @@ function renderLandscapeStandby() {
     }
   }
 
-  // Loop button — in band mode shows loop state, in metronome mode is the TAP-tempo button
+  // Loop button — in band mode shows loop state; in metronome mode it's
+  // the BEATS-PER-BAR selector (cycles 3 → 4 → 5 → 6 → 7 → 3).
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) {
     if (isMetro) {
-      loopBtn.textContent = 'TAP';
+      loopBtn.textContent = (state.metroBeatsPerBar || 4) + ' ♩';
       loopBtn.classList.toggle('ls-loop-on', false);
       loopBtn.classList.toggle('ls-active', false);
     } else {
@@ -14885,13 +14989,22 @@ function renderLandscapeStandby() {
     }
   }
 
-  // Cycle button state (band-mode only; in metro mode the button is inert but visible)
+  // Cycle button — band mode shows PITCHED state; metronome mode shows
+  // ACCEL on/off (auto-accelerate +5 BPM every 4 bars). Visual highlight
+  // when on uses the same loop-on amber.
   const cycleBtn = document.getElementById('ls-cycle');
   const realCycle = document.getElementById('cycle-toggle');
-  if (cycleBtn && realCycle && !isMetro) {
-    const label = realCycle.textContent || '·';
-    cycleBtn.textContent = (label === '·') ? '· PITCHED' : label + ' PITCHED';
-    cycleBtn.classList.toggle('ls-active', realCycle.classList.contains('active'));
+  if (cycleBtn) {
+    if (isMetro) {
+      cycleBtn.textContent = state.metroAccelOn ? '↑ ACCEL' : '· ACCEL';
+      cycleBtn.classList.toggle('ls-loop-on', !!state.metroAccelOn);
+      cycleBtn.classList.toggle('ls-active', false);
+    } else if (realCycle) {
+      const label = realCycle.textContent || '·';
+      cycleBtn.textContent = (label === '·') ? '· PITCHED' : label + ' PITCHED';
+      cycleBtn.classList.toggle('ls-active', realCycle.classList.contains('active'));
+      cycleBtn.classList.toggle('ls-loop-on', false);
+    }
   }
 
   // Sound button — show current instrument (band mode) or the rhythm tick mode (metro mode)
@@ -15003,30 +15116,44 @@ function renderLandscapeStandby() {
     }, {passive: true});
   }
 
-  // Loop → in band mode proxies the loop-toggle; in metronome mode acts as
-  // TAP tempo (tap repeatedly, BPM is computed from median tap interval).
+  // TAP tempo (metronome mode only) — adjacent to BPM. Tap repeatedly:
+  // BPM is computed from the median of recent tap intervals.
   const _tapTempoTimes = [];
+  const tapEl = document.getElementById('ls-tap');
+  if (tapEl) tapEl.addEventListener('click', () => {
+    if (state.standbyMode !== 'metronome') return;
+    const now = performance.now();
+    if (_tapTempoTimes.length && now - _tapTempoTimes[_tapTempoTimes.length - 1] > 2000) {
+      _tapTempoTimes.length = 0;
+    }
+    _tapTempoTimes.push(now);
+    if (_tapTempoTimes.length > 8) _tapTempoTimes.shift();
+    if (_tapTempoTimes.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < _tapTempoTimes.length; i++) {
+        intervals.push(_tapTempoTimes[i] - _tapTempoTimes[i - 1]);
+      }
+      intervals.sort((a, b) => a - b);
+      const med = intervals[Math.floor(intervals.length / 2)];
+      const bpm = Math.round(60000 / med);
+      if (bpm >= 40 && bpm <= 280) setBpm(bpm);
+    }
+    renderLandscapeStandby();
+  });
+
+  // Loop → in band mode proxies loop-toggle; in metronome mode cycles
+  // beats-per-bar (3 → 4 → 5 → 6 → 7 → 3) which reshapes the metronome
+  // tick pattern (click mode) and the beat indicator dot count.
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) loopBtn.addEventListener('click', () => {
     if (state.standbyMode === 'metronome') {
-      const now = performance.now();
-      // Reset tap history if last tap was >2s ago (treat as new sequence)
-      if (_tapTempoTimes.length && now - _tapTempoTimes[_tapTempoTimes.length - 1] > 2000) {
-        _tapTempoTimes.length = 0;
-      }
-      _tapTempoTimes.push(now);
-      // Keep last 8 taps for a stable median
-      if (_tapTempoTimes.length > 8) _tapTempoTimes.shift();
-      if (_tapTempoTimes.length >= 2) {
-        const intervals = [];
-        for (let i = 1; i < _tapTempoTimes.length; i++) {
-          intervals.push(_tapTempoTimes[i] - _tapTempoTimes[i - 1]);
-        }
-        intervals.sort((a, b) => a - b);
-        const med = intervals[Math.floor(intervals.length / 2)];
-        const bpm = Math.round(60000 / med);
-        if (bpm >= 40 && bpm <= 280) setBpm(bpm);
-      }
+      const cur = state.metroBeatsPerBar || 4;
+      const next = cur >= 7 ? 3 : (cur + 1);
+      state.metroBeatsPerBar = next;
+      metronome.beatsPerBar = next;
+      // Reset tickIdx so the new period takes effect cleanly on the next bar.
+      metronome.tickIdx = 0;
+      metronome._barCount = 0;
       renderLandscapeStandby();
       return;
     }
@@ -15035,10 +15162,17 @@ function renderLandscapeStandby() {
     // renderLandscapeStandby is called by the loop-toggle handler
   });
 
-  // Cycle → proxy in band mode; inert in metronome mode (no key cycling there)
+  // Cycle → band mode proxies cycle-toggle (PITCHED); metronome mode
+  // toggles ACCEL (auto-accelerate +5 BPM every 4 bars).
   const cycleBtn = document.getElementById('ls-cycle');
   if (cycleBtn) cycleBtn.addEventListener('click', () => {
-    if (state.standbyMode === 'metronome') return;
+    if (state.standbyMode === 'metronome') {
+      state.metroAccelOn = !state.metroAccelOn;
+      metronome._accelOn = state.metroAccelOn;
+      if (state.metroAccelOn) metronome._barCount = 0;
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('cycle-toggle');
     if (real) real.click();
     renderLandscapeStandby();
