@@ -4593,52 +4593,106 @@
     margin-top: 2px;
   }
 
-  /* Center orb — same size + position as ls-play */
+  /* Center gauge — half-circle (top dome) so the needle has the natural
+     swing of an analog tuner. Pivot at bottom-center, sweep ±60° to cover
+     ±50¢. Hz readout sits below the flat baseline. */
   #landscape-standby .ls-tuner-orb { display: none; }
   #landscape-standby.tuner-mode .ls-tuner-orb {
-    display: flex;
+    display: block;
     grid-column: 2;
     grid-row: 1 / 3;
-    width: clamp(100px, 22vh, 160px);
-    height: clamp(100px, 22vh, 160px);
-    border-radius: 50%;
+    width: clamp(180px, 38vh, 260px);
+    height: clamp(96px, 20vh, 140px);     /* ~half of width — semicircle */
     border: 3px solid #fdfcf3;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
     background: transparent;
     position: relative;
-    align-items: center;
-    justify-content: center;
     transition: border-color 200ms, background 200ms;
     overflow: visible;
   }
   #landscape-standby .ls-tuner-orb.in-tune { border-color: #4ade80; background: rgba(74,222,128,0.10); }
   #landscape-standby .ls-tuner-orb.near    { border-color: #fbbf24; background: rgba(251,191,36,0.10); }
   #landscape-standby .ls-tuner-orb.off     { border-color: #f87171; background: rgba(248,113,113,0.10); }
+  /* Flat baseline accent — small notch in the middle marks "0¢" reference */
+  #landscape-standby .ls-tuner-orb::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: -2px;
+    width: 2px; height: 8px;
+    background: #fdfcf3; opacity: 0.7;
+    transform: translateX(-50%);
+  }
   #landscape-standby .ls-tuner-orb-hz {
+    position: absolute;
+    left: 50%; bottom: -22px;
+    transform: translateX(-50%);
     font-size: clamp(11px, 2.2vh, 16px);
     opacity: 0.65;
     letter-spacing: 0.08em;
     font-variant-numeric: tabular-nums;
     text-align: center;
     pointer-events: none;
+    white-space: nowrap;
   }
-  /* Sweep needle anchored at the orb center, rotates -45deg (♭50¢) to +45deg (♯50¢) */
+  /* Sweep needle: anchored at the flat-bottom center, sweeps inside the
+     dome. -50¢ → -60°, 0¢ → 0°, +50¢ → +60°. Slower transition than the
+     previous ±45° sweep so the needle feels weighted, not jittery. */
   #landscape-standby .ls-tuner-needle {
     position: absolute;
     left: 50%;
-    bottom: 50%;
+    bottom: 0;
     width: 3px;
-    height: 46%;
+    height: 86%;
     background: #fdfcf3;
     opacity: 0.35;
     transform: translateX(-50%) rotate(0deg);
     transform-origin: bottom center;
-    transition: transform 110ms linear, background 160ms, opacity 160ms;
+    transition: transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 180ms,
+                opacity   180ms;
     border-radius: 2px;
   }
   #landscape-standby .ls-tuner-needle.live { opacity: 1; }
   #landscape-standby .ls-tuner-needle.in-tune { background: #4ade80; }
   #landscape-standby .ls-tuner-needle.near    { background: #fbbf24; }
   #landscape-standby .ls-tuner-needle.off     { background: #f87171; }
+  /* Tick marks at -45°, 0°, +45° — etched on the inside arc as small
+     guide notches so the user has a visual reference for "halfway off". */
+  #landscape-standby .ls-tuner-orb-ticks {
+    position: absolute;
+    left: 50%; bottom: 0;
+    width: 0; height: 0;
+    pointer-events: none;
+  }
+  #landscape-standby .ls-tuner-orb-ticks span {
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 2px; height: 76%;
+    transform-origin: bottom center;
+    background: transparent;
+    border-top: 8px solid rgba(253,252,243,0.45);
+    pointer-events: none;
+  }
+  #landscape-standby .ls-tuner-orb-ticks span.t-l45 { transform: translateX(-50%) rotate(-45deg); }
+  #landscape-standby .ls-tuner-orb-ticks span.t-0   { transform: translateX(-50%) rotate(0deg); }
+  #landscape-standby .ls-tuner-orb-ticks span.t-r45 { transform: translateX(-50%) rotate(45deg); }
+
+  /* Full-screen flash overlay fired briefly when a tone locks into tune.
+     z-index sits above the standby (9998) but below the still-rare modal
+     menus. pointer-events:none so taps still reach the controls underneath. */
+  #ls-tuner-flash {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: #4ade80;
+    opacity: 0;
+    z-index: 9999;
+  }
+  #ls-tuner-flash.flashing { animation: lsTunerFlash 360ms ease-out; }
+  @keyframes lsTunerFlash {
+    0%   { opacity: 0; }
+    22%  { opacity: 0.38; }
+    100% { opacity: 0; }
+  }
 
   /* Bottom-center string row (replaces ls-song slot) */
   #landscape-standby .ls-tuner-strings { display: none; }
@@ -5062,8 +5116,15 @@
       <div class="ls-tuner-cents-val" id="ls-tuner-cents-val">·</div>
       <div class="ls-tuner-cents-label">cents</div>
     </div>
-    <!-- Center: tuning state orb with sweep needle (replaces ls-play) -->
+    <!-- Center: half-circle tuning gauge with sweep needle (replaces ls-play).
+         Tick marks at -45°/0°/+45° provide visual reference points. Hz
+         readout sits just below the flat baseline. -->
     <div class="ls-tuner-orb" id="ls-tuner-orb">
+      <div class="ls-tuner-orb-ticks" aria-hidden="true">
+        <span class="t-l45"></span>
+        <span class="t-0"></span>
+        <span class="t-r45"></span>
+      </div>
       <div class="ls-tuner-needle" id="ls-tuner-needle"></div>
       <div class="ls-tuner-orb-hz" id="ls-tuner-orb-hz">— Hz</div>
     </div>
@@ -5080,6 +5141,11 @@
   <!-- Status message (mic permission, etc) — pinned to the bottom edge -->
   <div class="ls-tuner-status" id="ls-tuner-status">play a string</div>
 </div>
+
+<!-- Full-screen green flash fired when a note locks into tune. Lives at body
+     level (not inside the standby) so its z-index can sit above without
+     fighting the standby's stacking context. -->
+<div id="ls-tuner-flash" aria-hidden="true"></div>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -18575,7 +18641,20 @@ window._tuner = (function setupTuner() {
   let buf       = null;
   let rafId     = null;
   let recent    = [];
-  const SMOOTH_N = 5;
+  const SMOOTH_N = 8;         // larger window → calmer needle, slight extra latency
+  // Lock-feedback state machine. Fire the green flash + soft ding when
+  // the user holds in-tune for IN_TUNE_LOCK_FRAMES consecutive frames;
+  // don't re-fire until they've drifted clearly out (>10¢) for
+  // OUT_FRAMES_REARM frames. Plus a wall-clock cooldown so two notes
+  // tuned in rapid succession can't trigger overlapping feedback.
+  let inTuneFrames = 0;
+  let outFrames    = 0;
+  let armed        = true;
+  let lastFlashAt  = 0;
+  let muteUntil    = 0;       // ignore YIN until this audioCtx-time (during ding)
+  const IN_TUNE_LOCK_FRAMES = 4;
+  const OUT_FRAMES_REARM    = 5;
+  const FLASH_COOLDOWN_MS   = 900;
 
   function $(id) { return document.getElementById(id); }
   function freqToMidi(f) { return 12 * Math.log2(f / 440) + 69; }
@@ -18665,12 +18744,47 @@ window._tuner = (function setupTuner() {
     }
   }
 
+  // One-shot feedback: brief green screen flash + soft 880Hz "ding".
+  // Cooled down by FLASH_COOLDOWN_MS so quick re-tunes don't double-fire.
+  // Sets muteUntil so the next ~280ms of mic data is skipped — that way
+  // the ding can't leak back through the mic and confuse YIN into
+  // reporting A5 right after every lock.
+  function fireLockFeedback() {
+    const now = performance.now();
+    if (now - lastFlashAt < FLASH_COOLDOWN_MS) return;
+    lastFlashAt = now;
+    const flashEl = $('ls-tuner-flash');
+    if (flashEl) {
+      flashEl.classList.remove('flashing');
+      // Force reflow so re-adding the class restarts the animation
+      void flashEl.offsetWidth;
+      flashEl.classList.add('flashing');
+    }
+    if (ctx && ctx.state === 'running') {
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0002, t0 + 0.28);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.32);
+      muteUntil = t0 + 0.30;
+    }
+  }
+
   function tick() {
     rafId = requestAnimationFrame(tick);
     if (!analyser || !buf) return;
     analyser.getFloatTimeDomainData(buf);
+    // Don't analyse while the lock-tone is still sounding through the mic
+    if (ctx && ctx.currentTime < muteUntil) return;
     if (rms(buf) < 0.005) {
       if (recent.length) { recent = []; paintIdle('play a string'); }
+      inTuneFrames = 0;
       return;
     }
     const f = yinPitch(buf, ctx.sampleRate);
@@ -18684,7 +18798,8 @@ window._tuner = (function setupTuner() {
     const cents = (midiF - midiR) * 100;
     const noteName = NOTE_NAMES[((midiR % 12) + 12) % 12];
     const octave = Math.floor(midiR / 12) - 1;
-    const cls = classify(Math.abs(cents));
+    const absCents = Math.abs(cents);
+    const cls = classify(absCents);
 
     const noteEl   = $('ls-tuner-note');
     const centsEl  = $('ls-tuner-cents-val');
@@ -18697,8 +18812,8 @@ window._tuner = (function setupTuner() {
     if (centsEl) { centsEl.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(0); centsEl.className = 'ls-tuner-cents-val ' + cls; }
     if (hzEl)    { hzEl.textContent    = fs.toFixed(1) + ' Hz'; }
     if (orbEl)   { orbEl.className     = 'ls-tuner-orb ' + cls; }
-    // Needle rotation: -50¢ → -45deg, 0 → 0deg, +50¢ → +45deg
-    const deg = Math.max(-50, Math.min(50, cents)) * 0.9;
+    // Needle rotation across the half-circle: ±50¢ → ±60°
+    const deg = Math.max(-50, Math.min(50, cents)) * 1.2;
     if (needleEl) {
       needleEl.style.transform = 'translateX(-50%) rotate(' + deg.toFixed(1) + 'deg)';
       needleEl.className = 'ls-tuner-needle live ' + cls;
@@ -18713,6 +18828,27 @@ window._tuner = (function setupTuner() {
       if (isMatch) el.classList.add(matchCls);
     });
     if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('err'); }
+
+    // Lock-feedback state machine. Fire when in-tune has been sustained
+    // for IN_TUNE_LOCK_FRAMES frames AND we're currently armed (not just
+    // fired in the recent past). Re-arm only after the user has drifted
+    // clearly off (|cents| > 10) for several frames so wobbling near 0¢
+    // doesn't generate a stream of flashes.
+    if (absCents < 5) {
+      inTuneFrames++;
+      outFrames = 0;
+      if (armed && inTuneFrames >= IN_TUNE_LOCK_FRAMES) {
+        fireLockFeedback();
+        armed = false;
+      }
+    } else if (absCents > 10) {
+      outFrames++;
+      inTuneFrames = 0;
+      if (outFrames >= OUT_FRAMES_REARM) armed = true;
+    } else {
+      // 5¢–10¢: dead zone, don't re-arm but also don't sustain in-tune count
+      inTuneFrames = 0;
+    }
   }
 
   async function start() {
@@ -18757,6 +18893,10 @@ window._tuner = (function setupTuner() {
       stream = null;
     }
     recent = [];
+    inTuneFrames = 0;
+    outFrames = 0;
+    armed = true;
+    muteUntil = 0;
     paintIdle('play a string');
   }
 
