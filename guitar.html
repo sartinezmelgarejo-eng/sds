@@ -4253,7 +4253,7 @@
   #landscape-standby .ls-grid {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: auto auto auto;
     gap: 12px 20px;
     align-items: center;
     justify-items: center;
@@ -4275,6 +4275,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(8px, 2vh, 14px);
     transition: background 0.15s, transform 0.1s;
     line-height: 1;
     padding-left: 8px; /* optical center for ▶ */
@@ -4283,6 +4284,20 @@
     background: #fdfcf3;
     color: #1a1a1a;
     transform: scale(0.95);
+  }
+  /* Paused state — replace the ▶ glyph with two CSS-drawn bars so we
+     don't rely on system font rendering for ⏸ (renders as emoji on iOS).
+     Brutalist square bars, currentColor so :active inversion still works. */
+  #landscape-standby .ls-play.paused {
+    padding-left: 0;
+  }
+  #landscape-standby .ls-play.paused::before,
+  #landscape-standby .ls-play.paused::after {
+    content: '';
+    display: block;
+    width: clamp(12px, 2.6vh, 20px);
+    height: clamp(38px, 9vh, 64px);
+    background: currentColor;
   }
 
   /* ── Side buttons — brutalist rectangles ── */
@@ -4365,6 +4380,24 @@
     margin-top: 2px;
   }
 
+  /* ── Song structure (centered, bottom row, under PLAY) ── */
+  #landscape-standby .ls-song {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    text-align: center;
+    margin-top: 8px;
+  }
+  #landscape-standby .ls-song-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(20px, 4.5vh, 32px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    opacity: 0.85;
+  }
+
   /* ── Right column: loop + cycle (stacked) ── */
   #landscape-standby .ls-right-col {
     grid-column: 3;
@@ -4373,6 +4406,119 @@
     flex-direction: column;
     gap: 10px;
     align-items: center;
+  }
+
+  /* ── Metronome mode: slight cool-tinted bg + element repurposing ── */
+  #landscape-standby {
+    transition: background 0.25s ease;
+  }
+  #landscape-standby.metronome-mode {
+    background: #181c22;
+  }
+  /* Key + tonality don't make sense in metronome mode — hide them and
+     put the TAP-tempo control in their grid slot instead (adjacent to BPM). */
+  #landscape-standby.metronome-mode .ls-key-group { display: none; }
+  /* TAP element — only visible in metronome mode, occupies the key-group slot */
+  #landscape-standby .ls-tap { display: none; }
+  #landscape-standby.metronome-mode .ls-tap {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    text-align: center;
+  }
+  #landscape-standby .ls-tap-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(40px, 10vh, 72px);
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    min-width: 1.2em;
+  }
+  #landscape-standby .ls-tap-label {
+    font-size: clamp(12px, 2.5vh, 18px);
+    opacity: 0.6;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+  /* Hide the song chip in metronome mode (replaced by beat indicator) */
+  #landscape-standby.metronome-mode .ls-song { display: none; }
+  /* Show beat indicator only in metronome mode */
+  #landscape-standby .ls-beat-indicator { display: none; }
+  #landscape-standby.metronome-mode .ls-beat-indicator {
+    display: flex;
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(253,252,243,0.35);
+    border-radius: 50%;
+    background: transparent;
+    transition: background 0.06s ease-out, border-color 0.06s ease-out, transform 0.06s ease-out;
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot.on {
+    background: #fdfcf3;
+    border-color: #fdfcf3;
+    transform: scale(1.25);
+  }
+  /* Downbeat dot (first beat of the bar) — outline + fill in ámbar to
+     mark where the compás starts. Same gold as ls-loop-on for visual
+     consistency. */
+  #landscape-standby .ls-beat-indicator .beat-dot.downbeat {
+    border-color: rgba(212,160,23,0.7);
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot.downbeat.on {
+    background: #d4a017;
+    border-color: #d4a017;
+  }
+
+  /* ── Mode pager dots (· ●) at top center, indicates band vs metronome ── */
+  #landscape-standby .ls-mode-pager {
+    position: absolute;
+    top: max(14px, calc(env(safe-area-inset-top, 14px) + 2px));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    pointer-events: none;
+  }
+  #landscape-standby .ls-mode-pager .pg-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(253,252,243,0.3);
+    transition: background 0.2s;
+  }
+  #landscape-standby .ls-mode-pager .pg-dot.on {
+    background: rgba(253,252,243,1);
+  }
+
+  /* ── Metronome mode brand glyph (just below the pager dots) ──
+     Small brutalist SVG of a metronome: triangular body, pendulum stick,
+     a square weight on the stick, and a base line. Visible only in
+     metronome mode, no animation, opacity slightly dim so it accents
+     rather than competes with the controls. */
+  #landscape-standby .ls-mode-glyph {
+    display: none;
+    position: absolute;
+    top: max(30px, calc(env(safe-area-inset-top, 30px) + 18px));
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fdfcf3;
+    opacity: 0.55;
+    pointer-events: none;
+  }
+  #landscape-standby.metronome-mode .ls-mode-glyph { display: block; }
+  #landscape-standby .ls-mode-glyph svg {
+    display: block;
+    width: clamp(28px, 5vh, 40px);
+    height: auto;
   }
 </style>
 </head>
@@ -4662,11 +4808,32 @@
      key/bpm/toggles and hit play without rotating back.
 ─────────────────────────────────────────────────────────────── -->
 <div id="landscape-standby" aria-hidden="true">
+  <!-- Mode pager dots (band ↔ metronome) — top center -->
+  <div class="ls-mode-pager" id="ls-mode-pager">
+    <span class="pg-dot on" data-mode="band"></span>
+    <span class="pg-dot" data-mode="metronome"></span>
+  </div>
+  <!-- Metronome mode brand glyph — small SVG illustration below the pager,
+       visible only when standbyMode === 'metronome'. Visual confirmation
+       that the mode has changed without leaning on text. -->
+  <div class="ls-mode-glyph" aria-hidden="true">
+    <svg viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+      <polygon points="12,3 4,27 20,27"/>
+      <line x1="12" y1="26" x2="15.2" y2="9.5"/>
+      <rect x="13" y="14.5" width="3" height="3" fill="currentColor" stroke="none"/>
+      <line x1="2" y1="29.2" x2="22" y2="29.2"/>
+    </svg>
+  </div>
   <div class="ls-grid">
-    <!-- Left top: key + tonality -->
+    <!-- Left top: key + tonality (band mode only — hidden in metro) -->
     <div class="ls-key-group">
       <div class="ls-key" id="ls-key">C</div>
       <div class="ls-tonality" id="ls-tonality">major</div>
+    </div>
+    <!-- Left top: TAP tempo (metro mode only — same slot as key-group) -->
+    <div class="ls-tap">
+      <div class="ls-tap-val" id="ls-tap">TAP</div>
+      <div class="ls-tap-label">tempo</div>
     </div>
     <!-- Left bottom: BPM -->
     <div class="ls-bpm">
@@ -4681,10 +4848,32 @@
       <button class="ls-btn" id="ls-cycle" title="PITCHED — key shift per loop">· PITCHED</button>
       <button class="ls-btn" id="ls-sound" title="Sound">🎹</button>
     </div>
+    <!-- Bottom center: Song structure (under PLAY) — band mode only -->
+    <div class="ls-song">
+      <div class="ls-song-val" id="ls-song-val">RANDOM</div>
+    </div>
+    <!-- Bottom center: Beat indicator — metronome mode only.
+         Dots are generated dynamically in renderLandscapeStandby so the
+         count tracks state.metroBeatsPerBar (3-7) and the first dot gets
+         the .downbeat class for visual emphasis on the "1". -->
+    <div class="ls-beat-indicator" id="ls-beat-indicator"></div>
   </div>
 </div>
 
 <script>
+/* ════════════════════════════════════════════════════════════
+   BODY-CLASS DEFENSE — runs FIRST, before anything else.
+   On mobile the keypad sometimes failed to appear on PWA launch
+   (probably SW serving a partially-cached response, or bfcache
+   restoring a stale body state with player-active still set).
+   Forcing the canonical "ready-to-compose" class state here means
+   the page is guaranteed to render the compose-pad regardless of
+   what HTML attributes or bfcache delivered.
+   ════════════════════════════════════════════════════════════ */
+document.body.classList.add('keypad-open');
+document.body.classList.remove('player-active');
+document.body.classList.remove('map-overlay-open');
+
 /* ════════════════════════════════════════════════════════════
    THEORY
    ════════════════════════════════════════════════════════════ */
@@ -5555,6 +5744,35 @@ const state = {
   // / ABA) on every song generation. User can lock to a specific
   // structure (or pick a rare one) via the SONG picker in #player-info.
   songStructure: 'RANDOM',
+  // When songStructure is 'RANDOM', the landscape standby pre-rolls a
+  // structure here so the user can see what's coming before pressing play.
+  // _resolveSongStructure consumes this value at play time (returns it
+  // and clears) so the player gets exactly the structure that was shown.
+  // null when not pre-rolled (locked-mode or first load before standby).
+  songStructureUpcoming: null,
+  // Landscape standby has two swipable modes: the normal band-pre-play
+  // ('band') and a standalone metronome practice mode ('metronome').
+  // Swiping horizontally on the standby toggles between them. The
+  // metronome mode reuses the same layout, slightly cooler bg, and
+  // repurposes PLAY (= metronome on/off), Loop (= TAP tempo), and the
+  // bottom chip (= 4-dot beat indicator pulsed by Metronome._onUITick).
+  standbyMode: 'band',
+  // Metronome-mode controls (only meaningful when standbyMode === 'metronome').
+  // metroBeatsPerBar drives both the beat indicator dot count and (in click
+  // mode) the metronome's tick pattern — downbeat lands every N ticks.
+  // metroAccelOn = true makes the metronome auto-accelerate +5 BPM every 4 bars.
+  metroBeatsPerBar: 4,
+  metroAccelOn: false,
+  // Snapshot of currentRhythmMode at the moment of entering metronome mode,
+  // so swiping back to band restores whatever the user had chosen for the
+  // AI band (ride, drums, 2&4, etc). null = not in metronome mode.
+  metroSavedRhythm: null,
+  // Source flag for composedSelectedIdx: true only when the user EXPLICITLY
+  // locked a slot via the 🔓 button. False when set by pause auto-select or
+  // by AI-song capture. The cell-click handler clears composedSelectedIdx
+  // when this flag is false (i.e. when it was set automatically), so a
+  // recent click wins over a stale auto-select. Lock-explicit always wins.
+  _composedSelectedLocked: false,
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -5572,8 +5790,8 @@ const SONG_STRUCTURES = [
   // No A/B/C sections; just loops a blues form. The `formType` tag
   // tells _generateSong to bypass the AABA assembly and pick a single
   // pinned progression from the matching role.
-  { id: 'BLUES',     desc: '12-bar blues — cycles',                weight: 2, formType: 'blues' },
-  { id: 'JAZZ_BLUES',desc: 'Bebop blues w/ ii-V subs — cycles',    weight: 1, formType: 'jazz-blues' },
+  { id: 'BLUES',     desc: '12-bar blues — cycles',                weight: 1,   formType: 'blues' },
+  { id: 'JAZZ_BLUES',desc: 'Bebop blues w/ ii-V subs — cycles',    weight: 0.5, formType: 'jazz-blues' },
   { id: 'AABACA', desc: 'AABA with a C interlude before the last A',      rare: true },
   { id: 'ABAC',   desc: 'AB with a fresh ending',                          rare: true },
   { id: 'ABBA',   desc: 'Bridge sandwich',                                 rare: true },
@@ -5581,6 +5799,7 @@ const SONG_STRUCTURES = [
   { id: 'ABCB',   desc: 'Rondo-ish — B comes back last',                   rare: true },
   { id: 'ABACA',  desc: 'Rondo',                                            rare: true },
   { id: 'ABCD',   desc: 'Through-composed — no repeats',                    rare: true },
+  { id: 'ABCDE',  desc: 'Through-composed with E section — no repeats',     rare: true },
 ];
 
 function currentMap() { return CHORD_MAP[state.tonality]; }
@@ -9503,6 +9722,13 @@ class Metronome {
     this.timer = null;
     this.scheduleAhead = 0.12;
     this.lookAheadMs = 25;
+    // Standalone-metronome controls (used by the landscape standby's
+    // metronome mode). beatsPerBar reshapes the click-mode tick pattern
+    // so downbeat lands every N ticks instead of every 4. _barCount and
+    // _accelOn drive the auto-accelerate feature (+5 BPM every 4 bars).
+    this.beatsPerBar = 4;
+    this._barCount = 0;
+    this._accelOn = false;
   }
   // Lazy-init a long pink-noise buffer once per audio context. Reused for both
   // the ride shimmer wash and the 2&4 hi-hat. Pink noise sounds random regardless,
@@ -9536,6 +9762,7 @@ class Metronome {
     const ctx = ensureAudio();
     this.playing = true;
     this.tickIdx = 0;
+    this._barCount = 0;
     this.nextTickTime = ctx.currentTime + 0.08;
     this.timer = setInterval(() => this._scheduler(), this.lookAheadMs);
   }
@@ -9561,7 +9788,23 @@ class Metronome {
     }
     if (this.mode === 'click' || this.mode === 'twofour') {
       this.nextTickTime += 60 / this.bpm;
-      this.tickIdx = (this.tickIdx + 1) % 4;
+      // Use custom beatsPerBar (3-7) only in click mode; twofour keeps 4
+      // because its backbeat semantics assume 4/4. The visual beat indicator
+      // still shows beatsPerBar dots regardless of the underlying pattern.
+      const period = (this.mode === 'click') ? (this.beatsPerBar || 4) : 4;
+      const prev = this.tickIdx;
+      this.tickIdx = (this.tickIdx + 1) % period;
+      // Bar completed (tickIdx wrapped back to 0) — bump bar counter
+      // and apply accel if armed.
+      if (this.tickIdx === 0 && prev !== 0) {
+        this._barCount++;
+        if (this._accelOn && this._barCount > 0 && this._barCount % 8 === 0) {
+          // Defer the BPM bump so it doesn't mutate state mid-scheduler loop
+          setTimeout(() => {
+            if (typeof setBpm === 'function') setBpm(this.bpm + 5);
+          }, 0);
+        }
+      }
     } else {
       // Jazz ride: 6 hits per bar in triplet feel at triplet positions [0, 3, 5, 6, 9, 11] of 12
       const positions = [0, 3, 5, 6, 9, 11];
@@ -9579,6 +9822,16 @@ class Metronome {
     else if (this.mode === 'twofour') this._twoFour(time, idx);
     else if (this.mode === 'drums') this._drums(time, idx);
     else this._ride(time, idx);
+    // UI callback fired in sync with the actual audio tick (no rAF jitter).
+    // Used by the landscape standby beat indicator. Delay = scheduled audio
+    // time minus current ctx time, so the visual hits at the same instant
+    // the listener hears the click.
+    if (this._onUITick) {
+      const delayMs = Math.max(0, (time - audioCtx.currentTime) * 1000);
+      const cb = this._onUITick;
+      const mode = this.mode;
+      setTimeout(() => { if (this._onUITick === cb) cb(idx, mode); }, delayMs);
+    }
   }
   _click(time, isDownbeat) {
     const ctx = audioCtx;
@@ -9782,6 +10035,23 @@ class Metronome {
 }
 
 const metronome = new Metronome();
+// Beat indicator pulse (landscape standby in metronome mode) — fired in
+// sync with the actual scheduled audio tick. Maps the metronome's
+// per-mode tick idx to a 0..3 beat position so the 4 dots cycle naturally.
+metronome._onUITick = (idx, mode) => {
+  if (state.standbyMode !== 'metronome') return;
+  const dots = document.querySelectorAll('#ls-beat-indicator .beat-dot');
+  if (!dots.length) return;
+  // dots.length === metroBeatsPerBar (regenerated in renderLandscapeStandby).
+  // click mode reshapes its tickIdx to match beatsPerBar so idx % N is exact.
+  // Other modes keep their native cycles; we map them to the N-dot strip.
+  const N = dots.length;
+  let beat;
+  if (mode === 'drums') beat = Math.floor(idx / 2) % N;       // 8th notes → quarters
+  else if (mode === 'ride') beat = Math.floor(idx / 1.5) % N; // 6 ride hits/bar → ~N quarters
+  else beat = idx % N;                                         // click / twofour
+  dots.forEach((d, i) => d.classList.toggle('on', i === beat));
+};
 
 function updateBlinkRate() {
   const beat = 60 / metronome.bpm;
@@ -9797,6 +10067,8 @@ function setBpm(v) {
   v = Math.max(40, Math.min(280, Math.round(v)));
   metronome.setBpm(v);
   bpmVal.textContent = v;
+  const lsBpm = document.getElementById('ls-bpm-val');
+  if (lsBpm) lsBpm.textContent = v;
   updateBlinkRate();
 }
 
@@ -14698,6 +14970,49 @@ function renderLandscapeStandby() {
                && !document.body.classList.contains('player-active');
   if (!visible) return;
 
+  // Apply mode class — drives the cool-tinted bg + song/beat-indicator swap
+  const isMetro = state.standbyMode === 'metronome';
+  el.classList.toggle('metronome-mode', isMetro);
+
+  // Mode pager dots — light up the active mode
+  const pager = document.getElementById('ls-mode-pager');
+  if (pager) {
+    pager.querySelectorAll('.pg-dot').forEach(d => {
+      d.classList.toggle('on', d.dataset.mode === state.standbyMode);
+    });
+  }
+
+  // Play button glyph — when the metronome is currently ticking, swap to
+  // a CSS-drawn pause (two bars via ::before/::after, no emoji rendering).
+  // Band mode always shows ▶ since the standby is hidden during AI play.
+  const playBtn = document.getElementById('ls-play');
+  if (playBtn) {
+    const isPaused = isMetro && metronome.playing;
+    playBtn.classList.toggle('paused', isPaused);
+    playBtn.textContent = isPaused ? '' : '▶';
+  }
+
+  // Beat indicator dots — regenerate to match metroBeatsPerBar (3-7).
+  // First dot gets the .downbeat class so the "1" is visually distinct.
+  // Also propagate beatsPerBar to the metronome so its tick pattern follows.
+  if (isMetro) {
+    const indicator = document.getElementById('ls-beat-indicator');
+    if (indicator) {
+      const n = Math.max(3, Math.min(7, state.metroBeatsPerBar || 4));
+      if (indicator.children.length !== n) {
+        indicator.innerHTML = '';
+        for (let i = 0; i < n; i++) {
+          const dot = document.createElement('span');
+          dot.className = 'beat-dot' + (i === 0 ? ' downbeat' : '');
+          dot.dataset.beat = String(i);
+          indicator.appendChild(dot);
+        }
+      }
+    }
+    metronome.beatsPerBar = state.metroBeatsPerBar || 4;
+    metronome._accelOn = !!state.metroAccelOn;
+  }
+
   // Key display
   const keyEl = document.getElementById('ls-key');
   if (keyEl) {
@@ -14712,39 +15027,96 @@ function renderLandscapeStandby() {
   const bpmEl = document.getElementById('ls-bpm-val');
   if (bpmEl) bpmEl.textContent = metronome.bpm || 120;
 
-  // Loop button state — yellow when on, label shows mode
+  // Song structure — if RANDOM, pre-roll a structure so the user can see
+  // what's coming; show with a "~" prefix to mark it's a random pick.
+  // Locked modes (AABA, ABAB, BLUES…) just show the structure id plain.
+  // Hidden via CSS in metronome mode — render skipped there.
+  if (!isMetro) {
+    const songEl = document.getElementById('ls-song-val');
+    if (songEl) {
+      if (state.songStructure === 'RANDOM') {
+        if (!state.songStructureUpcoming) _rerollSongStructure();
+        songEl.textContent = '~' + (state.songStructureUpcoming || 'AABA');
+      } else {
+        songEl.textContent = state.songStructure;
+      }
+    }
+  }
+
+  // Loop button — in band mode shows loop state; in metronome mode it's
+  // the BEATS-PER-BAR selector (cycles 3 → 4 → 5 → 6 → 7 → 3).
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) {
-    const isOn = loopMode !== 'off';
-    loopBtn.classList.toggle('ls-active', false);
-    loopBtn.classList.toggle('ls-loop-on', isOn);
-    loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
-      : loopMode === 'bars-4' ? '⟲ 4 bars'
-      : loopMode === 'section' ? '⟲ Section'
-                              : '⟲ Song';
+    if (isMetro) {
+      loopBtn.textContent = (state.metroBeatsPerBar || 4) + ' ♩';
+      loopBtn.classList.toggle('ls-loop-on', false);
+      loopBtn.classList.toggle('ls-active', false);
+    } else {
+      const isOn = loopMode !== 'off';
+      loopBtn.classList.toggle('ls-active', false);
+      loopBtn.classList.toggle('ls-loop-on', isOn);
+      loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
+        : loopMode === 'bars-4' ? '⟲ 4 bars'
+        : loopMode === 'section' ? '⟲ Section'
+                                : '⟲ Song';
+    }
   }
 
-  // Cycle button state
+  // Cycle button — band mode shows PITCHED state; metronome mode shows
+  // ACCEL on/off (auto-accelerate +5 BPM every 4 bars). Visual highlight
+  // when on uses the same loop-on amber.
   const cycleBtn = document.getElementById('ls-cycle');
   const realCycle = document.getElementById('cycle-toggle');
-  if (cycleBtn && realCycle) {
-    const label = realCycle.textContent || '·';
-    cycleBtn.textContent = (label === '·') ? '· PITCHED' : label + ' PITCHED';
-    cycleBtn.classList.toggle('ls-active', realCycle.classList.contains('active'));
+  if (cycleBtn) {
+    if (isMetro) {
+      cycleBtn.textContent = state.metroAccelOn ? '↑ ACCEL' : '· ACCEL';
+      cycleBtn.classList.toggle('ls-loop-on', !!state.metroAccelOn);
+      cycleBtn.classList.toggle('ls-active', false);
+    } else if (realCycle) {
+      const label = realCycle.textContent || '·';
+      cycleBtn.textContent = (label === '·') ? '· PITCHED' : label + ' PITCHED';
+      cycleBtn.classList.toggle('ls-active', realCycle.classList.contains('active'));
+      cycleBtn.classList.toggle('ls-loop-on', false);
+    }
   }
 
-  // Sound button — show current instrument
+  // Sound button — show current instrument (band mode) or the rhythm tick mode (metro mode)
   const soundBtn = document.getElementById('ls-sound');
   if (soundBtn) {
-    soundBtn.textContent = state.instrument === 'piano' ? '🎹 Piano' : '🎸 Guitar';
+    if (isMetro) {
+      const lbl = currentRhythmMode === 'click' ? 'CLICK'
+                : currentRhythmMode === 'twofour' ? '2&4'
+                : currentRhythmMode === 'drums' ? 'DRUMS'
+                : 'RIDE';
+      soundBtn.textContent = '🎵 ' + lbl;
+    } else {
+      soundBtn.textContent = state.instrument === 'piano' ? '🎹 Piano' : '🎸 Guitar';
+    }
+  }
+
+  // Beat indicator: when metronome stops or we leave metro mode, clear lit dots
+  if (!isMetro || !metronome.playing) {
+    document.querySelectorAll('#ls-beat-indicator .beat-dot.on').forEach(d => d.classList.remove('on'));
   }
 }
 
 // Wire standby buttons
 (function wireLandscapeStandby() {
-  // Play → proxy the real AI play button
+  // Play — in band mode proxies the real AI play button; in metronome mode
+  // toggles the standalone metronome (forcing rhythm to 'click' if it was off
+  // so the user actually hears something).
   const playBtn = document.getElementById('ls-play');
   if (playBtn) playBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      if (metronome.playing) {
+        metronome.stop();
+      } else {
+        if (currentRhythmMode === 'off') applyRhythmMode('click');
+        metronome.start();
+      }
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('auto-play');
     if (real) real.click();
   });
@@ -14765,6 +15137,25 @@ function renderLandscapeStandby() {
     btns.forEach(b => { if (b.dataset.tonality === target) b.click(); });
     renderLandscapeStandby();
   });
+
+  // Song structure tap → cycle through non-rare structures
+  // (rare ones — AABACA/ABAC/ABBA/etc — stay accessible only from the portrait menu)
+  // Landing on RANDOM forces a fresh pre-roll so the user gets a new pick each
+  // time they cycle back around.
+  const songValEl = document.getElementById('ls-song-val');
+  if (songValEl) {
+    const songCycle = ['RANDOM', ...SONG_STRUCTURES.filter(s => !s.rare).map(s => s.id)];
+    songValEl.addEventListener('click', () => {
+      const i = songCycle.indexOf(state.songStructure);
+      state.songStructure = songCycle[(i + 1) % songCycle.length];
+      if (state.songStructure === 'RANDOM') {
+        _rerollSongStructure();
+      } else {
+        state.songStructureUpcoming = null;
+      }
+      renderLandscapeStandby();
+    });
+  }
 
   // BPM drag up/down to adjust (mirrors the portrait BPM compact)
   const bpmEl = document.getElementById('ls-bpm-val');
@@ -14797,26 +15188,82 @@ function renderLandscapeStandby() {
     }, {passive: true});
   }
 
-  // Loop → proxy the real loop-toggle (which now cycles 3 states)
+  // TAP tempo (metronome mode only) — adjacent to BPM. Tap repeatedly:
+  // BPM is computed from the median of recent tap intervals.
+  const _tapTempoTimes = [];
+  const tapEl = document.getElementById('ls-tap');
+  if (tapEl) tapEl.addEventListener('click', () => {
+    if (state.standbyMode !== 'metronome') return;
+    const now = performance.now();
+    if (_tapTempoTimes.length && now - _tapTempoTimes[_tapTempoTimes.length - 1] > 2000) {
+      _tapTempoTimes.length = 0;
+    }
+    _tapTempoTimes.push(now);
+    if (_tapTempoTimes.length > 8) _tapTempoTimes.shift();
+    if (_tapTempoTimes.length >= 2) {
+      const intervals = [];
+      for (let i = 1; i < _tapTempoTimes.length; i++) {
+        intervals.push(_tapTempoTimes[i] - _tapTempoTimes[i - 1]);
+      }
+      intervals.sort((a, b) => a - b);
+      const med = intervals[Math.floor(intervals.length / 2)];
+      const bpm = Math.round(60000 / med);
+      if (bpm >= 40 && bpm <= 280) setBpm(bpm);
+    }
+    renderLandscapeStandby();
+  });
+
+  // Loop → in band mode proxies loop-toggle; in metronome mode cycles
+  // beats-per-bar (3 → 4 → 5 → 6 → 7 → 3) which reshapes the metronome
+  // tick pattern (click mode) and the beat indicator dot count.
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) loopBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      const cur = state.metroBeatsPerBar || 4;
+      const next = cur >= 7 ? 3 : (cur + 1);
+      state.metroBeatsPerBar = next;
+      metronome.beatsPerBar = next;
+      // Reset tickIdx so the new period takes effect cleanly on the next bar.
+      metronome.tickIdx = 0;
+      metronome._barCount = 0;
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('loop-toggle');
     if (real) real.click();
     // renderLandscapeStandby is called by the loop-toggle handler
   });
 
-  // Cycle → proxy
+  // Cycle → band mode proxies cycle-toggle (PITCHED); metronome mode
+  // toggles ACCEL (auto-accelerate +5 BPM every 4 bars).
   const cycleBtn = document.getElementById('ls-cycle');
   if (cycleBtn) cycleBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      state.metroAccelOn = !state.metroAccelOn;
+      metronome._accelOn = state.metroAccelOn;
+      if (state.metroAccelOn) metronome._barCount = 0;
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('cycle-toggle');
     if (real) real.click();
     renderLandscapeStandby();
   });
 
-  // Sound → toggle instrument (use the JS proxy since the DOM
-  // #instrument-btn was replaced by the GTR/PNO vs-cell toggle)
+  // Sound → in band mode toggles instrument (guitar/piano). In metronome mode
+  // cycles the metronome's tick sound (ride → click → twofour → drums → ride).
+  // 'off' is intentionally excluded — the PLAY button is already the silence
+  // toggle, no point in having two ways to mute.
   const soundBtn = document.getElementById('ls-sound');
   if (soundBtn) soundBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      const order = ['ride', 'click', 'twofour', 'drums'];
+      const i = order.indexOf(currentRhythmMode);
+      const next = order[(i + 1) % order.length];
+      applyRhythmMode(next);
+      renderLandscapeStandby();
+      return;
+    }
     if (typeof instrumentBtn !== 'undefined' && instrumentBtn && instrumentBtn.click) {
       instrumentBtn.click();
     }
@@ -14848,7 +15295,44 @@ function renderLandscapeStandby() {
       }
     }, {passive: true});
   }
-  wireSwipeInstrument(document.getElementById('landscape-standby'));
+  // The standby gets a swipe handler that toggles band↔metronome mode
+  // (was previously instrument-swipe; instrument is still tap-switchable
+  // via the Sound button so no UX is lost).
+  function wireSwipeStandbyMode(el) {
+    if (!el) return;
+    let startX = null, startY = null;
+    el.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, {passive: true});
+    el.addEventListener('touchend', e => {
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      startX = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        if (state.standbyMode === 'band') {
+          // Entering metronome mode — snapshot current rhythm so we can
+          // restore it on exit, then default to 'click' which is the
+          // canonical metronome tick sound.
+          state.metroSavedRhythm = currentRhythmMode;
+          applyRhythmMode('click');
+          state.standbyMode = 'metronome';
+        } else {
+          // Leaving metronome mode — stop ticking (so no sound carries into
+          // band-standby), restore the saved band rhythm if we have one.
+          if (metronome.playing) metronome.stop();
+          if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
+            applyRhythmMode(state.metroSavedRhythm);
+          }
+          state.metroSavedRhythm = null;
+          state.standbyMode = 'band';
+        }
+        renderLandscapeStandby();
+      }
+    }, {passive: true});
+  }
+  wireSwipeStandbyMode(document.getElementById('landscape-standby'));
   wireSwipeInstrument(document.getElementById('landscape-play'));
   // Mobile vertical: hook the same swipe on the realistic guitar /
   // piano panel (the chord neck below the strip) so the user can
@@ -15688,6 +16172,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   // override afterwards via the SONG picker and the new pick stays.
   if (seq.length === 17) state.songStructure = 'ABAC';
   else if (seq.length === 25) state.songStructure = 'ABCD';
+  else if (seq.length === 33) state.songStructure = 'ABCDE';
   renderAll();
   renderComposeStrip();
   ringFocusedChord();
@@ -17431,9 +17916,35 @@ window._onMobileStructPick = function (sel) {
 // weighted by each entry's `weight` (default 1) so the canonical
 // AABA / ABAB come up more often than the deeper cuts.
 // Any other value is returned uppercased (default 'AABA').
+// Roll a fresh common (non-rare) song structure and stash it in
+// state.songStructureUpcoming. Called by the landscape standby on entry
+// (when songStructure is RANDOM) and when the user cycle-taps back to
+// RANDOM. _resolveSongStructure reads and clears this value at play time.
+function _rerollSongStructure() {
+  const common = SONG_STRUCTURES.filter(s => !s.rare);
+  if (!common.length) { state.songStructureUpcoming = 'AABA'; return; }
+  const total = common.reduce((sum, s) => sum + (s.weight || 1), 0);
+  let r = Math.random() * total;
+  for (const s of common) {
+    r -= (s.weight || 1);
+    if (r <= 0) { state.songStructureUpcoming = s.id; return; }
+  }
+  state.songStructureUpcoming = common[common.length - 1].id;
+}
+
 function _resolveSongStructure(raw) {
   if (!raw) return 'AABA';
   if (raw === 'RANDOM') {
+    // Prefer the pre-rolled value if the standby UI rolled one — that's
+    // what the user just saw, so use it. Then clear so the next RANDOM
+    // play gets a fresh roll (via the standby on re-entry).
+    if (state.songStructureUpcoming) {
+      const v = state.songStructureUpcoming;
+      state.songStructureUpcoming = null;
+      return v;
+    }
+    // Fallback: no pre-roll cached (player invoked from a path that
+    // bypassed the standby). Roll fresh on the spot — original behavior.
     const common = SONG_STRUCTURES.filter(s => !s.rare);
     if (!common.length) return 'AABA';
     const total = common.reduce((sum, s) => sum + (s.weight || 1), 0);
@@ -17641,6 +18152,11 @@ window.addEventListener('pageshow', () => {
   }
   const mapToggle = document.getElementById('map-mobile-toggle');
   if (mapToggle) mapToggle.textContent = '🗺 Map';
+  // Defensive re-render of the compose pad. On rare flaky launches the
+  // initial renderAll's pad pass got skipped (silent typeof-function guard),
+  // leaving an empty pad div. Re-populating here is idempotent and cheap —
+  // worst case we render the same content twice on a normal load.
+  if (typeof renderComposePad === 'function') renderComposePad();
 });
 
 // Register the shared service worker so this app installs / works offline
