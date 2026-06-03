@@ -11373,32 +11373,54 @@ class Player {
   // playback resumes at that bar (snapped to the start of the held chord if
   // they tapped a tie cell). No-op outside captured-song mode.
   _applyCapturedStartPosition() {
-    const cap = state._capturedSong;
-    if (!cap || !this.song || !this.song.length) return;
+    if (!this.song || !this.song.length) return;
     let cellIdx = state.composedSelectedIdx;
     if (cellIdx == null || cellIdx < 0) cellIdx = state._composeFocusedIdx;
+    // No active selection → just-typed Play or AI-only Play. Leave the song
+    // position alone so playback starts from bar 0.
     if (cellIdx == null || cellIdx < 0) return;
-    let targetLabel, cellInSection;
-    if (cap.mode === 'dense') {
-      const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
-      const aLen = cap.sections[aLab].cells.length;
-      if (cellIdx < aLen) { targetLabel = aLab;   cellInSection = cellIdx; }
-      else                { targetLabel = bLab;   cellInSection = cellIdx - aLen; }
-    } else if (cap.boundaries && cap.boundaries.length) {
-      // Stacked: the strip concatenates every unique section, so the cellIdx
-      // could live in any of them. Find the section whose [start, start+len)
-      // range contains the click and rebase cellInSection accordingly.
-      // Without this, a click in section B walked through section A's steps
-      // until it ran out and stuck on A's last chord.
-      let bnd = cap.boundaries[0];
-      for (const b of cap.boundaries) {
-        if (cellIdx >= b.start && cellIdx < b.start + b.len) { bnd = b; break; }
+    const cap = state._capturedSong;
+    const seq = state.composedProgression;
+    let targetLabel, cellInSection, sectionAbsStart;
+    if (cap) {
+      if (cap.mode === 'dense') {
+        const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
+        const aLen = cap.sections[aLab].cells.length;
+        if (cellIdx < aLen) {
+          targetLabel = aLab;   cellInSection = cellIdx;          sectionAbsStart = 0;
+        } else {
+          targetLabel = bLab;   cellInSection = cellIdx - aLen;   sectionAbsStart = aLen;
+        }
+      } else if (cap.boundaries && cap.boundaries.length) {
+        // Stacked: the strip concatenates every unique section, so the cellIdx
+        // could live in any of them. Find the section whose [start, start+len)
+        // range contains the click and rebase cellInSection accordingly.
+        // Without this, a click in section B walked through section A's steps
+        // until it ran out and stuck on A's last chord.
+        let bnd = cap.boundaries[0];
+        for (const b of cap.boundaries) {
+          if (cellIdx >= b.start && cellIdx < b.start + b.len) { bnd = b; break; }
+        }
+        targetLabel = bnd.label;
+        cellInSection = cellIdx - bnd.start;
+        sectionAbsStart = bnd.start;
+      } else {
+        targetLabel = cap.activeLabel;
+        cellInSection = cellIdx;
+        sectionAbsStart = 0;
       }
-      targetLabel = bnd.label;
-      cellInSection = cellIdx - bnd.start;
+    } else if (seq && seq.length) {
+      // Compose-only (no AI capture): _generateSong slices composedProgression
+      // into A (cells 0-7) and B (8-15). Only fires when the user explicitly
+      // tapped a cell — composeAddChord clears _composeFocusedIdx so plain
+      // Play after typing skips this and starts from bar 0 as before.
+      if (cellIdx < 8) {
+        targetLabel = 'A'; cellInSection = cellIdx;     sectionAbsStart = 0;
+      } else {
+        targetLabel = 'B'; cellInSection = cellIdx - 8; sectionAbsStart = 8;
+      }
     } else {
-      targetLabel = cap.activeLabel;
-      cellInSection = cellIdx;
+      return;
     }
     const targetSongIdx = this.song.findIndex(s => s.label === targetLabel);
     if (targetSongIdx < 0) return;
@@ -11415,21 +11437,12 @@ class Player {
     this.currentStepIdx = targetStepIdx;
     this.barsRemaining = steps[targetStepIdx].bars || 1;
     this.forceTriggerAtNextBar = true;
-    // Page-align totalBars to the absolute position of the clicked chord
-    // in the captured strip so the visible 4-bar page keeps the chord at
-    // its native slot (e.g. cell idx 6 → page 1, slot 2) instead of
-    // snapping it to cells[0]. _buildPagePlan reads composedProgression
-    // to fill the slots before barInPage with the captured cells.
-    let absBar = cellsConsumed;
-    if (cap.mode === 'dense') {
-      const aLab = cap.uniqueLabels[0];
-      const aLen = cap.sections[aLab].cells.length;
-      if (targetLabel !== aLab) absBar = aLen + cellsConsumed;
-    } else if (cap.boundaries && cap.boundaries.length) {
-      const bnd2 = cap.boundaries.find(b => b.label === targetLabel);
-      if (bnd2) absBar = bnd2.start + cellsConsumed;
-    }
-    this.totalBars = absBar;
+    // Page-align totalBars to the absolute strip position where the clicked
+    // chord starts (snapped to chord head if the click landed on a tie). This
+    // keeps the chord at its native 4-bar page slot instead of snapping to
+    // cells[0]. _buildPagePlan reads composedProgression to fill the slots
+    // before barInPage with the prior strip cells.
+    this.totalBars = sectionAbsStart + cellsConsumed;
     if (typeof this._applySectionKey === 'function') this._applySectionKey();
   }
 
