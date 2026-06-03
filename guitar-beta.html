@@ -18652,6 +18652,10 @@ window._tuner = (function setupTuner() {
   let buf       = null;
   let rafId     = null;
   let recent    = [];
+  // sessionId is bumped on every stop() so an in-flight start() can detect
+  // that the user already left the tuner before getUserMedia resolved, and
+  // release the orphan stream instead of starting a phantom listener.
+  let sessionId = 0;
   const SMOOTH_N = 8;         // larger window → calmer needle, slight extra latency
   // Lock-feedback state machine. Fire the green flash + soft ding when
   // the user holds in-tune for IN_TUNE_LOCK_FRAMES consecutive frames;
@@ -18863,19 +18867,30 @@ window._tuner = (function setupTuner() {
   }
 
   async function start() {
+    // Already running — don't request a second stream
+    if (stream || rafId) return;
+    const mySession = ++sessionId;
     const statusEl = $('ls-tuner-status');
     paintIdle('connecting microphone…');
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('mic api unavailable');
       }
-      stream = await navigator.mediaDevices.getUserMedia({
+      const s = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
         },
       });
+      // The user may have swiped away or rotated to portrait while the
+      // permission prompt was up — in that case stop() bumped sessionId.
+      // Release the stream we just received and bail out cleanly.
+      if (mySession !== sessionId) {
+        s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        return;
+      }
+      stream = s;
       ctx = ensureAudio();
       micSource = ctx.createMediaStreamSource(stream);
       analyser = ctx.createAnalyser();
@@ -18886,6 +18901,7 @@ window._tuner = (function setupTuner() {
       paintIdle('play a string');
       rafId = requestAnimationFrame(tick);
     } catch (e) {
+      if (mySession !== sessionId) return;   // got cancelled mid-permission
       const msg = (e && e.name === 'NotAllowedError')
         ? 'microphone access denied'
         : 'microphone unavailable';
@@ -18894,9 +18910,11 @@ window._tuner = (function setupTuner() {
   }
 
   function stop() {
+    sessionId++;        // invalidate any in-flight start()
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
     if (micSource) { try { micSource.disconnect(); } catch (e) {} micSource = null; }
+    if (analyser) { try { analyser.disconnect(); } catch (e) {} }
     analyser = null;
     buf = null;
     if (stream) {
@@ -18909,6 +18927,14 @@ window._tuner = (function setupTuner() {
     armed = true;
     muteUntil = 0;
     paintIdle('play a string');
+  }
+
+  function isRunning() { return !!stream || !!rafId; }
+  function tunerModeVisible() {
+    return state.standbyMode === 'tuner'
+        && document.body.classList.contains('lp-on')
+        && !document.body.classList.contains('player-active')
+        && !document.hidden;
   }
 
   // Reference-tone pluck for tap-to-ring. Three-harmonic additive synth
@@ -18970,7 +18996,42 @@ window._tuner = (function setupTuner() {
     });
   })();
 
-  return { start, stop };
+  // Page hidden (tab switched, screen locked, app backgrounded) → release
+  // the mic so iOS doesn't keep the red recording dot pinned and so the
+  // OS doesn't drain battery on a stalled tick. Coming back visible while
+  // tuner mode is still selected restarts cleanly. Without this the mic
+  // would stay open silently behind a frozen requestAnimationFrame loop.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (isRunning()) stop();
+    } else if (tunerModeVisible() && !isRunning()) {
+      start();
+    }
+  });
+
+  // Player-active class is added when AI playback starts. The mic shouldn't
+  // stay open during playback — same reasoning as above (battery, iOS audio
+  // session in playAndRecord mode, surprising UX). Watches body class so
+  // anything that triggers the player (spacebar, autoplay paths, mode
+  // changes elsewhere) releases the mic for us without us having to thread
+  // a hook into every entry point.
+  (function wirePlayerActiveRelease() {
+    let wasPlayerActive = document.body.classList.contains('player-active');
+    const obs = new MutationObserver(() => {
+      const nowPlayerActive = document.body.classList.contains('player-active');
+      if (nowPlayerActive === wasPlayerActive) return;
+      wasPlayerActive = nowPlayerActive;
+      if (nowPlayerActive) {
+        if (isRunning()) stop();
+      } else if (tunerModeVisible() && !isRunning()) {
+        // Player just stopped and we're back in tuner mode — re-open the mic
+        start();
+      }
+    });
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  })();
+
+  return { start, stop, isRunning };
 })();
 
 // Register the shared service worker so this app installs / works offline
