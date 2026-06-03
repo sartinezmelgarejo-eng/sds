@@ -5556,6 +5556,9 @@ const UPGRADE_RULES_BY_QUALITY = {
   'm7': [
     { hasInts: [2], suffix: 'm9' },    // min7  + 9th present → "m9"
   ],
+  'maj7': [
+    { hasInts: [2], suffix: 'maj9' },  // maj7  + 9th present → "maj9"
+  ],
 };
 
 // Return a degraded display name when the voicing skips the tones that
@@ -5659,6 +5662,9 @@ function dropTwoNinthVoicing(rootPc, stringSetIdx, inversion) {
 }
 function dropTwoMinorNinthVoicing(rootPc, stringSetIdx, inversion) {
   return _dropTwoRootlessExtVoicing(rootPc, [3, 7, 10, 14], stringSetIdx, inversion);
+}
+function dropTwoMajorNinthVoicing(rootPc, stringSetIdx, inversion) {
+  return _dropTwoRootlessExtVoicing(rootPc, [4, 7, 11, 14], stringSetIdx, inversion);
 }
 
 /* ─── Drop-3 voicing ───
@@ -11188,17 +11194,18 @@ class Player {
           if (sh) cands.push(sh);
         }
       }
-      // Rootless 9 candidates — dom7 gets dom9 voicings, m7 gets m9.
+      // Rootless 9 candidates — dom7 gets dom9, m7 gets m9, maj7 gets maj9.
       // Same drop-2 transformation applied to the appropriate rootless
       // interval stack. Tagged with __ext9 (non-enumerable so JSON /
       // spreads / shape-iteration ignore it) so the scorer can apply a
       // small extension bias that keeps them out of selections unless
       // voice-leading clearly prefers them. The name upgrade lives in
       // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked
-      // 9-shape displays as "G9" / "Dm9" automatically without any
-      // progression-level changes.
-      const ninthBuilder = quality === '7'  ? dropTwoNinthVoicing
-                         : quality === 'm7' ? dropTwoMinorNinthVoicing
+      // 9-shape displays as "G9" / "Dm9" / "Cmaj9" automatically without
+      // any progression-level changes.
+      const ninthBuilder = quality === '7'    ? dropTwoNinthVoicing
+                         : quality === 'm7'   ? dropTwoMinorNinthVoicing
+                         : quality === 'maj7' ? dropTwoMajorNinthVoicing
                          : null;
       if (ninthBuilder) {
         for (let ss = 0; ss < STRING_SETS.length; ss++) {
@@ -16485,15 +16492,17 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
 
-  // 1.b Rootless drop-2 ninth voicings — dom7 gets dom9, m7 gets m9. Adds
-  // the 9 in place of the root for a "9 chord" sound (B-D-F-A for G9 etc.).
-  // Tagged with extension:'9' so pickByStrategy applies a small bias —
-  // these are picked only when voice-leading prefers them.
-  // chordNameForVoicing's upgrade rule (UPGRADE_RULES_BY_QUALITY) detects
-  // the 9 in the shape and displays "G9" / "Dm9" instead of "G7" / "Dm7"
-  // automatically, no qualityOverride needed.
-  const ninthBuilder = quality === '7'  ? dropTwoNinthVoicing
-                     : quality === 'm7' ? dropTwoMinorNinthVoicing
+  // 1.b Rootless drop-2 ninth voicings — dom7 gets dom9, m7 gets m9, maj7
+  // gets maj9. Adds the 9 in place of the root for a "9 chord" sound
+  // (B-D-F-A for G9, F-A-C-E for Dm9, E-G-B-D for Cmaj9). Tagged with
+  // extension:'9' so pickByStrategy applies a small bias — these are
+  // picked only when voice-leading prefers them. chordNameForVoicing's
+  // upgrade rule (UPGRADE_RULES_BY_QUALITY) detects the 9 in the shape
+  // and displays "G9" / "Dm9" / "Cmaj9" automatically, no qualityOverride
+  // needed.
+  const ninthBuilder = quality === '7'    ? dropTwoNinthVoicing
+                     : quality === 'm7'   ? dropTwoMinorNinthVoicing
+                     : quality === 'maj7' ? dropTwoMajorNinthVoicing
                      : null;
   if (ninthBuilder) {
     const ninths = [];
