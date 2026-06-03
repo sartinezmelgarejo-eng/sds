@@ -4275,6 +4275,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: clamp(8px, 2vh, 14px);
     transition: background 0.15s, transform 0.1s;
     line-height: 1;
     padding-left: 8px; /* optical center for ▶ */
@@ -4283,6 +4284,20 @@
     background: #fdfcf3;
     color: #1a1a1a;
     transform: scale(0.95);
+  }
+  /* Paused state — replace the ▶ glyph with two CSS-drawn bars so we
+     don't rely on system font rendering for ⏸ (renders as emoji on iOS).
+     Brutalist square bars, currentColor so :active inversion still works. */
+  #landscape-standby .ls-play.paused {
+    padding-left: 0;
+  }
+  #landscape-standby .ls-play.paused::before,
+  #landscape-standby .ls-play.paused::after {
+    content: '';
+    display: block;
+    width: clamp(12px, 2.6vh, 20px);
+    height: clamp(38px, 9vh, 64px);
+    background: currentColor;
   }
 
   /* ── Side buttons — brutalist rectangles ── */
@@ -9727,7 +9742,7 @@ class Metronome {
       // and apply accel if armed.
       if (this.tickIdx === 0 && prev !== 0) {
         this._barCount++;
-        if (this._accelOn && this._barCount > 0 && this._barCount % 4 === 0) {
+        if (this._accelOn && this._barCount > 0 && this._barCount % 8 === 0) {
           // Defer the BPM bump so it doesn't mutate state mid-scheduler loop
           setTimeout(() => {
             if (typeof setBpm === 'function') setBpm(this.bpm + 5);
@@ -14911,12 +14926,14 @@ function renderLandscapeStandby() {
     });
   }
 
-  // Play button glyph — pause icon when the metronome is currently
-  // ticking, so the user sees their toggle landed. Band mode always
-  // shows ▶ (the player has its own state during play).
+  // Play button glyph — when the metronome is currently ticking, swap to
+  // a CSS-drawn pause (two bars via ::before/::after, no emoji rendering).
+  // Band mode always shows ▶ since the standby is hidden during AI play.
   const playBtn = document.getElementById('ls-play');
   if (playBtn) {
-    playBtn.textContent = (isMetro && metronome.playing) ? '⏸' : '▶';
+    const isPaused = isMetro && metronome.playing;
+    playBtn.classList.toggle('paused', isPaused);
+    playBtn.textContent = isPaused ? '' : '▶';
   }
 
   // Beat indicator dots — regenerate to match metroBeatsPerBar (3-7).
