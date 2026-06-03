@@ -11440,6 +11440,12 @@ class Player {
     // After Edit on an AI song: jump to the cell the user had selected so
     // playback resumes where they were listening, not from bar 0.
     this._applyCapturedStartPosition();
+    // _applyCapturedStartPosition sets forceTriggerAtNextBar=true (needed
+    // for paused-jump→resume flow). But in start()'s flow the count-in
+    // already fires the first chord — leaving force-trigger on makes the
+    // next scheduler tick fire the same chord AGAIN (audible double-strike
+    // on bar 1). Mirror resume()'s explicit reset.
+    this.forceTriggerAtNextBar = false;
     // Read voicingType + bassPattern from the section (pre-assigned at song generation)
     this.voicingType = this._currentSection().voicingType || this._pickVoicingType();
     this.bassPattern = this._currentSection().bassPattern || this._pickBassPattern();
