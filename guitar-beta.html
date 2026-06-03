@@ -11384,6 +11384,18 @@ class Player {
       const aLen = cap.sections[aLab].cells.length;
       if (cellIdx < aLen) { targetLabel = aLab;   cellInSection = cellIdx; }
       else                { targetLabel = bLab;   cellInSection = cellIdx - aLen; }
+    } else if (cap.boundaries && cap.boundaries.length) {
+      // Stacked: the strip concatenates every unique section, so the cellIdx
+      // could live in any of them. Find the section whose [start, start+len)
+      // range contains the click and rebase cellInSection accordingly.
+      // Without this, a click in section B walked through section A's steps
+      // until it ran out and stuck on A's last chord.
+      let bnd = cap.boundaries[0];
+      for (const b of cap.boundaries) {
+        if (cellIdx >= b.start && cellIdx < b.start + b.len) { bnd = b; break; }
+      }
+      targetLabel = bnd.label;
+      cellInSection = cellIdx - bnd.start;
     } else {
       targetLabel = cap.activeLabel;
       cellInSection = cellIdx;
