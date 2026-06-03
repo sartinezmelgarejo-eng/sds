@@ -5551,7 +5551,10 @@ const DEGRADE_RULES_BY_QUALITY = {
 // needing a separate qualityOverride on the progression step.
 const UPGRADE_RULES_BY_QUALITY = {
   '7': [
-    { hasInts: [2], suffix: '9' },     // dom7 + 9th present → "9"
+    { hasInts: [2], suffix: '9' },     // dom7  + 9th present → "9"
+  ],
+  'm7': [
+    { hasInts: [2], suffix: 'm9' },    // min7  + 9th present → "m9"
   ],
 };
 
@@ -5616,21 +5619,24 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   return null;
 }
 
-/* ─── Rootless drop-2 ninth voicing (dom7 → 9) ───
+/* ─── Rootless drop-2 ninth voicings (dom7 → 9, m7 → m9) ───
    Standard jazz substitution: drop the root, add the 9, voice as drop-2.
    For G7 the rootless 9 is B-D-F-A (3-5-b7-9) — which is also Bm7b5.
-   The bass instrument keeps the root, so the chord still reads as a
-   dominant; on guitar the 9 lives on top and resolves into the next
-   chord's tones by step. Called from allDistinctVoicings for quality
-   '7' only; tagged with extension:'9' so pickByStrategy can apply a
+   For Dm7 the rootless m9 is F-A-C-E (b3-5-b7-9). The bass instrument
+   keeps the root, so the chord still reads correctly; on guitar the 9
+   lives on top and resolves into the next chord's tones by step.
+
+   Both builders run the same drop-2 logic as dropTwoVoicing (drop the
+   2nd-from-top voice an octave), just with different starting interval
+   sets. Tagged with __ext9 (in callsites) so the scorer can apply a
    small bias keeping these out of selections unless voice-leading
    genuinely prefers them.
 
-   Intervals from root: [3, 5, b7, 9] = [4, 7, 10, 14] before drop-2.
-   Same drop-2 logic as dropTwoVoicing (drop close[2] by an octave),
-   just with a different starting interval set. */
-function dropTwoNinthVoicing(rootPc, stringSetIdx, inversion) {
-  let close = [4, 7, 10, 14];
+   - dropTwoNinthVoicing      — dom9   intervals [3,  5, b7, 9] = [4, 7, 10, 14]
+   - dropTwoMinorNinthVoicing — m9     intervals [b3, 5, b7, 9] = [3, 7, 10, 14]
+*/
+function _dropTwoRootlessExtVoicing(rootPc, closeIntervals, stringSetIdx, inversion) {
+  let close = [...closeIntervals];
   for (let i = 0; i < inversion; i++) {
     close = [close[1], close[2], close[3], close[0] + 12];
   }
@@ -5647,6 +5653,12 @@ function dropTwoNinthVoicing(rootPc, stringSetIdx, inversion) {
     }
   }
   return null;
+}
+function dropTwoNinthVoicing(rootPc, stringSetIdx, inversion) {
+  return _dropTwoRootlessExtVoicing(rootPc, [4, 7, 10, 14], stringSetIdx, inversion);
+}
+function dropTwoMinorNinthVoicing(rootPc, stringSetIdx, inversion) {
+  return _dropTwoRootlessExtVoicing(rootPc, [3, 7, 10, 14], stringSetIdx, inversion);
 }
 
 /* ─── Drop-3 voicing ───
@@ -11176,17 +11188,22 @@ class Player {
           if (sh) cands.push(sh);
         }
       }
-      // Rootless dom9 candidates — only for dom7. Same drop-2 transformation
-      // applied to [3,5,b7,9] intervals. Tagged with __ext9 (non-enumerable
-      // so JSON / spreads / shape-iteration ignore it) so the scorer can apply
-      // a small extension bias that keeps them out of selections unless voice-
-      // leading clearly prefers them. The name-upgrade lives in
-      // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked 9-shape
-      // displays as "G9" everywhere without progression-level changes.
-      if (quality === '7') {
+      // Rootless 9 candidates — dom7 gets dom9 voicings, m7 gets m9.
+      // Same drop-2 transformation applied to the appropriate rootless
+      // interval stack. Tagged with __ext9 (non-enumerable so JSON /
+      // spreads / shape-iteration ignore it) so the scorer can apply a
+      // small extension bias that keeps them out of selections unless
+      // voice-leading clearly prefers them. The name upgrade lives in
+      // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked
+      // 9-shape displays as "G9" / "Dm9" automatically without any
+      // progression-level changes.
+      const ninthBuilder = quality === '7'  ? dropTwoNinthVoicing
+                         : quality === 'm7' ? dropTwoMinorNinthVoicing
+                         : null;
+      if (ninthBuilder) {
         for (let ss = 0; ss < STRING_SETS.length; ss++) {
           for (let inv = 0; inv < 4; inv++) {
-            const sh = dropTwoNinthVoicing(root, ss, inv);
+            const sh = ninthBuilder(root, ss, inv);
             if (!sh) continue;
             Object.defineProperty(sh, '__ext9', { value: true });
             cands.push(sh);
@@ -16468,17 +16485,21 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
 
-  // 1.b Rootless drop-2 ninth voicings — dom7 only. Adds the 9 in place of
-  // the root for a "9 chord" sound (B-D-F-A for G9 etc.). Tagged with
-  // extension:'9' so pickByStrategy applies a small bias — these are picked
-  // only when voice-leading prefers them. chordNameForVoicing's upgrade
-  // rule (UPGRADE_RULES_BY_QUALITY['7']) detects the 9 in the shape and
-  // displays "G9" instead of "G7" automatically, no qualityOverride needed.
-  if (quality === '7') {
+  // 1.b Rootless drop-2 ninth voicings — dom7 gets dom9, m7 gets m9. Adds
+  // the 9 in place of the root for a "9 chord" sound (B-D-F-A for G9 etc.).
+  // Tagged with extension:'9' so pickByStrategy applies a small bias —
+  // these are picked only when voice-leading prefers them.
+  // chordNameForVoicing's upgrade rule (UPGRADE_RULES_BY_QUALITY) detects
+  // the 9 in the shape and displays "G9" / "Dm9" instead of "G7" / "Dm7"
+  // automatically, no qualityOverride needed.
+  const ninthBuilder = quality === '7'  ? dropTwoNinthVoicing
+                     : quality === 'm7' ? dropTwoMinorNinthVoicing
+                     : null;
+  if (ninthBuilder) {
     const ninths = [];
     for (let ss = 0; ss < STRING_SETS.length; ss++) {
       for (let inv = 0; inv < 4; inv++) {
-        const base = dropTwoNinthVoicing(rootPc, ss, inv);
+        const base = ninthBuilder(rootPc, ss, inv);
         if (!base) continue;
         withOctaves(sh => ninths.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
       }
