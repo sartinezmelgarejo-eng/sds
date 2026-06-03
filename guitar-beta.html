@@ -5767,6 +5767,12 @@ const state = {
   // so swiping back to band restores whatever the user had chosen for the
   // AI band (ride, drums, 2&4, etc). null = not in metronome mode.
   metroSavedRhythm: null,
+  // Source flag for composedSelectedIdx: true only when the user EXPLICITLY
+  // locked a slot via the 🔓 button. False when set by pause auto-select or
+  // by AI-song capture. The cell-click handler clears composedSelectedIdx
+  // when this flag is false (i.e. when it was set automatically), so a
+  // recent click wins over a stale auto-select. Lock-explicit always wins.
+  _composedSelectedLocked: false,
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -11581,6 +11587,7 @@ class Player {
         : state.composedProgression.findIndex(c => c.chord === curChord);
       if (idx >= 0) {
         state.composedSelectedIdx = idx;
+        state._composedSelectedLocked = false;  // pause auto-select, not user lock
         state._composeFocusedIdx  = idx;
         state.focusedChord = curChord;
         const cell = state.composedProgression[idx];
@@ -13636,6 +13643,7 @@ document.getElementById('auto-edit').addEventListener('click', () => {
   if (curChord) state.focusedChord = curChord;
   if (selectIdx >= 0) {
     state.composedSelectedIdx = selectIdx;
+    state._composedSelectedLocked = false;  // capture auto-select, not user lock
     state._composeFocusedIdx = selectIdx;
     const cell = state.composedProgression[selectIdx];
     if (cell && cell.shape) {
@@ -17102,9 +17110,12 @@ document.addEventListener('click', (ev) => {
     if (state.composedSelectedIdx === idx) {
       // Already locked on this slot — unlock
       state.composedSelectedIdx = null;
+      state._composedSelectedLocked = false;
     } else {
-      // Lock this slot
+      // Lock this slot — EXPLICIT user lock, persists until unlocked or
+      // overridden by another explicit lock. Cell-clicks won't clear this.
       state.composedSelectedIdx = idx;
+      state._composedSelectedLocked = true;
       const entry = seq[idx];
       state.focusedChord = entry.chord;
       state.userVoicing = entry.shape ? { shape: entry.shape } : null;
@@ -17145,6 +17156,7 @@ document.addEventListener('click', (ev) => {
       const inControls = ev.target.closest('.compose-pad, .compose-btn, .compose-inv, .map-card');
       if (!inControls) {
         state.composedSelectedIdx = null;
+        state._composedSelectedLocked = false;
         renderComposeStrip();
       }
     }
@@ -17163,6 +17175,14 @@ document.addEventListener('click', (ev) => {
   // a separate _oneShotReplaceIdx so the existing composedSelectedIdx
   // (which DOES drive the orange "locked" highlight via the explicit
   // 🔓 button) stays untouched.
+  //
+  // EXCEPT: if composedSelectedIdx was set automatically (pause or AI
+  // capture — flag _composedSelectedLocked is false), the user clicking
+  // a different cell signals intent to start play from THIS cell, so we
+  // clear the stale auto-select. Explicit 🔓 locks survive (flag true).
+  if (state.composedSelectedIdx !== null && !state._composedSelectedLocked) {
+    state.composedSelectedIdx = null;
+  }
   state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
@@ -17329,8 +17349,10 @@ document.addEventListener('keydown', e => {
       const target = state.composedSelectedIdx ?? (seq.length - 1);
       if (state.composedSelectedIdx === target) {
         state.composedSelectedIdx = null;
+        state._composedSelectedLocked = false;
       } else {
         state.composedSelectedIdx = target;
+        state._composedSelectedLocked = true;  // explicit user lock via L key
         const entry = seq[target];
         state.focusedChord = entry.chord;
         state.userVoicing = entry.shape ? { shape: entry.shape } : null;
