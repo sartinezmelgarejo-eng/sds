@@ -11176,6 +11176,23 @@ class Player {
           if (sh) cands.push(sh);
         }
       }
+      // Rootless dom9 candidates — only for dom7. Same drop-2 transformation
+      // applied to [3,5,b7,9] intervals. Tagged with __ext9 (non-enumerable
+      // so JSON / spreads / shape-iteration ignore it) so the scorer can apply
+      // a small extension bias that keeps them out of selections unless voice-
+      // leading clearly prefers them. The name-upgrade lives in
+      // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked 9-shape
+      // displays as "G9" everywhere without progression-level changes.
+      if (quality === '7') {
+        for (let ss = 0; ss < STRING_SETS.length; ss++) {
+          for (let inv = 0; inv < 4; inv++) {
+            const sh = dropTwoNinthVoicing(root, ss, inv);
+            if (!sh) continue;
+            Object.defineProperty(sh, '__ext9', { value: true });
+            cands.push(sh);
+          }
+        }
+      }
     } else if (type === 'drop3') {
       for (let ss = 0; ss < DROP3_STRING_SETS.length; ss++) {
         for (let inv = 0; inv < 4; inv++) {
@@ -11270,6 +11287,11 @@ class Player {
           cost += (progName && HEAVY_ROCK_PROGS.has(progName)) ? -6
                  : (strumW < 15 ? 8 : 0);
         }
+        // First chord of a song has no voice-leading context to make a 9
+        // preferable, so just lean toward root voicings — the 9 can show
+        // up on the second chord onward when there's something to resolve
+        // smoothly from.
+        if (sh.__ext9) cost += 1.5;
         if (!best || cost < best.cost) best = {shape: sh, cost};
       }
       return best.shape;
@@ -11414,8 +11436,14 @@ class Player {
           variantBias = v === 'seventh' ? -2 : 1.5;
         }
       }
-      // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1, top-voice ≈1.2, variant ≈±2
-      const score = (overlapCount ? moveSum : 5) + regionShift * 2.4 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty + jumpPenalty + topPenalty + variantBias;
+      // Extension bias — same role as variantBias but for "this candidate
+      // adds the 9th." Small enough that voice-leading can overrule it (the
+      // whole point of voice-leading-driven 9s), big enough that root
+      // voicings win ties. Single tuning dial — lower for more 9s, higher
+      // for fewer.
+      const extBias = sh.__ext9 ? 1.5 : 0;
+      // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1, top-voice ≈1.2, variant ≈±2, ext9 ≈1.5
+      const score = (overlapCount ? moveSum : 5) + regionShift * 2.4 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty + jumpPenalty + topPenalty + variantBias + extBias;
       if (!best || score < best.score) best = {shape: sh, score};
     }
     return best ? best.shape : filtered[0];
