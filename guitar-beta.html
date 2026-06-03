@@ -15035,7 +15035,6 @@ function renderLandscapeStandby() {
       const lbl = currentRhythmMode === 'click' ? 'CLICK'
                 : currentRhythmMode === 'twofour' ? '2&4'
                 : currentRhythmMode === 'drums' ? 'DRUMS'
-                : currentRhythmMode === 'off' ? 'MUTE'
                 : 'RIDE';
       soundBtn.textContent = '🎵 ' + lbl;
     } else {
@@ -15200,17 +15199,16 @@ function renderLandscapeStandby() {
   });
 
   // Sound → in band mode toggles instrument (guitar/piano). In metronome mode
-  // cycles the metronome's tick sound (ride → click → twofour → drums → off → ride).
+  // cycles the metronome's tick sound (ride → click → twofour → drums → ride).
+  // 'off' is intentionally excluded — the PLAY button is already the silence
+  // toggle, no point in having two ways to mute.
   const soundBtn = document.getElementById('ls-sound');
   if (soundBtn) soundBtn.addEventListener('click', () => {
     if (state.standbyMode === 'metronome') {
-      const order = ['ride', 'click', 'twofour', 'drums', 'off'];
+      const order = ['ride', 'click', 'twofour', 'drums'];
       const i = order.indexOf(currentRhythmMode);
       const next = order[(i + 1) % order.length];
       applyRhythmMode(next);
-      // If metronome is currently playing and we just switched to 'off',
-      // applyRhythmMode already stopped it. If switching FROM 'off' while
-      // playing was attempted, applyRhythmMode handles that too.
       renderLandscapeStandby();
       return;
     }
