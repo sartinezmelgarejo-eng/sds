@@ -4521,130 +4521,185 @@
     height: auto;
   }
 
-  /* ─── TUNER overlay ──────────────────────────────────────────────
-     Full-screen modal triggered by the TUNE snd-cell. Brutalist look
-     so the big detected note is unmissable; needle + six string cards
-     read at a glance. The detection colour palette is shared across
-     note, needle, and matched-string highlight: green = ±5¢ (in tune),
-     yellow = ±15¢ (close), red = beyond (way off).                  */
-  #tuner-overlay {
-    position: fixed; inset: 0; z-index: 9999;
-    background: rgba(20, 20, 20, 0.97);
-    color: #fdfcf3;
-    display: none;
-    flex-direction: column; align-items: center;
-    padding: 24px 16px 28px;
-    overflow-y: auto;
-    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
-  }
-  #tuner-overlay[data-open="1"] { display: flex; }
-  #tuner-overlay .tn-head {
-    width: 100%; max-width: 520px;
-    display: flex; justify-content: space-between; align-items: center;
-    border-bottom: 2px solid #fdfcf3; padding-bottom: 8px;
-  }
-  #tuner-overlay .tn-title {
-    font-weight: 800; letter-spacing: 3px; font-size: 16px;
-  }
-  #tuner-overlay .tn-close {
-    background: transparent;
-    border: 2px solid #fdfcf3; color: inherit;
-    font-family: inherit; font-size: 12px; font-weight: 700;
-    letter-spacing: 1.5px;
-    padding: 5px 12px; cursor: pointer;
-  }
-  #tuner-overlay .tn-close:hover { background: #fdfcf3; color: #1a1a1a; }
-  #tuner-overlay .tn-note-box {
-    margin-top: 28px;
-    display: flex; flex-direction: column; align-items: center;
-    min-height: 150px; justify-content: center;
-  }
-  #tuner-overlay .tn-note {
-    font-size: clamp(72px, 18vw, 120px);
-    font-weight: 800; line-height: 1;
-    letter-spacing: -3px;
-    transition: color 180ms;
-    color: #fdfcf3;
-  }
-  #tuner-overlay .tn-note.in-tune { color: #4ade80; }
-  #tuner-overlay .tn-note.near    { color: #fbbf24; }
-  #tuner-overlay .tn-note.off     { color: #f87171; }
-  #tuner-overlay .tn-cents {
-    margin-top: 6px; font-size: 18px; opacity: 0.85;
-    letter-spacing: 2px; font-weight: 700;
-  }
-  #tuner-overlay .tn-hz {
-    font-size: 11px; opacity: 0.55; margin-top: 4px;
-    letter-spacing: 1.5px;
-  }
-  #tuner-overlay .tn-meter {
-    margin-top: 28px; width: 100%; max-width: 480px;
-    height: 56px; position: relative;
-    border: 2px solid #fdfcf3;
-    background: rgba(0,0,0,0.3);
-  }
-  #tuner-overlay .tn-meter-center {
-    position: absolute; left: 50%; top: 4px; bottom: 4px; width: 2px;
-    background: #fdfcf3; opacity: 0.85;
-    transform: translateX(-50%);
-  }
-  #tuner-overlay .tn-meter-tick {
-    position: absolute; top: 0; height: 8px; width: 1px;
-    background: #fdfcf3; opacity: 0.35;
-  }
-  #tuner-overlay .tn-meter-needle {
-    position: absolute; top: -2px; bottom: -2px; width: 4px;
-    background: #fdfcf3; opacity: 0.4;
-    left: 50%; transform: translateX(-50%);
-    transition: left 90ms linear, background 120ms, opacity 120ms;
-  }
-  #tuner-overlay .tn-meter-needle.live    { opacity: 1; }
-  #tuner-overlay .tn-meter-needle.in-tune { background: #4ade80; }
-  #tuner-overlay .tn-meter-needle.near    { background: #fbbf24; }
-  #tuner-overlay .tn-meter-needle.off     { background: #f87171; }
-  #tuner-overlay .tn-meter-labels {
-    width: 100%; max-width: 480px;
-    display: flex; justify-content: space-between;
-    font-size: 10px; opacity: 0.6; margin-top: 6px;
-    letter-spacing: 1.2px;
-  }
-  #tuner-overlay .tn-strings {
-    margin-top: 28px;
-    display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
-    width: 100%; max-width: 480px;
-  }
-  #tuner-overlay .tn-string {
-    border: 2px solid #fdfcf3; padding: 10px 0 8px;
+  /* ─── TUNER mode (landscape standby, third swipe) ─────────────────
+     Same brutalist grid as band/metronome modes, just repurposed: the
+     detected note lands where ls-key sits, cents-off where BPM sits,
+     the center play button becomes a tuning-state orb with a sweep
+     needle, the bottom-center row becomes a 6-string indicator. Colour
+     palette is shared across note / needle / matched string / orb:
+     green = ±5¢, yellow = ±15¢, red beyond.                          */
+  #landscape-standby.tuner-mode { background: #1b1d20; }
+  #landscape-standby.tuner-mode .ls-key-group,
+  #landscape-standby.tuner-mode .ls-bpm,
+  #landscape-standby.tuner-mode .ls-song,
+  #landscape-standby.tuner-mode .ls-tap,
+  #landscape-standby.tuner-mode .ls-beat-indicator,
+  #landscape-standby.tuner-mode .ls-right-col { display: none !important; }
+  #landscape-standby.tuner-mode .ls-play { display: none; }
+
+  /* Top-left big note (mirrors ls-key in size + serif treatment) */
+  #landscape-standby .ls-tuner-note-wrap { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-note-wrap {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
     text-align: center;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-    opacity: 0.4; transition: opacity 140ms, background 140ms, color 140ms, border-color 140ms;
   }
-  #tuner-overlay .tn-string .tn-string-num {
-    font-size: 9px; opacity: 0.75; letter-spacing: 1.5px;
+  #landscape-standby .ls-tuner-note {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(48px, 11vh, 80px);
+    line-height: 1;
+    color: #fdfcf3;
+    transition: color 180ms;
+    min-width: 1.4em;
   }
-  #tuner-overlay .tn-string .tn-string-name {
-    font-size: 26px; font-weight: 800; letter-spacing: 1px; line-height: 1;
-  }
-  #tuner-overlay .tn-string .tn-string-sub {
-    font-size: 9px; opacity: 0.65; letter-spacing: 1px;
-  }
-  #tuner-overlay .tn-string.match {
-    opacity: 1; background: #fdfcf3; color: #1a1a1a; border-color: #fdfcf3;
-  }
-  #tuner-overlay .tn-string.match.in-tune { background: #4ade80; border-color: #4ade80; }
-  #tuner-overlay .tn-string.match.near    { background: #fbbf24; border-color: #fbbf24; }
-  #tuner-overlay .tn-string.match.off     { background: #f87171; border-color: #f87171; }
-  #tuner-overlay .tn-status {
-    margin-top: 22px; font-size: 12px; opacity: 0.7;
-    letter-spacing: 1.5px; text-align: center; min-height: 18px;
+  #landscape-standby .ls-tuner-note.in-tune { color: #4ade80; }
+  #landscape-standby .ls-tuner-note.near    { color: #fbbf24; }
+  #landscape-standby .ls-tuner-note.off     { color: #f87171; }
+  #landscape-standby .ls-tuner-note-label {
+    font-size: clamp(10px, 2vh, 14px);
+    opacity: 0.5;
     text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 4px;
   }
-  #tuner-overlay .tn-status.err { color: #f87171; opacity: 1; }
-  @media (max-width: 480px) {
-    #tuner-overlay .tn-string .tn-string-name { font-size: 22px; }
-    #tuner-overlay .tn-string { padding: 8px 0 6px; }
-    #tuner-overlay .tn-cents { font-size: 16px; }
+
+  /* Bottom-left cents (mirrors ls-bpm) */
+  #landscape-standby .ls-tuner-cents-wrap { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-cents-wrap {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
   }
+  #landscape-standby .ls-tuner-cents-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(28px, 7vh, 48px);
+    line-height: 1;
+    color: #fdfcf3;
+    transition: color 180ms;
+  }
+  #landscape-standby .ls-tuner-cents-val.in-tune { color: #4ade80; }
+  #landscape-standby .ls-tuner-cents-val.near    { color: #fbbf24; }
+  #landscape-standby .ls-tuner-cents-val.off     { color: #f87171; }
+  #landscape-standby .ls-tuner-cents-label {
+    font-size: clamp(10px, 2vh, 14px);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 2px;
+  }
+
+  /* Center orb — same size + position as ls-play */
+  #landscape-standby .ls-tuner-orb { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-orb {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1 / 3;
+    width: clamp(100px, 22vh, 160px);
+    height: clamp(100px, 22vh, 160px);
+    border-radius: 50%;
+    border: 3px solid #fdfcf3;
+    background: transparent;
+    position: relative;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 200ms, background 200ms;
+    overflow: visible;
+  }
+  #landscape-standby .ls-tuner-orb.in-tune { border-color: #4ade80; background: rgba(74,222,128,0.10); }
+  #landscape-standby .ls-tuner-orb.near    { border-color: #fbbf24; background: rgba(251,191,36,0.10); }
+  #landscape-standby .ls-tuner-orb.off     { border-color: #f87171; background: rgba(248,113,113,0.10); }
+  #landscape-standby .ls-tuner-orb-hz {
+    font-size: clamp(11px, 2.2vh, 16px);
+    opacity: 0.65;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    pointer-events: none;
+  }
+  /* Sweep needle anchored at the orb center, rotates -45deg (♭50¢) to +45deg (♯50¢) */
+  #landscape-standby .ls-tuner-needle {
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 3px;
+    height: 46%;
+    background: #fdfcf3;
+    opacity: 0.35;
+    transform: translateX(-50%) rotate(0deg);
+    transform-origin: bottom center;
+    transition: transform 110ms linear, background 160ms, opacity 160ms;
+    border-radius: 2px;
+  }
+  #landscape-standby .ls-tuner-needle.live { opacity: 1; }
+  #landscape-standby .ls-tuner-needle.in-tune { background: #4ade80; }
+  #landscape-standby .ls-tuner-needle.near    { background: #fbbf24; }
+  #landscape-standby .ls-tuner-needle.off     { background: #f87171; }
+
+  /* Bottom-center string row (replaces ls-song slot) */
+  #landscape-standby .ls-tuner-strings { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-strings {
+    display: flex;
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    gap: clamp(4px, 1vh, 10px);
+    margin-top: 6px;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell {
+    min-width: clamp(28px, 5.5vh, 42px);
+    padding: clamp(4px, 0.9vh, 8px) 0 clamp(2px, 0.6vh, 5px);
+    border: 2px solid rgba(253,252,243,0.4);
+    text-align: center;
+    font-weight: 800;
+    opacity: 0.55;
+    transition: all 140ms;
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 1;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell .ts-num {
+    font-size: clamp(8px, 1.4vh, 11px); opacity: 0.7; letter-spacing: 0.1em;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell .ts-name {
+    font-size: clamp(14px, 2.8vh, 20px); margin-top: 1px;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell.match {
+    opacity: 1; border-color: #fdfcf3; background: #fdfcf3; color: #1a1a1a;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.in-tune { background: #4ade80; border-color: #4ade80; }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.near    { background: #fbbf24; border-color: #fbbf24; }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.off     { background: #f87171; border-color: #f87171; }
+
+  /* Status line — bottom centered (mic permission hints, "play a string") */
+  #landscape-standby .ls-tuner-status { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-status {
+    display: block;
+    position: absolute;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    font-size: clamp(10px, 2vh, 14px);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    text-align: center;
+    white-space: nowrap;
+  }
+  #landscape-standby .ls-tuner-status.err { color: #f87171; opacity: 1; }
+
+  /* Tuner-mode brand glyph — reuses .ls-mode-glyph but shown via .tuner-mode */
+  #landscape-standby.tuner-mode .ls-mode-glyph {
+    display: block;
+  }
+  /* Show only the tuner-fork SVG inside the glyph when in tuner mode,
+     and the metronome SVG when in metronome mode — toggled via data attrs */
+  #landscape-standby .ls-mode-glyph .glyph-metronome,
+  #landscape-standby .ls-mode-glyph .glyph-tuner { display: none; }
+  #landscape-standby.metronome-mode .ls-mode-glyph .glyph-metronome { display: block; }
+  #landscape-standby.tuner-mode     .ls-mode-glyph .glyph-tuner    { display: block; }
 </style>
 </head>
 <body class="keypad-open">
@@ -4724,7 +4779,6 @@
         <button class="snd-cell" id="voicing-pref" data-label="VOICE" title="click to pick voicing type"><span class="sc-val">ALL</span></button>
         <button class="snd-cell snd-rhythm" id="rhythm-btn" title="rhythm style"><span class="rhythm-ico" aria-hidden="true"></span></button>
         <button class="snd-cell snd-mix" id="mixer-btn" data-label="MIXER" title="open the volume mixer"><span class="sc-val">≡</span></button>
-        <button class="snd-cell" id="tuner-btn" data-label="TUNE" title="open guitar tuner (uses microphone)"><span class="sc-val">♪</span></button>
       </div>
       <!-- BPM moved up to the top bar alongside KEY / TONALITY /
            CHORDS so the VISUAL+SOUND strip has the full row width
@@ -4793,42 +4847,6 @@
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
 <div id="subdiv-popover"></div>
 <div class="sound-menu" id="rhythm-menu" hidden></div>
-
-<!-- Guitar tuner overlay. Mic-driven YIN pitch detection → nearest note +
-     cents-off + matched string (standard tuning EADGBE). Visible only when
-     tuner-btn is tapped; releases the mic stream when closed. -->
-<div id="tuner-overlay" data-open="0" role="dialog" aria-label="Guitar tuner" aria-hidden="true">
-  <div class="tn-head">
-    <div class="tn-title">TUNER</div>
-    <button class="tn-close" type="button" title="close tuner (Esc)">CLOSE ✕</button>
-  </div>
-  <div class="tn-note-box">
-    <div class="tn-note">—</div>
-    <div class="tn-cents"></div>
-    <div class="tn-hz"></div>
-  </div>
-  <div class="tn-meter">
-    <div class="tn-meter-center"></div>
-    <div class="tn-meter-tick" style="left:25%"></div>
-    <div class="tn-meter-tick" style="left:50%"></div>
-    <div class="tn-meter-tick" style="left:75%"></div>
-    <div class="tn-meter-needle"></div>
-  </div>
-  <div class="tn-meter-labels">
-    <span>♭ 50¢</span>
-    <span>0</span>
-    <span>50¢ ♯</span>
-  </div>
-  <div class="tn-strings">
-    <div class="tn-string"><span class="tn-string-num">6</span><span class="tn-string-name">E</span><span class="tn-string-sub">82 Hz</span></div>
-    <div class="tn-string"><span class="tn-string-num">5</span><span class="tn-string-name">A</span><span class="tn-string-sub">110 Hz</span></div>
-    <div class="tn-string"><span class="tn-string-num">4</span><span class="tn-string-name">D</span><span class="tn-string-sub">147 Hz</span></div>
-    <div class="tn-string"><span class="tn-string-num">3</span><span class="tn-string-name">G</span><span class="tn-string-sub">196 Hz</span></div>
-    <div class="tn-string"><span class="tn-string-num">2</span><span class="tn-string-name">B</span><span class="tn-string-sub">247 Hz</span></div>
-    <div class="tn-string"><span class="tn-string-num">1</span><span class="tn-string-name">E</span><span class="tn-string-sub">330 Hz</span></div>
-  </div>
-  <div class="tn-status">play a string</div>
-</div>
 
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
      when the AI isn't playing. On phone: phone-dialer grid pinned to the bottom. -->
@@ -4970,20 +4988,29 @@
      key/bpm/toggles and hit play without rotating back.
 ─────────────────────────────────────────────────────────────── -->
 <div id="landscape-standby" aria-hidden="true">
-  <!-- Mode pager dots (band ↔ metronome) — top center -->
+  <!-- Mode pager dots (band ↔ metronome ↔ tuner) — top center -->
   <div class="ls-mode-pager" id="ls-mode-pager">
     <span class="pg-dot on" data-mode="band"></span>
     <span class="pg-dot" data-mode="metronome"></span>
+    <span class="pg-dot" data-mode="tuner"></span>
   </div>
-  <!-- Metronome mode brand glyph — small SVG illustration below the pager,
-       visible only when standbyMode === 'metronome'. Visual confirmation
-       that the mode has changed without leaning on text. -->
+  <!-- Mode brand glyph — small SVG illustration below the pager,
+       toggles between metronome (triangle + pendulum) and tuner (tuning
+       fork) based on the active mode. Visual confirmation that the mode
+       has changed without leaning on text. -->
   <div class="ls-mode-glyph" aria-hidden="true">
-    <svg viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+    <svg class="glyph-metronome" viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
       <polygon points="12,3 4,27 20,27"/>
       <line x1="12" y1="26" x2="15.2" y2="9.5"/>
       <rect x="13" y="14.5" width="3" height="3" fill="currentColor" stroke="none"/>
       <line x1="2" y1="29.2" x2="22" y2="29.2"/>
+    </svg>
+    <svg class="glyph-tuner" viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+      <line x1="8"  y1="3" x2="8"  y2="18"/>
+      <line x1="16" y1="3" x2="16" y2="18"/>
+      <path d="M8 18 Q 12 22 16 18"/>
+      <line x1="12" y1="21" x2="12" y2="29"/>
+      <circle cx="12" cy="29.5" r="1.4" fill="currentColor" stroke="none"/>
     </svg>
   </div>
   <div class="ls-grid">
@@ -5019,7 +5046,39 @@
          count tracks state.metroBeatsPerBar (3-7) and the first dot gets
          the .downbeat class for visual emphasis on the "1". -->
     <div class="ls-beat-indicator" id="ls-beat-indicator"></div>
+
+    <!-- ─── TUNER MODE elements ────────────────────────────────
+         All hidden by default; .tuner-mode on the parent reveals them
+         and the band/metronome elements get display:none in the same
+         class. Mic + YIN pitch detection wires up in tunerStart() and
+         shuts down in tunerStop() (in the script block). -->
+    <!-- Top-left: detected note (lands in ls-key-group's slot) -->
+    <div class="ls-tuner-note-wrap">
+      <div class="ls-tuner-note" id="ls-tuner-note">—</div>
+      <div class="ls-tuner-note-label">detected</div>
+    </div>
+    <!-- Bottom-left: cents off (lands in ls-bpm's slot) -->
+    <div class="ls-tuner-cents-wrap">
+      <div class="ls-tuner-cents-val" id="ls-tuner-cents-val">·</div>
+      <div class="ls-tuner-cents-label">cents</div>
+    </div>
+    <!-- Center: tuning state orb with sweep needle (replaces ls-play) -->
+    <div class="ls-tuner-orb" id="ls-tuner-orb">
+      <div class="ls-tuner-needle" id="ls-tuner-needle"></div>
+      <div class="ls-tuner-orb-hz" id="ls-tuner-orb-hz">— Hz</div>
+    </div>
+    <!-- Bottom-center: 6-string indicator (lands in ls-song's slot) -->
+    <div class="ls-tuner-strings" id="ls-tuner-strings">
+      <div class="ts-cell" data-string="6"><span class="ts-num">6</span><span class="ts-name">E</span></div>
+      <div class="ts-cell" data-string="5"><span class="ts-num">5</span><span class="ts-name">A</span></div>
+      <div class="ts-cell" data-string="4"><span class="ts-num">4</span><span class="ts-name">D</span></div>
+      <div class="ts-cell" data-string="3"><span class="ts-num">3</span><span class="ts-name">G</span></div>
+      <div class="ts-cell" data-string="2"><span class="ts-num">2</span><span class="ts-name">B</span></div>
+      <div class="ts-cell" data-string="1"><span class="ts-num">1</span><span class="ts-name">E</span></div>
+    </div>
   </div>
+  <!-- Status message (mic permission, etc) — pinned to the bottom edge -->
+  <div class="ls-tuner-status" id="ls-tuner-status">play a string</div>
 </div>
 
 <script>
@@ -15191,12 +15250,27 @@ function lp_syncControls() {
 (function wireLandscapePlayToggle() {
   const mql = window.matchMedia('(orientation: landscape) and (pointer: coarse)');
   const apply = () => {
+    const wasOn = document.body.classList.contains('lp-on');
     document.body.classList.toggle('lp-on', mql.matches);
     if (mql.matches && typeof renderLandscapePlay === 'function') {
       renderLandscapePlay();
     }
     if (mql.matches && typeof renderLandscapeStandby === 'function') {
       renderLandscapeStandby();
+    }
+    // Leaving landscape while the tuner was listening — release the mic.
+    // Don't bounce the user out of tuner mode entirely; the mode persists
+    // so rotating back lands them back in the tuner with a fresh start.
+    if (wasOn && !mql.matches && state.standbyMode === 'tuner'
+        && window._tuner && typeof window._tuner.stop === 'function') {
+      window._tuner.stop();
+    }
+    // Entering landscape while standbyMode === 'tuner' (persisted from a
+    // prior visit this session) — restart the mic so the user lands in
+    // a working tuner instead of a frozen UI.
+    if (!wasOn && mql.matches && state.standbyMode === 'tuner'
+        && window._tuner && typeof window._tuner.start === 'function') {
+      setTimeout(() => window._tuner.start(), 0);
     }
   };
   if (mql.addEventListener) mql.addEventListener('change', apply);
@@ -15219,7 +15293,9 @@ function renderLandscapeStandby() {
 
   // Apply mode class — drives the cool-tinted bg + song/beat-indicator swap
   const isMetro = state.standbyMode === 'metronome';
+  const isTuner = state.standbyMode === 'tuner';
   el.classList.toggle('metronome-mode', isMetro);
+  el.classList.toggle('tuner-mode',     isTuner);
 
   // Mode pager dots — light up the active mode
   const pager = document.getElementById('ls-mode-pager');
@@ -15228,6 +15304,11 @@ function renderLandscapeStandby() {
       d.classList.toggle('on', d.dataset.mode === state.standbyMode);
     });
   }
+
+  // Tuner mode owns its own UI rendering inside the mic tick; skip the
+  // band-mode update cascade so we don't fight it for the same DOM nodes
+  // and so the song-structure pre-roll doesn't run unnecessarily.
+  if (isTuner) return;
 
   // Play button glyph — when the metronome is currently ticking, swap to
   // a CSS-drawn pause (two bars via ::before/::after, no emoji rendering).
@@ -15542,9 +15623,45 @@ function renderLandscapeStandby() {
       }
     }, {passive: true});
   }
-  // The standby gets a swipe handler that toggles band↔metronome mode
-  // (was previously instrument-swipe; instrument is still tap-switchable
-  // via the Sound button so no UX is lost).
+  // The standby gets a swipe handler that cycles band → metronome → tuner
+  // → band (right-swipe forward; left-swipe backward). Each entry/exit
+  // hook does the per-mode resource bookkeeping (metronome: snapshot+
+  // restore rhythm; tuner: start/stop mic). Instrument is still tap-
+  // switchable via the Sound button so no UX is lost from the old
+  // instrument-swipe behaviour.
+  const STANDBY_MODES = ['band', 'metronome', 'tuner'];
+  function _exitStandbyMode(mode) {
+    if (mode === 'metronome') {
+      if (metronome.playing) metronome.stop();
+      if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
+        applyRhythmMode(state.metroSavedRhythm);
+      }
+      state.metroSavedRhythm = null;
+    } else if (mode === 'tuner') {
+      if (window._tuner && typeof window._tuner.stop === 'function') window._tuner.stop();
+    }
+  }
+  function _enterStandbyMode(mode) {
+    if (mode === 'metronome') {
+      state.metroSavedRhythm = currentRhythmMode;
+      applyRhythmMode('click');
+    } else if (mode === 'tuner') {
+      if (window._tuner && typeof window._tuner.start === 'function') {
+        // Defer to next tick so the renderLandscapeStandby that fires
+        // immediately after the swipe has already added .tuner-mode (so
+        // the elements paintIdle() touches are present + styled).
+        setTimeout(() => window._tuner.start(), 0);
+      }
+    }
+  }
+  function _setStandbyMode(next) {
+    const cur = state.standbyMode;
+    if (cur === next) return;
+    _exitStandbyMode(cur);
+    state.standbyMode = next;
+    _enterStandbyMode(next);
+    renderLandscapeStandby();
+  }
   function wireSwipeStandbyMode(el) {
     if (!el) return;
     let startX = null, startY = null;
@@ -15558,27 +15675,32 @@ function renderLandscapeStandby() {
       const dy = e.changedTouches[0].clientY - startY;
       startX = null;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (state.standbyMode === 'band') {
-          // Entering metronome mode — snapshot current rhythm so we can
-          // restore it on exit, then default to 'click' which is the
-          // canonical metronome tick sound.
-          state.metroSavedRhythm = currentRhythmMode;
-          applyRhythmMode('click');
-          state.standbyMode = 'metronome';
-        } else {
-          // Leaving metronome mode — stop ticking (so no sound carries into
-          // band-standby), restore the saved band rhythm if we have one.
-          if (metronome.playing) metronome.stop();
-          if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
-            applyRhythmMode(state.metroSavedRhythm);
-          }
-          state.metroSavedRhythm = null;
-          state.standbyMode = 'band';
-        }
-        renderLandscapeStandby();
+        const i = STANDBY_MODES.indexOf(state.standbyMode);
+        const cur = i < 0 ? 0 : i;
+        const dir = dx < 0 ? 1 : -1;        // swipe left = next mode
+        const next = STANDBY_MODES[(cur + dir + STANDBY_MODES.length) % STANDBY_MODES.length];
+        _setStandbyMode(next);
       }
     }, {passive: true});
   }
+  // Tap a pager dot → jump directly to that mode (good for landscape PWA
+  // users who want a direct shortcut and shouldn't have to hunt swipes).
+  (function wirePagerDots() {
+    const pager = document.getElementById('ls-mode-pager');
+    if (!pager) return;
+    pager.style.pointerEvents = 'auto';
+    pager.querySelectorAll('.pg-dot').forEach(dot => {
+      dot.style.cursor = 'pointer';
+      dot.style.pointerEvents = 'auto';
+      dot.style.padding = '8px';
+      dot.style.margin = '-8px';
+      dot.style.backgroundClip = 'content-box';
+      dot.addEventListener('click', () => {
+        const target = dot.dataset.mode;
+        if (target && STANDBY_MODES.indexOf(target) >= 0) _setStandbyMode(target);
+      });
+    });
+  })();
   wireSwipeStandbyMode(document.getElementById('landscape-standby'));
   wireSwipeInstrument(document.getElementById('landscape-play'));
   // Mobile vertical: hook the same swipe on the realistic guitar /
@@ -18420,34 +18542,22 @@ window.addEventListener('pageshow', () => {
   if (typeof renderComposePad === 'function') renderComposePad();
 });
 
-/* ─── TUNER ─────────────────────────────────────────────────────────
-   Mic input → YIN pitch detection → nearest note + cents-off + matched
-   guitar string. Self-contained so it can't disturb the player path:
-   shares audioCtx via ensureAudio() but connects the mic source ONLY to
-   an Analyser (never to ctx.destination), so opening the tuner doesn't
-   pipe the microphone back through the speakers.
+/* ─── TUNER (third landscape-standby mode) ─────────────────────────
+   Same brutalist standby grid as band/metronome modes, repurposed:
+   detected note ↔ ls-key slot, cents ↔ ls-bpm slot, sweep needle inside
+   the play-button orb, six-string indicator ↔ ls-song slot. Mic gets
+   opened on mode entry and released on mode exit, matching the
+   metronome's "snapshot rhythm on enter, restore on leave" pattern.
 
-   Detection accuracy notes:
-   - YIN on a 2048-sample buffer at 44.1kHz handles pitches down to ~22Hz
-     (well below E2 = 82Hz). Inner loop is O(N²/4); ~1M ops per tick is
-     fine for modern phones.
-   - Median over the last 5 readings smooths normal vibrato jitter without
-     dragging response time.
+   Pitch detection notes:
+   - YIN on a 2048-sample window handles fundamentals down to ~22Hz at
+     44.1kHz (well below E2 = 82Hz). O(N²/4) inner loop is ~1M ops per
+     tick — fine for modern phones at ~60fps.
+   - Median over the last 5 readings smooths typical vibrato jitter
+     without dragging response time.
    - RMS gate below 0.005 freezes the UI on "play a string" so a quiet
      room doesn't drive the needle on noise. */
-(function setupTuner() {
-  const overlay = document.getElementById('tuner-overlay');
-  const openBtn = document.getElementById('tuner-btn');
-  if (!overlay || !openBtn) return;
-  const noteEl   = overlay.querySelector('.tn-note');
-  const centsEl  = overlay.querySelector('.tn-cents');
-  const hzEl     = overlay.querySelector('.tn-hz');
-  const needleEl = overlay.querySelector('.tn-meter-needle');
-  const statusEl = overlay.querySelector('.tn-status');
-  const closeBtn = overlay.querySelector('.tn-close');
-  const stringEls = Array.from(overlay.querySelectorAll('.tn-string'));
-
-  // Standard tuning, in display order (6th low E at the left, 1st high E at the right)
+window._tuner = (function setupTuner() {
   const STRINGS = [
     { num: 6, name: 'E', freq:  82.41 },
     { num: 5, name: 'A', freq: 110.00 },
@@ -18460,13 +18570,14 @@ window.addEventListener('pageshow', () => {
 
   let stream    = null;
   let analyser  = null;
-  let tunerCtx  = null;
+  let ctx       = null;
   let micSource = null;
   let buf       = null;
   let rafId     = null;
-  let recent    = [];           // freq smoothing ring
+  let recent    = [];
   const SMOOTH_N = 5;
 
+  function $(id) { return document.getElementById(id); }
   function freqToMidi(f) { return 12 * Math.log2(f / 440) + 69; }
 
   function nearestString(f) {
@@ -18482,7 +18593,6 @@ window.addEventListener('pageshow', () => {
     const N = b.length;
     const half = N >> 1;
     const d = new Float32Array(half);
-    // Difference function
     for (let tau = 1; tau < half; tau++) {
       let sum = 0;
       for (let i = 0; i < half; i++) {
@@ -18491,14 +18601,12 @@ window.addEventListener('pageshow', () => {
       }
       d[tau] = sum;
     }
-    // Cumulative mean normalized difference
     d[0] = 1;
     let running = 0;
     for (let tau = 1; tau < half; tau++) {
       running += d[tau];
       d[tau] *= tau / (running || 1);
     }
-    // Absolute threshold — pick first dip below 0.1, walk to its local min
     const THRESH = 0.1;
     let tau = -1;
     for (let t = 2; t < half; t++) {
@@ -18509,7 +18617,6 @@ window.addEventListener('pageshow', () => {
       }
     }
     if (tau < 0) return -1;
-    // Parabolic interpolation around tau for sub-sample accuracy
     let refined = tau;
     if (tau > 0 && tau < half - 1) {
       const a = d[tau - 1], b1 = d[tau], c = d[tau + 1];
@@ -18528,7 +18635,6 @@ window.addEventListener('pageshow', () => {
     const sorted = [...xs].sort((a, b) => a - b);
     return sorted[Math.floor(sorted.length / 2)];
   }
-
   function classify(absCents) {
     if (absCents < 5)  return 'in-tune';
     if (absCents < 15) return 'near';
@@ -18536,15 +18642,27 @@ window.addEventListener('pageshow', () => {
   }
 
   function paintIdle(msg) {
-    noteEl.textContent = '—';
-    noteEl.className = 'tn-note';
-    centsEl.textContent = '';
-    hzEl.textContent = '';
-    needleEl.style.left = '50%';
-    needleEl.className = 'tn-meter-needle';
-    stringEls.forEach(el => { el.classList.remove('match', 'in-tune', 'near', 'off'); });
-    statusEl.textContent = msg;
-    statusEl.classList.remove('err');
+    const noteEl   = $('ls-tuner-note');
+    const centsEl  = $('ls-tuner-cents-val');
+    const hzEl     = $('ls-tuner-orb-hz');
+    const orbEl    = $('ls-tuner-orb');
+    const needleEl = $('ls-tuner-needle');
+    const statusEl = $('ls-tuner-status');
+    if (noteEl)   { noteEl.textContent = '—'; noteEl.className = 'ls-tuner-note'; }
+    if (centsEl)  { centsEl.textContent = '·'; centsEl.className = 'ls-tuner-cents-val'; }
+    if (hzEl)     { hzEl.textContent = '— Hz'; }
+    if (orbEl)    { orbEl.className = 'ls-tuner-orb'; }
+    if (needleEl) {
+      needleEl.style.transform = 'translateX(-50%) rotate(0deg)';
+      needleEl.className = 'ls-tuner-needle';
+    }
+    document.querySelectorAll('#ls-tuner-strings .ts-cell').forEach(el => {
+      el.classList.remove('match', 'in-tune', 'near', 'off');
+    });
+    if (statusEl) {
+      statusEl.textContent = msg || 'play a string';
+      statusEl.classList.remove('err');
+    }
   }
 
   function tick() {
@@ -18552,13 +18670,11 @@ window.addEventListener('pageshow', () => {
     if (!analyser || !buf) return;
     analyser.getFloatTimeDomainData(buf);
     if (rms(buf) < 0.005) {
-      // Quiet — let the last reading fade rather than snapping every frame
       if (recent.length) { recent = []; paintIdle('play a string'); }
       return;
     }
-    const f = yinPitch(buf, tunerCtx.sampleRate);
-    if (!(f > 60 && f < 1300)) return;       // out of guitar's usable range
-
+    const f = yinPitch(buf, ctx.sampleRate);
+    if (!(f > 60 && f < 1300)) return;
     recent.push(f);
     if (recent.length > SMOOTH_N) recent.shift();
     const fs = median(recent);
@@ -18570,34 +18686,37 @@ window.addEventListener('pageshow', () => {
     const octave = Math.floor(midiR / 12) - 1;
     const cls = classify(Math.abs(cents));
 
-    noteEl.textContent = noteName + octave;
-    noteEl.className = 'tn-note ' + cls;
-    centsEl.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(0) + ' ¢';
-    hzEl.textContent = fs.toFixed(2) + ' Hz';
+    const noteEl   = $('ls-tuner-note');
+    const centsEl  = $('ls-tuner-cents-val');
+    const hzEl     = $('ls-tuner-orb-hz');
+    const orbEl    = $('ls-tuner-orb');
+    const needleEl = $('ls-tuner-needle');
+    const statusEl = $('ls-tuner-status');
 
-    const pct = Math.max(0, Math.min(100, cents + 50));
-    needleEl.style.left = pct + '%';
-    needleEl.className = 'tn-meter-needle live ' + cls;
+    if (noteEl)  { noteEl.textContent  = noteName + octave;             noteEl.className  = 'ls-tuner-note ' + cls; }
+    if (centsEl) { centsEl.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(0); centsEl.className = 'ls-tuner-cents-val ' + cls; }
+    if (hzEl)    { hzEl.textContent    = fs.toFixed(1) + ' Hz'; }
+    if (orbEl)   { orbEl.className     = 'ls-tuner-orb ' + cls; }
+    // Needle rotation: -50¢ → -45deg, 0 → 0deg, +50¢ → +45deg
+    const deg = Math.max(-50, Math.min(50, cents)) * 0.9;
+    if (needleEl) {
+      needleEl.style.transform = 'translateX(-50%) rotate(' + deg.toFixed(1) + 'deg)';
+      needleEl.className = 'ls-tuner-needle live ' + cls;
+    }
 
-    // Match to nearest open string. Cents distance can be huge (~1200) if the
-    // user is on a fretted note far from any open string; the highlight still
-    // reflects "what string the note is closest to" so the user can see the
-    // mapping at a glance, even when not tuning an open string.
     const ns = nearestString(fs);
     const matchCls = classify(Math.abs(ns.cents));
-    stringEls.forEach((el, i) => {
-      const isMatch = STRINGS[i].num === ns.string.num;
+    document.querySelectorAll('#ls-tuner-strings .ts-cell').forEach(el => {
+      const isMatch = parseInt(el.dataset.string, 10) === ns.string.num;
       el.classList.toggle('match', isMatch);
       el.classList.remove('in-tune', 'near', 'off');
       if (isMatch) el.classList.add(matchCls);
     });
-    statusEl.textContent = '';
-    statusEl.classList.remove('err');
+    if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('err'); }
   }
 
-  async function openTuner() {
-    overlay.dataset.open = '1';
-    overlay.setAttribute('aria-hidden', 'false');
+  async function start() {
+    const statusEl = $('ls-tuner-status');
     paintIdle('connecting microphone…');
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -18610,12 +18729,12 @@ window.addEventListener('pageshow', () => {
           autoGainControl: false,
         },
       });
-      tunerCtx = ensureAudio();
-      micSource = tunerCtx.createMediaStreamSource(stream);
-      analyser = tunerCtx.createAnalyser();
+      ctx = ensureAudio();
+      micSource = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
       analyser.fftSize = 2048;
       buf = new Float32Array(analyser.fftSize);
-      micSource.connect(analyser);       // analyser ONLY — never to destination
+      micSource.connect(analyser);    // analyser ONLY — never to ctx.destination
       recent = [];
       paintIdle('play a string');
       rafId = requestAnimationFrame(tick);
@@ -18623,14 +18742,11 @@ window.addEventListener('pageshow', () => {
       const msg = (e && e.name === 'NotAllowedError')
         ? 'microphone access denied'
         : 'microphone unavailable';
-      statusEl.textContent = msg;
-      statusEl.classList.add('err');
+      if (statusEl) { statusEl.textContent = msg; statusEl.classList.add('err'); }
     }
   }
 
-  function closeTuner() {
-    overlay.dataset.open = '0';
-    overlay.setAttribute('aria-hidden', 'true');
+  function stop() {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
     if (micSource) { try { micSource.disconnect(); } catch (e) {} micSource = null; }
@@ -18641,20 +18757,10 @@ window.addEventListener('pageshow', () => {
       stream = null;
     }
     recent = [];
+    paintIdle('play a string');
   }
 
-  openBtn.addEventListener('click', openTuner);
-  closeBtn.addEventListener('click', closeTuner);
-  // Click the dim background (not the panel contents) → close
-  overlay.addEventListener('click', e => {
-    if (e.target === overlay) closeTuner();
-  });
-  document.addEventListener('keydown', e => {
-    if (overlay.dataset.open === '1' && e.key === 'Escape') {
-      e.preventDefault();
-      closeTuner();
-    }
-  });
+  return { start, stop };
 })();
 
 // Register the shared service worker so this app installs / works offline
