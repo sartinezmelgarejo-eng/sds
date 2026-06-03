@@ -18658,18 +18658,20 @@ window._tuner = (function setupTuner() {
   let sessionId = 0;
   const SMOOTH_N = 8;         // larger window → calmer needle, slight extra latency
   // Lock-feedback state machine. Fire the green flash + soft ding when
-  // the user holds in-tune for IN_TUNE_LOCK_FRAMES consecutive frames;
-  // don't re-fire until they've drifted clearly out (>10¢) for
-  // OUT_FRAMES_REARM frames. Plus a wall-clock cooldown so two notes
-  // tuned in rapid succession can't trigger overlapping feedback.
-  let inTuneFrames = 0;
-  let outFrames    = 0;
+  // the user has held in-tune for IN_TUNE_LOCK_MS wall-clock ms; don't
+  // re-fire until they've drifted clearly out (>10¢) for OUT_REARM_MS.
+  // Wall-clock timing (vs frame counts) keeps the lock window consistent
+  // across 60Hz vs 120Hz refresh rates — frame-based timing made the
+  // lock fire ~2× as fast on ProMotion phones. Plus a wall-clock cooldown
+  // so two notes tuned in rapid succession can't overlap feedback.
+  let inTuneSince  = 0;       // perf.now() when we entered in-tune zone
+  let outSince     = 0;       // perf.now() when we entered out zone
   let armed        = true;
   let lastFlashAt  = 0;
   let muteUntil    = 0;       // ignore YIN until this audioCtx-time (during ding)
-  const IN_TUNE_LOCK_FRAMES = 4;
-  const OUT_FRAMES_REARM    = 5;
-  const FLASH_COOLDOWN_MS   = 900;
+  const IN_TUNE_LOCK_MS   = 90;
+  const OUT_REARM_MS      = 110;
+  const FLASH_COOLDOWN_MS = 900;
 
   function $(id) { return document.getElementById(id); }
   function freqToMidi(f) { return 12 * Math.log2(f / 440) + 69; }
@@ -18756,6 +18758,11 @@ window._tuner = (function setupTuner() {
     if (statusEl) {
       statusEl.textContent = msg || 'play a string';
       statusEl.classList.remove('err');
+      // Drop any retry-click handler that the mic-denied branch may have
+      // installed — once we're back to a normal idle state, taps on the
+      // status row should do nothing.
+      statusEl.style.cursor = '';
+      statusEl.onclick = null;
     }
   }
 
@@ -18799,7 +18806,8 @@ window._tuner = (function setupTuner() {
     if (ctx && ctx.currentTime < muteUntil) return;
     if (rms(buf) < 0.005) {
       if (recent.length) { recent = []; paintIdle('play a string'); }
-      inTuneFrames = 0;
+      inTuneSince = 0;
+      outSince = 0;
       return;
     }
     const f = yinPitch(buf, ctx.sampleRate);
@@ -18844,25 +18852,27 @@ window._tuner = (function setupTuner() {
     });
     if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('err'); }
 
-    // Lock-feedback state machine. Fire when in-tune has been sustained
-    // for IN_TUNE_LOCK_FRAMES frames AND we're currently armed (not just
-    // fired in the recent past). Re-arm only after the user has drifted
-    // clearly off (|cents| > 10) for several frames so wobbling near 0¢
-    // doesn't generate a stream of flashes.
+    // Lock-feedback state machine, wall-clock edition. Fire when in-tune
+    // has been sustained for IN_TUNE_LOCK_MS AND we're currently armed.
+    // Re-arm only after the user has drifted clearly off (|cents| > 10)
+    // for OUT_REARM_MS so wobble near 0¢ doesn't generate a stream of
+    // flashes. Using perf.now() instead of frame counts keeps the window
+    // the same on 60Hz and 120Hz devices.
+    const tNow = performance.now();
     if (absCents < 5) {
-      inTuneFrames++;
-      outFrames = 0;
-      if (armed && inTuneFrames >= IN_TUNE_LOCK_FRAMES) {
+      if (!inTuneSince) inTuneSince = tNow;
+      outSince = 0;
+      if (armed && (tNow - inTuneSince) >= IN_TUNE_LOCK_MS) {
         fireLockFeedback();
         armed = false;
       }
     } else if (absCents > 10) {
-      outFrames++;
-      inTuneFrames = 0;
-      if (outFrames >= OUT_FRAMES_REARM) armed = true;
+      if (!outSince) outSince = tNow;
+      inTuneSince = 0;
+      if ((tNow - outSince) >= OUT_REARM_MS) armed = true;
     } else {
-      // 5¢–10¢: dead zone, don't re-arm but also don't sustain in-tune count
-      inTuneFrames = 0;
+      // 5¢–10¢: dead zone, don't re-arm but also don't sustain in-tune timer
+      inTuneSince = 0;
     }
   }
 
@@ -18905,7 +18915,19 @@ window._tuner = (function setupTuner() {
       const msg = (e && e.name === 'NotAllowedError')
         ? 'microphone access denied'
         : 'microphone unavailable';
-      if (statusEl) { statusEl.textContent = msg; statusEl.classList.add('err'); }
+      if (statusEl) {
+        statusEl.textContent = msg + ' — tap to retry';
+        statusEl.classList.add('err');
+        statusEl.style.cursor = 'pointer';
+        // One-shot retry: tap the status line to re-request permission.
+        // Replaces the old "swipe away and back" workaround. Clear the
+        // handler immediately so a double-tap can't double-fire start().
+        statusEl.onclick = () => {
+          statusEl.onclick = null;
+          statusEl.style.cursor = '';
+          start();
+        };
+      }
     }
   }
 
@@ -18922,8 +18944,8 @@ window._tuner = (function setupTuner() {
       stream = null;
     }
     recent = [];
-    inTuneFrames = 0;
-    outFrames = 0;
+    inTuneSince = 0;
+    outSince = 0;
     armed = true;
     muteUntil = 0;
     paintIdle('play a string');
@@ -18971,9 +18993,10 @@ window._tuner = (function setupTuner() {
     // Reset the lock-feedback state so the tuner's "play a string"
     // arming logic doesn't immediately fire a green flash when the
     // reference tone itself happens to be perfectly in tune. The tone
-    // is muted from YIN anyway, but the in-tune frame counter would
-    // otherwise persist from before the tap.
-    inTuneFrames = 0;
+    // is muted from YIN anyway, but the in-tune timer would otherwise
+    // persist from before the tap.
+    inTuneSince = 0;
+    outSince = 0;
     armed = false;       // require an actual out-of-tune drift to re-arm
   }
 
