@@ -7888,11 +7888,18 @@ function _setupChordMapTouch() {
     clearTimeout(_touchHoldTimer);
     const wasHold = _touchState.popupsShown;
     if (!wasHold) {
-      // Short tap — touchstart's e.preventDefault() blocked the native click,
-      // so we fire it manually here. This is 100% reliable across all iOS/Android
-      // versions, whereas relying on the synthetic click after preventDefault is not.
+      // Short tap — touchstart's e.preventDefault() blocked the native click on
+      // most browsers, so we fire it manually here. But on some iOS/Android
+      // versions preventDefault doesn't fully suppress the synthetic click,
+      // and the card handler then ran TWICE — adding the chord twice on tap.
+      // Tag the card with a brief "pending synthetic" window so the click
+      // handler can swallow the trusted click that arrives right after our
+      // manual (untrusted) one.
       const cardToClick = _touchState.origCard;
       _touchState = null;
+      cardToClick._pendingSyntheticClick = true;
+      // Clear the flag after a safety window in case the synthetic never fires.
+      setTimeout(() => { cardToClick._pendingSyntheticClick = false; }, 350);
       cardToClick.click();
       return;
     }
@@ -8323,6 +8330,16 @@ function renderChordMap() {
       <div class="mc-svg-wrap">${svg}</div>
     `;
     card.addEventListener('click', (ev) => {
+      // On touch devices, touchend already fires a manual cardToClick.click()
+      // (untrusted) AND on some browsers a synthetic click (trusted) follows
+      // even though touchstart called preventDefault. The flag is set just
+      // before the manual click in the touchend handler — when the trusted
+      // duplicate arrives, swallow it so composeAddChord doesn't run twice.
+      if (card._pendingSyntheticClick && ev.isTrusted) {
+        card._pendingSyntheticClick = false;
+        ev.stopPropagation();
+        return;
+      }
       const engaged = player.playing || player.paused;
       // Play view: audition the clicked chord without disturbing the
       // player's visualization (no focus change, no renderAll). The next
