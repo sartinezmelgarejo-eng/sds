@@ -11415,6 +11415,21 @@ class Player {
     this.currentStepIdx = targetStepIdx;
     this.barsRemaining = steps[targetStepIdx].bars || 1;
     this.forceTriggerAtNextBar = true;
+    // Page-align totalBars to the absolute position of the clicked chord
+    // in the captured strip so the visible 4-bar page keeps the chord at
+    // its native slot (e.g. cell idx 6 → page 1, slot 2) instead of
+    // snapping it to cells[0]. _buildPagePlan reads composedProgression
+    // to fill the slots before barInPage with the captured cells.
+    let absBar = cellsConsumed;
+    if (cap.mode === 'dense') {
+      const aLab = cap.uniqueLabels[0];
+      const aLen = cap.sections[aLab].cells.length;
+      if (targetLabel !== aLab) absBar = aLen + cellsConsumed;
+    } else if (cap.boundaries && cap.boundaries.length) {
+      const bnd2 = cap.boundaries.find(b => b.label === targetLabel);
+      if (bnd2) absBar = bnd2.start + cellsConsumed;
+    }
+    this.totalBars = absBar;
     if (typeof this._applySectionKey === 'function') this._applySectionKey();
   }
 
@@ -11449,8 +11464,12 @@ class Player {
     this.sectionIter = 0;
     this.currentStepIdx = 0;
     this.barsRemaining = this._currentStep().bars;
+    this.totalBars = 0;
     // After Edit on an AI song: jump to the cell the user had selected so
     // playback resumes where they were listening, not from bar 0.
+    // _applyCapturedStartPosition may overwrite totalBars to the absolute
+    // strip position of the clicked chord — must run AFTER the totalBars=0
+    // reset above so that override actually sticks.
     this._applyCapturedStartPosition();
     // _applyCapturedStartPosition sets forceTriggerAtNextBar=true (needed
     // for paused-jump→resume flow). But in start()'s flow the count-in
@@ -11461,7 +11480,6 @@ class Player {
     // Read voicingType + bassPattern from the section (pre-assigned at song generation)
     this.voicingType = this._currentSection().voicingType || this._pickVoicingType();
     this.bassPattern = this._currentSection().bassPattern || this._pickBassPattern();
-    this.totalBars = 0;
     this._cachedPage = null;
     // Reset the per-progression voicing cache so cards revert to default until played
     state.progressionVoicings = {};
@@ -12555,6 +12573,40 @@ class Player {
     let prevTonality = state.tonality;
     let prevChord = null;
     let bar = 0;
+    // Edit→tap→Play can start the player mid-page (totalBars % 4 > 0). The
+    // lookahead only knows about FUTURE bars from songIdx/stepIdx, so without
+    // help the clicked chord would land in cells[0] and the page would visually
+    // shrink. Prefill the slots before barInPage from the captured strip
+    // (composedProgression) so the four-bar page stays page-aligned and the
+    // clicked chord sits at its native slot. These are visual-only — no songIdx
+    // means the paused-click handler won't try to jump into them.
+    const startBarInPage = this.totalBars % 4;
+    const pageStart = this._cachedPlanPage * 4;
+    const seq = state.composedProgression;
+    if (startBarInPage > 0 && seq && seq.length >= pageStart + startBarInPage) {
+      const cmap = currentMap();
+      for (let j = 0; j < startBarInPage; j++) {
+        const sc = seq[pageStart + j];
+        if (!sc || !sc.chord || !cmap.chordDefs[sc.chord]) {
+          this._cachedPage.push(null);
+          continue;
+        }
+        this._cachedPage.push({
+          chord: sc.chord,
+          qualityOverride: null,
+          barIdxInChord: sc._tie ? 1 : 0,
+          keyPc: state.keyPc,
+          voicingType: sc.voicingType || this.voicingType,
+          shape: sc.shape,
+          subdivisions: sc.subdivisions || 1,
+          subdivMute: sc.subdivMute || [],
+          songIdx: null,
+          stepIdx: null,
+          sectionIter: null,
+        });
+      }
+      bar = startBarInPage;
+    }
     outer: for (const seg of lookahead) {
       for (let b = 0; b < seg.bars; b++) {
         // Resolve chord-def in the SEGMENT's tonality, not the live one.
