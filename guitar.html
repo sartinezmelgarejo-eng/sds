@@ -4520,6 +4520,251 @@
     width: clamp(28px, 5vh, 40px);
     height: auto;
   }
+
+  /* ─── TUNER mode (landscape standby, third swipe) ─────────────────
+     Same brutalist grid as band/metronome modes, just repurposed: the
+     detected note lands where ls-key sits, cents-off where BPM sits,
+     the center play button becomes a tuning-state orb with a sweep
+     needle, the bottom-center row becomes a 6-string indicator. Colour
+     palette is shared across note / needle / matched string / orb:
+     green = ±5¢, yellow = ±15¢, red beyond.                          */
+  #landscape-standby.tuner-mode { background: #1b1d20; }
+  #landscape-standby.tuner-mode .ls-key-group,
+  #landscape-standby.tuner-mode .ls-bpm,
+  #landscape-standby.tuner-mode .ls-song,
+  #landscape-standby.tuner-mode .ls-tap,
+  #landscape-standby.tuner-mode .ls-beat-indicator,
+  #landscape-standby.tuner-mode .ls-right-col { display: none !important; }
+  #landscape-standby.tuner-mode .ls-play { display: none; }
+
+  /* Top-left big note (mirrors ls-key in size + serif treatment) */
+  #landscape-standby .ls-tuner-note-wrap { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-note-wrap {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    text-align: center;
+  }
+  #landscape-standby .ls-tuner-note {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(48px, 11vh, 80px);
+    line-height: 1;
+    color: #fdfcf3;
+    transition: color 180ms;
+    min-width: 1.4em;
+  }
+  #landscape-standby .ls-tuner-note.in-tune { color: #4ade80; }
+  #landscape-standby .ls-tuner-note.near    { color: #fbbf24; }
+  #landscape-standby .ls-tuner-note.off     { color: #f87171; }
+  #landscape-standby .ls-tuner-note-label {
+    font-size: clamp(10px, 2vh, 14px);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 4px;
+  }
+
+  /* Bottom-left cents (mirrors ls-bpm) */
+  #landscape-standby .ls-tuner-cents-wrap { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-cents-wrap {
+    display: block;
+    grid-column: 1;
+    grid-row: 2;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+  #landscape-standby .ls-tuner-cents-val {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-weight: 700;
+    font-size: clamp(28px, 7vh, 48px);
+    line-height: 1;
+    color: #fdfcf3;
+    transition: color 180ms;
+  }
+  #landscape-standby .ls-tuner-cents-val.in-tune { color: #4ade80; }
+  #landscape-standby .ls-tuner-cents-val.near    { color: #fbbf24; }
+  #landscape-standby .ls-tuner-cents-val.off     { color: #f87171; }
+  #landscape-standby .ls-tuner-cents-label {
+    font-size: clamp(10px, 2vh, 14px);
+    opacity: 0.5;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-top: 2px;
+  }
+
+  /* Center gauge — half-circle (top dome) so the needle has the natural
+     swing of an analog tuner. Pivot at bottom-center, sweep ±60° to cover
+     ±50¢. Hz readout sits below the flat baseline. */
+  #landscape-standby .ls-tuner-orb { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-orb {
+    display: block;
+    grid-column: 2;
+    grid-row: 1 / 3;
+    width: clamp(180px, 38vh, 260px);
+    height: clamp(96px, 20vh, 140px);     /* ~half of width — semicircle */
+    border: 3px solid #fdfcf3;
+    border-radius: 50% 50% 0 0 / 100% 100% 0 0;
+    background: transparent;
+    position: relative;
+    transition: border-color 200ms, background 200ms;
+    overflow: visible;
+  }
+  #landscape-standby .ls-tuner-orb.in-tune { border-color: #4ade80; background: rgba(74,222,128,0.10); }
+  #landscape-standby .ls-tuner-orb.near    { border-color: #fbbf24; background: rgba(251,191,36,0.10); }
+  #landscape-standby .ls-tuner-orb.off     { border-color: #f87171; background: rgba(248,113,113,0.10); }
+  /* Flat baseline accent — small notch in the middle marks "0¢" reference */
+  #landscape-standby .ls-tuner-orb::after {
+    content: '';
+    position: absolute;
+    left: 50%; bottom: -2px;
+    width: 2px; height: 8px;
+    background: #fdfcf3; opacity: 0.7;
+    transform: translateX(-50%);
+  }
+  #landscape-standby .ls-tuner-orb-hz {
+    position: absolute;
+    left: 50%; bottom: -22px;
+    transform: translateX(-50%);
+    font-size: clamp(11px, 2.2vh, 16px);
+    opacity: 0.65;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  /* Sweep needle: anchored at the flat-bottom center, sweeps inside the
+     dome. -50¢ → -60°, 0¢ → 0°, +50¢ → +60°. Slower transition than the
+     previous ±45° sweep so the needle feels weighted, not jittery. */
+  #landscape-standby .ls-tuner-needle {
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 3px;
+    height: 86%;
+    background: #fdfcf3;
+    opacity: 0.35;
+    transform: translateX(-50%) rotate(0deg);
+    transform-origin: bottom center;
+    transition: transform 220ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+                background 180ms,
+                opacity   180ms;
+    border-radius: 2px;
+  }
+  #landscape-standby .ls-tuner-needle.live { opacity: 1; }
+  #landscape-standby .ls-tuner-needle.in-tune { background: #4ade80; }
+  #landscape-standby .ls-tuner-needle.near    { background: #fbbf24; }
+  #landscape-standby .ls-tuner-needle.off     { background: #f87171; }
+  /* Tick marks at -45°, 0°, +45° — etched on the inside arc as small
+     guide notches so the user has a visual reference for "halfway off". */
+  #landscape-standby .ls-tuner-orb-ticks {
+    position: absolute;
+    left: 50%; bottom: 0;
+    width: 0; height: 0;
+    pointer-events: none;
+  }
+  #landscape-standby .ls-tuner-orb-ticks span {
+    position: absolute;
+    left: 0; bottom: 0;
+    width: 2px; height: 76%;
+    transform-origin: bottom center;
+    background: transparent;
+    border-top: 8px solid rgba(253,252,243,0.45);
+    pointer-events: none;
+  }
+  #landscape-standby .ls-tuner-orb-ticks span.t-l45 { transform: translateX(-50%) rotate(-45deg); }
+  #landscape-standby .ls-tuner-orb-ticks span.t-0   { transform: translateX(-50%) rotate(0deg); }
+  #landscape-standby .ls-tuner-orb-ticks span.t-r45 { transform: translateX(-50%) rotate(45deg); }
+
+  /* Full-screen flash overlay fired briefly when a tone locks into tune.
+     z-index sits above the standby (9998) but below the still-rare modal
+     menus. pointer-events:none so taps still reach the controls underneath. */
+  #ls-tuner-flash {
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: #4ade80;
+    opacity: 0;
+    z-index: 9999;
+  }
+  #ls-tuner-flash.flashing { animation: lsTunerFlash 360ms ease-out; }
+  @keyframes lsTunerFlash {
+    0%   { opacity: 0; }
+    22%  { opacity: 0.38; }
+    100% { opacity: 0; }
+  }
+
+  /* Bottom-center string row (replaces ls-song slot) */
+  #landscape-standby .ls-tuner-strings { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-strings {
+    display: flex;
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    gap: clamp(4px, 1vh, 10px);
+    margin-top: 6px;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell {
+    min-width: clamp(28px, 5.5vh, 42px);
+    padding: clamp(4px, 0.9vh, 8px) 0 clamp(2px, 0.6vh, 5px);
+    border: 2px solid rgba(253,252,243,0.4);
+    text-align: center;
+    font-weight: 800;
+    opacity: 0.55;
+    transition: all 140ms;
+    display: flex; flex-direction: column; align-items: center;
+    line-height: 1;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell .ts-num {
+    font-size: clamp(8px, 1.4vh, 11px); opacity: 0.7; letter-spacing: 0.1em;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell .ts-name {
+    font-size: clamp(14px, 2.8vh, 20px); margin-top: 1px;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell.match {
+    opacity: 1; border-color: #fdfcf3; background: #fdfcf3; color: #1a1a1a;
+  }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.in-tune { background: #4ade80; border-color: #4ade80; }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.near    { background: #fbbf24; border-color: #fbbf24; }
+  #landscape-standby .ls-tuner-strings .ts-cell.match.off     { background: #f87171; border-color: #f87171; }
+  /* Tap to ring the open-string reference tone. cursor + pulse provide the
+     affordance; the audio side schedules a brief plucked tone in the JS. */
+  #landscape-standby .ls-tuner-strings .ts-cell { cursor: pointer; user-select: none; }
+  #landscape-standby .ls-tuner-strings .ts-cell.pluck-pulse {
+    animation: lsTunerStringPluck 320ms ease-out;
+  }
+  @keyframes lsTunerStringPluck {
+    0%   { transform: scale(1.0); }
+    18%  { transform: scale(1.14); }
+    100% { transform: scale(1.0); }
+  }
+
+  /* Status line — bottom centered (mic permission hints, "play a string") */
+  #landscape-standby .ls-tuner-status { display: none; }
+  #landscape-standby.tuner-mode .ls-tuner-status {
+    display: block;
+    position: absolute;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    font-size: clamp(10px, 2vh, 14px);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    opacity: 0.6;
+    text-align: center;
+    white-space: nowrap;
+  }
+  #landscape-standby .ls-tuner-status.err { color: #f87171; opacity: 1; }
+
+  /* Tuner-mode brand glyph — reuses .ls-mode-glyph but shown via .tuner-mode */
+  #landscape-standby.tuner-mode .ls-mode-glyph {
+    display: block;
+  }
+  /* Show only the tuner-fork SVG inside the glyph when in tuner mode,
+     and the metronome SVG when in metronome mode — toggled via data attrs */
+  #landscape-standby .ls-mode-glyph .glyph-metronome,
+  #landscape-standby .ls-mode-glyph .glyph-tuner { display: none; }
+  #landscape-standby.metronome-mode .ls-mode-glyph .glyph-metronome { display: block; }
+  #landscape-standby.tuner-mode     .ls-mode-glyph .glyph-tuner    { display: block; }
 </style>
 </head>
 <body class="keypad-open">
@@ -4808,20 +5053,29 @@
      key/bpm/toggles and hit play without rotating back.
 ─────────────────────────────────────────────────────────────── -->
 <div id="landscape-standby" aria-hidden="true">
-  <!-- Mode pager dots (band ↔ metronome) — top center -->
+  <!-- Mode pager dots (band ↔ metronome ↔ tuner) — top center -->
   <div class="ls-mode-pager" id="ls-mode-pager">
     <span class="pg-dot on" data-mode="band"></span>
     <span class="pg-dot" data-mode="metronome"></span>
+    <span class="pg-dot" data-mode="tuner"></span>
   </div>
-  <!-- Metronome mode brand glyph — small SVG illustration below the pager,
-       visible only when standbyMode === 'metronome'. Visual confirmation
-       that the mode has changed without leaning on text. -->
+  <!-- Mode brand glyph — small SVG illustration below the pager,
+       toggles between metronome (triangle + pendulum) and tuner (tuning
+       fork) based on the active mode. Visual confirmation that the mode
+       has changed without leaning on text. -->
   <div class="ls-mode-glyph" aria-hidden="true">
-    <svg viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+    <svg class="glyph-metronome" viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
       <polygon points="12,3 4,27 20,27"/>
       <line x1="12" y1="26" x2="15.2" y2="9.5"/>
       <rect x="13" y="14.5" width="3" height="3" fill="currentColor" stroke="none"/>
       <line x1="2" y1="29.2" x2="22" y2="29.2"/>
+    </svg>
+    <svg class="glyph-tuner" viewBox="0 0 24 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+      <line x1="8"  y1="3" x2="8"  y2="18"/>
+      <line x1="16" y1="3" x2="16" y2="18"/>
+      <path d="M8 18 Q 12 22 16 18"/>
+      <line x1="12" y1="21" x2="12" y2="29"/>
+      <circle cx="12" cy="29.5" r="1.4" fill="currentColor" stroke="none"/>
     </svg>
   </div>
   <div class="ls-grid">
@@ -4857,8 +5111,52 @@
          count tracks state.metroBeatsPerBar (3-7) and the first dot gets
          the .downbeat class for visual emphasis on the "1". -->
     <div class="ls-beat-indicator" id="ls-beat-indicator"></div>
+
+    <!-- ─── TUNER MODE elements ────────────────────────────────
+         All hidden by default; .tuner-mode on the parent reveals them
+         and the band/metronome elements get display:none in the same
+         class. Mic + YIN pitch detection wires up in tunerStart() and
+         shuts down in tunerStop() (in the script block). -->
+    <!-- Top-left: detected note (lands in ls-key-group's slot) -->
+    <div class="ls-tuner-note-wrap">
+      <div class="ls-tuner-note" id="ls-tuner-note">—</div>
+      <div class="ls-tuner-note-label">detected</div>
+    </div>
+    <!-- Bottom-left: cents off (lands in ls-bpm's slot) -->
+    <div class="ls-tuner-cents-wrap">
+      <div class="ls-tuner-cents-val" id="ls-tuner-cents-val">·</div>
+      <div class="ls-tuner-cents-label">cents</div>
+    </div>
+    <!-- Center: half-circle tuning gauge with sweep needle (replaces ls-play).
+         Tick marks at -45°/0°/+45° provide visual reference points. Hz
+         readout sits just below the flat baseline. -->
+    <div class="ls-tuner-orb" id="ls-tuner-orb">
+      <div class="ls-tuner-orb-ticks" aria-hidden="true">
+        <span class="t-l45"></span>
+        <span class="t-0"></span>
+        <span class="t-r45"></span>
+      </div>
+      <div class="ls-tuner-needle" id="ls-tuner-needle"></div>
+      <div class="ls-tuner-orb-hz" id="ls-tuner-orb-hz">— Hz</div>
+    </div>
+    <!-- Bottom-center: 6-string indicator (lands in ls-song's slot) -->
+    <div class="ls-tuner-strings" id="ls-tuner-strings">
+      <div class="ts-cell" data-string="6"><span class="ts-num">6</span><span class="ts-name">E</span></div>
+      <div class="ts-cell" data-string="5"><span class="ts-num">5</span><span class="ts-name">A</span></div>
+      <div class="ts-cell" data-string="4"><span class="ts-num">4</span><span class="ts-name">D</span></div>
+      <div class="ts-cell" data-string="3"><span class="ts-num">3</span><span class="ts-name">G</span></div>
+      <div class="ts-cell" data-string="2"><span class="ts-num">2</span><span class="ts-name">B</span></div>
+      <div class="ts-cell" data-string="1"><span class="ts-num">1</span><span class="ts-name">E</span></div>
+    </div>
   </div>
+  <!-- Status message (mic permission, etc) — pinned to the bottom edge -->
+  <div class="ls-tuner-status" id="ls-tuner-status">play a string</div>
 </div>
+
+<!-- Full-screen green flash fired when a note locks into tune. Lives at body
+     level (not inside the standby) so its z-index can sit above without
+     fighting the standby's stacking context. -->
+<div id="ls-tuner-flash" aria-hidden="true"></div>
 
 <script>
 /* ════════════════════════════════════════════════════════════
@@ -15029,12 +15327,27 @@ function lp_syncControls() {
 (function wireLandscapePlayToggle() {
   const mql = window.matchMedia('(orientation: landscape) and (pointer: coarse)');
   const apply = () => {
+    const wasOn = document.body.classList.contains('lp-on');
     document.body.classList.toggle('lp-on', mql.matches);
     if (mql.matches && typeof renderLandscapePlay === 'function') {
       renderLandscapePlay();
     }
     if (mql.matches && typeof renderLandscapeStandby === 'function') {
       renderLandscapeStandby();
+    }
+    // Leaving landscape while the tuner was listening — release the mic.
+    // Don't bounce the user out of tuner mode entirely; the mode persists
+    // so rotating back lands them back in the tuner with a fresh start.
+    if (wasOn && !mql.matches && state.standbyMode === 'tuner'
+        && window._tuner && typeof window._tuner.stop === 'function') {
+      window._tuner.stop();
+    }
+    // Entering landscape while standbyMode === 'tuner' (persisted from a
+    // prior visit this session) — restart the mic so the user lands in
+    // a working tuner instead of a frozen UI.
+    if (!wasOn && mql.matches && state.standbyMode === 'tuner'
+        && window._tuner && typeof window._tuner.start === 'function') {
+      setTimeout(() => window._tuner.start(), 0);
     }
   };
   if (mql.addEventListener) mql.addEventListener('change', apply);
@@ -15057,7 +15370,9 @@ function renderLandscapeStandby() {
 
   // Apply mode class — drives the cool-tinted bg + song/beat-indicator swap
   const isMetro = state.standbyMode === 'metronome';
+  const isTuner = state.standbyMode === 'tuner';
   el.classList.toggle('metronome-mode', isMetro);
+  el.classList.toggle('tuner-mode',     isTuner);
 
   // Mode pager dots — light up the active mode
   const pager = document.getElementById('ls-mode-pager');
@@ -15066,6 +15381,11 @@ function renderLandscapeStandby() {
       d.classList.toggle('on', d.dataset.mode === state.standbyMode);
     });
   }
+
+  // Tuner mode owns its own UI rendering inside the mic tick; skip the
+  // band-mode update cascade so we don't fight it for the same DOM nodes
+  // and so the song-structure pre-roll doesn't run unnecessarily.
+  if (isTuner) return;
 
   // Play button glyph — when the metronome is currently ticking, swap to
   // a CSS-drawn pause (two bars via ::before/::after, no emoji rendering).
@@ -15380,9 +15700,45 @@ function renderLandscapeStandby() {
       }
     }, {passive: true});
   }
-  // The standby gets a swipe handler that toggles band↔metronome mode
-  // (was previously instrument-swipe; instrument is still tap-switchable
-  // via the Sound button so no UX is lost).
+  // The standby gets a swipe handler that cycles band → metronome → tuner
+  // → band (right-swipe forward; left-swipe backward). Each entry/exit
+  // hook does the per-mode resource bookkeeping (metronome: snapshot+
+  // restore rhythm; tuner: start/stop mic). Instrument is still tap-
+  // switchable via the Sound button so no UX is lost from the old
+  // instrument-swipe behaviour.
+  const STANDBY_MODES = ['band', 'metronome', 'tuner'];
+  function _exitStandbyMode(mode) {
+    if (mode === 'metronome') {
+      if (metronome.playing) metronome.stop();
+      if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
+        applyRhythmMode(state.metroSavedRhythm);
+      }
+      state.metroSavedRhythm = null;
+    } else if (mode === 'tuner') {
+      if (window._tuner && typeof window._tuner.stop === 'function') window._tuner.stop();
+    }
+  }
+  function _enterStandbyMode(mode) {
+    if (mode === 'metronome') {
+      state.metroSavedRhythm = currentRhythmMode;
+      applyRhythmMode('click');
+    } else if (mode === 'tuner') {
+      if (window._tuner && typeof window._tuner.start === 'function') {
+        // Defer to next tick so the renderLandscapeStandby that fires
+        // immediately after the swipe has already added .tuner-mode (so
+        // the elements paintIdle() touches are present + styled).
+        setTimeout(() => window._tuner.start(), 0);
+      }
+    }
+  }
+  function _setStandbyMode(next) {
+    const cur = state.standbyMode;
+    if (cur === next) return;
+    _exitStandbyMode(cur);
+    state.standbyMode = next;
+    _enterStandbyMode(next);
+    renderLandscapeStandby();
+  }
   function wireSwipeStandbyMode(el) {
     if (!el) return;
     let startX = null, startY = null;
@@ -15396,27 +15752,32 @@ function renderLandscapeStandby() {
       const dy = e.changedTouches[0].clientY - startY;
       startX = null;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        if (state.standbyMode === 'band') {
-          // Entering metronome mode — snapshot current rhythm so we can
-          // restore it on exit, then default to 'click' which is the
-          // canonical metronome tick sound.
-          state.metroSavedRhythm = currentRhythmMode;
-          applyRhythmMode('click');
-          state.standbyMode = 'metronome';
-        } else {
-          // Leaving metronome mode — stop ticking (so no sound carries into
-          // band-standby), restore the saved band rhythm if we have one.
-          if (metronome.playing) metronome.stop();
-          if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
-            applyRhythmMode(state.metroSavedRhythm);
-          }
-          state.metroSavedRhythm = null;
-          state.standbyMode = 'band';
-        }
-        renderLandscapeStandby();
+        const i = STANDBY_MODES.indexOf(state.standbyMode);
+        const cur = i < 0 ? 0 : i;
+        const dir = dx < 0 ? 1 : -1;        // swipe left = next mode
+        const next = STANDBY_MODES[(cur + dir + STANDBY_MODES.length) % STANDBY_MODES.length];
+        _setStandbyMode(next);
       }
     }, {passive: true});
   }
+  // Tap a pager dot → jump directly to that mode (good for landscape PWA
+  // users who want a direct shortcut and shouldn't have to hunt swipes).
+  (function wirePagerDots() {
+    const pager = document.getElementById('ls-mode-pager');
+    if (!pager) return;
+    pager.style.pointerEvents = 'auto';
+    pager.querySelectorAll('.pg-dot').forEach(dot => {
+      dot.style.cursor = 'pointer';
+      dot.style.pointerEvents = 'auto';
+      dot.style.padding = '8px';
+      dot.style.margin = '-8px';
+      dot.style.backgroundClip = 'content-box';
+      dot.addEventListener('click', () => {
+        const target = dot.dataset.mode;
+        if (target && STANDBY_MODES.indexOf(target) >= 0) _setStandbyMode(target);
+      });
+    });
+  })();
   wireSwipeStandbyMode(document.getElementById('landscape-standby'));
   wireSwipeInstrument(document.getElementById('landscape-play'));
   // Mobile vertical: hook the same swipe on the realistic guitar /
@@ -18257,6 +18618,444 @@ window.addEventListener('pageshow', () => {
   // worst case we render the same content twice on a normal load.
   if (typeof renderComposePad === 'function') renderComposePad();
 });
+
+/* ─── TUNER (third landscape-standby mode) ─────────────────────────
+   Same brutalist standby grid as band/metronome modes, repurposed:
+   detected note ↔ ls-key slot, cents ↔ ls-bpm slot, sweep needle inside
+   the play-button orb, six-string indicator ↔ ls-song slot. Mic gets
+   opened on mode entry and released on mode exit, matching the
+   metronome's "snapshot rhythm on enter, restore on leave" pattern.
+
+   Pitch detection notes:
+   - YIN on a 2048-sample window handles fundamentals down to ~22Hz at
+     44.1kHz (well below E2 = 82Hz). O(N²/4) inner loop is ~1M ops per
+     tick — fine for modern phones at ~60fps.
+   - Median over the last 5 readings smooths typical vibrato jitter
+     without dragging response time.
+   - RMS gate below 0.005 freezes the UI on "play a string" so a quiet
+     room doesn't drive the needle on noise. */
+window._tuner = (function setupTuner() {
+  const STRINGS = [
+    { num: 6, name: 'E', freq:  82.41 },
+    { num: 5, name: 'A', freq: 110.00 },
+    { num: 4, name: 'D', freq: 146.83 },
+    { num: 3, name: 'G', freq: 196.00 },
+    { num: 2, name: 'B', freq: 246.94 },
+    { num: 1, name: 'E', freq: 329.63 },
+  ];
+  const NOTE_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+
+  let stream    = null;
+  let analyser  = null;
+  let ctx       = null;
+  let micSource = null;
+  let buf       = null;
+  let rafId     = null;
+  let recent    = [];
+  // sessionId is bumped on every stop() so an in-flight start() can detect
+  // that the user already left the tuner before getUserMedia resolved, and
+  // release the orphan stream instead of starting a phantom listener.
+  let sessionId = 0;
+  const SMOOTH_N = 8;         // larger window → calmer needle, slight extra latency
+  // Lock-feedback state machine. Fire the green flash + soft ding when
+  // the user has held in-tune for IN_TUNE_LOCK_MS wall-clock ms; don't
+  // re-fire until they've drifted clearly out (>10¢) for OUT_REARM_MS.
+  // Wall-clock timing (vs frame counts) keeps the lock window consistent
+  // across 60Hz vs 120Hz refresh rates — frame-based timing made the
+  // lock fire ~2× as fast on ProMotion phones. Plus a wall-clock cooldown
+  // so two notes tuned in rapid succession can't overlap feedback.
+  let inTuneSince  = 0;       // perf.now() when we entered in-tune zone
+  let outSince     = 0;       // perf.now() when we entered out zone
+  let armed        = true;
+  let lastFlashAt  = 0;
+  let muteUntil    = 0;       // ignore YIN until this audioCtx-time (during ding)
+  const IN_TUNE_LOCK_MS   = 90;
+  const OUT_REARM_MS      = 110;
+  const FLASH_COOLDOWN_MS = 900;
+
+  function $(id) { return document.getElementById(id); }
+  function freqToMidi(f) { return 12 * Math.log2(f / 440) + 69; }
+
+  function nearestString(f) {
+    let best = STRINGS[0], bestAbs = Infinity, bestCents = 0;
+    for (const s of STRINGS) {
+      const cents = 1200 * Math.log2(f / s.freq);
+      if (Math.abs(cents) < bestAbs) { best = s; bestAbs = Math.abs(cents); bestCents = cents; }
+    }
+    return { string: best, cents: bestCents };
+  }
+
+  function yinPitch(b, sr) {
+    const N = b.length;
+    const half = N >> 1;
+    const d = new Float32Array(half);
+    for (let tau = 1; tau < half; tau++) {
+      let sum = 0;
+      for (let i = 0; i < half; i++) {
+        const x = b[i] - b[i + tau];
+        sum += x * x;
+      }
+      d[tau] = sum;
+    }
+    d[0] = 1;
+    let running = 0;
+    for (let tau = 1; tau < half; tau++) {
+      running += d[tau];
+      d[tau] *= tau / (running || 1);
+    }
+    const THRESH = 0.1;
+    let tau = -1;
+    for (let t = 2; t < half; t++) {
+      if (d[t] < THRESH) {
+        while (t + 1 < half && d[t + 1] < d[t]) t++;
+        tau = t;
+        break;
+      }
+    }
+    if (tau < 0) return -1;
+    let refined = tau;
+    if (tau > 0 && tau < half - 1) {
+      const a = d[tau - 1], b1 = d[tau], c = d[tau + 1];
+      const denom = 2 * (2 * b1 - c - a);
+      if (denom !== 0) refined = tau + (c - a) / denom;
+    }
+    return sr / refined;
+  }
+
+  function rms(b) {
+    let s = 0;
+    for (let i = 0; i < b.length; i++) s += b[i] * b[i];
+    return Math.sqrt(s / b.length);
+  }
+  function median(xs) {
+    const sorted = [...xs].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+  function classify(absCents) {
+    if (absCents < 5)  return 'in-tune';
+    if (absCents < 15) return 'near';
+    return 'off';
+  }
+
+  function paintIdle(msg) {
+    const noteEl   = $('ls-tuner-note');
+    const centsEl  = $('ls-tuner-cents-val');
+    const hzEl     = $('ls-tuner-orb-hz');
+    const orbEl    = $('ls-tuner-orb');
+    const needleEl = $('ls-tuner-needle');
+    const statusEl = $('ls-tuner-status');
+    if (noteEl)   { noteEl.textContent = '—'; noteEl.className = 'ls-tuner-note'; }
+    if (centsEl)  { centsEl.textContent = '·'; centsEl.className = 'ls-tuner-cents-val'; }
+    if (hzEl)     { hzEl.textContent = '— Hz'; }
+    if (orbEl)    { orbEl.className = 'ls-tuner-orb'; }
+    if (needleEl) {
+      needleEl.style.transform = 'translateX(-50%) rotate(0deg)';
+      needleEl.className = 'ls-tuner-needle';
+    }
+    document.querySelectorAll('#ls-tuner-strings .ts-cell').forEach(el => {
+      el.classList.remove('match', 'in-tune', 'near', 'off');
+    });
+    if (statusEl) {
+      statusEl.textContent = msg || 'play a string';
+      statusEl.classList.remove('err');
+      // Drop any retry-click handler that the mic-denied branch may have
+      // installed — once we're back to a normal idle state, taps on the
+      // status row should do nothing.
+      statusEl.style.cursor = '';
+      statusEl.onclick = null;
+    }
+  }
+
+  // One-shot feedback: brief green screen flash + soft 880Hz "ding".
+  // Cooled down by FLASH_COOLDOWN_MS so quick re-tunes don't double-fire.
+  // Sets muteUntil so the next ~280ms of mic data is skipped — that way
+  // the ding can't leak back through the mic and confuse YIN into
+  // reporting A5 right after every lock.
+  function fireLockFeedback() {
+    const now = performance.now();
+    if (now - lastFlashAt < FLASH_COOLDOWN_MS) return;
+    lastFlashAt = now;
+    const flashEl = $('ls-tuner-flash');
+    if (flashEl) {
+      flashEl.classList.remove('flashing');
+      // Force reflow so re-adding the class restarts the animation
+      void flashEl.offsetWidth;
+      flashEl.classList.add('flashing');
+    }
+    if (ctx && ctx.state === 'running') {
+      const t0 = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(0.16, t0 + 0.008);
+      gain.gain.exponentialRampToValueAtTime(0.0002, t0 + 0.28);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + 0.32);
+      muteUntil = t0 + 0.30;
+    }
+  }
+
+  function tick() {
+    rafId = requestAnimationFrame(tick);
+    if (!analyser || !buf) return;
+    analyser.getFloatTimeDomainData(buf);
+    // Don't analyse while the lock-tone is still sounding through the mic
+    if (ctx && ctx.currentTime < muteUntil) return;
+    if (rms(buf) < 0.005) {
+      if (recent.length) { recent = []; paintIdle('play a string'); }
+      inTuneSince = 0;
+      outSince = 0;
+      return;
+    }
+    const f = yinPitch(buf, ctx.sampleRate);
+    if (!(f > 60 && f < 1300)) return;
+    recent.push(f);
+    if (recent.length > SMOOTH_N) recent.shift();
+    const fs = median(recent);
+
+    const midiF = freqToMidi(fs);
+    const midiR = Math.round(midiF);
+    const cents = (midiF - midiR) * 100;
+    const noteName = NOTE_NAMES[((midiR % 12) + 12) % 12];
+    const octave = Math.floor(midiR / 12) - 1;
+    const absCents = Math.abs(cents);
+    const cls = classify(absCents);
+
+    const noteEl   = $('ls-tuner-note');
+    const centsEl  = $('ls-tuner-cents-val');
+    const hzEl     = $('ls-tuner-orb-hz');
+    const orbEl    = $('ls-tuner-orb');
+    const needleEl = $('ls-tuner-needle');
+    const statusEl = $('ls-tuner-status');
+
+    if (noteEl)  { noteEl.textContent  = noteName + octave;             noteEl.className  = 'ls-tuner-note ' + cls; }
+    if (centsEl) { centsEl.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(0); centsEl.className = 'ls-tuner-cents-val ' + cls; }
+    if (hzEl)    { hzEl.textContent    = fs.toFixed(1) + ' Hz'; }
+    if (orbEl)   { orbEl.className     = 'ls-tuner-orb ' + cls; }
+    // Needle rotation across the half-circle: ±50¢ → ±60°
+    const deg = Math.max(-50, Math.min(50, cents)) * 1.2;
+    if (needleEl) {
+      needleEl.style.transform = 'translateX(-50%) rotate(' + deg.toFixed(1) + 'deg)';
+      needleEl.className = 'ls-tuner-needle live ' + cls;
+    }
+
+    const ns = nearestString(fs);
+    const matchCls = classify(Math.abs(ns.cents));
+    document.querySelectorAll('#ls-tuner-strings .ts-cell').forEach(el => {
+      const isMatch = parseInt(el.dataset.string, 10) === ns.string.num;
+      el.classList.toggle('match', isMatch);
+      el.classList.remove('in-tune', 'near', 'off');
+      if (isMatch) el.classList.add(matchCls);
+    });
+    if (statusEl) { statusEl.textContent = ''; statusEl.classList.remove('err'); }
+
+    // Lock-feedback state machine, wall-clock edition. Fire when in-tune
+    // has been sustained for IN_TUNE_LOCK_MS AND we're currently armed.
+    // Re-arm only after the user has drifted clearly off (|cents| > 10)
+    // for OUT_REARM_MS so wobble near 0¢ doesn't generate a stream of
+    // flashes. Using perf.now() instead of frame counts keeps the window
+    // the same on 60Hz and 120Hz devices.
+    const tNow = performance.now();
+    if (absCents < 5) {
+      if (!inTuneSince) inTuneSince = tNow;
+      outSince = 0;
+      if (armed && (tNow - inTuneSince) >= IN_TUNE_LOCK_MS) {
+        fireLockFeedback();
+        armed = false;
+      }
+    } else if (absCents > 10) {
+      if (!outSince) outSince = tNow;
+      inTuneSince = 0;
+      if ((tNow - outSince) >= OUT_REARM_MS) armed = true;
+    } else {
+      // 5¢–10¢: dead zone, don't re-arm but also don't sustain in-tune timer
+      inTuneSince = 0;
+    }
+  }
+
+  async function start() {
+    // Already running — don't request a second stream
+    if (stream || rafId) return;
+    const mySession = ++sessionId;
+    const statusEl = $('ls-tuner-status');
+    paintIdle('connecting microphone…');
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('mic api unavailable');
+      }
+      const s = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+      // The user may have swiped away or rotated to portrait while the
+      // permission prompt was up — in that case stop() bumped sessionId.
+      // Release the stream we just received and bail out cleanly.
+      if (mySession !== sessionId) {
+        s.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+        return;
+      }
+      stream = s;
+      ctx = ensureAudio();
+      micSource = ctx.createMediaStreamSource(stream);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      micSource.connect(analyser);    // analyser ONLY — never to ctx.destination
+      recent = [];
+      paintIdle('play a string');
+      rafId = requestAnimationFrame(tick);
+    } catch (e) {
+      if (mySession !== sessionId) return;   // got cancelled mid-permission
+      const msg = (e && e.name === 'NotAllowedError')
+        ? 'microphone access denied'
+        : 'microphone unavailable';
+      if (statusEl) {
+        statusEl.textContent = msg + ' — tap to retry';
+        statusEl.classList.add('err');
+        statusEl.style.cursor = 'pointer';
+        // One-shot retry: tap the status line to re-request permission.
+        // Replaces the old "swipe away and back" workaround. Clear the
+        // handler immediately so a double-tap can't double-fire start().
+        statusEl.onclick = () => {
+          statusEl.onclick = null;
+          statusEl.style.cursor = '';
+          start();
+        };
+      }
+    }
+  }
+
+  function stop() {
+    sessionId++;        // invalidate any in-flight start()
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (micSource) { try { micSource.disconnect(); } catch (e) {} micSource = null; }
+    if (analyser) { try { analyser.disconnect(); } catch (e) {} }
+    analyser = null;
+    buf = null;
+    if (stream) {
+      stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      stream = null;
+    }
+    recent = [];
+    inTuneSince = 0;
+    outSince = 0;
+    armed = true;
+    muteUntil = 0;
+    paintIdle('play a string');
+  }
+
+  function isRunning() { return !!stream || !!rafId; }
+  function tunerModeVisible() {
+    return state.standbyMode === 'tuner'
+        && document.body.classList.contains('lp-on')
+        && !document.body.classList.contains('player-active')
+        && !document.hidden;
+  }
+
+  // Reference-tone pluck for tap-to-ring. Three-harmonic additive synth
+  // (1× triangle, 2×/3× sine) with a fast attack + ~1.6s exponential
+  // decay — close enough to a plucked string for ear-tuning. Goes
+  // straight to ctx.destination (independent of the chord drone path so
+  // it works even if the player isn't loaded). muteUntil bumps so the
+  // mic-driven YIN tick skips the next ~1.7s and can't echo-detect the
+  // reference tone as the user's own playing.
+  function playStringTone(freq) {
+    if (!ctx) ctx = ensureAudio();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0  = ctx.currentTime;
+    const dur = 1.6;
+    const harmonics = [
+      { mul: 1, amp: 0.20, type: 'triangle' },
+      { mul: 2, amp: 0.07, type: 'sine'     },
+      { mul: 3, amp: 0.03, type: 'sine'     },
+    ];
+    harmonics.forEach(h => {
+      const osc  = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = h.type;
+      osc.frequency.setValueAtTime(freq * h.mul, t0);
+      gain.gain.setValueAtTime(0.0001, t0);
+      gain.gain.exponentialRampToValueAtTime(h.amp, t0 + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0002, t0 + dur);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t0);
+      osc.stop(t0 + dur + 0.05);
+    });
+    muteUntil = t0 + dur + 0.1;
+    // Reset the lock-feedback state so the tuner's "play a string"
+    // arming logic doesn't immediately fire a green flash when the
+    // reference tone itself happens to be perfectly in tune. The tone
+    // is muted from YIN anyway, but the in-tune timer would otherwise
+    // persist from before the tap.
+    inTuneSince = 0;
+    outSince = 0;
+    armed = false;       // require an actual out-of-tune drift to re-arm
+  }
+
+  // Wire tap-on-string-cell → reference pluck. Event delegation on the
+  // wrapper so the wiring outlives any future innerHTML rebuilds.
+  (function wireStringPluck() {
+    const wrap = document.getElementById('ls-tuner-strings');
+    if (!wrap) return;
+    wrap.addEventListener('click', e => {
+      const cell = e.target.closest('.ts-cell');
+      if (!cell) return;
+      const num = parseInt(cell.dataset.string, 10);
+      const s = STRINGS.find(x => x.num === num);
+      if (!s) return;
+      playStringTone(s.freq);
+      // Restart the pulse animation by removing + re-adding the class
+      cell.classList.remove('pluck-pulse');
+      void cell.offsetWidth;
+      cell.classList.add('pluck-pulse');
+    });
+  })();
+
+  // Page hidden (tab switched, screen locked, app backgrounded) → release
+  // the mic so iOS doesn't keep the red recording dot pinned and so the
+  // OS doesn't drain battery on a stalled tick. Coming back visible while
+  // tuner mode is still selected restarts cleanly. Without this the mic
+  // would stay open silently behind a frozen requestAnimationFrame loop.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (isRunning()) stop();
+    } else if (tunerModeVisible() && !isRunning()) {
+      start();
+    }
+  });
+
+  // Player-active class is added when AI playback starts. The mic shouldn't
+  // stay open during playback — same reasoning as above (battery, iOS audio
+  // session in playAndRecord mode, surprising UX). Watches body class so
+  // anything that triggers the player (spacebar, autoplay paths, mode
+  // changes elsewhere) releases the mic for us without us having to thread
+  // a hook into every entry point.
+  (function wirePlayerActiveRelease() {
+    let wasPlayerActive = document.body.classList.contains('player-active');
+    const obs = new MutationObserver(() => {
+      const nowPlayerActive = document.body.classList.contains('player-active');
+      if (nowPlayerActive === wasPlayerActive) return;
+      wasPlayerActive = nowPlayerActive;
+      if (nowPlayerActive) {
+        if (isRunning()) stop();
+      } else if (tunerModeVisible() && !isRunning()) {
+        // Player just stopped and we're back in tuner mode — re-open the mic
+        start();
+      }
+    });
+    obs.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  })();
+
+  return { start, stop, isRunning };
+})();
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
