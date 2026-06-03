@@ -4862,6 +4862,19 @@
 
 <script>
 /* ════════════════════════════════════════════════════════════
+   BODY-CLASS DEFENSE — runs FIRST, before anything else.
+   On mobile the keypad sometimes failed to appear on PWA launch
+   (probably SW serving a partially-cached response, or bfcache
+   restoring a stale body state with player-active still set).
+   Forcing the canonical "ready-to-compose" class state here means
+   the page is guaranteed to render the compose-pad regardless of
+   what HTML attributes or bfcache delivered.
+   ════════════════════════════════════════════════════════════ */
+document.body.classList.add('keypad-open');
+document.body.classList.remove('player-active');
+document.body.classList.remove('map-overlay-open');
+
+/* ════════════════════════════════════════════════════════════
    THEORY
    ════════════════════════════════════════════════════════════ */
 
@@ -18133,6 +18146,11 @@ window.addEventListener('pageshow', () => {
   }
   const mapToggle = document.getElementById('map-mobile-toggle');
   if (mapToggle) mapToggle.textContent = '🗺 Map';
+  // Defensive re-render of the compose pad. On rare flaky launches the
+  // initial renderAll's pad pass got skipped (silent typeof-function guard),
+  // leaving an empty pad div. Re-populating here is idempotent and cheap —
+  // worst case we render the same content twice on a normal load.
+  if (typeof renderComposePad === 'function') renderComposePad();
 });
 
 // Register the shared service worker so this app installs / works offline
