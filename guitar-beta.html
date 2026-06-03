@@ -5717,6 +5717,10 @@ const state = {
   // metroAccelOn = true makes the metronome auto-accelerate +5 BPM every 4 bars.
   metroBeatsPerBar: 4,
   metroAccelOn: false,
+  // Snapshot of currentRhythmMode at the moment of entering metronome mode,
+  // so swiping back to band restores whatever the user had chosen for the
+  // AI band (ride, drums, 2&4, etc). null = not in metronome mode.
+  metroSavedRhythm: null,
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -15257,13 +15261,23 @@ function renderLandscapeStandby() {
       const dy = e.changedTouches[0].clientY - startY;
       startX = null;
       if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-        const next = state.standbyMode === 'band' ? 'metronome' : 'band';
-        // When leaving metronome mode, stop the metronome so it doesn't
-        // surprise the user when they swipe into band mode.
-        if (state.standbyMode === 'metronome' && metronome.playing) {
-          metronome.stop();
+        if (state.standbyMode === 'band') {
+          // Entering metronome mode — snapshot current rhythm so we can
+          // restore it on exit, then default to 'click' which is the
+          // canonical metronome tick sound.
+          state.metroSavedRhythm = currentRhythmMode;
+          applyRhythmMode('click');
+          state.standbyMode = 'metronome';
+        } else {
+          // Leaving metronome mode — stop ticking (so no sound carries into
+          // band-standby), restore the saved band rhythm if we have one.
+          if (metronome.playing) metronome.stop();
+          if (state.metroSavedRhythm !== null && state.metroSavedRhythm !== currentRhythmMode) {
+            applyRhythmMode(state.metroSavedRhythm);
+          }
+          state.metroSavedRhythm = null;
+          state.standbyMode = 'band';
         }
-        state.standbyMode = next;
         renderLandscapeStandby();
       }
     }, {passive: true});
