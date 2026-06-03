@@ -4520,6 +4520,131 @@
     width: clamp(28px, 5vh, 40px);
     height: auto;
   }
+
+  /* ─── TUNER overlay ──────────────────────────────────────────────
+     Full-screen modal triggered by the TUNE snd-cell. Brutalist look
+     so the big detected note is unmissable; needle + six string cards
+     read at a glance. The detection colour palette is shared across
+     note, needle, and matched-string highlight: green = ±5¢ (in tune),
+     yellow = ±15¢ (close), red = beyond (way off).                  */
+  #tuner-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(20, 20, 20, 0.97);
+    color: #fdfcf3;
+    display: none;
+    flex-direction: column; align-items: center;
+    padding: 24px 16px 28px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  }
+  #tuner-overlay[data-open="1"] { display: flex; }
+  #tuner-overlay .tn-head {
+    width: 100%; max-width: 520px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 2px solid #fdfcf3; padding-bottom: 8px;
+  }
+  #tuner-overlay .tn-title {
+    font-weight: 800; letter-spacing: 3px; font-size: 16px;
+  }
+  #tuner-overlay .tn-close {
+    background: transparent;
+    border: 2px solid #fdfcf3; color: inherit;
+    font-family: inherit; font-size: 12px; font-weight: 700;
+    letter-spacing: 1.5px;
+    padding: 5px 12px; cursor: pointer;
+  }
+  #tuner-overlay .tn-close:hover { background: #fdfcf3; color: #1a1a1a; }
+  #tuner-overlay .tn-note-box {
+    margin-top: 28px;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 150px; justify-content: center;
+  }
+  #tuner-overlay .tn-note {
+    font-size: clamp(72px, 18vw, 120px);
+    font-weight: 800; line-height: 1;
+    letter-spacing: -3px;
+    transition: color 180ms;
+    color: #fdfcf3;
+  }
+  #tuner-overlay .tn-note.in-tune { color: #4ade80; }
+  #tuner-overlay .tn-note.near    { color: #fbbf24; }
+  #tuner-overlay .tn-note.off     { color: #f87171; }
+  #tuner-overlay .tn-cents {
+    margin-top: 6px; font-size: 18px; opacity: 0.85;
+    letter-spacing: 2px; font-weight: 700;
+  }
+  #tuner-overlay .tn-hz {
+    font-size: 11px; opacity: 0.55; margin-top: 4px;
+    letter-spacing: 1.5px;
+  }
+  #tuner-overlay .tn-meter {
+    margin-top: 28px; width: 100%; max-width: 480px;
+    height: 56px; position: relative;
+    border: 2px solid #fdfcf3;
+    background: rgba(0,0,0,0.3);
+  }
+  #tuner-overlay .tn-meter-center {
+    position: absolute; left: 50%; top: 4px; bottom: 4px; width: 2px;
+    background: #fdfcf3; opacity: 0.85;
+    transform: translateX(-50%);
+  }
+  #tuner-overlay .tn-meter-tick {
+    position: absolute; top: 0; height: 8px; width: 1px;
+    background: #fdfcf3; opacity: 0.35;
+  }
+  #tuner-overlay .tn-meter-needle {
+    position: absolute; top: -2px; bottom: -2px; width: 4px;
+    background: #fdfcf3; opacity: 0.4;
+    left: 50%; transform: translateX(-50%);
+    transition: left 90ms linear, background 120ms, opacity 120ms;
+  }
+  #tuner-overlay .tn-meter-needle.live    { opacity: 1; }
+  #tuner-overlay .tn-meter-needle.in-tune { background: #4ade80; }
+  #tuner-overlay .tn-meter-needle.near    { background: #fbbf24; }
+  #tuner-overlay .tn-meter-needle.off     { background: #f87171; }
+  #tuner-overlay .tn-meter-labels {
+    width: 100%; max-width: 480px;
+    display: flex; justify-content: space-between;
+    font-size: 10px; opacity: 0.6; margin-top: 6px;
+    letter-spacing: 1.2px;
+  }
+  #tuner-overlay .tn-strings {
+    margin-top: 28px;
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+    width: 100%; max-width: 480px;
+  }
+  #tuner-overlay .tn-string {
+    border: 2px solid #fdfcf3; padding: 10px 0 8px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    opacity: 0.4; transition: opacity 140ms, background 140ms, color 140ms, border-color 140ms;
+  }
+  #tuner-overlay .tn-string .tn-string-num {
+    font-size: 9px; opacity: 0.75; letter-spacing: 1.5px;
+  }
+  #tuner-overlay .tn-string .tn-string-name {
+    font-size: 26px; font-weight: 800; letter-spacing: 1px; line-height: 1;
+  }
+  #tuner-overlay .tn-string .tn-string-sub {
+    font-size: 9px; opacity: 0.65; letter-spacing: 1px;
+  }
+  #tuner-overlay .tn-string.match {
+    opacity: 1; background: #fdfcf3; color: #1a1a1a; border-color: #fdfcf3;
+  }
+  #tuner-overlay .tn-string.match.in-tune { background: #4ade80; border-color: #4ade80; }
+  #tuner-overlay .tn-string.match.near    { background: #fbbf24; border-color: #fbbf24; }
+  #tuner-overlay .tn-string.match.off     { background: #f87171; border-color: #f87171; }
+  #tuner-overlay .tn-status {
+    margin-top: 22px; font-size: 12px; opacity: 0.7;
+    letter-spacing: 1.5px; text-align: center; min-height: 18px;
+    text-transform: uppercase;
+  }
+  #tuner-overlay .tn-status.err { color: #f87171; opacity: 1; }
+  @media (max-width: 480px) {
+    #tuner-overlay .tn-string .tn-string-name { font-size: 22px; }
+    #tuner-overlay .tn-string { padding: 8px 0 6px; }
+    #tuner-overlay .tn-cents { font-size: 16px; }
+  }
 </style>
 </head>
 <body class="keypad-open">
@@ -4599,6 +4724,7 @@
         <button class="snd-cell" id="voicing-pref" data-label="VOICE" title="click to pick voicing type"><span class="sc-val">ALL</span></button>
         <button class="snd-cell snd-rhythm" id="rhythm-btn" title="rhythm style"><span class="rhythm-ico" aria-hidden="true"></span></button>
         <button class="snd-cell snd-mix" id="mixer-btn" data-label="MIXER" title="open the volume mixer"><span class="sc-val">≡</span></button>
+        <button class="snd-cell" id="tuner-btn" data-label="TUNE" title="open guitar tuner (uses microphone)"><span class="sc-val">♪</span></button>
       </div>
       <!-- BPM moved up to the top bar alongside KEY / TONALITY /
            CHORDS so the VISUAL+SOUND strip has the full row width
@@ -4667,6 +4793,42 @@
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
 <div id="subdiv-popover"></div>
 <div class="sound-menu" id="rhythm-menu" hidden></div>
+
+<!-- Guitar tuner overlay. Mic-driven YIN pitch detection → nearest note +
+     cents-off + matched string (standard tuning EADGBE). Visible only when
+     tuner-btn is tapped; releases the mic stream when closed. -->
+<div id="tuner-overlay" data-open="0" role="dialog" aria-label="Guitar tuner" aria-hidden="true">
+  <div class="tn-head">
+    <div class="tn-title">TUNER</div>
+    <button class="tn-close" type="button" title="close tuner (Esc)">CLOSE ✕</button>
+  </div>
+  <div class="tn-note-box">
+    <div class="tn-note">—</div>
+    <div class="tn-cents"></div>
+    <div class="tn-hz"></div>
+  </div>
+  <div class="tn-meter">
+    <div class="tn-meter-center"></div>
+    <div class="tn-meter-tick" style="left:25%"></div>
+    <div class="tn-meter-tick" style="left:50%"></div>
+    <div class="tn-meter-tick" style="left:75%"></div>
+    <div class="tn-meter-needle"></div>
+  </div>
+  <div class="tn-meter-labels">
+    <span>♭ 50¢</span>
+    <span>0</span>
+    <span>50¢ ♯</span>
+  </div>
+  <div class="tn-strings">
+    <div class="tn-string"><span class="tn-string-num">6</span><span class="tn-string-name">E</span><span class="tn-string-sub">82 Hz</span></div>
+    <div class="tn-string"><span class="tn-string-num">5</span><span class="tn-string-name">A</span><span class="tn-string-sub">110 Hz</span></div>
+    <div class="tn-string"><span class="tn-string-num">4</span><span class="tn-string-name">D</span><span class="tn-string-sub">147 Hz</span></div>
+    <div class="tn-string"><span class="tn-string-num">3</span><span class="tn-string-name">G</span><span class="tn-string-sub">196 Hz</span></div>
+    <div class="tn-string"><span class="tn-string-num">2</span><span class="tn-string-name">B</span><span class="tn-string-sub">247 Hz</span></div>
+    <div class="tn-string"><span class="tn-string-num">1</span><span class="tn-string-name">E</span><span class="tn-string-sub">330 Hz</span></div>
+  </div>
+  <div class="tn-status">play a string</div>
+</div>
 
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
      when the AI isn't playing. On phone: phone-dialer grid pinned to the bottom. -->
@@ -18257,6 +18419,243 @@ window.addEventListener('pageshow', () => {
   // worst case we render the same content twice on a normal load.
   if (typeof renderComposePad === 'function') renderComposePad();
 });
+
+/* ─── TUNER ─────────────────────────────────────────────────────────
+   Mic input → YIN pitch detection → nearest note + cents-off + matched
+   guitar string. Self-contained so it can't disturb the player path:
+   shares audioCtx via ensureAudio() but connects the mic source ONLY to
+   an Analyser (never to ctx.destination), so opening the tuner doesn't
+   pipe the microphone back through the speakers.
+
+   Detection accuracy notes:
+   - YIN on a 2048-sample buffer at 44.1kHz handles pitches down to ~22Hz
+     (well below E2 = 82Hz). Inner loop is O(N²/4); ~1M ops per tick is
+     fine for modern phones.
+   - Median over the last 5 readings smooths normal vibrato jitter without
+     dragging response time.
+   - RMS gate below 0.005 freezes the UI on "play a string" so a quiet
+     room doesn't drive the needle on noise. */
+(function setupTuner() {
+  const overlay = document.getElementById('tuner-overlay');
+  const openBtn = document.getElementById('tuner-btn');
+  if (!overlay || !openBtn) return;
+  const noteEl   = overlay.querySelector('.tn-note');
+  const centsEl  = overlay.querySelector('.tn-cents');
+  const hzEl     = overlay.querySelector('.tn-hz');
+  const needleEl = overlay.querySelector('.tn-meter-needle');
+  const statusEl = overlay.querySelector('.tn-status');
+  const closeBtn = overlay.querySelector('.tn-close');
+  const stringEls = Array.from(overlay.querySelectorAll('.tn-string'));
+
+  // Standard tuning, in display order (6th low E at the left, 1st high E at the right)
+  const STRINGS = [
+    { num: 6, name: 'E', freq:  82.41 },
+    { num: 5, name: 'A', freq: 110.00 },
+    { num: 4, name: 'D', freq: 146.83 },
+    { num: 3, name: 'G', freq: 196.00 },
+    { num: 2, name: 'B', freq: 246.94 },
+    { num: 1, name: 'E', freq: 329.63 },
+  ];
+  const NOTE_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+
+  let stream    = null;
+  let analyser  = null;
+  let tunerCtx  = null;
+  let micSource = null;
+  let buf       = null;
+  let rafId     = null;
+  let recent    = [];           // freq smoothing ring
+  const SMOOTH_N = 5;
+
+  function freqToMidi(f) { return 12 * Math.log2(f / 440) + 69; }
+
+  function nearestString(f) {
+    let best = STRINGS[0], bestAbs = Infinity, bestCents = 0;
+    for (const s of STRINGS) {
+      const cents = 1200 * Math.log2(f / s.freq);
+      if (Math.abs(cents) < bestAbs) { best = s; bestAbs = Math.abs(cents); bestCents = cents; }
+    }
+    return { string: best, cents: bestCents };
+  }
+
+  function yinPitch(b, sr) {
+    const N = b.length;
+    const half = N >> 1;
+    const d = new Float32Array(half);
+    // Difference function
+    for (let tau = 1; tau < half; tau++) {
+      let sum = 0;
+      for (let i = 0; i < half; i++) {
+        const x = b[i] - b[i + tau];
+        sum += x * x;
+      }
+      d[tau] = sum;
+    }
+    // Cumulative mean normalized difference
+    d[0] = 1;
+    let running = 0;
+    for (let tau = 1; tau < half; tau++) {
+      running += d[tau];
+      d[tau] *= tau / (running || 1);
+    }
+    // Absolute threshold — pick first dip below 0.1, walk to its local min
+    const THRESH = 0.1;
+    let tau = -1;
+    for (let t = 2; t < half; t++) {
+      if (d[t] < THRESH) {
+        while (t + 1 < half && d[t + 1] < d[t]) t++;
+        tau = t;
+        break;
+      }
+    }
+    if (tau < 0) return -1;
+    // Parabolic interpolation around tau for sub-sample accuracy
+    let refined = tau;
+    if (tau > 0 && tau < half - 1) {
+      const a = d[tau - 1], b1 = d[tau], c = d[tau + 1];
+      const denom = 2 * (2 * b1 - c - a);
+      if (denom !== 0) refined = tau + (c - a) / denom;
+    }
+    return sr / refined;
+  }
+
+  function rms(b) {
+    let s = 0;
+    for (let i = 0; i < b.length; i++) s += b[i] * b[i];
+    return Math.sqrt(s / b.length);
+  }
+  function median(xs) {
+    const sorted = [...xs].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
+  function classify(absCents) {
+    if (absCents < 5)  return 'in-tune';
+    if (absCents < 15) return 'near';
+    return 'off';
+  }
+
+  function paintIdle(msg) {
+    noteEl.textContent = '—';
+    noteEl.className = 'tn-note';
+    centsEl.textContent = '';
+    hzEl.textContent = '';
+    needleEl.style.left = '50%';
+    needleEl.className = 'tn-meter-needle';
+    stringEls.forEach(el => { el.classList.remove('match', 'in-tune', 'near', 'off'); });
+    statusEl.textContent = msg;
+    statusEl.classList.remove('err');
+  }
+
+  function tick() {
+    rafId = requestAnimationFrame(tick);
+    if (!analyser || !buf) return;
+    analyser.getFloatTimeDomainData(buf);
+    if (rms(buf) < 0.005) {
+      // Quiet — let the last reading fade rather than snapping every frame
+      if (recent.length) { recent = []; paintIdle('play a string'); }
+      return;
+    }
+    const f = yinPitch(buf, tunerCtx.sampleRate);
+    if (!(f > 60 && f < 1300)) return;       // out of guitar's usable range
+
+    recent.push(f);
+    if (recent.length > SMOOTH_N) recent.shift();
+    const fs = median(recent);
+
+    const midiF = freqToMidi(fs);
+    const midiR = Math.round(midiF);
+    const cents = (midiF - midiR) * 100;
+    const noteName = NOTE_NAMES[((midiR % 12) + 12) % 12];
+    const octave = Math.floor(midiR / 12) - 1;
+    const cls = classify(Math.abs(cents));
+
+    noteEl.textContent = noteName + octave;
+    noteEl.className = 'tn-note ' + cls;
+    centsEl.textContent = (cents >= 0 ? '+' : '') + cents.toFixed(0) + ' ¢';
+    hzEl.textContent = fs.toFixed(2) + ' Hz';
+
+    const pct = Math.max(0, Math.min(100, cents + 50));
+    needleEl.style.left = pct + '%';
+    needleEl.className = 'tn-meter-needle live ' + cls;
+
+    // Match to nearest open string. Cents distance can be huge (~1200) if the
+    // user is on a fretted note far from any open string; the highlight still
+    // reflects "what string the note is closest to" so the user can see the
+    // mapping at a glance, even when not tuning an open string.
+    const ns = nearestString(fs);
+    const matchCls = classify(Math.abs(ns.cents));
+    stringEls.forEach((el, i) => {
+      const isMatch = STRINGS[i].num === ns.string.num;
+      el.classList.toggle('match', isMatch);
+      el.classList.remove('in-tune', 'near', 'off');
+      if (isMatch) el.classList.add(matchCls);
+    });
+    statusEl.textContent = '';
+    statusEl.classList.remove('err');
+  }
+
+  async function openTuner() {
+    overlay.dataset.open = '1';
+    overlay.setAttribute('aria-hidden', 'false');
+    paintIdle('connecting microphone…');
+    try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('mic api unavailable');
+      }
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+      tunerCtx = ensureAudio();
+      micSource = tunerCtx.createMediaStreamSource(stream);
+      analyser = tunerCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      buf = new Float32Array(analyser.fftSize);
+      micSource.connect(analyser);       // analyser ONLY — never to destination
+      recent = [];
+      paintIdle('play a string');
+      rafId = requestAnimationFrame(tick);
+    } catch (e) {
+      const msg = (e && e.name === 'NotAllowedError')
+        ? 'microphone access denied'
+        : 'microphone unavailable';
+      statusEl.textContent = msg;
+      statusEl.classList.add('err');
+    }
+  }
+
+  function closeTuner() {
+    overlay.dataset.open = '0';
+    overlay.setAttribute('aria-hidden', 'true');
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    if (micSource) { try { micSource.disconnect(); } catch (e) {} micSource = null; }
+    analyser = null;
+    buf = null;
+    if (stream) {
+      stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+      stream = null;
+    }
+    recent = [];
+  }
+
+  openBtn.addEventListener('click', openTuner);
+  closeBtn.addEventListener('click', closeTuner);
+  // Click the dim background (not the panel contents) → close
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) closeTuner();
+  });
+  document.addEventListener('keydown', e => {
+    if (overlay.dataset.open === '1' && e.key === 'Escape') {
+      e.preventDefault();
+      closeTuner();
+    }
+  });
+})();
 
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
