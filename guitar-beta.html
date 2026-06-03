@@ -5289,6 +5289,7 @@ const QUALITIES = {
   '7alt':  {ints:[0,4,6,10,1],   degs:['R','3','b5','b7','b9'],   sfx:'7alt'},   // Altered dom (b9, #11) — bebop standard
   'm9':    {ints:[0,3,7,10,2],   degs:['R','b3','5','b7','9'],    sfx:'m9'},     // Minor 9 (neo-soul, modal)
   'maj9':  {ints:[0,4,7,11,2],   degs:['R','3','5','7','9'],      sfx:'maj9'},   // Major 9 (bossa, neo-soul tonic)
+  '9':     {ints:[0,4,7,10,2],   degs:['R','3','5','b7','9'],     sfx:'9'},      // Dominant 9 (V9 in ii-V-I)
 };
 
 // Resolve the effective quality for a chord step. A progression step
@@ -5532,23 +5533,51 @@ const DEGRADE_RULES_BY_QUALITY = {
   '7alt':  [{ missingInts: [10], suffix: ''     }, { missingInts: [1, 6], suffix: '7' }],
   'm9':    [{ missingInts: [10], suffix: 'm'    }, { missingInts: [2], suffix: 'm7'   }],
   'maj9':  [{ missingInts: [11], suffix: ''     }, { missingInts: [2], suffix: 'maj7' }],
+  '9':     [{ missingInts: [10], suffix: ''     }, { missingInts: [2], suffix: '7'    }],
+};
+
+// Inverse of DEGRADE_RULES — when a voicing INCLUDES extension tones beyond
+// the canonical quality, upgrade the displayed name. Checked BEFORE the
+// degrade rules in chordNameForVoicing so a V chord (canonical quality '7')
+// voiced with a rootless 9-shape (B-D-F-A for G9) is named "G9" — the voicing
+// itself carries the harmonic identity. Keeps the algorithmic-enrichment
+// story honest: when the picker chooses a 9-voicing, the displayed name
+// reflects it everywhere (map card, iReal strip, MIDI export label) without
+// needing a separate qualityOverride on the progression step.
+const UPGRADE_RULES_BY_QUALITY = {
+  '7': [
+    { hasInts: [2], suffix: '9' },     // dom7 + 9th present → "9"
+  ],
 };
 
 // Return a degraded display name when the voicing skips the tones that
 // define the canonical quality (Dm7 voiced D-F-A → "Dm"; Cm9 voiced
-// C-Eb-G-Bb → "Cm7"). Takes quality + root directly so callers that work
-// with qualityOverrides (Jobim 7#11, jazz blues 7alt) or per-cell key
-// cycles can pass their effective values. Returns null when nothing
-// should change (no shape, voicing actually includes the chord tone,
-// quality not in the rules table).
+// C-Eb-G-Bb → "Cm7"), OR an upgraded name when the voicing includes
+// extensions past the canonical quality (G7 voiced as B-D-F-A → "G9").
+// Takes quality + root directly so callers that work with qualityOverrides
+// (Jobim 7#11, jazz blues 7alt) or per-cell key cycles can pass their
+// effective values. Returns null when nothing should change (no shape,
+// voicing matches the quality exactly, quality not in either rules table).
 function chordNameForVoicing(quality, root, shape, flats) {
   if (!shape) return null;
-  const rules = DEGRADE_RULES_BY_QUALITY[quality];
-  if (!rules) return null;
   const pcs = new Set();
   for (let s = 0; s < shape.length; s++) {
     if (shape[s] >= 0) pcs.add((STRING_OPEN_MIDI[s] + shape[s]) % 12);
   }
+  // Upgrade rules first: if the voicing CONTAINS an extension the canonical
+  // quality doesn't promise, name up. Rules are checked top-down; first
+  // match wins. This is where "V voiced as a 9-chord displays G9" happens.
+  const upRules = UPGRADE_RULES_BY_QUALITY[quality];
+  if (upRules) {
+    for (const rule of upRules) {
+      if (rule.hasInts.every(i => pcs.has((root + i) % 12))) {
+        return nameOf(root, flats) + rule.suffix;
+      }
+    }
+  }
+  // Degrade rules: if the voicing is MISSING canonical tones, name down.
+  const rules = DEGRADE_RULES_BY_QUALITY[quality];
+  if (!rules) return null;
   for (const rule of rules) {
     if (rule.missingInts.every(i => !pcs.has((root + i) % 12))) {
       return nameOf(root, flats) + rule.suffix;
@@ -5564,6 +5593,39 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   const q = QUALITIES[quality];
   if (!q || q.ints.length !== 4) return null;
   let close = [...q.ints];
+  for (let i = 0; i < inversion; i++) {
+    close = [close[1], close[2], close[3], close[0] + 12];
+  }
+  const dropped = [close[0], close[1], close[2] - 12, close[3]].sort((a, b) => a - b);
+  const set = STRING_SETS[stringSetIdx].idx;
+  for (let oct = 24; oct <= 84; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = dropped.map(s => rootMidi + s);
+    const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
+}
+
+/* ─── Rootless drop-2 ninth voicing (dom7 → 9) ───
+   Standard jazz substitution: drop the root, add the 9, voice as drop-2.
+   For G7 the rootless 9 is B-D-F-A (3-5-b7-9) — which is also Bm7b5.
+   The bass instrument keeps the root, so the chord still reads as a
+   dominant; on guitar the 9 lives on top and resolves into the next
+   chord's tones by step. Called from allDistinctVoicings for quality
+   '7' only; tagged with extension:'9' so pickByStrategy can apply a
+   small bias keeping these out of selections unless voice-leading
+   genuinely prefers them.
+
+   Intervals from root: [3, 5, b7, 9] = [4, 7, 10, 14] before drop-2.
+   Same drop-2 logic as dropTwoVoicing (drop close[2] by an octave),
+   just with a different starting interval set. */
+function dropTwoNinthVoicing(rootPc, stringSetIdx, inversion) {
+  let close = [4, 7, 10, 14];
   for (let i = 0; i < inversion; i++) {
     close = [close[1], close[2], close[3], close[0] + 12];
   }
@@ -16373,6 +16435,24 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   }
   drops.sort(byReg).forEach(d => add(d.shape, 'drop2', { stringSetIdx: d.stringSetIdx, inversion: d.inversion }));
 
+  // 1.b Rootless drop-2 ninth voicings — dom7 only. Adds the 9 in place of
+  // the root for a "9 chord" sound (B-D-F-A for G9 etc.). Tagged with
+  // extension:'9' so pickByStrategy applies a small bias — these are picked
+  // only when voice-leading prefers them. chordNameForVoicing's upgrade
+  // rule (UPGRADE_RULES_BY_QUALITY['7']) detects the 9 in the shape and
+  // displays "G9" instead of "G7" automatically, no qualityOverride needed.
+  if (quality === '7') {
+    const ninths = [];
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      for (let inv = 0; inv < 4; inv++) {
+        const base = dropTwoNinthVoicing(rootPc, ss, inv);
+        if (!base) continue;
+        withOctaves(sh => ninths.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
+      }
+    }
+    ninths.sort(byReg).forEach(n => add(n.shape, 'drop2', { stringSetIdx: n.stringSetIdx, inversion: n.inversion, extension: '9' }));
+  }
+
   // 1.5 Drop-3 (2 skipped-string sets × 4 inversions × N octaves) —
   // wider 4-note voicings; the "missing link" between shells and
   // drop-2. Uses DROP3_STRING_SETS (skip 5th or skip 4th) for the
@@ -16579,7 +16659,13 @@ function pickByStrategy(cands, prevShape) {
       const setPref = c.stringSetIdx === 0 ? 3 : 0;
       const regionShift = prevShape ? Math.abs(af - avgFret(prevShape)) : 0;
       const jumpPenalty = regionShift > 4 ? Math.pow(regionShift - 4, 1.8) : 0;
-      score = m + registerCost + setPref + typeBias + noise + jumpPenalty;
+      // Extension bias — same role as typeBias but for "this candidate
+      // adds a 9 (or other extension)". Small enough that voice-leading
+      // can overrule it (the whole point of voice-leading-driven 9s),
+      // big enough that root voicings win ties. Tune this dial empirically
+      // after listening — lower = more 9s, higher = fewer.
+      const extBias = c.extension === '9' ? 1.5 : 0;
+      score = m + registerCost + setPref + typeBias + extBias + noise + jumpPenalty;
     }
     if (score < bestScore) { bestScore = score; bestIdx = i; }
   });
