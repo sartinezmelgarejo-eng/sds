@@ -4392,6 +4392,60 @@
     gap: 10px;
     align-items: center;
   }
+
+  /* ── Metronome mode: slight cool-tinted bg + element repurposing ── */
+  #landscape-standby {
+    transition: background 0.25s ease;
+  }
+  #landscape-standby.metronome-mode {
+    background: #181c22;
+  }
+  /* Hide the song chip in metronome mode (replaced by beat indicator) */
+  #landscape-standby.metronome-mode .ls-song { display: none; }
+  /* Show beat indicator only in metronome mode */
+  #landscape-standby .ls-beat-indicator { display: none; }
+  #landscape-standby.metronome-mode .ls-beat-indicator {
+    display: flex;
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: center;
+    gap: 14px;
+    margin-top: 8px;
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(253,252,243,0.35);
+    border-radius: 50%;
+    background: transparent;
+    transition: background 0.06s ease-out, border-color 0.06s ease-out, transform 0.06s ease-out;
+  }
+  #landscape-standby .ls-beat-indicator .beat-dot.on {
+    background: #fdfcf3;
+    border-color: #fdfcf3;
+    transform: scale(1.25);
+  }
+
+  /* ── Mode pager dots (· ●) at top center, indicates band vs metronome ── */
+  #landscape-standby .ls-mode-pager {
+    position: absolute;
+    top: max(14px, calc(env(safe-area-inset-top, 14px) + 2px));
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    pointer-events: none;
+  }
+  #landscape-standby .ls-mode-pager .pg-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(253,252,243,0.3);
+    transition: background 0.2s;
+  }
+  #landscape-standby .ls-mode-pager .pg-dot.on {
+    background: rgba(253,252,243,1);
+  }
 </style>
 </head>
 <body class="keypad-open">
@@ -4680,6 +4734,11 @@
      key/bpm/toggles and hit play without rotating back.
 ─────────────────────────────────────────────────────────────── -->
 <div id="landscape-standby" aria-hidden="true">
+  <!-- Mode pager dots (band ↔ metronome) — top center -->
+  <div class="ls-mode-pager" id="ls-mode-pager">
+    <span class="pg-dot on" data-mode="band"></span>
+    <span class="pg-dot" data-mode="metronome"></span>
+  </div>
   <div class="ls-grid">
     <!-- Left top: key + tonality -->
     <div class="ls-key-group">
@@ -4699,9 +4758,16 @@
       <button class="ls-btn" id="ls-cycle" title="PITCHED — key shift per loop">· PITCHED</button>
       <button class="ls-btn" id="ls-sound" title="Sound">🎹</button>
     </div>
-    <!-- Bottom center: Song structure (under PLAY) -->
+    <!-- Bottom center: Song structure (under PLAY) — band mode only -->
     <div class="ls-song">
       <div class="ls-song-val" id="ls-song-val">RANDOM</div>
+    </div>
+    <!-- Bottom center: Beat indicator — metronome mode only -->
+    <div class="ls-beat-indicator" id="ls-beat-indicator">
+      <span class="beat-dot" data-beat="0"></span>
+      <span class="beat-dot" data-beat="1"></span>
+      <span class="beat-dot" data-beat="2"></span>
+      <span class="beat-dot" data-beat="3"></span>
     </div>
   </div>
 </div>
@@ -5583,6 +5649,13 @@ const state = {
   // and clears) so the player gets exactly the structure that was shown.
   // null when not pre-rolled (locked-mode or first load before standby).
   songStructureUpcoming: null,
+  // Landscape standby has two swipable modes: the normal band-pre-play
+  // ('band') and a standalone metronome practice mode ('metronome').
+  // Swiping horizontally on the standby toggles between them. The
+  // metronome mode reuses the same layout, slightly cooler bg, and
+  // repurposes PLAY (= metronome on/off), Loop (= TAP tempo), and the
+  // bottom chip (= 4-dot beat indicator pulsed by Metronome._onUITick).
+  standbyMode: 'band',
 };
 
 // Available song structure presets shown in the SONG picker menu.
@@ -9608,6 +9681,16 @@ class Metronome {
     else if (this.mode === 'twofour') this._twoFour(time, idx);
     else if (this.mode === 'drums') this._drums(time, idx);
     else this._ride(time, idx);
+    // UI callback fired in sync with the actual audio tick (no rAF jitter).
+    // Used by the landscape standby beat indicator. Delay = scheduled audio
+    // time minus current ctx time, so the visual hits at the same instant
+    // the listener hears the click.
+    if (this._onUITick) {
+      const delayMs = Math.max(0, (time - audioCtx.currentTime) * 1000);
+      const cb = this._onUITick;
+      const mode = this.mode;
+      setTimeout(() => { if (this._onUITick === cb) cb(idx, mode); }, delayMs);
+    }
   }
   _click(time, isDownbeat) {
     const ctx = audioCtx;
@@ -9811,6 +9894,19 @@ class Metronome {
 }
 
 const metronome = new Metronome();
+// Beat indicator pulse (landscape standby in metronome mode) — fired in
+// sync with the actual scheduled audio tick. Maps the metronome's
+// per-mode tick idx to a 0..3 beat position so the 4 dots cycle naturally.
+metronome._onUITick = (idx, mode) => {
+  if (state.standbyMode !== 'metronome') return;
+  const dots = document.querySelectorAll('#ls-beat-indicator .beat-dot');
+  if (!dots.length) return;
+  let beat;
+  if (mode === 'drums') beat = Math.floor(idx / 2) % 4;       // 8th notes → quarters
+  else if (mode === 'ride') beat = Math.floor(idx / 1.5) % 4; // 6 ride hits/bar → ~4 quarters
+  else beat = idx % 4;                                         // click / twofour
+  dots.forEach((d, i) => d.classList.toggle('on', i === beat));
+};
 
 function updateBlinkRate() {
   const beat = 60 / metronome.bpm;
@@ -14729,6 +14825,18 @@ function renderLandscapeStandby() {
                && !document.body.classList.contains('player-active');
   if (!visible) return;
 
+  // Apply mode class — drives the cool-tinted bg + song/beat-indicator swap
+  const isMetro = state.standbyMode === 'metronome';
+  el.classList.toggle('metronome-mode', isMetro);
+
+  // Mode pager dots — light up the active mode
+  const pager = document.getElementById('ls-mode-pager');
+  if (pager) {
+    pager.querySelectorAll('.pg-dot').forEach(d => {
+      d.classList.toggle('on', d.dataset.mode === state.standbyMode);
+    });
+  }
+
   // Key display
   const keyEl = document.getElementById('ls-key');
   if (keyEl) {
@@ -14746,49 +14854,84 @@ function renderLandscapeStandby() {
   // Song structure — if RANDOM, pre-roll a structure so the user can see
   // what's coming; show with a "~" prefix to mark it's a random pick.
   // Locked modes (AABA, ABAB, BLUES…) just show the structure id plain.
-  const songEl = document.getElementById('ls-song-val');
-  if (songEl) {
-    if (state.songStructure === 'RANDOM') {
-      if (!state.songStructureUpcoming) _rerollSongStructure();
-      songEl.textContent = '~' + (state.songStructureUpcoming || 'AABA');
-    } else {
-      songEl.textContent = state.songStructure;
+  // Hidden via CSS in metronome mode — render skipped there.
+  if (!isMetro) {
+    const songEl = document.getElementById('ls-song-val');
+    if (songEl) {
+      if (state.songStructure === 'RANDOM') {
+        if (!state.songStructureUpcoming) _rerollSongStructure();
+        songEl.textContent = '~' + (state.songStructureUpcoming || 'AABA');
+      } else {
+        songEl.textContent = state.songStructure;
+      }
     }
   }
 
-  // Loop button state — yellow when on, label shows mode
+  // Loop button — in band mode shows loop state, in metronome mode is the TAP-tempo button
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) {
-    const isOn = loopMode !== 'off';
-    loopBtn.classList.toggle('ls-active', false);
-    loopBtn.classList.toggle('ls-loop-on', isOn);
-    loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
-      : loopMode === 'bars-4' ? '⟲ 4 bars'
-      : loopMode === 'section' ? '⟲ Section'
-                              : '⟲ Song';
+    if (isMetro) {
+      loopBtn.textContent = 'TAP';
+      loopBtn.classList.toggle('ls-loop-on', false);
+      loopBtn.classList.toggle('ls-active', false);
+    } else {
+      const isOn = loopMode !== 'off';
+      loopBtn.classList.toggle('ls-active', false);
+      loopBtn.classList.toggle('ls-loop-on', isOn);
+      loopBtn.textContent = loopMode === 'off'    ? '⟲ Loop'
+        : loopMode === 'bars-4' ? '⟲ 4 bars'
+        : loopMode === 'section' ? '⟲ Section'
+                                : '⟲ Song';
+    }
   }
 
-  // Cycle button state
+  // Cycle button state (band-mode only; in metro mode the button is inert but visible)
   const cycleBtn = document.getElementById('ls-cycle');
   const realCycle = document.getElementById('cycle-toggle');
-  if (cycleBtn && realCycle) {
+  if (cycleBtn && realCycle && !isMetro) {
     const label = realCycle.textContent || '·';
     cycleBtn.textContent = (label === '·') ? '· PITCHED' : label + ' PITCHED';
     cycleBtn.classList.toggle('ls-active', realCycle.classList.contains('active'));
   }
 
-  // Sound button — show current instrument
+  // Sound button — show current instrument (band mode) or the rhythm tick mode (metro mode)
   const soundBtn = document.getElementById('ls-sound');
   if (soundBtn) {
-    soundBtn.textContent = state.instrument === 'piano' ? '🎹 Piano' : '🎸 Guitar';
+    if (isMetro) {
+      const lbl = currentRhythmMode === 'click' ? 'CLICK'
+                : currentRhythmMode === 'twofour' ? '2&4'
+                : currentRhythmMode === 'drums' ? 'DRUMS'
+                : currentRhythmMode === 'off' ? 'MUTE'
+                : 'RIDE';
+      soundBtn.textContent = '🎵 ' + lbl;
+    } else {
+      soundBtn.textContent = state.instrument === 'piano' ? '🎹 Piano' : '🎸 Guitar';
+    }
+  }
+
+  // Beat indicator: when metronome stops or we leave metro mode, clear lit dots
+  if (!isMetro || !metronome.playing) {
+    document.querySelectorAll('#ls-beat-indicator .beat-dot.on').forEach(d => d.classList.remove('on'));
   }
 }
 
 // Wire standby buttons
 (function wireLandscapeStandby() {
-  // Play → proxy the real AI play button
+  // Play — in band mode proxies the real AI play button; in metronome mode
+  // toggles the standalone metronome (forcing rhythm to 'click' if it was off
+  // so the user actually hears something).
   const playBtn = document.getElementById('ls-play');
   if (playBtn) playBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      if (metronome.playing) {
+        metronome.stop();
+      } else {
+        if (currentRhythmMode === 'off') applyRhythmMode('click');
+        metronome.start();
+      }
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('auto-play');
     if (real) real.click();
   });
@@ -14860,26 +15003,62 @@ function renderLandscapeStandby() {
     }, {passive: true});
   }
 
-  // Loop → proxy the real loop-toggle (which now cycles 3 states)
+  // Loop → in band mode proxies the loop-toggle; in metronome mode acts as
+  // TAP tempo (tap repeatedly, BPM is computed from median tap interval).
+  const _tapTempoTimes = [];
   const loopBtn = document.getElementById('ls-loop');
   if (loopBtn) loopBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      const now = performance.now();
+      // Reset tap history if last tap was >2s ago (treat as new sequence)
+      if (_tapTempoTimes.length && now - _tapTempoTimes[_tapTempoTimes.length - 1] > 2000) {
+        _tapTempoTimes.length = 0;
+      }
+      _tapTempoTimes.push(now);
+      // Keep last 8 taps for a stable median
+      if (_tapTempoTimes.length > 8) _tapTempoTimes.shift();
+      if (_tapTempoTimes.length >= 2) {
+        const intervals = [];
+        for (let i = 1; i < _tapTempoTimes.length; i++) {
+          intervals.push(_tapTempoTimes[i] - _tapTempoTimes[i - 1]);
+        }
+        intervals.sort((a, b) => a - b);
+        const med = intervals[Math.floor(intervals.length / 2)];
+        const bpm = Math.round(60000 / med);
+        if (bpm >= 40 && bpm <= 280) setBpm(bpm);
+      }
+      renderLandscapeStandby();
+      return;
+    }
     const real = document.getElementById('loop-toggle');
     if (real) real.click();
     // renderLandscapeStandby is called by the loop-toggle handler
   });
 
-  // Cycle → proxy
+  // Cycle → proxy in band mode; inert in metronome mode (no key cycling there)
   const cycleBtn = document.getElementById('ls-cycle');
   if (cycleBtn) cycleBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') return;
     const real = document.getElementById('cycle-toggle');
     if (real) real.click();
     renderLandscapeStandby();
   });
 
-  // Sound → toggle instrument (use the JS proxy since the DOM
-  // #instrument-btn was replaced by the GTR/PNO vs-cell toggle)
+  // Sound → in band mode toggles instrument (guitar/piano). In metronome mode
+  // cycles the metronome's tick sound (ride → click → twofour → drums → off → ride).
   const soundBtn = document.getElementById('ls-sound');
   if (soundBtn) soundBtn.addEventListener('click', () => {
+    if (state.standbyMode === 'metronome') {
+      const order = ['ride', 'click', 'twofour', 'drums', 'off'];
+      const i = order.indexOf(currentRhythmMode);
+      const next = order[(i + 1) % order.length];
+      applyRhythmMode(next);
+      // If metronome is currently playing and we just switched to 'off',
+      // applyRhythmMode already stopped it. If switching FROM 'off' while
+      // playing was attempted, applyRhythmMode handles that too.
+      renderLandscapeStandby();
+      return;
+    }
     if (typeof instrumentBtn !== 'undefined' && instrumentBtn && instrumentBtn.click) {
       instrumentBtn.click();
     }
@@ -14911,7 +15090,34 @@ function renderLandscapeStandby() {
       }
     }, {passive: true});
   }
-  wireSwipeInstrument(document.getElementById('landscape-standby'));
+  // The standby gets a swipe handler that toggles band↔metronome mode
+  // (was previously instrument-swipe; instrument is still tap-switchable
+  // via the Sound button so no UX is lost).
+  function wireSwipeStandbyMode(el) {
+    if (!el) return;
+    let startX = null, startY = null;
+    el.addEventListener('touchstart', e => {
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+    }, {passive: true});
+    el.addEventListener('touchend', e => {
+      if (startX === null) return;
+      const dx = e.changedTouches[0].clientX - startX;
+      const dy = e.changedTouches[0].clientY - startY;
+      startX = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        const next = state.standbyMode === 'band' ? 'metronome' : 'band';
+        // When leaving metronome mode, stop the metronome so it doesn't
+        // surprise the user when they swipe into band mode.
+        if (state.standbyMode === 'metronome' && metronome.playing) {
+          metronome.stop();
+        }
+        state.standbyMode = next;
+        renderLandscapeStandby();
+      }
+    }, {passive: true});
+  }
+  wireSwipeStandbyMode(document.getElementById('landscape-standby'));
   wireSwipeInstrument(document.getElementById('landscape-play'));
   // Mobile vertical: hook the same swipe on the realistic guitar /
   // piano panel (the chord neck below the strip) so the user can
