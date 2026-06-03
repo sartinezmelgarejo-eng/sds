@@ -11373,54 +11373,20 @@ class Player {
   // playback resumes at that bar (snapped to the start of the held chord if
   // they tapped a tie cell). No-op outside captured-song mode.
   _applyCapturedStartPosition() {
-    if (!this.song || !this.song.length) return;
+    const cap = state._capturedSong;
+    if (!cap || !this.song || !this.song.length) return;
     let cellIdx = state.composedSelectedIdx;
     if (cellIdx == null || cellIdx < 0) cellIdx = state._composeFocusedIdx;
-    // No active selection → just-typed Play or AI-only Play. Leave the song
-    // position alone so playback starts from bar 0.
     if (cellIdx == null || cellIdx < 0) return;
-    const cap = state._capturedSong;
-    const seq = state.composedProgression;
-    let targetLabel, cellInSection, sectionAbsStart;
-    if (cap) {
-      if (cap.mode === 'dense') {
-        const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
-        const aLen = cap.sections[aLab].cells.length;
-        if (cellIdx < aLen) {
-          targetLabel = aLab;   cellInSection = cellIdx;          sectionAbsStart = 0;
-        } else {
-          targetLabel = bLab;   cellInSection = cellIdx - aLen;   sectionAbsStart = aLen;
-        }
-      } else if (cap.boundaries && cap.boundaries.length) {
-        // Stacked: the strip concatenates every unique section, so the cellIdx
-        // could live in any of them. Find the section whose [start, start+len)
-        // range contains the click and rebase cellInSection accordingly.
-        // Without this, a click in section B walked through section A's steps
-        // until it ran out and stuck on A's last chord.
-        let bnd = cap.boundaries[0];
-        for (const b of cap.boundaries) {
-          if (cellIdx >= b.start && cellIdx < b.start + b.len) { bnd = b; break; }
-        }
-        targetLabel = bnd.label;
-        cellInSection = cellIdx - bnd.start;
-        sectionAbsStart = bnd.start;
-      } else {
-        targetLabel = cap.activeLabel;
-        cellInSection = cellIdx;
-        sectionAbsStart = 0;
-      }
-    } else if (seq && seq.length) {
-      // Compose-only (no AI capture): _generateSong slices composedProgression
-      // into A (cells 0-7) and B (8-15). Only fires when the user explicitly
-      // tapped a cell — composeAddChord clears _composeFocusedIdx so plain
-      // Play after typing skips this and starts from bar 0 as before.
-      if (cellIdx < 8) {
-        targetLabel = 'A'; cellInSection = cellIdx;     sectionAbsStart = 0;
-      } else {
-        targetLabel = 'B'; cellInSection = cellIdx - 8; sectionAbsStart = 8;
-      }
+    let targetLabel, cellInSection;
+    if (cap.mode === 'dense') {
+      const aLab = cap.uniqueLabels[0], bLab = cap.uniqueLabels[1];
+      const aLen = cap.sections[aLab].cells.length;
+      if (cellIdx < aLen) { targetLabel = aLab;   cellInSection = cellIdx; }
+      else                { targetLabel = bLab;   cellInSection = cellIdx - aLen; }
     } else {
-      return;
+      targetLabel = cap.activeLabel;
+      cellInSection = cellIdx;
     }
     const targetSongIdx = this.song.findIndex(s => s.label === targetLabel);
     if (targetSongIdx < 0) return;
@@ -11437,12 +11403,6 @@ class Player {
     this.currentStepIdx = targetStepIdx;
     this.barsRemaining = steps[targetStepIdx].bars || 1;
     this.forceTriggerAtNextBar = true;
-    // Page-align totalBars to the absolute strip position where the clicked
-    // chord starts (snapped to chord head if the click landed on a tie). This
-    // keeps the chord at its native 4-bar page slot instead of snapping to
-    // cells[0]. _buildPagePlan reads composedProgression to fill the slots
-    // before barInPage with the prior strip cells.
-    this.totalBars = sectionAbsStart + cellsConsumed;
     if (typeof this._applySectionKey === 'function') this._applySectionKey();
   }
 
@@ -11477,22 +11437,13 @@ class Player {
     this.sectionIter = 0;
     this.currentStepIdx = 0;
     this.barsRemaining = this._currentStep().bars;
-    this.totalBars = 0;
     // After Edit on an AI song: jump to the cell the user had selected so
     // playback resumes where they were listening, not from bar 0.
-    // _applyCapturedStartPosition may overwrite totalBars to the absolute
-    // strip position of the clicked chord — must run AFTER the totalBars=0
-    // reset above so that override actually sticks.
     this._applyCapturedStartPosition();
-    // _applyCapturedStartPosition sets forceTriggerAtNextBar=true (needed
-    // for paused-jump→resume flow). But in start()'s flow the count-in
-    // already fires the first chord — leaving force-trigger on makes the
-    // next scheduler tick fire the same chord AGAIN (audible double-strike
-    // on bar 1). Mirror resume()'s explicit reset.
-    this.forceTriggerAtNextBar = false;
     // Read voicingType + bassPattern from the section (pre-assigned at song generation)
     this.voicingType = this._currentSection().voicingType || this._pickVoicingType();
     this.bassPattern = this._currentSection().bassPattern || this._pickBassPattern();
+    this.totalBars = 0;
     this._cachedPage = null;
     // Reset the per-progression voicing cache so cards revert to default until played
     state.progressionVoicings = {};
@@ -11636,7 +11587,6 @@ class Player {
         : state.composedProgression.findIndex(c => c.chord === curChord);
       if (idx >= 0) {
         state.composedSelectedIdx = idx;
-        state._composedSelectedLocked = false;  // pause auto-select, not user lock
         state._composeFocusedIdx  = idx;
         state.focusedChord = curChord;
         const cell = state.composedProgression[idx];
@@ -12586,40 +12536,6 @@ class Player {
     let prevTonality = state.tonality;
     let prevChord = null;
     let bar = 0;
-    // Edit→tap→Play can start the player mid-page (totalBars % 4 > 0). The
-    // lookahead only knows about FUTURE bars from songIdx/stepIdx, so without
-    // help the clicked chord would land in cells[0] and the page would visually
-    // shrink. Prefill the slots before barInPage from the captured strip
-    // (composedProgression) so the four-bar page stays page-aligned and the
-    // clicked chord sits at its native slot. These are visual-only — no songIdx
-    // means the paused-click handler won't try to jump into them.
-    const startBarInPage = this.totalBars % 4;
-    const pageStart = this._cachedPlanPage * 4;
-    const seq = state.composedProgression;
-    if (startBarInPage > 0 && seq && seq.length >= pageStart + startBarInPage) {
-      const cmap = currentMap();
-      for (let j = 0; j < startBarInPage; j++) {
-        const sc = seq[pageStart + j];
-        if (!sc || !sc.chord || !cmap.chordDefs[sc.chord]) {
-          this._cachedPage.push(null);
-          continue;
-        }
-        this._cachedPage.push({
-          chord: sc.chord,
-          qualityOverride: null,
-          barIdxInChord: sc._tie ? 1 : 0,
-          keyPc: state.keyPc,
-          voicingType: sc.voicingType || this.voicingType,
-          shape: sc.shape,
-          subdivisions: sc.subdivisions || 1,
-          subdivMute: sc.subdivMute || [],
-          songIdx: null,
-          stepIdx: null,
-          sectionIter: null,
-        });
-      }
-      bar = startBarInPage;
-    }
     outer: for (const seg of lookahead) {
       for (let b = 0; b < seg.bars; b++) {
         // Resolve chord-def in the SEGMENT's tonality, not the live one.
@@ -13726,7 +13642,6 @@ document.getElementById('auto-edit').addEventListener('click', () => {
   if (curChord) state.focusedChord = curChord;
   if (selectIdx >= 0) {
     state.composedSelectedIdx = selectIdx;
-    state._composedSelectedLocked = false;  // capture auto-select, not user lock
     state._composeFocusedIdx = selectIdx;
     const cell = state.composedProgression[selectIdx];
     if (cell && cell.shape) {
@@ -17193,12 +17108,9 @@ document.addEventListener('click', (ev) => {
     if (state.composedSelectedIdx === idx) {
       // Already locked on this slot — unlock
       state.composedSelectedIdx = null;
-      state._composedSelectedLocked = false;
     } else {
-      // Lock this slot — EXPLICIT user lock, persists until unlocked or
-      // overridden by another explicit lock. Cell-clicks won't clear this.
+      // Lock this slot
       state.composedSelectedIdx = idx;
-      state._composedSelectedLocked = true;
       const entry = seq[idx];
       state.focusedChord = entry.chord;
       state.userVoicing = entry.shape ? { shape: entry.shape } : null;
@@ -17239,7 +17151,6 @@ document.addEventListener('click', (ev) => {
       const inControls = ev.target.closest('.compose-pad, .compose-btn, .compose-inv, .map-card');
       if (!inControls) {
         state.composedSelectedIdx = null;
-        state._composedSelectedLocked = false;
         renderComposeStrip();
       }
     }
@@ -17258,14 +17169,6 @@ document.addEventListener('click', (ev) => {
   // a separate _oneShotReplaceIdx so the existing composedSelectedIdx
   // (which DOES drive the orange "locked" highlight via the explicit
   // 🔓 button) stays untouched.
-  //
-  // EXCEPT: if composedSelectedIdx was set automatically (pause or AI
-  // capture — flag _composedSelectedLocked is false), the user clicking
-  // a different cell signals intent to start play from THIS cell, so we
-  // clear the stale auto-select. Explicit 🔓 locks survive (flag true).
-  if (state.composedSelectedIdx !== null && !state._composedSelectedLocked) {
-    state.composedSelectedIdx = null;
-  }
   state._composeFocusedIdx = idx;
   state.focusedChord = entry.chord;
   state.userVoicing = entry.shape ? { shape: entry.shape } : null;
@@ -17432,10 +17335,8 @@ document.addEventListener('keydown', e => {
       const target = state.composedSelectedIdx ?? (seq.length - 1);
       if (state.composedSelectedIdx === target) {
         state.composedSelectedIdx = null;
-        state._composedSelectedLocked = false;
       } else {
         state.composedSelectedIdx = target;
-        state._composedSelectedLocked = true;  // explicit user lock via L key
         const entry = seq[target];
         state.focusedChord = entry.chord;
         state.userVoicing = entry.shape ? { shape: entry.shape } : null;
