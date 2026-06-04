@@ -7928,8 +7928,11 @@ function _renderHoverPopups(chordId, allowedIds) {
   // mousemove over the partner card would wipe it before the user could
   // click it.
   Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
-  // Skip partner-pinned arrows — they belong to a still-active ii↔V chain.
-  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.partner-pinned)')).forEach(el => el.remove());
+  // Preserve persistent (already-composed popup) AND partner-pinned arrows.
+  // Without these exclusions, the connector arrow of a composed secondary
+  // dominant would vanish the moment the cursor hovered any other chord —
+  // the card stayed (since it's .persistent), but its arrow blinked out.
+  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
   const map = currentMap();
   if (!map) return;
   // Find the target card's position from its node.
