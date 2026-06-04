@@ -7922,8 +7922,12 @@ function _renderHoverPopups(chordId, allowedIds) {
   // Record whether this render is restricted so the mousemove guard can let
   // a direct hover on the same chord override with the full set of approaches.
   _hoverAllowedIds = allowedIds || null;
-  // Clear any prior hover popups — preserve persistent (clicked/active) cards.
-  Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
+  // Clear any prior hover popups — preserve persistent (clicked/active)
+  // cards AND partner-pinned ones (the still-clickable partner of a freshly
+  // composed ii→V→I chain step). Without :not(.partner-pinned) the next
+  // mousemove over the partner card would wipe it before the user could
+  // click it.
+  Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
   const map = currentMap();
   if (!map) return;
@@ -8033,10 +8037,15 @@ function _renderHoverPopups(chordId, allowedIds) {
         _hoverChordId = chordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
-          // ii → persistent (green pulse); V partners → normal hover (clickable).
+          // ii → persistent (green pulse); V partners → normal hover BUT
+          // marked .partner-pinned so the next mousemove over the popup
+          // (or over the parent map) doesn't wipe it via _clearHoverPopups.
+          // The pinned partner only goes away when the persistent ii does
+          // (see _clearPersistentPopup), so the user can click V next to
+          // complete the ii→V→I chain.
           el.className = snap.isIi
             ? snap.className + ' persistent'
-            : snap.className;
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -8089,9 +8098,13 @@ function _renderHoverPopups(chordId, allowedIds) {
         _hoverChordId = chordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
+          // V = green persistent; ii partner = pinned hover so a mousemove
+          // doesn't immediately wipe it via _clearHoverPopups. Same fix as
+          // the ii-first path above — keeps the chain visible until the
+          // user either clicks ii to add it or composes elsewhere.
           el.className = snap.isV
-            ? snap.className + ' persistent'   // V = green
-            : snap.className;                   // ii partner = still clickable
+            ? snap.className + ' persistent'
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -8264,9 +8277,11 @@ function _clearHoverPopups() {
   const wrap = document.getElementById('chord-map');
   const arrowsSvg = document.getElementById('map-arrows');
   if (wrap) {
-    // Only remove hover popups that AREN'T marked persistent — the
-    // clicked one stays as the "currently composing" active indicator.
-    Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
+    // Only remove hover popups that AREN'T marked persistent OR pinned
+    // partner. The clicked one stays as the "currently composing" active
+    // indicator; pinned partners stay so the user can still complete the
+    // ii→V→I chain after composing the first step.
+    Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
     // Target highlight only goes away if there's no persistent popup
     // for it — otherwise keep the gold ring so the relationship reads.
     Array.from(wrap.querySelectorAll('.map-card.hover-target')).forEach(c => {
@@ -8288,6 +8303,10 @@ function _clearPersistentPopup() {
   const arrowsSvg = document.getElementById('map-arrows');
   if (wrap) {
     Array.from(wrap.querySelectorAll('.map-card.popup.persistent')).forEach(el => el.remove());
+    // Partner-pinned cards are tied to the persistent one — when the
+    // persistent goes, the partner should follow (the chain is no longer
+    // active so the unfilled half of the chain has no context).
+    Array.from(wrap.querySelectorAll('.map-card.popup.partner-pinned')).forEach(el => el.remove());
     Array.from(wrap.querySelectorAll('.map-card.hover-target')).forEach(c => c.classList.remove('hover-target'));
   }
   if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
