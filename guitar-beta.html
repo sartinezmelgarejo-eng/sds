@@ -11019,18 +11019,26 @@ const HEAVY_ROCK_PROGS = new Set([
   'bVI–bVII–i',
   'I – iv – bVII – I',
 ]);
+// `extensions` (optional): scales the rootless-9 extBias in _pickShape.
+// 1.0 = baseline (current jazz rate, ~20-35% of dominants land on a 9).
+// 1.2-1.4 = modal / bossa lean (slightly more 9s).
+// 0.2 = pop/rock/folk (very rare).
+// 0.05 = Bach / strict-classical (effectively never, but voice-leading
+//        CAN still win in extreme cases — clamps to a high but finite
+//        penalty, preserving "musical surprise" possibility).
+// Defaults to 1.0 when the field is missing.
 const PROGRESSION_VOICING = {
   // major
   'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
-  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:40},
-  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:45},
+  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:40, extensions:0.3},
+  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:45, extensions:0.2},
   'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
-  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:45},
+  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:45, extensions:0.2},
   'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0},
   'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
-  'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0},
-  'I–vii°–vi–V':                  {drop2:25, drop3:15, shell:20, triad:35, sus:0, strum:10},
-  'ii–vii°–I (chromatic approach)':{drop2:45, drop3:15, shell:30, triad:10, sus:0, strum:0},
+  'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0, extensions:0.05},
+  'I–vii°–vi–V':                  {drop2:25, drop3:15, shell:20, triad:35, sus:0, strum:10, extensions:0.15},
+  'ii–vii°–I (chromatic approach)':{drop2:45, drop3:15, shell:30, triad:10, sus:0, strum:0, extensions:0.1},
   // Note: sus weight is 0 here on purpose. The V7sus chord in these
   // progressions is already SUS by quality, so it sounds sus even when
   // voiced as drop-2 / drop-3 / shell. Putting sus weight > 0 forced
@@ -11042,8 +11050,8 @@ const PROGRESSION_VOICING = {
   'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0},
-  'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30},
-  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:50},
+  'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, extensions:0.3},
+  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:50, extensions:0.15},
   'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -11053,19 +11061,19 @@ const PROGRESSION_VOICING = {
   'ii – bII7 – I':                {drop2:55, drop3:30, shell:10, triad:5,  sus:0, strum:0},
   'iv – I (borrowed)':            {drop2:40, drop3:35, shell:20, triad:5,  sus:0, strum:0},
   'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0, strum:0},
-  'I – iv – bVII – I':            {drop2:25, drop3:40, shell:15, triad:5,  sus:0, strum:20},
-  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25},
-  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:40},
+  'I – iv – bVII – I':            {drop2:25, drop3:40, shell:15, triad:5,  sus:0, strum:20, extensions:0.4},
+  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, extensions:0.4},
+  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:40, extensions:0.2},
   'AABA-A double':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   // minor
   'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0, strum:0},
-  'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40},
-  'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35},
-  'bVI–bVII–i':                   {drop2:20, drop3:30, shell:10, triad:25, sus:0, strum:20},
+  'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.15},
+  'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, extensions:0.2},
+  'bVI–bVII–i':                   {drop2:20, drop3:30, shell:10, triad:25, sus:0, strum:20, extensions:0.3},
   'iiø–bII7–i (tritone sub)':     {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
   'iv–bII7–i':                    {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
-  'vii°7–i Bach cadence':         {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0},
+  'vii°7–i Bach cadence':         {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0, extensions:0.05},
   'i–IV–V7–i (parallel IV)':      {drop2:40, drop3:25, shell:15, triad:10, sus:0, strum:30},
   'iiø–V/V–V7–i':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   // Same logic as the major-key sus progressions above — sus weight 0
@@ -11084,8 +11092,8 @@ const PROGRESSION_VOICING = {
   'bIII7 backdoor':               {drop2:30, drop3:50, shell:15, triad:5,  sus:0, strum:0},
   'Romance bossa':                {drop2:25, drop3:55, shell:15, triad:5,  sus:0, strum:0},
   'Autumn Leaves':                {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
-  'i – bVI – bVII – i (epic)':   {drop2:20, drop3:25, shell:10, triad:20, sus:0, strum:40},
-  'i – bIII – bVII – iv':        {drop2:20, drop3:30, shell:10, triad:15, sus:0, strum:35},
+  'i – bVI – bVII – i (epic)':   {drop2:20, drop3:25, shell:10, triad:20, sus:0, strum:40, extensions:0.15},
+  'i – bIII – bVII – iv':        {drop2:20, drop3:30, shell:10, triad:15, sus:0, strum:35, extensions:0.15},
   'Minor AABA-A':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'Jazz minor long':              {drop2:45, drop3:35, shell:15, triad:5,  sus:0, strum:0},
   // ─── May 2026 additions ───
@@ -11097,21 +11105,24 @@ const PROGRESSION_VOICING = {
   'Modal interchange cycle':      {drop2:35, drop3:30, shell:15, triad:10, sus:0, strum:10},
   'iiø borrow ballad':            {drop2:55, drop3:20, shell:15, triad:5,  sus:0, strum:5},
   // Pop / folk staples — triads + open strum dominate
-  '50s doo-wop I-vi-IV-V':        {drop2:20, drop3:10, shell:10, triad:35, sus:0, strum:25},
-  'Pachelbel I-V-vi-iii-IV-I-IV-V':{drop2:25, drop3:15, shell:15, triad:30, sus:0, strum:15},
-  // Blues — strum-heavy with dom7 grit; drop-3 for the bass-anchored feel
-  '12-bar blues':                 {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20},
-  '12-bar quick-change blues':    {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20},
-  'Jazz blues with ii-V subs':    {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
+  '50s doo-wop I-vi-IV-V':        {drop2:20, drop3:10, shell:10, triad:35, sus:0, strum:25, extensions:0.15},
+  'Pachelbel I-V-vi-iii-IV-I-IV-V':{drop2:25, drop3:15, shell:15, triad:30, sus:0, strum:15, extensions:0.1},
+  // Blues — strum-heavy with dom7 grit; drop-3 for the bass-anchored feel.
+  // Plain 12-bar gets a moderate extensions weight — bluesy 9 chords are
+  // idiomatic (Hendrix 7#9 territory, BB King 9 chords) but a Texas-shuffle
+  // wouldn't want too many.
+  '12-bar blues':                 {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20, extensions:0.6},
+  '12-bar quick-change blues':    {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20, extensions:0.6},
+  'Jazz blues with ii-V subs':    {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0,  extensions:1.2},
   // Country — triads + strum (cowboy chords if in cowboy keys)
-  'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:30},
-  'Train beat I7-IV7-V7':         {drop2:15, drop3:10, shell:15, triad:25, sus:0, strum:35},
-  // Bossa — drop-3 dominant (Romance bossa pattern)
-  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0},
+  'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:30, extensions:0.1},
+  'Train beat I7-IV7-V7':         {drop2:15, drop3:10, shell:15, triad:25, sus:0, strum:35, extensions:0.15},
+  // Bossa — drop-3 dominant (Romance bossa pattern). Bossa wants 9s.
+  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, extensions:1.3},
   // Minor additions
-  'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15},
-  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0},
-  'So What modal vamp':           {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
+  'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5},
+  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  extensions:1.2},
+  'So What modal vamp':           {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0,  extensions:1.4},
 };
 
 // Weighted-random pick from a {family: weight} map. Sums weights and
@@ -11187,22 +11198,47 @@ class Player {
   // Find the candidate shape of the chosen type that voice-leads best and stays anchored
   _pickShape(quality, root, type, prevShape, opts = {}) {
     const cands = [];
+    // Per-progression extension scaling. Default 1.0 (baseline extBias 1.5).
+    // PROGRESSION_VOICING.extensions can dial it: lower values discourage
+    // 9-voicings (Bach, pop, folk → barely ever), higher values encourage
+    // them (modal jazz, bossa → more freely). Clamped at 0.05 so even
+    // 'never' leaves a microscopic door open if voice-leading is overwhelmingly
+    // in favor — preserves the "don't shut out musical surprises" instinct.
+    const _progName = opts.progName;
+    const _extWeight = (_progName && PROGRESSION_VOICING[_progName] && PROGRESSION_VOICING[_progName].extensions);
+    const _extScale  = (typeof _extWeight === 'number') ? Math.max(0.05, _extWeight) : 1.0;
+    const _extBiasBase = 1.5 / _extScale;
+
     if (type === 'drop2') {
+      // Drop-2 dispatcher. For canonical 4-note qualities (maj7, 7, m7, etc.)
+      // use the regular builder. For 5-note ninth qualities ('9', 'm9',
+      // 'maj9' — typically arrived at via a step's qualityOverride), route
+      // directly to the rootless 4-note builder for that flavor so the
+      // candidates ARE 9-voicings (not plain dom7 fallbacks). This is what
+      // makes a progression that says 'this V is qualityOverride:9' actually
+      // get a 9-voicing instead of falling through to plain dom7.
+      const explicit9Builder = quality === '9'    ? dropTwoNinthVoicing
+                             : quality === 'm9'   ? dropTwoMinorNinthVoicing
+                             : quality === 'maj9' ? dropTwoMajorNinthVoicing
+                             : null;
+      const baseBuilder = explicit9Builder
+        ? (rt, ss, inv) => explicit9Builder(rt, ss, inv)
+        : (rt, ss, inv) => dropTwoVoicing(quality, rt, ss, inv);
       for (let ss = 0; ss < STRING_SETS.length; ss++) {
         for (let inv = 0; inv < 4; inv++) {
-          const sh = dropTwoVoicing(quality, root, ss, inv);
+          const sh = baseBuilder(root, ss, inv);
           if (sh) cands.push(sh);
         }
       }
-      // Rootless 9 candidates — dom7 gets dom9, m7 gets m9, maj7 gets maj9.
-      // Same drop-2 transformation applied to the appropriate rootless
-      // interval stack. Tagged with __ext9 (non-enumerable so JSON /
-      // spreads / shape-iteration ignore it) so the scorer can apply a
-      // small extension bias that keeps them out of selections unless
-      // voice-leading clearly prefers them. The name upgrade lives in
-      // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked
-      // 9-shape displays as "G9" / "Dm9" / "Cmaj9" automatically without
-      // any progression-level changes.
+      // Rootless 9 ENRICHMENT candidates — dom7 / m7 / maj7 get the option
+      // of an additional 9-voicing alongside the canonical ones. Tagged with
+      // __ext9 so the scorer applies extBias and the 9 wins only when voice-
+      // leading clearly prefers it. The name upgrade lives in
+      // chordNameForVoicing's UPGRADE_RULES_BY_QUALITY, so a picked 9-shape
+      // displays as "G9" / "Dm9" / "Cmaj9" automatically. Skipped when the
+      // quality is already an explicit 5-note 9 — those qualities are
+      // forced into the rootless builder above and don't need additional
+      // candidates of the same kind.
       const ninthBuilder = quality === '7'    ? dropTwoNinthVoicing
                          : quality === 'm7'   ? dropTwoMinorNinthVoicing
                          : quality === 'maj7' ? dropTwoMajorNinthVoicing
@@ -11314,8 +11350,9 @@ class Player {
         // First chord of a song has no voice-leading context to make a 9
         // preferable, so just lean toward root voicings — the 9 can show
         // up on the second chord onward when there's something to resolve
-        // smoothly from.
-        if (sh.__ext9) cost += 1.5;
+        // smoothly from. _extBiasBase already incorporates per-progression
+        // scaling so Bach starts cleaner than Jazz.
+        if (sh.__ext9) cost += _extBiasBase;
         if (!best || cost < best.cost) best = {shape: sh, cost};
       }
       return best.shape;
@@ -11461,12 +11498,11 @@ class Player {
         }
       }
       // Extension bias — same role as variantBias but for "this candidate
-      // adds the 9th." Small enough that voice-leading can overrule it (the
-      // whole point of voice-leading-driven 9s), big enough that root
-      // voicings win ties. Single tuning dial — lower for more 9s, higher
-      // for fewer.
-      const extBias = sh.__ext9 ? 1.5 : 0;
-      // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1, top-voice ≈1.2, variant ≈±2, ext9 ≈1.5
+      // adds the 9th." Baseline 1.5 scaled per-progression via
+      // PROGRESSION_VOICING.extensions: lower extensions weight → higher
+      // extBias → fewer 9s (Bach, pop). Higher → more (modal, bossa).
+      const extBias = sh.__ext9 ? _extBiasBase : 0;
+      // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1, top-voice ≈1.2, variant ≈±2, ext9 = 1.5 / extensions
       const score = (overlapCount ? moveSum : 5) + regionShift * 2.4 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty + jumpPenalty + topPenalty + variantBias + extBias;
       if (!best || score < best.score) best = {shape: sh, score};
     }
@@ -16481,11 +16517,21 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
     }
   };
 
-  // 1. Drop-2 (3 string sets × 4 inversions × N octaves)
+  // 1. Drop-2 (3 string sets × 4 inversions × N octaves).
+  // Dispatcher mirrors _pickShape: explicit ninth qualities ('9', 'm9',
+  // 'maj9' — typically arrived at via qualityOverride) route directly
+  // to the rootless builders so the candidates ARE 9-voicings.
+  const _explicit9 = quality === '9'    ? dropTwoNinthVoicing
+                   : quality === 'm9'   ? dropTwoMinorNinthVoicing
+                   : quality === 'maj9' ? dropTwoMajorNinthVoicing
+                   : null;
+  const _dropBuilder = _explicit9
+    ? ((rt, ss, inv) => _explicit9(rt, ss, inv))
+    : ((rt, ss, inv) => dropTwoVoicing(quality, rt, ss, inv));
   const drops = [];
   for (let ss = 0; ss < STRING_SETS.length; ss++) {
     for (let inv = 0; inv < 4; inv++) {
-      const base = dropTwoVoicing(quality, rootPc, ss, inv);
+      const base = _dropBuilder(rootPc, ss, inv);
       if (!base) continue;
       withOctaves(sh => drops.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
     }
