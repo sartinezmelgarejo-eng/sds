@@ -8016,53 +8016,20 @@ function _renderHoverPopups(chordId, allowedIds) {
         const mapWrap   = document.getElementById('chord-map');
         const svgArrows = document.getElementById('map-arrows');
 
-        // Only snapshot popups directly related to this chain — the clicked
-        // ii itself and its paired V (via _findSiiVChordId). Other popups
-        // that happen to be visible (e.g. bII7 tritone sub to the same
-        // resolution target) are NOT part of this composed chain and
-        // shouldn't survive the click as leftover persistent cards.
-        const relatedVId = (typeof _findSiiVChordId === 'function')
-          ? _findSiiVChordId(appId) : null;
-        const keepCardIds = new Set([appId]);
-        if (relatedVId) keepCardIds.add(relatedVId);
-        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')]
-          .filter(c => keepCardIds.has(c.dataset.chord))
-          .map(c => ({
-            appId:    c.dataset.chord,
-            isIi:     c.dataset.chord === appId,
-            left:     c.style.left,
-            top:      c.style.top,
-            width:    c.style.width,
-            height:   c.style.height,
-            innerHTML: c.innerHTML,
-            className: c.className,   // snapshot BEFORE adding persistent
-          }));
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId:    c.dataset.chord,
+          isIi:     c.dataset.chord === appId,
+          left:     c.style.left,
+          top:      c.style.top,
+          width:    c.style.width,
+          height:   c.style.height,
+          innerHTML: c.innerHTML,
+          className: c.className,   // snapshot BEFORE adding persistent
+        }));
         // Pre-apply persistent to the ii card NOW so it goes green instantly
         // (transition:none on .persistent means no white flash).
         card.classList.add('persistent');
-        // Filter arrows similarly — only the connector touching either the
-        // ii or the related V. We match arrows by their endpoint coords
-        // overlapping the kept cards' centers. Cleaner heuristic than
-        // tagging: any arrow drawn in this render pass that touches a
-        // surviving card is part of this chain.
-        const survivingPts = [];
-        snapCards.forEach(s => {
-          const cx = parseFloat(s.left) + parseFloat(s.width) / 2;
-          const cy = parseFloat(s.top)  + parseFloat(s.height) / 2;
-          survivingPts.push({ cx, cy });
-        });
-        const arrowTouches = (path) => {
-          const d = path.getAttribute('d') || '';
-          // Endpoints in our paths are written as `M x1 y1 Q mx my x2 y2`.
-          const m = d.match(/^M\s*([\d.\-]+)\s+([\d.\-]+).*?([\d.\-]+)\s+([\d.\-]+)\s*$/);
-          if (!m) return false;
-          const pts = [[+m[1], +m[2]], [+m[3], +m[4]]];
-          return pts.some(([x, y]) =>
-            survivingPts.some(p => Math.hypot(p.cx - x, p.cy - y) < 60));
-        };
-        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])]
-          .filter(arrowTouches)
-          .map(a => a.cloneNode(true));
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
 
         _persistentPopupChordId = null;
         _persistentPopupNode    = null;
@@ -8121,41 +8088,18 @@ function _renderHoverPopups(chordId, allowedIds) {
       if (isSecondaryV) {
         const mapWrap   = document.getElementById('chord-map');
         const svgArrows = document.getElementById('map-arrows');
-        // Keep only the clicked V and its paired ii (chDefs[appId].sii) —
-        // any other visible popup is unrelated and shouldn't get pinned.
-        const relatedIiId = chDefs[appId]?.sii || null;
-        const keepCardIdsV = new Set([appId]);
-        if (relatedIiId) keepCardIdsV.add(relatedIiId);
-        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')]
-          .filter(c => keepCardIdsV.has(c.dataset.chord))
-          .map(c => ({
-            appId:    c.dataset.chord,
-            isV:      c.dataset.chord === appId,
-            left:     c.style.left,
-            top:      c.style.top,
-            width:    c.style.width,
-            height:   c.style.height,
-            innerHTML: c.innerHTML,
-            className: c.className,
-          }));
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId:    c.dataset.chord,
+          isV:      c.dataset.chord === appId,
+          left:     c.style.left,
+          top:      c.style.top,
+          width:    c.style.width,
+          height:   c.style.height,
+          innerHTML: c.innerHTML,
+          className: c.className,
+        }));
         card.classList.add('persistent');
-        const survivingPtsV = [];
-        snapCards.forEach(s => {
-          const cx = parseFloat(s.left) + parseFloat(s.width) / 2;
-          const cy = parseFloat(s.top)  + parseFloat(s.height) / 2;
-          survivingPtsV.push({ cx, cy });
-        });
-        const arrowTouchesV = (path) => {
-          const d = path.getAttribute('d') || '';
-          const m = d.match(/^M\s*([\d.\-]+)\s+([\d.\-]+).*?([\d.\-]+)\s+([\d.\-]+)\s*$/);
-          if (!m) return false;
-          const pts = [[+m[1], +m[2]], [+m[3], +m[4]]];
-          return pts.some(([x, y]) =>
-            survivingPtsV.some(p => Math.hypot(p.cx - x, p.cy - y) < 60));
-        };
-        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])]
-          .filter(arrowTouchesV)
-          .map(a => a.cloneNode(true));
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
         _persistentPopupChordId = null;
         _persistentPopupNode    = null;
         if (typeof composeAddChord === 'function') {
@@ -8591,38 +8535,15 @@ function _setupChordMapTouch() {
         // and the V partner visible at its original position after the wipe.
         const mapWrap   = document.getElementById('chord-map');
         const svgArrows = document.getElementById('map-arrows');
-        // Filter to the clicked sii + its paired V, same as the desktop path.
-        const relatedVIdT = (typeof _findSiiVChordId === 'function')
-          ? _findSiiVChordId(appId) : null;
-        const keepIdsT = new Set([appId]);
-        if (relatedVIdT) keepIdsT.add(relatedVIdT);
-        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')]
-          .filter(c => keepIdsT.has(c.dataset.chord))
-          .map(c => ({
-            appId: c.dataset.chord, isIi: c.dataset.chord === appId,
-            left: c.style.left, top: c.style.top,
-            width: c.style.width, height: c.style.height,
-            innerHTML: c.innerHTML, className: c.className,
-          }));
+        const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+          appId: c.dataset.chord, isIi: c.dataset.chord === appId,
+          left: c.style.left, top: c.style.top,
+          width: c.style.width, height: c.style.height,
+          innerHTML: c.innerHTML, className: c.className,
+        }));
         // Pre-apply persistent to the ii card for instant green (no blink).
         popUnder.classList.add('persistent');
-        const survivingPtsT = [];
-        snapCards.forEach(s => {
-          const cx = parseFloat(s.left) + parseFloat(s.width) / 2;
-          const cy = parseFloat(s.top)  + parseFloat(s.height) / 2;
-          survivingPtsT.push({ cx, cy });
-        });
-        const arrowTouchesT = (path) => {
-          const d = path.getAttribute('d') || '';
-          const m = d.match(/^M\s*([\d.\-]+)\s+([\d.\-]+).*?([\d.\-]+)\s+([\d.\-]+)\s*$/);
-          if (!m) return false;
-          const pts = [[+m[1], +m[2]], [+m[3], +m[4]]];
-          return pts.some(([x, y]) =>
-            survivingPtsT.some(p => Math.hypot(p.cx - x, p.cy - y) < 60));
-        };
-        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])]
-          .filter(arrowTouchesT)
-          .map(a => a.cloneNode(true));
+        const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
         _persistentPopupChordId = null;
         _persistentPopupNode    = null;
         if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
@@ -8658,36 +8579,14 @@ function _setupChordMapTouch() {
           // V-first touch path: keep the ii partner visible.
           const mapWrap   = document.getElementById('chord-map');
           const svgArrows = document.getElementById('map-arrows');
-          // Filter to V + its paired sii.
-          const relatedIiIdTV = chDefs[appId]?.sii || null;
-          const keepIdsTV = new Set([appId]);
-          if (relatedIiIdTV) keepIdsTV.add(relatedIiIdTV);
-          const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')]
-            .filter(c => keepIdsTV.has(c.dataset.chord))
-            .map(c => ({
-              appId: c.dataset.chord, isV: c.dataset.chord === appId,
-              left: c.style.left, top: c.style.top,
-              width: c.style.width, height: c.style.height,
-              innerHTML: c.innerHTML, className: c.className,
-            }));
+          const snapCards = [...mapWrap.querySelectorAll('.map-card.popup.hover')].map(c => ({
+            appId: c.dataset.chord, isV: c.dataset.chord === appId,
+            left: c.style.left, top: c.style.top,
+            width: c.style.width, height: c.style.height,
+            innerHTML: c.innerHTML, className: c.className,
+          }));
           popUnder.classList.add('persistent');
-          const survivingPtsTV = [];
-          snapCards.forEach(s => {
-            const cx = parseFloat(s.left) + parseFloat(s.width) / 2;
-            const cy = parseFloat(s.top)  + parseFloat(s.height) / 2;
-            survivingPtsTV.push({ cx, cy });
-          });
-          const arrowTouchesTV = (path) => {
-            const d = path.getAttribute('d') || '';
-            const m = d.match(/^M\s*([\d.\-]+)\s+([\d.\-]+).*?([\d.\-]+)\s+([\d.\-]+)\s*$/);
-            if (!m) return false;
-            const pts = [[+m[1], +m[2]], [+m[3], +m[4]]];
-            return pts.some(([x, y]) =>
-              survivingPtsTV.some(p => Math.hypot(p.cx - x, p.cy - y) < 60));
-          };
-          const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])]
-            .filter(arrowTouchesTV)
-            .map(a => a.cloneNode(true));
+          const snapArrows = [...(svgArrows?.querySelectorAll('.hover-arrow') || [])].map(a => a.cloneNode(true));
           _persistentPopupChordId = null;
           _persistentPopupNode    = null;
           if (typeof composeAddChord === 'function') composeAddChord(appId, false, 1);
