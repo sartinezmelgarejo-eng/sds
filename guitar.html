@@ -2672,21 +2672,29 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile): the bar sits HIGHER than
-     flush-bottom — there's ~6px of empty space inside the SVG below
-     the last fret line (renderMini's mb margin), and we can lift the
-     bar into that area to bring it closer to the fretboard. Bar's TOP
-     still stays clear of the actual fret lines so it can't overlap
-     the diagram. Padding-bottom is kept tight (the bar's bottom edge
-     ends up ~6px above the cell's bottom edge, which is plenty of
-     breathing room). Landscape mobile handles its own variant below. */
+  /* Play mode (desktop + vertical mobile): the cell defaults to
+     align-items: center, which centered the fixed-size 130×130 SVG
+     in the middle of a taller cell and left the absolute-positioned
+     bar floating way down at the cell's bottom with an empty band
+     between fretboard and bar. Switch to flex-column with the bar
+     as a flow sibling below the SVG so it visually follows the
+     fretboard no matter what extra vertical room the parent grid
+     gives the cell. Compose mode is untouched (different layout
+     and its centered absolute bar lines up correctly there). */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    padding-bottom: 8px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px;
   }
   body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-    bottom: 6px;
-    top: auto;
+    position: static;
     height: 9px;
+    width: calc(100% - 12px);
+    margin: 3px auto 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    top: auto;
   }
 
   /* ─── Mobile transport bar — brutalist (matches landscape) ───
@@ -2996,32 +3004,34 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: bar lifted up into the SVG's empty bottom margin
-     for a tighter visual relationship to the fretboard. height:13 +
-     bottom:6 puts the bar's top at ~19px from cell bottom, fret end at
-     ~14px from cell bottom (padding 8 + SVG mb 6), so ~5px clearance. */
+  /* Mobile playback: same flex-column layout — bar follows SVG.
+     Slightly more vertical margin and a bigger bar height for tap-
+     friendly visibility at mobile sizes (even though the bar isn't
+     interactive in play mode, the wider segments read better on a
+     small screen). */
   @media (max-width: 800px) {
-    body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-      padding-bottom: 8px;
-    }
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-      height: 13px;
-      bottom: 5px;
-      top: auto;
-      left: 3px;
-      right: 3px;
+      height: 12px;
+      width: calc(100% - 6px);
+      margin: 4px auto 0;
     }
   }
-  /* Landscape overlay: bigger cells, bigger bar, same lift-into-SVG-mb
-     pattern. Cells here have larger nominal height so we can afford a
-     little more vertical generosity. */
-  #landscape-play .subdiv-bar.playback-bar {
-    height: 17px;
-    bottom: 7px;
-    top: auto;
-  }
+  /* Landscape overlay: bigger cells, bigger bar. Same flex-column
+     approach so the bar always trails the diagram. */
   #landscape-play .lp-tabs-area .rb-tab-cell {
-    padding-bottom: 12px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 4px;
+  }
+  #landscape-play .subdiv-bar.playback-bar {
+    position: static;
+    height: 17px;
+    width: calc(100% - 12px);
+    margin: 6px auto 0;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    top: auto;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
