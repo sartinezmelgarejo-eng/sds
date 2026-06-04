@@ -17592,6 +17592,11 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
         newIdx = pickBest(prevShape);
       }
       editCell.slots[slotIdx] = writeCell(slotIdx, newIdx);
+      // Writing a chord to a previously-muted slot un-mutes it — the user
+      // is explicitly putting a chord there, they want it to sound.
+      if (editCell.subdivMute && editCell.subdivMute[slotIdx]) {
+        editCell.subdivMute[slotIdx] = false;
+      }
       // Keep the cell's top-level chord fields in sync with slot 0 so any
       // pre-existing path that reads cell.chord directly keeps working.
       if (slotIdx === 0) {
@@ -18743,7 +18748,11 @@ document.addEventListener('click', (ev) => {
     state._multiChordEditSlotIdx = slotIdx;
     state._multiChordEditAutoAdvance = false;
     // Focus the chord that lives in this slot so the chord map + alt
-    // voicings row reflect it.
+    // voicings row reflect it. But if the slot is MUTED, don't audition
+    // — the slot is meant to be silent, so playing it on click would
+    // contradict the visual. The user can still change the chord via the
+    // keypad; doing so un-mutes the slot (handled in composeAddChord).
+    const isSlotMuted = !!(cell.subdivMute && cell.subdivMute[slotIdx]);
     const slot = cell.slots[slotIdx];
     if (slot && slot.chord) {
       state.focusedChord = slot.chord;
@@ -18751,7 +18760,7 @@ document.addEventListener('click', (ev) => {
     }
     renderComposeStrip();
     if (typeof renderAll === 'function') renderAll();
-    if (typeof ringFocusedChord === 'function') ringFocusedChord();
+    if (!isSlotMuted && typeof ringFocusedChord === 'function') ringFocusedChord();
     return;
   }
   // ── Multi-chord chip: enter / exit multi-chord edit mode ──
@@ -18856,6 +18865,10 @@ document.addEventListener('click', (ev) => {
       state._multiChordEditCell = cellIdx;
       state._multiChordEditSlotIdx = segIdx;
       state._multiChordEditAutoAdvance = false;
+      // Muted slots don't audition on tap — the slot is silent by design,
+      // ringing it would contradict what the user sees. They can still
+      // change the chord on the keypad and that un-mutes (composeAddChord).
+      const isSlotMuted = !!(cell.subdivMute && cell.subdivMute[segIdx]);
       const slot = cell.slots[segIdx];
       if (slot && slot.chord) {
         state.focusedChord = slot.chord;
@@ -18863,7 +18876,7 @@ document.addEventListener('click', (ev) => {
       }
       renderComposeStrip();
       if (typeof renderAll === 'function') renderAll();
-      if (typeof ringFocusedChord === 'function') ringFocusedChord();
+      if (!isSlotMuted && typeof ringFocusedChord === 'function') ringFocusedChord();
       return;
     }
     // Single-chord rhythmic subdivisions (legacy behavior): toggle mute.
