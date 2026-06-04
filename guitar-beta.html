@@ -2672,18 +2672,19 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile): reserve room at the bottom
-     of each tab cell for the playback subdivision bar. Earlier version
-     used bottom:6px with padding-bottom:14px which left the bar poking
-     ~1px past the reserved zone — usually invisible, but constrained
-     grid heights clipped it. Snug the bar FLUSH at bottom: 1px and
-     match the padding to the bar's full height + tiny margin. Landscape
-     mobile handles its own padding inside #landscape-play. */
+  /* Play mode (desktop + vertical mobile): the bar sits HIGHER than
+     flush-bottom — there's ~6px of empty space inside the SVG below
+     the last fret line (renderMini's mb margin), and we can lift the
+     bar into that area to bring it closer to the fretboard. Bar's TOP
+     still stays clear of the actual fret lines so it can't overlap
+     the diagram. Padding-bottom is kept tight (the bar's bottom edge
+     ends up ~6px above the cell's bottom edge, which is plenty of
+     breathing room). Landscape mobile handles its own variant below. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    padding-bottom: 12px;
+    padding-bottom: 8px;
   }
   body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-    bottom: 1px;
+    bottom: 6px;
     top: auto;
     height: 9px;
   }
@@ -2995,30 +2996,32 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: subdivision bar still sits at cell bottom but
-     snug — bottom:1, height:13. Matched padding-bottom:15 covers it
-     with 1px of slack. */
+  /* Mobile playback: bar lifted up into the SVG's empty bottom margin
+     for a tighter visual relationship to the fretboard. height:13 +
+     bottom:6 puts the bar's top at ~19px from cell bottom, fret end at
+     ~14px from cell bottom (padding 8 + SVG mb 6), so ~5px clearance. */
   @media (max-width: 800px) {
     body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-      padding-bottom: 15px;
+      padding-bottom: 8px;
     }
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
       height: 13px;
-      bottom: 1px;
+      bottom: 5px;
       top: auto;
       left: 3px;
       right: 3px;
     }
   }
-  /* Landscape overlay: bigger cells, bigger bar, same snug-at-bottom
-     pattern. height:17 + bottom:2 + padding:20 = 1px slack at top. */
+  /* Landscape overlay: bigger cells, bigger bar, same lift-into-SVG-mb
+     pattern. Cells here have larger nominal height so we can afford a
+     little more vertical generosity. */
   #landscape-play .subdiv-bar.playback-bar {
     height: 17px;
-    bottom: 2px;
+    bottom: 7px;
     top: auto;
   }
   #landscape-play .lp-tabs-area .rb-tab-cell {
-    padding-bottom: 20px;
+    padding-bottom: 12px;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
