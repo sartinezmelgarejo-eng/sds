@@ -12054,6 +12054,11 @@ class Player {
               composedShape: c.shape,
               subdivisions: c.subdivisions || 1,
               subdivMute: c.subdivMute ? [...c.subdivMute] : [],
+              // Multi-chord bars carry per-slot shape/chord/voicing so the
+              // scheduler can fire each slot with its OWN voicing. Cloned
+              // (not aliased) so later edits to the cell don't mutate the
+              // captured strip step.
+              slots: c.slots ? c.slots.map(sl => sl ? {...sl} : null) : null,
             });
           }
         }
@@ -12311,6 +12316,7 @@ class Player {
             composedShape: c.shape,
             subdivisions: c.subdivisions || 1,
             subdivMute: c.subdivMute ? [...c.subdivMute] : [],
+            slots: c.slots ? c.slots.map(sl => sl ? {...sl} : null) : null,
           });
         }
       }
@@ -12924,11 +12930,26 @@ class Player {
     this._subdivTimers = [];
     const barDur = (60 / metronome.bpm) * 4;
 
+    // Multi-chord bar: per-slot voicings live on planned.slots. When at
+    // least two slots carry different chord IDs we use slot[s].shape for
+    // each slot's strike (instead of repeating `notes`, which is slot 0).
+    // Same-chord slots (single-chord cells with rhythmic subdivisions)
+    // skip this branch — `notes` is already correct for every slot.
+    const slotsArr = (planned && planned.slots && planned.slots.length === subN) ? planned.slots : null;
+    const slotsAreMulti = slotsArr
+      && new Set(slotsArr.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+    const notesForSlot = (s) => {
+      if (!slotsAreMulti) return notes;
+      const sl = slotsArr[s];
+      if (!sl || !sl.shape) return notes;
+      return sl.shape.map((f, st) => f >= 0 ? STRING_OPEN_MIDI[st] + f : null).filter(x => x !== null);
+    };
+
     // Force re-attack: _triggerChord is only called at a NEW step boundary,
     // so even if the chord/voicing matches the previous step the strike fires
     // again. Continuations (bars > 1 in one step) never reach this path.
     if (!(subN > 1 && subMute[0])) {
-      chordDrone.start(notes, vol, true, t0);
+      chordDrone.start(notesForSlot(0), vol, true, t0);
     }
 
     if (subN > 1 && audioCtx) {
@@ -12939,8 +12960,9 @@ class Player {
         // oscillators, then it schedules the actual strike AT slotAudioTime.
         const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 30);
         const fireAt = slotAudioTime;
+        const slotNotes = notesForSlot(s);
         const tid = setTimeout(() => {
-          chordDrone.start(notes, vol, true, fireAt);
+          chordDrone.start(slotNotes, vol, true, fireAt);
         }, wallWait);
         this._subdivTimers.push(tid);
       }
@@ -12952,21 +12974,37 @@ class Player {
       const beatDur = 60 / metronome.bpm;
       const barDur = beatDur * 4;
       const now = audioCtx.currentTime + 0.04;
-      const bassMidi = bassMidiForPc(root);
-      const fifthMidi = bassMidi + 7; // fifth above root
+      // Multi-chord bars: bass follows the chord sounding at each beat.
+      // Beat 1 always sits in slot 0; beat 3 sits in whichever slot covers
+      // the half-bar point (floor(0.5 * subN)). For single-chord cells
+      // both lookups return the base root and behavior is unchanged.
+      const rootAtBeat = (relTime) => {
+        if (!slotsAreMulti) return root;
+        const slotIdx = Math.min(subN - 1, Math.floor((relTime / barDur) * subN));
+        const sl = slotsArr[slotIdx];
+        if (!sl || !sl.chord) return root;
+        const sCh = map.chordDefs[sl.chord];
+        if (!sCh) return root;
+        return (state.keyPc + sCh.deg) % 12;
+      };
+      const beat1Root = rootAtBeat(0);
+      const beat3Root = rootAtBeat(2 * beatDur);
+      const bassMidi1 = bassMidiForPc(beat1Root);
+      const bassMidi3 = bassMidiForPc(beat3Root);
+      const fifthMidi3 = bassMidi3 + 7;
       const bassVol = chVol('bass') * 0.75;
       const pattern = this.bassPattern;
       for (let b = 0; b < stepBars; b++) {
         const barStart = now + b * barDur;
-        // Beat 1: always root
-        const o1 = playBassPluck(bassMidi, barStart, bassVol);
+        // Beat 1: always root of slot 0's chord
+        const o1 = playBassPluck(bassMidi1, barStart, bassVol);
         this.bassOscillators.push(...o1);
-        // Beat 3: depends on pattern
+        // Beat 3: depends on pattern (and on the chord sounding at beat 3)
         if (pattern === 'two-feel') {
-          const o3 = playBassPluck(bassMidi, barStart + 2 * beatDur, bassVol);
+          const o3 = playBassPluck(bassMidi3, barStart + 2 * beatDur, bassVol);
           this.bassOscillators.push(...o3);
         } else if (pattern === 'fifth') {
-          const o3 = playBassPluck(fifthMidi, barStart + 2 * beatDur, bassVol * 0.9);
+          const o3 = playBassPluck(fifthMidi3, barStart + 2 * beatDur, bassVol * 0.9);
           this.bassOscillators.push(...o3);
         }
         // 'whole' pattern: nothing on beat 3
@@ -13533,6 +13571,7 @@ class Player {
         composedShape: step.composedShape,  // honors user-typed inversions
         subdivisions: step.subdivisions || 1,
         subdivMute: step.subdivMute || [],
+        slots: step.slots || null,
         // Track song position so playback-strip cells can jump back
         // to the exact (songIdx, stepIdx) for click-while-paused.
         songIdx,
@@ -13642,6 +13681,7 @@ class Player {
           shape: sc.shape,
           subdivisions: sc.subdivisions || 1,
           subdivMute: sc.subdivMute || [],
+          slots: sc.slots ? sc.slots.map(sl => sl ? {...sl} : null) : null,
           songIdx: null,
           stepIdx: null,
           sectionIter: null,
@@ -13717,6 +13757,7 @@ class Player {
           shape,
           subdivisions: seg.subdivisions || 1,
           subdivMute: seg.subdivMute || [],
+          slots: seg.slots || null,
           // Position info for jump-on-click while paused.
           songIdx: seg.songIdx,
           stepIdx: seg.stepIdx,
