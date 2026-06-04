@@ -13100,40 +13100,51 @@ class Player {
       const beatDur = 60 / metronome.bpm;
       const barDur = beatDur * 4;
       const now = audioCtx.currentTime + 0.04;
-      // Multi-chord bars: bass follows the chord sounding at each beat.
-      // Beat 1 always sits in slot 0; beat 3 sits in whichever slot covers
-      // the half-bar point (floor(0.5 * subN)). For single-chord cells
-      // both lookups return the base root and behavior is unchanged.
-      const rootAtBeat = (relTime) => {
+      const bassVol = chVol('bass') * 0.75;
+      const pattern = this.bassPattern;
+      const rootAtSlot = (s) => {
         if (!slotsAreMulti) return root;
-        const slotIdx = Math.min(subN - 1, Math.floor((relTime / barDur) * subN));
-        const sl = slotsArr[slotIdx];
+        const sl = slotsArr[s];
         if (!sl || !sl.chord) return root;
         const sCh = map.chordDefs[sl.chord];
         if (!sCh) return root;
         return (state.keyPc + sCh.deg) % 12;
       };
-      const beat1Root = rootAtBeat(0);
-      const beat3Root = rootAtBeat(2 * beatDur);
-      const bassMidi1 = bassMidiForPc(beat1Root);
-      const bassMidi3 = bassMidiForPc(beat3Root);
-      const fifthMidi3 = bassMidi3 + 7;
-      const bassVol = chVol('bass') * 0.75;
-      const pattern = this.bassPattern;
-      for (let b = 0; b < stepBars; b++) {
-        const barStart = now + b * barDur;
-        // Beat 1: always root of slot 0's chord
-        const o1 = playBassPluck(bassMidi1, barStart, bassVol);
-        this.bassOscillators.push(...o1);
-        // Beat 3: depends on pattern (and on the chord sounding at beat 3)
-        if (pattern === 'two-feel') {
-          const o3 = playBassPluck(bassMidi3, barStart + 2 * beatDur, bassVol);
-          this.bassOscillators.push(...o3);
-        } else if (pattern === 'fifth') {
-          const o3 = playBassPluck(fifthMidi3, barStart + 2 * beatDur, bassVol * 0.9);
-          this.bassOscillators.push(...o3);
+      if (slotsAreMulti) {
+        // Multi-chord: every non-muted slot gets its OWN bass anchor.
+        // The user explicitly placed a chord change at each slot, so the
+        // bass should follow each change instead of only hitting beats 1/3.
+        const slotDur = barDur / subN;
+        for (let s = 0; s < subN; s++) {
+          if (subMute[s]) continue;
+          const sBass = bassMidiForPc(rootAtSlot(s));
+          const o = playBassPluck(sBass, now + s * slotDur, bassVol);
+          this.bassOscillators.push(...o);
         }
-        // 'whole' pattern: nothing on beat 3
+        // Continuation bars (rare for multi-chord since slots live in one
+        // bar) — fall back to whole-bar root of slot 0.
+        const baseBass = bassMidiForPc(rootAtSlot(0));
+        for (let b = 1; b < stepBars; b++) {
+          const barStart = now + b * barDur;
+          const o = playBassPluck(baseBass, barStart, bassVol);
+          this.bassOscillators.push(...o);
+        }
+      } else {
+        // Single-chord cell — existing pattern (whole / two-feel / fifth)
+        const bassMidi  = bassMidiForPc(root);
+        const fifthMidi = bassMidi + 7;
+        for (let b = 0; b < stepBars; b++) {
+          const barStart = now + b * barDur;
+          const o1 = playBassPluck(bassMidi, barStart, bassVol);
+          this.bassOscillators.push(...o1);
+          if (pattern === 'two-feel') {
+            const o3 = playBassPluck(bassMidi, barStart + 2 * beatDur, bassVol);
+            this.bassOscillators.push(...o3);
+          } else if (pattern === 'fifth') {
+            const o3 = playBassPluck(fifthMidi, barStart + 2 * beatDur, bassVol * 0.9);
+            this.bassOscillators.push(...o3);
+          }
+        }
       }
     }
   }
@@ -19707,25 +19718,28 @@ function _midiCollectBassComposed() {
     const slotsArr = (cell.slots && cell.slots.length === subN) ? cell.slots : null;
     const slotsAreMulti = slotsArr && subN >= 2;
     if (slotsAreMulti) {
-      const beat1Slot = 0;
-      const beat3Slot = Math.min(subN - 1, Math.floor(subN * 0.5));
-      const beat1Root = (slotsArr[beat1Slot] && slotsArr[beat1Slot].chord)
-        ? (rootPcOf(slotsArr[beat1Slot].chord) ?? rootPc) : rootPc;
-      const beat3Root = (slotsArr[beat3Slot] && slotsArr[beat3Slot].chord)
-        ? (rootPcOf(slotsArr[beat3Slot].chord) ?? rootPc) : rootPc;
+      // One bass strike per non-muted slot, each using its own chord's
+      // root. Bass note rings until the next non-muted slot (or end of
+      // bar for the last). Mirrors the live player so MIDI export and
+      // playback match note-for-note.
       const subMute = cell.subdivMute || [];
-      const beatDur = ticksPerBeat;
-      // Beat 1 — slot 0 (skip if slot 0 is muted)
-      if (!subMute[beat1Slot]) {
-        const n1 = bassMidiForPc(beat1Root);
-        events.push({ tick, type: 'on', note: n1, vel: 100 });
-        events.push({ tick: tick + 2 * beatDur - 1, type: 'off', note: n1, vel: 0 });
+      const slotDur = Math.floor(barLen / subN);
+      const slotStarts = [];
+      for (let s = 0; s < subN; s++) {
+        if (subMute[s]) continue;
+        slotStarts.push(s);
       }
-      // Beat 3 — slot at half-bar (skip if that slot is muted)
-      if (!subMute[beat3Slot]) {
-        const n3 = bassMidiForPc(beat3Root);
-        events.push({ tick: tick + 2 * beatDur, type: 'on', note: n3, vel: 100 });
-        events.push({ tick: tick + dur - 1, type: 'off', note: n3, vel: 0 });
+      for (let k = 0; k < slotStarts.length; k++) {
+        const s = slotStarts[k];
+        const slRoot = (slotsArr[s] && slotsArr[s].chord)
+          ? (rootPcOf(slotsArr[s].chord) ?? rootPc) : rootPc;
+        const note = bassMidiForPc(slRoot);
+        const slotStart = tick + s * slotDur;
+        const nextStart = (k + 1 < slotStarts.length)
+          ? (tick + slotStarts[k + 1] * slotDur)
+          : (tick + dur);
+        events.push({ tick: slotStart, type: 'on', note, vel: 100 });
+        events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
       }
     } else {
       // Single-chord cell — sustained whole-bar root (existing behavior).
@@ -19762,27 +19776,29 @@ function _midiCollectBassSong() {
         const slotsArr = (step.slots && step.slots.length === subN) ? step.slots : null;
         const slotsAreMulti = slotsArr && subN >= 2;
         if (slotsAreMulti) {
-          const beat1Slot = 0;
-          const beat3Slot = Math.min(subN - 1, Math.floor(subN * 0.5));
           const rootPcOf = (chordId) => {
             const d = secMap?.chordDefs?.[chordId];
             return d ? (secKey + d.deg) % 12 : null;
           };
-          const beat1Root = (slotsArr[beat1Slot] && slotsArr[beat1Slot].chord)
-            ? (rootPcOf(slotsArr[beat1Slot].chord) ?? rootPc) : rootPc;
-          const beat3Root = (slotsArr[beat3Slot] && slotsArr[beat3Slot].chord)
-            ? (rootPcOf(slotsArr[beat3Slot].chord) ?? rootPc) : rootPc;
           const subMute = step.subdivMute || [];
-          const beatDur = ticksPerBeat;
-          if (!subMute[beat1Slot]) {
-            const n1 = bassMidiForPc(beat1Root);
-            events.push({ tick, type: 'on', note: n1, vel: 100 });
-            events.push({ tick: tick + 2 * beatDur - 1, type: 'off', note: n1, vel: 0 });
+          const barLen3 = ticksPerBeat * 4;
+          const slotDur = Math.floor(barLen3 / subN);
+          const slotStarts = [];
+          for (let s = 0; s < subN; s++) {
+            if (subMute[s]) continue;
+            slotStarts.push(s);
           }
-          if (!subMute[beat3Slot]) {
-            const n3 = bassMidiForPc(beat3Root);
-            events.push({ tick: tick + 2 * beatDur, type: 'on', note: n3, vel: 100 });
-            events.push({ tick: tick + dur - 1, type: 'off', note: n3, vel: 0 });
+          for (let k = 0; k < slotStarts.length; k++) {
+            const s = slotStarts[k];
+            const slRoot = (slotsArr[s] && slotsArr[s].chord)
+              ? (rootPcOf(slotsArr[s].chord) ?? rootPc) : rootPc;
+            const note = bassMidiForPc(slRoot);
+            const slotStart = tick + s * slotDur;
+            const nextStart = (k + 1 < slotStarts.length)
+              ? (tick + slotStarts[k + 1] * slotDur)
+              : (tick + dur);
+            events.push({ tick: slotStart, type: 'on', note, vel: 100 });
+            events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
           }
         } else {
           const note = bassMidiForPc(rootPc);
