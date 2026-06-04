@@ -2672,43 +2672,12 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile). The default rb-tab-cell
-     stretches its SVG to width:100% height:100% with preserveAspect=meet,
-     so on a cell that's taller than wide the drawing fits the WIDTH
-     and centers vertically — leaving empty bands top + bottom of the
-     SVG element. The absolute-positioned bar at the cell's edge lands
-     BELOW that empty band, with the visible "white space" you're
-     seeing in between.
-     Fix: switch the cell to flex-column with the SVG sized to its
-     NATURAL aspect (height: auto from its viewBox), and put the bar
-     directly below it as a flow sibling. No more empty band between
-     drawing and bar. Compose mode untouched. */
+  /* Play mode (desktop + vertical mobile): reserve room at the bottom
+     of each tab cell so the playback subdivision bar gets its own
+     strip and stops overlapping the chord diagram. Landscape mobile
+     handles its own padding inside #landscape-play. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;     /* center SVG+bar pair vertically so extra
-                                    cell height (from neighboring panels)
-                                    splits evenly above and below the
-                                    content instead of pooling at the
-                                    bottom under the bar */
-    padding: 4px;
-  }
-  body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell > svg {
-    width: 100%;
-    height: auto;
-    max-height: 100%;
-    flex: 0 0 auto;
-  }
-  body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-    position: static;
-    flex: 0 0 auto;
-    height: 9px;
-    width: calc(100% - 12px);
-    margin: 3px auto 0;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    top: auto;
+    padding-bottom: 14px;
   }
 
   /* ─── Mobile transport bar — brutalist (matches landscape) ───
@@ -3018,38 +2987,24 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile: same flex-column flow inherited from above; just bump the
-     bar to a slightly chunkier size for visibility at small widths. */
+  /* Mobile playback: subdivision bar sits in the reserved bottom
+     strip of the cell (padding-bottom on rb-tab-cell), so the chord
+     diagram above is no longer crushed by an overlay. */
   @media (max-width: 800px) {
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-      height: 12px;
-      width: calc(100% - 6px);
-      margin: 4px auto 0;
+      height: 14px;
+      bottom: 3px;
+      left: 3px;
+      right: 3px;
     }
   }
-  /* Landscape overlay: same flex-column treatment so bar follows SVG. */
-  #landscape-play .lp-tabs-area .rb-tab-cell {
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4px;
-  }
-  #landscape-play .lp-tabs-area .rb-tab-cell > svg {
-    width: 100%;
-    height: auto;
-    max-height: 100%;
-    flex: 0 0 auto;
-  }
+  /* Landscape overlay: generous subdivision bars (cells are larger here) */
   #landscape-play .subdiv-bar.playback-bar {
-    position: static;
-    flex: 0 0 auto;
-    height: 17px;
-    width: calc(100% - 12px);
-    margin: 6px auto 0;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    top: auto;
+    height: 18px;
+    bottom: 4px;
+  }
+  #landscape-play .lp-tabs-area .rb-tab-cell {
+    padding-bottom: 24px;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
