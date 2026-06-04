@@ -12554,9 +12554,19 @@ class Player {
     const nxtId = this._nextChordId();
     if (!nxtId || !state.playerVoicing?.shape) { state.nextVoicing = null; return; }
 
-    // Determine the voicing type the next chord will use.
-    // If the next chord starts a new section, pre-pick that section's type so the prediction matches actual playback.
+    // Determine the voicing type the next chord will use, AND which
+    // section's key/tonality we should look up against. If the next
+    // chord starts a new section, pre-pick that section's type AND
+    // pull its keyPc + tonality so the preview reflects modulations
+    // instead of computing the chord's root from the OLD section's
+    // key and looking up its def in the OLD tonality's map. That was
+    // the bug behind the "key change doesn't show up in the preview"
+    // report — at the section boundary the next chord was being
+    // rendered in the current key, then re-rendered correctly only
+    // once the bar actually advanced.
     let nextType = this.voicingType;
+    let nxtKeyPc    = state.keyPc;
+    let nxtTonality = state.tonality;
     const prog = this._currentProgression();
     const isLastStepOfProg = this.currentStepIdx + 1 >= prog.steps.length;
     if (isLastStepOfProg) {
@@ -12565,14 +12575,27 @@ class Player {
       if (isLastIter) {
         if (!this._upcomingType) this._upcomingType = this._pickVoicingType();
         nextType = this._upcomingType;
+        const nextSection = this.song[(this.songIdx + 1) % this.song.length];
+        if (nextSection) {
+          if (nextSection.keyPc    !== undefined) nxtKeyPc    = nextSection.keyPc;
+          if (nextSection.tonality !== undefined) nxtTonality = nextSection.tonality;
+        }
       }
     }
 
-    const nxtCh = currentMap().chordDefs[nxtId];
+    // Look up the chord def in the TARGET section's tonality map (not
+    // currentMap()). When crossing a modulation, the next chord ID may
+    // not exist in the current tonality's map at all (e.g. minor-only
+    // IDs after a major→minor flip), and even when it does exist its
+    // deg might differ between maps.
+    const nxtMap = (typeof CHORD_MAP !== 'undefined' && CHORD_MAP[nxtTonality])
+      ? CHORD_MAP[nxtTonality] : currentMap();
+    const nxtCh = nxtMap.chordDefs[nxtId];
     if (!nxtCh) { state.nextVoicing = null; return; }
     // Use the page plan if it has the next chord — same source of truth the
     // strip displays and the trigger reads. Falls back to a fresh pick if the
-    // next chord is past the plan (rare) or no plan exists yet.
+    // next chord is past the plan (rare) or no plan exists yet. The page
+    // plan already stores per-cell keyPc, so this branch is modulation-safe.
     const barInPage = this.totalBars % 4;
     const planEntries = [...(this._cachedPage || []), this._cachedPeek].filter(Boolean);
     const plannedNext = planEntries.find((e, i) => i > barInPage && e.chord === nxtId);
@@ -12580,7 +12603,7 @@ class Player {
       state.nextVoicing = { chord: nxtId, shape: plannedNext.shape, type: plannedNext.voicingType || nextType };
       return;
     }
-    const nxtRoot = (state.keyPc + nxtCh.deg) % 12;
+    const nxtRoot = (nxtKeyPc + nxtCh.deg) % 12;
     const nxtShape = this._pickShape(nxtCh.quality, nxtRoot, nextType, state.playerVoicing.shape);
     state.nextVoicing = nxtShape ? { chord: nxtId, shape: nxtShape, type: nextType } : null;
   }
@@ -12640,16 +12663,35 @@ class Player {
     const map = currentMap();
     const curStep = this._currentStep();
     const curCh = map.chordDefs[curId];
-    const nxtCh = nxtId ? map.chordDefs[nxtId] : null;
+    // Resolve which section the NEXT chord actually lives in. At the last
+    // step of the last iteration of the current section, the next chord
+    // crosses into the next section — which may carry a different keyPc
+    // and tonality. Looking the chord up in currentMap() with state.keyPc
+    // (the OLD section's values) was painting the preview in the old key
+    // until the bar actually advanced.
+    const _curProg = this._currentProgression();
+    const _curSection = this._currentSection();
+    const _isLastStepOfProg = _curProg && (this.currentStepIdx + 1 >= _curProg.steps.length);
+    const _isLastIter = _curSection && (this.sectionIter + 1 >= _curSection.repeats);
+    const _crossingToNextSection = _isLastStepOfProg && _isLastIter;
+    const _nextSection = _crossingToNextSection
+      ? this.song[(this.songIdx + 1) % this.song.length] : null;
+    const nxtKeyPc = (_nextSection && _nextSection.keyPc    !== undefined) ? _nextSection.keyPc    : state.keyPc;
+    const nxtTonality = (_nextSection && _nextSection.tonality !== undefined) ? _nextSection.tonality : state.tonality;
+    const _nxtMap = (typeof CHORD_MAP !== 'undefined' && CHORD_MAP[nxtTonality])
+      ? CHORD_MAP[nxtTonality] : map;
+    const nxtCh = nxtId ? _nxtMap.chordDefs[nxtId] : null;
     // Honor step qualityOverride so the dashboard chord name reflects the
     // alteration that's actually sounding (e.g. C7#11 instead of plain C7).
-    const nxtStep = (curStep && this._currentProgression())
-      ? this._currentProgression().steps[(this.currentStepIdx + 1) % this._currentProgression().steps.length]
-      : null;
+    // When crossing to the next section, pull its first step's override;
+    // otherwise read from the current progression.
+    const nxtStep = _crossingToNextSection
+      ? (_nextSection && _nextSection.progression && _nextSection.progression.steps && _nextSection.progression.steps[0])
+      : (curStep && _curProg ? _curProg.steps[(this.currentStepIdx + 1) % _curProg.steps.length] : null);
     const curEffQ = effectiveQuality(curStep, curCh);
     const nxtEffQ = effectiveQuality(nxtStep, nxtCh);
     const curRoot = curCh ? (state.keyPc + curCh.deg) % 12 : 0;
-    const nxtRoot = nxtCh ? (state.keyPc + nxtCh.deg) % 12 : 0;
+    const nxtRoot = nxtCh ? (nxtKeyPc + nxtCh.deg) % 12 : 0;
     // Live shape for current chord — drops the 7 from the name when the
     // sounding voicing is a triad. Next chord has no shape yet, so its
     // name stays canonical.
@@ -12659,7 +12701,11 @@ class Player {
       ? (chordNameForVoicing(curEffQ, curRoot, curLiveShape, flats)
          || (nameOf(curRoot, flats) + QUALITIES[curEffQ].sfx))
       : '';
-    const nxtName = nxtCh ? (nameOf(nxtRoot, flats) + QUALITIES[nxtEffQ].sfx) : '';
+    // When crossing into a new key, the next chord's name should be spelled
+    // with THAT key's flat/sharp convention (Bb in F major, A# in B major)
+    // rather than inheriting the current section's spelling.
+    const nxtFlats = (nxtKeyPc !== state.keyPc) ? useFlatsFor(nxtKeyPc) : flats;
+    const nxtName = nxtCh ? (nameOf(nxtRoot, nxtFlats) + QUALITIES[nxtEffQ].sfx) : '';
     const barsLabel = this.barsRemaining === 1 ? '1 bar' : `${this.barsRemaining} bars`;
 
     const section = this._currentSection();
