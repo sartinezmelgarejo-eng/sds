@@ -11656,8 +11656,9 @@ class Player {
     const barInPage = this.totalBars % 4;
     const planned = this._cachedPage?.[barInPage];
     if (!planned || !planned.slots || planned.slots.length < 2) return this._currentChordId();
-    const distinct = new Set(planned.slots.map(s => s && s.chord).filter(Boolean));
-    if (distinct.size < 2) return this._currentChordId();
+    // Slot-aware regardless of whether chord IDs match across slots — the
+    // user can intentionally place the same chord in multiple slots and
+    // each strike should still highlight the right one.
     const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
     const slot = planned.slots[slotIdx];
     return (slot && slot.chord) || planned.chord;
@@ -11667,8 +11668,6 @@ class Player {
     const barInPage = this.totalBars % 4;
     const planned = this._cachedPage?.[barInPage];
     if (!planned || !planned.slots || planned.slots.length < 2) return this._nextChordId();
-    const distinct = new Set(planned.slots.map(s => s && s.chord).filter(Boolean));
-    if (distinct.size < 2) return this._nextChordId();
     const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
     // Mid-bar: next visible chord is the next non-muted slot in this bar.
     for (let s = slotIdx + 1; s < planned.slots.length; s++) {
@@ -13032,8 +13031,10 @@ class Player {
     // Same-chord slots (single-chord cells with rhythmic subdivisions)
     // skip this branch — `notes` is already correct for every slot.
     const slotsArr = (planned && planned.slots && planned.slots.length === subN) ? planned.slots : null;
-    const slotsAreMulti = slotsArr
-      && new Set(slotsArr.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+    // Slots are the source of truth: if the cell has them, use per-slot
+    // shapes for playback regardless of whether chord IDs match between
+    // slots. Same-chord-different-inversion bars need per-slot voicings.
+    const slotsAreMulti = !!slotsArr;
     const notesForSlot = (s) => {
       if (!slotsAreMulti) return notes;
       const sl = slotsArr[s];
@@ -13979,8 +13980,7 @@ class Player {
       // chord row. No roman (the colored names carry the function). The
       // staff/TAB below also embeds the per-slot names — the row row keeps
       // them visible when the cell is small.
-      const isMulti = cell.slots && cell.slots.length > 1
-        && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+      const isMulti = cell.slots && cell.slots.length > 1;
       if (isMulti) {
         const slotNames = cell.slots.map(slot => {
           if (!slot || !slot.chord) return '';
@@ -14050,8 +14050,7 @@ class Player {
       // visualization is consistent whether you're typing or watching it
       // play back. cell.slots was propagated through _buildPagePlan, so
       // it's available here without extra plumbing.
-      const isMultiTab = cell.slots && cell.slots.length > 1
-        && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+      const isMultiTab = cell.slots && cell.slots.length > 1;
       let svg;
       if (isMultiTab && state.instrument === 'piano') {
         const pianoSlots = cell.slots.map(slot => {
@@ -17828,6 +17827,12 @@ function composeDeleteLast() {
         mcCell.subdivMute = new Array(subN).fill(false);
       }
       mcCell.subdivMute[mcSlotIdx] = !mcCell.subdivMute[mcSlotIdx];
+      // Mute is a discrete action — clear the slot selection afterward so
+      // the underline / "editing this silence" state doesn't linger. To
+      // un-mute or edit another slot, the user taps it again.
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      state._multiChordEditAutoAdvance = null;
       renderComposeStrip();
       renderAll();
       return;
@@ -18264,9 +18269,14 @@ function renderComposeStrip() {
       // holds a different chord-ID than slot 0. Same-chord slots just
       // mean "rhythm subdivisions of one chord" and stay on the snapshot
       // diagram. Different chords switch to the horizontal TAB renderer.
-      const isMultiChord = cell.slots
-        && cell.slots.length > 1
-        && new Set(cell.slots.map(s => s && s.chord).filter(Boolean)).size > 1;
+      // Multi-chord visualization is triggered by the PRESENCE of slots[],
+      // not by chord-ID uniqueness. The user enters multi-chord mode
+      // explicitly (via the chip), and from that point on the cell stays
+      // in multi-chord view even if they put the SAME chord in multiple
+      // slots — e.g. two strikes of I with different inversions. Was a
+      // surprise-deletion before: typing the same chord into slot 1
+      // collapsed the bar back to single-chord rendering.
+      const isMultiChord = cell.slots && cell.slots.length > 1;
       let svg;
       if (isMultiChord && state.instrument !== 'piano') {
         const editingThisCell = (state._multiChordEditCell === i);
@@ -18362,18 +18372,19 @@ function renderComposeStrip() {
       // discreet hint when the bar still has a single chord. Tapping it
       // enters multi-chord edit mode for this bar (see the click handler
       // wired below renderComposeStrip).
+      // Multi-chord trigger is the presence of slots[] (≥2), NOT distinct
+      // chord IDs — the user may intentionally have the same chord twice
+      // with different inversions. Chip label is the slot count.
       const slots = cell.slots || null;
-      const distinctCount = slots
-        ? new Set(slots.map(s => s && s.chord).filter(Boolean)).size
-        : 1;
-      const isMC = distinctCount > 1;
+      const slotCt = slots && slots.length > 1 ? slots.length : 1;
+      const isMC = slotCt > 1;
       const isEditing = (state._multiChordEditCell === i);
       const mcClass = isEditing ? 'multichord-chip editing'
                     : isMC      ? 'multichord-chip active'
                                 : 'multichord-chip';
       const mcLabel = isEditing
         ? String((state._multiChordEditSlotIdx ?? 1) + 1)   // "2" while editing slot index 1
-        : isMC ? String(distinctCount)
+        : isMC ? String(slotCt)
                : '+';
       const mcTitle = isMC
         ? 'multi-chord — tap to edit slots'
@@ -18857,8 +18868,7 @@ document.addEventListener('click', (ev) => {
     }
     // Multi-chord cell: tap → select that slot for editing (matches
     // the guitar horizontal-TAB behavior). Mute lives on Backspace.
-    const isMultiChord = cell.slots && cell.slots.length > 1
-      && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+    const isMultiChord = cell.slots && cell.slots.length > 1;
     if (isMultiChord) {
       ev.stopPropagation();
       if (segIdx < 0 || segIdx >= cell.slots.length) return;
