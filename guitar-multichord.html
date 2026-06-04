@@ -7111,21 +7111,35 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   let nameSvg = '';
   if (slotChords) {
-    // Multi-chord bar — render one chord name above each slot's column,
-    // colored by the slot's function tag (drop the roman numeral, the
-    // colored name carries the harmonic signal). Same nameFs as the
-    // single-chord case so the visual rhythm matches the rest of the row.
-    const nameFs = sizing?.minimal ? 14 : 20;
+    // Multi-chord bar — one chord name above each slot's column, colored by
+    // the slot's function tag (drop the roman numeral; the colored name
+    // carries the harmonic signal). Font size scales DOWN with slot count:
+    // at N=2 each name has a full half-bar to breathe; at N=4 each name
+    // gets ~slotW viewBox px, so we shrink so 4-char names ("Cmaj7") still
+    // fit without colliding with the neighbor. Switch to upright (drop
+    // italic) and add letter-spacing for legibility at the small sizes.
+    // Longest chord name in the bar drives the size so all names match.
+    const longest = slotChords.reduce((m, sl) =>
+      sl && sl.chordName ? Math.max(m, sl.chordName.length) : m, 1);
+    // ~0.55·fs viewBox-px per char in Cormorant Garamond bold upright.
+    // Reserve 88% of slotW so adjacent labels don't kiss.
+    const budgetPerChar = (slotW * 0.88) / longest;
+    const fsCap   = sizing?.minimal ? 14 : 18;
+    const fsFloor = sizing?.minimal ? 9  : 11;
+    const nameFs = Math.max(fsFloor, Math.min(fsCap, budgetPerChar / 0.55));
+    // Italic feels smudgy at small sizes — keep upright when shrunk below
+    // the comfortable threshold, italic when there's plenty of room.
+    const italic = nameFs >= (sizing?.minimal ? 13 : 16);
     const ty = labelH * 0.85;
     for (let s = 0; s < subN; s++) {
       const slot = slotChords[s];
       if (!slot || !slot.chordName) continue;
       const fill = TAG_COLOR[slot.tag] || '#1a1a1a';
-      nameSvg += `<text x="${slotX(s)}" y="${ty}" font-size="${nameFs}"
+      nameSvg += `<text x="${slotX(s)}" y="${ty}" font-size="${nameFs.toFixed(2)}"
                   text-anchor="middle"
                   font-family="'Cormorant Garamond', Georgia, serif"
-                  font-style="italic" font-weight="700" fill="${fill}"
-                  letter-spacing="${sizing?.minimal ? 0.2 : 0.5}">${slot.chordName}</text>`;
+                  font-style="${italic ? 'italic' : 'normal'}" font-weight="700" fill="${fill}"
+                  letter-spacing="0.1">${slot.chordName}</text>`;
     }
   } else if (nameLabel) {
     // Match the on-screen size of guitar mode's .rb-chord pill (19 px).
