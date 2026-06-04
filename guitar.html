@@ -2672,19 +2672,20 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile): reserve room at the TOP of
-     each tab cell so the playback subdivision bar gets its own strip
-     above the chord-name label, instead of being absolute-positioned at
-     bottom where the parent grid was clipping it (the cell didn't
-     always have 14px to spare below the chord diagram). Landscape
+  /* Play mode (desktop + vertical mobile): reserve room at the bottom
+     of each tab cell for the playback subdivision bar. Earlier version
+     used bottom:6px with padding-bottom:14px which left the bar poking
+     ~1px past the reserved zone — usually invisible, but constrained
+     grid heights clipped it. Snug the bar FLUSH at bottom: 1px and
+     match the padding to the bar's full height + tiny margin. Landscape
      mobile handles its own padding inside #landscape-play. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    padding-top: 14px;
-    padding-bottom: 0;
+    padding-bottom: 12px;
   }
   body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-    top: 3px;
-    bottom: auto;
+    bottom: 1px;
+    top: auto;
+    height: 9px;
   }
 
   /* ─── Mobile transport bar — brutalist (matches landscape) ───
@@ -2994,29 +2995,30 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: subdivision bar sits in the reserved TOP strip of
-     the cell (padding-top on rb-tab-cell), so it never gets clipped by
-     a tight parent grid AND uses the formerly-empty space above the
-     chord name instead of crowding the diagram below. */
+  /* Mobile playback: subdivision bar still sits at cell bottom but
+     snug — bottom:1, height:13. Matched padding-bottom:15 covers it
+     with 1px of slack. */
   @media (max-width: 800px) {
+    body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
+      padding-bottom: 15px;
+    }
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-      height: 14px;
-      top: 3px;
-      bottom: auto;
+      height: 13px;
+      bottom: 1px;
+      top: auto;
       left: 3px;
       right: 3px;
     }
   }
-  /* Landscape overlay: generous subdivision bars (cells are larger here),
-     also at top for the same reason. */
+  /* Landscape overlay: bigger cells, bigger bar, same snug-at-bottom
+     pattern. height:17 + bottom:2 + padding:20 = 1px slack at top. */
   #landscape-play .subdiv-bar.playback-bar {
-    height: 18px;
-    top: 4px;
-    bottom: auto;
+    height: 17px;
+    bottom: 2px;
+    top: auto;
   }
   #landscape-play .lp-tabs-area .rb-tab-cell {
-    padding-top: 24px;
-    padding-bottom: 0;
+    padding-bottom: 20px;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
