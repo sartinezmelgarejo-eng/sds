@@ -7179,11 +7179,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       sl && sl.chordName ? Math.max(m, sl.chordName.length) : m, 1);
     // Per-char width ratios bumped from earlier draft — bold sans w/ Δ ø °
     // symbols runs ~0.6·fs in practice, not the 0.48 we'd get from regular
-    // weight Latin text. For 4+ slots also tighten the slot budget so a
-    // visible gap remains between names instead of letting them kiss.
+    // weight Latin text. 3+ slots tighten the slot budget so neighbour
+    // names don't kiss even with longer suffixes (Bm7 / F#m7 / Bm9).
     const garamondRatio = 0.58;
     const sansRatio     = 0.60;
-    const dense   = subN >= 4;
+    const dense   = subN >= 3;
     const fsCap   = dense ? (sizing?.minimal ? 11 : 14) : (sizing?.minimal ? 14 : 18);
     const fsFloor = sizing?.minimal ? 7 : 8;
     const budgetFactor = dense ? 0.72 : 0.92;
@@ -7472,6 +7472,11 @@ function renderHorizontalTab(columns, sizing) {
   // chord-event, tuplet bracket for the bar's rhythmic identity.
   const hasNames = columns.some(c => c.chordName);
   const labelH = hasNames ? (minimal ? 22 : 34) : 0;
+  // Longest visible chord name drives the per-slot font scaling so the
+  // names never run into each other when one of them is long (Bm7b5,
+  // F#m7, Cmaj7…). Same idea as the piano staff multi-chord path.
+  const longestName = columns.reduce((m, c) =>
+    c && c.chordName ? Math.max(m, c.chordName.length) : m, 1);
   const bracketH = N > 1 ? (minimal ? 14 : 18) : 0;
   const gapBeforeStaff = minimal ? 6 : 10;
   // Stems extend past the viewBox and get partially clipped — that's
@@ -7580,16 +7585,21 @@ function renderHorizontalTab(columns, sizing) {
 
     // Chord name above this slot — italic Cormorant, big enough to be
     // the headline. Colored by the chord's function tag (tonic=green,
-    // dom=red, predom=amber, etc.) so the function info we used to put
-    // in the roman numeral is now baked into the name itself.
+    // dom=red, predom=amber, etc.). Font size shrinks based on the
+    // LONGEST visible chord name + slot width so neighbouring names
+    // never run into each other. Italic Cormorant ≈ 0.55·fs per char;
+    // 0.88 of slotW gives a small gutter between names.
     if (col.chordName) {
       const ty = labelH * 0.78;
-      const nameFs = minimal ? 16 : 22;
+      const fsCap   = minimal ? 16 : 22;
+      const fsFloor = minimal ? 9  : 11;
+      const ideal = (slotW * 0.88) / longestName / 0.55;
+      const nameFs = Math.max(fsFloor, Math.min(fsCap, ideal));
       const nameColor = TAG_COLOR[col.tag] || '#1a1a1a';
       s += `<text x="${cx}" y="${ty}" text-anchor="middle"
-              font-size="${nameFs}" font-family="'Cormorant Garamond', Georgia, serif"
+              font-size="${nameFs.toFixed(2)}" font-family="'Cormorant Garamond', Georgia, serif"
               font-style="italic" font-weight="700" fill="${nameColor}"
-              letter-spacing="0.3">${col.chordName}</text>`;
+              letter-spacing="0.2">${col.chordName}</text>`;
       if (col.isEditing) {
         const uw = Math.min(slotW - 8, col.chordName.length * (nameFs * 0.55));
         s += `<line x1="${cx - uw/2}" y1="${ty + 4}" x2="${cx + uw/2}" y2="${ty + 4}" stroke="#d4a017" stroke-width="1.6" stroke-linecap="round"/>`;
