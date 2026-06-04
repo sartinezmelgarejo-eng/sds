@@ -6737,7 +6737,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     for (let i = 1; i < slotPos.length; i++) {
       if (Math.abs(slotPos[i].step - slotPos[i - 1].step) <= 1
           && slotOff[i - 1] === undefined) {
-        slotOff[i] = lineSp * 1.5;
+        // Magnitude only — the SIGN is applied per slot in the render loop
+        // based on stem direction (opposite side of stem from regular notes).
+        // ≈ 2.1·noteR so the displaced notehead's inner edge kisses the stem.
+        slotOff[i] = lineSp * 1.1;
       }
     }
     return { pcToDeg: slotPcToDeg, midis: slotMidis, positions: slotPos, offsetX: slotOff };
@@ -7020,8 +7023,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       const sPcToDeg = sd.pcToDeg;
       allSlotPositions.push(...sPos);
       slotInner += ledgersForSlot(cx, sPos);
+      // Compute stem direction up-front so adjacent-step displacements can
+      // be drawn on the OPPOSITE side of the stem from the regular column
+      // (standard music-notation convention). E4 sits on the bottom treble
+      // line; if the top note is above E4 the stem hangs down (dir=1),
+      // otherwise it rises up (dir=-1).
+      const slotAllY = sPos.length ? sPos.map(p => p.y) : [];
+      const slotTopY = slotAllY.length ? Math.min(...slotAllY) : 0;
+      const slotBotY = slotAllY.length ? Math.max(...slotAllY) : 0;
+      const slotDir  = slotAllY.length ? (slotTopY < trebleBotY ? 1 : -1) : -1;
       sPos.forEach((p, i) => {
-        const dx = sOff[i] || 0;
+        // dir=1 (stem-down on the LEFT of cx)  → dx negative, displaced LEFT
+        // dir=-1 (stem-up on the RIGHT of cx) → dx positive, displaced RIGHT
+        const dx = sOff[i] ? sOff[i] * -slotDir : 0;
         const cxNote = cx + dx;
         const deg = sPcToDeg[p.pc];
         const isRoot = deg === 'R';
@@ -7030,27 +7044,26 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
           const key = `${p.acc}@${p.y.toFixed(2)}`;
           if (!accSeen.has(key)) {
             accSeen.add(key);
-            if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2, p.y);
-            else slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
+            // For up-stem displacements (dx > 0) the displaced note sits to
+            // the RIGHT of the regular column, so its accidental at the
+            // standard position lands on top of the regular notehead. Shift
+            // it further left past the regular accidental column. Down-stem
+            // displacements (dx < 0) already moved the note + accidental
+            // into clear space, so no extra shift is needed.
+            const accShift = dx > 0 ? -(dx + lineSp * 1.1) : 0;
+            if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2 + accShift, p.y);
+            else slotInner += svgFlat(cxNote - lineSp * 1.1 + accShift, p.y);
           }
         }
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
       if (hasStem && sPos.length) {
-        const allY = sPos.map(p => p.y);
-        const topY = Math.min(...allY);   // smallest y = highest pitch
-        const botY = Math.max(...allY);   // largest y = lowest pitch
-        // E4 sits on the bottom line of the treble clef (y = trebleBotY).
-        // If the topmost note is ABOVE E4, hang the stem downward so it
-        // doesn't collide with notes/ledgers above.
-        const e4Y = trebleBotY;
-        const dir = topY < e4Y ? 1 : -1;
         const stemLen = lineSp * 3.2;
-        const stemX = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
-        const y1 = dir === -1 ? botY : topY;
-        const y2 = dir === -1 ? (topY - stemLen) : (botY + stemLen);
+        const stemX = cx + (slotDir === -1 ? noteR * 1.1 : -noteR * 1.1);
+        const y1 = slotDir === -1 ? slotBotY : slotTopY;
+        const y2 = slotDir === -1 ? (slotTopY - stemLen) : (slotBotY + stemLen);
         slotInner += `<line x1="${stemX}" y1="${y1}" x2="${stemX}" y2="${y2}" stroke="#1a1a1a" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
-        slotStems.push({ cx: stemX, endY: y2, dir });
+        slotStems.push({ cx: stemX, endY: y2, dir: slotDir });
       } else {
         slotStems.push(null);
       }
