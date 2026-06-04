@@ -11582,6 +11582,44 @@ class Player {
     this.bassOscillators = [];
     this.totalBars = 0;
     this._cachedPage = null;
+    // Multi-chord bars: which slot WITHIN the current bar is sounding right
+    // now. Updated by _triggerChord's per-slot setTimeouts so the display
+    // (now-playing card, landscape dashboard, map highlight) can follow each
+    // slot as the bar progresses. Stays at 0 for single-chord bars.
+    this.currentBarSlot = 0;
+  }
+
+  // Slot-aware versions of _currentChordId / _nextChordId for the DISPLAY
+  // side. The trigger path keeps using _currentChordId (which is bar-level)
+  // so the audio scheduler stays correct; only the visible chord cards and
+  // dashboard update per slot. For single-chord bars these fall through to
+  // the bar-level lookups and behavior is unchanged.
+  _currentDisplayChordId() {
+    this._ensurePagePlan();
+    const barInPage = this.totalBars % 4;
+    const planned = this._cachedPage?.[barInPage];
+    if (!planned || !planned.slots || planned.slots.length < 2) return this._currentChordId();
+    const distinct = new Set(planned.slots.map(s => s && s.chord).filter(Boolean));
+    if (distinct.size < 2) return this._currentChordId();
+    const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
+    const slot = planned.slots[slotIdx];
+    return (slot && slot.chord) || planned.chord;
+  }
+  _nextDisplayChordId() {
+    this._ensurePagePlan();
+    const barInPage = this.totalBars % 4;
+    const planned = this._cachedPage?.[barInPage];
+    if (!planned || !planned.slots || planned.slots.length < 2) return this._nextChordId();
+    const distinct = new Set(planned.slots.map(s => s && s.chord).filter(Boolean));
+    if (distinct.size < 2) return this._nextChordId();
+    const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
+    // Mid-bar: next visible chord is the next non-muted slot in this bar.
+    for (let s = slotIdx + 1; s < planned.slots.length; s++) {
+      const sl = planned.slots[s];
+      if (sl && sl.chord) return sl.chord;
+    }
+    // Last slot — fall through to the bar-level next chord.
+    return this._nextChordId();
   }
 
   _pickBassPattern() {
@@ -12683,6 +12721,7 @@ class Player {
       this._subdivTimers.forEach(t => clearTimeout(t));
       this._subdivTimers = [];
     }
+    this.currentBarSlot = 0;
     state.playerVoicing = null;
     state.nextVoicing = null;
     state.progressionVoicings = {};
@@ -12948,6 +12987,7 @@ class Player {
     // Force re-attack: _triggerChord is only called at a NEW step boundary,
     // so even if the chord/voicing matches the previous step the strike fires
     // again. Continuations (bars > 1 in one step) never reach this path.
+    this.currentBarSlot = 0;
     if (!(subN > 1 && subMute[0])) {
       chordDrone.start(notesForSlot(0), vol, true, t0);
     }
@@ -12961,11 +13001,29 @@ class Player {
         const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 30);
         const fireAt = slotAudioTime;
         const slotNotes = notesForSlot(s);
+        const slotIdx  = s;
         const tid = setTimeout(() => {
           chordDrone.start(slotNotes, vol, true, fireAt);
+          // Multi-chord bars advance the visible chord card / dashboard at
+          // each slot boundary. Single-chord rhythmic subdivisions skip the
+          // visual update so we don't re-render the dashboard 4× per bar
+          // for no reason.
+          if (slotsAreMulti) {
+            this.currentBarSlot = slotIdx;
+            if (typeof this._updateVisuals === 'function') this._updateVisuals();
+          }
         }, wallWait);
         this._subdivTimers.push(tid);
       }
+    }
+    // For multi-chord bars: also schedule a delayed first refresh at t=0
+    // so the slot-0 chord paints immediately at bar start (without it the
+    // dashboard would still show the previous bar's last slot until the
+    // first per-slot timer fires).
+    if (slotsAreMulti && typeof this._updateVisuals === 'function') {
+      this.currentBarSlot = 0;
+      // Defer slightly so this runs after the caller's own _updateVisuals.
+      setTimeout(() => this._updateVisuals(), 0);
     }
 
     // Schedule bass plucks per the current section's bass pattern
@@ -13072,8 +13130,13 @@ class Player {
 
   _updateVisuals() {
     const flats = useFlatsFor(state.keyPc);
-    const curId = this._currentChordId();
-    const nxtId = this._nextChordId();
+    // Display IDs follow the active SLOT inside multi-chord bars; for
+    // single-chord bars they fall through to the bar-level chord. The
+    // trigger / scheduling path still uses _currentChordId so audio stays
+    // bar-aligned — only what the user SEES (highlighted card, dashboard
+    // name, next-up) advances per slot.
+    const curId = this._currentDisplayChordId();
+    const nxtId = this._nextDisplayChordId();
 
     // Re-render the chord map so each card's mini-fretboard reflects the latest voicing
     // (the focused chord uses state.playerVoicing; others recompute smoothest from it)
@@ -13855,6 +13918,28 @@ class Player {
       if (cell.barIdxInChord > 0) {
         return `<div class="${cls}"${dataPos}><div class="rb-continuation">%</div></div>`;
       }
+      // Multi-chord bar: show all slot chord-names joined with · in the
+      // chord row. No roman (the colored names carry the function). The
+      // staff/TAB below also embeds the per-slot names — the row row keeps
+      // them visible when the cell is small.
+      const isMulti = cell.slots && cell.slots.length > 1
+        && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+      if (isMulti) {
+        const slotNames = cell.slots.map(slot => {
+          if (!slot || !slot.chord) return '';
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return slot.chord;
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return symbolizeChordName(cn);
+        }).filter(Boolean).join(' · ');
+        return `
+          <div class="${cls}"${dataPos}>
+            <div class="rb-chord rb-chord-multi">${slotNames}</div>
+          </div>
+        `;
+      }
       return `
         <div class="${cls}"${dataPos}>
           <div class="rb-roman">${ch.roman}</div>
@@ -13903,11 +13988,63 @@ class Player {
       // chord name is the same on-screen size whether you're composing or the
       // AI is playing.
       const isMobileNow = window.innerWidth <= 800;
-      const svg = shape
-        ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []})
-            : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
-        : '';
+      // Multi-chord bar — playback strip uses the same horizontal TAB
+      // (guitar) / per-slot staff (piano) we built for compose, so the
+      // visualization is consistent whether you're typing or watching it
+      // play back. cell.slots was propagated through _buildPagePlan, so
+      // it's available here without extra plumbing.
+      const isMultiTab = cell.slots && cell.slots.length > 1
+        && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+      let svg;
+      if (isMultiTab && state.instrument === 'piano') {
+        const pianoSlots = cell.slots.map(slot => {
+          if (!slot || !slot.chord) return null;
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return null;
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return {
+            shape: slot.shape, root: sRoot, quality: sCh.quality,
+            chordName: symbolizeChordName(cn), tag: sCh.tag,
+          };
+        });
+        const allFilled = pianoSlots.every(p => p && p.shape);
+        const sizingPiano = {
+          W: 130, H: 148, minimal: isMobileNow,
+          showClef, chordName: cellName, roman: ch.roman, tag: ch.tag,
+          subdivisions: cell.subdivisions || 1,
+          subdivMute: cell.subdivMute || [],
+          slots: allFilled ? pianoSlots : null,
+        };
+        svg = renderChordStaff(shape, root, ch.quality, cellFlats, sizingPiano);
+      } else if (isMultiTab) {
+        const columns = cell.slots.map(slot => {
+          if (!slot || !slot.chord) return { shape: null, chordName: '' };
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return { shape: slot.shape, chordName: slot.chord };
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return {
+            shape: slot.shape,
+            chordName: symbolizeChordName(cn),
+            romanLabel: symbolizeChordName(sCh.roman || ''),
+            tag: sCh.tag,
+          };
+        });
+        const baseW = isMobileNow ? 130 : 165;
+        const htabSizing = isMobileNow
+          ? { W: baseW * cell.slots.length, H: 210, minimal: true }
+          : { W: baseW * cell.slots.length, H: 250, minimal: false };
+        svg = renderHorizontalTab(columns, htabSizing);
+      } else {
+        svg = shape
+          ? (state.instrument === 'piano'
+              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []})
+              : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
+          : '';
+      }
       // Subdivision bar shown on EVERY cell that has subdivisions — so the
       // user can see the rhythmic shape of each upcoming chord. The slot
       // pulsing animation (.pb-on) only fires on the cell that's actually
@@ -13915,7 +14052,10 @@ class Player {
       const subN = cell.subdivisions || 1;
       const subMute = cell.subdivMute || [];
       let pbBarHtml = '';
-      if (subN > 1) {
+      // Multi-chord cells already visualize each slot via the horizontal
+      // TAB / per-slot staff above, so the rhythm-segment bar is
+      // redundant. Same call we make in compose strip.
+      if (subN > 1 && !isMultiTab) {
         let segs = '';
         for (let s = 0; s < subN; s++) {
           const m = subMute[s] ? 'muted' : '';
@@ -15883,8 +16023,10 @@ function renderLandscapePlay() {
   lp_enter(state.instrument === 'piano' ? 'piano' : 'guitar');
 
   // ── Header: now-playing + next-up chord names ─────────────
-  const curId = (player && player._currentChordId && player._currentChordId()) || state.focusedChord;
-  const nxtId = (player && player._nextChordId && player._nextChordId()) || null;
+  // Slot-aware: in a multi-chord bar these advance per slot. In a single-
+  // chord bar they fall through to the bar-level chord — same behavior.
+  const curId = (player && player._currentDisplayChordId && player._currentDisplayChordId()) || state.focusedChord;
+  const nxtId = (player && player._nextDisplayChordId && player._nextDisplayChordId()) || null;
   const map = currentMap();
   const curDef = curId && map.chordDefs[curId];
   const nxtDef = nxtId && map.chordDefs[nxtId];
