@@ -7153,14 +7153,20 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     // names like "Cmaj7" still fit. Longest name drives sizing so all match.
     const longest = slotChords.reduce((m, sl) =>
       sl && sl.chordName ? Math.max(m, sl.chordName.length) : m, 1);
-    const garamondRatio = 0.55;
-    const sansRatio     = 0.48;
-    const fsCap   = sizing?.minimal ? 14 : 18;
-    const fsFloor = sizing?.minimal ? 8  : 9;
-    const garamondFs = Math.min(fsCap, (nameSlotW * 0.92) / longest / garamondRatio);
-    const garamondOk = garamondFs >= (sizing?.minimal ? 10 : 12);
+    // Per-char width ratios bumped from earlier draft — bold sans w/ Δ ø °
+    // symbols runs ~0.6·fs in practice, not the 0.48 we'd get from regular
+    // weight Latin text. For 4+ slots also tighten the slot budget so a
+    // visible gap remains between names instead of letting them kiss.
+    const garamondRatio = 0.58;
+    const sansRatio     = 0.60;
+    const dense   = subN >= 4;
+    const fsCap   = dense ? (sizing?.minimal ? 11 : 14) : (sizing?.minimal ? 14 : 18);
+    const fsFloor = sizing?.minimal ? 7 : 8;
+    const budgetFactor = dense ? 0.72 : 0.92;
+    const garamondFs = Math.min(fsCap, (nameSlotW * budgetFactor) / longest / garamondRatio);
+    const garamondOk = !dense && garamondFs >= (sizing?.minimal ? 10 : 12);
     const sansFs = Math.max(fsFloor,
-                   Math.min(fsCap, (nameSlotW * 0.92) / longest / sansRatio));
+                   Math.min(fsCap, (nameSlotW * budgetFactor) / longest / sansRatio));
     const useGaramond = garamondOk;
     const nameFs = useGaramond ? garamondFs : sansFs;
     const fontFamily = useGaramond
