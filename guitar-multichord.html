@@ -7307,13 +7307,12 @@ function renderHorizontalTab(columns, sizing) {
   const labelH = hasNames ? (minimal ? 22 : 34) : 0;
   const bracketH = N > 1 ? (minimal ? 14 : 18) : 0;
   const gapBeforeStaff = minimal ? 6 : 10;
-  // padBot reserves room for the WHOLE stem + a small breathing margin
-  // between the stem's tip and the SVG bottom. Without this, stems
-  // extended past the viewBox and got clipped by the SVG's clip-path:
-  // inset(0), AND the bottom string sat almost at the cell edge.
+  // Stems extend past the viewBox and get partially clipped — that's
+  // fine and what the user prefers, since it lets the staff itself be
+  // BIG (more lineSp, bigger fret numbers) inside the same viewBox.
+  // padBot is just enough to keep the bottom string off the SVG edge.
   const stemLen = minimal ? 50 : 72;
-  const stemBottomBuffer = minimal ? 8 : 12;
-  const padBot = stemLen + stemBottomBuffer;
+  const padBot = minimal ? 8 : 12;
   const padTop = labelH + bracketH + gapBeforeStaff;
   const staffH = H - padTop - padBot;
   const lineSp = staffH / 5;            // 6 lines → 5 gaps
@@ -17849,16 +17848,15 @@ function renderComposeStrip() {
             isEditing: sIdx === editingSlot,
           };
         });
-        // Width scales with slot count. The W per slot is bumped from
-        // 130 to 165 so the SVG aspect ratio approaches the actual cell
-        // aspect (which is wider than tall once flex-grow expands the
-        // cell). H is taller now so the staff + stems both fit
-        // comfortably inside the viewBox (padBot now includes the full
-        // stemLen + a breathing buffer).
+        // Width scales with slot count. The W per slot keeps the SVG
+        // aspect close to the cell aspect so meet centering leaves
+        // thin bands. H is sized so the staff is BIG inside the viewBox
+        // even at the cost of stems extending past — the user prefers
+        // the larger staff feel.
         const baseW = isMobile ? 130 : 165;
         const htabSizing = isMobile
-          ? { W: baseW * cell.slots.length, H: 250, minimal: true }
-          : { W: baseW * cell.slots.length, H: 300, minimal: false };
+          ? { W: baseW * cell.slots.length, H: 210, minimal: true }
+          : { W: baseW * cell.slots.length, H: 250, minimal: false };
         svg = renderHorizontalTab(columns, htabSizing);
       } else {
         svg = state.instrument === 'piano'
