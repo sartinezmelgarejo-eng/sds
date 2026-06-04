@@ -7112,24 +7112,32 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   let nameSvg = '';
   if (slotChords) {
     // Multi-chord bar — one chord name above each slot's column, colored by
-    // the slot's function tag (drop the roman numeral; the colored name
-    // carries the harmonic signal). Font size scales DOWN with slot count:
-    // at N=2 each name has a full half-bar to breathe; at N=4 each name
-    // gets ~slotW viewBox px, so we shrink so 4-char names ("Cmaj7") still
-    // fit without colliding with the neighbor. Switch to upright (drop
-    // italic) and add letter-spacing for legibility at the small sizes.
-    // Longest chord name in the bar drives the size so all names match.
+    // the slot's function tag. Font size scales DOWN with slot count so
+    // adjacent names don't collide. At 2 slots each name has half the bar
+    // to breathe (italic Garamond, looks like the single-chord case). At
+    // 3+ slots we switch to a condensed sans-serif so 4-5 char names like
+    // "Cmaj7" still fit in the narrow column without overlapping.
+    // Longest name in the bar drives the size so all four match.
     const longest = slotChords.reduce((m, sl) =>
       sl && sl.chordName ? Math.max(m, sl.chordName.length) : m, 1);
-    // ~0.55·fs viewBox-px per char in Cormorant Garamond bold upright.
-    // Reserve 88% of slotW so adjacent labels don't kiss.
-    const budgetPerChar = (slotW * 0.88) / longest;
+    // 92% of slotW gives a thin gutter between names. Per-char width ratio
+    // ~0.55 for Garamond italic; ~0.48 for sans bold. Pick the formula
+    // matching the font we'll actually use.
+    const garamondRatio = 0.55;
+    const sansRatio     = 0.48;
     const fsCap   = sizing?.minimal ? 14 : 18;
-    const fsFloor = sizing?.minimal ? 9  : 11;
-    const nameFs = Math.max(fsFloor, Math.min(fsCap, budgetPerChar / 0.55));
-    // Italic feels smudgy at small sizes — keep upright when shrunk below
-    // the comfortable threshold, italic when there's plenty of room.
-    const italic = nameFs >= (sizing?.minimal ? 13 : 16);
+    const fsFloor = sizing?.minimal ? 8  : 9;
+    // Try italic Garamond first; if it fits at >= 12 (mobile: 10) keep it.
+    const garamondFs = Math.min(fsCap, (slotW * 0.92) / longest / garamondRatio);
+    const garamondOk = garamondFs >= (sizing?.minimal ? 10 : 12);
+    const sansFs = Math.max(fsFloor,
+                   Math.min(fsCap, (slotW * 0.92) / longest / sansRatio));
+    const useGaramond = garamondOk;
+    const nameFs = useGaramond ? garamondFs : sansFs;
+    const fontFamily = useGaramond
+      ? "'Cormorant Garamond', Georgia, serif"
+      : "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+    const fontStyle = useGaramond ? 'italic' : 'normal';
     const ty = labelH * 0.85;
     for (let s = 0; s < subN; s++) {
       const slot = slotChords[s];
@@ -7137,9 +7145,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       const fill = TAG_COLOR[slot.tag] || '#1a1a1a';
       nameSvg += `<text x="${slotX(s)}" y="${ty}" font-size="${nameFs.toFixed(2)}"
                   text-anchor="middle"
-                  font-family="'Cormorant Garamond', Georgia, serif"
-                  font-style="${italic ? 'italic' : 'normal'}" font-weight="700" fill="${fill}"
-                  letter-spacing="0.1">${slot.chordName}</text>`;
+                  font-family="${fontFamily}"
+                  font-style="${fontStyle}" font-weight="700" fill="${fill}"
+                  letter-spacing="0">${slot.chordName}</text>`;
     }
   } else if (nameLabel) {
     // Match the on-screen size of guitar mode's .rb-chord pill (19 px).
