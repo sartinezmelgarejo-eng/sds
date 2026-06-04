@@ -7198,9 +7198,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       : "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
     const fontStyle = useGaramond ? 'italic' : 'normal';
     const ty = labelH * 0.85;
+    const mutedArr = sizing?.subdivMute || [];
     for (let s = 0; s < subN; s++) {
       const slot = slotChords[s];
       if (!slot || !slot.chordName) continue;
+      // Muted slot — hide the chord name too (the slot-loop above already
+      // drew a rest glyph instead of noteheads; the chord name lingering
+      // overhead would suggest the chord is still sounding).
+      if (mutedArr[s]) continue;
       const fill = TAG_COLOR[slot.tag] || '#1a1a1a';
       nameSvg += `<text x="${nameSlotX(s)}" y="${ty}" font-size="${nameFs.toFixed(2)}"
                   text-anchor="middle"
@@ -7550,6 +7555,28 @@ function renderHorizontalTab(columns, sizing) {
 
   columns.forEach((col, ci) => {
     const cx = slotX(ci);
+
+    // Muted slot — chord is "quitado": skip the chord name AND fret
+    // numbers/stem, draw a small rest glyph in the middle of the staff
+    // so the slot reads as silence. Editing underline still appears so
+    // the user can see which slot has focus while it's muted.
+    if (col.muted) {
+      const restFs = minimal ? 14 : 20;
+      s += `<text x="${cx}" y="${(staffTopY + staffBotY) / 2 + restFs * 0.3}" text-anchor="middle"
+              font-size="${restFs}" fill="#1a1a1a" opacity="0.45"
+              font-family="'Bravura Text','Petaluma','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola',serif">𝄽</text>`;
+      if (col.isEditing) {
+        const uw = slotW - 8;
+        const tyE = labelH * 0.78;
+        s += `<line x1="${cx - uw/2}" y1="${tyE + 4}" x2="${cx + uw/2}" y2="${tyE + 4}" stroke="#d4a017" stroke-width="1.6" stroke-linecap="round"/>`;
+      }
+      // Hit rect still goes below so the slot can be re-selected / un-muted
+      const slotLeftXM = slotStartX + ci * slotW;
+      s += `<rect x="${slotLeftXM}" y="0" width="${slotW}" height="${H}"
+              fill="rgba(0,0,0,0)" pointer-events="all"
+              data-multichord-slot="${ci}" style="cursor:pointer"/>`;
+      return;
+    }
 
     // Chord name above this slot — italic Cormorant, big enough to be
     // the headline. Colored by the chord's function tag (tonic=green,
@@ -14049,10 +14076,11 @@ class Player {
         };
         svg = renderChordStaff(shape, root, ch.quality, cellFlats, sizingPiano);
       } else if (isMultiTab) {
-        const columns = cell.slots.map(slot => {
-          if (!slot || !slot.chord) return { shape: null, chordName: '' };
+        const muteArr = cell.subdivMute || [];
+        const columns = cell.slots.map((slot, sIdx) => {
+          if (!slot || !slot.chord) return { shape: null, chordName: '', muted: !!muteArr[sIdx] };
           const sCh = map.chordDefs[slot.chord];
-          if (!sCh) return { shape: slot.shape, chordName: slot.chord };
+          if (!sCh) return { shape: slot.shape, chordName: slot.chord, muted: !!muteArr[sIdx] };
           const sRoot = (cellKeyPc + sCh.deg) % 12;
           const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
                   || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
@@ -14061,6 +14089,7 @@ class Player {
             chordName: symbolizeChordName(cn),
             romanLabel: symbolizeChordName(sCh.roman || ''),
             tag: sCh.tag,
+            muted: !!muteArr[sIdx],
           };
         });
         // Playback strip cells are equal-width (no flex-grow per slot count),
@@ -17777,6 +17806,28 @@ function composeCycleLastInversion(direction) {
 }
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
+  // Multi-chord slot selected → backspace mutes THAT slot instead of
+  // deleting the whole cell. Lets the user "quitar" individual slots
+  // from a multi-chord bar (the chord name + notes both disappear; the
+  // bar plays a rest at that slot). Re-pressing on an already-muted
+  // selected slot UN-mutes it, so the gesture round-trips.
+  const mcCellIdx = state._multiChordEditCell;
+  const mcSlotIdx = state._multiChordEditSlotIdx;
+  if (mcCellIdx !== null && mcCellIdx !== undefined
+      && mcSlotIdx !== null && mcSlotIdx !== undefined) {
+    const mcCell = state.composedProgression[mcCellIdx];
+    if (mcCell && mcCell.slots && mcSlotIdx >= 0 && mcSlotIdx < mcCell.slots.length) {
+      _composeSaveUndo();
+      const subN = mcCell.subdivisions || mcCell.slots.length;
+      if (!mcCell.subdivMute || mcCell.subdivMute.length !== subN) {
+        mcCell.subdivMute = new Array(subN).fill(false);
+      }
+      mcCell.subdivMute[mcSlotIdx] = !mcCell.subdivMute[mcSlotIdx];
+      renderComposeStrip();
+      renderAll();
+      return;
+    }
+  }
   _composeSaveUndo();
   const seq = state.composedProgression;
   // Use locked index, or focused index, or fall back to last chord
@@ -18215,10 +18266,12 @@ function renderComposeStrip() {
       if (isMultiChord && state.instrument !== 'piano') {
         const editingThisCell = (state._multiChordEditCell === i);
         const editingSlot = editingThisCell ? (state._multiChordEditSlotIdx ?? -1) : -1;
+        const muteArr = cell.subdivMute || [];
         const columns = cell.slots.map((slot, sIdx) => {
-          if (!slot || !slot.chord) return { shape: null, chordName: '', isEditing: sIdx === editingSlot };
+          const muted = !!muteArr[sIdx];
+          if (!slot || !slot.chord) return { shape: null, chordName: '', isEditing: sIdx === editingSlot, muted };
           const sCh = map.chordDefs[slot.chord];
-          if (!sCh) return { shape: slot.shape, chordName: slot.chord, isEditing: sIdx === editingSlot };
+          if (!sCh) return { shape: slot.shape, chordName: slot.chord, isEditing: sIdx === editingSlot, muted };
           const sRoot = (state.keyPc + sCh.deg) % 12;
           const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, flats)
                   || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
@@ -18228,6 +18281,7 @@ function renderComposeStrip() {
             romanLabel: symbolizeChordName(sCh.roman),
             tag: sCh.tag,
             isEditing: sIdx === editingSlot,
+            muted,
           };
         });
         // viewBox W has to match the cell's actual aspect ratio — otherwise
@@ -18763,9 +18817,12 @@ document.addEventListener('click', (ev) => {
     renderComposeStrip();
     return;
   }
-  // ── Staff slot (piano mode): same toggle, but clicking the noteheads
-  //    on the partitura instead of the segment bar (which is hidden in
-  //    piano mode). Finds the parent compose cell to know which index. ──
+  // ── Staff slot (piano mode): unified with the guitar horizontal-TAB
+  //    slot click. Multi-chord bars (slots[] with ≥2 distinct chord IDs)
+  //    SELECT the slot for editing — matches guitar so the user gets the
+  //    same gesture in both instruments. Backspace then mutes the selected
+  //    slot. Single-chord cells with rhythmic subdivisions keep the
+  //    legacy mute-toggle behavior (no chord to "select"). ──
   const staffSlot = ev.target.closest('.staff-slot');
   if (staffSlot) {
     const parentCell = staffSlot.closest('[data-compose-idx]');
@@ -18775,12 +18832,8 @@ document.addEventListener('click', (ev) => {
     const seq = state.composedProgression;
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
-    // Whole-note case (subdivisions === 1): clicking shouldn't mute
-    // the only slot — that's what the regular delete key is for.
-    // Instead, audition the chord (same behaviour as clicking the cell
-    // in tab mode). We do it inline because this delegated handler
-    // returns before reaching the cell-click block further down.
     const subN = cell.subdivisions || 1;
+    // Whole-note case (subdivisions === 1): audition the chord.
     if (subN <= 1) {
       ev.stopPropagation();
       if (!cell.chord) return;
@@ -18793,6 +18846,27 @@ document.addEventListener('click', (ev) => {
       ringFocusedChord();
       return;
     }
+    // Multi-chord cell: tap → select that slot for editing (matches
+    // the guitar horizontal-TAB behavior). Mute lives on Backspace.
+    const isMultiChord = cell.slots && cell.slots.length > 1
+      && new Set(cell.slots.map(sl => sl && sl.chord).filter(Boolean)).size > 1;
+    if (isMultiChord) {
+      ev.stopPropagation();
+      if (segIdx < 0 || segIdx >= cell.slots.length) return;
+      state._multiChordEditCell = cellIdx;
+      state._multiChordEditSlotIdx = segIdx;
+      state._multiChordEditAutoAdvance = false;
+      const slot = cell.slots[segIdx];
+      if (slot && slot.chord) {
+        state.focusedChord = slot.chord;
+        state.userVoicing = slot.shape ? { shape: slot.shape } : null;
+      }
+      renderComposeStrip();
+      if (typeof renderAll === 'function') renderAll();
+      if (typeof ringFocusedChord === 'function') ringFocusedChord();
+      return;
+    }
+    // Single-chord rhythmic subdivisions (legacy behavior): toggle mute.
     ev.stopPropagation();
     if (!cell.subdivMute) cell.subdivMute = new Array(subN).fill(false);
     cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
