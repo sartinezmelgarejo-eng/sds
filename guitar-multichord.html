@@ -7486,10 +7486,10 @@ function renderHorizontalTab(columns, sizing) {
     const y = staffTopY + i * lineSp;
     s += `<line x1="${-EXT}" y1="${y}" x2="${W + EXT}" y2="${y}" stroke="#1a1a1a" stroke-width="0.6"/>`;
   }
-  // Final bar line at the right edge of the viewBox (= the cell's
-  // content area boundary). Sits at the slot-end position so adjacent
-  // bars connect cleanly.
-  s += `<line x1="${W - 0.7}" y1="${staffTopY}" x2="${W - 0.7}" y2="${staffBotY}" stroke="#1a1a1a" stroke-width="0.9"/>`;
+  // No SVG-drawn final bar line — `.rb-tab-cell` already renders a
+  // 1.5px black border-right which IS the bar line. Drawing one inside
+  // the SVG too produced a visible doubled stroke in play mode (and was
+  // redundant in compose).
 
   // String-name labels — one per line (top → bottom: e B G D A E).
   // Italic Cormorant in a muted ink so they read as orientation rather
@@ -18198,12 +18198,14 @@ function renderComposeStrip() {
         });
         // viewBox W has to match the cell's actual aspect ratio — otherwise
         // `meet` centering inside the cell adds vertical bands and the
-        // strings end up compressed (tighter spacing as slot count grows).
-        // The cell's flex-grow is 1 + (N-1)*0.5 in guitar mode, so we use
-        // the same multiplier for W. That keeps the 6 string lines at the
-        // same display height regardless of how many chords are in the bar.
+        // strings end up compressed. On DESKTOP the strip is a flexbox and
+        // multi-chord cells grow via `flex-grow: 1 + (N-1)*0.5`, so viewBox
+        // W mirrors that multiplier. On MOBILE the strip is a CSS grid
+        // (repeat(4, 1fr)) — inline flex-grow has no effect, every cell is
+        // 25% of the row regardless of slot count. So baseW stays constant
+        // there and the slot columns just pack tighter inside.
         const slotCount2 = cell.slots.length;
-        const aspectMult = 1 + (slotCount2 - 1) * 0.5;
+        const aspectMult = isMobile ? 1 : (1 + (slotCount2 - 1) * 0.5);
         const baseW = isMobile ? 130 : 165;
         const htabSizing = isMobile
           ? { W: Math.round(baseW * aspectMult), H: 210, minimal: true }
