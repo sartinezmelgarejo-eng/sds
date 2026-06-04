@@ -14039,10 +14039,14 @@ class Player {
             tag: sCh.tag,
           };
         });
+        // Playback strip cells are equal-width (no flex-grow per slot count),
+        // so viewBox W stays at baseW to keep the staff aspect matching the
+        // cell aspect. Strings stay at constant display height regardless
+        // of slot count; slot columns just pack tighter horizontally inside.
         const baseW = isMobileNow ? 130 : 165;
         const htabSizing = isMobileNow
-          ? { W: baseW * cell.slots.length, H: 210, minimal: true }
-          : { W: baseW * cell.slots.length, H: 250, minimal: false };
+          ? { W: baseW, H: 210, minimal: true }
+          : { W: baseW, H: 250, minimal: false };
         svg = renderHorizontalTab(columns, htabSizing);
       } else {
         svg = shape
@@ -18192,15 +18196,18 @@ function renderComposeStrip() {
             isEditing: sIdx === editingSlot,
           };
         });
-        // Width scales with slot count. The W per slot keeps the SVG
-        // aspect close to the cell aspect so meet centering leaves
-        // thin bands. H is sized so the staff is BIG inside the viewBox
-        // even at the cost of stems extending past — the user prefers
-        // the larger staff feel.
+        // viewBox W has to match the cell's actual aspect ratio — otherwise
+        // `meet` centering inside the cell adds vertical bands and the
+        // strings end up compressed (tighter spacing as slot count grows).
+        // The cell's flex-grow is 1 + (N-1)*0.5 in guitar mode, so we use
+        // the same multiplier for W. That keeps the 6 string lines at the
+        // same display height regardless of how many chords are in the bar.
+        const slotCount2 = cell.slots.length;
+        const aspectMult = 1 + (slotCount2 - 1) * 0.5;
         const baseW = isMobile ? 130 : 165;
         const htabSizing = isMobile
-          ? { W: baseW * cell.slots.length, H: 210, minimal: true }
-          : { W: baseW * cell.slots.length, H: 250, minimal: false };
+          ? { W: Math.round(baseW * aspectMult), H: 210, minimal: true }
+          : { W: Math.round(baseW * aspectMult), H: 250, minimal: false };
         svg = renderHorizontalTab(columns, htabSizing);
       } else {
         if (isMultiChord && state.instrument === 'piano') {
