@@ -7928,7 +7928,8 @@ function _renderHoverPopups(chordId, allowedIds) {
   // mousemove over the partner card would wipe it before the user could
   // click it.
   Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
-  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
+  // Skip partner-pinned arrows — they belong to a still-active ii↔V chain.
+  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.partner-pinned)')).forEach(el => el.remove());
   const map = currentMap();
   if (!map) return;
   // Find the target card's position from its node.
@@ -8065,7 +8066,13 @@ function _renderHoverPopups(chordId, allowedIds) {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          // Mark the re-injected arrow as partner-pinned too so the next
+          // mousemove / hover render doesn't wipe it. Tied to the persistent
+          // popup's lifetime via _clearPersistentPopup.
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
         return;
       }
 
@@ -8123,7 +8130,13 @@ function _renderHoverPopups(chordId, allowedIds) {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          // Mark the re-injected arrow as partner-pinned too so the next
+          // mousemove / hover render doesn't wipe it. Tied to the persistent
+          // popup's lifetime via _clearPersistentPopup.
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
         return;
       }
 
@@ -8290,7 +8303,7 @@ function _clearHoverPopups() {
   }
   if (arrowsSvg) {
     // Same logic for arrows — keep the arrow tied to the persistent popup.
-    Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent)')).forEach(el => el.remove());
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
   }
   _hoverChordId = null;
   _hoverAllowedIds = null;
@@ -8309,7 +8322,10 @@ function _clearPersistentPopup() {
     Array.from(wrap.querySelectorAll('.map-card.popup.partner-pinned')).forEach(el => el.remove());
     Array.from(wrap.querySelectorAll('.map-card.hover-target')).forEach(c => c.classList.remove('hover-target'));
   }
-  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
+  if (arrowsSvg) {
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow.partner-pinned')).forEach(el => el.remove());
+  }
   _persistentPopupChordId = null;
   _persistentPopupNode = null;
   _persistentPopupPos  = null;
@@ -8531,7 +8547,9 @@ function _setupChordMapTouch() {
         _hoverChordId = origChordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
-          el.className = snap.isIi ? snap.className + ' persistent' : snap.className;
+          el.className = snap.isIi
+            ? snap.className + ' persistent'
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord = snap.appId;
           el.dataset.popup = '1';
@@ -8548,7 +8566,10 @@ function _setupChordMapTouch() {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
       } else {
         const isSecondaryV = !!(chDefs[appId]?.sii && chDefs[chDefs[appId].sii]?.popup);
         if (isSecondaryV) {
@@ -8569,7 +8590,9 @@ function _setupChordMapTouch() {
           _hoverChordId = origChordId;
           snapCards.forEach(snap => {
             const el = document.createElement('div');
-            el.className = snap.isV ? snap.className + ' persistent' : snap.className;
+            el.className = snap.isV
+              ? snap.className + ' persistent'
+              : snap.className + ' partner-pinned';
             el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
             el.dataset.chord = snap.appId;
             el.dataset.popup = '1';
@@ -8586,7 +8609,10 @@ function _setupChordMapTouch() {
             }
             mapWrap.appendChild(el);
           });
-          if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+          if (svgArrows) snapArrows.forEach(a => {
+            a.classList.add('partner-pinned');
+            svgArrows.appendChild(a);
+          });
         } else {
           // Pre-apply persistent for instant green on touch (no blink).
           popUnder.classList.add('persistent');
