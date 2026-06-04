@@ -2073,6 +2073,14 @@
     body:not(.player-active) .real-book-tabs {
       min-height: clamp(220px, 18vw, 320px);
     }
+    /* Compact tier: >8 chords. Cells halve in width so the strip
+       should NOT keep the full 8-mode height — that produces tall+narrow
+       cells with awkward aspect (the "ridículo" the user pointed out at
+       16+ chords). Roughly half the clamp keeps cell aspect ~0.6. The
+       JS sets .compose-tier-compact on both rows. */
+    body:not(.player-active) .real-book-tabs.compose-tier-compact {
+      min-height: clamp(120px, 9vw, 160px);
+    }
   }
   /* ── Desktop play mode: keep rb-area self-contained ──
      • flex-shrink:0 prevents the bar from being squeezed by <main>.
@@ -18051,16 +18059,27 @@ function renderComposeStrip() {
     // page scrolls naturally past the strip when it gets tall.
     MAX_CELLS = Math.max(4, Math.ceil(seq.length / 4) * 4);
   } else {
-    // Desktop: 8 cells until you fill them, then grow in groups of 8 up to
-    // the 40-cell hard cap (5 sections). Past 16 the strip becomes
-    // horizontally scrollable via .compose-hscroll instead of squeezing.
-    MAX_CELLS = seq.length <= 8 ? 8 : Math.min(40, Math.ceil(seq.length / 8) * 8);
+    // Desktop tiers — two visual sizes only:
+    //   ≤8 chords  → 8 cells, tall strip, lots of breathing room.
+    //   >8 chords  → COMPACT mode: 16 cells equal-width with a shorter
+    //                strip height; past 16 chords hscroll engages but
+    //                cells stay at the same compact look (90px each).
+    // Dropped the previous 24/32/40 tiers — at those counts cells got
+    // ridiculously tall+narrow because the strip stayed at 8-mode height.
+    if (seq.length <= 8) MAX_CELLS = 8;
+    else MAX_CELLS = Math.max(16, seq.length);
   }
   const cells = seq.slice(0, MAX_CELLS);
   while (cells.length < MAX_CELLS) cells.push(null);
   // Mobile: render interleaved (2 chord cells, then 2 tab cells, repeating) into
   // the main strip only. Tabs container is hidden so the whole grid scrolls as one.
   el.classList.toggle('compose-interleaved', isMobile);
+  // Compact tier — >8 chords on desktop. Strip height shrinks so the
+  // narrower cells maintain a reasonable aspect. Same class covers both
+  // 16-cells-no-scroll and the >16-chord hscroll case.
+  const isCompactTier = !isMobile && seq.length > 8;
+  el.classList.toggle('compose-tier-compact', isCompactTier);
+  tabsEl.classList.toggle('compose-tier-compact', isCompactTier);
   // Desktop: turn on horizontal scroll once we're past 16 cells. The CSS
   // applies overflow-x to the SHARED parent (.rb-stack) so both rows scroll
   // as a unit — they cannot desync. Each strip flexes to its natural
