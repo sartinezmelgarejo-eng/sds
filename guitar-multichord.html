@@ -18874,19 +18874,14 @@ document.addEventListener('click', (ev) => {
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
     const subN = cell.subdivisions || 1;
-    // Whole-note case (subdivisions === 1): audition the chord.
+    // Whole-note case (subdivisions === 1): there's no slot-level action
+    // here — the whole staff IS the chord. Fall through to the generic
+    // cell-tap handler below so single-chord piano cells go through the
+    // SAME path as guitar (focus + audition + arm _oneShotReplaceIdx so
+    // the next chord-button press replaces this cell in place).
     if (subN <= 1) {
-      ev.stopPropagation();
-      if (!cell.chord) return;
-      ensureAudio();
-      state._composeFocusedIdx = cellIdx;
-      state.focusedChord = cell.chord;
-      state.userVoicing = cell.shape ? { shape: cell.shape } : null;
-      renderAll();
-      renderComposeStrip();
-      ringFocusedChord();
-      return;
-    }
+      // Don't stopPropagation; don't return early.
+    } else {
     // Multi-chord cell: tap → select that slot for editing (matches
     // the guitar horizontal-TAB behavior). Mute lives on Backspace.
     const isMultiChord = cell.slots && cell.slots.length > 1;
@@ -18916,6 +18911,7 @@ document.addEventListener('click', (ev) => {
     cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
     renderComposeStrip();
     return;
+    }
   }
   // ── Click in the subdivision popover: pick a count ──
   const pickBtn = ev.target.closest('#subdiv-popover button[data-subdiv-pick]');
