@@ -2672,12 +2672,19 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile): reserve room at the bottom
-     of each tab cell so the playback subdivision bar gets its own
-     strip and stops overlapping the chord diagram. Landscape mobile
-     handles its own padding inside #landscape-play. */
+  /* Play mode (desktop + vertical mobile): reserve room at the TOP of
+     each tab cell so the playback subdivision bar gets its own strip
+     above the chord-name label, instead of being absolute-positioned at
+     bottom where the parent grid was clipping it (the cell didn't
+     always have 14px to spare below the chord diagram). Landscape
+     mobile handles its own padding inside #landscape-play. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    padding-bottom: 14px;
+    padding-top: 14px;
+    padding-bottom: 0;
+  }
+  body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
+    top: 3px;
+    bottom: auto;
   }
 
   /* ─── Mobile transport bar — brutalist (matches landscape) ───
@@ -2987,24 +2994,29 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: subdivision bar sits in the reserved bottom
-     strip of the cell (padding-bottom on rb-tab-cell), so the chord
-     diagram above is no longer crushed by an overlay. */
+  /* Mobile playback: subdivision bar sits in the reserved TOP strip of
+     the cell (padding-top on rb-tab-cell), so it never gets clipped by
+     a tight parent grid AND uses the formerly-empty space above the
+     chord name instead of crowding the diagram below. */
   @media (max-width: 800px) {
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
       height: 14px;
-      bottom: 3px;
+      top: 3px;
+      bottom: auto;
       left: 3px;
       right: 3px;
     }
   }
-  /* Landscape overlay: generous subdivision bars (cells are larger here) */
+  /* Landscape overlay: generous subdivision bars (cells are larger here),
+     also at top for the same reason. */
   #landscape-play .subdiv-bar.playback-bar {
     height: 18px;
-    bottom: 4px;
+    top: 4px;
+    bottom: auto;
   }
   #landscape-play .lp-tabs-area .rb-tab-cell {
-    padding-bottom: 24px;
+    padding-top: 24px;
+    padding-bottom: 0;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
