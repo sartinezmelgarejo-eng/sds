@@ -7107,6 +7107,13 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
   // without shrinking the chord-name / roman labels — used on desktop
   // compose where we want sober dots but keep the bigger labels.
   const minimal = sizing?.minimal === true || sizing?.bwNotes === true;
+  // Subtle root tint for minimal/bwNotes tabs — a muted dark red instead
+  // of solid black, just enough to make the root-string position pop in a
+  // 4-bar strip without competing with the function-red palette (the bright
+  // dom red, the secondary amber, etc.). Sheet music already paints the
+  // root red on the staff; this carries the same anchor over to the tab so
+  // the eye can pattern-match root positions across inversions and bars.
+  const ROOT_TINT = '#5a1f1f';
   shape.forEach((fret, sIdx) => {
     const x = ml + sIdx * stringSp;
     if (fret < 0) {
@@ -7116,12 +7123,14 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
     const pc = noteAt(sIdx, fret);
     const rel = (pc - rootPc + 12) % 12;
     const deg = intToDeg[rel] || '';
+    const isRoot = deg === 'R';
     let cy;
     if (fret === 0) {
       // Open string: small ring at the nut
       cy = mt - 7;
       if (minimal) {
-        s += `<circle cx="${x}" cy="${cy}" r="4.5" fill="none" stroke="#1a1a1a" stroke-width="1.4"/>`;
+        const strokeColor = isRoot ? ROOT_TINT : '#1a1a1a';
+        s += `<circle cx="${x}" cy="${cy}" r="4.5" fill="none" stroke="${strokeColor}" stroke-width="1.4"/>`;
       } else {
         const color = intervalColor(deg);
         s += `<circle cx="${x}" cy="${cy}" r="6" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
@@ -7131,8 +7140,11 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
     cy = mt + ((fret - startFret) - 0.5) * fretSp;
     const r = sizing?.r || 11;
     if (minimal) {
-      // Classical chord-diagram style: solid black dot, no text, no colors
-      s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="#1a1a1a"/>`;
+      // Classical chord-diagram style: solid dot, no text, no colors —
+      // except the root gets a muted dark-red tint so root-string position
+      // is trainable at a glance.
+      const dotFill = isRoot ? ROOT_TINT : '#1a1a1a';
+      s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="${dotFill}"/>`;
     } else {
       const color = intervalColor(deg);
       s += `<circle cx="${x}" cy="${cy}" r="${r}" fill="${color}" stroke="#000" stroke-width="0.8"/>`;
