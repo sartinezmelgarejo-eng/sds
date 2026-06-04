@@ -5723,6 +5723,33 @@ function chordNameForVoicing(quality, root, shape, flats) {
 }
 function useFlatsFor(pc) { return ROOTS[pc].prefer === 'flat'; }
 
+// Key signature lookup, keyed by MAJOR-key tonic pc.
+// Each entry: { count: 0-7, type: '' | '#' | 'b' }.
+// Picks the conventional spelling for ambiguous pcs (Db over C#, F# over Gb,
+// B over Cb) — matches what the ROOTS prefer flag says for those tonics.
+const MAJOR_SIG = {
+  0:  { count: 0, type: ''  },   // C
+  1:  { count: 5, type: 'b' },   // Db
+  2:  { count: 2, type: '#' },   // D
+  3:  { count: 3, type: 'b' },   // Eb
+  4:  { count: 4, type: '#' },   // E
+  5:  { count: 1, type: 'b' },   // F
+  6:  { count: 6, type: '#' },   // F#
+  7:  { count: 1, type: '#' },   // G
+  8:  { count: 4, type: 'b' },   // Ab
+  9:  { count: 3, type: '#' },   // A
+  10: { count: 2, type: 'b' },   // Bb
+  11: { count: 5, type: '#' },   // B
+};
+
+// Key signature for any tonic + tonality. Minor keys use the relative major's
+// signature (relative major sits a minor third UP from the tonic in pc terms,
+// e.g. A minor → C major, both with 0 accidentals).
+function getKeySig(keyPc, tonality) {
+  const refPc = (tonality === 'minor') ? ((keyPc + 3) % 12) : ((keyPc % 12 + 12) % 12);
+  return MAJOR_SIG[refPc] || { count: 0, type: '' };
+}
+
 /* ─── Drop-2 generator ─── */
 
 function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
@@ -6804,6 +6831,60 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
          + bassClefSVG(cx, bassClefY, lineSp, !!sizing?.minimal);
   }
 
+  // ── Key signature ──
+  // Drawn ONLY on the first bar of the line (showClef cells) — the user reads
+  // it once and remembers it for the rest of the row, matching real Real-Book
+  // / classical engraving convention. Per-note accidentals continue to print
+  // explicitly for now (Phase 1) — Phase 2 will suppress those that already
+  // appear in the key sig.
+  let keySig = '';
+  let keySigW = 0;
+  if (showClef) {
+    const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
+                   : (typeof state !== 'undefined' && state ? state.keyPc : 0);
+    const sigTonality = sizing?.tonality
+                     || (typeof state !== 'undefined' && state ? state.tonality : 'major');
+    const sig = getKeySig(sigKeyPc, sigTonality);
+    if (sig.count > 0) {
+      // Order of accidentals in a standard key signature, with their
+      // conventional staff positions (octave per accidental).
+      // Treble + bass positions are computed via the same step→y formula
+      // the noteheads use, so glyphs land on the correct staff line/space
+      // for each clef without hard-coding y values.
+      const SHARP_ORDER = [
+        ['F', 5, 3], ['C', 5, 3], ['G', 5, 3], ['D', 5, 3],
+        ['A', 4, 3], ['E', 5, 3], ['B', 4, 3],
+      ];
+      const FLAT_ORDER = [
+        ['B', 4, 3], ['E', 5, 3], ['A', 4, 3], ['D', 5, 3],
+        ['G', 4, 3], ['C', 5, 3], ['F', 5, 3],
+      ];
+      const order = sig.type === '#' ? SHARP_ORDER : FLAT_ORDER;
+      const yFor = (letter, octave, useTreble) => {
+        const step = (octave - 4) * 7 + stepInOctave[letter];
+        return useTreble
+          ? trebleBotY + lineSp - step * 0.5 * lineSp
+          : bassTopY + (-step - 2) * 0.5 * lineSp;
+      };
+      // Glyph spacing — sharps run a touch wider than flats. minimal viewBoxes
+      // use a tighter spacing so the whole sig still fits next to the clef.
+      const stepX = sig.type === '#'
+        ? (sizing?.minimal ? lineSp * 0.78 : lineSp * 0.85)
+        : (sizing?.minimal ? lineSp * 0.72 : lineSp * 0.78);
+      const startX = clefW + (sizing?.minimal ? 2 : 4);
+      keySigW = sig.count * stepX + (sizing?.minimal ? 2 : 4);
+      for (let i = 0; i < sig.count; i++) {
+        const [letter, trebOct, bassOct] = order[i];
+        const cx = startX + i * stepX + stepX * 0.5;
+        const yT = yFor(letter, trebOct, true);
+        const yB = yFor(letter, bassOct, false);
+        keySig += (sig.type === '#')
+          ? (svgSharp(cx, yT) + svgSharp(cx, yB))
+          : (svgFlat(cx, yT)  + svgFlat(cx, yB));
+      }
+    }
+  }
+
   // Ledger lines — drawn later, per-slot, inside the notes loop so each
   // slot's chord stack has its own short ledger lines aligned with its
   // noteheads. Empty string here; appended to `notes` below.
@@ -6911,7 +6992,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Lay out slot positions across the available bar width. Leave room for
   // the clef at left and the bar-line at right. The first slot sits a
   // little after the clef space, subsequent slots are evenly spaced.
-  const barStartX = Math.max(clefW + accW + 6, W * 0.20);
+  const barStartX = Math.max(clefW + keySigW + accW + 6, W * 0.20);
   const barEndX   = W - 6;
   const barWidth  = barEndX - barStartX;
   const slotW     = barWidth / subN;
@@ -7256,7 +7337,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
-      ${nameSvg}${clef}${ledgers}${notes}
+      ${nameSvg}${clef}${keySig}${ledgers}${notes}
     </svg>
   </svg>`;
 }
@@ -14154,6 +14235,9 @@ class Player {
           subdivisions: cell.subdivisions || 1,
           subdivMute: cell.subdivMute || [],
           slots: allFilled ? pianoSlots : null,
+          // Pass the cell's key + tonality so the key signature reflects
+          // modulations (a parallel-minor bridge will show its own armadura).
+          keyPc: cellKeyPc, tonality: state.tonality,
         };
         svg = renderChordStaff(shape, root, ch.quality, cellFlats, sizingPiano);
       } else if (isMultiTab) {
@@ -14185,7 +14269,7 @@ class Player {
       } else {
         svg = shape
           ? (state.instrument === 'piano'
-              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []})
+              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], keyPc: cellKeyPc, tonality: state.tonality})
               : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
           : '';
       }
@@ -18336,8 +18420,8 @@ function renderComposeStrip() {
       // sits at the cell's top-left in piano mode) doesn't overlap it.
       const sectionLabel = badgeByIdx[i] || null;
       const sizingPiano = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel}
-        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel};
+        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality}
+        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality};
       // Guitar mode now embeds the chord name + roman + tag inside the
       // SVG the same way the piano staff already does — single row of
       // cells, no separate name row above. Matches the unified-row
