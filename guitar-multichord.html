@@ -5592,6 +5592,29 @@ function intervalColor(label) {
 function noteAt(s, f) { return (STRING_OPEN_MIDI[s] + f) % 12; }
 function nameOf(pc, useFlats) { return (useFlats ? FLAT_NAMES : SHARP_NAMES)[pc]; }
 
+// Real-Book-style symbol substitutions for compactness. ONLY applied to
+// multi-chord cells (caller decides) — single-chord cells keep the full
+// spelling so the chord name reads at a glance without symbol-recognition.
+//   maj7  → Δ  (triangle alone implies the 7th)
+//   maj9  → Δ9, maj11 → Δ11, maj13 → Δ13
+//   m7b5  → ø  (half-diminished)
+//   dim7  → °7
+//   dim   → °
+// Order matters: longer/more-specific replacements first so "maj7" doesn't
+// chew the "7" out of "maj13".
+function symbolizeChordName(name) {
+  if (!name) return name;
+  return name
+    .replace(/maj13/g, 'Δ13')
+    .replace(/maj11/g, 'Δ11')
+    .replace(/maj9/g,  'Δ9')
+    .replace(/maj7/g,  'Δ')
+    .replace(/m7b5/g,  'ø')
+    .replace(/m7♭5/g, 'ø')
+    .replace(/dim7/g,  '°7')
+    .replace(/dim/g,   '°');
+}
+
 // Ordered degradation rules per quality. Rules are checked top-down; the
 // first one whose `missingInts` are ALL absent from the voicing wins, and
 // its `suffix` replaces the canonical one. Roman / tag don't change.
@@ -17974,8 +17997,8 @@ function renderComposeStrip() {
                   || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
           return {
             shape: slot.shape,
-            chordName: cn,
-            romanLabel: sCh.roman,
+            chordName: symbolizeChordName(cn),
+            romanLabel: symbolizeChordName(sCh.roman),
             tag: sCh.tag,
             isEditing: sIdx === editingSlot,
           };
@@ -18007,7 +18030,7 @@ function renderComposeStrip() {
               shape: slot.shape,
               root: sRoot,
               quality: sCh.quality,
-              chordName: cn,
+              chordName: symbolizeChordName(cn),
               tag: sCh.tag,
             };
           });
