@@ -2672,29 +2672,12 @@
   body.instrument-piano:not(.player-active) .real-book.compose-interleaved .rb-tab-cell {
     padding-bottom: 14px;
   }
-  /* Play mode (desktop + vertical mobile): the cell defaults to
-     align-items: center, which centered the fixed-size 130×130 SVG
-     in the middle of a taller cell and left the absolute-positioned
-     bar floating way down at the cell's bottom with an empty band
-     between fretboard and bar. Switch to flex-column with the bar
-     as a flow sibling below the SVG so it visually follows the
-     fretboard no matter what extra vertical room the parent grid
-     gives the cell. Compose mode is untouched (different layout
-     and its centered absolute bar lines up correctly there). */
+  /* Play mode (desktop + vertical mobile): reserve room at the bottom
+     of each tab cell so the playback subdivision bar gets its own
+     strip and stops overlapping the chord diagram. Landscape mobile
+     handles its own padding inside #landscape-play. */
   body.player-active:not(.lp-on) .real-book-tabs .rb-tab-cell {
-    flex-direction: column;
-    justify-content: center;
-    padding: 4px;
-  }
-  body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-    position: static;
-    height: 9px;
-    width: calc(100% - 12px);
-    margin: 3px auto 0;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    top: auto;
+    padding-bottom: 14px;
   }
 
   /* ─── Mobile transport bar — brutalist (matches landscape) ───
@@ -3004,34 +2987,24 @@
     0%   { transform: scaleY(1.6); }
     100% { transform: scaleY(1); }
   }
-  /* Mobile playback: same flex-column layout — bar follows SVG.
-     Slightly more vertical margin and a bigger bar height for tap-
-     friendly visibility at mobile sizes (even though the bar isn't
-     interactive in play mode, the wider segments read better on a
-     small screen). */
+  /* Mobile playback: subdivision bar sits in the reserved bottom
+     strip of the cell (padding-bottom on rb-tab-cell), so the chord
+     diagram above is no longer crushed by an overlay. */
   @media (max-width: 800px) {
     body.player-active:not(.lp-on) .subdiv-bar.playback-bar {
-      height: 12px;
-      width: calc(100% - 6px);
-      margin: 4px auto 0;
+      height: 14px;
+      bottom: 3px;
+      left: 3px;
+      right: 3px;
     }
   }
-  /* Landscape overlay: bigger cells, bigger bar. Same flex-column
-     approach so the bar always trails the diagram. */
-  #landscape-play .lp-tabs-area .rb-tab-cell {
-    flex-direction: column;
-    justify-content: center;
-    padding: 4px;
-  }
+  /* Landscape overlay: generous subdivision bars (cells are larger here) */
   #landscape-play .subdiv-bar.playback-bar {
-    position: static;
-    height: 17px;
-    width: calc(100% - 12px);
-    margin: 6px auto 0;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    top: auto;
+    height: 18px;
+    bottom: 4px;
+  }
+  #landscape-play .lp-tabs-area .rb-tab-cell {
+    padding-bottom: 24px;
   }
   /* Popover laid out as a 2-column grid with "1" capped on top and "8"
      capped on bottom, both centered spanning the two columns:
