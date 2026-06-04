@@ -6586,16 +6586,34 @@ function bassClefSVG(cx, fLineY, lineSp, minimal) {
    ════════════════════════════════════════════════════════════ */
 function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (!shape) return '';
-  const q = QUALITIES[quality];
-  const pcToDeg = {};
-  q.ints.forEach((semi, i) => {
-    const pc = ((rootPc + semi) % 12 + 12) % 12;
-    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
-  });
-  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+  // Multi-chord mode: when sizing.slots is provided and its length matches
+  // subdivisions, each slot draws its OWN chord's notes (per-slot shape +
+  // root + quality). For single-chord cells slots is null and every slot
+  // uses the main (shape, rootPc, quality) — existing behavior preserved.
+  const subNEarly = Math.max(1, sizing?.subdivisions || 1);
+  const slotChords = (sizing?.slots && sizing.slots.length === subNEarly)
+    ? sizing.slots
+    : null;
+  // Base chord — used for slot 0 and as fallback for slots without their
+  // own data. For multi-chord cells we still want valid base data so the
+  // staff geometry, C-hint detection, etc. have something to chew on.
+  const baseShape   = slotChords ? slotChords[0].shape   : shape;
+  const baseRoot    = slotChords ? slotChords[0].root    : rootPc;
+  const baseQuality = slotChords ? slotChords[0].quality : quality;
+  const q = QUALITIES[baseQuality];
+  if (!q) return '';
+  const midis = baseShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
                      .filter(x => x !== null)
                      .sort((a, b) => a - b);
   if (!midis.length) return '';
+  // pcToDeg is computed per-slot inside the helper below — for the base
+  // case we still need one for accidental memory / coloring. Built once
+  // here, then overridden per slot when multi-chord.
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((baseRoot + semi) % 12 + 12) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
@@ -6639,21 +6657,56 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
 
-  const positions = midis.map((midi) => {
-    const pc = ((midi % 12) + 12) % 12;
-    const octave = Math.floor(midi / 12) - 1;
-    const name = noteLetterFromPc(pc, flats);
-    const letter = name.charAt(0);
-    const acc = name.length > 1 ? name.charAt(1) : '';
-    const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
-    // MIDI >= 60 → treble. Below → bass. (Middle C lives on first ledger
-    // below treble; B3 and below sit on bass.)
-    const useTreble = midi >= 60;
-    const y = useTreble
-      ? trebleBotY + lineSp - step * 0.5 * lineSp
-      : bassTopY + (-step - 2) * 0.5 * lineSp;
-    return { midi, pc, acc, letter, step, useTreble, y };
-  });
+  // Build {pcToDeg, midis, positions, offsetX} for a chord (shape+root+qual).
+  // Returns null if the shape produces no notes. Used for the base chord and,
+  // when sizing.slots is set, per-slot to vary notes across the bar without
+  // changing the staff layout itself.
+  const buildSlotChord = (shp, root, qual) => {
+    const qq = QUALITIES[qual];
+    if (!qq) return null;
+    const slotPcToDeg = {};
+    qq.ints.forEach((semi, i) => {
+      const pc = ((root + semi) % 12 + 12) % 12;
+      if (!(pc in slotPcToDeg)) slotPcToDeg[pc] = qq.degs[i];
+    });
+    const slotMidis = shp.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+                         .filter(x => x !== null)
+                         .sort((a, b) => a - b);
+    if (!slotMidis.length) return null;
+    const slotPos = slotMidis.map((midi) => {
+      const pc = ((midi % 12) + 12) % 12;
+      const octave = Math.floor(midi / 12) - 1;
+      const name = noteLetterFromPc(pc, flats);
+      const letter = name.charAt(0);
+      const acc = name.length > 1 ? name.charAt(1) : '';
+      const step = (octave - 4) * 7 + stepInOctave[letter];
+      const useTreble = midi >= 60;
+      const y = useTreble
+        ? trebleBotY + lineSp - step * 0.5 * lineSp
+        : bassTopY + (-step - 2) * 0.5 * lineSp;
+      return { midi, pc, acc, letter, step, useTreble, y };
+    });
+    const slotOff = {};
+    for (let i = 1; i < slotPos.length; i++) {
+      if (Math.abs(slotPos[i].step - slotPos[i - 1].step) <= 1
+          && slotOff[i - 1] === undefined) {
+        slotOff[i] = lineSp * 1.5;
+      }
+    }
+    return { pcToDeg: slotPcToDeg, midis: slotMidis, positions: slotPos, offsetX: slotOff };
+  };
+  const baseData = buildSlotChord(baseShape, baseRoot, baseQuality);
+  if (!baseData) return '';
+  const positions = baseData.positions;
+  // Per-slot accessor — base for single-chord cells; per-slot when slotChords
+  // is provided (multi-chord bar). Falls back to base on missing data so the
+  // staff still renders something rather than going blank.
+  const getSlotData = (s) => {
+    if (!slotChords) return baseData;
+    const slot = slotChords[s];
+    if (!slot) return baseData;
+    return buildSlotChord(slot.shape, slot.root, slot.quality) || baseData;
+  };
 
   // 5 staff lines per staff — extend the FULL width of the cell so adjacent
   // cells' staves visually connect (continuous score look). The vertical bar
@@ -6705,12 +6758,15 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // slot's chord stack has its own short ledger lines aligned with its
   // noteheads. Empty string here; appended to `notes` below.
   let ledgers = '';
-  // Helper: ledger lines for a single slot, centered on cx, based on the
-  // current `positions` (same chord plays at every slot). Deduped per slot.
-  const ledgersForSlot = (cx) => {
+  // Helper: ledger lines for a single slot, centered on cx. Takes an
+  // optional positions override so multi-chord cells can ledger per-slot
+  // (each slot's own chord may extend above/below the staff differently).
+  // Deduped per slot.
+  const ledgersForSlot = (cx, slotPositions) => {
     let out = '';
     const seen = new Set();
-    for (const p of positions) {
+    const usePositions = slotPositions || positions;
+    for (const p of usePositions) {
       const staffTop = p.useTreble ? trebleTopY : bassTopY;
       const staffBot = staffTop + 4 * lineSp;
       if (p.y > staffBot + lineSp * 0.3) {
@@ -6742,14 +6798,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     return out;
   };
 
-  // Detect adjacent-stepwise pairs and offset one of them so noteheads don't overlap
-  const offsetX = {};   // index -> x-offset for displaced notes
-  for (let i = 1; i < positions.length; i++) {
-    if (Math.abs(positions[i].step - positions[i - 1].step) <= 1
-        && offsetX[i - 1] === undefined) {
-      offsetX[i] = lineSp * 1.5;   // shift this note to the right of stem
-    }
-  }
+  // offsetX is now per-chord — base cell uses baseData.offsetX; multi-chord
+  // cells get a fresh one per slot via getSlotData(s) inside the loop below.
+  const offsetX = baseData.offsetX;
 
   // ── Hand-drawn accidentals — cleaner than Unicode ♯ / ♭ at small sizes
   function svgSharp(cx, cy) {
@@ -6904,6 +6955,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const accSeen = new Set();
 
   let notes = '';
+  // Track the union of all slots' positions so the tuplet bracket clears
+  // every slot's top notehead/stem (not just the base chord's).
+  const allSlotPositions = [];
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
     let slotInner = '';
@@ -6911,11 +6965,18 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       slotInner += drawRest(cx);
       slotStems.push(null);
     } else {
-      slotInner += ledgersForSlot(cx);
-      positions.forEach((p, i) => {
-        const dx = offsetX[i] || 0;
+      // Per-slot chord data — base for single-chord cells, this slot's
+      // chord (shape+root+quality) for multi-chord cells.
+      const sd = getSlotData(s);
+      const sPos = sd.positions;
+      const sOff = sd.offsetX;
+      const sPcToDeg = sd.pcToDeg;
+      allSlotPositions.push(...sPos);
+      slotInner += ledgersForSlot(cx, sPos);
+      sPos.forEach((p, i) => {
+        const dx = sOff[i] || 0;
         const cxNote = cx + dx;
-        const deg = pcToDeg[p.pc];
+        const deg = sPcToDeg[p.pc];
         const isRoot = deg === 'R';
         const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
         if (p.acc === '#' || p.acc === 'b') {
@@ -6928,8 +6989,8 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         }
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
-      if (hasStem && positions.length) {
-        const allY = positions.map(p => p.y);
+      if (hasStem && sPos.length) {
+        const allY = sPos.map(p => p.y);
         const topY = Math.min(...allY);   // smallest y = highest pitch
         const botY = Math.max(...allY);   // largest y = lowest pitch
         // E4 sits on the bottom line of the treble clef (y = trebleBotY).
@@ -6963,7 +7024,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     //   - stem-up   (low chord): the stem-end, which sits above the notes.
     // Low chords drag the bracket downward; a ceiling near the top staff
     // line keeps it from crowding the chord-name label above.
-    const allYbk     = positions.map(p => p.y);
+    // Use the union of all slots' positions so the bracket clears every
+    // slot's top notehead — multi-chord bars otherwise punch through.
+    const bkPos      = allSlotPositions.length ? allSlotPositions : positions;
+    const allYbk     = bkPos.map(p => p.y);
     const topNoteY   = allYbk.length ? Math.min(...allYbk) : trebleTopY;
     const botNoteY   = allYbk.length ? Math.max(...allYbk) : trebleBotY;
     const e4Ybk      = trebleBotY;                      // E4 = stem-flip threshold
@@ -7046,7 +7110,24 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     picardy:   '#b45309',
   };
   let nameSvg = '';
-  if (nameLabel) {
+  if (slotChords) {
+    // Multi-chord bar — render one chord name above each slot's column,
+    // colored by the slot's function tag (drop the roman numeral, the
+    // colored name carries the harmonic signal). Same nameFs as the
+    // single-chord case so the visual rhythm matches the rest of the row.
+    const nameFs = sizing?.minimal ? 14 : 20;
+    const ty = labelH * 0.85;
+    for (let s = 0; s < subN; s++) {
+      const slot = slotChords[s];
+      if (!slot || !slot.chordName) continue;
+      const fill = TAG_COLOR[slot.tag] || '#1a1a1a';
+      nameSvg += `<text x="${slotX(s)}" y="${ty}" font-size="${nameFs}"
+                  text-anchor="middle"
+                  font-family="'Cormorant Garamond', Georgia, serif"
+                  font-style="italic" font-weight="700" fill="${fill}"
+                  letter-spacing="${sizing?.minimal ? 0.2 : 0.5}">${slot.chordName}</text>`;
+    }
+  } else if (nameLabel) {
     // Match the on-screen size of guitar mode's .rb-chord pill (19 px).
     // With cell ~125 wide vs viewBox W=130, inner scale is ~0.96 — so
     // nameFs 20 renders ~19 px on screen, matching the rb-chord pill in
@@ -17882,9 +17963,38 @@ function renderComposeStrip() {
           : { W: baseW * cell.slots.length, H: 250, minimal: false };
         svg = renderHorizontalTab(columns, htabSizing);
       } else {
-        svg = state.instrument === 'piano'
-          ? renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano)
-          : renderMini(cell.shape, root, ch.quality, flats, sizingGuitar);
+        if (isMultiChord && state.instrument === 'piano') {
+          // Multi-chord piano staff: feed renderChordStaff per-slot data so
+          // each rhythmic slot draws its OWN chord's noteheads on the staff.
+          // Layout/design stays identical to the single-chord case — only
+          // the notes and per-slot chord names change.
+          const pianoSlots = cell.slots.map(slot => {
+            if (!slot || !slot.chord) return null;
+            const sCh = map.chordDefs[slot.chord];
+            if (!sCh) return null;
+            const sRoot = (state.keyPc + sCh.deg) % 12;
+            const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, flats)
+                    || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
+            return {
+              shape: slot.shape,
+              root: sRoot,
+              quality: sCh.quality,
+              chordName: cn,
+              tag: sCh.tag,
+            };
+          });
+          // Only switch on multi-chord rendering when every slot has data —
+          // otherwise renderChordStaff falls back to base chord per missing
+          // slot which would silently swallow gaps. Better to log and use
+          // the snapshot path in that case.
+          const allFilled = pianoSlots.every(p => p && p.shape);
+          sizingPiano.slots = allFilled ? pianoSlots : null;
+          svg = renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano);
+        } else {
+          svg = state.instrument === 'piano'
+            ? renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano)
+            : renderMini(cell.shape, root, ch.quality, flats, sizingGuitar);
+        }
       }
       // Rhythm subdivisions UI — triangle picker is ALWAYS visible with the
       // current count inside (default 1). Segment bar appears only when N > 1
