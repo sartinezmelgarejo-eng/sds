@@ -7446,6 +7446,16 @@ function renderHorizontalTab(columns, sizing) {
         s += `<line x1="${stemX}" y1="${stemY1}" x2="${stemX}" y2="${stemY2}" stroke="#1a1a1a" stroke-width="1.1" stroke-linecap="round"/>`;
       }
     }
+
+    // Invisible click target spanning this slot's column. Tapping it
+    // selects the slot for editing — the next chord button press writes
+    // into this slot, shift+number cycles its voicing. Drawn LAST in
+    // this slot's iteration so it sits on top of the rendered content
+    // and reliably receives the click.
+    const slotLeftX = slotStartX + ci * slotW;
+    s += `<rect x="${slotLeftX}" y="0" width="${slotW}" height="${H}"
+            fill="rgba(0,0,0,0)" pointer-events="all"
+            data-multichord-slot="${ci}" style="cursor:pointer"/>`;
   });
 
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" overflow="visible">${s}</svg>`;
@@ -17216,13 +17226,26 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
         editCell.inversion   = s0.inversion;
         editCell.stringSet   = s0.stringSet;
       }
-      // Advance to next slot. If we just wrote the last one, exit edit mode.
-      const next = slotIdx + 1;
-      if (next >= editCell.slots.length) {
-        state._multiChordEditCell = null;
-        state._multiChordEditSlotIdx = null;
-      } else {
-        state._multiChordEditSlotIdx = next;
+      // Advance to next slot ONLY if we entered edit mode via the chip
+      // (auto-advance). Manual slot selection sticks: the user picked
+      // that specific slot, so subsequent chord presses + cycles keep
+      // operating on the SAME slot until they pick another one.
+      // Cycling (cycleInversion + same chord) also never advances — it's
+      // just an inversion change, not a new chord.
+      const isCycle = (cycleInversion && editCell.slots[slotIdx]?.chord === chordId);
+      const wasCycle = isCycle && editCell.slots[slotIdx]?.chord === chordId;
+      // (the slot's chord was already updated above, so re-check: if the
+      //  new candIdx is just a cycle of the existing chord, treat as cycle)
+      const shouldAdvance = !isCycle && (state._multiChordEditAutoAdvance !== false);
+      if (shouldAdvance) {
+        const next = slotIdx + 1;
+        if (next >= editCell.slots.length) {
+          state._multiChordEditCell = null;
+          state._multiChordEditSlotIdx = null;
+          state._multiChordEditAutoAdvance = null;
+        } else {
+          state._multiChordEditSlotIdx = next;
+        }
       }
       const c = cands[newIdx];
       state.focusedChord = chordId;
@@ -18252,6 +18275,38 @@ document.addEventListener('click', (ev) => {
     }
     return;
   }
+  // ── Multi-chord slot tap: select that specific slot for editing ──
+  // Each slot in the horizontal TAB has an invisible click rect. Tapping
+  // picks that slot as the multi-chord edit target so the next chord
+  // button writes into it AND shift+number cycles its voicing. Manual
+  // slot selection does NOT auto-advance — the user stays on the slot
+  // they picked until they pick another one or exit via the chip.
+  const mcSlotRect = ev.target.closest('[data-multichord-slot]');
+  if (mcSlotRect) {
+    ev.stopPropagation();
+    const cellEl = mcSlotRect.closest('[data-compose-idx]');
+    if (!cellEl) return;
+    const cellIdx = parseInt(cellEl.dataset.composeIdx, 10);
+    const slotIdx = parseInt(mcSlotRect.dataset.multichordSlot, 10);
+    if (!Number.isFinite(cellIdx) || !Number.isFinite(slotIdx)) return;
+    const seq = state.composedProgression;
+    const cell = seq[cellIdx];
+    if (!cell || !cell.slots || slotIdx < 0 || slotIdx >= cell.slots.length) return;
+    state._multiChordEditCell = cellIdx;
+    state._multiChordEditSlotIdx = slotIdx;
+    state._multiChordEditAutoAdvance = false;
+    // Focus the chord that lives in this slot so the chord map + alt
+    // voicings row reflect it.
+    const slot = cell.slots[slotIdx];
+    if (slot && slot.chord) {
+      state.focusedChord = slot.chord;
+      state.userVoicing = slot.shape ? { shape: slot.shape } : null;
+    }
+    renderComposeStrip();
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof ringFocusedChord === 'function') ringFocusedChord();
+    return;
+  }
   // ── Multi-chord chip: enter / exit multi-chord edit mode ──
   // First tap on a single-chord bar: bumps subdivisions to 2 (if currently
   // 1), initializes cell.slots = [copy of current chord, copy of current
@@ -18297,6 +18352,7 @@ document.addEventListener('click', (ev) => {
     }
     state._multiChordEditCell = idx;
     state._multiChordEditSlotIdx = 1;   // second slot selected by default
+    state._multiChordEditAutoAdvance = true;  // chip-initiated: walk through slots
     renderComposeStrip();
     return;
   }
