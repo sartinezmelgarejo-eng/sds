@@ -18246,7 +18246,13 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       //  new candIdx is just a cycle of the existing chord, treat as cycle)
       const shouldAdvance = !isCycle && (state._multiChordEditAutoAdvance !== false);
       if (shouldAdvance) {
-        const next = slotIdx + 1;
+        // Advance to the next NON-MUTED slot. If the user pre-set
+        // silences in the rhythm-subdivision picker, the walkthrough
+        // skips past those — you don't have to pick a chord for a slot
+        // that's already silent. End-of-bar = exit edit mode.
+        const muteArr = editCell.subdivMute || [];
+        let next = slotIdx + 1;
+        while (next < editCell.slots.length && muteArr[next]) next++;
         if (next >= editCell.slots.length) {
           state._multiChordEditCell = null;
           state._multiChordEditSlotIdx = null;
@@ -19466,7 +19472,16 @@ document.addEventListener('click', (ev) => {
       cell.slots = Array.from({ length: cell.subdivisions }, () => ({ ...seed }));
     }
     state._multiChordEditCell = idx;
-    state._multiChordEditSlotIdx = 1;   // second slot selected by default
+    // Start at the first NON-MUTED slot from 1 onward. If the user
+    // pre-set a rhythm where slot 1 (or several) are silent, skip past
+    // them so the chip-walkthrough only stops on slots that will actually
+    // sound. Fall back to slot 1 if every non-zero slot is muted — the
+    // user can still un-mute one before picking a chord.
+    const muteArr = cell.subdivMute || [];
+    let startSlot = 1;
+    while (startSlot < cell.slots.length && muteArr[startSlot]) startSlot++;
+    if (startSlot >= cell.slots.length) startSlot = 1;
+    state._multiChordEditSlotIdx = startSlot;
     state._multiChordEditAutoAdvance = true;  // chip-initiated: walk through slots
     renderComposeStrip();
     return;
