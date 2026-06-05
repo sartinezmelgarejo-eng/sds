@@ -7241,9 +7241,27 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Track the union of all slots' positions so the tuplet bracket clears
   // every slot's top notehead/stem (not just the base chord's).
   const allSlotPositions = [];
+  // Editing-slot highlight (multi-chord cells only): caller passes
+  // sizing.editingSlotIdx so we tint the column of the selected slot
+  // gold/amber instead of marking the whole bar. Subtle so it reads
+  // as "this is the slot you're editing" without overpowering the notes.
+  const editingSlotIdx = (sizing?.editingSlotIdx !== undefined) ? sizing.editingSlotIdx : -1;
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
     let slotInner = '';
+    // Highlight rect drawn FIRST (under the notes) when this slot is the
+    // currently-edited one. Spans the slot's full vertical region (treble
+    // top through bass bottom) so the chord-name above + the noteheads +
+    // the stem all visually belong to the highlighted column.
+    if (s === editingSlotIdx) {
+      // Soft amber tint behind the slot's column — chord name + notes
+      // + stem all read as belonging to the highlighted column.
+      slotInner += `<rect x="${cx - slotW/2 + 1}" y="0" width="${slotW - 2}" height="${H}" fill="#d4a843" opacity="0.14" rx="3"/>`;
+      // Stronger underline right above the staff (just below the chord
+      // name) so the user's eye can find which column is active even
+      // at a glance.
+      slotInner += `<line x1="${cx - slotW/2 + 2}" y1="${labelH - 1}" x2="${cx + slotW/2 - 2}" y2="${labelH - 1}" stroke="#d4a017" stroke-width="1.6" stroke-linecap="round"/>`;
+    }
     if (subMute[s]) {
       slotInner += drawRest(cx);
       slotStems.push(null);
@@ -18808,10 +18826,6 @@ function renderComposeStrip() {
     if (isTab) cls[0] = 'rb-tab-cell';
     const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
     if (i === focIdx) cls.push('current');
-    // Multi-chord cells get the same .current highlight when a slot is
-    // selected for editing — otherwise the cell looks the same as any
-    // other and the user can't tell which bar they're inside of.
-    if (i === state._multiChordEditCell) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
     // Section divider: at any captured boundary or at the legacy dividerAt
     // (cell 8) for hand-composed strips with content past it.
@@ -18971,6 +18985,10 @@ function renderComposeStrip() {
           // the snapshot path in that case.
           const allFilled = pianoSlots.every(p => p && p.shape);
           sizingPiano.slots = allFilled ? pianoSlots : null;
+          // Tell the staff renderer which slot (if any) is currently being
+          // edited so it can highlight just that slot — NOT the whole bar.
+          sizingPiano.editingSlotIdx = (state._multiChordEditCell === i)
+            ? (state._multiChordEditSlotIdx ?? -1) : -1;
           svg = renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano);
         } else {
           svg = state.instrument === 'piano'
