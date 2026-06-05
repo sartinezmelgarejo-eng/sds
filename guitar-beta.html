@@ -9241,13 +9241,28 @@ function renderChordMap() {
     card.addEventListener('click', (ev) => {
       // On touch devices, touchend already fires a manual cardToClick.click()
       // (untrusted) AND on some browsers a synthetic click (trusted) follows
-      // even though touchstart called preventDefault. The flag is set just
-      // before the manual click in the touchend handler — when the trusted
-      // duplicate arrives, swallow it so composeAddChord doesn't run twice.
+      // even though touchstart called preventDefault. We have to swallow
+      // whichever of the two arrives SECOND — and the order isn't guaranteed:
+      //   • Manual-first (A/B): touchend's flag catches the trusted one.
+      //   • Trusted-first (C — seen on some recent iOS Safari):
+      //     trusted runs before touchend ever fires, so the flag is still
+      //     false. We tag it here so the manual click that arrives a few ms
+      //     later sees the marker and bails.
       if (card._pendingSyntheticClick && ev.isTrusted) {
         card._pendingSyntheticClick = false;
         ev.stopPropagation();
         return;
+      }
+      if (card._trustedClickJustRan && !ev.isTrusted) {
+        card._trustedClickJustRan = false;
+        ev.stopPropagation();
+        return;
+      }
+      if (ev.isTrusted) {
+        card._trustedClickJustRan = true;
+        // Safety window: clear unconditionally a bit later so a real
+        // second tap (intentional double-add) isn't swallowed.
+        setTimeout(() => { card._trustedClickJustRan = false; }, 350);
       }
       const engaged = player.playing || player.paused;
       // Play view: audition the clicked chord without disturbing the
