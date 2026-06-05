@@ -6832,14 +6832,16 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   }
 
   // ── Key signature ──
-  // Drawn on EVERY bar so the reader doesn't lose track when scrolling
-  // through play mode, but with stronger opacity on the first bar of the
-  // row (where the clef sits) and very faint on the rest — like a ghost
-  // reminder rather than a re-statement. Per-note accidentals continue
-  // to print explicitly for now (Phase 1).
+  // Drawn on the FIRST bar of every visual row (`showClef` cells AND any
+  // other cell flagged `firstOfRow` by the caller) — never on mid-row
+  // bars. Real Real-Book convention: re-state the key on each new system,
+  // not on every bar. The actual clef glyph still prints only on the very
+  // first bar of the piece; subsequent rows get the key sig at a fainter
+  // opacity (ghost reminder) without re-stating the clef.
+  const firstOfRow = sizing?.firstOfRow !== undefined ? !!sizing.firstOfRow : showClef;
   let keySig = '';
   let keySigW = 0;
-  {
+  if (firstOfRow) {
     const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
                    : (typeof state !== 'undefined' && state ? state.keyPc : 0);
     const sigTonality = sizing?.tonality
@@ -6887,12 +6889,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
           ? (svgSharp(cx, yT, sigScale) + svgSharp(cx, yB, sigScale))
           : (svgFlat(cx, yT, sigScale)  + svgFlat(cx, yB, sigScale));
       }
-      // Wrap the whole armadura in a low-opacity group so it reads as
-      // background/legend, like the clef glyphs (which use opacity 0.72).
-      // First bar of the row (showClef) prints at 0.5 — easy to read.
-      // Subsequent bars print at 0.18 — a ghost reminder, present enough
-      // that the eye registers the key without competing with the notes.
-      const sigOp = showClef ? 0.5 : 0.18;
+      // Wrap in a low-opacity group so it reads as background/legend,
+      // like the clef glyphs (which use opacity 0.72). The bar that ALSO
+      // shows the clef prints at 0.5 (easy to read on the first system).
+      // Subsequent-row "ghost" restatements print at 0.3 — present enough
+      // to remind the reader of the key without competing with notes.
+      const sigOp = showClef ? 0.5 : 0.3;
       keySig = `<g opacity="${sigOp}">${keySigInner}</g>`;
     }
   }
@@ -14252,7 +14254,10 @@ class Player {
           slots: allFilled ? pianoSlots : null,
           // Pass the cell's key + tonality so the key signature reflects
           // modulations (a parallel-minor bridge will show its own armadura).
+          // firstOfRow = cell 0 of the visible 4-cell page → re-state the
+          // key sig on each new row, ghosted relative to the actual clef.
           keyPc: cellKeyPc, tonality: state.tonality,
+          firstOfRow: i === 0,
         };
         svg = renderChordStaff(shape, root, ch.quality, cellFlats, sizingPiano);
       } else if (isMultiTab) {
@@ -14284,7 +14289,7 @@ class Player {
       } else {
         svg = shape
           ? (state.instrument === 'piano'
-              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], keyPc: cellKeyPc, tonality: state.tonality})
+              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], keyPc: cellKeyPc, tonality: state.tonality, firstOfRow: i === 0})
               : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
           : '';
       }
@@ -18434,9 +18439,13 @@ function renderComposeStrip() {
       // name a few pixels to the right so the .rb-section-tag chip (which
       // sits at the cell's top-left in piano mode) doesn't overlap it.
       const sectionLabel = badgeByIdx[i] || null;
+      // firstOfRow: re-state the key sig on each visual row.
+      //   Mobile compose: 4-col grid → cells 0, 4, 8, … are first of row.
+      //   Desktop compose: single flex row → only cell 0.
+      const composeFirstOfRow = isMobile ? (i % 4 === 0) : (i === 0);
       const sizingPiano = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality}
-        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality};
+        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality, firstOfRow: composeFirstOfRow}
+        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality, firstOfRow: composeFirstOfRow};
       // Guitar mode now embeds the chord name + roman + tag inside the
       // SVG the same way the piano staff already does — single row of
       // cells, no separate name row above. Matches the unified-row
