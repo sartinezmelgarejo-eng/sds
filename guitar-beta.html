@@ -1829,6 +1829,27 @@
   body.instrument-piano .real-book.compose-interleaved > .rb-cell {
     display: none !important;
   }
+  /* Guitar mode (multichord lab): same logic as piano. The chord name
+     now lives inside the tab cell's SVG via renderMini's chordName
+     argument, so the separate chord-name row above is redundant. Hide
+     it in compose mode — one row of cells, each carrying its own
+     embedded chord-name label. Player-active path is unaffected (the
+     existing 'body.player-active .rb-row:first-child' rule already
+     handles play view). */
+  body:not(.instrument-piano):not(.player-active) .real-book:not(.compose-interleaved) {
+    display: none !important;
+  }
+  body:not(.instrument-piano):not(.player-active) .real-book.compose-interleaved > .rb-cell {
+    display: none !important;
+  }
+  /* Guitar compose: rb-cycle (the "no key cycle" pitch shifter) and
+     rb-loop sit at the right edge of each strip row, but they're
+     redundant — both functions live in the transport bar at the top.
+     Without them the strip cells get the full row width. */
+  body:not(.instrument-piano):not(.player-active) .rb-cycle,
+  body:not(.instrument-piano):not(.player-active) .rb-loop {
+    display: none !important;
+  }
   /* With chord-name cells out of the way, give each tab cell more vertical
      room — the staff and the embedded chord-name label breathe properly. */
   body.instrument-piano .real-book.compose-interleaved > .rb-tab-cell {
@@ -2042,6 +2063,25 @@
        Caps at 320px so the strip never eats too much of the viewport. */
     min-height: clamp(220px, 18vw, 320px);
   }
+  /* Compose desktop: match play-mode's vertical scale so multi-chord
+     horizontal-TAB stems breathe and single-chord diagrams have proper
+     room. Mobile compose uses .compose-interleaved (its own grid) and
+     has its own height inside the mobile @media block, so this rule is
+     scoped to >800px. Same clamp the play-mode rule above uses — the two
+     stay visually in sync. */
+  @media (min-width: 801px) {
+    body:not(.player-active) .real-book-tabs {
+      min-height: clamp(220px, 18vw, 320px);
+    }
+    /* Compact tier: >8 chords. Cells halve in width so the strip
+       should NOT keep the full 8-mode height — that produces tall+narrow
+       cells with awkward aspect (the "ridículo" the user pointed out at
+       16+ chords). Roughly half the clamp keeps cell aspect ~0.6. The
+       JS sets .compose-tier-compact on both rows. */
+    body:not(.player-active) .real-book-tabs.compose-tier-compact {
+      min-height: clamp(120px, 9vw, 160px);
+    }
+  }
   /* ── Desktop play mode: keep rb-area self-contained ──
      • flex-shrink:0 prevents the bar from being squeezed by <main>.
      • overflow:hidden stops player-info content from overflowing
@@ -2125,8 +2165,13 @@
     width: max-content;
     flex: 0 0 auto;
   }
-  body:not(.player-active) .real-book.compose-hscroll > .rb-cell { flex: 0 0 90px; min-width: 90px; }
-  body:not(.player-active) .real-book-tabs.compose-hscroll > .rb-tab-cell { flex: 0 0 90px; min-width: 90px; }
+  /* In hscroll mode each cell sits at ~viewport/16 so cells past 16
+     chords stay the SAME width as in the no-scroll 16-cell mode — no
+     more "se sigue apretando" feel as the user types past 16. clamp
+     keeps small desktops at 90px (16×90 still overflows naturally) and
+     wide desktops capped at 130px so the strip doesn't look sparse. */
+  body:not(.player-active) .real-book.compose-hscroll > .rb-cell { flex: 0 0 clamp(90px, 6vw, 130px); min-width: 90px; }
+  body:not(.player-active) .real-book-tabs.compose-hscroll > .rb-tab-cell { flex: 0 0 clamp(90px, 6vw, 130px); min-width: 90px; }
   /* Visual divider between compose section A (cells 0–7) and B (cells 8–15) */
   .rb-cell.section-divider, .rb-tab-cell.section-divider {
     border-left: 3px double #a07820;
@@ -2431,7 +2476,16 @@
   /* SVG fills the full cell width — the chord diagram letterboxes to its own
      aspect so the dots stay round, but the visible footprint matches the
      chord-name cell above for clean column alignment. */
-  .rb-tab-cell svg { width: 100%; height: 100%; display: block; }
+  .rb-tab-cell svg {
+    width: 100%; height: 100%; display: block;
+    /* Clip any content extended past the SVG's CSS box back to its bounds.
+       Used by the horizontal TAB renderer where staff lines are drawn far
+       past the viewBox (with overflow="visible" on the SVG) so they reach
+       the cell's left/right edges — clip-path then re-clips them at the
+       SVG's own border. Lets the subdiv-triangle badge that hangs at
+       bottom:-9px stay visible (cell overflow stays default). */
+    clip-path: inset(0);
+  }
   .real-book[hidden] { display: none; }
   .rb-loop {
     height: 150px;    /* matches the tabs row height — sits on the bottom row */
@@ -2621,6 +2675,48 @@
   /* ─── Rhythm subdivisions: number badge picker + segment bar per cell ─── */
   /* Small pill-shaped badge with the count inside, hanging at the bottom
      edge of the cell. Always visible — default count = 1. */
+  /* Multi-chord chip — top-right corner of a tab cell. Tapping it
+     enters "multi-chord edit" mode for that bar: if subdivisions are
+     still at 1, bumps them to 2 and initializes a slots array; the
+     second slot is automatically selected so the next chord-button
+     press fills it. Visually distinct from the subdiv-triangle (which
+     lives at bottom-center) and from the section badge (top-left). */
+  .multichord-chip {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    border: 1.4px solid var(--accent);
+    border-radius: 50%;
+    background: #fdfcf3;
+    color: var(--accent);
+    font-family: 'SF Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+    padding: 0;
+    z-index: 6;
+  }
+  .multichord-chip:hover { opacity: 1; }
+  .multichord-chip.active {
+    opacity: 1;
+    background: var(--accent);
+    color: #fdfcf3;
+  }
+  /* When a cell is in multi-chord edit mode, glow its selected slot
+     index in the chip. */
+  .multichord-chip.editing {
+    opacity: 1;
+    background: #d4a017;
+    border-color: #d4a017;
+    color: #1a1a1a;
+    box-shadow: 0 0 8px rgba(212,160,23,0.55);
+  }
   .subdiv-triangle {
     position: absolute;
     bottom: -9px;
@@ -5520,6 +5616,29 @@ function intervalColor(label) {
 function noteAt(s, f) { return (STRING_OPEN_MIDI[s] + f) % 12; }
 function nameOf(pc, useFlats) { return (useFlats ? FLAT_NAMES : SHARP_NAMES)[pc]; }
 
+// Real-Book-style symbol substitutions for compactness. ONLY applied to
+// multi-chord cells (caller decides) — single-chord cells keep the full
+// spelling so the chord name reads at a glance without symbol-recognition.
+//   maj7  → Δ  (triangle alone implies the 7th)
+//   maj9  → Δ9, maj11 → Δ11, maj13 → Δ13
+//   m7b5  → ø  (half-diminished)
+//   dim7  → °7
+//   dim   → °
+// Order matters: longer/more-specific replacements first so "maj7" doesn't
+// chew the "7" out of "maj13".
+function symbolizeChordName(name) {
+  if (!name) return name;
+  return name
+    .replace(/maj13/g, 'Δ13')
+    .replace(/maj11/g, 'Δ11')
+    .replace(/maj9/g,  'Δ9')
+    .replace(/maj7/g,  'Δ')
+    .replace(/m7b5/g,  'ø')
+    .replace(/m7♭5/g, 'ø')
+    .replace(/dim7/g,  '°7')
+    .replace(/dim/g,   '°');
+}
+
 // Ordered degradation rules per quality. Rules are checked top-down; the
 // first one whose `missingInts` are ALL absent from the voicing wins, and
 // its `suffix` replaces the canonical one. Roman / tag don't change.
@@ -5602,7 +5721,40 @@ function chordNameForVoicing(quality, root, shape, flats) {
   }
   return null;
 }
-function useFlatsFor(pc) { return ROOTS[pc].prefer === 'flat'; }
+function useFlatsFor(pc) {
+  // Clamp into the valid 0..11 range so callers feeding raw arithmetic
+  // (which can go negative in JS modulo) don't blow up on ROOTS[undefined].
+  const i = (((pc | 0) % 12) + 12) % 12;
+  const r = ROOTS[i];
+  return !!(r && r.prefer === 'flat');
+}
+
+// Key signature lookup, keyed by MAJOR-key tonic pc.
+// Each entry: { count: 0-7, type: '' | '#' | 'b' }.
+// Picks the conventional spelling for ambiguous pcs (Db over C#, F# over Gb,
+// B over Cb) — matches what the ROOTS prefer flag says for those tonics.
+const MAJOR_SIG = {
+  0:  { count: 0, type: ''  },   // C
+  1:  { count: 5, type: 'b' },   // Db
+  2:  { count: 2, type: '#' },   // D
+  3:  { count: 3, type: 'b' },   // Eb
+  4:  { count: 4, type: '#' },   // E
+  5:  { count: 1, type: 'b' },   // F
+  6:  { count: 6, type: '#' },   // F#
+  7:  { count: 1, type: '#' },   // G
+  8:  { count: 4, type: 'b' },   // Ab
+  9:  { count: 3, type: '#' },   // A
+  10: { count: 2, type: 'b' },   // Bb
+  11: { count: 5, type: '#' },   // B
+};
+
+// Key signature for any tonic + tonality. Minor keys use the relative major's
+// signature (relative major sits a minor third UP from the tonic in pc terms,
+// e.g. A minor → C major, both with 0 accidentals).
+function getKeySig(keyPc, tonality) {
+  const refPc = (tonality === 'minor') ? ((keyPc + 3) % 12) : ((keyPc % 12 + 12) % 12);
+  return MAJOR_SIG[refPc] || { count: 0, type: '' };
+}
 
 /* ─── Drop-2 generator ─── */
 
@@ -6194,6 +6346,15 @@ const state = {
   // adding a chord / cycling inversions / Backspace target this cell instead
   // of appending to the end. null = append mode (default).
   composedSelectedIdx: null,
+  // Multi-chord edit state: when the user taps the multichord-chip on a
+  // compose cell, that cell enters edit mode and the next chord button
+  // press writes into the selected slot index instead of appending. Slots
+  // live on the cell itself (cell.slots = [...]) so playback can read
+  // them without consulting this state. _multiChordEditCell = i and
+  // _multiChordEditSlotIdx = j point at cell i, slot j as the active
+  // write target. Both null when no cell is being edited.
+  _multiChordEditCell: null,
+  _multiChordEditSlotIdx: null,
   // Strategy used by the "auto" card and by composeAddChord's default pick.
   // Cycles via the auto card click: smoothest → low → high → random → ...
   autoStrategy: 'smoothest',
@@ -6505,16 +6666,34 @@ function bassClefSVG(cx, fLineY, lineSp, minimal) {
    ════════════════════════════════════════════════════════════ */
 function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   if (!shape) return '';
-  const q = QUALITIES[quality];
-  const pcToDeg = {};
-  q.ints.forEach((semi, i) => {
-    const pc = ((rootPc + semi) % 12 + 12) % 12;
-    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
-  });
-  const midis = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+  // Multi-chord mode: when sizing.slots is provided and its length matches
+  // subdivisions, each slot draws its OWN chord's notes (per-slot shape +
+  // root + quality). For single-chord cells slots is null and every slot
+  // uses the main (shape, rootPc, quality) — existing behavior preserved.
+  const subNEarly = Math.max(1, sizing?.subdivisions || 1);
+  const slotChords = (sizing?.slots && sizing.slots.length === subNEarly)
+    ? sizing.slots
+    : null;
+  // Base chord — used for slot 0 and as fallback for slots without their
+  // own data. For multi-chord cells we still want valid base data so the
+  // staff geometry, C-hint detection, etc. have something to chew on.
+  const baseShape   = slotChords ? slotChords[0].shape   : shape;
+  const baseRoot    = slotChords ? slotChords[0].root    : rootPc;
+  const baseQuality = slotChords ? slotChords[0].quality : quality;
+  const q = QUALITIES[baseQuality];
+  if (!q) return '';
+  const midis = baseShape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
                      .filter(x => x !== null)
                      .sort((a, b) => a - b);
   if (!midis.length) return '';
+  // pcToDeg is computed per-slot inside the helper below — for the base
+  // case we still need one for accidental memory / coloring. Built once
+  // here, then overridden per slot when multi-chord.
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((baseRoot + semi) % 12 + 12) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
 
   const W = sizing?.W || 100;
   const H = sizing?.H || 82;
@@ -6558,21 +6737,110 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   };
   const stepInOctave = {C:0, D:1, E:2, F:3, G:4, A:5, B:6};
 
-  const positions = midis.map((midi) => {
-    const pc = ((midi % 12) + 12) % 12;
-    const octave = Math.floor(midi / 12) - 1;
-    const name = noteLetterFromPc(pc, flats);
-    const letter = name.charAt(0);
-    const acc = name.length > 1 ? name.charAt(1) : '';
-    const step = (octave - 4) * 7 + stepInOctave[letter];   // 0 at C4
-    // MIDI >= 60 → treble. Below → bass. (Middle C lives on first ledger
-    // below treble; B3 and below sit on bass.)
-    const useTreble = midi >= 60;
-    const y = useTreble
-      ? trebleBotY + lineSp - step * 0.5 * lineSp
-      : bassTopY + (-step - 2) * 0.5 * lineSp;
-    return { midi, pc, acc, letter, step, useTreble, y };
-  });
+  // Build {pcToDeg, midis, positions, offsetX} for a chord (shape+root+qual).
+  // Returns null if the shape produces no notes. Used for the base chord and,
+  // when sizing.slots is set, per-slot to vary notes across the bar without
+  // changing the staff layout itself.
+  const buildSlotChord = (shp, root, qual) => {
+    const qq = QUALITIES[qual];
+    if (!qq) return null;
+    const slotPcToDeg = {};
+    qq.ints.forEach((semi, i) => {
+      const pc = ((root + semi) % 12 + 12) % 12;
+      if (!(pc in slotPcToDeg)) slotPcToDeg[pc] = qq.degs[i];
+    });
+    const slotMidis = shp.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+                         .filter(x => x !== null)
+                         .sort((a, b) => a - b);
+    if (!slotMidis.length) return null;
+    // Note spelling follows DEGREES inside the chord — each chord tone gets
+    // a letter derived from the root letter + diatonic offset for its
+    // degree (R=0, 3=+2, 5=+4, 7=+6 letters), then the accidental falls
+    // out of the semitone difference. So Cm's b3 stays Eb (not D#),
+    // Bdim's b5 stays F (not E#), and a Db7's b7 stays Cb. Notes that
+    // aren't chord tones (rare on a chord-only staff but possible if the
+    // shape sneaks in a passing pc) fall back to the cell-key sharp/flat
+    // side.
+    //
+    // The ROOT letter follows the CELL's key (passed-in `flats`), NOT
+    // the root pc's intrinsic preference. Otherwise a root like A# in
+    // F# major (pc 10, which useFlatsFor would say is "Bb") spells the
+    // chord with the wrong letter set and every note ends up with a
+    // bogus accidental against the F# major key sig.
+    const useFlatForRoot = !!flats;
+    const rootName = noteLetterFromPc(root, useFlatForRoot);
+    const rootLetter = rootName.charAt(0);
+    const LETTERS_ORDER = ['C','D','E','F','G','A','B'];
+    const LETTER_TO_PC  = {C:0, D:2, E:4, F:5, G:7, A:9, B:11};
+    const rootLetterIdx = LETTERS_ORDER.indexOf(rootLetter);
+    const letterAccForDegree = (degree, pc) => {
+      // Diatonic step from root letter: 'R' / '3' / 'b3' / '#5' / 'b7' /
+      // 'maj7' / '9' / '#11' / 'b13' all parse to a digit (1, 3, 5, 7,
+      // 9, 11, 13), which collapses mod 7 to the letter offset.
+      let digit = 1;
+      if (degree !== 'R') {
+        const m = degree.match(/(\d+)/);
+        if (m) digit = parseInt(m[1], 10);
+      }
+      const offset = (digit - 1) % 7;
+      const targetLetterIdx = (rootLetterIdx + offset) % 7;
+      const targetLetter = LETTERS_ORDER[targetLetterIdx];
+      const naturalPc = LETTER_TO_PC[targetLetter];
+      // Signed semitone diff in [-6, +6] range so ±1 sharps/flats fall out
+      // naturally even when the natural pc wraps past 12.
+      let diff = (((pc - naturalPc) % 12) + 12) % 12;
+      if (diff > 6) diff -= 12;
+      let acc = '';
+      if (diff === 1)       acc = '#';
+      else if (diff === -1) acc = 'b';
+      else if (diff !== 0)  return null;   // double accidental → fall back
+      return { letter: targetLetter, acc };
+    };
+    const slotPos = slotMidis.map((midi) => {
+      const pc = ((midi % 12) + 12) % 12;
+      const octave = Math.floor(midi / 12) - 1;
+      const deg = slotPcToDeg[pc];
+      let letter, acc;
+      const la = deg ? letterAccForDegree(deg, pc) : null;
+      if (la) {
+        letter = la.letter;
+        acc = la.acc;
+      } else {
+        const name = noteLetterFromPc(pc, useFlatForRoot);
+        letter = name.charAt(0);
+        acc = name.length > 1 ? name.charAt(1) : '';
+      }
+      const step = (octave - 4) * 7 + stepInOctave[letter];
+      const useTreble = midi >= 60;
+      const y = useTreble
+        ? trebleBotY + lineSp - step * 0.5 * lineSp
+        : bassTopY + (-step - 2) * 0.5 * lineSp;
+      return { midi, pc, acc, letter, step, useTreble, y };
+    });
+    const slotOff = {};
+    for (let i = 1; i < slotPos.length; i++) {
+      if (Math.abs(slotPos[i].step - slotPos[i - 1].step) <= 1
+          && slotOff[i - 1] === undefined) {
+        // Magnitude only — the SIGN is applied per slot in the render loop
+        // based on stem direction (opposite side of stem from regular notes).
+        // ≈ 2.1·noteR so the displaced notehead's inner edge kisses the stem.
+        slotOff[i] = lineSp * 1.1;
+      }
+    }
+    return { pcToDeg: slotPcToDeg, midis: slotMidis, positions: slotPos, offsetX: slotOff };
+  };
+  const baseData = buildSlotChord(baseShape, baseRoot, baseQuality);
+  if (!baseData) return '';
+  const positions = baseData.positions;
+  // Per-slot accessor — base for single-chord cells; per-slot when slotChords
+  // is provided (multi-chord bar). Falls back to base on missing data so the
+  // staff still renders something rather than going blank.
+  const getSlotData = (s) => {
+    if (!slotChords) return baseData;
+    const slot = slotChords[s];
+    if (!slot) return baseData;
+    return buildSlotChord(slot.shape, slot.root, slot.quality) || baseData;
+  };
 
   // 5 staff lines per staff — extend the FULL width of the cell so adjacent
   // cells' staves visually connect (continuous score look). The vertical bar
@@ -6620,16 +6888,98 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
          + bassClefSVG(cx, bassClefY, lineSp, !!sizing?.minimal);
   }
 
+  // ── Key signature ──
+  // Drawn on the FIRST bar of every visual row (`showClef` cells AND any
+  // other cell flagged `firstOfRow` by the caller) — never on mid-row
+  // bars. Real Real-Book convention: re-state the key on each new system,
+  // not on every bar. The actual clef glyph still prints only on the very
+  // first bar of the piece; subsequent rows get the key sig at a fainter
+  // opacity (ghost reminder) without re-stating the clef.
+  const firstOfRow = sizing?.firstOfRow !== undefined ? !!sizing.firstOfRow : showClef;
+  // Compute key signature info up-front so we can also USE it to suppress
+  // per-note accidentals that already appear in the armadura (Phase 2).
+  const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
+                 : (typeof state !== 'undefined' && state ? state.keyPc : 0);
+  const sigTonality = sizing?.tonality
+                   || (typeof state !== 'undefined' && state ? state.tonality : 'major');
+  const sig = getKeySig(sigKeyPc, sigTonality);
+  // Letters that carry the key-sig accidental. Used inside the slot loop
+  // to decide whether to draw a per-note accidental, naturalize a key-sig
+  // letter that's sounding without its accidental, or print nothing.
+  const SHARP_LETTERS_ORDER = ['F','C','G','D','A','E','B'];
+  const FLAT_LETTERS_ORDER  = ['B','E','A','D','G','C','F'];
+  const sigLetters = sig.type === '#' ? SHARP_LETTERS_ORDER.slice(0, sig.count)
+                   : sig.type === 'b' ? FLAT_LETTERS_ORDER.slice(0, sig.count)
+                   : [];
+  const sigLetterSet = new Set(sigLetters);
+  let keySig = '';
+  let keySigW = 0;
+  if (firstOfRow) {
+    if (sig.count > 0) {
+      // Order of accidentals in a standard key signature, with their
+      // conventional staff positions (octave per accidental).
+      // Treble + bass positions are computed via the same step→y formula
+      // the noteheads use, so glyphs land on the correct staff line/space
+      // for each clef without hard-coding y values.
+      const SHARP_ORDER = [
+        ['F', 5, 3], ['C', 5, 3], ['G', 5, 3], ['D', 5, 3],
+        ['A', 4, 3], ['E', 5, 3], ['B', 4, 3],
+      ];
+      const FLAT_ORDER = [
+        ['B', 4, 3], ['E', 5, 3], ['A', 4, 3], ['D', 5, 3],
+        ['G', 4, 3], ['C', 5, 3], ['F', 5, 3],
+      ];
+      const order = sig.type === '#' ? SHARP_ORDER : FLAT_ORDER;
+      const yFor = (letter, octave, useTreble) => {
+        const step = (octave - 4) * 7 + stepInOctave[letter];
+        return useTreble
+          ? trebleBotY + lineSp - step * 0.5 * lineSp
+          : bassTopY + (-step - 2) * 0.5 * lineSp;
+      };
+      // Key-sig glyphs print SMALLER than per-note accidentals — they're a
+      // legend at the top of the staff, not a hot-take in the middle of a
+      // chord. Pass scale=0.7 to svgSharp/svgFlat (drawn smaller) and keep
+      // the per-glyph horizontal step proportional so the whole sig stays
+      // compact next to the clef.
+      const sigScale = 0.7;
+      const stepX = sig.type === '#'
+        ? lineSp * 0.55
+        : lineSp * 0.50;
+      const startX = clefW + (sizing?.minimal ? 2 : 3);
+      keySigW = sig.count * stepX + (sizing?.minimal ? 2 : 3);
+      let keySigInner = '';
+      for (let i = 0; i < sig.count; i++) {
+        const [letter, trebOct, bassOct] = order[i];
+        const cx = startX + i * stepX + stepX * 0.5;
+        const yT = yFor(letter, trebOct, true);
+        const yB = yFor(letter, bassOct, false);
+        keySigInner += (sig.type === '#')
+          ? (svgSharp(cx, yT, sigScale) + svgSharp(cx, yB, sigScale))
+          : (svgFlat(cx, yT, sigScale)  + svgFlat(cx, yB, sigScale));
+      }
+      // Wrap in a low-opacity group so it reads as background/legend,
+      // like the clef glyphs (which use opacity 0.72). The bar that ALSO
+      // shows the clef prints at 0.5 (easy to read on the first system).
+      // Subsequent-row "ghost" restatements print at 0.3 — present enough
+      // to remind the reader of the key without competing with notes.
+      const sigOp = showClef ? 0.5 : 0.3;
+      keySig = `<g opacity="${sigOp}">${keySigInner}</g>`;
+    }
+  }
+
   // Ledger lines — drawn later, per-slot, inside the notes loop so each
   // slot's chord stack has its own short ledger lines aligned with its
   // noteheads. Empty string here; appended to `notes` below.
   let ledgers = '';
-  // Helper: ledger lines for a single slot, centered on cx, based on the
-  // current `positions` (same chord plays at every slot). Deduped per slot.
-  const ledgersForSlot = (cx) => {
+  // Helper: ledger lines for a single slot, centered on cx. Takes an
+  // optional positions override so multi-chord cells can ledger per-slot
+  // (each slot's own chord may extend above/below the staff differently).
+  // Deduped per slot.
+  const ledgersForSlot = (cx, slotPositions) => {
     let out = '';
     const seen = new Set();
-    for (const p of positions) {
+    const usePositions = slotPositions || positions;
+    for (const p of usePositions) {
       const staffTop = p.useTreble ? trebleTopY : bassTopY;
       const staffBot = staffTop + 4 * lineSp;
       if (p.y > staffBot + lineSp * 0.3) {
@@ -6661,45 +7011,63 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     return out;
   };
 
-  // Detect adjacent-stepwise pairs and offset one of them so noteheads don't overlap
-  const offsetX = {};   // index -> x-offset for displaced notes
-  for (let i = 1; i < positions.length; i++) {
-    if (Math.abs(positions[i].step - positions[i - 1].step) <= 1
-        && offsetX[i - 1] === undefined) {
-      offsetX[i] = lineSp * 1.5;   // shift this note to the right of stem
-    }
-  }
+  // offsetX is now per-chord — base cell uses baseData.offsetX; multi-chord
+  // cells get a fresh one per slot via getSlotData(s) inside the loop below.
+  const offsetX = baseData.offsetX;
 
   // ── Hand-drawn accidentals — cleaner than Unicode ♯ / ♭ at small sizes
-  function svgSharp(cx, cy) {
+  function svgSharp(cx, cy, scale = 1) {
     // Two vertical bars + two slightly upward-tilted thicker horizontal bars,
-    // sized to fit roughly two line-spacings tall (one above + one below note line)
-    const w = lineSp * 0.85;
-    const h = lineSp * 1.6;
+    // sized to fit roughly two line-spacings tall (one above + one below note line).
+    // `scale` shrinks the whole glyph — used by the key signature where the
+    // accidentals print smaller than per-note ones.
+    const w = lineSp * 0.85 * scale;
+    const h = lineSp * 1.6  * scale;
     const x0 = cx - w * 0.5, y0 = cy - h * 0.5;
+    const sw = Math.max(1.0, 1.0 * scale);
+    const cbw = Math.max(1.2, lineSp * 0.32 * scale);
     return [
-      // Vertical bars
-      `<line x1="${x0 + w*0.32}" y1="${y0 + h*0.06}" x2="${x0 + w*0.32}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="1.0" stroke-linecap="round"/>`,
-      `<line x1="${x0 + w*0.68}" y1="${y0 + h*0.06}" x2="${x0 + w*0.68}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="1.0" stroke-linecap="round"/>`,
-      // Two thick angled crossbars (slope up to the right, classic sharp look)
-      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.45}" x2="${x0 + w*0.95}" y2="${y0 + h*0.33}" stroke="#1a1a1a" stroke-width="${Math.max(1.6, lineSp*0.32)}" stroke-linecap="round"/>`,
-      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.72}" x2="${x0 + w*0.95}" y2="${y0 + h*0.60}" stroke="#1a1a1a" stroke-width="${Math.max(1.6, lineSp*0.32)}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.32}" y1="${y0 + h*0.06}" x2="${x0 + w*0.32}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.68}" y1="${y0 + h*0.06}" x2="${x0 + w*0.68}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.45}" x2="${x0 + w*0.95}" y2="${y0 + h*0.33}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.72}" x2="${x0 + w*0.95}" y2="${y0 + h*0.60}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
     ].join('');
   }
-  function svgFlat(cx, cy) {
-    // Vertical stem + a teardrop bulge on the lower right (the loop of a flat)
-    const h = lineSp * 1.9;
-    const x0 = cx - lineSp * 0.25, y0 = cy - h * 0.65;
-    const stemX = x0 + lineSp * 0.18;
+  function svgFlat(cx, cy, scale = 1) {
+    // Vertical stem + a teardrop bulge on the lower right (the loop of a flat).
+    const h  = lineSp * 1.9 * scale;
+    const ls = lineSp * scale;
+    const x0 = cx - ls * 0.25, y0 = cy - h * 0.65;
+    const stemX = x0 + ls * 0.18;
+    const sw = Math.max(1.0, 1.1 * scale);
     return [
-      `<line x1="${stemX}" y1="${y0}" x2="${stemX}" y2="${y0 + h * 0.95}" stroke="#1a1a1a" stroke-width="1.1" stroke-linecap="round"/>`,
-      // Loop (filled teardrop)
+      `<line x1="${stemX}" y1="${y0}" x2="${stemX}" y2="${y0 + h * 0.95}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
       `<path d="M ${stemX} ${y0 + h*0.55}
-                Q ${stemX + lineSp*1.0} ${y0 + h*0.50},
-                  ${stemX + lineSp*0.55} ${y0 + h*0.95}
-                Q ${stemX + lineSp*0.15} ${y0 + h*1.02},
+                Q ${stemX + ls*1.0} ${y0 + h*0.50},
+                  ${stemX + ls*0.55} ${y0 + h*0.95}
+                Q ${stemX + ls*0.15} ${y0 + h*1.02},
                   ${stemX} ${y0 + h*0.85} Z"
               fill="#1a1a1a"/>`,
+    ].join('');
+  }
+  function svgNatural(cx, cy, scale = 1) {
+    // Hand-drawn natural — two short vertical bars (left tall on top, right
+    // tall on bottom) with two tilted horizontal bars forming an inner
+    // parallelogram. Same visual weight as the sharp/flat helpers.
+    const w  = lineSp * 0.55 * scale;
+    const h  = lineSp * 1.6  * scale;
+    const x0 = cx - w * 0.5, y0 = cy - h * 0.5;
+    const sw  = Math.max(1.0, 1.0 * scale);
+    const cbw = Math.max(1.3, lineSp * 0.28 * scale);
+    return [
+      // Left vertical — from near top down to the middle horizontal
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.05}" x2="${x0 + w*0.25}" y2="${y0 + h*0.78}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      // Right vertical — from middle down to near bottom
+      `<line x1="${x0 + w*0.75}" y1="${y0 + h*0.22}" x2="${x0 + w*0.75}" y2="${y0 + h*0.95}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      // Top tilted crossbar (up to the right, classic natural look)
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.40}" x2="${x0 + w*0.75}" y2="${y0 + h*0.30}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
+      // Bottom tilted crossbar
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.65}" x2="${x0 + w*0.75}" y2="${y0 + h*0.55}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
     ].join('');
   }
 
@@ -6729,7 +7097,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Lay out slot positions across the available bar width. Leave room for
   // the clef at left and the bar-line at right. The first slot sits a
   // little after the clef space, subsequent slots are evenly spaced.
-  const barStartX = Math.max(clefW + accW + 6, W * 0.20);
+  const barStartX = Math.max(clefW + keySigW + accW + 6, W * 0.20);
   const barEndX   = W - 6;
   const barWidth  = barEndX - barStartX;
   const slotW     = barWidth / subN;
@@ -6817,12 +7185,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // treble line) the stem HANGS DOWN; otherwise it rises up. Matches
   // classical engraving convention applied to the combined grand staff.
   const slotStems = [];   // [{cx, endY, dir}] or null for muted slots
-  // Per-bar accidental memory: once a sharp/flat appears on a given pitch
-  // (identified by its staff y-position), subsequent slots in the same bar
-  // omit the accidental — standard music notation convention.
-  const accSeen = new Set();
+  // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
+  // effect at each y position. The baseline is the key signature (a letter
+  // in sigLetterSet defaults to sig.type). When a note's acc differs from
+  // whatever is currently established, we draw it AND record the change.
+  // This makes redundant accidentals disappear (note matches key sig =
+  // no glyph) and produces a natural sign on the first cancellation in
+  // the bar.
+  const accSeen = new Map();
 
   let notes = '';
+  // Track the union of all slots' positions so the tuplet bracket clears
+  // every slot's top notehead/stem (not just the base chord's).
+  const allSlotPositions = [];
   for (let s = 0; s < subN; s++) {
     const cx = slotX(s);
     let slotInner = '';
@@ -6830,38 +7205,65 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       slotInner += drawRest(cx);
       slotStems.push(null);
     } else {
-      slotInner += ledgersForSlot(cx);
-      positions.forEach((p, i) => {
-        const dx = offsetX[i] || 0;
+      // Per-slot chord data — base for single-chord cells, this slot's
+      // chord (shape+root+quality) for multi-chord cells.
+      const sd = getSlotData(s);
+      const sPos = sd.positions;
+      const sOff = sd.offsetX;
+      const sPcToDeg = sd.pcToDeg;
+      allSlotPositions.push(...sPos);
+      slotInner += ledgersForSlot(cx, sPos);
+      // Compute stem direction up-front so adjacent-step displacements can
+      // be drawn on the OPPOSITE side of the stem from the regular column
+      // (standard music-notation convention). E4 sits on the bottom treble
+      // line; if the top note is above E4 the stem hangs down (dir=1),
+      // otherwise it rises up (dir=-1).
+      const slotAllY = sPos.length ? sPos.map(p => p.y) : [];
+      const slotTopY = slotAllY.length ? Math.min(...slotAllY) : 0;
+      const slotBotY = slotAllY.length ? Math.max(...slotAllY) : 0;
+      const slotDir  = slotAllY.length ? (slotTopY < trebleBotY ? 1 : -1) : -1;
+      sPos.forEach((p, i) => {
+        // dir=1 (stem-down on the LEFT of cx)  → dx negative, displaced LEFT
+        // dir=-1 (stem-up on the RIGHT of cx) → dx positive, displaced RIGHT
+        const dx = sOff[i] ? sOff[i] * -slotDir : 0;
         const cxNote = cx + dx;
-        const deg = pcToDeg[p.pc];
+        const deg = sPcToDeg[p.pc];
         const isRoot = deg === 'R';
         const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
-        if (p.acc === '#' || p.acc === 'b') {
-          const key = `${p.acc}@${p.y.toFixed(2)}`;
-          if (!accSeen.has(key)) {
-            accSeen.add(key);
-            if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2, p.y);
-            else slotInner += svgFlat(cxNote - lineSp * 1.1, p.y);
-          }
+        // Decide whether this note needs an explicit accidental.
+        //   baseAcc  = what's "in effect" before any per-bar override. If
+        //              the letter is in the key sig, baseAcc = sig.type.
+        //   established = current per-bar state at this y (defaults to baseAcc).
+        //   noteAcc  = the spelling this note actually wants ('', '#' or 'b').
+        // If noteAcc !== established, we draw and update the establishment.
+        // No glyph needed otherwise — the key sig or a previous chromatic
+        // already covers it.
+        const yKey = p.y.toFixed(2);
+        const baseAcc = sigLetterSet.has(p.letter) ? sig.type : '';
+        const established = accSeen.has(yKey) ? accSeen.get(yKey) : baseAcc;
+        const noteAcc = p.acc;
+        if (noteAcc !== established) {
+          // For up-stem displacements (dx > 0) the displaced note sits to
+          // the RIGHT of the regular column, so its accidental at the
+          // standard position lands on top of the regular notehead. Shift
+          // it further left past the regular accidental column. Down-stem
+          // displacements (dx < 0) already moved the note + accidental
+          // into clear space, so no extra shift is needed.
+          const accShift = dx > 0 ? -(dx + lineSp * 1.1) : 0;
+          if (noteAcc === '#')      slotInner += svgSharp(cxNote - lineSp * 1.2 + accShift, p.y);
+          else if (noteAcc === 'b') slotInner += svgFlat(cxNote - lineSp * 1.1 + accShift, p.y);
+          else                       slotInner += svgNatural(cxNote - lineSp * 1.15 + accShift, p.y);
+          accSeen.set(yKey, noteAcc);
         }
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
-      if (hasStem && positions.length) {
-        const allY = positions.map(p => p.y);
-        const topY = Math.min(...allY);   // smallest y = highest pitch
-        const botY = Math.max(...allY);   // largest y = lowest pitch
-        // E4 sits on the bottom line of the treble clef (y = trebleBotY).
-        // If the topmost note is ABOVE E4, hang the stem downward so it
-        // doesn't collide with notes/ledgers above.
-        const e4Y = trebleBotY;
-        const dir = topY < e4Y ? 1 : -1;
+      if (hasStem && sPos.length) {
         const stemLen = lineSp * 3.2;
-        const stemX = cx + (dir === -1 ? noteR * 1.1 : -noteR * 1.1);
-        const y1 = dir === -1 ? botY : topY;
-        const y2 = dir === -1 ? (topY - stemLen) : (botY + stemLen);
+        const stemX = cx + (slotDir === -1 ? noteR * 1.1 : -noteR * 1.1);
+        const y1 = slotDir === -1 ? slotBotY : slotTopY;
+        const y2 = slotDir === -1 ? (slotTopY - stemLen) : (slotBotY + stemLen);
         slotInner += `<line x1="${stemX}" y1="${y1}" x2="${stemX}" y2="${y2}" stroke="#1a1a1a" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
-        slotStems.push({ cx: stemX, endY: y2, dir });
+        slotStems.push({ cx: stemX, endY: y2, dir: slotDir });
       } else {
         slotStems.push(null);
       }
@@ -6882,7 +7284,10 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     //   - stem-up   (low chord): the stem-end, which sits above the notes.
     // Low chords drag the bracket downward; a ceiling near the top staff
     // line keeps it from crowding the chord-name label above.
-    const allYbk     = positions.map(p => p.y);
+    // Use the union of all slots' positions so the bracket clears every
+    // slot's top notehead — multi-chord bars otherwise punch through.
+    const bkPos      = allSlotPositions.length ? allSlotPositions : positions;
+    const allYbk     = bkPos.map(p => p.y);
     const topNoteY   = allYbk.length ? Math.min(...allYbk) : trebleTopY;
     const botNoteY   = allYbk.length ? Math.max(...allYbk) : trebleBotY;
     const e4Ybk      = trebleBotY;                      // E4 = stem-flip threshold
@@ -6965,7 +7370,63 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     picardy:   '#b45309',
   };
   let nameSvg = '';
-  if (nameLabel) {
+  if (slotChords) {
+    // Multi-chord bar — one chord name above each slot's column, colored by
+    // the slot's function tag. The label row sits ABOVE the staff, so it
+    // doesn't need to respect the note area's barStartX margin (which exists
+    // to leave room for the clef glyph). We reclaim the full cell width for
+    // chord names: only the clef itself (when present) and the section-tag
+    // chip (top-left) need clearance. This gives each name ~30% more
+    // horizontal room than the note slots have, so 3-4 chord bars fit
+    // without crowding.
+    const sectionShift = (sizing?.sectionLabel && !showClef) ? (sizing?.minimal ? 12 : 16) : 0;
+    const nameStartX = showClef ? clefW + 2 : 4 + sectionShift;
+    const nameEndX   = W - 4;
+    const nameSlotW  = (nameEndX - nameStartX) / subN;
+    const nameSlotX  = (s) => nameStartX + nameSlotW * (s + 0.5);
+    // Font size scales DOWN with slot count so adjacent names don't collide.
+    // At 2 slots each name has half the bar to breathe (italic Garamond,
+    // matches single-chord). At 3+ slots a condensed sans-serif so 4-5 char
+    // names like "Cmaj7" still fit. Longest name drives sizing so all match.
+    const longest = slotChords.reduce((m, sl) =>
+      sl && sl.chordName ? Math.max(m, sl.chordName.length) : m, 1);
+    // Per-char width ratios bumped from earlier draft — bold sans w/ Δ ø °
+    // symbols runs ~0.6·fs in practice, not the 0.48 we'd get from regular
+    // weight Latin text. 3+ slots tighten the slot budget so neighbour
+    // names don't kiss even with longer suffixes (Bm7 / F#m7 / Bm9).
+    const garamondRatio = 0.58;
+    const sansRatio     = 0.60;
+    const dense   = subN >= 3;
+    const fsCap   = dense ? (sizing?.minimal ? 11 : 14) : (sizing?.minimal ? 14 : 18);
+    const fsFloor = sizing?.minimal ? 7 : 8;
+    const budgetFactor = dense ? 0.72 : 0.92;
+    const garamondFs = Math.min(fsCap, (nameSlotW * budgetFactor) / longest / garamondRatio);
+    const garamondOk = !dense && garamondFs >= (sizing?.minimal ? 10 : 12);
+    const sansFs = Math.max(fsFloor,
+                   Math.min(fsCap, (nameSlotW * budgetFactor) / longest / sansRatio));
+    const useGaramond = garamondOk;
+    const nameFs = useGaramond ? garamondFs : sansFs;
+    const fontFamily = useGaramond
+      ? "'Cormorant Garamond', Georgia, serif"
+      : "system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+    const fontStyle = useGaramond ? 'italic' : 'normal';
+    const ty = labelH * 0.85;
+    const mutedArr = sizing?.subdivMute || [];
+    for (let s = 0; s < subN; s++) {
+      const slot = slotChords[s];
+      if (!slot || !slot.chordName) continue;
+      // Muted slot — hide the chord name too (the slot-loop above already
+      // drew a rest glyph instead of noteheads; the chord name lingering
+      // overhead would suggest the chord is still sounding).
+      if (mutedArr[s]) continue;
+      const fill = TAG_COLOR[slot.tag] || '#1a1a1a';
+      nameSvg += `<text x="${nameSlotX(s)}" y="${ty}" font-size="${nameFs.toFixed(2)}"
+                  text-anchor="middle"
+                  font-family="${fontFamily}"
+                  font-style="${fontStyle}" font-weight="700" fill="${fill}"
+                  letter-spacing="0">${slot.chordName}</text>`;
+    }
+  } else if (nameLabel) {
     // Match the on-screen size of guitar mode's .rb-chord pill (19 px).
     // With cell ~125 wide vs viewBox W=130, inner scale is ~0.96 — so
     // nameFs 20 renders ~19 px on screen, matching the rb-chord pill in
@@ -6995,7 +7456,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
-      ${nameSvg}${clef}${ledgers}${notes}
+      ${clef}${keySig}${ledgers}${notes}${nameSvg}
     </svg>
   </svg>`;
 }
@@ -7186,6 +7647,230 @@ function renderMini(shape, rootPc, quality, flats, sizing) {
                  letter-spacing="0.3"><tspan>${nameLabel}</tspan>${romanTspan}</text>`;
   }
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${nameSvg}${s}</svg>`;
+}
+
+/* ─── Horizontal TAB renderer ────────────────────────────────────
+   Used by multi-chord cells (cell.slots.length > 1 AND slots contain
+   different chords). Same visual language as renderChordStaff (the
+   piano sheet music renderer): 6 horizontal lines that extend the
+   FULL width of the cell so adjacent cells connect into a continuous
+   tab line, a thick brace at the left edge, a thin compás divider at
+   the right edge, and chord names positioned above each slot column
+   in italic serif.
+
+   Standard guitar TAB orientation:
+     line 0 (top)    = high e
+     line 1          = B
+     line 2          = G
+     line 3          = D
+     line 4          = A
+     line 5 (bottom) = low E
+   so shape index 0 (low E) renders at the BOTTOM line, index 5 (high e)
+   at the TOP. */
+function renderHorizontalTab(columns, sizing) {
+  if (!columns || !columns.length) return '';
+  const W = sizing?.W || 200;
+  const H = sizing?.H || 130;
+  const minimal = sizing?.minimal === true || sizing?.bwNotes === true;
+  const N = columns.length;
+
+  // ── Layout zones (top → bottom):
+  //   1. Chord names (italic Cormorant, one per slot)
+  //   2. Tuplet bracket — only when N > 1 (marks the rhythmic grouping)
+  //   3. Staff: 6 string lines spanning the full cell width
+  //   4. Stems extending below the bottom string
+  //   5. Padding
+  // Same visual language as the piano sheet music staff: cream paper +
+  // black ink, italic serif labels, vertical stems anchoring each
+  // chord-event, tuplet bracket for the bar's rhythmic identity.
+  const hasNames = columns.some(c => c.chordName);
+  const labelH = hasNames ? (minimal ? 22 : 34) : 0;
+  // Longest visible chord name drives the per-slot font scaling so the
+  // names never run into each other when one of them is long (Bm7b5,
+  // F#m7, Cmaj7…). Same idea as the piano staff multi-chord path.
+  const longestName = columns.reduce((m, c) =>
+    c && c.chordName ? Math.max(m, c.chordName.length) : m, 1);
+  const bracketH = N > 1 ? (minimal ? 14 : 18) : 0;
+  const gapBeforeStaff = minimal ? 6 : 10;
+  // Stems extend past the viewBox and get partially clipped — that's
+  // fine and what the user prefers, since it lets the staff itself be
+  // BIG (more lineSp, bigger fret numbers) inside the same viewBox.
+  // padBot is just enough to keep the bottom string off the SVG edge.
+  const stemLen = minimal ? 50 : 72;
+  const padBot = minimal ? 8 : 12;
+  const padTop = labelH + bracketH + gapBeforeStaff;
+  const staffH = H - padTop - padBot;
+  const lineSp = staffH / 5;            // 6 lines → 5 gaps
+  const staffTopY = padTop;
+  const staffBotY = padTop + 5 * lineSp;
+
+  // String-name labels at the leftmost edge — one per line, telling the
+  // player which guitar string each fret number sits on (lowercase 'e'
+  // = high e, uppercase 'E' = low E, conventional in printed tab books).
+  // Much more useful than abstract T-A-B clef letters when you're
+  // actually trying to play the chord.
+  const tabW = minimal ? 14 : 18;
+  const slotStartX = tabW + 4;
+  const slotEndX = W - 6;
+  const slotW = (slotEndX - slotStartX) / N;
+  const slotX = (s) => slotStartX + slotW * (s + 0.5);
+
+  const TAG_COLOR = {
+    tonic:'#059669', predom:'#a07820', dom:'#dc2626',
+    borrowed:'#9333ea', secondary:'#b45309', picardy:'#b45309',
+  };
+
+  let s = '';
+
+  // 6 string lines — extended FAR past the viewBox bounds so that
+  // preserveAspectRatio="meet" centering doesn't leave visible gaps
+  // between the lines' endpoints and the cell's left/right edges. The
+  // SVG element has overflow="visible" so the lines aren't clipped at
+  // the SVG bounds; the parent cell has overflow:hidden to keep them
+  // from bleeding into adjacent cells.
+  const EXT = 2000;
+  for (let i = 0; i < 6; i++) {
+    const y = staffTopY + i * lineSp;
+    s += `<line x1="${-EXT}" y1="${y}" x2="${W + EXT}" y2="${y}" stroke="#1a1a1a" stroke-width="0.6"/>`;
+  }
+  // No SVG-drawn final bar line — `.rb-tab-cell` already renders a
+  // 1.5px black border-right which IS the bar line. Drawing one inside
+  // the SVG too produced a visible doubled stroke in play mode (and was
+  // redundant in compose).
+
+  // String-name labels — one per line (top → bottom: e B G D A E).
+  // Italic Cormorant in a muted ink so they read as orientation rather
+  // than competing with the fret numbers.
+  const stringNames = ['e', 'B', 'G', 'D', 'A', 'E'];
+  const stringFs = minimal ? 9 : 12;
+  const tabCx = tabW * 0.5;
+  for (let i = 0; i < 6; i++) {
+    const y = staffTopY + i * lineSp;
+    s += `<text x="${tabCx}" y="${y + (minimal ? 3.5 : 4)}" text-anchor="middle"
+            font-size="${stringFs}" font-weight="700" font-style="italic"
+            font-family="'Cormorant Garamond', Georgia, serif" fill="#7a6e5a"
+            stroke="#fdfcf3" stroke-width="2.4" paint-order="stroke">${stringNames[i]}</text>`;
+  }
+
+  // Tuplet bracket above the staff (only when N > 1). Short verticals at
+  // first and last slot, horizontal bar joining them with a gap in the
+  // middle for the N number. Same convention as the piano's "3" bracket
+  // over triplets.
+  if (N > 1 && bracketH > 0) {
+    const bracketY = labelH + bracketH * 0.55;
+    const bx1 = slotX(0);
+    const bx2 = slotX(N - 1);
+    const midX = (bx1 + bx2) / 2;
+    const numW = minimal ? 7 : 9;
+    s += `<line x1="${bx1}" y1="${bracketY}" x2="${bx1}" y2="${bracketY + 4}" stroke="#1a1a1a" stroke-width="0.7" stroke-linecap="round"/>`;
+    s += `<line x1="${bx2}" y1="${bracketY}" x2="${bx2}" y2="${bracketY + 4}" stroke="#1a1a1a" stroke-width="0.7" stroke-linecap="round"/>`;
+    s += `<line x1="${bx1}" y1="${bracketY}" x2="${midX - numW}" y2="${bracketY}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    s += `<line x1="${midX + numW}" y1="${bracketY}" x2="${bx2}" y2="${bracketY}" stroke="#1a1a1a" stroke-width="0.7"/>`;
+    s += `<text x="${midX}" y="${bracketY + 4}" text-anchor="middle"
+            font-size="${minimal ? 11 : 13}" font-weight="700" font-style="italic"
+            font-family="'Cormorant Garamond', Georgia, serif" fill="#1a1a1a">${N}</text>`;
+  }
+
+  columns.forEach((col, ci) => {
+    const cx = slotX(ci);
+
+    // Muted slot — chord is "quitado": skip the chord name AND fret
+    // numbers/stem, draw a small rest glyph in the middle of the staff
+    // so the slot reads as silence. Editing underline still appears so
+    // the user can see which slot has focus while it's muted.
+    if (col.muted) {
+      const restFs = minimal ? 14 : 20;
+      s += `<text x="${cx}" y="${(staffTopY + staffBotY) / 2 + restFs * 0.3}" text-anchor="middle"
+              font-size="${restFs}" fill="#1a1a1a" opacity="0.45"
+              font-family="'Bravura Text','Petaluma','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola',serif">𝄽</text>`;
+      if (col.isEditing) {
+        const uw = slotW - 8;
+        const tyE = labelH * 0.78;
+        s += `<line x1="${cx - uw/2}" y1="${tyE + 4}" x2="${cx + uw/2}" y2="${tyE + 4}" stroke="#d4a017" stroke-width="1.6" stroke-linecap="round"/>`;
+      }
+      // Hit rect still goes below so the slot can be re-selected / un-muted
+      const slotLeftXM = slotStartX + ci * slotW;
+      s += `<rect x="${slotLeftXM}" y="0" width="${slotW}" height="${H}"
+              fill="rgba(0,0,0,0)" pointer-events="all"
+              data-multichord-slot="${ci}" style="cursor:pointer"/>`;
+      return;
+    }
+
+    // Chord name above this slot — italic Cormorant, big enough to be
+    // the headline. Colored by the chord's function tag (tonic=green,
+    // dom=red, predom=amber, etc.). Font size shrinks based on the
+    // LONGEST visible chord name + slot width so neighbouring names
+    // never run into each other. Italic Cormorant ≈ 0.55·fs per char;
+    // 0.88 of slotW gives a small gutter between names.
+    if (col.chordName) {
+      const ty = labelH * 0.78;
+      const fsCap   = minimal ? 16 : 22;
+      const fsFloor = minimal ? 9  : 11;
+      const ideal = (slotW * 0.88) / longestName / 0.55;
+      const nameFs = Math.max(fsFloor, Math.min(fsCap, ideal));
+      const nameColor = TAG_COLOR[col.tag] || '#1a1a1a';
+      s += `<text x="${cx}" y="${ty}" text-anchor="middle"
+              font-size="${nameFs.toFixed(2)}" font-family="'Cormorant Garamond', Georgia, serif"
+              font-style="italic" font-weight="700" fill="${nameColor}"
+              letter-spacing="0.2">${col.chordName}</text>`;
+      if (col.isEditing) {
+        const uw = Math.min(slotW - 8, col.chordName.length * (nameFs * 0.55));
+        s += `<line x1="${cx - uw/2}" y1="${ty + 4}" x2="${cx + uw/2}" y2="${ty + 4}" stroke="#d4a017" stroke-width="1.6" stroke-linecap="round"/>`;
+      }
+    }
+
+    // Fret numbers (the "noteheads") and stem. Bigger now so the user
+    // doesn't have to squint — they ARE the content, the lines just
+    // anchor them.
+    if (col.shape) {
+      const fontSize = minimal ? 18 : 26;
+      const dy = minimal ? 6 : 9;
+      let topY = Infinity;            // y of the topmost played fret (for stem anchor)
+      let hasAnyFret = false;
+      for (let str = 0; str < 6; str++) {
+        const displayIdx = 5 - str;
+        const y = staffTopY + displayIdx * lineSp;
+        const fret = col.shape[str];
+        if (fret < 0) {
+          s += `<text x="${cx}" y="${y + (minimal ? 4 : 4.5)}" text-anchor="middle"
+                  font-size="${minimal ? 10 : 12}"
+                  font-family="'Cormorant Garamond', Georgia, serif"
+                  font-style="italic" fill="#9a948a">×</text>`;
+        } else {
+          hasAnyFret = true;
+          if (y < topY) topY = y;
+          s += `<text x="${cx}" y="${y + dy}" text-anchor="middle"
+                  font-size="${fontSize}" font-weight="700"
+                  font-family="'Cormorant Garamond', Georgia, serif"
+                  fill="#1a1a1a">${fret}</text>`;
+        }
+      }
+      // Stem connects all played frets vertically — anchored at the TOP
+      // fret (the highest string the user is hitting in this chord) and
+      // running down PAST the bottom string by stemLen. Sits to the right
+      // of the number column so it doesn't cut through any digits. Same
+      // convention the piano staff uses: the stem is the chord's
+      // rhythmic spine, joining its noteheads visually.
+      if (hasAnyFret) {
+        const stemX = cx + (minimal ? 6 : 8);
+        const stemY1 = topY - (minimal ? 2 : 3);   // just above the top notehead
+        const stemY2 = staffBotY + stemLen;
+        s += `<line x1="${stemX}" y1="${stemY1}" x2="${stemX}" y2="${stemY2}" stroke="#1a1a1a" stroke-width="0.9" stroke-linecap="round" opacity="0.55"/>`;
+      }
+    }
+
+    // Invisible click target spanning this slot's column. Tapping it
+    // selects the slot for editing — the next chord button press writes
+    // into this slot, shift+number cycles its voicing. Drawn LAST in
+    // this slot's iteration so it sits on top of the rendered content
+    // and reliably receives the click.
+    const slotLeftX = slotStartX + ci * slotW;
+    s += `<rect x="${slotLeftX}" y="0" width="${slotW}" height="${H}"
+            fill="rgba(0,0,0,0)" pointer-events="all"
+            data-multichord-slot="${ci}" style="cursor:pointer"/>`;
+  });
+
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" overflow="visible">${s}</svg>`;
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -7450,9 +8135,17 @@ function _renderHoverPopups(chordId, allowedIds) {
   // Record whether this render is restricted so the mousemove guard can let
   // a direct hover on the same chord override with the full set of approaches.
   _hoverAllowedIds = allowedIds || null;
-  // Clear any prior hover popups — preserve persistent (clicked/active) cards.
-  Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
-  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow')).forEach(el => el.remove());
+  // Clear any prior hover popups — preserve persistent (clicked/active)
+  // cards AND partner-pinned ones (the still-clickable partner of a freshly
+  // composed ii→V→I chain step). Without :not(.partner-pinned) the next
+  // mousemove over the partner card would wipe it before the user could
+  // click it.
+  Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
+  // Preserve persistent (already-composed popup) AND partner-pinned arrows.
+  // Without these exclusions, the connector arrow of a composed secondary
+  // dominant would vanish the moment the cursor hovered any other chord —
+  // the card stayed (since it's .persistent), but its arrow blinked out.
+  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
   const map = currentMap();
   if (!map) return;
   // Find the target card's position from its node.
@@ -7561,10 +8254,15 @@ function _renderHoverPopups(chordId, allowedIds) {
         _hoverChordId = chordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
-          // ii → persistent (green pulse); V partners → normal hover (clickable).
+          // ii → persistent (green pulse); V partners → normal hover BUT
+          // marked .partner-pinned so the next mousemove over the popup
+          // (or over the parent map) doesn't wipe it via _clearHoverPopups.
+          // The pinned partner only goes away when the persistent ii does
+          // (see _clearPersistentPopup), so the user can click V next to
+          // complete the ii→V→I chain.
           el.className = snap.isIi
             ? snap.className + ' persistent'
-            : snap.className;
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -7584,7 +8282,13 @@ function _renderHoverPopups(chordId, allowedIds) {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          // Mark the re-injected arrow as partner-pinned too so the next
+          // mousemove / hover render doesn't wipe it. Tied to the persistent
+          // popup's lifetime via _clearPersistentPopup.
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
         return;
       }
 
@@ -7617,9 +8321,13 @@ function _renderHoverPopups(chordId, allowedIds) {
         _hoverChordId = chordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
+          // V = green persistent; ii partner = pinned hover so a mousemove
+          // doesn't immediately wipe it via _clearHoverPopups. Same fix as
+          // the ii-first path above — keeps the chain visible until the
+          // user either clicks ii to add it or composes elsewhere.
           el.className = snap.isV
-            ? snap.className + ' persistent'   // V = green
-            : snap.className;                   // ii partner = still clickable
+            ? snap.className + ' persistent'
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -7638,7 +8346,13 @@ function _renderHoverPopups(chordId, allowedIds) {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          // Mark the re-injected arrow as partner-pinned too so the next
+          // mousemove / hover render doesn't wipe it. Tied to the persistent
+          // popup's lifetime via _clearPersistentPopup.
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
         return;
       }
 
@@ -7792,9 +8506,11 @@ function _clearHoverPopups() {
   const wrap = document.getElementById('chord-map');
   const arrowsSvg = document.getElementById('map-arrows');
   if (wrap) {
-    // Only remove hover popups that AREN'T marked persistent — the
-    // clicked one stays as the "currently composing" active indicator.
-    Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent)')).forEach(el => el.remove());
+    // Only remove hover popups that AREN'T marked persistent OR pinned
+    // partner. The clicked one stays as the "currently composing" active
+    // indicator; pinned partners stay so the user can still complete the
+    // ii→V→I chain after composing the first step.
+    Array.from(wrap.querySelectorAll('.map-card.popup.hover:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
     // Target highlight only goes away if there's no persistent popup
     // for it — otherwise keep the gold ring so the relationship reads.
     Array.from(wrap.querySelectorAll('.map-card.hover-target')).forEach(c => {
@@ -7803,7 +8519,7 @@ function _clearHoverPopups() {
   }
   if (arrowsSvg) {
     // Same logic for arrows — keep the arrow tied to the persistent popup.
-    Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent)')).forEach(el => el.remove());
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow:not(.persistent):not(.partner-pinned)')).forEach(el => el.remove());
   }
   _hoverChordId = null;
   _hoverAllowedIds = null;
@@ -7816,9 +8532,16 @@ function _clearPersistentPopup() {
   const arrowsSvg = document.getElementById('map-arrows');
   if (wrap) {
     Array.from(wrap.querySelectorAll('.map-card.popup.persistent')).forEach(el => el.remove());
+    // Partner-pinned cards are tied to the persistent one — when the
+    // persistent goes, the partner should follow (the chain is no longer
+    // active so the unfilled half of the chain has no context).
+    Array.from(wrap.querySelectorAll('.map-card.popup.partner-pinned')).forEach(el => el.remove());
     Array.from(wrap.querySelectorAll('.map-card.hover-target')).forEach(c => c.classList.remove('hover-target'));
   }
-  if (arrowsSvg) Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
+  if (arrowsSvg) {
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow.persistent')).forEach(el => el.remove());
+    Array.from(arrowsSvg.querySelectorAll('.hover-arrow.partner-pinned')).forEach(el => el.remove());
+  }
   _persistentPopupChordId = null;
   _persistentPopupNode = null;
   _persistentPopupPos  = null;
@@ -8040,7 +8763,9 @@ function _setupChordMapTouch() {
         _hoverChordId = origChordId;
         snapCards.forEach(snap => {
           const el = document.createElement('div');
-          el.className = snap.isIi ? snap.className + ' persistent' : snap.className;
+          el.className = snap.isIi
+            ? snap.className + ' persistent'
+            : snap.className + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord = snap.appId;
           el.dataset.popup = '1';
@@ -8057,7 +8782,10 @@ function _setupChordMapTouch() {
           }
           mapWrap.appendChild(el);
         });
-        if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+        if (svgArrows) snapArrows.forEach(a => {
+          a.classList.add('partner-pinned');
+          svgArrows.appendChild(a);
+        });
       } else {
         const isSecondaryV = !!(chDefs[appId]?.sii && chDefs[chDefs[appId].sii]?.popup);
         if (isSecondaryV) {
@@ -8078,7 +8806,9 @@ function _setupChordMapTouch() {
           _hoverChordId = origChordId;
           snapCards.forEach(snap => {
             const el = document.createElement('div');
-            el.className = snap.isV ? snap.className + ' persistent' : snap.className;
+            el.className = snap.isV
+              ? snap.className + ' persistent'
+              : snap.className + ' partner-pinned';
             el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
             el.dataset.chord = snap.appId;
             el.dataset.popup = '1';
@@ -8095,7 +8825,10 @@ function _setupChordMapTouch() {
             }
             mapWrap.appendChild(el);
           });
-          if (svgArrows) snapArrows.forEach(a => svgArrows.appendChild(a));
+          if (svgArrows) snapArrows.forEach(a => {
+            a.classList.add('partner-pinned');
+            svgArrows.appendChild(a);
+          });
         } else {
           // Pre-apply persistent for instant green on touch (no blink).
           popUnder.classList.add('persistent');
@@ -9008,38 +9741,79 @@ function rebuildComposedShapesForCurrentKey() {
   const seq = state.composedProgression;
   if (!seq || !seq.length) return;
   const map = currentMap();
-  for (const cell of seq) {
-    const ch = map.chordDefs[cell.chord];
-    if (!ch) continue;                              // chord ID not in current tonality — leave stale
+  // Reusable per-entry rebuild — takes a "cell or slot" object that owns
+  // the same {chord, shape, _candIdx, voicingType, stringSetIdx, inversion,
+  // stringSet} shape, mutates it in-place against the current tonality.
+  // Returns true on success, false if the chord ID isn't valid here so the
+  // caller knows the entry stays stale.
+  const rebuildOne = (entry) => {
+    if (!entry || !entry.chord) return false;
+    const ch = map.chordDefs[entry.chord];
+    if (!ch) return false;
     const root = (state.keyPc + ch.deg) % 12;
-    // Use the FULL catalog (skip the guitar playability filter) so
-    // voicings defined while in piano mode keep their coordinate
-    // intact when the user transposes — even if the resulting shape
-    // would be too stretchy on guitar.
     const cands = allDistinctVoicings(ch.quality, root, { allShapes: true });
-    if (!cands.length) continue;
+    if (!cands.length) return false;
     let matchIdx = -1;
-    if (cell.voicingType) {
+    if (entry.voicingType) {
       matchIdx = cands.findIndex(c =>
-        c.type === cell.voicingType &&
-        c.stringSetIdx === cell.stringSetIdx &&
-        c.inversion === cell.inversion &&
-        c.stringSet === cell.stringSet
+        c.type === entry.voicingType &&
+        c.stringSetIdx === entry.stringSetIdx &&
+        c.inversion === entry.inversion &&
+        c.stringSet === entry.stringSet
       );
     }
     if (matchIdx < 0) {
-      // Legacy cell or coordinates not available in new key — fall back to
-      // clamping the old _candIdx, otherwise default to the first candidate.
-      matchIdx = (typeof cell._candIdx === 'number' && cell._candIdx >= 0 && cell._candIdx < cands.length)
-        ? cell._candIdx : 0;
+      matchIdx = (typeof entry._candIdx === 'number' && entry._candIdx >= 0 && entry._candIdx < cands.length)
+        ? entry._candIdx : 0;
     }
     const c = cands[matchIdx];
-    cell.shape = c.shape;
-    cell._candIdx = matchIdx;
-    cell.voicingType = c.type;
-    cell.stringSetIdx = c.stringSetIdx;
-    cell.inversion = c.inversion;
-    cell.stringSet = c.stringSet;
+    entry.shape = c.shape;
+    entry._candIdx = matchIdx;
+    entry.voicingType = c.type;
+    entry.stringSetIdx = c.stringSetIdx;
+    entry.inversion = c.inversion;
+    entry.stringSet = c.stringSet;
+    return true;
+  };
+  for (const cell of seq) {
+    rebuildOne(cell);
+    // Multi-chord cells store per-slot voicings independently — rebuild
+    // each slot too, otherwise switching tonality leaves slots with old
+    // shapes that no longer match their (now possibly invalid) chord ID.
+    if (cell && cell.slots && cell.slots.length) {
+      for (const slot of cell.slots) {
+        rebuildOne(slot);
+      }
+      // Re-mirror slot 0 onto the cell-level fields. If slot 0's chord ID
+      // doesn't exist in the new tonality, the cell already stayed stale
+      // from rebuildOne(cell) above — no double-write needed.
+      const s0 = cell.slots[0];
+      if (s0 && s0.chord && map.chordDefs[s0.chord]) {
+        cell.chord = s0.chord;
+        cell._candIdx = s0._candIdx;
+        cell.shape = s0.shape;
+        cell.voicingType = s0.voicingType;
+        cell.stringSetIdx = s0.stringSetIdx;
+        cell.inversion = s0.inversion;
+        cell.stringSet = s0.stringSet;
+      }
+    }
+  }
+  // Multi-chord edit state may point at a cell/slot whose chord no longer
+  // exists in the new tonality — clear it so the keypad falls back to the
+  // normal append flow instead of writing into a stale slot.
+  const editIdx = state._multiChordEditCell;
+  if (editIdx !== null && editIdx !== undefined && seq[editIdx]) {
+    const editCell = seq[editIdx];
+    const slotIdx = state._multiChordEditSlotIdx;
+    const editSlot = (editCell.slots && slotIdx >= 0 && slotIdx < editCell.slots.length)
+      ? editCell.slots[slotIdx] : null;
+    const stillValid = editSlot && editSlot.chord && map.chordDefs[editSlot.chord];
+    if (!stillValid) {
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      state._multiChordEditAutoAdvance = null;
+    }
   }
 }
 
@@ -10858,6 +11632,75 @@ const PROGRESSIONS = {
     {name:'Jobim Imaj7-bII7#11',          len:4,  steps:[
       {chord:'I',bars:2},{chord:'bII7',bars:2,qualityOverride:'7#11'},
     ]},
+    // ════════════════════════════════════════════════════════════════
+    // ─── Multi-chord bar progressions ───
+    // Idiomatic jazz/blues uses where two harmonic events live in a
+    // single bar — ii-V cells, Bird-style turnarounds, walking
+    // turnarounds. The `slots` field per step splits a bar into N
+    // equal-time chord events. AI playback picks per-slot voicings
+    // and the realistic guitar / piano animate the in-bar change.
+    // ════════════════════════════════════════════════════════════════
+    {name:'Bird-style turnaround',         len:8,  steps:[
+      {chord:'I',bars:1},
+      {chord:'V_vi',bars:1,slots:[{chord:'V_vi'},{chord:'vi'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+      {chord:'I',bars:1},
+      {chord:'V_iii',bars:1,slots:[{chord:'V_iii'},{chord:'iii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
+    {name:'Bird-style blues last 4',       len:12, steps:[
+      {chord:'I',bars:4,qualityOverride:'7'},
+      {chord:'IV',bars:2,qualityOverride:'7'},{chord:'I',bars:2,qualityOverride:'7'},
+      {chord:'iii',bars:1,slots:[{chord:'iii'},{chord:'V_ii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1,qualityOverride:'7',slots:[{chord:'I'},{chord:'V_vi'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+    ]},
+    {name:'Bossa ii-V chain',              len:8,  steps:[
+      {chord:'I',bars:1},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'iii',bars:1,slots:[{chord:'iii'},{chord:'V_ii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+      {chord:'bII7',bars:1,qualityOverride:'7#11'},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
+    // ── Gentle multi-chord / rest progressions ──
+    // Use the multi-chord bar (or a one-bar rest) ONCE per progression
+    // as a break-in-loop accent, not as the dominant texture. Subtle
+    // dynamics without overwhelming the listener.
+    {name:'Pop ballad V/V kick',           len:8,  steps:[
+      {chord:'I',bars:1},{chord:'V',bars:1},{chord:'vi',bars:1},{chord:'IV',bars:1},
+      {chord:'I',bars:1},{chord:'V',bars:1},
+      {chord:'V_V',bars:1,slots:[{chord:'V_V'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
+    {name:'Cinematic with ii-V cell',      len:8,  steps:[
+      {chord:'I',bars:1},{chord:'iii',bars:1},{chord:'IV',bars:2},
+      {chord:'vi',bars:1},{chord:'iii',bars:1},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
+    {name:'Walk-up with V→V/vi',           len:8,  steps:[
+      {chord:'I',bars:1},{chord:'iii',bars:1},{chord:'IV',bars:1},
+      {chord:'V',bars:1,slots:[{chord:'V'},{chord:'V_vi'}]},
+      {chord:'vi',bars:1},{chord:'iii',bars:1},{chord:'IV',bars:1},{chord:'V',bars:1},
+    ]},
+    {name:'Pop with breath',               len:8,  steps:[
+      {chord:'I',bars:1},{chord:'V',bars:1},{chord:'vi',bars:1},{chord:'IV',bars:1},
+      {chord:'I',bars:1},{chord:'V',bars:1},
+      {chord:null,bars:1,_silent:true},
+      {chord:'V',bars:1},
+    ]},
+    {name:'Slow turnaround ballad',        len:8,  steps:[
+      {chord:'I',bars:2},{chord:'IV',bars:1},{chord:'I',bars:1},
+      {chord:'vi',bars:1},{chord:'IV',bars:1},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
   ],
   minor: [
     // ─── 4-bar diatonic-only ───
@@ -10909,6 +11752,49 @@ const PROGRESSIONS = {
     ]},
     {name:'So What modal vamp',           len:16, steps:[
       {chord:'i',bars:16,qualityOverride:'m9'},
+    ]},
+    // ── Multi-chord bar progressions (minor) ──
+    // iiø-V7 cells are the bread-and-butter of minor-key jazz comping.
+    // Splitting them into half-bar slots gives a more idiomatic harmonic
+    // rhythm than the standard one-chord-per-bar reading.
+    {name:'Minor ii-V chain',              len:8,  steps:[
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'i',bars:1},
+      {chord:'V_iv',bars:1,slots:[{chord:'V_iv'},{chord:'iv'}]},
+      {chord:'iv',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'bII7'}]},
+      {chord:'V7',bars:1},
+      {chord:'i',bars:1},
+    ]},
+    {name:'Bossa noir',                    len:8,  steps:[
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'iv',bars:1},
+      {chord:'bVI',bars:1,slots:[{chord:'bVI'},{chord:'V7'}]},
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'bII7'}]},
+      {chord:'V7',bars:1,qualityOverride:'7alt'},
+      {chord:'i',bars:1},
+    ]},
+    // ── Gentle multi-chord / rest progressions (minor) ──
+    {name:'Minor folk with cell',          len:8,  steps:[
+      {chord:'i',bars:1},{chord:'bVI',bars:1},{chord:'iv',bars:1},{chord:'V7',bars:1},
+      {chord:'i',bars:1},{chord:'bVII',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'i',bars:1},
+    ]},
+    {name:'Brooding ballad rest',          len:8,  steps:[
+      {chord:'i',bars:1},{chord:'bVI',bars:1},{chord:'iv',bars:1},{chord:'V7',bars:1},
+      {chord:'i',bars:1},{chord:'iv',bars:1},
+      {chord:null,bars:1,_silent:true},
+      {chord:'V7',bars:1},
+    ]},
+    {name:'Andalusian with turn',          len:8,  steps:[
+      {chord:'i',bars:1},{chord:'bVII',bars:1},{chord:'bVI',bars:1},{chord:'V7',bars:1},
+      {chord:'i',bars:1},{chord:'bVII',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'i',bars:1},
     ]},
   ]
 };
@@ -11003,6 +11889,24 @@ const PROGRESSION_ROLES = {
   'Minor 12-bar blues':             ['blues'],
   'Stella opening (iiø-V7alt-iv)':  ['A'],
   'So What modal vamp':             ['B','C'],
+  // ─── Multi-chord progressions (used throughout) ───
+  // Bebop / bossa turnarounds with ii-V cells live mostly in A/B roles.
+  // Bird-style blues is self-contained jazz-blues.
+  'Bird-style turnaround':          ['A','B'],
+  'Bird-style blues last 4':        ['jazz-blues'],
+  'Bossa ii-V chain':               ['A','B'],
+  'Minor ii-V chain':               ['A','B'],
+  'Bossa noir':                     ['A','B'],
+  // ─── Gentle multi-chord / rest progressions ───
+  // Pop / cinematic / folk staples with a single accent — A-section friendly.
+  'Pop ballad V/V kick':            ['A'],
+  'Cinematic with ii-V cell':       ['B','C'],
+  'Walk-up with V→V/vi':            ['A','B'],
+  'Pop with breath':                ['A'],
+  'Slow turnaround ballad':         ['A'],
+  'Minor folk with cell':           ['A'],
+  'Brooding ballad rest':           ['A','B'],
+  'Andalusian with turn':           ['A','B'],
 };
 
 
@@ -11142,6 +12046,28 @@ const PROGRESSION_VOICING = {
   'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5},
   'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  extensions:1.2},
   'So What modal vamp':           {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0,  extensions:1.4},
+  // ─── Multi-chord progressions ───
+  // Jazz turnarounds: drop-2 dominant + a touch of drop-3 for the bebop feel.
+  'Bird-style turnaround':        {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
+  'Bird-style blues last 4':      {drop2:55, drop3:20, shell:15, triad:5,  sus:0, strum:5,  extensions:1.0},
+  // Bossa: drop-3 heavy (Romance pattern), more 9ths.
+  'Bossa ii-V chain':             {drop2:35, drop3:50, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3},
+  'Minor ii-V chain':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
+  'Bossa noir':                   {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3},
+  // ─── Gentle multi-chord / rest progressions ───
+  // Pop ballads: triads + strum dominate, the ii-V cell is the only jazz moment.
+  'Pop ballad V/V kick':          {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:45, extensions:0.2},
+  // Cinematic / modal: drop-2 / drop-3 balance with some color.
+  'Cinematic with ii-V cell':     {drop2:30, drop3:30, shell:15, triad:15, sus:0, strum:15},
+  'Walk-up with V→V/vi':          {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:10},
+  'Pop with breath':              {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:45, extensions:0.15},
+  'Slow turnaround ballad':       {drop2:35, drop3:15, shell:15, triad:25, sus:0, strum:15},
+  // Folk-leaning minor: triads + strum, slight bias to drop-3.
+  'Minor folk with cell':         {drop2:20, drop3:25, shell:10, triad:30, sus:0, strum:30, extensions:0.2},
+  // Brooding minor ballad: balanced drop-2/drop-3.
+  'Brooding ballad rest':         {drop2:35, drop3:30, shell:15, triad:15, sus:0, strum:15},
+  // Andalusian: classic flamenco/folk grip — triads + strum.
+  'Andalusian with turn':         {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.2},
 };
 
 // Weighted-random pick from a {family: weight} map. Sums weights and
@@ -11177,6 +12103,43 @@ class Player {
     this.bassOscillators = [];
     this.totalBars = 0;
     this._cachedPage = null;
+    // Multi-chord bars: which slot WITHIN the current bar is sounding right
+    // now. Updated by _triggerChord's per-slot setTimeouts so the display
+    // (now-playing card, landscape dashboard, map highlight) can follow each
+    // slot as the bar progresses. Stays at 0 for single-chord bars.
+    this.currentBarSlot = 0;
+  }
+
+  // Slot-aware versions of _currentChordId / _nextChordId for the DISPLAY
+  // side. The trigger path keeps using _currentChordId (which is bar-level)
+  // so the audio scheduler stays correct; only the visible chord cards and
+  // dashboard update per slot. For single-chord bars these fall through to
+  // the bar-level lookups and behavior is unchanged.
+  _currentDisplayChordId() {
+    this._ensurePagePlan();
+    const barInPage = this.totalBars % 4;
+    const planned = this._cachedPage?.[barInPage];
+    if (!planned || !planned.slots || planned.slots.length < 2) return this._currentChordId();
+    // Slot-aware regardless of whether chord IDs match across slots — the
+    // user can intentionally place the same chord in multiple slots and
+    // each strike should still highlight the right one.
+    const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
+    const slot = planned.slots[slotIdx];
+    return (slot && slot.chord) || planned.chord;
+  }
+  _nextDisplayChordId() {
+    this._ensurePagePlan();
+    const barInPage = this.totalBars % 4;
+    const planned = this._cachedPage?.[barInPage];
+    if (!planned || !planned.slots || planned.slots.length < 2) return this._nextChordId();
+    const slotIdx = Math.min(planned.slots.length - 1, this.currentBarSlot || 0);
+    // Mid-bar: next visible chord is the next non-muted slot in this bar.
+    for (let s = slotIdx + 1; s < planned.slots.length; s++) {
+      const sl = planned.slots[s];
+      if (sl && sl.chord) return sl.chord;
+    }
+    // Last slot — fall through to the bar-level next chord.
+    return this._nextChordId();
   }
 
   _pickBassPattern() {
@@ -11649,6 +12612,11 @@ class Player {
               composedShape: c.shape,
               subdivisions: c.subdivisions || 1,
               subdivMute: c.subdivMute ? [...c.subdivMute] : [],
+              // Multi-chord bars carry per-slot shape/chord/voicing so the
+              // scheduler can fire each slot with its OWN voicing. Cloned
+              // (not aliased) so later edits to the cell don't mutate the
+              // captured strip step.
+              slots: c.slots ? c.slots.map(sl => sl ? {...sl} : null) : null,
             });
           }
         }
@@ -11906,6 +12874,7 @@ class Player {
             composedShape: c.shape,
             subdivisions: c.subdivisions || 1,
             subdivMute: c.subdivMute ? [...c.subdivMute] : [],
+            slots: c.slots ? c.slots.map(sl => sl ? {...sl} : null) : null,
           });
         }
       }
@@ -12272,6 +13241,7 @@ class Player {
       this._subdivTimers.forEach(t => clearTimeout(t));
       this._subdivTimers = [];
     }
+    this.currentBarSlot = 0;
     state.playerVoicing = null;
     state.nextVoicing = null;
     state.progressionVoicings = {};
@@ -12504,6 +13474,10 @@ class Player {
     state.progressionVoicings[chordId] = { shape, type };
     this.previousShape = shape;
 
+    // Reset the in-bar slot index BEFORE predicting, so the prediction
+    // for multi-chord bars starts from slot 0 of the freshly-triggered
+    // bar (not from whatever slot we were on at end of previous bar).
+    this.currentBarSlot = 0;
     this._predictNextVoicing();
 
     const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
@@ -12519,11 +13493,29 @@ class Player {
     this._subdivTimers = [];
     const barDur = (60 / metronome.bpm) * 4;
 
+    // Multi-chord bar: per-slot voicings live on planned.slots. When at
+    // least two slots carry different chord IDs we use slot[s].shape for
+    // each slot's strike (instead of repeating `notes`, which is slot 0).
+    // Same-chord slots (single-chord cells with rhythmic subdivisions)
+    // skip this branch — `notes` is already correct for every slot.
+    const slotsArr = (planned && planned.slots && planned.slots.length === subN) ? planned.slots : null;
+    // Slots are the source of truth: if the cell has them, use per-slot
+    // shapes for playback regardless of whether chord IDs match between
+    // slots. Same-chord-different-inversion bars need per-slot voicings.
+    const slotsAreMulti = !!slotsArr;
+    const notesForSlot = (s) => {
+      if (!slotsAreMulti) return notes;
+      const sl = slotsArr[s];
+      if (!sl || !sl.shape) return notes;
+      return sl.shape.map((f, st) => f >= 0 ? STRING_OPEN_MIDI[st] + f : null).filter(x => x !== null);
+    };
+
     // Force re-attack: _triggerChord is only called at a NEW step boundary,
     // so even if the chord/voicing matches the previous step the strike fires
     // again. Continuations (bars > 1 in one step) never reach this path.
+    this.currentBarSlot = 0;
     if (!(subN > 1 && subMute[0])) {
-      chordDrone.start(notes, vol, true, t0);
+      chordDrone.start(notesForSlot(0), vol, true, t0);
     }
 
     if (subN > 1 && audioCtx) {
@@ -12534,11 +13526,55 @@ class Player {
         // oscillators, then it schedules the actual strike AT slotAudioTime.
         const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 30);
         const fireAt = slotAudioTime;
+        const slotNotes = notesForSlot(s);
+        const slotIdx  = s;
         const tid = setTimeout(() => {
-          chordDrone.start(notes, vol, true, fireAt);
+          // ─── PHASE 1: audio + state (sync, cheap, gets out of the way) ───
+          // Schedule the slot's audio strike FIRST and synchronously so the
+          // AudioContext queue doesn't get held up by main-thread paints.
+          chordDrone.start(slotNotes, vol, true, fireAt);
+          if (!slotsAreMulti) return;   // rhythmic subdivisions: no visual work
+          this.currentBarSlot = slotIdx;
+          // Update state.playerVoicing to the slot's own chord+shape so the
+          // realistic guitar neck animates the in-bar change. State writes
+          // are essentially free; the heavy DOM work below is what we defer.
+          const sl = slotsArr[slotIdx];
+          if (sl && sl.chord && sl.shape) {
+            state.playerVoicing = {
+              chord: sl.chord,
+              shape: sl.shape,
+              type: sl.voicingType || (state.playerVoicing && state.playerVoicing.type) || 'drop2',
+            };
+            state.focusedChord = sl.chord;
+          }
+          // ─── PHASE 2: visual repaints (deferred to next frame) ───
+          // requestAnimationFrame batches the chord-map rebuild, fretboard,
+          // chord-neck, and piano repaint onto the next browser paint pass —
+          // the main thread returns immediately after audio scheduling, so
+          // subsequent audio events (the NEXT slot's setTimeout, sample-
+          // accurate drone notes) aren't blocked by 10-30ms of DOM work.
+          // The visible change still lands within ~one frame (≤16 ms), so
+          // the in-bar animation feels just as tight as before.
+          requestAnimationFrame(() => {
+            this._predictNextVoicing();
+            if (typeof this._updateVisuals === 'function') this._updateVisuals();
+            if (typeof repaintChordNeckNotes === 'function') repaintChordNeckNotes();
+            if (typeof paintPianoNotes === 'function') paintPianoNotes();
+          });
         }, wallWait);
         this._subdivTimers.push(tid);
       }
+    }
+    // For multi-chord bars: also schedule a delayed first refresh at t=0
+    // so the slot-0 chord paints immediately at bar start (without it the
+    // dashboard would still show the previous bar's last slot until the
+    // first per-slot timer fires).
+    if (slotsAreMulti && typeof this._updateVisuals === 'function') {
+      this.currentBarSlot = 0;
+      // rAF instead of setTimeout(0) — same "next frame" timing but lets
+      // the browser batch with other paints and frees the JS thread to
+      // schedule the rest of this trigger's audio first.
+      requestAnimationFrame(() => this._updateVisuals());
     }
 
     // Schedule bass plucks per the current section's bass pattern
@@ -12547,29 +13583,86 @@ class Player {
       const beatDur = 60 / metronome.bpm;
       const barDur = beatDur * 4;
       const now = audioCtx.currentTime + 0.04;
-      const bassMidi = bassMidiForPc(root);
-      const fifthMidi = bassMidi + 7; // fifth above root
       const bassVol = chVol('bass') * 0.75;
       const pattern = this.bassPattern;
-      for (let b = 0; b < stepBars; b++) {
-        const barStart = now + b * barDur;
-        // Beat 1: always root
-        const o1 = playBassPluck(bassMidi, barStart, bassVol);
-        this.bassOscillators.push(...o1);
-        // Beat 3: depends on pattern
-        if (pattern === 'two-feel') {
-          const o3 = playBassPluck(bassMidi, barStart + 2 * beatDur, bassVol);
-          this.bassOscillators.push(...o3);
-        } else if (pattern === 'fifth') {
-          const o3 = playBassPluck(fifthMidi, barStart + 2 * beatDur, bassVol * 0.9);
-          this.bassOscillators.push(...o3);
+      const rootAtSlot = (s) => {
+        if (!slotsAreMulti) return root;
+        const sl = slotsArr[s];
+        if (!sl || !sl.chord) return root;
+        const sCh = map.chordDefs[sl.chord];
+        if (!sCh) return root;
+        return (state.keyPc + sCh.deg) % 12;
+      };
+      if (slotsAreMulti) {
+        // Multi-chord: every non-muted slot gets its OWN bass anchor.
+        // The user explicitly placed a chord change at each slot, so the
+        // bass should follow each change instead of only hitting beats 1/3.
+        const slotDur = barDur / subN;
+        for (let s = 0; s < subN; s++) {
+          if (subMute[s]) continue;
+          const sBass = bassMidiForPc(rootAtSlot(s));
+          const o = playBassPluck(sBass, now + s * slotDur, bassVol);
+          this.bassOscillators.push(...o);
         }
-        // 'whole' pattern: nothing on beat 3
+        // Continuation bars (rare for multi-chord since slots live in one
+        // bar) — fall back to whole-bar root of slot 0.
+        const baseBass = bassMidiForPc(rootAtSlot(0));
+        for (let b = 1; b < stepBars; b++) {
+          const barStart = now + b * barDur;
+          const o = playBassPluck(baseBass, barStart, bassVol);
+          this.bassOscillators.push(...o);
+        }
+      } else {
+        // Single-chord cell — existing pattern (whole / two-feel / fifth)
+        const bassMidi  = bassMidiForPc(root);
+        const fifthMidi = bassMidi + 7;
+        for (let b = 0; b < stepBars; b++) {
+          const barStart = now + b * barDur;
+          const o1 = playBassPluck(bassMidi, barStart, bassVol);
+          this.bassOscillators.push(...o1);
+          if (pattern === 'two-feel') {
+            const o3 = playBassPluck(bassMidi, barStart + 2 * beatDur, bassVol);
+            this.bassOscillators.push(...o3);
+          } else if (pattern === 'fifth') {
+            const o3 = playBassPluck(fifthMidi, barStart + 2 * beatDur, bassVol * 0.9);
+            this.bassOscillators.push(...o3);
+          }
+        }
       }
     }
   }
 
   _predictNextVoicing() {
+    // Multi-chord bars: if there's another slot AFTER the one currently
+    // sounding, preview that slot's chord/shape instead of the next bar.
+    // The user sees the imminent in-bar change ghosted on the realistic
+    // guitar / piano, not a chord that won't sound for another beat or
+    // two. Falls through to the normal bar-level prediction when this is
+    // the last (non-muted) slot of the bar.
+    {
+      this._ensurePagePlan();
+      const barInPage = this.totalBars % 4;
+      const planned = this._cachedPage?.[barInPage];
+      const subN = planned?.subdivisions || 1;
+      const slotsArr = (planned && planned.slots && planned.slots.length === subN) ? planned.slots : null;
+      if (slotsArr && slotsArr.length >= 2) {
+        const subMute = planned.subdivMute || [];
+        const curSlotIdx = Math.min(slotsArr.length - 1, this.currentBarSlot || 0);
+        for (let s = curSlotIdx + 1; s < slotsArr.length; s++) {
+          if (subMute[s]) continue;
+          const sl = slotsArr[s];
+          if (sl && sl.chord && sl.shape) {
+            state.nextVoicing = {
+              chord: sl.chord,
+              shape: sl.shape,
+              type: sl.voicingType || this.voicingType,
+            };
+            return;
+          }
+        }
+        // Last non-muted slot of the bar — fall through to next-bar logic.
+      }
+    }
     const nxtId = this._nextChordId();
     if (!nxtId || !state.playerVoicing?.shape) { state.nextVoicing = null; return; }
 
@@ -12629,8 +13722,13 @@ class Player {
 
   _updateVisuals() {
     const flats = useFlatsFor(state.keyPc);
-    const curId = this._currentChordId();
-    const nxtId = this._nextChordId();
+    // Display IDs follow the active SLOT inside multi-chord bars; for
+    // single-chord bars they fall through to the bar-level chord. The
+    // trigger / scheduling path still uses _currentChordId so audio stays
+    // bar-aligned — only what the user SEES (highlighted card, dashboard
+    // name, next-up) advances per slot.
+    const curId = this._currentDisplayChordId();
+    const nxtId = this._nextDisplayChordId();
 
     // Re-render the chord map so each card's mini-fretboard reflects the latest voicing
     // (the focused chord uses state.playerVoicing; others recompute smoothest from it)
@@ -13126,8 +14224,9 @@ class Player {
         tonality: simTonality,
         voicingType: simVoicingType,
         composedShape: step.composedShape,  // honors user-typed inversions
-        subdivisions: step.subdivisions || 1,
+        subdivisions: step.subdivisions || (step.slots && step.slots.length) || 1,
         subdivMute: step.subdivMute || [],
+        slots: step.slots || null,
         // Track song position so playback-strip cells can jump back
         // to the exact (songIdx, stepIdx) for click-while-paused.
         songIdx,
@@ -13237,6 +14336,7 @@ class Player {
           shape: sc.shape,
           subdivisions: sc.subdivisions || 1,
           subdivMute: sc.subdivMute || [],
+          slots: sc.slots ? sc.slots.map(sl => sl ? {...sl} : null) : null,
           songIdx: null,
           stepIdx: null,
           sectionIter: null,
@@ -13301,6 +14401,31 @@ class Player {
         // chord-name, popup card label) can apply it without having
         // to re-look up the step from the progression each time.
         const stepForEntry = this.song[seg.songIdx]?.progression?.steps?.[seg.stepIdx];
+        // Enrich multi-chord slots with per-slot shapes when the source
+        // (PROGRESSIONS data) only specifies chord IDs. Composed cells
+        // come pre-enriched from compose mode — preserve those shapes.
+        let enrichedSlots = seg.slots || null;
+        if (enrichedSlots && enrichedSlots.length) {
+          const needsPicking = enrichedSlots.some(s => s && s.chord && !s.shape);
+          if (needsPicking) {
+            const sMap = CHORD_MAP[segTonality] || currentMap();
+            let prevSlotShape = prevShape || shape || null;
+            enrichedSlots = enrichedSlots.map(sl => {
+              if (!sl || !sl.chord) return sl;
+              if (sl.shape) { prevSlotShape = sl.shape; return sl; }
+              const sCh = sMap.chordDefs[sl.chord];
+              if (!sCh) return sl;
+              const sRoot = (segKeyPc + sCh.deg) % 12;
+              const sShape = this._pickShape(sCh.quality, sRoot, segType, prevSlotShape);
+              if (sShape) prevSlotShape = sShape;
+              return {
+                ...sl,
+                shape: sShape || sl.shape || null,
+                voicingType: sl.voicingType || segType,
+              };
+            });
+          }
+        }
         const entry = {
           chord: seg.chord,
           qualityOverride: stepForEntry?.qualityOverride || null,
@@ -13310,8 +14435,9 @@ class Player {
           // the info bar / pause-click handler can label it correctly.
           voicingType: (typeof finalType !== 'undefined') ? finalType : segType,
           shape,
-          subdivisions: seg.subdivisions || 1,
+          subdivisions: seg.subdivisions || (enrichedSlots && enrichedSlots.length) || 1,
           subdivMute: seg.subdivMute || [],
+          slots: enrichedSlots,
           // Position info for jump-on-click while paused.
           songIdx: seg.songIdx,
           stepIdx: seg.stepIdx,
@@ -13409,6 +14535,27 @@ class Player {
       if (cell.barIdxInChord > 0) {
         return `<div class="${cls}"${dataPos}><div class="rb-continuation">%</div></div>`;
       }
+      // Multi-chord bar: show all slot chord-names joined with · in the
+      // chord row. No roman (the colored names carry the function). The
+      // staff/TAB below also embeds the per-slot names — the row row keeps
+      // them visible when the cell is small.
+      const isMulti = cell.slots && cell.slots.length > 1;
+      if (isMulti) {
+        const slotNames = cell.slots.map(slot => {
+          if (!slot || !slot.chord) return '';
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return slot.chord;
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return symbolizeChordName(cn);
+        }).filter(Boolean).join(' · ');
+        return `
+          <div class="${cls}"${dataPos}>
+            <div class="rb-chord rb-chord-multi">${slotNames}</div>
+          </div>
+        `;
+      }
       return `
         <div class="${cls}"${dataPos}>
           <div class="rb-roman">${ch.roman}</div>
@@ -13457,11 +14604,74 @@ class Player {
       // chord name is the same on-screen size whether you're composing or the
       // AI is playing.
       const isMobileNow = window.innerWidth <= 800;
-      const svg = shape
-        ? (state.instrument === 'piano'
-            ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || []})
-            : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
-        : '';
+      // Multi-chord bar — playback strip uses the same horizontal TAB
+      // (guitar) / per-slot staff (piano) we built for compose, so the
+      // visualization is consistent whether you're typing or watching it
+      // play back. cell.slots was propagated through _buildPagePlan, so
+      // it's available here without extra plumbing.
+      const isMultiTab = cell.slots && cell.slots.length > 1;
+      let svg;
+      if (isMultiTab && state.instrument === 'piano') {
+        const pianoSlots = cell.slots.map(slot => {
+          if (!slot || !slot.chord) return null;
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return null;
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return {
+            shape: slot.shape, root: sRoot, quality: sCh.quality,
+            chordName: symbolizeChordName(cn), tag: sCh.tag,
+          };
+        });
+        const allFilled = pianoSlots.every(p => p && p.shape);
+        const sizingPiano = {
+          W: 130, H: 148, minimal: isMobileNow,
+          showClef, chordName: cellName, roman: ch.roman, tag: ch.tag,
+          subdivisions: cell.subdivisions || 1,
+          subdivMute: cell.subdivMute || [],
+          slots: allFilled ? pianoSlots : null,
+          // Pass the cell's key + tonality so the key signature reflects
+          // modulations (a parallel-minor bridge will show its own armadura).
+          // firstOfRow = cell 0 of the visible 4-cell page → re-state the
+          // key sig on each new row, ghosted relative to the actual clef.
+          keyPc: cellKeyPc, tonality: state.tonality,
+          firstOfRow: i === 0,
+        };
+        svg = renderChordStaff(shape, root, ch.quality, cellFlats, sizingPiano);
+      } else if (isMultiTab) {
+        const muteArr = cell.subdivMute || [];
+        const columns = cell.slots.map((slot, sIdx) => {
+          if (!slot || !slot.chord) return { shape: null, chordName: '', muted: !!muteArr[sIdx] };
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return { shape: slot.shape, chordName: slot.chord, muted: !!muteArr[sIdx] };
+          const sRoot = (cellKeyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, cellFlats)
+                  || (nameOf(sRoot, cellFlats) + QUALITIES[sCh.quality].sfx);
+          return {
+            shape: slot.shape,
+            chordName: symbolizeChordName(cn),
+            romanLabel: symbolizeChordName(sCh.roman || ''),
+            tag: sCh.tag,
+            muted: !!muteArr[sIdx],
+          };
+        });
+        // Playback strip cells are equal-width (no flex-grow per slot count),
+        // so viewBox W stays at baseW to keep the staff aspect matching the
+        // cell aspect. Strings stay at constant display height regardless
+        // of slot count; slot columns just pack tighter horizontally inside.
+        const baseW = isMobileNow ? 130 : 165;
+        const htabSizing = isMobileNow
+          ? { W: baseW, H: 210, minimal: true }
+          : { W: baseW, H: 250, minimal: false };
+        svg = renderHorizontalTab(columns, htabSizing);
+      } else {
+        svg = shape
+          ? (state.instrument === 'piano'
+              ? renderChordStaff(shape, root, ch.quality, cellFlats, {W: 130, H: 148, minimal: isMobileNow, showClef, chordName: cellName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], keyPc: cellKeyPc, tonality: state.tonality, firstOfRow: i === 0})
+              : renderMini(shape, root, ch.quality, cellFlats, {W: 130, H: 130, r: 10, bwNotes: true, chordName: cellName, roman: ch.roman, tag: ch.tag}))
+          : '';
+      }
       // Subdivision bar shown on EVERY cell that has subdivisions — so the
       // user can see the rhythmic shape of each upcoming chord. The slot
       // pulsing animation (.pb-on) only fires on the cell that's actually
@@ -13469,7 +14679,10 @@ class Player {
       const subN = cell.subdivisions || 1;
       const subMute = cell.subdivMute || [];
       let pbBarHtml = '';
-      if (subN > 1) {
+      // Multi-chord cells already visualize each slot via the horizontal
+      // TAB / per-slot staff above, so the rhythm-segment bar is
+      // redundant. Same call we make in compose strip.
+      if (subN > 1 && !isMultiTab) {
         let segs = '';
         for (let s = 0; s < subN; s++) {
           const m = subMute[s] ? 'muted' : '';
@@ -15437,8 +16650,10 @@ function renderLandscapePlay() {
   lp_enter(state.instrument === 'piano' ? 'piano' : 'guitar');
 
   // ── Header: now-playing + next-up chord names ─────────────
-  const curId = (player && player._currentChordId && player._currentChordId()) || state.focusedChord;
-  const nxtId = (player && player._nextChordId && player._nextChordId()) || null;
+  // Slot-aware: in a multi-chord bar these advance per slot. In a single-
+  // chord bar they fall through to the bar-level chord — same behavior.
+  const curId = (player && player._currentDisplayChordId && player._currentDisplayChordId()) || state.focusedChord;
+  const nxtId = (player && player._nextDisplayChordId && player._nextDisplayChordId()) || null;
   const map = currentMap();
   const curDef = curId && map.chordDefs[curId];
   const nxtDef = nxtId && map.chordDefs[nxtId];
@@ -16916,6 +18131,79 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     };
   };
 
+  // ── MULTI-CHORD EDIT MODE: cell.slots[_multiChordEditSlotIdx] gets
+  // overwritten with the new chord pick. Slot index then advances; when
+  // it walks past the last slot, edit mode auto-exits so the next chord
+  // pick falls back through to one of the normal append / replace paths.
+  // Voice-leading uses the previous slot's shape when available (so the
+  // picker doesn't reach back to the cell BEFORE this one), and the
+  // cell's top-level chord/shape fields are also kept in sync with
+  // slots[0] so the rest of the renderers don't have to special-case
+  // multi-chord cells until they're ready to. */
+  const mcEditIdx = state._multiChordEditCell;
+  if (mcEditIdx !== null && mcEditIdx !== undefined && mcEditIdx >= 0 && mcEditIdx < seq.length) {
+    const editCell = seq[mcEditIdx];
+    if (editCell && editCell.slots && editCell.slots.length) {
+      const slotIdx = Math.max(0, Math.min(editCell.slots.length - 1, state._multiChordEditSlotIdx ?? 0));
+      _composeSaveUndo();
+      const prevSlot = slotIdx > 0 ? editCell.slots[slotIdx - 1] : null;
+      const prevShape = prevSlot ? prevSlot.shape : null;
+      let newIdx;
+      if (cycleInversion && editCell.slots[slotIdx]?.chord === chordId) {
+        const cur = editCell.slots[slotIdx];
+        newIdx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
+      } else {
+        newIdx = pickBest(prevShape);
+      }
+      editCell.slots[slotIdx] = writeCell(slotIdx, newIdx);
+      // Writing a chord to a previously-muted slot un-mutes it — the user
+      // is explicitly putting a chord there, they want it to sound.
+      if (editCell.subdivMute && editCell.subdivMute[slotIdx]) {
+        editCell.subdivMute[slotIdx] = false;
+      }
+      // Keep the cell's top-level chord fields in sync with slot 0 so any
+      // pre-existing path that reads cell.chord directly keeps working.
+      if (slotIdx === 0) {
+        const s0 = editCell.slots[0];
+        editCell.chord       = s0.chord;
+        editCell._candIdx    = s0._candIdx;
+        editCell.shape       = s0.shape;
+        editCell.voicingType = s0.voicingType;
+        editCell.stringSetIdx= s0.stringSetIdx;
+        editCell.inversion   = s0.inversion;
+        editCell.stringSet   = s0.stringSet;
+      }
+      // Advance to next slot ONLY if we entered edit mode via the chip
+      // (auto-advance). Manual slot selection sticks: the user picked
+      // that specific slot, so subsequent chord presses + cycles keep
+      // operating on the SAME slot until they pick another one.
+      // Cycling (cycleInversion + same chord) also never advances — it's
+      // just an inversion change, not a new chord.
+      const isCycle = (cycleInversion && editCell.slots[slotIdx]?.chord === chordId);
+      const wasCycle = isCycle && editCell.slots[slotIdx]?.chord === chordId;
+      // (the slot's chord was already updated above, so re-check: if the
+      //  new candIdx is just a cycle of the existing chord, treat as cycle)
+      const shouldAdvance = !isCycle && (state._multiChordEditAutoAdvance !== false);
+      if (shouldAdvance) {
+        const next = slotIdx + 1;
+        if (next >= editCell.slots.length) {
+          state._multiChordEditCell = null;
+          state._multiChordEditSlotIdx = null;
+          state._multiChordEditAutoAdvance = null;
+        } else {
+          state._multiChordEditSlotIdx = next;
+        }
+      }
+      const c = cands[newIdx];
+      state.focusedChord = chordId;
+      state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
+      renderAll();
+      renderComposeStrip();
+      ringFocusedChord();
+      return;
+    }
+  }
+
   // ── EDIT MODE: either an explicit lock (composedSelectedIdx,
   // persistent until cleared) OR a one-shot replace target armed by
   // tapping a cell (_oneShotReplaceIdx, cleared after this call).
@@ -17087,6 +18375,34 @@ function composeCycleLastInversion(direction) {
 }
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
+  // Multi-chord slot selected → backspace mutes THAT slot instead of
+  // deleting the whole cell. Lets the user "quitar" individual slots
+  // from a multi-chord bar (the chord name + notes both disappear; the
+  // bar plays a rest at that slot). Re-pressing on an already-muted
+  // selected slot UN-mutes it, so the gesture round-trips.
+  const mcCellIdx = state._multiChordEditCell;
+  const mcSlotIdx = state._multiChordEditSlotIdx;
+  if (mcCellIdx !== null && mcCellIdx !== undefined
+      && mcSlotIdx !== null && mcSlotIdx !== undefined) {
+    const mcCell = state.composedProgression[mcCellIdx];
+    if (mcCell && mcCell.slots && mcSlotIdx >= 0 && mcSlotIdx < mcCell.slots.length) {
+      _composeSaveUndo();
+      const subN = mcCell.subdivisions || mcCell.slots.length;
+      if (!mcCell.subdivMute || mcCell.subdivMute.length !== subN) {
+        mcCell.subdivMute = new Array(subN).fill(false);
+      }
+      mcCell.subdivMute[mcSlotIdx] = !mcCell.subdivMute[mcSlotIdx];
+      // Mute is a discrete action — clear the slot selection afterward so
+      // the underline / "editing this silence" state doesn't linger. To
+      // un-mute or edit another slot, the user taps it again.
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      state._multiChordEditAutoAdvance = null;
+      renderComposeStrip();
+      renderAll();
+      return;
+    }
+  }
   _composeSaveUndo();
   const seq = state.composedProgression;
   // Use locked index, or focused index, or fall back to last chord
@@ -17374,16 +18690,27 @@ function renderComposeStrip() {
     // page scrolls naturally past the strip when it gets tall.
     MAX_CELLS = Math.max(4, Math.ceil(seq.length / 4) * 4);
   } else {
-    // Desktop: 8 cells until you fill them, then grow in groups of 8 up to
-    // the 40-cell hard cap (5 sections). Past 16 the strip becomes
-    // horizontally scrollable via .compose-hscroll instead of squeezing.
-    MAX_CELLS = seq.length <= 8 ? 8 : Math.min(40, Math.ceil(seq.length / 8) * 8);
+    // Desktop tiers — two visual sizes only:
+    //   ≤8 chords  → 8 cells, tall strip, lots of breathing room.
+    //   >8 chords  → COMPACT mode: 16 cells equal-width with a shorter
+    //                strip height; past 16 chords hscroll engages but
+    //                cells stay at the same compact look (90px each).
+    // Dropped the previous 24/32/40 tiers — at those counts cells got
+    // ridiculously tall+narrow because the strip stayed at 8-mode height.
+    if (seq.length <= 8) MAX_CELLS = 8;
+    else MAX_CELLS = Math.max(16, seq.length);
   }
   const cells = seq.slice(0, MAX_CELLS);
   while (cells.length < MAX_CELLS) cells.push(null);
   // Mobile: render interleaved (2 chord cells, then 2 tab cells, repeating) into
   // the main strip only. Tabs container is hidden so the whole grid scrolls as one.
   el.classList.toggle('compose-interleaved', isMobile);
+  // Compact tier — >8 chords on desktop. Strip height shrinks so the
+  // narrower cells maintain a reasonable aspect. Same class covers both
+  // 16-cells-no-scroll and the >16-chord hscroll case.
+  const isCompactTier = !isMobile && seq.length > 8;
+  el.classList.toggle('compose-tier-compact', isCompactTier);
+  tabsEl.classList.toggle('compose-tier-compact', isCompactTier);
   // Desktop: turn on horizontal scroll once we're past 16 cells. The CSS
   // applies overflow-x to the SHARED parent (.rb-stack) so both rows scroll
   // as a unit — they cannot desync. Each strip flexes to its natural
@@ -17429,14 +18756,13 @@ function renderComposeStrip() {
     // (cell 8) for hand-composed strips with content past it.
     if (badgeByIdx[i] && i > 0) cls.push('section-divider');
     else if (i === dividerAt && !state._composeIsSingleSection && !cap) cls.push('section-divider');
-    // Badge sits in the top-left corner of whichever row is actually
-    // visible. Guitar mode keeps both rows, so we put it on the chord-
-    // NAME row so it doesn't crowd the chord diagram. Piano mode hides
-    // the chord-name row entirely (chord name lives inside the staff
-    // SVG), so the badge has to live on the tab/staff cell instead.
-    const isPiano = state.instrument === 'piano';
-    const tagRow = isPiano ? isTab : !isTab;
-    const sectionTag = tagRow ? sectionBadgeFor(i) : '';
+    // Section badge sits on the tab/diagram row — both guitar AND piano
+    // compose modes now hide the separate chord-name row (the chord name
+    // lives inside the SVG via renderMini's / renderChordStaff's
+    // chordName param), so the tab row is the only one visible. Placing
+    // the badge on the hidden .rb-cell row meant the A/B/C/D/E chips
+    // disappeared on desktop after the unified-row layout work.
+    const sectionTag = isTab ? sectionBadgeFor(i) : '';
     // data-compose-idx lets the delegated click handler (below) find which
     // composed-progression step was tapped so it can ring + focus that chord.
     const idxAttr = (cell && i < seq.length) ? ` data-compose-idx="${i}"` : '';
@@ -17492,22 +18818,115 @@ function renderComposeStrip() {
       // name a few pixels to the right so the .rb-section-tag chip (which
       // sits at the cell's top-left in piano mode) doesn't overlap it.
       const sectionLabel = badgeByIdx[i] || null;
+      // firstOfRow: re-state the key sig on each visual row.
+      //   Mobile compose: 4-col grid → cells 0, 4, 8, … are first of row.
+      //   Desktop compose: single flex row → only cell 0.
+      const composeFirstOfRow = isMobile ? (i % 4 === 0) : (i === 0);
       const sizingPiano = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel}
-        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel};
+        ? {W: 100, H: 128, r: 8, minimal: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality, firstOfRow: composeFirstOfRow}
+        : {W: 130, H: 148, r: 11, bwNotes: true, showClef, chordName: cellChordName, roman: ch.roman, tag: ch.tag, subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [], sectionLabel, keyPc: state.keyPc, tonality: state.tonality, firstOfRow: composeFirstOfRow};
+      // Guitar mode now embeds the chord name + roman + tag inside the
+      // SVG the same way the piano staff already does — single row of
+      // cells, no separate name row above. Matches the unified-row
+      // restructure where the only row is the tab/diagram row.
       const sizingGuitar = isMobile
-        ? {W: 100, H: 128, r: 8, minimal: true}
-        : {W: 130, H: 148, r: 11, bwNotes: true};
-      const svg = state.instrument === 'piano'
-        ? renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano)
-        : renderMini(cell.shape, root, ch.quality, flats, sizingGuitar);
+        ? {W: 100, H: 128, r: 8, minimal: true,
+           chordName: cellChordName, roman: ch.roman, tag: ch.tag}
+        : {W: 130, H: 148, r: 11, bwNotes: true,
+           chordName: cellChordName, roman: ch.roman, tag: ch.tag};
+      // Multi-chord detection: cell carries slots[] and at least one slot
+      // holds a different chord-ID than slot 0. Same-chord slots just
+      // mean "rhythm subdivisions of one chord" and stay on the snapshot
+      // diagram. Different chords switch to the horizontal TAB renderer.
+      // Multi-chord visualization is triggered by the PRESENCE of slots[],
+      // not by chord-ID uniqueness. The user enters multi-chord mode
+      // explicitly (via the chip), and from that point on the cell stays
+      // in multi-chord view even if they put the SAME chord in multiple
+      // slots — e.g. two strikes of I with different inversions. Was a
+      // surprise-deletion before: typing the same chord into slot 1
+      // collapsed the bar back to single-chord rendering.
+      const isMultiChord = cell.slots && cell.slots.length > 1;
+      let svg;
+      if (isMultiChord && state.instrument !== 'piano') {
+        const editingThisCell = (state._multiChordEditCell === i);
+        const editingSlot = editingThisCell ? (state._multiChordEditSlotIdx ?? -1) : -1;
+        const muteArr = cell.subdivMute || [];
+        const columns = cell.slots.map((slot, sIdx) => {
+          const muted = !!muteArr[sIdx];
+          if (!slot || !slot.chord) return { shape: null, chordName: '', isEditing: sIdx === editingSlot, muted };
+          const sCh = map.chordDefs[slot.chord];
+          if (!sCh) return { shape: slot.shape, chordName: slot.chord, isEditing: sIdx === editingSlot, muted };
+          const sRoot = (state.keyPc + sCh.deg) % 12;
+          const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, flats)
+                  || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
+          return {
+            shape: slot.shape,
+            chordName: symbolizeChordName(cn),
+            romanLabel: symbolizeChordName(sCh.roman),
+            tag: sCh.tag,
+            isEditing: sIdx === editingSlot,
+            muted,
+          };
+        });
+        // viewBox W has to match the cell's actual aspect ratio — otherwise
+        // `meet` centering inside the cell adds vertical bands and the
+        // strings end up compressed. On DESKTOP the strip is a flexbox and
+        // multi-chord cells grow via `flex-grow: 1 + (N-1)*0.5`, so viewBox
+        // W mirrors that multiplier. On MOBILE the strip is a CSS grid
+        // (repeat(4, 1fr)) — inline flex-grow has no effect, every cell is
+        // 25% of the row regardless of slot count. So baseW stays constant
+        // there and the slot columns just pack tighter inside.
+        const slotCount2 = cell.slots.length;
+        const aspectMult = isMobile ? 1 : (1 + (slotCount2 - 1) * 0.5);
+        const baseW = isMobile ? 130 : 165;
+        const htabSizing = isMobile
+          ? { W: Math.round(baseW * aspectMult), H: 210, minimal: true }
+          : { W: Math.round(baseW * aspectMult), H: 250, minimal: false };
+        svg = renderHorizontalTab(columns, htabSizing);
+      } else {
+        if (isMultiChord && state.instrument === 'piano') {
+          // Multi-chord piano staff: feed renderChordStaff per-slot data so
+          // each rhythmic slot draws its OWN chord's noteheads on the staff.
+          // Layout/design stays identical to the single-chord case — only
+          // the notes and per-slot chord names change.
+          const pianoSlots = cell.slots.map(slot => {
+            if (!slot || !slot.chord) return null;
+            const sCh = map.chordDefs[slot.chord];
+            if (!sCh) return null;
+            const sRoot = (state.keyPc + sCh.deg) % 12;
+            const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, flats)
+                    || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
+            return {
+              shape: slot.shape,
+              root: sRoot,
+              quality: sCh.quality,
+              chordName: symbolizeChordName(cn),
+              tag: sCh.tag,
+            };
+          });
+          // Only switch on multi-chord rendering when every slot has data —
+          // otherwise renderChordStaff falls back to base chord per missing
+          // slot which would silently swallow gaps. Better to log and use
+          // the snapshot path in that case.
+          const allFilled = pianoSlots.every(p => p && p.shape);
+          sizingPiano.slots = allFilled ? pianoSlots : null;
+          svg = renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano);
+        } else {
+          svg = state.instrument === 'piano'
+            ? renderChordStaff(cell.shape, root, ch.quality, flats, sizingPiano)
+            : renderMini(cell.shape, root, ch.quality, flats, sizingGuitar);
+        }
+      }
       // Rhythm subdivisions UI — triangle picker is ALWAYS visible with the
-      // current count inside (default 1). Segment bar appears only when N > 1.
+      // current count inside (default 1). Segment bar appears only when N > 1
+      // AND the cell is single-chord. Multi-chord cells skip the segment bar
+      // since each slot already shows its own chord; per-slot mute will live
+      // on the slot itself (next step).
       const n = cell.subdivisions || 1;
       const muteArr = cell.subdivMute || [];
       const triClass = n > 1 ? 'subdiv-triangle has-divs' : 'subdiv-triangle';
       let barHtml = '';
-      if (n > 1) {
+      if (n > 1 && !isMultiChord) {
         let segs = '';
         for (let s = 0; s < n; s++) {
           const m = muteArr[s] ? 'muted' : '';
@@ -17517,7 +18936,48 @@ function renderComposeStrip() {
       }
       // Just a pill badge with the count — clean, no triangle silhouette.
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}>${sectionTag}${svg}${triHtml}${barHtml}</div>`;
+      // Multi-chord chip — top-right corner. Shows the count of distinct
+      // chord slots when the bar holds more than one chord, or "+" as a
+      // discreet hint when the bar still has a single chord. Tapping it
+      // enters multi-chord edit mode for this bar (see the click handler
+      // wired below renderComposeStrip).
+      // Multi-chord trigger is the presence of slots[] (≥2), NOT distinct
+      // chord IDs — the user may intentionally have the same chord twice
+      // with different inversions. Chip label is the slot count.
+      const slots = cell.slots || null;
+      const slotCt = slots && slots.length > 1 ? slots.length : 1;
+      const isMC = slotCt > 1;
+      const isEditing = (state._multiChordEditCell === i);
+      const mcClass = isEditing ? 'multichord-chip editing'
+                    : isMC      ? 'multichord-chip active'
+                                : 'multichord-chip';
+      const mcLabel = isEditing
+        ? String((state._multiChordEditSlotIdx ?? 1) + 1)   // "2" while editing slot index 1
+        : isMC ? String(slotCt)
+               : '+';
+      const mcTitle = isMC
+        ? 'multi-chord — tap to edit slots'
+        : 'add 2nd chord in this bar';
+      const mcHtml = `<button class="${mcClass}" data-multichord-cell="${i}" title="${mcTitle}">${mcLabel}</button>`;
+      // Piano mode: no flex-grow change. The sheet-music staff already
+      // distributes N chord-events horizontally within a single cell
+      // width without needing extra room. Tab mode keeps a softer
+      // proportional ramp so the column spacing stays legible.
+      const slotCount = isMultiChord ? cell.slots.length : 1;
+      const isPiano = state.instrument === 'piano';
+      const flexGrow = (slotCount > 1 && !isPiano) ? (1 + (slotCount - 1) * 0.5) : 1;
+      // No overflow:hidden — that was clipping the subdiv-triangle badge
+      // that hangs at bottom:-9px below the cell. The extended staff
+      // lines are now clipped by a clip-path on the SVG itself (see CSS
+      // rule on .rb-tab-cell svg below).
+      // Multi-chord cells also drop the bottom padding that used to
+      // reserve room for the subdivision bar — that brown strip is gone
+      // here (each slot already shows its own chord) so the horizontal
+      // TAB can extend down into that previously-wasted space.
+      const growStyle = isMultiChord
+        ? ` style="${flexGrow > 1 ? `flex-grow: ${flexGrow}; ` : ''}padding-bottom: 0"`
+        : (flexGrow > 1 ? ` style="flex-grow: ${flexGrow}"` : '');
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}${growStyle}>${sectionTag}${svg}${triHtml}${barHtml}${mcHtml}</div>`;
     }
     const name = chordNameForVoicing(ch.quality, root, cell.shape, flats)
       || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
@@ -17847,6 +19307,91 @@ document.addEventListener('click', (ev) => {
     }
     return;
   }
+  // ── Multi-chord slot tap: select that specific slot for editing ──
+  // Each slot in the horizontal TAB has an invisible click rect. Tapping
+  // picks that slot as the multi-chord edit target so the next chord
+  // button writes into it AND shift+number cycles its voicing. Manual
+  // slot selection does NOT auto-advance — the user stays on the slot
+  // they picked until they pick another one or exit via the chip.
+  const mcSlotRect = ev.target.closest('[data-multichord-slot]');
+  if (mcSlotRect) {
+    ev.stopPropagation();
+    const cellEl = mcSlotRect.closest('[data-compose-idx]');
+    if (!cellEl) return;
+    const cellIdx = parseInt(cellEl.dataset.composeIdx, 10);
+    const slotIdx = parseInt(mcSlotRect.dataset.multichordSlot, 10);
+    if (!Number.isFinite(cellIdx) || !Number.isFinite(slotIdx)) return;
+    const seq = state.composedProgression;
+    const cell = seq[cellIdx];
+    if (!cell || !cell.slots || slotIdx < 0 || slotIdx >= cell.slots.length) return;
+    state._multiChordEditCell = cellIdx;
+    state._multiChordEditSlotIdx = slotIdx;
+    state._multiChordEditAutoAdvance = false;
+    // Focus the chord that lives in this slot so the chord map + alt
+    // voicings row reflect it. But if the slot is MUTED, don't audition
+    // — the slot is meant to be silent, so playing it on click would
+    // contradict the visual. The user can still change the chord via the
+    // keypad; doing so un-mutes the slot (handled in composeAddChord).
+    const isSlotMuted = !!(cell.subdivMute && cell.subdivMute[slotIdx]);
+    const slot = cell.slots[slotIdx];
+    if (slot && slot.chord) {
+      state.focusedChord = slot.chord;
+      state.userVoicing = slot.shape ? { shape: slot.shape } : null;
+    }
+    renderComposeStrip();
+    if (typeof renderAll === 'function') renderAll();
+    if (!isSlotMuted && typeof ringFocusedChord === 'function') ringFocusedChord();
+    return;
+  }
+  // ── Multi-chord chip: enter / exit multi-chord edit mode ──
+  // First tap on a single-chord bar: bumps subdivisions to 2 (if currently
+  // 1), initializes cell.slots = [copy of current chord, copy of current
+  // chord], and selects slot 1 (the second one) so the next chord button
+  // press writes into it. If the bar already has slots and the user taps
+  // the chip again, that just re-selects slot 1 (lets them restart from
+  // the second slot). Tapping the chip on the cell that's currently being
+  // edited exits edit mode.
+  const mcBtn = ev.target.closest('.multichord-chip');
+  if (mcBtn) {
+    ev.stopPropagation();
+    const idx = parseInt(mcBtn.dataset.multichordCell, 10);
+    const seq = state.composedProgression;
+    if (!Number.isFinite(idx) || idx < 0 || idx >= seq.length) return;
+    const cell = seq[idx];
+    if (!cell || !cell.chord) return;
+    // Toggle off if we tapped the chip on the cell already being edited.
+    if (state._multiChordEditCell === idx) {
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      renderComposeStrip();
+      return;
+    }
+    _composeSaveUndo();
+    if (!cell.subdivisions || cell.subdivisions < 2) {
+      cell.subdivisions = 2;
+      cell.subdivMute = new Array(2).fill(false);
+    }
+    // Initialize slots from the cell's existing chord (so the bar still
+    // sounds the same until the user picks a new chord for the selected
+    // slot). Each slot mirrors the cell's current chord + voicing data.
+    if (!cell.slots || cell.slots.length !== cell.subdivisions) {
+      const seed = {
+        chord: cell.chord,
+        _candIdx: cell._candIdx,
+        shape: cell.shape,
+        voicingType: cell.voicingType,
+        stringSetIdx: cell.stringSetIdx,
+        inversion: cell.inversion,
+        stringSet: cell.stringSet,
+      };
+      cell.slots = Array.from({ length: cell.subdivisions }, () => ({ ...seed }));
+    }
+    state._multiChordEditCell = idx;
+    state._multiChordEditSlotIdx = 1;   // second slot selected by default
+    state._multiChordEditAutoAdvance = true;  // chip-initiated: walk through slots
+    renderComposeStrip();
+    return;
+  }
   // ── Rhythm subdivision segment: toggle mute on click ──
   const seg = ev.target.closest('.subdiv-seg');
   if (seg) {
@@ -17861,9 +19406,12 @@ document.addEventListener('click', (ev) => {
     renderComposeStrip();
     return;
   }
-  // ── Staff slot (piano mode): same toggle, but clicking the noteheads
-  //    on the partitura instead of the segment bar (which is hidden in
-  //    piano mode). Finds the parent compose cell to know which index. ──
+  // ── Staff slot (piano mode): unified with the guitar horizontal-TAB
+  //    slot click. Multi-chord bars (slots[] with ≥2 distinct chord IDs)
+  //    SELECT the slot for editing — matches guitar so the user gets the
+  //    same gesture in both instruments. Backspace then mutes the selected
+  //    slot. Single-chord cells with rhythmic subdivisions keep the
+  //    legacy mute-toggle behavior (no chord to "select"). ──
   const staffSlot = ev.target.closest('.staff-slot');
   if (staffSlot) {
     const parentCell = staffSlot.closest('[data-compose-idx]');
@@ -17873,29 +19421,45 @@ document.addEventListener('click', (ev) => {
     const seq = state.composedProgression;
     if (!seq[cellIdx]) return;
     const cell = seq[cellIdx];
-    // Whole-note case (subdivisions === 1): clicking shouldn't mute
-    // the only slot — that's what the regular delete key is for.
-    // Instead, audition the chord (same behaviour as clicking the cell
-    // in tab mode). We do it inline because this delegated handler
-    // returns before reaching the cell-click block further down.
     const subN = cell.subdivisions || 1;
+    // Whole-note case (subdivisions === 1): there's no slot-level action
+    // here — the whole staff IS the chord. Fall through to the generic
+    // cell-tap handler below so single-chord piano cells go through the
+    // SAME path as guitar (focus + audition + arm _oneShotReplaceIdx so
+    // the next chord-button press replaces this cell in place).
     if (subN <= 1) {
+      // Don't stopPropagation; don't return early.
+    } else {
+    // Multi-chord cell: tap → select that slot for editing (matches
+    // the guitar horizontal-TAB behavior). Mute lives on Backspace.
+    const isMultiChord = cell.slots && cell.slots.length > 1;
+    if (isMultiChord) {
       ev.stopPropagation();
-      if (!cell.chord) return;
-      ensureAudio();
-      state._composeFocusedIdx = cellIdx;
-      state.focusedChord = cell.chord;
-      state.userVoicing = cell.shape ? { shape: cell.shape } : null;
-      renderAll();
+      if (segIdx < 0 || segIdx >= cell.slots.length) return;
+      state._multiChordEditCell = cellIdx;
+      state._multiChordEditSlotIdx = segIdx;
+      state._multiChordEditAutoAdvance = false;
+      // Muted slots don't audition on tap — the slot is silent by design,
+      // ringing it would contradict what the user sees. They can still
+      // change the chord on the keypad and that un-mutes (composeAddChord).
+      const isSlotMuted = !!(cell.subdivMute && cell.subdivMute[segIdx]);
+      const slot = cell.slots[segIdx];
+      if (slot && slot.chord) {
+        state.focusedChord = slot.chord;
+        state.userVoicing = slot.shape ? { shape: slot.shape } : null;
+      }
       renderComposeStrip();
-      ringFocusedChord();
+      if (typeof renderAll === 'function') renderAll();
+      if (!isSlotMuted && typeof ringFocusedChord === 'function') ringFocusedChord();
       return;
     }
+    // Single-chord rhythmic subdivisions (legacy behavior): toggle mute.
     ev.stopPropagation();
     if (!cell.subdivMute) cell.subdivMute = new Array(subN).fill(false);
     cell.subdivMute[segIdx] = !cell.subdivMute[segIdx];
     renderComposeStrip();
     return;
+    }
   }
   // ── Click in the subdivision popover: pick a count ──
   const pickBtn = ev.target.closest('#subdiv-popover button[data-subdiv-pick]');
@@ -18360,6 +19924,7 @@ function _midiCollectComposed() {
   const events = [];
   let tick = 0;
   const barLen = ticksPerBeat * 4;
+  const shapeToNotes = (shape) => shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
   for (let i = 0; i < state.composedProgression.length; i++) {
     const cell = state.composedProgression[i];
     // Silent rests + ties — advance tick without emitting notes.
@@ -18369,34 +19934,41 @@ function _midiCollectComposed() {
     // Count consecutive ties after this cell
     let bars = 1;
     for (let j = i + 1; j < state.composedProgression.length && state.composedProgression[j]._tie; j++) bars++;
-    let notes;
+    // Fallback notes (slot 0 / single chord)
+    let baseNotes;
     if (cell.shape && cell.shape.some(f => f >= 0)) {
-      notes = cell.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+      baseNotes = shapeToNotes(cell.shape);
     } else {
       const rootPc = (state.keyPc + def.deg) % 12;
       const q = QUALITIES[def.quality];
       if (!q) { tick += barLen; continue; }
-      notes = q.ints.map(i => 48 + rootPc + i);
+      baseNotes = q.ints.map(i => 48 + rootPc + i);
     }
     const dur = barLen * bars;
-    // Rhythm subdivisions: split the chord into N slot strikes within the
-    // first bar (slot 0 = bar start). Muted slots emit nothing. The last
-    // un-muted slot's note-off extends to the end of the full duration so
-    // the chord rings through any tied bars instead of cutting on slot N-1.
     const subN = Math.max(1, cell.subdivisions || 1);
     const subMute = cell.subdivMute || [];
-    const slotDur = Math.floor(barLen / subN);  // subdivisions live inside ONE bar
-    let lastSlotStart = tick;
+    const slotDur = Math.floor(barLen / subN);
+    // Per-slot notes: when cell.slots is set, each slot may carry a
+    // different chord/voicing → use slot.shape for that slot. This is the
+    // "export as it plays" requirement — the MIDI mirrors what the audio
+    // scheduler does (notesForSlot in _triggerChord).
+    const slotsArr = (cell.slots && cell.slots.length === subN) ? cell.slots : null;
+    const notesForSlot = (s) => {
+      if (!slotsArr) return baseNotes;
+      const sl = slotsArr[s];
+      if (!sl || !sl.shape) return baseNotes;
+      return shapeToNotes(sl.shape);
+    };
     for (let s = 0; s < subN; s++) {
       if (subMute[s]) continue;
       const slotStart = tick + s * slotDur;
       const isLast = (s === subN - 1) || subMute.slice(s + 1).every(Boolean);
       const slotEnd = isLast ? (tick + dur - 1) : (slotStart + slotDur - 1);
-      for (const n of notes) {
+      const slotNotes = notesForSlot(s);
+      for (const n of slotNotes) {
         events.push({ tick: slotStart, type: 'on', note: n, vel: 90 });
         events.push({ tick: slotEnd, type: 'off', note: n, vel: 0 });
       }
-      lastSlotStart = slotStart;
     }
     tick += dur;
   }
@@ -18447,12 +20019,24 @@ function _midiCollectSong() {
           const subN = Math.max(1, step.subdivisions || 1);
           const subMute = step.subdivMute || [];
           const slotDur = Math.floor(barLen2 / subN);
+          // Per-slot notes when the step carries slots[] (multi-chord bar).
+          // buildSteps in _generateSong propagates cell.slots → step.slots
+          // so the live player + MIDI export share the same per-slot data.
+          const slotsArr = (step.slots && step.slots.length === subN) ? step.slots : null;
+          const shapeToNotes = (sh) => sh.map((f, st) => f >= 0 ? STRING_OPEN_MIDI[st] + f : null).filter(x => x !== null);
+          const notesForSlot = (s) => {
+            if (!slotsArr) return notes;
+            const sl = slotsArr[s];
+            if (!sl || !sl.shape) return notes;
+            return shapeToNotes(sl.shape);
+          };
           for (let s = 0; s < subN; s++) {
             if (subMute[s]) continue;
             const slotStart = tick + s * slotDur;
             const isLast = (s === subN - 1) || subMute.slice(s + 1).every(Boolean);
             const slotEnd = isLast ? (tick + dur - 1) : (slotStart + slotDur - 1);
-            for (const n of notes) {
+            const slotNotes = notesForSlot(s);
+            for (const n of slotNotes) {
               events.push({ tick: slotStart, type: 'on', note: n, vel: 90 });
               events.push({ tick: slotEnd, type: 'off', note: n, vel: 0 });
             }
@@ -18656,18 +20240,57 @@ function _midiCollectBassComposed() {
   const events = [];
   let tick = 0;
   const barLen = ticksPerBeat * 4;
+  const cmap = CHORD_MAP[state.tonality];
+  const rootPcOf = (chordId) => {
+    const d = cmap?.chordDefs?.[chordId];
+    return d ? (state.keyPc + d.deg) % 12 : null;
+  };
   for (let i = 0; i < state.composedProgression.length; i++) {
     const cell = state.composedProgression[i];
     if (cell._silent || cell._tie) { tick += barLen; continue; }
-    const def = CHORD_MAP[state.tonality]?.chordDefs?.[cell.chord];
+    const def = cmap?.chordDefs?.[cell.chord];
     if (!def) { tick += barLen; continue; }
     let bars = 1;
     for (let j = i + 1; j < state.composedProgression.length && state.composedProgression[j]._tie; j++) bars++;
     const rootPc = (state.keyPc + def.deg) % 12;
-    const note = bassMidiForPc(rootPc);
     const dur = barLen * bars;
-    events.push({ tick, type: 'on', note, vel: 100 });
-    events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+    // Multi-chord bar — follow each slot's chord at beat 1 (slot 0) and
+    // beat 3 (slot covering the half-bar). Two-feel style so each
+    // chord change inside the bar gets its own bass anchor, matching what
+    // the live scheduler (_triggerChord bass section) does.
+    const subN = Math.max(1, cell.subdivisions || 1);
+    const slotsArr = (cell.slots && cell.slots.length === subN) ? cell.slots : null;
+    const slotsAreMulti = slotsArr && subN >= 2;
+    if (slotsAreMulti) {
+      // One bass strike per non-muted slot, each using its own chord's
+      // root. Bass note rings until the next non-muted slot (or end of
+      // bar for the last). Mirrors the live player so MIDI export and
+      // playback match note-for-note.
+      const subMute = cell.subdivMute || [];
+      const slotDur = Math.floor(barLen / subN);
+      const slotStarts = [];
+      for (let s = 0; s < subN; s++) {
+        if (subMute[s]) continue;
+        slotStarts.push(s);
+      }
+      for (let k = 0; k < slotStarts.length; k++) {
+        const s = slotStarts[k];
+        const slRoot = (slotsArr[s] && slotsArr[s].chord)
+          ? (rootPcOf(slotsArr[s].chord) ?? rootPc) : rootPc;
+        const note = bassMidiForPc(slRoot);
+        const slotStart = tick + s * slotDur;
+        const nextStart = (k + 1 < slotStarts.length)
+          ? (tick + slotStarts[k + 1] * slotDur)
+          : (tick + dur);
+        events.push({ tick: slotStart, type: 'on', note, vel: 100 });
+        events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
+      }
+    } else {
+      // Single-chord cell — sustained whole-bar root (existing behavior).
+      const note = bassMidiForPc(rootPc);
+      events.push({ tick, type: 'on', note, vel: 100 });
+      events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+    }
     tick += dur;
   }
   return events;
@@ -18689,12 +20312,43 @@ function _midiCollectBassSong() {
       for (const step of prog.steps) {
         const dur = ticksPerBeat * 4 * (step.bars || 1);
         if (step._silent) { tick += dur; continue; }
-        const def = CHORD_MAP[secTon]?.chordDefs?.[step.chord];
+        const secMap = CHORD_MAP[secTon];
+        const def = secMap?.chordDefs?.[step.chord];
         if (!def) { tick += dur; continue; }
         const rootPc = (secKey + def.deg) % 12;
-        const note = bassMidiForPc(rootPc);
-        events.push({ tick, type: 'on', note, vel: 100 });
-        events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+        const subN = Math.max(1, step.subdivisions || 1);
+        const slotsArr = (step.slots && step.slots.length === subN) ? step.slots : null;
+        const slotsAreMulti = slotsArr && subN >= 2;
+        if (slotsAreMulti) {
+          const rootPcOf = (chordId) => {
+            const d = secMap?.chordDefs?.[chordId];
+            return d ? (secKey + d.deg) % 12 : null;
+          };
+          const subMute = step.subdivMute || [];
+          const barLen3 = ticksPerBeat * 4;
+          const slotDur = Math.floor(barLen3 / subN);
+          const slotStarts = [];
+          for (let s = 0; s < subN; s++) {
+            if (subMute[s]) continue;
+            slotStarts.push(s);
+          }
+          for (let k = 0; k < slotStarts.length; k++) {
+            const s = slotStarts[k];
+            const slRoot = (slotsArr[s] && slotsArr[s].chord)
+              ? (rootPcOf(slotsArr[s].chord) ?? rootPc) : rootPc;
+            const note = bassMidiForPc(slRoot);
+            const slotStart = tick + s * slotDur;
+            const nextStart = (k + 1 < slotStarts.length)
+              ? (tick + slotStarts[k + 1] * slotDur)
+              : (tick + dur);
+            events.push({ tick: slotStart, type: 'on', note, vel: 100 });
+            events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
+          }
+        } else {
+          const note = bassMidiForPc(rootPc);
+          events.push({ tick, type: 'on', note, vel: 100 });
+          events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+        }
         tick += dur;
       }
     }
