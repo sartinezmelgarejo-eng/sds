@@ -18536,6 +18536,31 @@ function composeDeleteLast() {
       ? state._composeFocusedIdx
       : null;
   if (targetIdx !== null && targetIdx < seq.length) {
+    // Multi-chord peel: if the target cell has multiple slots, mute the
+    // last still-sounding slot instead of wiping the whole bar in one
+    // press. Repeated backspaces dismantle the multichord slot-by-slot
+    // from the end. Once every slot is muted, fall through and let the
+    // regular path turn the bar into a silence (and a further press
+    // splice/tie it like any other rest).
+    const targetCell = seq[targetIdx];
+    if (targetCell && targetCell.slots && targetCell.slots.length > 1) {
+      const subN = targetCell.subdivisions || targetCell.slots.length;
+      if (!targetCell.subdivMute || targetCell.subdivMute.length !== subN) {
+        targetCell.subdivMute = new Array(subN).fill(false);
+      }
+      let lastSoundingIdx = -1;
+      for (let i = targetCell.slots.length - 1; i >= 0; i--) {
+        if (!targetCell.subdivMute[i]) { lastSoundingIdx = i; break; }
+      }
+      if (lastSoundingIdx >= 0) {
+        targetCell.subdivMute[lastSoundingIdx] = true;
+        renderComposeStrip();
+        renderAll();
+        return;
+      }
+      // All slots muted → fall through to the regular cell-delete logic
+      // so the bar becomes a proper silence (or splices, on slot 0).
+    }
     if (targetIdx === 0) {
       // First chord — behaves like the others now: a chord at slot 0
       // collapses to a silent rest (so songs can START on silence);
