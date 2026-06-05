@@ -5721,7 +5721,13 @@ function chordNameForVoicing(quality, root, shape, flats) {
   }
   return null;
 }
-function useFlatsFor(pc) { return ROOTS[pc].prefer === 'flat'; }
+function useFlatsFor(pc) {
+  // Clamp into the valid 0..11 range so callers feeding raw arithmetic
+  // (which can go negative in JS modulo) don't blow up on ROOTS[undefined].
+  const i = (((pc | 0) % 12) + 12) % 12;
+  const r = ROOTS[i];
+  return !!(r && r.prefer === 'flat');
+}
 
 // Key signature lookup, keyed by MAJOR-key tonic pc.
 // Each entry: { count: 0-7, type: '' | '#' | 'b' }.
