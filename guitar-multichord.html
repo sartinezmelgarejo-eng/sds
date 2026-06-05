@@ -13529,34 +13529,38 @@ class Player {
         const slotNotes = notesForSlot(s);
         const slotIdx  = s;
         const tid = setTimeout(() => {
+          // ─── PHASE 1: audio + state (sync, cheap, gets out of the way) ───
+          // Schedule the slot's audio strike FIRST and synchronously so the
+          // AudioContext queue doesn't get held up by main-thread paints.
           chordDrone.start(slotNotes, vol, true, fireAt);
-          // Multi-chord bars advance the visible chord card / dashboard at
-          // each slot boundary. Single-chord rhythmic subdivisions skip the
-          // visual update so we don't re-render the dashboard 4× per bar
-          // for no reason.
-          if (slotsAreMulti) {
-            this.currentBarSlot = slotIdx;
-            // Update state.playerVoicing to the slot's own chord+shape so
-            // the realistic guitar neck (renderChordNeck / repaintChordNeckNotes)
-            // animates the chord change inside the bar. Without this it
-            // stays stuck on slot 0's chord for the whole bar.
-            const sl = slotsArr[slotIdx];
-            if (sl && sl.chord && sl.shape) {
-              state.playerVoicing = {
-                chord: sl.chord,
-                shape: sl.shape,
-                type: sl.voicingType || (state.playerVoicing && state.playerVoicing.type) || 'drop2',
-              };
-              state.focusedChord = sl.chord;
-            }
-            // Re-predict the preview now that the active slot moved —
-            // _predictNextVoicing is slot-aware and will surface the NEXT
-            // slot's chord (or fall through to the next bar at end of bar).
+          if (!slotsAreMulti) return;   // rhythmic subdivisions: no visual work
+          this.currentBarSlot = slotIdx;
+          // Update state.playerVoicing to the slot's own chord+shape so the
+          // realistic guitar neck animates the in-bar change. State writes
+          // are essentially free; the heavy DOM work below is what we defer.
+          const sl = slotsArr[slotIdx];
+          if (sl && sl.chord && sl.shape) {
+            state.playerVoicing = {
+              chord: sl.chord,
+              shape: sl.shape,
+              type: sl.voicingType || (state.playerVoicing && state.playerVoicing.type) || 'drop2',
+            };
+            state.focusedChord = sl.chord;
+          }
+          // ─── PHASE 2: visual repaints (deferred to next frame) ───
+          // requestAnimationFrame batches the chord-map rebuild, fretboard,
+          // chord-neck, and piano repaint onto the next browser paint pass —
+          // the main thread returns immediately after audio scheduling, so
+          // subsequent audio events (the NEXT slot's setTimeout, sample-
+          // accurate drone notes) aren't blocked by 10-30ms of DOM work.
+          // The visible change still lands within ~one frame (≤16 ms), so
+          // the in-bar animation feels just as tight as before.
+          requestAnimationFrame(() => {
             this._predictNextVoicing();
             if (typeof this._updateVisuals === 'function') this._updateVisuals();
             if (typeof repaintChordNeckNotes === 'function') repaintChordNeckNotes();
             if (typeof paintPianoNotes === 'function') paintPianoNotes();
-          }
+          });
         }, wallWait);
         this._subdivTimers.push(tid);
       }
@@ -13567,8 +13571,10 @@ class Player {
     // first per-slot timer fires).
     if (slotsAreMulti && typeof this._updateVisuals === 'function') {
       this.currentBarSlot = 0;
-      // Defer slightly so this runs after the caller's own _updateVisuals.
-      setTimeout(() => this._updateVisuals(), 0);
+      // rAF instead of setTimeout(0) — same "next frame" timing but lets
+      // the browser batch with other paints and frees the JS thread to
+      // schedule the rest of this trigger's audio first.
+      requestAnimationFrame(() => this._updateVisuals());
     }
 
     // Schedule bass plucks per the current section's bass pattern
