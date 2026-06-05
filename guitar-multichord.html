@@ -19069,7 +19069,14 @@ function renderComposeStrip() {
       const growStyle = isMultiChord
         ? ` style="${flexGrow > 1 ? `flex-grow: ${flexGrow}; ` : ''}padding-bottom: 0"`
         : (flexGrow > 1 ? ` style="flex-grow: ${flexGrow}"` : '');
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}${growStyle}>${sectionTag}${svg}${triHtml}${barHtml}${mcHtml}</div>`;
+      // Lock button — rendered HERE on the tab cell because the .rb-cell
+      // chord-name row is hidden in compose mode (both piano and guitar
+      // since the unified-row layout work). Without this the lock only
+      // appeared on tie cells and was effectively invisible everywhere
+      // else.
+      const lockCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
+      const lockHtml = `<button class="${lockCls}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>`;
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}${growStyle}>${sectionTag}${svg}${triHtml}${barHtml}${mcHtml}${lockHtml}</div>`;
     }
     const name = chordNameForVoicing(ch.quality, root, cell.shape, flats)
       || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
