@@ -18236,6 +18236,16 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
         } else {
           state._multiChordEditSlotIdx = next;
         }
+      } else if (!isCycle && state._multiChordEditAutoAdvance === false) {
+        // Manual tap selection (user tapped a specific slot) — treat as
+        // a one-shot edit: after the chord is written, clear the multi-
+        // chord edit state so the cell stops looking "selected" and the
+        // next chord press appends at the end again. Inversion cycling
+        // (Shift+number on the same chord) does NOT clear — that's an
+        // ongoing voicing iteration the user wants to keep doing.
+        state._multiChordEditCell = null;
+        state._multiChordEditSlotIdx = null;
+        state._multiChordEditAutoAdvance = null;
       }
       const c = cands[newIdx];
       state.focusedChord = chordId;
@@ -18798,6 +18808,10 @@ function renderComposeStrip() {
     if (isTab) cls[0] = 'rb-tab-cell';
     const focIdx = state._composeFocusedIdx ?? (seq.length - 1);
     if (i === focIdx) cls.push('current');
+    // Multi-chord cells get the same .current highlight when a slot is
+    // selected for editing — otherwise the cell looks the same as any
+    // other and the user can't tell which bar they're inside of.
+    if (i === state._multiChordEditCell) cls.push('current');
     if (i === state.composedSelectedIdx) cls.push('compose-selected');
     // Section divider: at any captured boundary or at the legacy dividerAt
     // (cell 8) for hand-composed strips with content past it.
