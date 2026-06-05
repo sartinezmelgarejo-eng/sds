@@ -9689,38 +9689,79 @@ function rebuildComposedShapesForCurrentKey() {
   const seq = state.composedProgression;
   if (!seq || !seq.length) return;
   const map = currentMap();
-  for (const cell of seq) {
-    const ch = map.chordDefs[cell.chord];
-    if (!ch) continue;                              // chord ID not in current tonality — leave stale
+  // Reusable per-entry rebuild — takes a "cell or slot" object that owns
+  // the same {chord, shape, _candIdx, voicingType, stringSetIdx, inversion,
+  // stringSet} shape, mutates it in-place against the current tonality.
+  // Returns true on success, false if the chord ID isn't valid here so the
+  // caller knows the entry stays stale.
+  const rebuildOne = (entry) => {
+    if (!entry || !entry.chord) return false;
+    const ch = map.chordDefs[entry.chord];
+    if (!ch) return false;
     const root = (state.keyPc + ch.deg) % 12;
-    // Use the FULL catalog (skip the guitar playability filter) so
-    // voicings defined while in piano mode keep their coordinate
-    // intact when the user transposes — even if the resulting shape
-    // would be too stretchy on guitar.
     const cands = allDistinctVoicings(ch.quality, root, { allShapes: true });
-    if (!cands.length) continue;
+    if (!cands.length) return false;
     let matchIdx = -1;
-    if (cell.voicingType) {
+    if (entry.voicingType) {
       matchIdx = cands.findIndex(c =>
-        c.type === cell.voicingType &&
-        c.stringSetIdx === cell.stringSetIdx &&
-        c.inversion === cell.inversion &&
-        c.stringSet === cell.stringSet
+        c.type === entry.voicingType &&
+        c.stringSetIdx === entry.stringSetIdx &&
+        c.inversion === entry.inversion &&
+        c.stringSet === entry.stringSet
       );
     }
     if (matchIdx < 0) {
-      // Legacy cell or coordinates not available in new key — fall back to
-      // clamping the old _candIdx, otherwise default to the first candidate.
-      matchIdx = (typeof cell._candIdx === 'number' && cell._candIdx >= 0 && cell._candIdx < cands.length)
-        ? cell._candIdx : 0;
+      matchIdx = (typeof entry._candIdx === 'number' && entry._candIdx >= 0 && entry._candIdx < cands.length)
+        ? entry._candIdx : 0;
     }
     const c = cands[matchIdx];
-    cell.shape = c.shape;
-    cell._candIdx = matchIdx;
-    cell.voicingType = c.type;
-    cell.stringSetIdx = c.stringSetIdx;
-    cell.inversion = c.inversion;
-    cell.stringSet = c.stringSet;
+    entry.shape = c.shape;
+    entry._candIdx = matchIdx;
+    entry.voicingType = c.type;
+    entry.stringSetIdx = c.stringSetIdx;
+    entry.inversion = c.inversion;
+    entry.stringSet = c.stringSet;
+    return true;
+  };
+  for (const cell of seq) {
+    rebuildOne(cell);
+    // Multi-chord cells store per-slot voicings independently — rebuild
+    // each slot too, otherwise switching tonality leaves slots with old
+    // shapes that no longer match their (now possibly invalid) chord ID.
+    if (cell && cell.slots && cell.slots.length) {
+      for (const slot of cell.slots) {
+        rebuildOne(slot);
+      }
+      // Re-mirror slot 0 onto the cell-level fields. If slot 0's chord ID
+      // doesn't exist in the new tonality, the cell already stayed stale
+      // from rebuildOne(cell) above — no double-write needed.
+      const s0 = cell.slots[0];
+      if (s0 && s0.chord && map.chordDefs[s0.chord]) {
+        cell.chord = s0.chord;
+        cell._candIdx = s0._candIdx;
+        cell.shape = s0.shape;
+        cell.voicingType = s0.voicingType;
+        cell.stringSetIdx = s0.stringSetIdx;
+        cell.inversion = s0.inversion;
+        cell.stringSet = s0.stringSet;
+      }
+    }
+  }
+  // Multi-chord edit state may point at a cell/slot whose chord no longer
+  // exists in the new tonality — clear it so the keypad falls back to the
+  // normal append flow instead of writing into a stale slot.
+  const editIdx = state._multiChordEditCell;
+  if (editIdx !== null && editIdx !== undefined && seq[editIdx]) {
+    const editCell = seq[editIdx];
+    const slotIdx = state._multiChordEditSlotIdx;
+    const editSlot = (editCell.slots && slotIdx >= 0 && slotIdx < editCell.slots.length)
+      ? editCell.slots[slotIdx] : null;
+    const stillValid = editSlot && editSlot.chord && map.chordDefs[editSlot.chord];
+    if (!stillValid) {
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      state._multiChordEditAutoAdvance = null;
+    }
   }
 }
 
