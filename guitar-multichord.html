@@ -6832,14 +6832,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   }
 
   // ── Key signature ──
-  // Drawn ONLY on the first bar of the line (showClef cells) — the user reads
-  // it once and remembers it for the rest of the row, matching real Real-Book
-  // / classical engraving convention. Per-note accidentals continue to print
-  // explicitly for now (Phase 1) — Phase 2 will suppress those that already
-  // appear in the key sig.
+  // Drawn on EVERY bar so the reader doesn't lose track when scrolling
+  // through play mode, but with stronger opacity on the first bar of the
+  // row (where the clef sits) and very faint on the rest — like a ghost
+  // reminder rather than a re-statement. Per-note accidentals continue
+  // to print explicitly for now (Phase 1).
   let keySig = '';
   let keySigW = 0;
-  if (showClef) {
+  {
     const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
                    : (typeof state !== 'undefined' && state ? state.keyPc : 0);
     const sigTonality = sizing?.tonality
@@ -6889,9 +6889,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       }
       // Wrap the whole armadura in a low-opacity group so it reads as
       // background/legend, like the clef glyphs (which use opacity 0.72).
-      // Slightly more muted than the clefs since there are multiple glyphs
-      // and they shouldn't compete with the chord notes.
-      keySig = `<g opacity="0.5">${keySigInner}</g>`;
+      // First bar of the row (showClef) prints at 0.5 — easy to read.
+      // Subsequent bars print at 0.18 — a ghost reminder, present enough
+      // that the eye registers the key without competing with the notes.
+      const sigOp = showClef ? 0.5 : 0.18;
+      keySig = `<g opacity="${sigOp}">${keySigInner}</g>`;
     }
   }
 
