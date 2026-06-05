@@ -13393,6 +13393,10 @@ class Player {
               };
               state.focusedChord = sl.chord;
             }
+            // Re-predict the preview now that the active slot moved —
+            // _predictNextVoicing is slot-aware and will surface the NEXT
+            // slot's chord (or fall through to the next bar at end of bar).
+            this._predictNextVoicing();
             if (typeof this._updateVisuals === 'function') this._updateVisuals();
             if (typeof repaintChordNeckNotes === 'function') repaintChordNeckNotes();
             if (typeof paintPianoNotes === 'function') paintPianoNotes();
@@ -13467,6 +13471,36 @@ class Player {
   }
 
   _predictNextVoicing() {
+    // Multi-chord bars: if there's another slot AFTER the one currently
+    // sounding, preview that slot's chord/shape instead of the next bar.
+    // The user sees the imminent in-bar change ghosted on the realistic
+    // guitar / piano, not a chord that won't sound for another beat or
+    // two. Falls through to the normal bar-level prediction when this is
+    // the last (non-muted) slot of the bar.
+    {
+      this._ensurePagePlan();
+      const barInPage = this.totalBars % 4;
+      const planned = this._cachedPage?.[barInPage];
+      const subN = planned?.subdivisions || 1;
+      const slotsArr = (planned && planned.slots && planned.slots.length === subN) ? planned.slots : null;
+      if (slotsArr && slotsArr.length >= 2) {
+        const subMute = planned.subdivMute || [];
+        const curSlotIdx = Math.min(slotsArr.length - 1, this.currentBarSlot || 0);
+        for (let s = curSlotIdx + 1; s < slotsArr.length; s++) {
+          if (subMute[s]) continue;
+          const sl = slotsArr[s];
+          if (sl && sl.chord && sl.shape) {
+            state.nextVoicing = {
+              chord: sl.chord,
+              shape: sl.shape,
+              type: sl.voicingType || this.voicingType,
+            };
+            return;
+          }
+        }
+        // Last non-muted slot of the bar — fall through to next-bar logic.
+      }
+    }
     const nxtId = this._nextChordId();
     if (!nxtId || !state.playerVoicing?.shape) { state.nextVoicing = null; return; }
 
