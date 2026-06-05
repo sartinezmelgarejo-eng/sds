@@ -19296,6 +19296,54 @@ document.addEventListener('keydown', (ev) => {
   });
 })();
 
+// Shared: apply a new subdivision count to a cell. Handles subdivMute,
+// the slots[] array (collapsing to single chord at N=1 OR reshaping when
+// growing/shrinking), AND a stash of the LAST multi-chord state on the
+// cell (_savedSlots) so dragging down to 1 and back up restores the
+// chords you had before instead of seeding fresh. Both the popover pick
+// and the badge drag go through this.
+function applyCellSubdivisions(cell, cellIdx, newN) {
+  if (!cell || cell.subdivisions === newN) return false;
+  cell.subdivisions = newN;
+  cell.subdivMute = (newN === 1)
+    ? []
+    : (cell.subdivMute && cell.subdivMute.length === newN
+        ? cell.subdivMute
+        : new Array(newN).fill(false));
+  if (newN === 1) {
+    // Stash existing slots so a later drag back up can resurrect them.
+    if (cell.slots && cell.slots.length > 1) {
+      cell._savedSlots = cell.slots.map(sl => sl ? {...sl} : null);
+    }
+    cell.slots = null;
+    if (state._multiChordEditCell === cellIdx) {
+      state._multiChordEditCell = null;
+      state._multiChordEditSlotIdx = null;
+      state._multiChordEditAutoAdvance = null;
+    }
+  } else {
+    // Going to N>1. Source = current slots if any, else the saved stash
+    // (resurrect-from-1 path), else nothing (seed-only path).
+    const source = (cell.slots && cell.slots.length)
+      ? cell.slots
+      : (cell._savedSlots || null);
+    if (source) {
+      const seed = source[0] || {
+        chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
+        voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
+        inversion: cell.inversion, stringSet: cell.stringSet,
+      };
+      cell.slots = Array.from({ length: newN }, (_, i) =>
+        source[i] ? { ...source[i] } : { ...seed }
+      );
+    }
+    // Keep _savedSlots around — user might collapse + re-expand many
+    // times while landing on the right N. It only gets cleared when the
+    // user explicitly changes the cell's chord or rebuilds the strip.
+  }
+  return true;
+}
+
 // Vertical drag on the subdivision badge to change the count (like the BPM).
 // Drag UP increments, DRAG DOWN decrements. ~14 px per step. Clamped 1–8.
 // Uses POINTER events so mouse + touch + pen all work the same way, with
@@ -19328,34 +19376,7 @@ document.addEventListener('keydown', (ev) => {
     const newN = clampN(1 + distance);
     const seq = state.composedProgression;
     const cell = seq[dragIdx];
-    if (!cell || cell.subdivisions === newN) return;
-    cell.subdivisions = newN;
-    cell.subdivMute = (newN === 1)
-      ? []
-      : (cell.subdivMute && cell.subdivMute.length === newN
-          ? cell.subdivMute
-          : new Array(newN).fill(false));
-    // Same slot-management the popover pick uses: dragging to 1 collapses
-    // back to single chord; other counts reshape the slots[] (mirror
-    // slot 0 for extensions) instead of erasing what's there.
-    if (newN === 1) {
-      cell.slots = null;
-      if (state._multiChordEditCell === dragIdx) {
-        state._multiChordEditCell = null;
-        state._multiChordEditSlotIdx = null;
-        state._multiChordEditAutoAdvance = null;
-      }
-    } else if (cell.slots && cell.slots.length !== newN) {
-      const oldSlots = cell.slots;
-      const seed = oldSlots[0] || {
-        chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
-        voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
-        inversion: cell.inversion, stringSet: cell.stringSet,
-      };
-      cell.slots = Array.from({ length: newN }, (_, i) =>
-        oldSlots[i] ? { ...oldSlots[i] } : { ...seed }
-      );
-    }
+    if (!applyCellSubdivisions(cell, dragIdx, newN)) return;
     renderComposeStrip();
   }
   function onEnd(e) {
@@ -19610,35 +19631,7 @@ document.addEventListener('click', (ev) => {
     const seq = state.composedProgression;
     if (!Number.isFinite(n) || !seq[cellIdx]) return;
     const cell = seq[cellIdx];
-    cell.subdivisions = n;
-    cell.subdivMute = (n === 1)
-      ? []
-      : (cell.subdivMute && cell.subdivMute.length === n
-          ? cell.subdivMute
-          : new Array(n).fill(false));
-    // Picking 1 in the rhythm picker is the way OUT of multi-chord mode:
-    // clear the slots[] array AND any active multi-chord edit state so
-    // the cell collapses back to a single-chord bar. Other counts (2-8)
-    // re-shape the slots: trim if shrinking, extend by mirroring slot 0
-    // if growing, so the existing chords aren't lost.
-    if (n === 1) {
-      cell.slots = null;
-      if (state._multiChordEditCell === cellIdx) {
-        state._multiChordEditCell = null;
-        state._multiChordEditSlotIdx = null;
-        state._multiChordEditAutoAdvance = null;
-      }
-    } else if (cell.slots && cell.slots.length !== n) {
-      const oldSlots = cell.slots;
-      const seed = oldSlots[0] || {
-        chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
-        voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
-        inversion: cell.inversion, stringSet: cell.stringSet,
-      };
-      cell.slots = Array.from({ length: n }, (_, i) =>
-        oldSlots[i] ? { ...oldSlots[i] } : { ...seed }
-      );
-    }
+    applyCellSubdivisions(cell, cellIdx, n);
     closeSubdivPopover();
     renderComposeStrip();
     return;
