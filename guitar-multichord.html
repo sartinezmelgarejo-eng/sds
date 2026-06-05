@@ -6877,15 +6877,21 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         : lineSp * 0.50;
       const startX = clefW + (sizing?.minimal ? 2 : 3);
       keySigW = sig.count * stepX + (sizing?.minimal ? 2 : 3);
+      let keySigInner = '';
       for (let i = 0; i < sig.count; i++) {
         const [letter, trebOct, bassOct] = order[i];
         const cx = startX + i * stepX + stepX * 0.5;
         const yT = yFor(letter, trebOct, true);
         const yB = yFor(letter, bassOct, false);
-        keySig += (sig.type === '#')
+        keySigInner += (sig.type === '#')
           ? (svgSharp(cx, yT, sigScale) + svgSharp(cx, yB, sigScale))
           : (svgFlat(cx, yT, sigScale)  + svgFlat(cx, yB, sigScale));
       }
+      // Wrap the whole armadura in a low-opacity group so it reads as
+      // background/legend, like the clef glyphs (which use opacity 0.72).
+      // Slightly more muted than the clefs since there are multiple glyphs
+      // and they shouldn't compete with the chord notes.
+      keySig = `<g opacity="0.5">${keySigInner}</g>`;
     }
   }
 
@@ -7344,7 +7350,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:100%;display:block">
     ${lines}
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" x="0" y="0" width="100%" height="100%">
-      ${nameSvg}${clef}${keySig}${ledgers}${notes}
+      ${clef}${keySig}${ledgers}${notes}${nameSvg}
     </svg>
   </svg>`;
 }
