@@ -1933,8 +1933,18 @@
      gold glow that gently pulses — your eye locks onto it instantly. Plus
      the small triangle above and a thicker gold underline at the bottom. */
   @keyframes currentMeasurePulse {
-    0%, 100% { box-shadow: inset 0 -4px 0 #d4a843, 0 0 10px rgba(212,168,67,0.18); }
-    50%      { box-shadow: inset 0 -5px 0 #f4c542, 0 0 18px rgba(244,197,66,0.42); }
+    0%, 100% {
+      box-shadow:
+        inset 0 0 0 1.5px rgba(212,168,67,0.55),
+        inset 0 -4px 0 #d4a843,
+        0 0 10px rgba(212,168,67,0.18);
+    }
+    50% {
+      box-shadow:
+        inset 0 0 0 2px rgba(244,197,66,0.85),
+        inset 0 -5px 0 #f4c542,
+        0 0 18px rgba(244,197,66,0.42);
+    }
   }
   body.instrument-piano .rb-tab-cell.current {
     background: #fdfcf3 !important;
@@ -18264,10 +18274,14 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     state.focusedChord = chordId;
     state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
     // One-shot replace path — clear the arm so the NEXT chord pick
-    // appends at the end again (back to normal compose flow). The
-    // persistent lock (composedSelectedIdx via 🔓 button) is left
-    // alone here; only the user can release it explicitly.
+    // appends at the end again (back to normal compose flow). Also
+    // clear the focused-idx so the cell visually returns to its
+    // unselected state — otherwise the gold ring lingers and the user
+    // feels like the selection got "stuck". The persistent lock
+    // (composedSelectedIdx via 🔒 button) is left alone here; only the
+    // user can release it explicitly.
     state._oneShotReplaceIdx = null;
+    state._composeFocusedIdx = null;
     renderAll();
     renderComposeStrip();
     ringFocusedChord();
