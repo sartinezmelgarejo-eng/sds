@@ -18177,7 +18177,24 @@ function composeUndo() {
 function _composeMax() { return 40; }
 
 // Shared compose actions — used by both the keyboard handler and the touch keypad.
+let _lastComposeAdd = { chordId: null, ts: 0 };
 function composeAddChord(chordId, cycleInversion = false, direction = 1) {
+  // Mobile double-fire guard: chord-map cards (and especially re-injected
+  // popup partners for secondary dominants) can dispatch BOTH a manual
+  // touchend-driven add AND a synthetic trusted click within ~50 ms of
+  // each other. The second one was advancing the multi-chord walkthrough
+  // past where the user expected — overwriting slots and sometimes
+  // clearing edit state, which read as "the multichord deleted itself".
+  // 150 ms window catches the duplicate while still allowing intentional
+  // rapid taps. Inversion cycling (Shift+number) is opt-out because the
+  // user genuinely wants every press to register.
+  const now = Date.now();
+  if (!cycleInversion
+      && _lastComposeAdd.chordId === chordId
+      && (now - _lastComposeAdd.ts) < 150) {
+    return;
+  }
+  _lastComposeAdd = { chordId, ts: now };
   const ch = currentMap().chordDefs[chordId];
   if (!ch) return;
   // If a different chord is being added, the prior persistent hover-popup
