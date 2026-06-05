@@ -13322,6 +13322,10 @@ class Player {
     state.progressionVoicings[chordId] = { shape, type };
     this.previousShape = shape;
 
+    // Reset the in-bar slot index BEFORE predicting, so the prediction
+    // for multi-chord bars starts from slot 0 of the freshly-triggered
+    // bar (not from whatever slot we were on at end of previous bar).
+    this.currentBarSlot = 0;
     this._predictNextVoicing();
 
     const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
