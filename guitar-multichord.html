@@ -6759,9 +6759,15 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     // out of the semitone difference. So Cm's b3 stays Eb (not D#),
     // Bdim's b5 stays F (not E#), and a Db7's b7 stays Cb. Notes that
     // aren't chord tones (rare on a chord-only staff but possible if the
-    // shape sneaks in a passing pc) fall back to the chord-root's
-    // preferred sharp/flat side.
-    const useFlatForRoot = (typeof useFlatsFor === 'function') ? useFlatsFor(root) : !!flats;
+    // shape sneaks in a passing pc) fall back to the cell-key sharp/flat
+    // side.
+    //
+    // The ROOT letter follows the CELL's key (passed-in `flats`), NOT
+    // the root pc's intrinsic preference. Otherwise a root like A# in
+    // F# major (pc 10, which useFlatsFor would say is "Bb") spells the
+    // chord with the wrong letter set and every note ends up with a
+    // bogus accidental against the F# major key sig.
+    const useFlatForRoot = !!flats;
     const rootName = noteLetterFromPc(root, useFlatForRoot);
     const rootLetter = rootName.charAt(0);
     const LETTERS_ORDER = ['C','D','E','F','G','A','B'];
