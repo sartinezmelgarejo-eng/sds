@@ -11632,6 +11632,42 @@ const PROGRESSIONS = {
     {name:'Jobim Imaj7-bII7#11',          len:4,  steps:[
       {chord:'I',bars:2},{chord:'bII7',bars:2,qualityOverride:'7#11'},
     ]},
+    // ════════════════════════════════════════════════════════════════
+    // ─── Multi-chord bar progressions ───
+    // Idiomatic jazz/blues uses where two harmonic events live in a
+    // single bar — ii-V cells, Bird-style turnarounds, walking
+    // turnarounds. The `slots` field per step splits a bar into N
+    // equal-time chord events. AI playback picks per-slot voicings
+    // and the realistic guitar / piano animate the in-bar change.
+    // ════════════════════════════════════════════════════════════════
+    {name:'Bird-style turnaround',         len:8,  steps:[
+      {chord:'I',bars:1},
+      {chord:'V_vi',bars:1,slots:[{chord:'V_vi'},{chord:'vi'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+      {chord:'I',bars:1},
+      {chord:'V_iii',bars:1,slots:[{chord:'V_iii'},{chord:'iii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
+    {name:'Bird-style blues last 4',       len:12, steps:[
+      {chord:'I',bars:4,qualityOverride:'7'},
+      {chord:'IV',bars:2,qualityOverride:'7'},{chord:'I',bars:2,qualityOverride:'7'},
+      {chord:'iii',bars:1,slots:[{chord:'iii'},{chord:'V_ii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1,qualityOverride:'7',slots:[{chord:'I'},{chord:'V_vi'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+    ]},
+    {name:'Bossa ii-V chain',              len:8,  steps:[
+      {chord:'I',bars:1},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'iii',bars:1,slots:[{chord:'iii'},{chord:'V_ii'}]},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+      {chord:'bII7',bars:1,qualityOverride:'7#11'},
+      {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
+      {chord:'I',bars:1},
+    ]},
   ],
   minor: [
     // ─── 4-bar diatonic-only ───
@@ -11683,6 +11719,30 @@ const PROGRESSIONS = {
     ]},
     {name:'So What modal vamp',           len:16, steps:[
       {chord:'i',bars:16,qualityOverride:'m9'},
+    ]},
+    // ── Multi-chord bar progressions (minor) ──
+    // iiø-V7 cells are the bread-and-butter of minor-key jazz comping.
+    // Splitting them into half-bar slots gives a more idiomatic harmonic
+    // rhythm than the standard one-chord-per-bar reading.
+    {name:'Minor ii-V chain',              len:8,  steps:[
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'i',bars:1},
+      {chord:'V_iv',bars:1,slots:[{chord:'V_iv'},{chord:'iv'}]},
+      {chord:'iv',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'bII7'}]},
+      {chord:'V7',bars:1},
+      {chord:'i',bars:1},
+    ]},
+    {name:'Bossa noir',                    len:8,  steps:[
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
+      {chord:'iv',bars:1},
+      {chord:'bVI',bars:1,slots:[{chord:'bVI'},{chord:'V7'}]},
+      {chord:'i',bars:1},
+      {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'bII7'}]},
+      {chord:'V7',bars:1,qualityOverride:'7alt'},
+      {chord:'i',bars:1},
     ]},
   ]
 };
@@ -14066,7 +14126,7 @@ class Player {
         tonality: simTonality,
         voicingType: simVoicingType,
         composedShape: step.composedShape,  // honors user-typed inversions
-        subdivisions: step.subdivisions || 1,
+        subdivisions: step.subdivisions || (step.slots && step.slots.length) || 1,
         subdivMute: step.subdivMute || [],
         slots: step.slots || null,
         // Track song position so playback-strip cells can jump back
@@ -14243,6 +14303,31 @@ class Player {
         // chord-name, popup card label) can apply it without having
         // to re-look up the step from the progression each time.
         const stepForEntry = this.song[seg.songIdx]?.progression?.steps?.[seg.stepIdx];
+        // Enrich multi-chord slots with per-slot shapes when the source
+        // (PROGRESSIONS data) only specifies chord IDs. Composed cells
+        // come pre-enriched from compose mode — preserve those shapes.
+        let enrichedSlots = seg.slots || null;
+        if (enrichedSlots && enrichedSlots.length) {
+          const needsPicking = enrichedSlots.some(s => s && s.chord && !s.shape);
+          if (needsPicking) {
+            const sMap = CHORD_MAP[segTonality] || currentMap();
+            let prevSlotShape = prevShape || shape || null;
+            enrichedSlots = enrichedSlots.map(sl => {
+              if (!sl || !sl.chord) return sl;
+              if (sl.shape) { prevSlotShape = sl.shape; return sl; }
+              const sCh = sMap.chordDefs[sl.chord];
+              if (!sCh) return sl;
+              const sRoot = (segKeyPc + sCh.deg) % 12;
+              const sShape = this._pickShape(sCh.quality, sRoot, segType, prevSlotShape);
+              if (sShape) prevSlotShape = sShape;
+              return {
+                ...sl,
+                shape: sShape || sl.shape || null,
+                voicingType: sl.voicingType || segType,
+              };
+            });
+          }
+        }
         const entry = {
           chord: seg.chord,
           qualityOverride: stepForEntry?.qualityOverride || null,
@@ -14252,9 +14337,9 @@ class Player {
           // the info bar / pause-click handler can label it correctly.
           voicingType: (typeof finalType !== 'undefined') ? finalType : segType,
           shape,
-          subdivisions: seg.subdivisions || 1,
+          subdivisions: seg.subdivisions || (enrichedSlots && enrichedSlots.length) || 1,
           subdivMute: seg.subdivMute || [],
-          slots: seg.slots || null,
+          slots: enrichedSlots,
           // Position info for jump-on-click while paused.
           songIdx: seg.songIdx,
           stepIdx: seg.stepIdx,
