@@ -6866,21 +6866,25 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
           ? trebleBotY + lineSp - step * 0.5 * lineSp
           : bassTopY + (-step - 2) * 0.5 * lineSp;
       };
-      // Glyph spacing — sharps run a touch wider than flats. minimal viewBoxes
-      // use a tighter spacing so the whole sig still fits next to the clef.
+      // Key-sig glyphs print SMALLER than per-note accidentals — they're a
+      // legend at the top of the staff, not a hot-take in the middle of a
+      // chord. Pass scale=0.7 to svgSharp/svgFlat (drawn smaller) and keep
+      // the per-glyph horizontal step proportional so the whole sig stays
+      // compact next to the clef.
+      const sigScale = 0.7;
       const stepX = sig.type === '#'
-        ? (sizing?.minimal ? lineSp * 0.78 : lineSp * 0.85)
-        : (sizing?.minimal ? lineSp * 0.72 : lineSp * 0.78);
-      const startX = clefW + (sizing?.minimal ? 2 : 4);
-      keySigW = sig.count * stepX + (sizing?.minimal ? 2 : 4);
+        ? lineSp * 0.55
+        : lineSp * 0.50;
+      const startX = clefW + (sizing?.minimal ? 2 : 3);
+      keySigW = sig.count * stepX + (sizing?.minimal ? 2 : 3);
       for (let i = 0; i < sig.count; i++) {
         const [letter, trebOct, bassOct] = order[i];
         const cx = startX + i * stepX + stepX * 0.5;
         const yT = yFor(letter, trebOct, true);
         const yB = yFor(letter, bassOct, false);
         keySig += (sig.type === '#')
-          ? (svgSharp(cx, yT) + svgSharp(cx, yB))
-          : (svgFlat(cx, yT)  + svgFlat(cx, yB));
+          ? (svgSharp(cx, yT, sigScale) + svgSharp(cx, yB, sigScale))
+          : (svgFlat(cx, yT, sigScale)  + svgFlat(cx, yB, sigScale));
       }
     }
   }
@@ -6934,33 +6938,36 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   const offsetX = baseData.offsetX;
 
   // ── Hand-drawn accidentals — cleaner than Unicode ♯ / ♭ at small sizes
-  function svgSharp(cx, cy) {
+  function svgSharp(cx, cy, scale = 1) {
     // Two vertical bars + two slightly upward-tilted thicker horizontal bars,
-    // sized to fit roughly two line-spacings tall (one above + one below note line)
-    const w = lineSp * 0.85;
-    const h = lineSp * 1.6;
+    // sized to fit roughly two line-spacings tall (one above + one below note line).
+    // `scale` shrinks the whole glyph — used by the key signature where the
+    // accidentals print smaller than per-note ones.
+    const w = lineSp * 0.85 * scale;
+    const h = lineSp * 1.6  * scale;
     const x0 = cx - w * 0.5, y0 = cy - h * 0.5;
+    const sw = Math.max(1.0, 1.0 * scale);
+    const cbw = Math.max(1.2, lineSp * 0.32 * scale);
     return [
-      // Vertical bars
-      `<line x1="${x0 + w*0.32}" y1="${y0 + h*0.06}" x2="${x0 + w*0.32}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="1.0" stroke-linecap="round"/>`,
-      `<line x1="${x0 + w*0.68}" y1="${y0 + h*0.06}" x2="${x0 + w*0.68}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="1.0" stroke-linecap="round"/>`,
-      // Two thick angled crossbars (slope up to the right, classic sharp look)
-      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.45}" x2="${x0 + w*0.95}" y2="${y0 + h*0.33}" stroke="#1a1a1a" stroke-width="${Math.max(1.6, lineSp*0.32)}" stroke-linecap="round"/>`,
-      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.72}" x2="${x0 + w*0.95}" y2="${y0 + h*0.60}" stroke="#1a1a1a" stroke-width="${Math.max(1.6, lineSp*0.32)}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.32}" y1="${y0 + h*0.06}" x2="${x0 + w*0.32}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.68}" y1="${y0 + h*0.06}" x2="${x0 + w*0.68}" y2="${y0 + h*0.94}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.45}" x2="${x0 + w*0.95}" y2="${y0 + h*0.33}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
+      `<line x1="${x0 + w*0.05}" y1="${y0 + h*0.72}" x2="${x0 + w*0.95}" y2="${y0 + h*0.60}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
     ].join('');
   }
-  function svgFlat(cx, cy) {
-    // Vertical stem + a teardrop bulge on the lower right (the loop of a flat)
-    const h = lineSp * 1.9;
-    const x0 = cx - lineSp * 0.25, y0 = cy - h * 0.65;
-    const stemX = x0 + lineSp * 0.18;
+  function svgFlat(cx, cy, scale = 1) {
+    // Vertical stem + a teardrop bulge on the lower right (the loop of a flat).
+    const h  = lineSp * 1.9 * scale;
+    const ls = lineSp * scale;
+    const x0 = cx - ls * 0.25, y0 = cy - h * 0.65;
+    const stemX = x0 + ls * 0.18;
+    const sw = Math.max(1.0, 1.1 * scale);
     return [
-      `<line x1="${stemX}" y1="${y0}" x2="${stemX}" y2="${y0 + h * 0.95}" stroke="#1a1a1a" stroke-width="1.1" stroke-linecap="round"/>`,
-      // Loop (filled teardrop)
+      `<line x1="${stemX}" y1="${y0}" x2="${stemX}" y2="${y0 + h * 0.95}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
       `<path d="M ${stemX} ${y0 + h*0.55}
-                Q ${stemX + lineSp*1.0} ${y0 + h*0.50},
-                  ${stemX + lineSp*0.55} ${y0 + h*0.95}
-                Q ${stemX + lineSp*0.15} ${y0 + h*1.02},
+                Q ${stemX + ls*1.0} ${y0 + h*0.50},
+                  ${stemX + ls*0.55} ${y0 + h*0.95}
+                Q ${stemX + ls*0.15} ${y0 + h*1.02},
                   ${stemX} ${y0 + h*0.85} Z"
               fill="#1a1a1a"/>`,
     ].join('');
