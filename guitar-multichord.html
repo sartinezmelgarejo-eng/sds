@@ -6753,17 +6753,57 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
                          .filter(x => x !== null)
                          .sort((a, b) => a - b);
     if (!slotMidis.length) return null;
-    // Note spelling follows the CHORD's root preference (not the cell's key)
-    // so an A7 in F major spells C# correctly, and an Eb chord in C major
-    // spells with flats. Matches what jazz lead sheets do — chord context
-    // wins over key context for the notes inside the chord.
-    const useFlatForChord = (typeof useFlatsFor === 'function') ? useFlatsFor(root) : !!flats;
+    // Note spelling follows DEGREES inside the chord — each chord tone gets
+    // a letter derived from the root letter + diatonic offset for its
+    // degree (R=0, 3=+2, 5=+4, 7=+6 letters), then the accidental falls
+    // out of the semitone difference. So Cm's b3 stays Eb (not D#),
+    // Bdim's b5 stays F (not E#), and a Db7's b7 stays Cb. Notes that
+    // aren't chord tones (rare on a chord-only staff but possible if the
+    // shape sneaks in a passing pc) fall back to the chord-root's
+    // preferred sharp/flat side.
+    const useFlatForRoot = (typeof useFlatsFor === 'function') ? useFlatsFor(root) : !!flats;
+    const rootName = noteLetterFromPc(root, useFlatForRoot);
+    const rootLetter = rootName.charAt(0);
+    const LETTERS_ORDER = ['C','D','E','F','G','A','B'];
+    const LETTER_TO_PC  = {C:0, D:2, E:4, F:5, G:7, A:9, B:11};
+    const rootLetterIdx = LETTERS_ORDER.indexOf(rootLetter);
+    const letterAccForDegree = (degree, pc) => {
+      // Diatonic step from root letter: 'R' / '3' / 'b3' / '#5' / 'b7' /
+      // 'maj7' / '9' / '#11' / 'b13' all parse to a digit (1, 3, 5, 7,
+      // 9, 11, 13), which collapses mod 7 to the letter offset.
+      let digit = 1;
+      if (degree !== 'R') {
+        const m = degree.match(/(\d+)/);
+        if (m) digit = parseInt(m[1], 10);
+      }
+      const offset = (digit - 1) % 7;
+      const targetLetterIdx = (rootLetterIdx + offset) % 7;
+      const targetLetter = LETTERS_ORDER[targetLetterIdx];
+      const naturalPc = LETTER_TO_PC[targetLetter];
+      // Signed semitone diff in [-6, +6] range so ±1 sharps/flats fall out
+      // naturally even when the natural pc wraps past 12.
+      let diff = (((pc - naturalPc) % 12) + 12) % 12;
+      if (diff > 6) diff -= 12;
+      let acc = '';
+      if (diff === 1)       acc = '#';
+      else if (diff === -1) acc = 'b';
+      else if (diff !== 0)  return null;   // double accidental → fall back
+      return { letter: targetLetter, acc };
+    };
     const slotPos = slotMidis.map((midi) => {
       const pc = ((midi % 12) + 12) % 12;
       const octave = Math.floor(midi / 12) - 1;
-      const name = noteLetterFromPc(pc, useFlatForChord);
-      const letter = name.charAt(0);
-      const acc = name.length > 1 ? name.charAt(1) : '';
+      const deg = slotPcToDeg[pc];
+      let letter, acc;
+      const la = deg ? letterAccForDegree(deg, pc) : null;
+      if (la) {
+        letter = la.letter;
+        acc = la.acc;
+      } else {
+        const name = noteLetterFromPc(pc, useFlatForRoot);
+        letter = name.charAt(0);
+        acc = name.length > 1 ? name.charAt(1) : '';
+      }
       const step = (octave - 4) * 7 + stepInOctave[letter];
       const useTreble = midi >= 60;
       const y = useTreble
