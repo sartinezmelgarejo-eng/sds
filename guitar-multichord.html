@@ -6747,10 +6747,15 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
                          .filter(x => x !== null)
                          .sort((a, b) => a - b);
     if (!slotMidis.length) return null;
+    // Note spelling follows the CHORD's root preference (not the cell's key)
+    // so an A7 in F major spells C# correctly, and an Eb chord in C major
+    // spells with flats. Matches what jazz lead sheets do — chord context
+    // wins over key context for the notes inside the chord.
+    const useFlatForChord = (typeof useFlatsFor === 'function') ? useFlatsFor(root) : !!flats;
     const slotPos = slotMidis.map((midi) => {
       const pc = ((midi % 12) + 12) % 12;
       const octave = Math.floor(midi / 12) - 1;
-      const name = noteLetterFromPc(pc, flats);
+      const name = noteLetterFromPc(pc, useFlatForChord);
       const letter = name.charAt(0);
       const acc = name.length > 1 ? name.charAt(1) : '';
       const step = (octave - 4) * 7 + stepInOctave[letter];
@@ -6839,14 +6844,25 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // first bar of the piece; subsequent rows get the key sig at a fainter
   // opacity (ghost reminder) without re-stating the clef.
   const firstOfRow = sizing?.firstOfRow !== undefined ? !!sizing.firstOfRow : showClef;
+  // Compute key signature info up-front so we can also USE it to suppress
+  // per-note accidentals that already appear in the armadura (Phase 2).
+  const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
+                 : (typeof state !== 'undefined' && state ? state.keyPc : 0);
+  const sigTonality = sizing?.tonality
+                   || (typeof state !== 'undefined' && state ? state.tonality : 'major');
+  const sig = getKeySig(sigKeyPc, sigTonality);
+  // Letters that carry the key-sig accidental. Used inside the slot loop
+  // to decide whether to draw a per-note accidental, naturalize a key-sig
+  // letter that's sounding without its accidental, or print nothing.
+  const SHARP_LETTERS_ORDER = ['F','C','G','D','A','E','B'];
+  const FLAT_LETTERS_ORDER  = ['B','E','A','D','G','C','F'];
+  const sigLetters = sig.type === '#' ? SHARP_LETTERS_ORDER.slice(0, sig.count)
+                   : sig.type === 'b' ? FLAT_LETTERS_ORDER.slice(0, sig.count)
+                   : [];
+  const sigLetterSet = new Set(sigLetters);
   let keySig = '';
   let keySigW = 0;
   if (firstOfRow) {
-    const sigKeyPc = (sizing?.keyPc !== undefined) ? sizing.keyPc
-                   : (typeof state !== 'undefined' && state ? state.keyPc : 0);
-    const sigTonality = sizing?.tonality
-                     || (typeof state !== 'undefined' && state ? state.tonality : 'major');
-    const sig = getKeySig(sigKeyPc, sigTonality);
     if (sig.count > 0) {
       // Order of accidentals in a standard key signature, with their
       // conventional staff positions (octave per accidental).
@@ -6982,6 +6998,26 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
               fill="#1a1a1a"/>`,
     ].join('');
   }
+  function svgNatural(cx, cy, scale = 1) {
+    // Hand-drawn natural — two short vertical bars (left tall on top, right
+    // tall on bottom) with two tilted horizontal bars forming an inner
+    // parallelogram. Same visual weight as the sharp/flat helpers.
+    const w  = lineSp * 0.55 * scale;
+    const h  = lineSp * 1.6  * scale;
+    const x0 = cx - w * 0.5, y0 = cy - h * 0.5;
+    const sw  = Math.max(1.0, 1.0 * scale);
+    const cbw = Math.max(1.3, lineSp * 0.28 * scale);
+    return [
+      // Left vertical — from near top down to the middle horizontal
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.05}" x2="${x0 + w*0.25}" y2="${y0 + h*0.78}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      // Right vertical — from middle down to near bottom
+      `<line x1="${x0 + w*0.75}" y1="${y0 + h*0.22}" x2="${x0 + w*0.75}" y2="${y0 + h*0.95}" stroke="#1a1a1a" stroke-width="${sw}" stroke-linecap="round"/>`,
+      // Top tilted crossbar (up to the right, classic natural look)
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.40}" x2="${x0 + w*0.75}" y2="${y0 + h*0.30}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
+      // Bottom tilted crossbar
+      `<line x1="${x0 + w*0.25}" y1="${y0 + h*0.65}" x2="${x0 + w*0.75}" y2="${y0 + h*0.55}" stroke="#1a1a1a" stroke-width="${cbw}" stroke-linecap="round"/>`,
+    ].join('');
+  }
 
   // Accidentals + noteheads — rhythm-aware. If the cell has subdivisions,
   // render N noteheads spaced across the bar with the appropriate shape
@@ -7097,10 +7133,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // treble line) the stem HANGS DOWN; otherwise it rises up. Matches
   // classical engraving convention applied to the combined grand staff.
   const slotStems = [];   // [{cx, endY, dir}] or null for muted slots
-  // Per-bar accidental memory: once a sharp/flat appears on a given pitch
-  // (identified by its staff y-position), subsequent slots in the same bar
-  // omit the accidental — standard music notation convention.
-  const accSeen = new Set();
+  // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
+  // effect at each y position. The baseline is the key signature (a letter
+  // in sigLetterSet defaults to sig.type). When a note's acc differs from
+  // whatever is currently established, we draw it AND record the change.
+  // This makes redundant accidentals disappear (note matches key sig =
+  // no glyph) and produces a natural sign on the first cancellation in
+  // the bar.
+  const accSeen = new Map();
 
   let notes = '';
   // Track the union of all slots' positions so the tuplet bracket clears
@@ -7138,20 +7178,30 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         const deg = sPcToDeg[p.pc];
         const isRoot = deg === 'R';
         const color = isRoot ? (intervalColor('R') || '#dc2626') : '#1a1a1a';
-        if (p.acc === '#' || p.acc === 'b') {
-          const key = `${p.acc}@${p.y.toFixed(2)}`;
-          if (!accSeen.has(key)) {
-            accSeen.add(key);
-            // For up-stem displacements (dx > 0) the displaced note sits to
-            // the RIGHT of the regular column, so its accidental at the
-            // standard position lands on top of the regular notehead. Shift
-            // it further left past the regular accidental column. Down-stem
-            // displacements (dx < 0) already moved the note + accidental
-            // into clear space, so no extra shift is needed.
-            const accShift = dx > 0 ? -(dx + lineSp * 1.1) : 0;
-            if (p.acc === '#') slotInner += svgSharp(cxNote - lineSp * 1.2 + accShift, p.y);
-            else slotInner += svgFlat(cxNote - lineSp * 1.1 + accShift, p.y);
-          }
+        // Decide whether this note needs an explicit accidental.
+        //   baseAcc  = what's "in effect" before any per-bar override. If
+        //              the letter is in the key sig, baseAcc = sig.type.
+        //   established = current per-bar state at this y (defaults to baseAcc).
+        //   noteAcc  = the spelling this note actually wants ('', '#' or 'b').
+        // If noteAcc !== established, we draw and update the establishment.
+        // No glyph needed otherwise — the key sig or a previous chromatic
+        // already covers it.
+        const yKey = p.y.toFixed(2);
+        const baseAcc = sigLetterSet.has(p.letter) ? sig.type : '';
+        const established = accSeen.has(yKey) ? accSeen.get(yKey) : baseAcc;
+        const noteAcc = p.acc;
+        if (noteAcc !== established) {
+          // For up-stem displacements (dx > 0) the displaced note sits to
+          // the RIGHT of the regular column, so its accidental at the
+          // standard position lands on top of the regular notehead. Shift
+          // it further left past the regular accidental column. Down-stem
+          // displacements (dx < 0) already moved the note + accidental
+          // into clear space, so no extra shift is needed.
+          const accShift = dx > 0 ? -(dx + lineSp * 1.1) : 0;
+          if (noteAcc === '#')      slotInner += svgSharp(cxNote - lineSp * 1.2 + accShift, p.y);
+          else if (noteAcc === 'b') slotInner += svgFlat(cxNote - lineSp * 1.1 + accShift, p.y);
+          else                       slotInner += svgNatural(cxNote - lineSp * 1.15 + accShift, p.y);
+          accSeen.set(yKey, noteAcc);
         }
         slotInner += drawHead(cxNote, p.y, color, isOpen);
       });
