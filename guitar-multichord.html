@@ -13380,7 +13380,22 @@ class Player {
           // for no reason.
           if (slotsAreMulti) {
             this.currentBarSlot = slotIdx;
+            // Update state.playerVoicing to the slot's own chord+shape so
+            // the realistic guitar neck (renderChordNeck / repaintChordNeckNotes)
+            // animates the chord change inside the bar. Without this it
+            // stays stuck on slot 0's chord for the whole bar.
+            const sl = slotsArr[slotIdx];
+            if (sl && sl.chord && sl.shape) {
+              state.playerVoicing = {
+                chord: sl.chord,
+                shape: sl.shape,
+                type: sl.voicingType || (state.playerVoicing && state.playerVoicing.type) || 'drop2',
+              };
+              state.focusedChord = sl.chord;
+            }
             if (typeof this._updateVisuals === 'function') this._updateVisuals();
+            if (typeof repaintChordNeckNotes === 'function') repaintChordNeckNotes();
+            if (typeof paintPianoNotes === 'function') paintPianoNotes();
           }
         }, wallWait);
         this._subdivTimers.push(tid);
