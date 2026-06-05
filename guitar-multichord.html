@@ -19032,29 +19032,29 @@ function renderComposeStrip() {
       }
       // Just a pill badge with the count — clean, no triangle silhouette.
       const triHtml = `<button class="${triClass}" data-subdiv-tri="${i}" title="rhythm subdivisions (click to change)">${n}</button>`;
-      // Multi-chord chip — top-right corner. Shows the count of distinct
-      // chord slots when the bar holds more than one chord, or "+" as a
-      // discreet hint when the bar still has a single chord. Tapping it
-      // enters multi-chord edit mode for this bar (see the click handler
-      // wired below renderComposeStrip).
-      // Multi-chord trigger is the presence of slots[] (≥2), NOT distinct
-      // chord IDs — the user may intentionally have the same chord twice
-      // with different inversions. Chip label is the slot count.
+      // Multi-chord chip — only meaningful as a "+" CTA on single-chord
+      // bars. Once the bar already has slots[], the chip becomes
+      // redundant clutter (the rhythm-subdivision badge below already
+      // shows the slot count, and the path back to single chord lives
+      // on the same badge by picking 1). We still show the chip while
+      // EDITING (chip-initiated walkthrough) so the user has a visible
+      // anchor showing which slot index they're filling next.
       const slots = cell.slots || null;
       const slotCt = slots && slots.length > 1 ? slots.length : 1;
       const isMC = slotCt > 1;
       const isEditing = (state._multiChordEditCell === i);
-      const mcClass = isEditing ? 'multichord-chip editing'
-                    : isMC      ? 'multichord-chip active'
-                                : 'multichord-chip';
-      const mcLabel = isEditing
-        ? String((state._multiChordEditSlotIdx ?? 1) + 1)   // "2" while editing slot index 1
-        : isMC ? String(slotCt)
-               : '+';
-      const mcTitle = isMC
-        ? 'multi-chord — tap to edit slots'
-        : 'add 2nd chord in this bar';
-      const mcHtml = `<button class="${mcClass}" data-multichord-cell="${i}" title="${mcTitle}">${mcLabel}</button>`;
+      let mcHtml = '';
+      if (!isMC || isEditing) {
+        const mcClass = isEditing ? 'multichord-chip editing'
+                                  : 'multichord-chip';
+        const mcLabel = isEditing
+          ? String((state._multiChordEditSlotIdx ?? 1) + 1)   // "2" while editing slot index 1
+          : '+';
+        const mcTitle = isEditing
+          ? 'editing slot — tap chord button to fill, tap chip to exit'
+          : 'add 2nd chord in this bar';
+        mcHtml = `<button class="${mcClass}" data-multichord-cell="${i}" title="${mcTitle}">${mcLabel}</button>`;
+      }
       // Piano mode: no flex-grow change. The sheet-music staff already
       // distributes N chord-events horizontally within a single cell
       // width without needing extra room. Tab mode keeps a softer
@@ -19590,6 +19590,29 @@ document.addEventListener('click', (ev) => {
       : (cell.subdivMute && cell.subdivMute.length === n
           ? cell.subdivMute
           : new Array(n).fill(false));
+    // Picking 1 in the rhythm picker is the way OUT of multi-chord mode:
+    // clear the slots[] array AND any active multi-chord edit state so
+    // the cell collapses back to a single-chord bar. Other counts (2-8)
+    // re-shape the slots: trim if shrinking, extend by mirroring slot 0
+    // if growing, so the existing chords aren't lost.
+    if (n === 1) {
+      cell.slots = null;
+      if (state._multiChordEditCell === cellIdx) {
+        state._multiChordEditCell = null;
+        state._multiChordEditSlotIdx = null;
+        state._multiChordEditAutoAdvance = null;
+      }
+    } else if (cell.slots && cell.slots.length !== n) {
+      const oldSlots = cell.slots;
+      const seed = oldSlots[0] || {
+        chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
+        voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
+        inversion: cell.inversion, stringSet: cell.stringSet,
+      };
+      cell.slots = Array.from({ length: n }, (_, i) =>
+        oldSlots[i] ? { ...oldSlots[i] } : { ...seed }
+      );
+    }
     closeSubdivPopover();
     renderComposeStrip();
     return;
