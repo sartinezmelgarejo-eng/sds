@@ -2677,20 +2677,30 @@
   [data-compose-idx].compose-selected:hover {
     background: rgba(232,144,52,0.30) !important;
   }
-  .compose-edit-btn {
+  /* Lock button — kept hidden now that the long-press gesture replaced
+     it. The element is still rendered on tie cells (existing legacy code
+     path) but it's invisible / non-interactive. */
+  .compose-edit-btn { display: none; }
+  /* Lock hint — small badge that appears in a corner of the locked cell
+     so the user can SEE the cell is locked even with no button. Sits in
+     the top-left corner (away from the chip and section badge). */
+  .compose-lock-hint {
     position: absolute;
-    /* Sit just to the LEFT of the multichord chip — in guitar mode the
-       chip occupies top:4px right:4px, so right:26px puts the lock
-       beside it instead of stacked behind it. In piano mode the chip
-       moved down to the chord-name baseline (~7%), so the top-right
-       corner area is already free; the lock still reads as "top-right
-       cluster" either way. */
-    top: 4px; right: 26px;
-    width: 20px; height: 20px; padding: 0;
-    border: none; border-radius: 50%;
-    background: rgba(0,0,0,0.06); color: var(--text-faint);
-    font-size: 11px; line-height: 20px; text-align: center;
-    cursor: pointer; opacity: 0; transition: opacity 0.15s;
+    top: 2px;
+    left: 2px;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 4;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,0.18));
+  }
+  /* Long-press feedback — subtle scale-down + fade so the user knows the
+     gesture started. Same idea as the iOS "press and hold to..." cue. */
+  [data-compose-idx].compose-longpress {
+    transition: transform 480ms ease-out, opacity 480ms ease-out;
+    transform: scale(0.96);
+    opacity: 0.82;
   }
   [data-compose-idx]:hover .compose-edit-btn,
   .compose-edit-btn.active { opacity: 1; }
@@ -2757,16 +2767,10 @@
       top: 2%;
     }
   }
-  /* The lock (🔒/🔓) used to share the top-right corner with the chip.
-     Now that the chip moved (in piano) or stays put (in guitar), keep
-     the lock pinned to the very top-right with a touch more contrast +
-     a slight base opacity so the user notices it exists, instead of it
-     only fading in on hover and getting upstaged by the always-visible
-     chip. */
-  .compose-edit-btn {
-    opacity: 0.25;
-  }
-  [data-compose-idx]:hover .compose-edit-btn { opacity: 0.95; }
+  /* The visible lock button was retired in favor of a long-press gesture
+     on the cell itself. The .compose-edit-btn rule above already hides
+     it; the old opacity overrides for hover/active have been removed
+     since the button never paints. */
   .subdiv-triangle {
     position: absolute;
     bottom: -9px;
@@ -19069,14 +19073,16 @@ function renderComposeStrip() {
       const growStyle = isMultiChord
         ? ` style="${flexGrow > 1 ? `flex-grow: ${flexGrow}; ` : ''}padding-bottom: 0"`
         : (flexGrow > 1 ? ` style="flex-grow: ${flexGrow}"` : '');
-      // Lock button — rendered HERE on the tab cell because the .rb-cell
-      // chord-name row is hidden in compose mode (both piano and guitar
-      // since the unified-row layout work). Without this the lock only
-      // appeared on tie cells and was effectively invisible everywhere
-      // else.
-      const lockCls = (i === state.composedSelectedIdx) ? 'compose-edit-btn active' : 'compose-edit-btn';
-      const lockHtml = `<button class="${lockCls}" data-edit-idx="${i}" title="lock slot for replacement (L)">${i === state.composedSelectedIdx ? '🔒' : '🔓'}</button>`;
-      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}${growStyle}>${sectionTag}${svg}${triHtml}${barHtml}${mcHtml}${lockHtml}</div>`;
+      // Lock is now activated via LONG-PRESS on the cell itself (no
+      // visible button — it kept stepping on the chip "+" and felt like
+      // clutter). When the user is in the locked state (.compose-selected
+      // via composedSelectedIdx), a small lock glyph appears as a hint
+      // so they can SEE it's locked. Releasing the lock = another
+      // long-press OR clicking outside any cell.
+      const lockHintHtml = (i === state.composedSelectedIdx)
+        ? `<span class="compose-lock-hint" aria-hidden="true">🔒</span>`
+        : '';
+      return `<div class="${cls.join(' ')}"${idxAttr}${dragAttr}${growStyle}>${sectionTag}${svg}${triHtml}${barHtml}${mcHtml}${lockHintHtml}</div>`;
     }
     const name = chordNameForVoicing(ch.quality, root, cell.shape, flats)
       || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
@@ -19680,6 +19686,81 @@ document.addEventListener('click', (ev) => {
   renderComposeStrip();
   ringFocusedChord();
 });
+
+// Long-press on a compose cell toggles the explicit lock (composedSelectedIdx)
+// — the gesture replaced the visible lock button so the strip stays clean.
+// Threshold: 520ms hold without moving more than 6px. Quick taps fall
+// through to the normal cell-click handler that arms one-shot replace.
+(function wireComposeLongPressLock() {
+  const area = document.querySelector('.rb-area');
+  if (!area) return;
+  const HOLD_MS = 520;
+  const MOVE_TOL = 6;
+  let pressTimer = null;
+  let startX = 0, startY = 0;
+  let pressedIdx = -1;
+  let pressedEl = null;
+  let didFire = false;
+  const clear = () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    if (pressedEl) pressedEl.classList.remove('compose-longpress');
+    pressedEl = null;
+    pressedIdx = -1;
+  };
+  area.addEventListener('pointerdown', (ev) => {
+    if (player.playing || player.paused) return;
+    // Skip if the press lands on an inner control — chip, lock btn, subdiv
+    // triangle/seg, popover button. Those have their own handlers.
+    if (ev.target.closest('.multichord-chip, .compose-edit-btn, .subdiv-triangle, .subdiv-bar, .subdiv-seg, #subdiv-popover, [data-multichord-slot], .staff-slot')) return;
+    const cell = ev.target.closest('[data-compose-idx]');
+    if (!cell) return;
+    const idx = parseInt(cell.dataset.composeIdx, 10);
+    if (!Number.isFinite(idx)) return;
+    pressedIdx = idx;
+    pressedEl = cell;
+    startX = ev.clientX;
+    startY = ev.clientY;
+    didFire = false;
+    cell.classList.add('compose-longpress');
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      const seq = state.composedProgression;
+      if (!seq[pressedIdx]) { clear(); return; }
+      // Toggle the explicit lock — same body as the old lock-button click.
+      if (state.composedSelectedIdx === pressedIdx) {
+        state.composedSelectedIdx = null;
+        state._composedSelectedLocked = false;
+      } else {
+        state.composedSelectedIdx = pressedIdx;
+        state._composedSelectedLocked = true;
+        const entry = seq[pressedIdx];
+        if (entry && entry.chord) {
+          state.focusedChord = entry.chord;
+          state.userVoicing = entry.shape ? { shape: entry.shape } : null;
+        }
+      }
+      didFire = true;
+      if (typeof renderAll === 'function') renderAll();
+      if (typeof renderComposeStrip === 'function') renderComposeStrip();
+      // Subtle haptic on mobile if supported — confirms the lock fired
+      // without waiting for the user to look at the strip.
+      if (navigator.vibrate) { try { navigator.vibrate(15); } catch(_) {} }
+      clear();
+    }, HOLD_MS);
+  });
+  area.addEventListener('pointermove', (ev) => {
+    if (!pressedEl) return;
+    if (Math.abs(ev.clientX - startX) > MOVE_TOL || Math.abs(ev.clientY - startY) > MOVE_TOL) {
+      clear();
+    }
+  });
+  // Both cancel + up clear the timer. If didFire is true the click that
+  // follows pointerup gets swallowed by the click handler chain that the
+  // lock toggle already triggered (re-render replaces the element).
+  area.addEventListener('pointerup', clear);
+  area.addEventListener('pointercancel', clear);
+  area.addEventListener('pointerleave', clear);
+})();
 
 // Sync hover highlight between chord-name row and tab row so they read as
 // ONE cell. Uses bubbling mouseover/mouseout (mouseenter doesn't bubble,
