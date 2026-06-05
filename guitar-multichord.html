@@ -19302,6 +19302,7 @@ document.addEventListener('keydown', (ev) => {
 // setPointerCapture so the drag survives the cursor leaving the badge.
 (function() {
   let dragIdx = null, dragStartY = null, dragStartN = null, dragMoved = false;
+  let dragCommitted = false;   // true once the pointer cleared the start threshold
   let capturedEl = null, capturedPointerId = null;
   function clampN(n) { return Math.max(1, Math.min(8, n)); }
   function onMove(e) {
@@ -19311,11 +19312,14 @@ document.addEventListener('keydown', (ev) => {
     if (e.cancelable) e.preventDefault();
     const y = e.clientY;
     const movedPx = Math.abs(y - dragStartY);
-    // Wait until the pointer crosses an intentional-drag threshold
-    // before mutating subdivisions. Otherwise tap jitter (1-2 px on
-    // touchscreens) would compute distance=0 → newN=1 and wipe the
-    // current value before the user has actually intended to drag.
-    if (movedPx <= 8) return;
+    // First time crossing the 8px threshold "commits" to the drag. After
+    // that, every position is mapped — including small distances that
+    // resolve to N=1. That lets the user pull back to the start point
+    // and land on 1 without having to release and click "1" in the popover.
+    if (!dragCommitted) {
+      if (movedPx <= 8) return;
+      dragCommitted = true;
+    }
     dragMoved = true;
     // 1 is ALWAYS the center value, regardless of where dragging started.
     // Drag distance (in either direction) maps to the count: 0 → 1,
@@ -19331,6 +19335,27 @@ document.addEventListener('keydown', (ev) => {
       : (cell.subdivMute && cell.subdivMute.length === newN
           ? cell.subdivMute
           : new Array(newN).fill(false));
+    // Same slot-management the popover pick uses: dragging to 1 collapses
+    // back to single chord; other counts reshape the slots[] (mirror
+    // slot 0 for extensions) instead of erasing what's there.
+    if (newN === 1) {
+      cell.slots = null;
+      if (state._multiChordEditCell === dragIdx) {
+        state._multiChordEditCell = null;
+        state._multiChordEditSlotIdx = null;
+        state._multiChordEditAutoAdvance = null;
+      }
+    } else if (cell.slots && cell.slots.length !== newN) {
+      const oldSlots = cell.slots;
+      const seed = oldSlots[0] || {
+        chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
+        voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
+        inversion: cell.inversion, stringSet: cell.stringSet,
+      };
+      cell.slots = Array.from({ length: newN }, (_, i) =>
+        oldSlots[i] ? { ...oldSlots[i] } : { ...seed }
+      );
+    }
     renderComposeStrip();
   }
   function onEnd(e) {
@@ -19344,7 +19369,7 @@ document.addEventListener('keydown', (ev) => {
     capturedEl = null;
     capturedPointerId = null;
     // Reset on next tick so the click handler can still read dragMoved.
-    setTimeout(() => { dragIdx = null; dragMoved = false; }, 0);
+    setTimeout(() => { dragIdx = null; dragMoved = false; dragCommitted = false; }, 0);
   }
   document.addEventListener('pointerdown', e => {
     if (player.playing) return;
@@ -19358,6 +19383,7 @@ document.addEventListener('keydown', (ev) => {
     dragStartY = e.clientY;
     dragStartN = seq[idx].subdivisions || 1;
     dragMoved = false;
+    dragCommitted = false;
     // Capture so subsequent move/up events fire on the SAME element even if
     // the finger drifts off the badge — critical on mobile.
     try {
