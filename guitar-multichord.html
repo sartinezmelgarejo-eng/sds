@@ -10973,12 +10973,25 @@ function filterShapeCandidates(cands) {
   const filtered = cands.filter(c => c && c.type && voicingPrefSet.has(c.type));
   return filtered.length ? filtered : cands;
 }
+// Compact short codes for the voicing button when 2+ types are selected.
+// The full label "DROP-2 + DROP-3 + SHELLS" would grow the button (and the
+// whole toolbar / mobile numberpad with it), so we cap visible length:
+//   1 selected → full label (DROP-2, SHELLS, etc.)
+//   2 selected → two short codes joined with '+'  (e.g. D2+D3)
+//   3+ selected → MIX·N where N is the count.
+const VOICING_SHORT_CODE = {
+  drop2: 'D2', drop3: 'D3', shell: 'SH',
+  triad: 'TR', guide: 'GU', sus: 'SU', strum: 'ST',
+};
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
-  const parts = VOICING_OPTIONS
-    .filter(o => o.value !== 'all' && voicingPrefSet.has(o.value))
-    .map(o => o.label.toUpperCase());
-  return parts.join(' + ');
+  const selected = VOICING_OPTIONS
+    .filter(o => o.value !== 'all' && voicingPrefSet.has(o.value));
+  if (selected.length === 1) return selected[0].label.toUpperCase();
+  if (selected.length === 2) {
+    return selected.map(o => VOICING_SHORT_CODE[o.value] || o.label[0].toUpperCase()).join('+');
+  }
+  return `MIX·${selected.length}`;
 }
 function defaultAllowedType(preferred) {
   if (voicingPrefIsAll() || voicingPrefSet.has(preferred)) return preferred;
