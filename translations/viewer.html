@@ -49,6 +49,8 @@ body{
 .tbtn.t-title:hover{background:#d8d0e8}
 .tbtn.t-body{background:#dceee4;color:#1a5d3a}
 .tbtn.t-body:hover{background:#c8e0d0}
+.tbtn.t-plain{background:#eee5d0;color:#7a5a2a}
+.tbtn.t-plain:hover{background:#e0d4b8}
 .tbtn.done{background:#0f7a44 !important;color:#fff !important}
 .tbtn.t-reset{background:#f0e8e0;color:#8a4a2a}
 .tbtn.t-reset:hover{background:#e8d8c8}
@@ -348,6 +350,7 @@ body.mode-compare .compare-container{display:block}
   </div>
   <button class="tbtn t-title" onclick="copyTitle()"><span id="title-label">Title</span></button>
   <button class="tbtn t-body" onclick="copyForWordPress()"><span id="copy-label">Body</span></button>
+  <button class="tbtn t-plain" onclick="copyPlainBody()" title="Plain text only — no HTML, no images. For Bluesky / X / email."><span id="plain-label">Plain</span></button>
   <button class="tbtn t-reset" onclick="resetEdits()" title="Reset all edits">↺</button>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
 </div>
@@ -1341,6 +1344,32 @@ function decorateHighlights(rootEl){
 function toggleHighlights(){
   const on = document.getElementById('hl-checkbox').checked;
   document.body.classList.toggle('no-highlights', !on);
+}
+
+async function copyPlainBody(){
+  // Plain-text body: drops every <figure> (image + caption), unwraps
+  // highlight spans, then yields paragraph text with blank-line breaks.
+  // Useful for Bluesky / X / email forwards where the Gutenberg block
+  // markup and the inline `<em>` / `<a>` would just be clutter.
+  const clone = articleEl.cloneNode(true);
+  clone.querySelectorAll('figure').forEach(el => el.remove());
+  clone.querySelectorAll('.hl-acronym, .hl-quote, .hl-attribution').forEach(sp => {
+    const parent = sp.parentNode;
+    while (sp.firstChild) parent.insertBefore(sp.firstChild, sp);
+    parent.removeChild(sp);
+  });
+  const blocks = [];
+  clone.querySelectorAll('p, blockquote, h1, h2, h3').forEach(el => {
+    const txt = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (txt) blocks.push(txt);
+  });
+  const plain = blocks.join('\n\n');
+  if (!plain) { showToast('Nothing to copy'); return; }
+  try {
+    await navigator.clipboard.writeText(plain);
+    flashBtn('plain-label', '✓', 'Plain');
+    showToast('Plain text copied');
+  } catch(e) { showToast('Copy failed: ' + e.message); }
 }
 
 async function copyForWordPress(){
