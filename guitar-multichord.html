@@ -11063,9 +11063,12 @@ function renderVoicingMenu() {
   // allowed types. Menu stays open after a click; outside-click handler at
   // :11057 closes it.
   voicingMenu.innerHTML = VOICING_OPTIONS.map(v => {
+    // When ALL is on, only ALL gets the checkmark — individual rows stay
+    // unchecked (less visual noise). When in a partial filter, ALL is off
+    // and only the actively-allowed types show their checks.
     const selected = (v.value === 'all')
       ? voicingPrefIsAll()
-      : voicingPrefSet.has(v.value);
+      : (!voicingPrefIsAll() && voicingPrefSet.has(v.value));
     return `
     <div class="sound-menu-item ${selected ? 'selected' : ''}" data-voicing="${v.value}">
       <span class="menu-ico">${VOICE_ICONS[v.value] || ''}</span>
@@ -11105,9 +11108,15 @@ function renderVoicingMenu() {
         player.voicingType = player._currentSection().voicingType;
         player._cachedPage = null;     // strip recomputes with new types
       }
-      // Re-render the chord map, focused preview, and compose strip so the
-      // new filter shows immediately on every surface.
-      if (typeof renderAll === 'function') renderAll();
+      // Re-render only what depends on the voicing filter. renderAll()
+      // here was triggering layout reflow on mobile (visualViewport scroll
+      // → fitMap → chord-map host resize) every time a voicing was
+      // toggled. The compose strip, key row, scale strip, etc. don't
+      // depend on the filter — already-written cells keep their stored
+      // voicings — so re-rendering them on filter changes was both
+      // wasteful and visually disruptive.
+      if (typeof renderChordMap   === 'function') renderChordMap();
+      if (typeof renderFretboard  === 'function') renderFretboard();
     });
   });
 }
