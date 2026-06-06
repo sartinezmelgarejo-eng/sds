@@ -392,16 +392,13 @@
   #chord-sound   { --snd-accent: #4a6a8a; }
   #voicing-pref  {
     --snd-accent: #6a7a4a;
-    /* Pin the cell size so the toolbar never grows / shrinks when the
-       user toggles multi-select voicings — keeps the mobile numberpad
-       aligned. flex: 0 0 prevents the surrounding flex container from
-       redistributing space into this cell, so a long label can't push
-       its siblings around. Anything that would exceed the pinned width
-       overflows hidden (the label format keeps it short anyway). */
-    flex: 0 0 72px !important;
-    width: 72px;
-    min-width: 72px;
-    max-width: 72px;
+    /* Pin to the natural width of the "ALL" label on desktop so the
+       cell never grows when the user picks a multi-select like
+       "MIX·3". Mobile keeps the flex:1 1 0 distribution that the
+       neighboring snd-cells already use — see the media query below. */
+    width: 56px;
+    min-width: 56px;
+    max-width: 56px;
     box-sizing: border-box;
     overflow: hidden;
   }
@@ -527,6 +524,15 @@
     .snd-cell { font-size: 9px; }
     .snd-cell .sc-val { font-size: 10px; }
     .snd-cell::before { font-size: 7px; letter-spacing: 1px; }
+    /* On mobile, re-join the flex:1 1 0 distribution that all snd-cells
+       use. The compact button label (MIX·N / D2+D3) plus overflow:hidden
+       keeps content from pushing the cell, so siblings stay aligned. */
+    #voicing-pref {
+      width: auto;
+      min-width: 0;
+      max-width: none;
+      flex: 1 1 0;
+    }
     .vs-cell { font-size: 10px; padding: 0 6px; min-width: 36px; }
     .snd-keys, .snd-rhythm, .snd-bass { padding: 0 6px !important; height: 100%; }
     /* Icons constrained on both axes so they NEVER push the cell
