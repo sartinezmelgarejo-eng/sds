@@ -1,0 +1,337 @@
+# Protocolo de Traducción para mexicosolidarity.com
+
+Este protocolo se activa cuando:
+1. Un mensaje empieza con `traduce:` o `translate:` (en DM o en el topic de Traducciones)
+2. Un mensaje en el topic de Traducciones (grupo `-1003957818672`, thread `289`) es respuesta a un artículo previo que mandaste tú (refinamiento)
+
+## Workflow de traducción nueva
+
+### Trigger
+```
+traduce: <URL>
+```
+o (cuando es reply al post de scant que ya tiene el URL embedded):
+```
+traduce este
+```
+
+### Pasos
+
+1. **Descargar el artículo original** con `WebFetch` u otra fuente.
+   - **Fallback para Cloudflare / 403:** si `WebFetch` o `curl` devuelven 403 o una página tipo "Just a moment...", usa el fetcher con navegador real:
+     ```bash
+     /usr/local/bin/python3 /Users/samuelmartinez/scripts/inbox/fetch_browser.py "<URL>" --text --out /tmp/article.txt
+     ```
+     Luego lee `/tmp/article.txt` con tu Read tool. Tarda ~5–10s. Cubre La Jornada y cualquier otro outlet detrás de Cloudflare managed challenge. Si quieres el HTML crudo (para extraer URLs de imágenes con regex), omite `--text`. Exit codes: `0` ok, `2` timeout de navegación, `3` sigue bloqueado tras esperar el challenge.
+2. **Extraer metadata**:
+   - Título original (español)
+   - Autor
+   - Fecha de publicación original
+   - Outlet (La Jornada, Revista Contralínea, etc.)
+   - URLs de imágenes (todas las que aparezcan en el cuerpo)
+3. **Crear slug** = `YYYY-MM-DD-<2-3-palabras-del-headline-en-ingles-lowercase-con-guiones>`
+4. **Crear directorio**: `htmls/translations/<slug>/`
+5. **Descargar imágenes** a `htmls/translations/<slug>/img/` con nombres `01-feature.jpg`, `02-something.jpg`, etc.
+   - Para imágenes usar `requests` o `curl`, no inventar paths
+5a. **Subir cada imagen a WordPress Media Library** via REST API (esto reemplaza las URLs de GitHub en `article.html` con las de mexicosolidarity.com):
+   - **Credenciales**: primero busca `htmls/inbox/.wp-creds.json` (modo local Mac, vive solo localmente, NO en el repo).
+     ```json
+     {"site": "https://mexicosolidarity.com", "username": "...", "app_password": "..."}
+     ```
+     Si NO existe el archivo (estás corriendo en sandbox / claude.ai/code Project), cae a variables de entorno: `WP_SITE`, `WP_USERNAME`, `WP_APP_PASSWORD`. Si tampoco están, aborta y avísale a Samuel — no inventes URL fake ni dejes placeholders del outlet.
+   - Endpoint: `POST {site}/wp-json/wp/v2/media`
+   - Auth: Basic Auth con `username:app_password` (base64 en `Authorization` header)
+   - Headers: `Content-Disposition: attachment; filename="<filename>.jpg"`, `Content-Type: image/jpeg` (o el mime correcto)
+   - Body: bytes binarios de la imagen
+   - Response: JSON con `source_url` que es la URL pública en mexicosolidarity.com (tipo `https://mexicosolidarity.com/wp-content/uploads/2026/05/01-feature.jpg`)
+   - **Usa esa `source_url` en el `<img src>` del `article.html`, NO la URL de GitHub Pages**
+   - Si la subida falla (error 401, 5xx, timeout): **NO** mezcles URLs de WP y GitHub en el mismo artículo. Aborta la traducción, reporta el error en el topic con detalle (qué imagen falló, qué status code), y deja que Samuel decida si reintenta. Si falla solo una de varias, borra las que sí subieron (`DELETE /wp-json/wp/v2/media/<id>?force=true`) para no dejar huérfanos
+   - Mantén las imágenes locales en `img/` igual (sirven de backup y de preview en el viewer si WP cae)
+   - **Manda todas las subidas en paralelo** con `concurrent.futures.ThreadPoolExecutor` o `asyncio` para no tardar 5×el tiempo si hay 5 imágenes
+
+5a-bis. **Featured image: SIEMPRE dos versiones** (para que el sitio tenga la calidad que pide MSP):
+   - La **primera imagen** que aparece en el artículo se trata como featured. Las demás son body images.
+   - Si la original es **≥ 2048 wide** (suficiente para escalado limpio):
+     - Genera con Pillow (`LANCZOS`, JPEG quality 92, progressive) DOS versiones:
+       - `<slug>-large.jpg` → **2048 × 1365** target (si la proporción original es 3:2)
+       - `<slug>-sm.jpg` → **1400 × 933** target (misma proporción)
+     - **Respeta la proporción original**: NO center-crop a 3:2 a la fuerza. Si la fuente es 16:9 o 4:3, escala proporcionalmente al ancho objetivo (2048 / 1400) y deja la altura natural. Solo si la fuente es EXTREMA (cuadrada 1:1 o más vertical que horizontal) avisa en el card y deja que Samuel decida — no hagas crop creativo.
+     - Sube ambas a WP Media Library en paralelo. Usa la `source_url` de `-large` en `<img src>`. Guarda la `source_url` y el `id` de `-sm` en `meta.json` bajo `social_image` (Samuel la pega en el panel Social/X de Yoast manualmente).
+   - Si la original es **menor a 2048 wide**:
+     - **Cero upscale**: súbela tal cual a WP Media Library (un solo upload, no inventes la versión grande).
+     - Agrega un warning al card del topic:
+       > `⚠️ Featured image: <W>×<H> — under 2048-wide target. Reply with a HIGHER-RES replacement as a FILE (no como foto, para evitar compresión de Telegram) and I'll redo the upload with two sizes.`
+   - **NUNCA duplicas la featured en el body**: en `article.html` aparece como la PRIMERA `<figure>`; el viewer la muestra en preview pero la excluye automáticamente del clipboard cuando Samuel pica Body, porque la featured va en el sidebar Featured Image de WP, no pegada en el cuerpo.
+
+5a-tris. **Body images: dimension check** (solo aviso, no redimensiona):
+   - Si una body image es < **1200 wide**, agrega línea al warning del card:
+     > `⚠️ Body image #N (filename): <W>×<H> — under 1200-wide target.`
+   - Súbelas tal cual (sin resize) — el sitio igual las renderea, el warning es para que Samuel decida si pide reemplazo.
+5b. **Guardar el original ES** en `htmls/translations/<slug>/original.json` con la estructura:
+   ```json
+   {
+     "paragraphs": [
+       "Primer párrafo en español verbatim del artículo original.",
+       "Segundo párrafo en español...",
+       "..."
+     ]
+   }
+   ```
+   El array debe contener SOLO los párrafos del cuerpo (no metadata, no captions, no la firma del autor) **en el mismo orden** en que aparecen los párrafos traducidos en `article.html` (excluyendo el párrafo de attribution, que es invento nuestro y no tiene counterpart en ES). Esto permite la vista Compare & Edit lado a lado.
+6. **Traducir literalmente** el artículo al inglés:
+   - Mantén tono periodístico mexicano original
+   - **Traduce los quotes en español** al inglés (a diferencia de algunos sitios que los dejan en español)
+   - **Mantén nombres propios sin traducir**: "AMLO", "Sheinbaum", "Morena", "EZLN", "CNTE", nombres de personas, ciudades
+   - **Términos políticos**: "el priato" → "the PRI era", "neoliberales" → "neoliberals", "transformación" → "transformation"
+   - Si hay una frase ambigua o un coloquialismo difícil, **pregunta a Samuel en español antes de inventar** una traducción
+7. **Generar `article.html`** con el template exacto (ver más abajo)
+8. **Generar `meta.json`** con metadata estructurada
+8b. **Actualizar `translations/manifest.json`** (índice usado por `translations/index.html`):
+   - Estructura: array de objetos, ordenado por `last_modified` desc (más reciente primero)
+   - Campos por entry: `slug`, `translated_title`, `original_title`, `author`, `outlet`, `original_date`, `translated_date`, `status`, `last_modified` (Unix timestamp en segundos, ej. `time.time()`)
+   - **Traducción nueva**: prepend el objeto al inicio del array
+   - **Refinamiento**: encontrar la entry por `slug` y actualizar `last_modified` (y cualquier campo que haya cambiado, ej. `translated_title` si se editó). Después re-sortear por `last_modified` desc
+   - **Status cambia a posted**: encontrar la entry y actualizar `status`. Re-sortear no necesario
+   - **Cleanup borra carpetas**: eliminar también esas entries del manifest
+   - Mantener el manifest en sincronía siempre. Si el archivo no existe, créalo escaneando las carpetas existentes
+9. **Git push** (backup + cp a /tmp/sds/ + commit + push). Incluye `manifest.json` en el commit.
+10. **Postear en el topic de Traducciones** (no en DM):
+    - chat_id `-1003957818672`, message_thread_id `289`
+    - Formato del mensaje (más abajo)
+11. **Limpieza automática** (después del push, antes de cerrar):
+    - Cuenta las carpetas en `htmls/translations/` (excluyendo `viewer.html` y `.gitkeep`)
+    - Si el total es **≥ 18**: borra las **4 más viejas** por orden lexicográfico del slug (el prefijo `YYYY-MM-DD-...` hace que ordenar alfabéticamente = ordenar por fecha)
+    - Borra en ambos lados: `htmls/translations/<slug>/` Y `/tmp/sds/translations/<slug>/`
+    - Hacer un segundo commit + push solo de las eliminaciones para que GitHub Pages las refleje
+    - **NO** anunciar la limpieza en el topic de Traducciones (ensucia el canal). Tampoco mandes mensaje al DM privado — si Samuel quiere saber qué se limpió, mira `git log` del repo
+    - Si el total es < 18, no hacer nada. NO crear archivo nuevo, NO commit vacío.
+
+## Template HTML exacto (`article.html`)
+
+El sitio mexicosolidarity.com usa Gutenberg block editor + plugin Kadence Blocks. **CRÍTICO**: el HTML debe emitirse con **delimitadores de bloque Gutenberg** (comentarios `<!-- wp:... -->` ... `<!-- /wp:... -->`) envolviendo cada elemento. Sin ellos, WP pega todo como un solo "Classic block" del editor viejo, que la app móvil NO soporta (Samuel tiene que pegar en Code View, switchear a Visual, y darle "Convert to Blocks" cada vez). Con delimitadores, WP reconoce cada pieza como bloque nativo al instante en desktop y móvil. NO inyectes CSS inline.
+
+**📚 Referencia completa de blocks disponibles**: `WP_BLOCKS_REFERENCE.md` (en este mismo folder). Consúltalo cuando necesites algo más complejo que párrafos + imágenes + blockquotes simples. Cubre: paragraph, heading, quote, pullquote, list, image, gallery, media+text, columns, group, buttons, embeds (YouTube/X), separator, table, details, y los Kadence-específicos (Row Layout, Info Box, Icon List, Testimonial, Table of Contents).
+
+**Para artículos típicos de noticias** (default): usa los bloques básicos del template más abajo. Solo consulta WP_BLOCKS_REFERENCE.md si el artículo tiene:
+- Imágenes que merecen layout especial (galería, side-by-side con texto)
+- Citas dramáticas que ameritan pullquote (NO blockquote simple)
+- Listas claramente estructuradas en el original
+- Tablas de datos
+- Embeds (tweet, video)
+- Otra estructura no-prose
+
+```html
+<!-- FEATURED IMAGE: la primera <figure> del article.html ES la featured.
+     El viewer la muestra en preview pero la EXCLUYE del clipboard cuando
+     Samuel pica "Body" (porque la featured va manualmente en el widget
+     Featured Image del sidebar de WP, no pegada en el cuerpo). URL es la
+     de mexicosolidarity subida en step 5a-bis (versión -large.jpg), NO la
+     del outlet original. -->
+<!-- wp:image -->
+<figure class="wp-block-image"><img src="https://mexicosolidarity.com/wp-content/uploads/YYYY/MM/<slug>-large.jpg" alt="<descripción corta>"/><figcaption class="wp-element-caption">Photo: <Photographer Name></figcaption></figure>
+<!-- /wp:image -->
+
+<!-- ATTRIBUTION (siempre en cursiva, primer párrafo).
+     IMPORTANTE: el <a> envuelve "<Month Day, Year> edition of <Outlet Name>" — empieza en el mes.
+     "in the" queda FUERA del link. NO subrayes solo el nombre del outlet. -->
+<!-- wp:paragraph -->
+<p><em>This article by <Author Name> originally appeared in the <a href="<original-URL>"><Month Day, Year> edition of <Outlet Name></a>, <descripción breve del outlet si es relevante: "Mexico's premier left wing daily newspaper" para La Jornada, etc.>.</em></p>
+<!-- /wp:paragraph -->
+
+<!-- CUERPO: cada párrafo envuelto en su propio delimitador.
+     No drop caps, no pull quotes, no h3 subheads salvo que el original los tenga.
+     Quotes integrados inline en párrafos, no como <blockquote>. -->
+<!-- wp:paragraph -->
+<p>Body paragraph 1...</p>
+<!-- /wp:paragraph -->
+
+<!-- wp:paragraph -->
+<p>Body paragraph 2 con cita: "Quote traducido al inglés," said Marcos.</p>
+<!-- /wp:paragraph -->
+
+<!-- INLINE IMAGES (si las hay): -->
+<!-- wp:image -->
+<figure class="wp-block-image"><img src="https://mexicosolidarity.com/wp-content/uploads/YYYY/MM/02-marcos-speaking.jpg" alt="<descripción>"/><figcaption class="wp-element-caption">Photo: <Photographer></figcaption></figure>
+<!-- /wp:image -->
+
+<!-- wp:paragraph -->
+<p>More body...</p>
+<!-- /wp:paragraph -->
+```
+
+### Delimitadores de bloque por tipo
+
+Lista de los más usados (consultar `WP_BLOCKS_REFERENCE.md` para el resto):
+
+| Bloque | Delimitador apertura | Cierre |
+|---|---|---|
+| Paragraph | `<!-- wp:paragraph -->` | `<!-- /wp:paragraph -->` |
+| Heading h2/h3 | `<!-- wp:heading {"level":2} -->` (default level=2; omitir `{"level":2}`. Para h3: `{"level":3}`) | `<!-- /wp:heading -->` |
+| Image | `<!-- wp:image -->` | `<!-- /wp:image -->` |
+| Quote / blockquote | `<!-- wp:quote -->` | `<!-- /wp:quote -->` |
+| Pullquote | `<!-- wp:pullquote -->` | `<!-- /wp:pullquote -->` |
+| List | `<!-- wp:list -->` | `<!-- /wp:list -->` |
+| Separator | `<!-- wp:separator -->` `<hr class="wp-block-separator"/>` | `<!-- /wp:separator -->` |
+
+Para bloques con atributos (ej. imágenes con `align`, `id` de Media Library), incluir el JSON en la apertura: `<!-- wp:image {"id":16325,"sizeSlug":"large"} -->`. El `id` es el `id` que devuelve la API al subir cada imagen — guardarlo en `meta.json` y usarlo en el delimitador para que WP la enlace con la entrada de Media Library.
+
+### Reglas del template
+- **NO** drop caps
+- **NO** subheads `<h3>` salvo que el original los tenga claramente marcados como secciones
+- **NO** translator credit al final (el sitio no lo usa)
+- **Featured image**: primera `<figure>` del HTML, antes del attribution paragraph
+- **Attribution paragraph**: SIEMPRE en `<em>`, SIEMPRE con el link al artículo original embebido en el nombre del outlet
+- **Caption de imágenes**: `Photo: <Name>` o solo `Photo:` si no hay crédito visible
+
+### Quotes — dos tratamientos según fuerza:
+
+**Quote inline** (default — la mayoría): cita corta o periodística normal, integrada en el párrafo entre comillas tipográficas en inglés (`"..."`), seguida de `said X` o `, X explained`. NO usar `<blockquote>` para esto.
+
+```html
+<p>The governor was unapologetic: "respect the mobilization," she said, claiming "here there are guarantees of legality and freedom of expression."</p>
+```
+
+**Pull quote / blockquote destacado** (uso selectivo): cuando la cita es:
+- Una frase contundente que sintetiza la tesis del artículo
+- Una opinión fuerte del autor o de un actor central
+- Un statement provocador o memorable
+- (Cuando ves en el original que ya está destacada como blockquote en su layout)
+
+Úsalo como `wp:quote` (NO `wp:pullquote`):
+```html
+<!-- wp:quote -->
+<blockquote class="wp-block-quote">
+  <p>Morena legislators? As always: caught up in petty squabbles, idling, managed by the infiltrator and defender of the opposition (read: Ricardo Monreal), and really busy positioning themselves for the next electoral process.</p>
+</blockquote>
+<!-- /wp:quote -->
+```
+
+El tema de mexicosolidarity.com automáticamente le pone borde izquierdo + indentación. **No agregues attribution dentro del blockquote** — el sitio no lo usa. Si necesitas atribuir, hazlo en el párrafo siguiente o anterior (cada uno como su propio `wp:paragraph`).
+
+Regla de pulgar: **máximo 1-2 blockquotes por artículo**. Si todos son blockquote pierde el énfasis. Si dudas, déjala inline.
+
+### Imágenes — distribución
+- Una `<figure>` por cada imagen del original
+- Distribuirlas en **puntos naturales de pausa narrativa** del artículo, NO todas al principio ni todas al final
+- Si el original tiene 8 imágenes, intercalarlas cada 2-3 párrafos
+- Si el original tiene 1 imagen, ponerla solo como featured arriba
+
+## Template `meta.json`
+
+```json
+{
+  "slug": "2026-05-18-marcos-cuba-ezln",
+  "translated_title": "Capitán Marcos of the EZLN says Cuba Maintains its 'social project amidst all possible threats'",
+  "original_title": "El capitán Marcos del EZLN: Cuba mantiene su proyecto social...",
+  "author": "Elio Henríquez",
+  "original_date": "2026-05-17",
+  "translated_date": "2026-05-18",
+  "outlet": "La Jornada",
+  "original_url": "https://www.jornada.com.mx/2026/05/17/...",
+  "suggested_category": "News Briefs",
+  "suggested_tags": ["#Cuba", "#EZLN"],
+  "meta_description": "One-line summary, 140-160 chars. Reused as Yoast meta description, post Excerpt, Social description, X description, and social post text.",
+  "focus_keyphrase": "EZLN Cuba solidarity",
+  "social_image": {
+    "id": 16842,
+    "source_url": "https://mexicosolidarity.com/wp-content/uploads/2026/05/marcos-cuba-sm.jpg"
+  },
+  "image_count": 2,
+  "image_warnings": [
+    "Featured image: 1280×853 — under 2048-wide target"
+  ],
+  "status": "pending"
+}
+```
+
+- `meta_description` es CRÍTICO: Samuel lo pega en 4 lugares en WP (Excerpt en sidebar, Meta description Yoast, Social description Yoast, X description Yoast). Una sola oración, concrete, hook-y. Sigue el ejemplo de la posting guide ("Mexico's former President has released a statement on US attacks on Mexico, only his second political statement since his term's end, accusing US officials of plotting to 'weaken Morena.'").
+- `focus_keyphrase` 2-5 palabras SEO-style (e.g. "Sandra Polaski interview", "Peñasquito mine workers", "Sheinbaum press conference").
+- `social_image` es la URL/id de la versión `-sm.jpg` (1400×933). Si la featured estaba sub-dimensionada y no se generó la versión chica, omite este campo y el card lo refleja.
+- `image_warnings` es array de strings; vacío si todo cumple. Aparecen también en el card del topic.
+
+### Categorías válidas
+- **Analysis** (piezas largas de opinión)
+- **News Briefs** ← default para traducciones de noticias
+- **Labor** (sindicatos, CNTE, trabajadores)
+- **Mañaneras**
+- **Interviews**
+- **Historical**
+- **Photos**
+- **Compañeros**
+
+### Tags
+Estilo hashtag (con `#`). 2-4 por artículo. Ejemplos comunes: `#Cuba`, `#EZLN`, `#CNTE`, `#Chihuahua`, `#US Imperialism`, `#Mexican Sovereignty`, `#AMLO`, `#Sheinbaum`, `#Public Education`, `#Pemex`, `#Foreign Policy`.
+
+## Mensaje de respuesta en Telegram (en el topic)
+
+Después del push exitoso, postea **un solo mensaje breve** en chat `-1003957818672` topic `289`:
+
+```
+📰 <b>[Headline traducido]</b>
+By [Author] · [Original Date] · [Outlet]
+
+🔗 <a href="https://sartinezmelgarejo-eng.github.io/sds/translations/viewer.html?slug=[slug]">Open + Copy for WordPress</a>
+↗ <a href="[original URL]">Original</a>
+
+<i>Cat:</i> <code>[category]</code> · <i>Tags:</i> <code>[tags space-separated]</code>
+```
+
+Si `meta.image_warnings` no está vacío, agrega una sección más abajo:
+
+```
+⚠️ Image checks:
+• Featured 1280×853 — under 2048-wide target
+• Body image #2 (caballos.jpg) 900×600 — under 1200-wide target
+
+📸 Reply with a higher-res replacement as a FILE (no como foto, para no perder calidad por la compresión de Telegram). Caption con "featured" o el número del slot (e.g. "2").
+```
+
+**NO** mandes el cuerpo del artículo, **NO** mandes las imágenes adjuntas. Todo eso ya está en el viewer (ahí están el body editable, las imágenes, los botones de copy, y la vista Compare & Edit con el ES al lado).
+
+Solo este card de 5 líneas con los dos links + sugerencias.
+
+## Refinamiento
+
+Si Samuel responde en el topic (reply al mensaje del bot o mensaje nuevo en el thread) con algo como:
+- "cambia X por Y"
+- "el titulo no me gusta, ponle: ..."
+- "rehaz el primer párrafo"
+
+1. Edita `article.html` directamente con el cambio
+2. Si cambió título → actualiza `meta.json` (incluido `meta_description` si la nueva headline cambia el ángulo)
+3. Backup → push
+4. Responde solo con: `✅ Editado: <breve descripción del cambio>`
+
+NO regeneres todo el thread. Solo edición incremental.
+
+### Image replacement (reply con archivo adjunto)
+
+Cuando Samuel responde con una imagen adjunta como **archivo** (no como photo — la compresión de Telegram la rebaja a ~1280px y JPEG quality baja), interpreta el caption:
+- `"featured"` o sin caption → reemplaza la primera figura del `article.html`.
+- Un número (`"2"`, `"3"`, etc.) → reemplaza la body image #N (la N-ésima `<figure>` empezando por 1 = featured).
+- Texto descriptivo ("la del cargador frontal") → match contra el `alt` de cada figura; si hay match único, úsalo; si no, pregunta.
+
+Pasos:
+1. Lee el archivo adjunto desde el path que el bot pasó en el prompt.
+2. Mide dimensiones con Pillow. Si sigue debajo del threshold (2048 featured / 1200 body), avísale antes de subir y deja que decida.
+3. Si pasa el threshold: súbela como `<slug>-large.jpg` (y `-sm.jpg` si es featured) a WP Media Library — mismo flow de step 5a + 5a-bis.
+4. Si la subida sustituye una imagen previa, **borra la vieja** del Media Library (`DELETE /wp-json/wp/v2/media/<old-id>?force=true`) para no dejar huérfanos.
+5. Actualiza el `<img src>` en `article.html`, y para featured también el `social_image` en `meta.json`. Reescribe `image_warnings` (elimina los warnings que se resolvieron).
+6. Push.
+7. Responde: `✅ Reemplazada <featured | body #N>. Nueva: 2048×1365 (-large) + 1400×933 (-sm).`
+
+## Status: posted
+
+Cuando Samuel diga "ya lo postee" o "publicado" o similar:
+1. Edita `meta.json` → `"status": "posted"`
+2. Push
+3. Responde: `✅ Marcado como publicado`
+
+## Errores comunes a evitar
+
+- **No traducir nombres propios** ("AMLO" no es "Andrew" ni "the López Obrador one")
+- **No agregar contexto explicativo** que no esté en el original. Si dice "el Zócalo", déjalo "the Zócalo" (no "Mexico City's main plaza, the Zócalo")
+- **No traducir el outlet name** ("La Jornada" se queda "La Jornada", no "The Day")
+- **Sí traducir lugares con nombre traducible**: "Ciudad de México" → "Mexico City", "Estados Unidos" → "United States"
+- **No inventar imágenes** si el original no las tiene. Si falla la descarga, reporta el error en el mensaje
+- **No subir el HTML como adjunto** — el HTML va al repo, el topic recibe el cuerpo en texto + link al formatted version
