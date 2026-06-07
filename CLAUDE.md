@@ -10,13 +10,22 @@ If Samuel sends `translate: <url>` or `traduce: <url>` (or pastes a Spanish arti
 
 ### Credentials in this sandbox
 
-The protocol's step 5a says to read `htmls/inbox/.wp-creds.json` first. **In the cloud sandbox that file does NOT exist** — it lives only on Samuel's Mac. In the sandbox, fall back to **environment variables** (set in claude.ai/code Project Settings):
+The protocol's step 5a says to read `htmls/inbox/.wp-creds.json` first. **In the cloud sandbox that file does NOT exist** — it lives only on Samuel's Mac. In the sandbox, fall back to **environment variables**:
 
 - `WP_SITE` — `https://mexicosolidarity.com`
 - `WP_USERNAME` — WP username
 - `WP_APP_PASSWORD` — WP application password (NOT the regular login password)
 
-If any of these is missing, ABORT the upload step, tell Samuel which env var is missing, and don't leave placeholder URLs in `article.html`.
+**If env vars are missing → "no-creds" fallback** (do NOT abort):
+
+1. Skip the WP Media Library upload entirely.
+2. Download images normally to `<slug>/img/` (so the viewer can preview them locally via `viewer.html`).
+3. In `article.html`, use the **original outlet image URL** in `<img src>` as a placeholder. Pillow resize for featured size targets is still useful (do the dual-size locally to `img/<slug>-large.jpg` + `img/<slug>-sm.jpg`) so when Samuel uploads in WP from his phone he has the right dimensions ready in `img/`.
+4. Add a banner line to the reply card so Samuel knows:
+   > `📸 No WP creds in this environment — outlet URLs used as placeholders. Upload featured + body images manually in WordPress (the resized versions are sitting in <slug>/img/).`
+5. Everything else runs normally: `meta.json`, manifest update, push, viewer link in the reply.
+
+This way the translation still ships, the menu still works, and Samuel just handles the photos in WordPress on his end. If at some later point env vars get added, sessions automatically go back to full auto-upload.
 
 ### Cloudflare-protected outlets
 
