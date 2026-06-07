@@ -101,6 +101,18 @@ body{
 #article-content figure{margin:24px 0}
 #article-content img{width:100%;height:auto;border-radius:4px}
 #article-content figcaption{font-size:13px;color:#777;font-style:italic;margin-top:6px;font-family:'Inter',sans-serif}
+/* Featured-image badge — visible only in the preview, NOT serialized
+   into the copied HTML (getCleanHTML clones the article BEFORE this
+   was inserted, but stays guarded anyway via the `.featured-badge`
+   class filter). Tells me at a glance that the top figure is the
+   featured image and is excluded from the Body copy. */
+.featured-badge{
+  font-family:'Inter',sans-serif;font-size:11px;font-weight:600;
+  text-align:center;color:#8a5a1a;background:#faf3e3;
+  border:1px dashed #c9a96a;border-radius:6px;
+  padding:6px 12px;margin:-12px 0 24px;
+  letter-spacing:.3px;
+}
 #article-content p{margin:0 0 18px}
 #article-content em{font-style:italic}
 #article-content a{color:#1a5d3a;text-decoration:underline}
@@ -418,6 +430,19 @@ if (!slug) {
       el.setAttribute('contenteditable', 'true');
       el.addEventListener('input', onEdit);
     });
+
+    // Mark the first <figure> as the featured image — the WP "Featured
+    // Image" widget (right sidebar) is where this goes; the Body copy
+    // button strips this figure so the body paste doesn't duplicate it.
+    // The visual badge tells me "↑ goes in WP sidebar, not pasted".
+    const firstFig = articleEl.querySelector('figure');
+    if (firstFig && !firstFig.dataset.featured) {
+      firstFig.dataset.featured = '1';
+      const badge = document.createElement('div');
+      badge.className = 'featured-badge';
+      badge.textContent = '↑ Featured — upload manually in WP sidebar (excluded from Body copy)';
+      firstFig.insertAdjacentElement('afterend', badge);
+    }
 
     _originalParas = original && original.paragraphs ? original.paragraphs : [];
     assignEsIndices();
@@ -1259,16 +1284,40 @@ async function copyTitle(){
   } catch(e) { showToast('Copy failed: ' + e.message); }
 }
 
-function getCleanHTML(){
-  // Clone the article DOM, strip visual-only highlight spans, then serialize
+function getCleanHTML(opts = {}){
+  // Clone the article DOM, strip visual-only highlight spans, then serialize.
+  // When stripFeatured is set, also drop the first <figure> (and its
+  // surrounding wp:image comment delimiters if present) — that's the
+  // featured image, which lives in WP's right-sidebar widget, not in body.
   const clone = articleEl.cloneNode(true);
   clone.querySelectorAll('.hl-acronym, .hl-quote, .hl-attribution').forEach(sp => {
     const parent = sp.parentNode;
     while (sp.firstChild) parent.insertBefore(sp.firstChild, sp);
     parent.removeChild(sp);
   });
-  // Also remove contenteditable attribute (clutters output)
   clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  // Visual-only badge below the featured image (preview chrome, not WP content).
+  clone.querySelectorAll('.featured-badge').forEach(el => el.remove());
+  if (opts.stripFeatured) {
+    const firstFig = clone.querySelector('figure');
+    if (firstFig) {
+      // Walk neighboring comment nodes for `<!-- wp:image -->` /
+      // `<!-- /wp:image -->` and remove them too, so the Gutenberg
+      // markup stays balanced after the figure is gone.
+      const dropAdjacentComment = (node, dir) => {
+        let n = dir === 'prev' ? node.previousSibling : node.nextSibling;
+        while (n && n.nodeType === Node.TEXT_NODE && !n.nodeValue.trim()) {
+          n = dir === 'prev' ? n.previousSibling : n.nextSibling;
+        }
+        if (n && n.nodeType === Node.COMMENT_NODE && /wp:image/.test(n.nodeValue)) {
+          n.parentNode.removeChild(n);
+        }
+      };
+      dropAdjacentComment(firstFig, 'prev');
+      dropAdjacentComment(firstFig, 'next');
+      firstFig.remove();
+    }
+  }
   return clone.innerHTML;
 }
 
@@ -1373,7 +1422,12 @@ async function copyPlainBody(){
 }
 
 async function copyForWordPress(){
-  const html = getCleanHTML(); // strips highlight spans
+  // The first <figure> in article.html is the featured image — that one
+  // goes in WordPress's right-sidebar "Featured Image" widget (uploaded
+  // manually), not in the body. Strip it from the clipboard so pasting
+  // doesn't create a duplicate of the featured image inside the post.
+  // The viewer still SHOWS it so the preview reads complete.
+  const html = getCleanHTML({ stripFeatured: true });
   if (!html) { showToast('Nothing to copy'); return; }
   try {
     const item = new ClipboardItem({
