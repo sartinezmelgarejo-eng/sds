@@ -52,9 +52,6 @@ body{
 .tbtn.t-plain{background:#eee5d0;color:#7a5a2a}
 .tbtn.t-plain:hover{background:#e0d4b8}
 .tbtn.done{background:#0f7a44 !important;color:#fff !important}
-.tbtn.t-commit{background:#1a5d3a;color:#fff}
-.tbtn.t-commit:hover{background:#134c2f}
-.tbtn.t-commit.busy{opacity:.6;cursor:wait}
 .tbtn.t-reset{background:#f0e8e0;color:#8a4a2a}
 .tbtn.t-reset:hover{background:#e8d8c8}
 .original-link{
@@ -366,7 +363,6 @@ body.mode-compare .compare-container{display:block}
   <button class="tbtn t-title" onclick="copyTitle()"><span id="title-label">Title</span></button>
   <button class="tbtn t-body" onclick="copyForWordPress()"><span id="copy-label">Body</span></button>
   <button class="tbtn t-plain" onclick="copyPlainBody()" title="Plain text only — no HTML, no images. For Bluesky / X / email."><span id="plain-label">Plain</span></button>
-  <button class="tbtn t-commit" id="commit-btn" onclick="commitToRepo()" title="Commit edits to gh-pages via the GitHub API"><span id="commit-label">Commit</span></button>
   <button class="tbtn t-reset" onclick="resetEdits()" title="Reset all edits">↺</button>
   <a class="original-link" id="original-link" target="_blank" rel="noopener">↗ Original</a>
 </div>
@@ -414,11 +410,10 @@ let _originalParas = []; // Spanish original paragraphs (strings)
 if (!slug) {
   articleEl.innerHTML = '<div class="error">No slug specified. Use <code>?slug=YYYY-MM-DD-name</code> in the URL.</div>';
 } else {
-  const _cb = '?t=' + Date.now();  // cache-bust: always pull the freshly pushed files, never a stale HTTP-cached copy
   Promise.all([
-    fetch(slug + '/article.html' + _cb).then(r => r.text()),
-    fetch(slug + '/meta.json' + _cb).then(r => r.json()).catch(()=>null),
-    fetch(slug + '/original.json' + _cb).then(r => r.ok ? r.json() : null).catch(()=>null),
+    fetch(slug + '/article.html').then(r => r.text()),
+    fetch(slug + '/meta.json').then(r => r.json()).catch(()=>null),
+    fetch(slug + '/original.json').then(r => r.ok ? r.json() : null).catch(()=>null),
   ]).then(([html, meta, original]) => {
     // Restore from localStorage if available
     const saved = STORAGE_KEY ? localStorage.getItem(STORAGE_KEY) : null;
@@ -1456,130 +1451,6 @@ function flashBtn(labelId, doneText, origText){
   btn.classList.add('done');
   lbl.textContent = doneText;
   setTimeout(()=>{ btn.classList.remove('done'); lbl.textContent = origText; }, 2200);
-}
-
-// ─── Commit to gh-pages via the GitHub Contents API ───
-// Static page, no backend: we call the GitHub REST API straight from the
-// browser with a fine-grained token (Contents: read & write on this repo),
-// stored only in this browser's localStorage. Works from any browser/device
-// after pasting the token once.
-
-function ghRepoInfo(){
-  // Project pages live at  <owner>.github.io/<repo>/...
-  const override = localStorage.getItem('gh_repo'); // "owner/repo" escape hatch
-  if (override && override.includes('/')) {
-    const [owner, repo] = override.split('/');
-    return { owner, repo, branch: 'gh-pages' };
-  }
-  return {
-    owner: location.hostname.split('.')[0],
-    repo: location.pathname.split('/').filter(Boolean)[0] || '',
-    branch: 'gh-pages',
-  };
-}
-
-function ghToken(){
-  let t = localStorage.getItem('gh_pat');
-  if (!t) {
-    t = prompt('Paste your GitHub fine-grained token\n(Contents: Read & write on this repo).\nStored only in this browser.');
-    if (t) { t = t.trim(); localStorage.setItem('gh_pat', t); }
-  }
-  return t;
-}
-
-function b64utf8(str){ return btoa(unescape(encodeURIComponent(str))); }
-function fromB64utf8(b64){ return decodeURIComponent(escape(atob((b64||'').replace(/\s/g,'')))); }
-
-async function ghGetSha(path, token, ri){
-  // no-store + cache-bust: never read a stale SHA from the browser cache,
-  // or the PUT below 409s with "does not match <current sha>".
-  const r = await fetch(`https://api.github.com/repos/${ri.owner}/${ri.repo}/contents/${path}?ref=${ri.branch}&t=${Date.now()}`,
-    { cache: 'no-store', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' } });
-  if (r.status === 404) return null;
-  if (!r.ok) throw new Error('GET ' + path + ' → ' + r.status);
-  return (await r.json()).sha;
-}
-
-async function ghPut(path, contentStr, message, token, ri){
-  const sha = await ghGetSha(path, token, ri);
-  const body = { message, content: b64utf8(contentStr), branch: ri.branch };
-  if (sha) body.sha = sha;
-  const r = await fetch(`https://api.github.com/repos/${ri.owner}/${ri.repo}/contents/${path}`,
-    { method: 'PUT',
-      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(body) });
-  if (!r.ok) throw new Error('PUT ' + path + ' → ' + r.status + ' ' + (await r.text()));
-  return r.json();
-}
-
-// Serialize the live article DOM back to clean Gutenberg markup: drop the
-// viewer's editing chrome (contenteditable, highlight spans, index/featured
-// data-attrs, the featured badge) but KEEP the featured <figure> — in the
-// repo's article.html it is the first figure.
-function getCommitHTML(){
-  const clone = articleEl.cloneNode(true);
-  clone.querySelectorAll('.hl-acronym, .hl-quote, .hl-attribution').forEach(sp => {
-    const p = sp.parentNode; while (sp.firstChild) p.insertBefore(sp.firstChild, sp); p.removeChild(sp);
-  });
-  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
-  clone.querySelectorAll('.featured-badge').forEach(el => el.remove());
-  clone.querySelectorAll('[data-cmp-index]').forEach(el => el.removeAttribute('data-cmp-index'));
-  clone.querySelectorAll('[data-es-idx]').forEach(el => el.removeAttribute('data-es-idx'));
-  clone.querySelectorAll('[data-featured]').forEach(el => el.removeAttribute('data-featured'));
-  return clone.innerHTML.trim() + '\n';
-}
-
-// Best-effort: keep manifest.json's title + last_modified in sync for the index.
-async function ghSyncManifest(token, ri){
-  const path = 'translations/manifest.json';
-  const r = await fetch(`https://api.github.com/repos/${ri.owner}/${ri.repo}/contents/${path}?ref=${ri.branch}&t=${Date.now()}`,
-    { cache: 'no-store', headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' } });
-  if (!r.ok) return;
-  const j = await r.json();
-  const arr = JSON.parse(fromB64utf8(j.content));
-  const i = arr.findIndex(e => e.slug === slug);
-  if (i < 0) return;
-  if (window._meta && window._meta.translated_title) arr[i].translated_title = window._meta.translated_title;
-  arr[i].last_modified = Date.now() / 1000;
-  arr.sort((a, b) => (b.last_modified || 0) - (a.last_modified || 0));
-  const put = { message: 'viewer: sync manifest (' + slug + ')', content: b64utf8(JSON.stringify(arr, null, 2) + '\n'), sha: j.sha, branch: ri.branch };
-  await fetch(`https://api.github.com/repos/${ri.owner}/${ri.repo}/contents/${path}`,
-    { method: 'PUT',
-      headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
-      body: JSON.stringify(put) });
-}
-
-async function commitToRepo(){
-  if (!slug) return;
-  const token = ghToken();
-  if (!token) { showToast('No token — commit cancelled'); return; }
-  const ri = ghRepoInfo();
-  const btn = document.getElementById('commit-btn');
-  const lbl = document.getElementById('commit-label');
-  btn.classList.add('busy'); lbl.textContent = 'Committing…';
-  try {
-    const base = 'translations/' + slug + '/';
-    await ghPut(base + 'article.html', getCommitHTML(), 'viewer: edit ' + slug + ' (article)', token, ri);
-    if (window._meta) {
-      window._meta.translated_date = new Date().toISOString().slice(0, 10);
-      await ghPut(base + 'meta.json', JSON.stringify(window._meta, null, 2) + '\n', 'viewer: edit ' + slug + ' (meta)', token, ri);
-    }
-    try { await ghSyncManifest(token, ri); } catch(e){ console.warn('manifest sync skipped:', e); }
-    // Committed file is now the source of truth — clear local scratch so it
-    // can't shadow the freshly pushed version (the stale-copy footgun).
-    if (STORAGE_KEY) { localStorage.removeItem(STORAGE_KEY); localStorage.removeItem(STORAGE_KEY + '_title'); }
-    btn.classList.remove('busy'); btn.classList.add('done'); lbl.textContent = '✓ Committed';
-    showToast('Committed to ' + ri.branch + ' — live in ~1 min');
-    setTimeout(() => { btn.classList.remove('done'); lbl.textContent = 'Commit'; }, 2600);
-  } catch(e){
-    btn.classList.remove('busy'); lbl.textContent = 'Commit';
-    if (/→ 40[13]/.test(e.message)) {
-      localStorage.removeItem('gh_pat');
-      alert('GitHub rejected the token (401/403): expired, or missing Contents:write on this repo.\nCleared it — click Commit to paste a new one.\n\n' + e.message);
-    } else {
-      alert('Commit failed:\n' + e.message);
-    }
-  }
 }
 
 function resetEdits(){
