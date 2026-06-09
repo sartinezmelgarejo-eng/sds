@@ -90,6 +90,28 @@ traduce este
    - **Mantén nombres propios sin traducir**: "AMLO", "Sheinbaum", "Morena", "EZLN", "CNTE", nombres de personas, ciudades
    - **Términos políticos**: "el priato" → "the PRI era", "neoliberales" → "neoliberals", "transformación" → "transformation"
    - Si hay una frase ambigua o un coloquialismo difícil, **pregunta a Samuel en español antes de inventar** una traducción
+
+   ### Título: PRESERVA la estructura del original
+
+   Samuel ya te ha llamado la atención sobre esto. Es REGLA DURA, no preferencia:
+
+   - **NO reordenes** las cláusulas del headline original. Si el español dice "[hecho], [caracterización]: [fuente]", el inglés debe leer en el MISMO ORDEN.
+   - **NO inviertas** "X dijo que Y" a "Y, según X" (o viceversa).
+   - **NO conviertas** "X: [fuente]" en una construcción sin atribución. La atribución después de los dos puntos (": Sheinbaum", ": Gabinete de Seguridad", ": INEGI") se PRESERVA en inglés como `: <Source>` al final del headline.
+   - **NO sustituyas** un verbo concreto del original por otro "más literario". `hubo 28 homicidios` traduce literal a `had 28 homicides` o `there were 28 homicides`, NO a `recorded 28 cases`.
+   - **NO agregues** información implícita ("Mexico's fewest..." cuando el original solo dice "el día con menos..."). El contexto de México es obvio dado el outlet; no metas "Mexico's" salvo que aparezca explícito.
+   - **NO conviertas** un número en cláusula subordinada ("with 28 cases") cuando en el original era el sujeto/objeto principal ("hubo 28 homicidios").
+   - **Sí ajusta** sintaxis mínima necesaria para que el inglés sea gramatical (artículos, preposiciones, orden de adjetivos), pero NADA MÁS.
+   - **Sí mantén** signos de puntuación equivalentes: la coma del medio del headline se queda coma; el `:` se queda `:`; el `;` se queda `;`.
+   - Si el headline tiene un giro coloquial (e.g. "Sheinbaum: 'no nos van a mover'"), tradúcelo literal con las comillas y el dos puntos intactos.
+
+   **Test mental**: si Samuel pudiera reverse-traducir tu título al español sin cambiar el orden de las frases, está bien. Si tendría que reorganizar para que matcheara el original, te equivocaste.
+
+   Esta regla aplica IGUAL a:
+   - El campo `translated_title` de `meta.json`
+   - La entry en `translations/manifest.json`
+   - El card de Telegram
+   - El campo `title` del draft de WP si está prendido el opt-in
 7. **Generar `article.html`** con el template exacto (ver más abajo)
 8. **Generar `meta.json`** con metadata estructurada
 8b. **Actualizar `translations/manifest.json`** (índice usado por `translations/index.html`):
