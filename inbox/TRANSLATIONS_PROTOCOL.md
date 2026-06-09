@@ -49,18 +49,24 @@ traduce este
    - Mantén las imágenes locales en `img/` igual (sirven de backup y de preview en el viewer si WP cae)
    - **Manda todas las subidas en paralelo** con `concurrent.futures.ThreadPoolExecutor` o `asyncio` para no tardar 5×el tiempo si hay 5 imágenes
 
-5a-bis. **Featured image: SIEMPRE dos versiones** (para que el sitio tenga la calidad que pide MSP):
+5a-bis. **Featured image: SIEMPRE dos versiones** (para que los slots de WP — header + Yoast social — nunca queden con tamaño insuficiente):
    - La **primera imagen** que aparece en el artículo se trata como featured. Las demás son body images.
-   - Si la original es **≥ 2048 wide** (suficiente para escalado limpio):
-     - Genera con Pillow (`LANCZOS`, JPEG quality 92, progressive) DOS versiones:
-       - `<slug>-large.jpg` → **2048 × 1365** target (si la proporción original es 3:2)
-       - `<slug>-sm.jpg` → **1400 × 933** target (misma proporción)
-     - **Respeta la proporción original**: NO center-crop a 3:2 a la fuerza. Si la fuente es 16:9 o 4:3, escala proporcionalmente al ancho objetivo (2048 / 1400) y deja la altura natural. Solo si la fuente es EXTREMA (cuadrada 1:1 o más vertical que horizontal) avisa en el card y deja que Samuel decida — no hagas crop creativo.
+   - **Hard floor: 800 px wide**. Si la fuente original es **< 800 wide**, NO subas nada. Aborta el step de upload de la featured (las body images siguen). Agrega warning grande al card:
+     > `⚠️ Featured image: <W>×<H> — below 800-wide hard floor. NOT uploaded. Reply with a higher-res replacement as a FILE (no como foto, para evitar compresión de Telegram).`
+   - **Si la fuente está ≥ 800 wide**, SIEMPRE genera y sube ambas versiones con Pillow (`LANCZOS`, JPEG quality 92, progressive):
+       - `<slug>-large.jpg` → **2048 wide** target
+       - `<slug>-sm.jpg` → **1400 wide** target
+     - Cada versión es downscale si la fuente la rebasa, upscale si no. Pillow LANCZOS upscalea blandito pero llena el slot. Reporta el resultado en el card SIEMPRE (downscale limpio o upscale).
+     - **Respeta la proporción original**: NO center-crop a 3:2 a la fuerza. Si la fuente es 16:9 o 4:3, escala proporcionalmente al ancho objetivo y deja la altura natural. Solo si la fuente es EXTREMA (cuadrada 1:1 o más vertical que horizontal) avisa en el card y deja que Samuel decida — no hagas crop creativo.
      - Sube ambas a WP Media Library en paralelo. Usa la `source_url` de `-large` en `<img src>`. Guarda la `source_url` y el `id` de `-sm` en `meta.json` bajo `social_image` (Samuel la pega en el panel Social/X de Yoast manualmente).
-   - Si la original es **menor a 2048 wide**:
-     - **Cero upscale**: súbela tal cual a WP Media Library (un solo upload, no inventes la versión grande).
-     - Agrega un warning al card del topic:
-       > `⚠️ Featured image: <W>×<H> — under 2048-wide target. Reply with a HIGHER-RES replacement as a FILE (no como foto, para evitar compresión de Telegram) and I'll redo the upload with two sizes.`
+   - **El card SIEMPRE reporta dimensiones originales + qué se hizo**, así Samuel decide si pide reemplazo aunque haya quedado funcional:
+     ```
+     📐 Featured: original <W>×<H>
+        → -large 2048×<h> (<downscale|upscale>)
+        → -sm 1400×<h> (<downscale|upscale>)
+     ```
+     Si hubo upscale en cualquiera de las dos, agrega línea adicional:
+     > `⚠️ Featured was upscaled — reply with a higher-res replacement as a FILE if you want crisper output.`
    - **NUNCA duplicas la featured en el body**: en `article.html` aparece como la PRIMERA `<figure>`; el viewer la muestra en preview pero la excluye automáticamente del clipboard cuando Samuel pica Body, porque la featured va en el sidebar Featured Image de WP, no pegada en el cuerpo.
 
 5a-tris. **Body images: dimension check** (solo aviso, no redimensiona):
@@ -335,3 +341,7 @@ Cuando Samuel diga "ya lo postee" o "publicado" o similar:
 - **Sí traducir lugares con nombre traducible**: "Ciudad de México" → "Mexico City", "Estados Unidos" → "United States"
 - **No inventar imágenes** si el original no las tiene. Si falla la descarga, reporta el error en el mensaje
 - **No subir el HTML como adjunto** — el HTML va al repo, el topic recibe el cuerpo en texto + link al formatted version
+- **NO agregues em dashes (`—`) ni en dashes (`–`) que no estén en el original.** Mantén la puntuación como está: si el español usa comas, usa comas; si usa paréntesis, usa paréntesis. Los em dashes son una muletilla del LLM — no los inyectes "para mejorar el flujo".
+  - **Compound hyphens en inglés (sí permitidos)**: collocations estándar como "left-wing", "individual-accounts reform", "solidarity-based system", "far-away communities", "high-quality", "2048-wide", "self-described" están OK. La regla es solo contra em/en dashes inventados que reemplazan comas o paréntesis.
+  - La única vez que un em dash es válido es cuando el artículo original lo usa textualmente, o cuando es parte de un nombre propio.
+  - Aplica a `article.html`, `meta_description`, summaries de una sola oración, y mensajes en el topic.
