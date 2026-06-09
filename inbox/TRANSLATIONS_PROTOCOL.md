@@ -104,6 +104,49 @@ traduce este
 10. **Postear en el topic de Traducciones** (no en DM):
     - chat_id `-1003957818672`, message_thread_id `289`
     - Formato del mensaje (más abajo)
+10b. **Crear draft en WordPress (OPT-IN, solo cuando Samuel lo pide)**:
+    - **Trigger**: el mensaje contiene la palabra `draft` (e.g. `translate: <url> draft`, `traduce: <url> draft`) O Samuel responde al card con algo tipo `draft`, `crea draft`, `make a draft`. Si NO está presente, **no hagas draft** — el flujo termina en el push + card como siempre.
+    - **Endpoint**: `POST {WP_SITE}/wp-json/wp/v2/posts` con misma Basic Auth que step 5a.
+    - **Payload mínimo**:
+      ```json
+      {
+        "status": "draft",
+        "title": "<meta.translated_title>",
+        "slug": "<meta.slug sin el prefijo YYYY-MM-DD>",
+        "content": "<article.html SIN la primera <figure> (la featured va en featured_media, no embebida) + sin los delimitadores wp:image de esa figura. Reusa la misma lógica que el botón Body del viewer.>",
+        "excerpt": "<meta.meta_description>",
+        "featured_media": <id del -large.jpg subido en step 5a-bis>,
+        "comment_status": "closed",
+        "ping_status": "open",
+        "categories": [<id>],
+        "tags": [<id>, ...]
+      }
+      ```
+    - **Categories**: traduce `meta.suggested_category` a id buscando `GET /wp-json/wp/v2/categories?slug=<lower-kebab>` (e.g. "News Briefs" → slug `news-briefs`). Si el slug exacto no aparece, intenta `?search=<name>`. Si tampoco existe, NO crees una nueva — deja `categories: []` y agrega línea al card pidiéndole a Samuel que la elija.
+    - **Tags**: para cada `#Tag` en `meta.suggested_tags`, busca `GET /wp-json/wp/v2/tags?slug=<lower-kebab>`. Si NO existe, créalo con `POST /wp-json/wp/v2/tags` (el guide dice los tags son para sorting interno; está OK crearlos). Acumula los ids.
+    - **Yoast fields** (opcional, depende de Yoast REST extension):
+      Agrega un objeto `meta` al payload:
+      ```json
+      "meta": {
+        "_yoast_wpseo_metadesc": "<meta.meta_description>",
+        "_yoast_wpseo_focuskw":  "<meta.focus_keyphrase>",
+        "_yoast_wpseo_opengraph-image":    "<source_url de -sm.jpg>",
+        "_yoast_wpseo_opengraph-image-id": <id de -sm.jpg>,
+        "_yoast_wpseo_twitter-image":      "<source_url de -sm.jpg>",
+        "_yoast_wpseo_twitter-image-id":   <id de -sm.jpg>
+      }
+      ```
+      Si la respuesta del API muestra que esos campos NO se aplicaron (el JSON de la respuesta no los lista o los lista vacíos), avísale a Samuel en el card que tendrá que llenarlos manualmente en el panel Yoast. NO falles toda la creación del draft por esto.
+    - **Respuesta**: del JSON devuelto, extrae `id` (post ID) y `link` (URL pública del draft).
+    - **URL del editor**: `{WP_SITE}/wp-admin/post.php?post=<id>&action=edit` — eso te lleva directo al editor en escritorio. En móvil la app de WP suele abrirlo desde el botón "Posts → Drafts".
+    - **Reporta en el card** una sección extra:
+      ```
+      📝 Draft created: <translated_title>
+      🔗 <a href="{WP_SITE}/wp-admin/post.php?post=<id>&action=edit">Open in WordPress editor</a>
+      <opcionales: ✅ Featured set · ✅ Category set · ✅ Tags set · ⚠️ Yoast meta not applied (set manually)>
+      ```
+    - Si la creación del draft FALLA: reporta error específico (status code, mensaje), NO bloquees el resto del flujo (el card del viewer sigue siendo útil, Samuel puede pegar manualmente con el flujo viejo).
+
 11. **Limpieza automática** (después del push, antes de cerrar):
     - Cuenta las carpetas en `htmls/translations/` (excluyendo `viewer.html` y `.gitkeep`)
     - Si el total es **≥ 18**: borra las **4 más viejas** por orden lexicográfico del slug (el prefijo `YYYY-MM-DD-...` hace que ordenar alfabéticamente = ordenar por fecha)
