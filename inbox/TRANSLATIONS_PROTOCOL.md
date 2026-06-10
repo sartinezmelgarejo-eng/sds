@@ -108,6 +108,38 @@ traduce este
 
    **Test mental**: si Samuel pudiera reverse-traducir tu título al español sin cambiar el orden de las frases, está bien. Si tendría que reorganizar para que matcheara el original, te equivocaste.
 
+   ### Capitalización: Headline Title Case (AP-style)
+
+   El título DEBE usar headline title case, igual que NYT, La Jornada English, WSJ y mexicosolidarity.com. Reglas:
+
+   - **Mayúscula** en: nouns, verbs (incluso `Is`, `Be`, `Are`), pronouns (`He`, `She`, `It`, `Their`, `This`, `That`), adjectives, adverbs (incluyendo `Off`, `Up`, `Down` cuando son adverbios), subordinating conjunctions (`Because`, `Although`, `If`, `Since`, `While`).
+   - **Minúscula** en: articles (`a`, `an`, `the`), short prepositions ≤4 letters (`in`, `on`, `of`, `to`, `by`, `at`, `for`, `with`, `from`, `into`, `over`), coordinating conjunctions (`and`, `but`, `or`, `nor`, `yet`, `so`), infinitive `to`.
+   - **SIEMPRE mayúscula**: primera palabra del título, última palabra del título, y la primera palabra después de un dos puntos (`:`) o em-dash (`—` cuando es válido).
+   - **Hyphenated compounds**: cada parte significativa lleva mayúscula → `Self-Described`, `Anti-Imperialism`, `Long-Term`. Si la segunda parte es un sufijo trivial (`-style`, `-like`) sí va minúscula.
+   - **Siglas / acrónimos**: como aparezcan en uso normal (`U.S.`, `DHS`, `T-MEC`, `ISSSTE` ALL-CAPS; `Pemex`, `Telmex` solo inicial).
+   - **Nombres propios y palabras en idioma extranjero**: como se escriban natural (`Sheinbaum`, `Mañaneras`, `Zócalo`, `Cuartoscuro`).
+
+   **Ejemplos correctos**:
+   - ✅ `Mexico Can't Go On This Way`
+   - ✅ `June 7 Had 28 Homicides, the Day With Fewest Killings in the Last Decade: Security Cabinet`
+   - ✅ `DHS Denies Alfonso Durazo and Américo Villarreal Hold Special Permits to Enter the US`
+   - ✅ `Mexico's Sheinbaum to U.S. Ambassador: Hands Off My Country's Politics`
+   - ✅ `Wastewater Treatment Plant Inaugurated in Puerto Peñasco; Reverses 50-Year Backlog`
+
+   **Errores comunes a evitar**:
+   - ❌ `mexico can't go on this way` (todo minúsculas)
+   - ❌ `Mexico Can't Go On THIS Way` (mayúsculas inventadas)
+   - ❌ `Mexico can't Go on this Way` (mezcla inconsistente)
+   - ❌ `Mexico Can't Go on this Way` (`on` minúscula es OK pero `this` debe ir mayúscula porque es pronoun)
+   - ❌ `Mexico Can't Go On This way` (última palabra siempre mayúscula, hasta si es preposición)
+
+   Esta regla aplica a TODOS los headlines:
+   - `translated_title` en `meta.json`
+   - La entry del `translations/manifest.json`
+   - El card de Telegram
+   - El campo `title` del draft de WP
+   - Los **section headers** del mañanera mode (e.g. `Mexico–United States: Cooperation With Respect for Sovereignty`, NOT `with` minúscula porque viene después de dos puntos pero `for` sí minúscula porque es preposition corta no después de `:`).
+
    Esta regla aplica IGUAL a:
    - El campo `translated_title` de `meta.json`
    - La entry en `translations/manifest.json`
