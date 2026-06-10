@@ -458,17 +458,22 @@ El mensaje suele venir con un bloque español arriba, branding de Morena en medi
    <p><em>Every day, President Claudia Sheinbaum gives a morning presidential press conference and Mexico Solidarity Media posts English language summaries, translated by Mexico Solidarity's Pedro Gellert. Previous press conference summaries are available <a href="https://mexicosolidarity.com/mananera/">here</a>.</em></p>
    <!-- /wp:paragraph -->
    ```
-3. **Secciones**: para cada (header, párrafo(s)):
+3. **Secciones**: Pedro NO usa `<h2>` reales. Cada sección es un bloque de paragraph con el título en bold inline + `<br>` + body en la misma `<p>`. Formato exacto:
    ```html
-   <!-- wp:heading -->
-   <h2 class="wp-block-heading"><Header text></h2>
-   <!-- /wp:heading -->
-
    <!-- wp:paragraph -->
-   <p><Body paragraph text></p>
+   <p><strong><Header text><br></strong><Body paragraph text></p>
    <!-- /wp:paragraph -->
    ```
-   (Si una sección tiene 2 párrafos, ambos van como `<!-- wp:paragraph -->` separados, mismo nivel que el h2 anterior.)
+   Si una sección tiene MÚLTIPLES párrafos, el primero lleva el bold-header como arriba, y los siguientes son `<p>Body</p>` planos (sin bold) en su propio bloque `wp:paragraph`:
+   ```html
+   <!-- wp:paragraph -->
+   <p><strong><Header><br></strong><Body párrafo 1></p>
+   <!-- /wp:paragraph -->
+
+   <!-- wp:paragraph -->
+   <p><Body párrafo 2></p>
+   <!-- /wp:paragraph -->
+   ```
 4. **YouTube embed al final**: si el mensaje del WhatsApp incluye el URL del video de la mañanera (suele venir como `*VIDEO – MAÑANERA DE HOY: https://www.youtube.com/watch?v=...*` cerca del header), agrégalo como último bloque del post con Gutenberg embed:
    ```html
    <!-- wp:embed {"url":"https://www.youtube.com/watch?v=<VIDEO_ID>","type":"video","providerNameSlug":"youtube","responsive":true,"className":"wp-embed-aspect-16-9 wp-has-aspect-ratio"} -->
@@ -478,7 +483,18 @@ El mensaje suele venir con un bloque español arriba, branding de Morena en medi
    <!-- /wp:embed -->
    ```
    Si no encuentras URL de YouTube en el mensaje, omite el embed sin warning (no es crítico).
-5. Sin footer adicional. NO incluyas "Department of Communications" ni branding de Morena.
+5. **Separator** después del embed:
+   ```html
+   <!-- wp:separator {"style":{"spacing":{"margin":{"top":"var:preset|spacing|80","bottom":"var:preset|spacing|80"}}}} -->
+   <hr class="wp-block-separator has-alpha-channel-opacity" style="margin-top:var(--wp--preset--spacing--80);margin-bottom:var(--wp--preset--spacing--80)"/>
+   <!-- /wp:separator -->
+   ```
+6. **Kadence Posts block** como bloque final del post — siempre 3 most recent. Es el "1g. Posts" del MSM Posting Guide ("leave as is, so the three most recent posts appear"):
+   ```html
+   <!-- wp:kadence/posts {"uniqueID":"REPLACE_WITH_FRESH_ID","postsToShow":3,"imageSize":"large","author":false,"readmore":false,"titleFont":[{"level":4,"size":["","",""],"sizeType":"px","lineHeight":["","",""],"lineType":"px","letterSpacing":["","",""],"letterType":"px","textTransform":""}]} /-->
+   ```
+   `uniqueID`: usa un id aleatorio nuevo cada vez tipo `<postId>_<6-char-hex>-<2-digit>` (Kadence solo lo usa para track interno; lo único crítico es que NO se repita entre posts). Si no sabes el postId aún, usa `0_<6-char>-01`.
+7. Sin footer adicional. NO incluyas "Department of Communications" ni branding de Morena.
 
 ### meta.json
 
