@@ -229,6 +229,16 @@ El sitio mexicosolidarity.com usa Gutenberg block editor + plugin Kadence Blocks
 <!-- wp:paragraph -->
 <p>More body...</p>
 <!-- /wp:paragraph -->
+
+<!-- KADENCE POSTS BLOCK al FINAL del article.html — siempre 3 most recent.
+     Es el "1g. Posts" del MSM Posting Guide. Pedro lo agrega manual en
+     cada post; nosotros lo emitimos automático en el output del bot para
+     que el copy/paste del viewer (o el draft auto-creado vía REST) ya
+     lo lleve. NO requiere separator antes en el caso de news translations
+     (a diferencia del mañanera mode, que lo separa del YouTube embed).
+     `uniqueID` debe ser único por post — genera uno random tipo
+     "<6-hex>-<2-digit>" la primera vez y úsalo siempre. -->
+<!-- wp:kadence/posts {"uniqueID":"REPLACE_WITH_FRESH_ID","postsToShow":3,"imageSize":"large","author":false,"readmore":false,"titleFont":[{"level":4,"size":["","",""],"sizeType":"px","lineHeight":["","",""],"lineType":"px","letterSpacing":["","",""],"letterType":"px","textTransform":""}]} /-->
 ```
 
 ### Delimitadores de bloque por tipo
@@ -254,6 +264,7 @@ Para bloques con atributos (ej. imágenes con `align`, `id` de Media Library), i
 - **Featured image**: primera `<figure>` del HTML, antes del attribution paragraph
 - **Attribution paragraph**: SIEMPRE en `<em>`, SIEMPRE con el link al artículo original embebido en el nombre del outlet
 - **Caption de imágenes**: `Photo: <Name>` o solo `Photo:` si no hay crédito visible
+- **Kadence Posts block** SIEMPRE al final del `article.html` (después del último párrafo del cuerpo), como muestra el template. Pedro siempre lo agrega en cada post; el bot lo emite automático para que el copy/paste del viewer y el draft auto-creado vía REST ya lo lleven sin acción manual.
 
 ### Quotes — dos tratamientos según fuerza:
 
