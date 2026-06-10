@@ -1,8 +1,9 @@
 # Protocolo de Traducción para mexicosolidarity.com
 
 Este protocolo se activa cuando:
-1. Un mensaje empieza con `traduce:` o `translate:` (en DM o en el topic de Traducciones)
-2. Un mensaje en el topic de Traducciones (grupo `-1003957818672`, thread `289`) es respuesta a un artículo previo que mandaste tú (refinamiento)
+1. Un mensaje empieza con `traduce:` o `translate:` (en DM o en el topic de Traducciones) → workflow de **traducción de artículo** (resto del documento).
+2. Un mensaje empieza con `mañanera:` o `mananera:` → workflow de **draft de mañanera** (ver sección "Mañanera mode" al final del documento).
+3. Un mensaje en el topic de Traducciones (grupo `-1003957818672`, thread `289`) es respuesta a un artículo previo que mandaste tú (refinamiento)
 
 ## Workflow de traducción nueva
 
@@ -410,3 +411,158 @@ Cuando Samuel diga "ya lo postee" o "publicado" o similar:
   - **Compound hyphens en inglés (sí permitidos)**: collocations estándar como "left-wing", "individual-accounts reform", "solidarity-based system", "far-away communities", "high-quality", "2048-wide", "self-described" están OK. La regla es solo contra em/en dashes inventados que reemplazan comas o paréntesis.
   - La única vez que un em dash es válido es cuando el artículo original lo usa textualmente, o cuando es parte de un nombre propio.
   - Aplica a `article.html`, `meta_description`, summaries de una sola oración, y mensajes en el topic.
+
+---
+
+# Mañanera mode
+
+Workflow paralelo (NO modifica el de `translate:`). Samuel recibe un resumen diario en WhatsApp, lo pasa al topic con `mañanera: <contenido>`. El bot construye un **draft completo** en WordPress siguiendo el formato fijo de "People's Mañanera" en mexicosolidarity.com.
+
+## Trigger
+
+```
+mañanera:
+[contenido completo del WhatsApp pegado tal cual]
+```
+
+(También acepta `mananera:` sin ñ por si el cliente Telegram se la come.)
+
+La **fecha no se manda explícita** — el bot la extrae del header del mensaje. El cuerpo típico tiene una línea como `*Monday, June 8, 2026*` o `*MORNING PRESIDENTIAL PRESS CONFERENCE*` seguida de la fecha. Parsea esa fecha y úsala para el title + slug. Si NO encuentras fecha en el cuerpo, usa **el día anterior a hoy** (las mañaneras se publican al día siguiente) y avísale a Samuel en el card por si necesita corregir.
+
+## Parsing del WhatsApp
+
+El mensaje suele venir con un bloque español arriba, branding de Morena en medio, y la versión inglesa abajo. Solo nos importa lo de inglés.
+
+1. **Localiza el cuerpo útil**: corta TODO lo que vive ENTRE el marcador `SUMMARY` (en mayúsculas, generalmente como `*SUMMARY*`) y el marcador `Department of Communications` (footer de Morena). Eso es el material crudo.
+2. **Identifica las secciones**:
+   - Cada sección tiene un **header de una sola línea** (suele venir como `*Topic: Subtitle*` con asteriscos de WhatsApp; si los asteriscos se cayeron en el transporte, detecta header como línea corta < 100 chars que NO termina con punto y va seguida de un párrafo más largo).
+   - Cada header es seguido de uno o más párrafos.
+3. **Cada header → `<h2>`. Cada párrafo → `<p>`**.
+4. **NO traduzcas el contenido** — viene ya en inglés. Solo limpias formato.
+5. **NO copies negritas** dentro de los párrafos. Las negritas del WhatsApp son solo para los headers y los headers ya se vuelven h2.
+
+## Construcción del post
+
+### Title
+`People's Mañanera <Month> <Day>` (e.g. `People's Mañanera June 8`).
+
+### Slug
+`peoples-mananera-<month-lowercase>-<day>` (e.g. `peoples-mananera-june-8`). Si ya existe ese slug en WP, agrega `-2` (luego `-3`, etc.).
+
+### article.html (body) — orden EXACTO:
+
+1. **Featured image** como primer `<figure>` (manejo abajo).
+2. **Attribution paragraph** (italic, fijo verbatim):
+   ```html
+   <!-- wp:paragraph -->
+   <p><em>Every day, President Claudia Sheinbaum gives a morning presidential press conference and Mexico Solidarity Media posts English language summaries, translated by Mexico Solidarity's Pedro Gellert. Previous press conference summaries are available <a href="https://mexicosolidarity.com/mananera/">here</a>.</em></p>
+   <!-- /wp:paragraph -->
+   ```
+3. **Secciones**: para cada (header, párrafo(s)):
+   ```html
+   <!-- wp:heading -->
+   <h2 class="wp-block-heading"><Header text></h2>
+   <!-- /wp:heading -->
+
+   <!-- wp:paragraph -->
+   <p><Body paragraph text></p>
+   <!-- /wp:paragraph -->
+   ```
+   (Si una sección tiene 2 párrafos, ambos van como `<!-- wp:paragraph -->` separados, mismo nivel que el h2 anterior.)
+4. Sin footer adicional. NO incluyas "Department of Communications" ni branding de Morena.
+
+### meta.json
+
+```json
+{
+  "slug": "peoples-mananera-june-8",
+  "translated_title": "People's Mañanera June 8",
+  "original_title": "Mañanera del Pueblo · Lunes 8 de junio 2026",
+  "author": "Pedro Gellert",
+  "original_date": "2026-06-08",
+  "translated_date": "<today>",
+  "outlet": "Mexico Solidarity Media",
+  "original_url": "<URL del YouTube si está en el mensaje, si no omite>",
+  "suggested_category": "Mañaneras",
+  "suggested_tags": ["#Sheinbaum", "#Mañanera", "<+ tags temáticos según los h2: e.g. #World Cup, #Public Education, #ISSSTE, #Sovereignty>"],
+  "meta_description": "<auto-excerpt, ver abajo>",
+  "focus_keyphrase": "Claudia Sheinbaum press conference",
+  "social_image": <null si no hay featured, sino {id, source_url} de -sm>,
+  "image_count": <0 o 1>,
+  "image_warnings": [],
+  "status": "pending",
+  "mode": "mananera"
+}
+```
+
+### Auto-excerpt (meta_description)
+
+Patrón fijo:
+> `President Sheinbaum's daily press conference, with comments on <topic1>, <topic2>, …, and <topicN>.`
+
+Para cada h2, extrae el "topic" — lo que va ANTES del primer `:` del header. E.g.:
+- `2026 World Cup: More Opportunities for Children` → `the 2026 World Cup`
+- `Teachers: More Rights, Better Salaries, and Ongoing Dialogue` → `teachers' rights`
+- `ISSSTE: Better Healthcare and Decent Pensions` → `ISSSTE`
+- `More Investment to Drive Growth` (sin colon) → `more investment`
+- `Coahuila: Follow the Legal Path` → `Coahuila`
+- `Sovereignty and Defense of the Transformation` (sin colon) → `sovereignty`
+
+Junta con comas, "and" antes del último. Empieza la oración SIEMPRE con `President Sheinbaum's daily press conference, with comments on …`. Termina con punto.
+
+## Featured image — auto-fetch desde presidencia.gob.mx
+
+1. **Intenta jalar** las fotos del día específico de la mañanera (la fecha del title, NO la de hoy).
+2. **URL típico**: `https://www.gob.mx/presidencia/galerias` o `https://www.gob.mx/presidencia/multimedia/galerias`. Busca la entrada cuya fecha matchee con la del mensaje. Si la estructura cambia, intenta sus feeds RSS / sitemaps.
+3. **Cuando hay fotos disponibles del día**:
+   - Filtra por imágenes donde Sheinbaum NO aparezca dominando la mitad superior (regla: la cara cubierta por el header del sitio se ve mal). Si tienes face detection disponible, úsala; si no, **prefiere fotos en formato landscape (ancho > alto)** y **evita primeros planos** (heurística: ancho ≥ 1.4× alto suele ser un wide shot).
+   - Sube las dos versiones (`-large` + `-sm`) siguiendo step 5a-bis del protocolo principal.
+4. **Cuando NO hay fotos publicadas todavía** (la galería del día está vacía o no existe):
+   - **NO inventes**, NO uses foto de otra mañanera, NO uses placeholder.
+   - Deja el draft SIN featured image.
+   - Agrega línea al card: `🖼️ No featured image — presidencia.gob.mx no había publicado fotos del <fecha> al momento del draft. Cuando aparezcan, manda una con caption "featured" o súbela manual.`
+5. **Cuando Samuel quiere overridear**: si manda imagen adjunta junto con el `mañanera:`, usa esa en vez de auto-fetchear.
+
+## Sin manifest, sin viewer, sin push de carpeta
+
+A diferencia de las traducciones de noticias, las mañaneras **NO se guardan en `htmls/translations/<slug>/`**. No se suben al repo, no se actualizan en `manifest.json`, no se ven en `viewer.html`. El único output es el **draft directo en WordPress**, igual que el step 10b del protocolo principal pero con la estructura mañanera.
+
+## Draft creation (REST, obligatorio en este modo)
+
+A diferencia del flujo de news translations donde `draft` es opt-in, **en mañanera mode el draft es la salida principal** (no hay otro destino). Sigue las mismas reglas REST de step 10b:
+
+- `POST {WP_SITE}/wp-json/wp/v2/posts` con `status: "draft"`.
+- `title`, `slug`, `content` (el HTML construido arriba), `excerpt` = meta_description.
+- `featured_media`: id de `-large.jpg` si lo hay; si NO hubo featured (caso "fotos no disponibles"), omite el campo.
+- `categories: [<id de "Mañaneras">]`.
+- `tags`: ids de los tags sugeridos (créalos si no existen).
+- `comment_status: "closed"`, `ping_status: "open"`.
+- Yoast meta (si funciona en el sitio): `_yoast_wpseo_metadesc`, `_yoast_wpseo_focuskw`.
+- **Author**: deja como user actual de la API. Recordatorio al final del card: `👤 Set Guest Author: Pedro Gellert` (siempre Pedro para mañaneras).
+
+## Card de respuesta en Telegram
+
+Posteo único en el topic, mismo formato que el de news translations pero adaptado:
+
+```
+🌅 <b>People's Mañanera <Month Day></b>
+<URL del YouTube si la había>
+
+📝 <a href="{WP_SITE}/wp-admin/post.php?post=<id>&action=edit">Open draft in WordPress editor</a>
+
+✅ Featured set · ✅ Category Mañaneras · ✅ Tags · ✅ Excerpt
+👤 Set Guest Author: Pedro Gellert
+<si no había featured: 🖼️ No featured — presidencia.gob.mx sin fotos aún del <date>>
+```
+
+Si hubo error en algún sub-step (REST falla, parser no encuentra secciones, etc.), reporta específico y NO bloquees el resto.
+
+## Refinement en mañanera mode
+
+Reply al card del bot:
+- "agrega tag X" → edita el draft via PUT /posts/<id>, agrega el tag.
+- "cambia el título a X" → idem, actualiza `title`.
+- "usa esta foto" + imagen adjunta → sube como featured (dual-size), update featured_media en el post.
+- "borra el draft" → `DELETE /posts/<id>?force=true` (solo si Samuel lo pide explícitamente).
+
+Reply siempre breve: `✅ <breve descripción>`.
