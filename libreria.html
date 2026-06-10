@@ -9226,5 +9226,421 @@ body {
   showView('libros', true);
 </script>
 <script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     MEJORAS DE DISEÑO — capa aditiva (no modifica el código original)
+     Concepto: «frontispicio iluminado» — profundizar la identidad
+     oscura+dorada con detalles de imprenta antigua: filetes grabados,
+     fleurones, numerales antiguos, grano de papel y luz de vela.
+     ═══════════════════════════════════════════════════════════════ -->
+<style id="mejoras-diseno">
+/* ── 1. Tokens nuevos (ambos temas) ───────────────────────────── */
+:root {
+  --mj-gold-bright: #e8cb8a;
+  --mj-hairline: rgba(200,169,96,0.22);
+  --mj-hairline-soft: rgba(200,169,96,0.10);
+  --mj-surface-grad: linear-gradient(180deg, rgba(26,26,44,0.85) 0%, rgba(16,16,30,0.92) 100%);
+  --mj-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.45);
+  --mj-shadow-lift: 0 2px 4px rgba(0,0,0,0.4), 0 18px 44px rgba(0,0,0,0.55), 0 0 0 1px var(--mj-hairline);
+  --mj-glow: rgba(216,182,108,0.10);
+  --mj-nav-bg: rgba(8,8,16,0.88);
+}
+:root.light {
+  --mj-gold-bright: #6b4f12;
+  --mj-hairline: rgba(122,93,32,0.30);
+  --mj-hairline-soft: rgba(122,93,32,0.14);
+  --mj-surface-grad: linear-gradient(180deg, rgba(224,216,200,0.92) 0%, rgba(210,200,182,0.95) 100%);
+  --mj-shadow: 0 1px 2px rgba(70,55,25,0.12), 0 10px 28px rgba(70,55,25,0.16);
+  --mj-shadow-lift: 0 2px 4px rgba(70,55,25,0.14), 0 16px 38px rgba(70,55,25,0.22), 0 0 0 1px var(--mj-hairline);
+  --mj-glow: rgba(150,118,50,0.10);
+  --mj-nav-bg: rgba(232,224,210,0.90);
+}
+
+/* ── 2. Base: tipografía, selección, scroll, foco ─────────────── */
+body {
+  font-feature-settings: "liga" 1, "kern" 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(200,169,96,0.30); color: var(--text-bright); }
+* { scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--gold-dim), rgba(138,118,64,0.5));
+  border-radius: 10px;
+  border: 2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+button:focus-visible, input:focus-visible, [onclick]:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Numerales antiguos en años y cifras serif */
+.stat-num, .tl-event-year, .tl-era-years, .tl-book-author,
+.featured-author-line, .estante-book-year, .concepto-tl-year {
+  font-feature-settings: "onum" 1, "pnum" 1;
+}
+
+/* Medida de lectura cómoda en prosa larga */
+.book-tesis, .book-contexto, .book-porque, .poder-historia p,
+.theme-header p, .book-autor-bio {
+  max-width: 68ch;
+  line-height: 1.78;
+}
+
+/* ── 3. Portada / landing: frontispicio ───────────────────────── */
+#landing h1 {
+  background: linear-gradient(180deg, var(--mj-gold-bright) 0%, var(--gold) 55%, var(--gold-dim) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--gold); /* fallback */
+  letter-spacing: 4px;
+  position: relative;
+  padding-top: 34px;
+}
+/* Eyebrow grabado sobre el título */
+#landing h1::before {
+  content: 'EX LIBRIS · BIBLIOTECA PERSONAL';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 4px;
+  color: var(--text-dim);
+  -webkit-text-fill-color: var(--text-dim);
+  white-space: nowrap;
+}
+/* Doble filete grabado bajo el título */
+#landing h1::after {
+  content: '';
+  display: block;
+  width: min(360px, 70%);
+  margin: 18px auto 0;
+  height: 5px;
+  border-top: 1px solid var(--mj-hairline);
+  border-bottom: 1px solid var(--mj-hairline-soft);
+}
+#landing .subtitle { margin-bottom: 34px; letter-spacing: 1px; }
+#landing .subtitle::after {
+  content: '❦';
+  display: block;
+  margin-top: 14px;
+  font-size: 14px;
+  font-style: normal;
+  color: var(--gold-dim);
+  opacity: 0.8;
+}
+/* Luz de vela que respira (capa libre ::after) */
+#landing::after {
+  content: '';
+  position: absolute;
+  inset: -10%;
+  pointer-events: none;
+  background: radial-gradient(ellipse 55% 42% at 50% 38%, var(--mj-glow) 0%, transparent 70%);
+  animation: mjBreath 9s ease-in-out infinite;
+}
+@keyframes mjBreath {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+
+/* ── 4. Nav: arreglo de tema claro + filete dorado ────────────── */
+#nav-modes {
+  background: var(--mj-nav-bg);
+  border-bottom: 1px solid var(--mj-hairline-soft);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+:root.light #nav-modes { box-shadow: 0 1px 0 rgba(70,55,25,0.08); }
+.nav-mode-btn {
+  border-radius: 999px;
+  padding: 10px 22px;
+  letter-spacing: 0.8px;
+  font-size: 12.5px;
+  background: transparent;
+  border-color: var(--mj-hairline-soft);
+}
+.nav-mode-btn:hover {
+  border-color: var(--gold-dim);
+  background: rgba(200,169,96,0.07);
+  color: var(--text-bright);
+  transform: none;
+}
+.nav-search-box input { border-radius: 999px; border-color: var(--mj-hairline-soft); }
+.nav-search-box input:focus { box-shadow: 0 0 0 3px rgba(200,169,96,0.12); }
+.search-results-dropdown {
+  background: var(--mj-surface-grad);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: var(--mj-hairline);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* ── 5. Cartas unificadas: filete + superficie + lift ─────────── */
+.landing-nav-card, .concepto-card, .mini-book-card, .ruta-card,
+.tl-book-card, .featured-book-card, .book-conexion-card,
+.estante-book-card, .author-book-card, .concepto-book-item {
+  background: var(--mj-surface-grad);
+  border: 1px solid var(--mj-hairline-soft);
+  box-shadow: var(--mj-shadow);
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1),
+              box-shadow 0.35s cubic-bezier(0.16,1,0.3,1),
+              border-color 0.3s;
+}
+.landing-nav-card:hover, .concepto-card:hover, .mini-book-card:hover,
+.ruta-card:hover, .tl-book-card:hover, .book-conexion-card:hover,
+.estante-book-card:hover, .author-book-card:hover, .concepto-book-item:hover {
+  border-color: var(--mj-hairline);
+  transform: translateY(-4px);
+  box-shadow: var(--mj-shadow-lift);
+}
+.landing-nav-card { border-radius: 14px; }
+.landing-nav-card h3 { letter-spacing: 0.5px; font-size: 19px; }
+.landing-nav-card p {
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-size: 10px;
+  color: var(--gold-dim);
+}
+
+/* Carta destacada con filete superior dorado */
+.featured-book-card {
+  border-radius: 18px;
+  position: relative;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.featured-book-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 24px; right: 24px;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold-dim), transparent);
+}
+
+/* ── 6. Portadas como objeto físico: canto de páginas + tilt ──── */
+.book-hero img, .featured-cover img {
+  border-radius: 3px 6px 6px 3px;
+  box-shadow:
+    inset 3px 0 6px -3px rgba(0,0,0,0.6),       /* lomo */
+    -1px 0 0 rgba(255,255,255,0.06),
+    2px 0 0 rgba(255,255,255,0.05),              /* canto de páginas */
+    4px 0 0 rgba(0,0,0,0.30),
+    6px 0 0 rgba(255,255,255,0.04),
+    0 18px 40px rgba(0,0,0,0.6),
+    0 0 0 1px var(--mj-hairline-soft);
+  transition: transform 0.5s cubic-bezier(0.16,1,0.3,1), box-shadow 0.5s;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+:root.light .book-hero img, :root.light .featured-cover img {
+  box-shadow:
+    inset 3px 0 6px -3px rgba(70,55,25,0.35),
+    2px 0 0 rgba(255,255,255,0.5),
+    4px 0 0 rgba(70,55,25,0.18),
+    0 14px 32px rgba(70,55,25,0.28),
+    0 0 0 1px var(--mj-hairline-soft);
+}
+.featured-cover img:hover, .book-hero img:hover {
+  transform: perspective(900px) rotateY(-6deg) rotateX(2deg) translateY(-4px);
+}
+
+/* ── 7. Citas: comilla majestuosa ─────────────────────────────── */
+.featured-quote {
+  border-left: none;
+  position: relative;
+  padding: 4px 0 0 34px;
+  font-size: 12px;
+}
+.featured-quote::before {
+  content: '“';
+  position: absolute;
+  left: 0; top: -6px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--gold-dim);
+  opacity: 0.9;
+}
+
+/* ── 8. Botones grabados ──────────────────────────────────────── */
+.explore-btn, .back-btn {
+  border-radius: 999px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-size: 11px;
+  border-color: var(--mj-hairline);
+}
+.explore-btn:hover {
+  background: rgba(200,169,96,0.10);
+  box-shadow: 0 0 0 3px rgba(200,169,96,0.10);
+}
+.back-btn:hover { background: rgba(200,169,96,0.07); border-color: var(--gold-dim); }
+
+/* ── 9. Estantería: lomos con relieve ─────────────────────────── */
+.shelf-spine {
+  border-radius: 6px 6px 0 0;
+  box-shadow:
+    0 4px 20px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    inset -6px 0 12px -8px rgba(0,0,0,0.7);
+}
+.shelf-spine:hover { box-shadow: 0 10px 30px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.10), 0 0 0 1px var(--mj-hairline); }
+
+/* Títulos de grupo con filete lateral */
+.tl-group-title, .conceptos-group-title {
+  letter-spacing: 1px;
+}
+
+/* ── 10. Revelado al hacer scroll (clase aplicada por JS) ─────── */
+.mj-rev {
+  opacity: 0;
+  transform: translateY(14px);
+}
+.mj-rev.mj-in {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .mj-rev { opacity: 1; transform: none; }
+  #landing::after { animation: none; }
+  .featured-cover img:hover, .book-hero img:hover { transform: none; }
+}
+
+/* ── 11. Grano de papel (overlay creado por JS) ───────────────── */
+#mj-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.05;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)' opacity='0.9'/%3E%3C/svg%3E");
+}
+:root.light #mj-grain { opacity: 0.07; }
+</style>
+
+<script id="mejoras-js">
+(function () {
+  'use strict';
+  function safe(fn) { try { fn(); } catch (e) { /* nunca romper el app original */ } }
+
+  var reduced = false;
+  safe(function () {
+    reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  });
+
+  /* ── Grano de papel ── */
+  safe(function () {
+    if (!document.getElementById('mj-grain')) {
+      var g = document.createElement('div');
+      g.id = 'mj-grain';
+      g.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(g);
+    }
+  });
+
+  /* ── Revelado al hacer scroll ── */
+  safe(function () {
+    if (reduced || !('IntersectionObserver' in window) || !('MutationObserver' in window)) return;
+
+    var SEL = [
+      '.landing-nav-card', '.concepto-card', '.tl-era', '.ruta-card',
+      '.estante-author-group', '.book-section', '.tl-book-card',
+      '.author-book-card', '.shelf-spine', '.conceptos-group'
+    ].join(',');
+
+    var io = new IntersectionObserver(function (entries) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].isIntersecting) {
+          entries[i].target.classList.add('mj-in');
+          io.unobserve(entries[i].target);
+        }
+      }
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+
+    function arm(root) {
+      var nodes = root.querySelectorAll(SEL);
+      for (var i = 0; i < nodes.length; i++) {
+        var el = nodes[i];
+        if (el.classList.contains('mj-rev')) continue;
+        el.classList.add('mj-rev');
+        // pequeño escalonado por posición entre hermanos
+        var d = Math.min((i % 8) * 45, 320);
+        el.style.transitionDelay = d + 'ms';
+        io.observe(el);
+      }
+    }
+
+    var containers = [
+      'mega-shelves', 'estante-detail', 'book-detail', 'author-detail',
+      'timeline-view', 'rutas-view', 'ruta-detail', 'conceptos-view',
+      'concepto-detail', 'featured-book', 'landing'
+    ];
+
+    var mo = new MutationObserver(function (muts) {
+      for (var i = 0; i < muts.length; i++) {
+        if (muts[i].addedNodes.length) { arm(muts[i].target); break; }
+      }
+    });
+
+    containers.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) {
+        arm(el);
+        mo.observe(el, { childList: true, subtree: false });
+      }
+    });
+  });
+
+  /* ── Tilt 3D suave en portadas (solo puntero fino) ── */
+  safe(function () {
+    if (reduced) return;
+    if (!(window.matchMedia && window.matchMedia('(pointer: fine)').matches)) return;
+
+    var active = null;
+
+    document.addEventListener('pointermove', function (e) {
+      var img = e.target && e.target.closest
+        ? e.target.closest('.featured-cover img, .book-hero img')
+        : null;
+
+      if (img !== active && active) {
+        active.style.transform = '';
+        active = null;
+      }
+      if (!img) return;
+
+      active = img;
+      var r = img.getBoundingClientRect();
+      var px = (e.clientX - r.left) / r.width - 0.5;
+      var py = (e.clientY - r.top) / r.height - 0.5;
+      img.style.transform =
+        'perspective(900px) rotateY(' + (px * 10).toFixed(2) + 'deg)' +
+        ' rotateX(' + (-py * 8).toFixed(2) + 'deg) translateY(-3px)';
+    }, { passive: true });
+
+    document.addEventListener('pointerout', function (e) {
+      if (active && (!e.relatedTarget || !active.contains(e.relatedTarget))) {
+        var img = e.target && e.target.closest
+          ? e.target.closest('.featured-cover img, .book-hero img')
+          : null;
+        if (img === active) {
+          active.style.transform = '';
+          active = null;
+        }
+      }
+    }, { passive: true });
+  });
+})();
+</script>
+
 </body>
 </html>
