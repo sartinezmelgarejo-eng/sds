@@ -551,7 +551,7 @@ El mensaje suele venir con un bloque español arriba, branding de Morena en medi
   "translated_date": "<today>",
   "outlet": "Mexico Solidarity Media",
   "original_url": "<URL del YouTube si está en el mensaje, si no omite>",
-  "suggested_category": "Mañaneras",
+  "suggested_category": "Mañanera",
   "suggested_tags": ["#Sheinbaum", "#Mañanera", "<+ tags temáticos según los h2: e.g. #World Cup, #Public Education, #ISSSTE, #Sovereignty>"],
   "meta_description": "<auto-excerpt, ver abajo>",
   "focus_keyphrase": "Claudia Sheinbaum press conference",
@@ -602,7 +602,7 @@ A diferencia del flujo de news translations donde `draft` es opt-in, **en mañan
 - `POST {WP_SITE}/wp-json/wp/v2/posts` con `status: "draft"`.
 - `title`, `slug`, `content` (el HTML construido arriba), `excerpt` = meta_description.
 - `featured_media`: id de `-large.jpg` si lo hay; si NO hubo featured (caso "fotos no disponibles"), omite el campo.
-- `categories: [<id de "Mañaneras">]`.
+- `categories: [157]`. **EXACTAMENTE UNA categoría — id 157 (Mañanera, slug `mananera`)**. NUNCA agregues otras (ni News Briefs, ni Uncategorized id 1, ni nada más). El array tiene UN solo entry. Si por alguna razón el lookup falla, hardcode el 157 — está fijo, lo verifiqué contra el sitio.
 - `tags`: ids de los tags sugeridos (créalos si no existen).
 - `comment_status: "closed"`, `ping_status: "open"`.
 - Yoast meta (si funciona en el sitio): `_yoast_wpseo_metadesc`, `_yoast_wpseo_focuskw`.
