@@ -469,7 +469,16 @@ El mensaje suele venir con un bloque español arriba, branding de Morena en medi
    <!-- /wp:paragraph -->
    ```
    (Si una sección tiene 2 párrafos, ambos van como `<!-- wp:paragraph -->` separados, mismo nivel que el h2 anterior.)
-4. Sin footer adicional. NO incluyas "Department of Communications" ni branding de Morena.
+4. **YouTube embed al final**: si el mensaje del WhatsApp incluye el URL del video de la mañanera (suele venir como `*VIDEO – MAÑANERA DE HOY: https://www.youtube.com/watch?v=...*` cerca del header), agrégalo como último bloque del post con Gutenberg embed:
+   ```html
+   <!-- wp:embed {"url":"https://www.youtube.com/watch?v=<VIDEO_ID>","type":"video","providerNameSlug":"youtube","responsive":true,"className":"wp-embed-aspect-16-9 wp-has-aspect-ratio"} -->
+   <figure class="wp-block-embed is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">
+   https://www.youtube.com/watch?v=<VIDEO_ID>
+   </div></figure>
+   <!-- /wp:embed -->
+   ```
+   Si no encuentras URL de YouTube en el mensaje, omite el embed sin warning (no es crítico).
+5. Sin footer adicional. NO incluyas "Department of Communications" ni branding de Morena.
 
 ### meta.json
 
