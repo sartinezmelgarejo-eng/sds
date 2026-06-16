@@ -529,14 +529,54 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   overflow-wrap:break-word;
 }
 
-/* ── Satellite mini-feed ── Vertical list of .mag-row entries. The active
-   row swells into a card (photo + headline + body) and pins to the top
-   via `order:1`; the rest stay below as compact rows (44px thumb + headline). */
-body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed{
+/* ── Satellite hybrid: active pinned + thumb grid ──
+   Active post lives in .mag-active-pin at the top as a single .mag-row.active
+   (expanded card: photo + Bodoni headline + body excerpt). Below sits the
+   .mag-others-grid — 3-col grid of compact .mag-tile thumbs for the rest
+   of the batch (excluding the active). Click any tile → it becomes the
+   active and moves up to the pin. */
+body.sidebar-fullscreen .sidebar .mag-active-pin{
+  flex:0 0 auto;
+  margin:10px 0 8px;
+  display:flex;flex-direction:column;
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid{
   flex:1 1 0;min-height:0;
-  display:flex;flex-direction:column;gap:5px;
-  margin:10px 0 0;
-  overflow:hidden;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:8px;
+  overflow-y:auto;scrollbar-width:none;
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid::-webkit-scrollbar{display:none}
+/* Tiles in the satellite grid (v5 look: horizontal 64px photo + title aside) */
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile{
+  flex-direction:row;align-items:stretch;
+  height:64px;
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-img{
+  width:64px;height:64px;aspect-ratio:1;flex-shrink:0;
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-title{
+  font-size:10.5px;line-height:1.22;font-weight:600;
+  padding:5px 7px 5px 9px;
+  -webkit-line-clamp:3;
+  align-self:center;
+  display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
+}
+/* No-image tile in the grid — text-card with section-color stripe + Bodoni */
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile.no-img{
+  background:rgba(255,255,255,.65);
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile.no-img .mag-tile-img{
+  width:7px;height:auto;aspect-ratio:unset;flex:0 0 7px;
+  background:color-mix(in srgb, var(--ct) 70%, #d4cdb8);
+}
+body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile.no-img .mag-tile-title{
+  font-family:'Bodoni Moda',Didot,Georgia,serif;
+  font-size:12px;line-height:1.22;font-weight:700;
+  padding:9px 10px;
+  -webkit-line-clamp:3;
+  color:color-mix(in srgb, var(--ct) 75%, #1a1a1a);
 }
 body.sidebar-fullscreen .sidebar .mag-row{
   display:flex;gap:10px;align-items:stretch;
@@ -1956,10 +1996,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         <button class="mag-drill"></button>
       </footer>`;
     if(kind==='satellite'){
-      // Mini-feed is a vertical list of .mag-row entries. CSS toggles the
-      // active row into an expanded card (photo + headline + body) and pins
-      // it to the top via `order:1`; the rest stay collapsed (thumb + headline).
-      return `${head}<div class="mag-mini-feed"></div>${foot}`;
+      // Hybrid layout: active post pinned at top as an expanded card
+      // (photo + headline + body), other posts below as a 3-col grid of
+      // compact thumbs.
+      return `${head}<div class="mag-active-pin"></div><div class="mag-others-grid"></div>${foot}`;
     }
     // stage — hero image OR thumb navigator (when no image), then headline + body.
     return `${head}
@@ -2179,21 +2219,40 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const tabsEl=el.querySelector('.mag-noticias-tabs');
     if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Mini-feed: up to 6 rows. The active row is rendered as expanded card
-    // (photo + headline + body), pinned to the top via DOM reorder (insertBefore
-    // — keeps the <img> alive, just moves the row). Others stay below as
-    // collapsed list rows (thumb + headline only).
-    const count = Math.min(batch.length, 6);
-    const feedEl = el.querySelector('.mag-mini-feed');
-    if(feedEl){
-      ensureRows(feedEl, count);
-      [...feedEl.children].forEach((row,i) => paintRow(row, batch[i], i===idx));
-      // Pin the active row at the top. insertBefore on an existing child is
-      // a move (no DOM destruction), so the persistent <img> survives.
-      const activeRow = feedEl.children[idx];
-      if(activeRow && activeRow !== feedEl.firstChild){
-        feedEl.insertBefore(activeRow, feedEl.firstChild);
+    // 1. Active pin — single .mag-row.active with the current slide's full
+    //    expanded card (photo + headline + body). DOM is built once and the
+    //    img element persists across cycles (paintRow swaps src in place).
+    const pinEl = el.querySelector('.mag-active-pin');
+    if(pinEl){
+      if(!pinEl.querySelector('.mag-row')){
+        pinEl.innerHTML = `
+          <button class="mag-row active" data-slide-idx="${idx}">
+            <div class="row-photo"><img class="row-img" alt="" decoding="async"></div>
+            <div class="row-text">
+              <h3 class="row-headline"></h3>
+              <p class="row-body"></p>
+            </div>
+          </button>`;
       }
+      const activeRow = pinEl.querySelector('.mag-row');
+      activeRow.dataset.slideIdx = idx;
+      paintRow(activeRow, slide, true);
+    }
+
+    // 2. Others grid — up to 6 non-active posts as compact tiles (64px photo
+    //    + 3-line clamped title) in a 3-col grid. Tile data-slide-idx is the
+    //    source batch index (the grid skips the active, so loop idx ≠ batch idx).
+    const others = batch.map((post,i) => ({post, idx:i}))
+                        .filter(x => x.idx !== idx)
+                        .slice(0, 6);
+    const gridEl = el.querySelector('.mag-others-grid');
+    if(gridEl){
+      ensureTiles(gridEl, others.length);
+      [...gridEl.children].forEach((tile,i) => {
+        const o = others[i];
+        paintTile(tile, o.post, false);
+        tile.dataset.slideIdx = o.idx;  // override loop idx → real batch idx
+      });
     }
 
     paintFoot(el, group, batch, idx, 'satellite');
