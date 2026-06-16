@@ -652,6 +652,13 @@ body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text p{
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text p:last-child{
   margin-bottom:0;
 }
+/* Bolded quotes in the body — Playfair semibold (not full 700) so the
+   weight feels editorial, not yelled. Slight tint toward the section
+   color so the quotes carry a little voice. */
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text strong{
+  font-weight:600;
+  color:color-mix(in srgb, var(--ct) 30%, #1a1a1a);
+}
 /* Onmexico multi-column body — newspaper-style layout when the post follows
    the 3-section format (context / response / bullets separated by blank lines).
    Each section gets its own column with a hairline divider between them. */
@@ -2437,8 +2444,18 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // Render each blank-line-separated section as a <p> so paragraph
       // breaks survive in the magazine view. Within a section, collapse
       // any soft line breaks into a single space so the paragraph flows.
-      bEl.innerHTML = sections
-        .map(s=>`<p>${safeTxt(s.replace(/\s+/g,' ').trim())}</p>`).join('');
+      // For Mañanera (dailyt): auto-bold quoted phrases (curly + angle
+      // marks) — those are the citable statements ("esto fue lo que dijo
+      // Sheinbaum") and bolding them gives the body editorial weight +
+      // makes the post scannable. Other sections render plain.
+      const quoteRx = /([“«])([^“”«»]+)([”»])/g;
+      bEl.innerHTML = sections.map(s=>{
+        const t = safeTxt(s.replace(/\s+/g,' ').trim());
+        const decorated = group==='dailyt'
+          ? t.replace(quoteRx, '$1<strong>$2</strong>$3')
+          : t;
+        return `<p>${decorated}</p>`;
+      }).join('');
     }
     bEl.style.display = sections.length ? '' : 'none';
 
