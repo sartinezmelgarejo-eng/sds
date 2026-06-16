@@ -2202,6 +2202,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // the wrapper matches the image (no letterbox bands), then max-height
       // CSS caps the vertical so it doesn't dominate the cell.
       el.style.setProperty('--hero-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
+      // For Mañanera (dailyt): headline-over-photo only makes sense on
+      // horizontal images. Portraits use the 2-col layout (image left,
+      // text right) so we put the headline back in the text column.
+      if(group==='dailyt'){
+        const hl = el.querySelector('.mag-headline');
+        const wrap = el.querySelector('.mag-hero-wrap');
+        const txt = el.querySelector('.mag-text');
+        if(hl && wrap && txt){
+          if(isPortrait){
+            if(!txt.contains(hl)) txt.insertBefore(hl, txt.firstChild);
+          } else {
+            if(!wrap.contains(hl)) wrap.appendChild(hl);
+          }
+        }
+      }
     };
     if(heroImg){
       if(img.dataset.url!==heroImg){
