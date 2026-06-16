@@ -9447,17 +9447,18 @@ function renderChordMap() {
     const focusedNode = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
     if (focusedNode?.hub) return '';
 
-    // Movement type → opacity tier (Push 2 coherence pass):
-    //   'resolve' (cadential pull, V→I-style) = 1.0
-    //   undefined (lateral / functional motion) = 0.7
-    //   'decor'  (deceptive, counter, ornamental)  = 0.45
-    // Replaces the previous voice-leading-cost heuristic: now the line
-    // strength reflects HARMONIC GRAVITY, not how smooth the picker's
-    // voicings happen to be. Same arrow color/weight throughout; only
-    // opacity carries the tier so the eye reads "where the pull is" at a
-    // glance instead of having to compare three distinct line styles.
+    // Movement type → line color (Push 2 coherence pass):
+    //   'resolve' (cadential pull, V→I-style)        = amber #a07820 (the accent)
+    //   undefined (lateral / functional motion)      = teal  #4a7280
+    //   'decor'  (deceptive, counter, ornamental)    = coral #b6766a
+    // Replaces the previous voice-leading-cost opacity heuristic: line
+    // color now reflects HARMONIC GRAVITY, not how smooth the picker's
+    // voicings happen to be. Hue carries the tier so the eye separates
+    // pulls (warm amber), motion (cool teal), and ornament (warm coral)
+    // at a glance.
     const type = arr.type;
-    const opacity = type === 'resolve' ? 1.0 : (type === 'decor' ? 0.45 : 0.7);
+    const lineColor = type === 'resolve' ? '#a07820' : (type === 'decor' ? '#b6766a' : '#4a7280');
+    const opacity = 1.0;
 
     // Hand-rolled arrowhead — compute the exact tangent at the path end so
     // direction is guaranteed correct on every browser (mobile Safari has
@@ -9473,8 +9474,8 @@ function renderChordMap() {
     const wing = arrSize * 0.55;
     const w1x = baseX + (-tuy) * wing, w1y = baseY + ( tux) * wing;
     const w2x = baseX - (-tuy) * wing, w2y = baseY - ( tux) * wing;
-    const head = `<polyline points="${w1x.toFixed(1)},${w1y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}" fill="none" stroke="${accentColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}"/>`;
-    return `<path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${accentColor}" stroke-width="1.8" opacity="${opacity}" stroke-linecap="round"/>${head}`;
+    const head = `<polyline points="${w1x.toFixed(1)},${w1y.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)} ${w2x.toFixed(1)},${w2y.toFixed(1)}" fill="none" stroke="${lineColor}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="${opacity}"/>`;
+    return `<path d="M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${lineColor}" stroke-width="1.8" opacity="${opacity}" stroke-linecap="round"/>${head}`;
   }).join('');
 
   // ── Light up the cards connected to the focused chord ──
