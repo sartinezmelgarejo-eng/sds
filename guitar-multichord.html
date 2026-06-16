@@ -5930,12 +5930,6 @@ function getKeySig(keyPc, tonality) {
 function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   const q = QUALITIES[quality];
   if (!q || q.ints.length !== 4) return null;
-  // add9 / madd9 share the drop-2 geometry but get the same tight span
-  // cap as addNinthVoicing — the 14-semitone top voice produces nasty
-  // 6-fret stretches at upper-register ss=0 inv=0 that pass the generic
-  // isPlayableShape limit. Catching it here means qualityOverride:'add9'
-  // steps never land on an unfretable grip.
-  const _wideExt = (quality === 'add9' || quality === 'madd9');
   let close = [...q.ints];
   for (let i = 0; i < inversion; i++) {
     close = [close[1], close[2], close[3], close[0] + 12];
@@ -5947,11 +5941,6 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
     const voiceMidis = dropped.map(s => rootMidi + s);
     const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
-      if (_wideExt) {
-        const minF = Math.min(...frets);
-        const maxF = Math.max(...frets);
-        if (maxF - minF > 5) continue;
-      }
       const shape = [-1, -1, -1, -1, -1, -1];
       set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
       return shape;
@@ -6042,16 +6031,6 @@ function addNinthVoicing(quality, rootPc, stringSetIdx, inversion) {
     const voiceMidis = dropped.map(s => rootMidi + s);
     const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
-      // The R→9 interval (14 semitones) means add9 / madd9 geometries
-      // can land at the very edge of isPlayableShape's upper-register
-      // span limit (≤6 frets when minF ≥ 9). For minor-flavor madd9
-      // specifically, the b3→9 gap is 11 semitones and on adjacent
-      // strings that's a hard 6-fret pinky stretch every single time.
-      // Cap span at 5 here so only truly grabbable add9 grips ship;
-      // higher octaves keep being tried in the loop until one fits.
-      const minF = Math.min(...frets);
-      const maxF = Math.max(...frets);
-      if (maxF - minF > 5) continue;
       const shape = [-1, -1, -1, -1, -1, -1];
       set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
       return shape;
@@ -6373,8 +6352,13 @@ function avgFret(shape) {
 
 /* ─── Guitar playability filter ───
    Validate a generated shape against ergonomic constraints:
-   - Fretted-note span ≤ 5 frets (≤6 in upper register where fingers
-     are physically closer).
+   - Fretted-note span ≤ 5 frets across the entire neck. The
+     "1-finger-per-fret" hand position covers 4 frets (index-pinky);
+     5 is the standard stretch with the pinky extended (drop-2 jazz
+     comping vocabulary lives here). 6+ frets is Holdsworth / Martino
+     specialist territory and not part of the comping idiom we ship,
+     even in the upper register where frets are physically smaller —
+     the hand anatomy doesn't shrink with the fret spacing.
    - No mixing open strings with frets above 7 (jumping between nut
      and a hand position 7+ frets up is awkward).
    - Highest fret ≤ 17 (above that, comping voicings cease to be
@@ -6393,10 +6377,7 @@ function isPlayableShape(shape) {
     const minF = Math.min(...fretted);
     const maxF = Math.max(...fretted);
     const span = maxF - minF;
-    // Upper-register fingers are closer together — allow one more
-    // fret of span past the 9th position.
-    const spanLimit = minF >= 9 ? 6 : 5;
-    if (span > spanLimit) return false;
+    if (span > 5) return false;
     if (maxF > 17) return false;
     // Open string + a fingered fret far up the neck = ergonomic
     // nightmare (would need to mute the open while reaching up).
