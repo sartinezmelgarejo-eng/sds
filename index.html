@@ -2560,12 +2560,19 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
           if(title) title.textContent = '';
         });
       } else if(!heroImg && batch.length > 1){
-        const count = Math.min(batch.length, 9);  // 3-col × up-to-3-row grid
-        ensureTiles(thumbsEl, count);
-        [...thumbsEl.children].forEach((tile,i) => {
+        // Show OTHER batch posts only — skip the active slide so the stage's
+        // current post (e.g. Mañanera Breakdown) doesn't appear twice.
+        const others = batch
+          .map((p, i) => ({post: p, batchIdx: i}))
+          .filter(x => x.batchIdx !== idx)
+          .slice(0, 9);  // 3-col × up-to-3-row grid
+        ensureTiles(thumbsEl, others.length);
+        [...thumbsEl.children].forEach((tile, i) => {
           tile.classList.remove('gallery-tile');
           tile.removeAttribute('data-gallery-idx');
-          paintTile(tile, batch[i], i===idx);
+          paintTile(tile, others[i].post, false);
+          // Overwrite slide-idx with the real batch index (grid skipped active)
+          tile.dataset.slideIdx = others[i].batchIdx;
         });
       } else if(thumbsEl.children.length){
         thumbsEl.innerHTML = '';
