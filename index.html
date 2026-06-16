@@ -629,6 +629,14 @@ body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text{
   line-height:1.55;
   overflow-wrap:break-word;
 }
+/* Paragraph spacing — each blank-line-separated section becomes a <p>;
+   keep margin tight so the body stays compact, last paragraph has none. */
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text p{
+  margin:0 0 .55em;
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text p:last-child{
+  margin-bottom:0;
+}
 /* Onmexico multi-column body — newspaper-style layout when the post follows
    the 3-section format (context / response / bullets separated by blank lines).
    Each section gets its own column with a hairline divider between them. */
@@ -2362,12 +2370,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const lines=(slide.text||'').split('\n');
     // If the post has a source URL (the original article from the outlet),
     // wrap the headline text in an <a> so clicking opens it in a new tab.
-    // Especially useful for noticias/internacional; mañanera posts that
-    // include an official URL get the same treatment. Posts without a
-    // source URL render plain text.
+    // Skipped for mañanera (dailyt) since the official URL is already
+    // surfaced in the post's body credit — no need to duplicate it.
     const _hlText = safeTxt(lines[0]||'');
     const _srcUrl = slide.source && slide.source.url;
-    el.querySelector('.mag-headline').innerHTML = _srcUrl
+    el.querySelector('.mag-headline').innerHTML = (_srcUrl && group!=='dailyt')
       ? `<a href="${esc(_srcUrl)}" target="_blank" rel="noopener noreferrer">${_hlText}</a>`
       : _hlText;
 
@@ -2412,8 +2419,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       bEl.innerHTML = sections.slice(0,3)
         .map(s=>`<div class="mag-body-col">${safeTxt(s)}</div>`).join('');
     } else {
-      const flat = sections.join('\n\n').replace(/\s+/g,' ').trim();
-      bEl.innerHTML = safeTxt(flat);
+      // Render each blank-line-separated section as a <p> so paragraph
+      // breaks survive in the magazine view. Within a section, collapse
+      // any soft line breaks into a single space so the paragraph flows.
+      bEl.innerHTML = sections
+        .map(s=>`<p>${safeTxt(s.replace(/\s+/g,' ').trim())}</p>`).join('');
     }
     bEl.style.display = sections.length ? '' : 'none';
 
