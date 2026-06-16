@@ -285,21 +285,32 @@ body.sidebar-fullscreen .sidebar .mag-noticias-tab.active{
   color:var(--ct);border-bottom-color:var(--ct);
 }
 
-/* Hero image — the editorial photo (or text-only fallback if none) */
-body.sidebar-fullscreen .sidebar .mag-hero-img{
-  width:100%;object-fit:cover;display:block;
-  background:#e6dfc8;
+/* Hero image — persistent wrapper holds the slot height so layout doesn't
+   shift while the img loads. The img fades in (.loaded class) once the
+   browser has the bytes; otherwise the wrapper's section-tinted gradient
+   shows through, which reads as a calm placeholder, not a broken image. */
+body.sidebar-fullscreen .sidebar .mag-hero-wrap{
+  width:100%;overflow:hidden;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
-body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-img{
+body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
   height:38vh;max-height:420px;
   margin:22px 0 20px;
 }
-body.sidebar-fullscreen .sidebar .mag-satellite .mag-hero-img{
+body.sidebar-fullscreen .sidebar .mag-satellite .mag-hero-wrap{
   height:18vh;max-height:160px;
   margin:14px 0 12px;
 }
-body.sidebar-fullscreen .sidebar .mag-hero-empty{
-  margin:16px 0 4px;
+body.sidebar-fullscreen .sidebar .mag-hero-img{
+  width:100%;height:100%;object-fit:cover;display:block;
+  opacity:0;transition:opacity .35s ease;
+}
+body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
+/* When the slide has no image at all, collapse the wrapper so the headline
+   takes over as the visual (see .no-hero-img .mag-headline rules below). */
+body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-wrap,
+body.sidebar-fullscreen .sidebar .mag-satellite.no-hero-img .mag-hero-wrap{
+  display:none;
 }
 
 /* Headline */
@@ -329,11 +340,12 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"] .mag-headline{
 body.sidebar-fullscreen .sidebar .mag-stage[data-group="onmexico"] .mag-headline{
   font-size:34px;
 }
-/* Text-only hero — when slide has no image, headline IS the visual */
-body.sidebar-fullscreen .sidebar .mag-stage:has(.mag-hero-empty) .mag-headline{
+/* Text-only hero — when slide has no image, headline IS the visual.
+   The .no-hero-img class is set by JS (paintCell) so we don't depend on :has(). */
+body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-headline{
   font-size:52px;line-height:1.04;margin-top:24px;color:var(--ct);
 }
-body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"]:has(.mag-hero-empty) .mag-headline{
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"].no-hero-img .mag-headline{
   font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;color:#1a1a1a;
 }
 
@@ -1591,12 +1603,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     magState.slideIdx[group]=((magState.slideIdx[group]||0)%len+len)%len;
     return magState.slideIdx[group];
   }
-  function updateCell(group){
-    const el=document.querySelector(`.mag-front [data-group="${group}"]`);
-    if(!el) return;
-    const kind=el.dataset.cell||'satellite';
-    el.innerHTML=renderCellContent(group, kind);
+  // Image preload cache: warm the browser cache for every slide in every
+  // visible batch so when a cell auto-advances, the image is already there.
+  const preloadCache=new Set();
+  function preloadImagesFor(batch){
+    if(!batch) return;
+    batch.forEach(x=>{
+      const url = x.img || (x.source && x.source.img);
+      if(url && !preloadCache.has(url)){
+        preloadCache.add(url);
+        const img=new Image();
+        img.src=url;  // fire-and-forget warm-up
+      }
+    });
   }
+
   function stopMagCycling(){
     Object.keys(magState.timers).forEach(g=>{
       clearInterval(magState.timers[g]);
@@ -1605,58 +1626,126 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   }
   function startMagCycling(){
     stopMagCycling();
-    ['dailyt','scant','onmexico'].forEach(g=>{
-      magState.timers[g]=setInterval(()=>{
-        if(magState.paused[g]) return;
-        const b=magBatchFor(g);
-        if(b.length<2) return;
-        magState.slideIdx[g]=(magState.slideIdx[g]+1)%b.length;
-        updateCell(g);
-      }, 8000);
-    });
+    ['dailyt','scant','onmexico'].forEach(g=> bumpCellTimer(g));
+  }
+  // (Re)set a single cell's cycle timer. Called from startMagCycling and
+  // whenever the user interacts manually (dot click, tab click) so the next
+  // auto-advance doesn't fire surprisingly soon.
+  function bumpCellTimer(g){
+    if(magState.timers[g]) clearInterval(magState.timers[g]);
+    magState.timers[g]=setInterval(()=>{
+      if(magState.paused[g]) return;
+      const b=magBatchFor(g);
+      if(b.length<2) return;
+      magState.slideIdx[g]=(magState.slideIdx[g]+1)%b.length;
+      updateCell(g);
+    }, 8000);
   }
 
-  function renderCellContent(group, kind){
+  // Stable skeleton — emitted once per cell, then mutated by paintCell.
+  // Mutating instead of innerHTML-swapping keeps the <img> element alive
+  // across cycles, so cached images show instantly (no flash).
+  function renderCellShell(){
+    return `
+      <header class="mag-cell-head">
+        <span class="mag-kicker"></span>
+        <span class="mag-day-label"></span>
+        <span class="mag-time"></span>
+      </header>
+      <div class="mag-noticias-tabs"></div>
+      <div class="mag-hero-wrap"><img class="mag-hero-img" alt="" decoding="async"></div>
+      <h2 class="mag-headline"></h2>
+      <p class="mag-body-text"></p>
+      <footer class="mag-cell-foot">
+        <div class="mag-dots"></div>
+        <span class="mag-counter"></span>
+        <button class="mag-drill"></button>
+      </footer>
+    `;
+  }
+
+  // Populate (or update) an existing cell with the current slide's data.
+  function paintCell(el, group, kind){
     const m=meta(group);
     const batch=magBatchFor(group);
-    if(!batch.length) return '<div class="mag-empty">Sin envíos</div>';
+    if(!batch.length){ el.innerHTML='<div class="mag-empty">Sin envíos</div>'; return }
+    // Recover skeleton if it was wiped by a prior empty state
+    if(!el.querySelector('.mag-cell-head')) el.innerHTML=renderCellShell();
     const idx=magClampSlideIdx(group);
     const slide=batch[idx];
     const batchTs=batch[0].ts||'';
-    const heroImg=slide.img || (slide.source && slide.source.img) || null;
-    const lines=(slide.text||'').split('\n');
-    const headline=lines[0]||'';
-    const bodyMax = kind==='stage' ? 340 : 130;
-    const body=lines.slice(1).join(' ').replace(/\s+/g,' ').trim().slice(0, bodyMax);
-    const dots=batch.map((_,i)=>`<button class="mag-dot ${i===idx?'active':''}" data-slide-idx="${i}" aria-label="Slide ${i+1}"></button>`).join('');
-    let tabs='';
+
+    el.querySelector('.mag-kicker').textContent=m.label;
+    el.querySelector('.mag-day-label').textContent=fmtBatchDay(batchTs);
+    el.querySelector('.mag-time').textContent=(slide.ts||'').slice(11,16);
+
+    // Noticias tabs (only when scant is on stage and >1 batch today)
+    const tabsEl=el.querySelector('.mag-noticias-tabs');
     if(kind==='stage' && group==='scant'){
       const todays=todayBatchesFor('scant');
       if(todays.length>1){
-        tabs=`<div class="mag-noticias-tabs">${todays.map((b,i)=>{
+        const html=todays.map((b,i)=>{
           const label=batchTimeBucket(b[0].ts);
           return `<button class="mag-noticias-tab ${i===magState.noticiasBatchIdx?'active':''}" data-batch-idx="${i}">${esc(label)}</button>`;
-        }).join('')}</div>`;
+        }).join('');
+        if(tabsEl.innerHTML!==html) tabsEl.innerHTML=html;
+        tabsEl.style.display='';
+      } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
+    } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
+
+    // Hero image: persistent <img> element, only swap src. onerror flips to
+    // text-only treatment (no broken-image icon, no blank space lingering).
+    const heroImg = slide.img || (slide.source && slide.source.img) || null;
+    el.classList.toggle('no-hero-img', !heroImg);
+    const img=el.querySelector('.mag-hero-img');
+    if(heroImg){
+      if(img.dataset.url!==heroImg){
+        img.classList.remove('loaded');
+        img.dataset.url=heroImg;
+        img.onload=()=>img.classList.add('loaded');
+        img.onerror=()=>{ el.classList.add('no-hero-img'); img.removeAttribute('src'); img.dataset.url='' };
+        img.src=heroImg;
+      } else if(img.complete){
+        img.classList.add('loaded');  // already cached
       }
+    } else {
+      img.removeAttribute('src'); img.dataset.url=''; img.classList.remove('loaded');
     }
-    const slideTime=(slide.ts||'').slice(11,16);
-    const drillBtn = kind==='stage' ? `<button class="mag-drill" data-filter="${esc(group)}">Ver todas →</button>` : '';
-    return `
-      <header class="mag-cell-head">
-        <span class="mag-kicker">${esc(m.label)}</span>
-        <span class="mag-day-label">${esc(fmtBatchDay(batchTs))}</span>
-        <span class="mag-time">${esc(slideTime)}</span>
-      </header>
-      ${tabs}
-      ${heroImg ? `<img class="mag-hero-img" src="${esc(heroImg)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<div class="mag-hero-empty" aria-hidden="true"></div>'}
-      <h2 class="mag-headline">${esc(headline)}</h2>
-      ${body?`<p class="mag-body-text">${esc(body)}</p>`:''}
-      <footer class="mag-cell-foot">
-        <div class="mag-dots">${dots}</div>
-        <span class="mag-counter">${idx+1} / ${batch.length}</span>
-        ${drillBtn}
-      </footer>
-    `;
+
+    // Headline + body
+    const lines=(slide.text||'').split('\n');
+    el.querySelector('.mag-headline').textContent=lines[0]||'';
+    const bodyMax = kind==='stage' ? 340 : 130;
+    const body=lines.slice(1).join(' ').replace(/\s+/g,' ').trim().slice(0, bodyMax);
+    const bEl=el.querySelector('.mag-body-text');
+    bEl.textContent=body;
+    bEl.style.display=body?'':'none';
+
+    // Dots — rebuild only when batch length changes; otherwise just toggle .active
+    const dotsEl=el.querySelector('.mag-dots');
+    if(dotsEl.children.length!==batch.length){
+      dotsEl.innerHTML=batch.map((_,i)=>`<button class="mag-dot" data-slide-idx="${i}" aria-label="Slide ${i+1}"></button>`).join('');
+    }
+    [...dotsEl.children].forEach((d,i)=>d.classList.toggle('active', i===idx));
+
+    // Counter
+    el.querySelector('.mag-counter').textContent=`${idx+1} / ${batch.length}`;
+
+    // Drill button (stage only)
+    const drill=el.querySelector('.mag-drill');
+    if(kind==='stage'){
+      drill.textContent='Ver todas →';
+      drill.dataset.filter=group;
+      drill.style.display='';
+    } else {
+      drill.style.display='none';
+    }
+  }
+
+  function updateCell(group){
+    const el=document.querySelector(`.mag-front [data-group="${group}"]`);
+    if(!el) return;
+    paintCell(el, group, el.dataset.cell||'satellite');
   }
 
   function buildMagazineHTML(){
@@ -1675,12 +1764,18 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const sm=meta(stageGroup);
     const satellites=satGroups.map(g=>{
       const m=meta(g);
-      return `<section class="mag-satellite" data-group="${esc(g)}" data-cell="satellite" style="--ct:${m.color}" role="button" tabindex="0">${renderCellContent(g,'satellite')}</section>`;
+      return `<section class="mag-satellite" data-group="${esc(g)}" data-cell="satellite" style="--ct:${m.color}" role="button" tabindex="0">${renderCellShell()}</section>`;
     }).join('');
     return `<div class="mag-front">
-      <section class="mag-stage" data-group="${esc(stageGroup)}" data-cell="stage" style="--ct:${sm.color}">${renderCellContent(stageGroup,'stage')}</section>
+      <section class="mag-stage" data-group="${esc(stageGroup)}" data-cell="stage" style="--ct:${sm.color}">${renderCellShell()}</section>
       <aside class="mag-rail">${satellites}</aside>
     </div>`;
+  }
+  // Paint every cell currently in the DOM. Called after attaching the shell HTML.
+  function paintAllCells(){
+    document.querySelectorAll('.mag-front [data-group]').forEach(el=>{
+      paintCell(el, el.dataset.group, el.dataset.cell||'satellite');
+    });
   }
 
   // Unified feed — populates BOTH the mobile pages AND the desktop sidebar (same DOM classes,
@@ -1746,6 +1841,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // Magazine front page: desktop sidebar fullscreen with no filter
       const html=buildMagazineHTML();
       lists.forEach(l=>{l.innerHTML=html; l.classList.add('is-magazine')});
+      // Paint cells against the attached skeleton + warm image cache so the
+      // next auto-advance shows instantly.
+      paintAllCells();
+      ['dailyt','scant','onmexico'].forEach(g=>preloadImagesFor(magBatchFor(g)));
       startMagCycling();
     } else {
       stopMagCycling();
@@ -1838,24 +1937,28 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     magState.featured=g;
     renderMobile();
   });
-  // Click a dot → jump to that slide.
+  // Click a dot → jump to that slide. Resets the cell's cycle timer.
   document.addEventListener('click',e=>{
     const dot=e.target.closest('.mag-dot');
     if(!dot) return;
     e.stopPropagation();
     const cell=dot.closest('[data-group]');
     if(!cell) return;
-    magState.slideIdx[cell.dataset.group]=parseInt(dot.dataset.slideIdx)||0;
-    updateCell(cell.dataset.group);
+    const g=cell.dataset.group;
+    magState.slideIdx[g]=parseInt(dot.dataset.slideIdx)||0;
+    updateCell(g);
+    bumpCellTimer(g);
   });
-  // Click a noticias time-of-day tab → switch batch.
+  // Click a noticias time-of-day tab → switch batch, warm the new batch's images, reset timer.
   document.addEventListener('click',e=>{
     const tab=e.target.closest('.mag-noticias-tab');
     if(!tab) return;
     e.stopPropagation();
     magState.noticiasBatchIdx=parseInt(tab.dataset.batchIdx)||0;
     magState.slideIdx.scant=0;
+    preloadImagesFor(magBatchFor('scant'));
     updateCell('scant');
+    bumpCellTimer('scant');
   });
   // Keyboard: Enter/Space on a focused satellite spotlights it.
   document.addEventListener('keydown',e=>{
