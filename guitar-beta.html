@@ -10498,6 +10498,12 @@ function renderAlternatives() {
       }
       applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion, pianoShape: _proPiano });
       renderAll();
+      // Belt-and-suspenders: renderAll's paintPianoNotes call already
+      // runs (via deferred rAF), but on pro clicks the user expects the
+      // keyboard + chord-staff to update INSTANT. Call them inline too
+      // so there's no perceptible delay between click and visual sync.
+      if (typeof paintPianoNotes === 'function') paintPianoNotes();
+      if (typeof repaintChordNeckNotes === 'function') repaintChordNeckNotes();
     });
   });
 
@@ -12251,11 +12257,16 @@ function renderVoicingMenu() {
         state.progressionVoicings = {};
         _updateVoicingPrefButton();
         renderVoicingMenu();
-        if (typeof renderChordMap === 'function') renderChordMap();
-        // Other voicings strip needs to refresh too — its candidate list
-        // grows by 12-15 pro families when Pro Mode flips on, shrinks
-        // back to the standard set when it flips off.
-        if (typeof renderAlternatives === 'function') renderAlternatives();
+        // Full renderAll so every surface (chord-map cards, partitura
+        // staff cells, Other voicings strip, chord-piano keyboard,
+        // chord-neck guitar) refreshes under the new pro vocabulary.
+        // Just renderChordMap + renderAlternatives left the partitura +
+        // piano keyboard stale until the next chord trigger or click.
+        if (typeof renderAll === 'function') renderAll();
+        else {
+          if (typeof renderChordMap === 'function') renderChordMap();
+          if (typeof renderAlternatives === 'function') renderAlternatives();
+        }
         return;
       }
       const isPro = isProFamily(id);
@@ -19752,6 +19763,16 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   // user flagged as un-smooth. When the section primary is a Pro family,
   // keep every chord in that family — voice-leading inside one pro family
   // is uniformly smooth (A↔A and B↔B chains share 2-3 common tones).
+  // EXCEPT rootlessA ↔ rootlessB: bebop tradition alternates A and B
+  // across a ii-V-I chain so the voicings share the most common tones
+  // (Dm7 A → G7 B → Cmaj7 A keeps F, A, E common across all three).
+  // Alternate per step index so the chain naturally falls into the
+  // Bill Evans pattern.
+  if (primaryType === 'rootlessA' || primaryType === 'rootlessB') {
+    const flip = (stepIdx % 2) === 1;
+    if (flip) return primaryType === 'rootlessA' ? 'rootlessB' : 'rootlessA';
+    return primaryType;
+  }
   if (isProFamily(primaryType)) return primaryType;
   // Respect the multi-select voicing filter: only promote to the alt
   // family if the user has it enabled. This preserves the "don't surprise
