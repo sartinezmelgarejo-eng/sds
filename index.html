@@ -198,6 +198,238 @@ body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item.reader-current .txt b.hd{
   body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item .txt b.hd{font-size:20px;line-height:1.15}
   body.sidebar-fullscreen .sidebar .m-tg-list{padding:16px 12px}
 }
+
+/* ═══ Magazine front page (fullscreen reader)
+   Activates when sidebar is dragged past 70% viewport AND no chip filter is on.
+   One section's latest batch claims the left "stage" (hero + supports mosaic);
+   the other two sections sit on the right "rail" as compact mini-panels.
+   Order: whoever's batch is most recent claims the stage.
+   Click a section header → drills into pure scroll filtered to that section
+   (the "All" chip is relabeled "Portada" in this mode for the return route). */
+body.sidebar-fullscreen .sidebar .m-tg-list.is-magazine{padding:0;background:transparent}
+body.sidebar-fullscreen .sidebar .mag-front{
+  display:grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap:22px;
+  padding:24px 28px 32px;
+  min-height:100%;
+}
+body.sidebar-fullscreen .sidebar .mag-stage{display:flex;flex-direction:column;gap:16px;min-width:0}
+body.sidebar-fullscreen .sidebar .mag-rail{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+/* ── Section headers (interactive — drill into filtered scroll) ── */
+body.sidebar-fullscreen .sidebar .mag-head{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  cursor:pointer;user-select:none;
+  padding:8px 4px 10px;
+  border-bottom:1px solid color-mix(in srgb, var(--ct) 38%, transparent);
+  transition:background .2s;
+}
+body.sidebar-fullscreen .sidebar .mag-head:hover{background:linear-gradient(to right, color-mix(in srgb, var(--ct) 14%, transparent), transparent)}
+body.sidebar-fullscreen .sidebar .mag-head:focus-visible{outline:2px solid var(--ct);outline-offset:2px;border-radius:3px}
+body.sidebar-fullscreen .sidebar .mag-kicker{
+  font-family:'Bodoni Moda','Playfair Display',Didot,Georgia,serif;
+  font-weight:800;color:var(--ct);
+  text-transform:uppercase;letter-spacing:.9px;line-height:1;
+}
+body.sidebar-fullscreen .sidebar .mag-head-stage .mag-kicker{font-size:19px}
+body.sidebar-fullscreen .sidebar .mag-head-rail .mag-kicker{font-size:12.5px;letter-spacing:1.4px}
+body.sidebar-fullscreen .sidebar .mag-batch-time{
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:9.5px;font-weight:600;color:#888;
+  text-transform:uppercase;letter-spacing:.8px;
+}
+body.sidebar-fullscreen .sidebar .mag-batch-count{
+  font-size:10px;font-weight:600;color:#9a9a9a;
+  text-transform:uppercase;letter-spacing:.6px;
+}
+body.sidebar-fullscreen .sidebar .mag-drill{
+  margin-left:auto;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:10px;font-weight:700;color:var(--ct);
+  text-transform:uppercase;letter-spacing:1px;
+  opacity:.55;transition:opacity .2s,transform .2s;
+}
+body.sidebar-fullscreen .sidebar .mag-head:hover .mag-drill{opacity:1;transform:translateX(2px)}
+
+/* ── Stage hero ── */
+body.sidebar-fullscreen .sidebar .mag-hero{
+  display:flex !important;flex-direction:column !important;gap:14px;
+  max-width:none !important;margin:0 !important;padding:0 !important;
+  background:transparent !important;border:none !important;
+  scroll-margin-top:0 !important;
+}
+body.sidebar-fullscreen .sidebar .mag-hero:hover{background:transparent !important}
+body.sidebar-fullscreen .sidebar .mag-hero > img,
+body.sidebar-fullscreen .sidebar .mag-hero .source-card.source-as-hero{
+  width:100% !important;max-width:none !important;
+  max-height:54vh;height:auto !important;
+  aspect-ratio:auto !important;
+  border-radius:6px !important;margin:0 !important;align-self:auto !important;
+  object-fit:cover;background:transparent !important;
+}
+body.sidebar-fullscreen .sidebar .mag-hero .source-card.source-as-hero{display:flex !important;flex-direction:column !important;border:1px solid color-mix(in srgb, var(--ct) 20%, transparent);overflow:hidden}
+body.sidebar-fullscreen .sidebar .mag-hero .source-card.source-as-hero .src-img{
+  width:100% !important;height:auto !important;max-height:46vh !important;
+  border-radius:6px 6px 0 0 !important;background:transparent !important;object-fit:cover;
+}
+body.sidebar-fullscreen .sidebar .mag-hero .source-card.source-as-hero .src-body{padding:10px 12px;background:#fdfcf3}
+body.sidebar-fullscreen .sidebar .mag-hero .body{padding:0 !important;width:100% !important}
+body.sidebar-fullscreen .sidebar .mag-hero .expand-chevron{display:none}
+body.sidebar-fullscreen .sidebar .mag-hero .meta-row{margin-bottom:10px}
+body.sidebar-fullscreen .sidebar .mag-hero .txt{
+  font-size:14.5px;line-height:1.65;color:#2a2a2a;
+  display:block !important;-webkit-line-clamp:initial !important;-webkit-box-orient:initial !important;overflow:visible !important;
+}
+body.sidebar-fullscreen .sidebar .mag-hero .txt b.hd{
+  font-family:'Bodoni Moda','Playfair Display',Didot,Georgia,serif;
+  display:block;font-weight:800;
+  font-size:34px;line-height:1.05;letter-spacing:-.5px;
+  color:#1a1a1a;margin:0 0 12px;
+}
+body.sidebar-fullscreen .sidebar .mag-hero .footer{
+  margin-top:14px;padding-top:10px;
+  border-top:1px solid #e8e0c8;color:#888;
+}
+
+/* Per-section flavor on the stage hero */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero .txt b.hd{
+  font-style:italic;font-size:44px;color:var(--ct);letter-spacing:-.6px;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero .txt{
+  font-family:'Bodoni Moda','Playfair Display',Didot,Georgia,serif;
+  font-size:15.5px;line-height:1.55;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"] .mag-hero .txt b.hd{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:32px;font-weight:700;letter-spacing:-.3px;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="onmexico"] .mag-hero .txt b.hd{
+  font-size:36px;font-weight:700;
+}
+
+/* Image fallback hero (no x.img AND no source.img) */
+body.sidebar-fullscreen .sidebar .mag-hero.mag-hero-text{
+  background:linear-gradient(180deg, color-mix(in srgb, var(--ct) 24%, #fdfcf3), #fdfcf3) !important;
+  border-left:5px solid var(--ct) !important;
+  padding:40px 32px 28px !important;
+  border-radius:0 6px 6px 0 !important;
+}
+body.sidebar-fullscreen .sidebar .mag-hero.mag-hero-text .txt b.hd{
+  font-family:'Bodoni Moda',Didot,Georgia,serif;
+  font-size:52px;font-weight:900;line-height:1.02;letter-spacing:-.9px;
+  color:var(--ct);
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero.mag-hero-text .txt b.hd{font-style:italic}
+
+/* ── Mosaic supports under hero ── */
+body.sidebar-fullscreen .sidebar .mag-mosaic{
+  display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:12px;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item{
+  display:flex !important;flex-direction:column !important;
+  max-width:none !important;margin:0 !important;padding:0 !important;
+  background:color-mix(in srgb, var(--ct) 8%, #fdfcf3) !important;
+  border:1px solid color-mix(in srgb, var(--ct) 25%, transparent) !important;
+  border-left:3px solid var(--ct) !important;border-radius:4px !important;
+  overflow:hidden;min-width:0;scroll-margin-top:0 !important;
+  cursor:default;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item:hover{
+  background:color-mix(in srgb, var(--ct) 16%, #fdfcf3) !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item > img,
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .source-card.source-as-hero{
+  width:100% !important;height:auto !important;max-height:none !important;
+  aspect-ratio:16/10;object-fit:cover;
+  border-radius:0 !important;margin:0 !important;align-self:auto !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .source-card.source-as-hero{display:block !important;border:none !important;background:transparent !important}
+body.sidebar-fullscreen .sidebar .mag-mosaic .source-card.source-as-hero .src-img{
+  width:100% !important;aspect-ratio:16/10;max-height:none !important;border-radius:0 !important;height:auto !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .source-card.source-as-hero .src-body{display:none}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .body{padding:8px 10px 10px !important;width:100% !important}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .meta-row{margin-bottom:5px;padding-right:0}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .meta-row .time{font-size:9px;color:#888}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .txt{
+  font-size:11.5px;line-height:1.4;color:#2a2a2a;
+  display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;overflow:hidden !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .txt b.hd{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:13px;font-weight:700;line-height:1.2;
+  color:#1a1a1a;letter-spacing:-.1px;margin:0 0 4px;
+  display:block;
+}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .footer{display:none}
+body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item .source-card:not(.source-as-hero){display:none}
+body.sidebar-fullscreen .sidebar .mag-mosaic .expand-chevron{display:none}
+
+/* ── Rail cells ── */
+body.sidebar-fullscreen .sidebar .mag-rail-cell{
+  display:flex;flex-direction:column;gap:10px;padding:14px;
+  background:color-mix(in srgb, var(--ct) 6%, #fdfcf3);
+  border:1px solid color-mix(in srgb, var(--ct) 20%, transparent);
+  border-top:3px solid var(--ct);border-radius:4px;
+}
+body.sidebar-fullscreen .sidebar .mag-rail-cell .mag-head{padding:0 0 8px}
+body.sidebar-fullscreen .sidebar .mag-mini{
+  display:flex !important;flex-direction:row !important;gap:12px;
+  max-width:none !important;margin:0 !important;padding:0 !important;
+  background:transparent !important;border:none !important;
+  scroll-margin-top:0 !important;cursor:default;
+}
+body.sidebar-fullscreen .sidebar .mag-mini:hover{background:transparent !important}
+body.sidebar-fullscreen .sidebar .mag-mini:hover .txt b.hd{color:var(--ct)}
+body.sidebar-fullscreen .sidebar .mag-mini > img,
+body.sidebar-fullscreen .sidebar .mag-mini .source-card.source-as-hero{
+  width:84px !important;height:84px !important;max-height:84px !important;
+  aspect-ratio:1/1;flex-shrink:0;
+  border-radius:4px !important;margin:0 !important;align-self:flex-start !important;
+  object-fit:cover;
+}
+body.sidebar-fullscreen .sidebar .mag-mini .source-card.source-as-hero{display:block !important;border:none !important;background:transparent !important}
+body.sidebar-fullscreen .sidebar .mag-mini .source-card.source-as-hero .src-img{
+  width:84px !important;height:84px !important;max-height:84px !important;
+  aspect-ratio:1/1;border-radius:4px !important;background:transparent !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mini .source-card.source-as-hero .src-body{display:none}
+body.sidebar-fullscreen .sidebar .mag-mini.no-img:not(.hero-from-source)::before{
+  content:'';display:block;flex-shrink:0;
+  width:84px;height:84px;border-radius:4px;
+  background:color-mix(in srgb, var(--ct) 30%, #fdfcf3);
+}
+body.sidebar-fullscreen .sidebar .mag-mini .body{padding:0 !important;flex:1;min-width:0}
+body.sidebar-fullscreen .sidebar .mag-mini .meta-row{margin-bottom:4px;padding-right:0}
+body.sidebar-fullscreen .sidebar .mag-mini .meta-row .time{font-size:9px;color:#888}
+body.sidebar-fullscreen .sidebar .mag-mini .txt{
+  font-size:11.5px;line-height:1.4;color:#2a2a2a;
+  display:-webkit-box !important;-webkit-line-clamp:2 !important;-webkit-box-orient:vertical !important;overflow:hidden !important;
+}
+body.sidebar-fullscreen .sidebar .mag-mini .txt b.hd{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:13.5px;font-weight:700;line-height:1.2;
+  color:#1a1a1a;letter-spacing:-.1px;margin:0 0 3px;
+  display:block;transition:color .15s;
+}
+body.sidebar-fullscreen .sidebar .mag-mini .footer{display:none}
+body.sidebar-fullscreen .sidebar .mag-mini .source-card:not(.source-as-hero){display:none}
+body.sidebar-fullscreen .sidebar .mag-mini .expand-chevron{display:none}
+
+/* Responsive: at narrower fullscreens, rail collapses below the stage */
+@media (max-width:1100px){
+  body.sidebar-fullscreen .sidebar .mag-front{grid-template-columns:1fr;gap:18px}
+  body.sidebar-fullscreen .sidebar .mag-mosaic{grid-template-columns:repeat(2, minmax(0,1fr))}
+  body.sidebar-fullscreen .sidebar .mag-mosaic .m-tg-item:nth-child(n+3){display:none}
+  body.sidebar-fullscreen .sidebar .mag-hero .txt b.hd{font-size:28px}
+  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero .txt b.hd{font-size:34px}
+}
+/* On phones fullscreen isn't reachable (mobile uses 2-page swipe) — guard anyway */
+@media (max-width:800px){
+  body.sidebar-fullscreen .sidebar .mag-front{display:none}
+}
+
 .more-overlay.open{opacity:1;pointer-events:auto}
 .more-panel{
   width:100%;max-width:800px;padding:40px;
@@ -1315,6 +1547,126 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   const meta=t=>TASK_META[t]||{label:(t||'Other'),color:'#94a3b8',group:t||'other'};
   const groupOf=t=>meta(t).group;
 
+  // ── Magazine / batch helpers ─────────────────────────────────────────────
+  // Batches: posts arrive in clusters (mañanera dump ~13:40, noticias 3-4×/day, etc).
+  // A gap >30 min between consecutive sends marks a new batch. Walk pre-sorted-desc.
+  function groupIntoBatches(items){
+    if(!items.length) return [];
+    const out=[]; let cur=[items[0]];
+    for(let i=1;i<items.length;i++){
+      const dt=new Date(items[i-1].ts).getTime() - new Date(items[i].ts).getTime();
+      if(dt > 30*60*1000){ out.push(cur); cur=[items[i]] }
+      else cur.push(items[i]);
+    }
+    out.push(cur);
+    return out;
+  }
+  function latestBatchFor(group){
+    const its=mobileItems.filter(x=>groupOf(x.task)===group);
+    return groupIntoBatches(its)[0]||[];
+  }
+  function fmtBatchTime(ts){
+    if(!ts) return '';
+    const d=new Date(ts), now=new Date();
+    const startDay=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+    const tsDay=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    const dDays=Math.round((startDay-tsDay)/86400000);
+    const hh=String(d.getHours()).padStart(2,'0');
+    const mm=String(d.getMinutes()).padStart(2,'0');
+    const time=`${hh}:${mm}`;
+    if(dDays===0) return `Hoy ${time}`;
+    if(dDays===1) return `Ayer ${time}`;
+    if(dDays<7){
+      const names=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+      return `${names[d.getDay()]} ${time}`;
+    }
+    const months=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return `${String(d.getDate()).padStart(2,'0')} ${months[d.getMonth()]} ${time}`;
+  }
+
+  // Per-item template. `variant`: 'flat' (today's scroll), 'hero', 'support', 'mini'.
+  // All variants share the same DOM so the global expand-on-click + lightbox + selectors keep working.
+  function renderItem(x, variant){
+    const v=variant||'flat';
+    const m=meta(x.task);
+    const t=x.ts||'';
+    const s=x.source;
+    const hasOwnImg=!!x.img;
+    const hasSource=!!(s&&s.url);
+    const heroFromSource=!hasOwnImg && !!(s&&s.img);
+    const heroImg=x.img||null;
+    const itemClasses=['m-tg-item'];
+    if(!heroImg) itemClasses.push('no-img');
+    if(heroFromSource) itemClasses.push('hero-from-source');
+    if(v!=='flat') itemClasses.push('mag-'+v);
+    // Magazine hero with NEITHER own-img nor source.img → text-only treatment (large Bodoni headline).
+    if(v==='hero' && !heroImg && !heroFromSource) itemClasses.push('mag-hero-text');
+    const sourceCardInner = hasSource ? `
+      ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="">`:''}
+      <div class="src-body">
+        ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
+        ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
+        ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
+      </div>` : '';
+    const sourceCardBody = hasSource ? `<a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
+    const sourceCardHero = heroFromSource ? `<a class="source-card source-as-hero" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
+    return `<div class="${itemClasses.join(' ')}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
+      <span class="expand-chevron">▾</span>
+      ${heroImg?`<img src="${esc(heroImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
+      ${sourceCardHero}
+      <div class="body">
+        <div class="meta-row">
+          <span class="time">${esc(t.slice(11,16))}</span>
+        </div>
+        <div class="txt">${boldFirstLine(safeTxt(x.text))}</div>
+        ${sourceCardBody}
+        <div class="footer">
+          <span class="date">${esc(t.slice(0,10))}</span>
+          <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // Magazine front page: sort the three section groups by latest-batch ts desc.
+  // First → mag-stage (hero + up to 4 supports). Other two → mag-rail-cells.
+  function buildMagazineHTML(){
+    const groups=['dailyt','scant','onmexico'];
+    const sections=groups.map(g=>{
+      const batch=latestBatchFor(g);
+      return {group:g, batch, ts: batch[0]?.ts||''};
+    }).filter(s=>s.batch.length);
+    if(!sections.length) return '<div class="m-tg-empty">No posts yet</div>';
+    sections.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    const stage=sections[0], railSecs=sections.slice(1);
+    const sm=meta(stage.group), hero=stage.batch[0], supports=stage.batch.slice(1,5);
+    const headStage=`<header class="mag-head mag-head-stage" data-filter="${esc(stage.group)}" role="button" tabindex="0">
+      <span class="mag-kicker">${esc(sm.label)}</span>
+      <span class="mag-batch-time">${esc(fmtBatchTime(stage.ts))}</span>
+      <span class="mag-batch-count">${stage.batch.length} ${stage.batch.length===1?'nota':'notas'}</span>
+      <span class="mag-drill">Ver todas →</span>
+    </header>`;
+    const stageHTML=`<section class="mag-stage" data-group="${esc(stage.group)}" style="--ct:${sm.color}">
+      ${headStage}
+      ${renderItem(hero,'hero')}
+      ${supports.length?`<div class="mag-mosaic">${supports.map(x=>renderItem(x,'support')).join('')}</div>`:''}
+    </section>`;
+    const railHTML=`<aside class="mag-rail">
+      ${railSecs.map(s=>{
+        const m=meta(s.group), mini=s.batch[0];
+        return `<section class="mag-rail-cell" data-group="${esc(s.group)}" style="--ct:${m.color}">
+          <header class="mag-head mag-head-rail" data-filter="${esc(s.group)}" role="button" tabindex="0">
+            <span class="mag-kicker">${esc(m.label)}</span>
+            <span class="mag-batch-time">${esc(fmtBatchTime(s.ts))}</span>
+            <span class="mag-batch-count">${s.batch.length}</span>
+          </header>
+          ${renderItem(mini,'mini')}
+        </section>`;
+      }).join('')}
+    </aside>`;
+    return `<div class="mag-front">${stageHTML}${railHTML}</div>`;
+  }
+
   // Unified feed — populates BOTH the mobile pages AND the desktop sidebar (same DOM classes,
   // styled separately). Reads sends.ndjson (richer: has task + chat info).
   // Falls back to tg-feed.json if sends.ndjson unavailable.
@@ -1352,7 +1704,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(chipBars.length){
       const groups=[...new Set(mobileItems.map(x=>groupOf(x.task)))];
       const taskChips=groups.map(g=>{const m=meta(g);return `<button class="m-chip ${activeFilter===g?'active':''}" data-filter="${esc(g)}" style="--ck:${m.color}">${m.label}</button>`}).join('');
-      const chipsHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">All</button>`+taskChips;
+      const allLabel=document.body.classList.contains('sidebar-fullscreen')?'Portada':'All';
+      const chipsHTML=`<button class="m-chip ${!activeFilter?'active':''}" data-filter="">${allLabel}</button>`+taskChips;
       chipBars.forEach(c=>{
         c.innerHTML=chipsHTML;
         // Hide chips row when in translations mode
@@ -1369,57 +1722,27 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }
     // Translations mode: render translation cards
     if(activeFilter==='__tl'){
+      lists.forEach(l=>l.classList.remove('is-magazine'));
       const html=buildTranslationHTML();
       lists.forEach(l=>{l.innerHTML=html});
     } else {
-      const filtered=activeFilter?mobileItems.filter(x=>groupOf(x.task)===activeFilter):mobileItems;
-      let html;
-      if(!filtered.length){html='<div class="m-tg-empty">No posts yet</div>'}
-      else{html=filtered.slice(0,200).map(x=>{
-        const m=meta(x.task);
-        const t=x.ts||'';
-        const s=x.source;
-        const hasOwnImg = !!x.img;
-        const hasSource = !!(s && s.url);
-        const heroFromSource = !hasOwnImg && !!(s && s.img);
-        // Hero thumb only when the post itself has an attached image.
-        // No source.img fallback — the source-card (inside body) provides its own image.
-        const heroImg = x.img || null;
-        const itemClasses = ['m-tg-item'];
-        if (!heroImg) itemClasses.push('no-img');
-        if (heroFromSource) itemClasses.push('hero-from-source');
-        // Build the source-card markup once; render TWO copies for hero-from-source:
-        //   1. source-as-hero (sibling of body) — shown only in wide-sidebar expanded
-        //   2. source-card (inside body) — shown in narrow expanded/spacious + compact
-        // CSS hides whichever isn't appropriate for the current mode, so only one is ever visible.
-        const sourceCardInner = hasSource ? `
-          ${s.img?`<img class="src-img" src="${esc(s.img)}" alt="">`:''}
-          <div class="src-body">
-            ${s.domain?`<div class="src-domain">${esc(s.domain)}</div>`:''}
-            ${s.title?`<div class="src-title">${esc(s.title)}</div>`:''}
-            ${s.desc?`<div class="src-desc">${esc(s.desc)}</div>`:''}
-          </div>` : '';
-        const sourceCardBody = hasSource ? `<a class="source-card" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
-        const sourceCardHero = heroFromSource ? `<a class="source-card source-as-hero" href="${esc(s.url)}" target="_blank" rel="noopener">${sourceCardInner}</a>` : '';
-        return `<div class="${itemClasses.join(' ')}" data-task="${esc(x.task||'other')}" style="--ct:${m.color}">
-          <span class="expand-chevron">▾</span>
-          ${heroImg?`<img src="${esc(heroImg)}" alt="" loading="lazy" onerror="this.remove();this.parentElement.classList.add('no-img')">`:''}
-          ${sourceCardHero}
-          <div class="body">
-            <div class="meta-row">
-              <span class="time">${esc(t.slice(11,16))}</span>
-            </div>
-            <div class="txt">${boldFirstLine(safeTxt(x.text))}</div>
-            ${sourceCardBody}
-            <div class="footer">
-              <span class="date">${esc(t.slice(0,10))}</span>
-              <a class="open-tg" href="${esc(x.url||'#')}" target="_blank" rel="noopener">Open in Telegram ↗</a>
-            </div>
-          </div>
-        </div>`;
-      }).join('')}
-      // Write the same HTML into every list container (mobile pages + desktop sidebar)
-      lists.forEach(l=>{l.innerHTML=html});
+      // Magazine front page: desktop sidebar in fullscreen mode + no filter applied.
+      // Mobile lists are NOT inside .sidebar, so they keep flat scroll always.
+      const isMagazine = document.body.classList.contains('sidebar-fullscreen')
+                      && activeFilter === null
+                      && lists[0]?.closest('.sidebar');
+      if(isMagazine){
+        const html=buildMagazineHTML();
+        lists.forEach(l=>{l.innerHTML=html; l.classList.add('is-magazine')});
+      } else {
+        lists.forEach(l=>l.classList.remove('is-magazine'));
+        const filtered=activeFilter?mobileItems.filter(x=>groupOf(x.task)===activeFilter):mobileItems;
+        let html;
+        if(!filtered.length){html='<div class="m-tg-empty">No posts yet</div>'}
+        else{html=filtered.slice(0,200).map(x=>renderItem(x,'flat')).join('')}
+        // Write the same HTML into every list container (mobile pages + desktop sidebar)
+        lists.forEach(l=>{l.innerHTML=html});
+      }
     }
     // Peek strip on apps page: telegram top 4 (translations don't peek for now)
     if(peek){
@@ -1428,10 +1751,20 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       </a>`).join('')+'<span class="swipe-cue">← Feed</span>';
     }
   }
-  // Chip click → filter
+  // Chip click → filter. Same delegator handles .mag-head (section headers
+  // in the magazine front page) since both expose data-filter and route to the same state.
   document.addEventListener('click',e=>{
-    const c=e.target.closest('.m-chip');
+    const c=e.target.closest('.m-chip, .mag-head');
     if(!c)return;
+    activeFilter=c.dataset.filter||null;
+    renderMobile();
+  });
+  // Keyboard accessibility for section headers
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='Enter'&&e.key!==' ')return;
+    const c=e.target.closest('.mag-head');
+    if(!c)return;
+    e.preventDefault();
     activeFilter=c.dataset.filter||null;
     renderMobile();
   });
@@ -1452,6 +1785,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(!card)return;
     if(e.target.closest('a, button'))return;  // interactive children handle themselves
     if(card.closest('.m-tg-list.spacious'))return;  // no-op in spacious
+    if(card.closest('.mag-front'))return;  // magazine cards manage their own layout
     if(card.classList.contains('expanded')){
       // Collapse only on chevron, meta-row, or the image
       const topZone = e.target.closest('.expand-chevron, .meta-row') || e.target.tagName==='IMG';
@@ -1486,7 +1820,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const maxW=()=>window.innerWidth;
     const fsThreshold=()=>Math.floor(window.innerWidth*0.70);
     const applyFullscreen=(w)=>{
+      const was=document.body.classList.contains('sidebar-fullscreen');
       document.body.classList.toggle('sidebar-fullscreen', w>=fsThreshold());
+      const now=document.body.classList.contains('sidebar-fullscreen');
+      // Only re-render on state change — applyFullscreen fires on every drag mousemove.
+      if(was!==now) renderMobile();
     };
     // Restore saved width on load (clamp to current viewport's max)
     const saved=parseInt(localStorage.getItem('sidebar-width')||'',10);
