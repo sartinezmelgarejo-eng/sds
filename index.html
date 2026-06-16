@@ -557,6 +557,32 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap 
   -webkit-box-orient:vertical;
   overflow:hidden;
 }
+/* No-image case: same cream label-strip styling, but as a static block in
+   the text column below the thumb-grid (no absolute positioning). The
+   shared selector list above already covers visual styling; this rule adds
+   the bottom margin so the body excerpt below has breathing room. */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].no-hero-img .mag-text .mag-headline{
+  margin:0 0 clamp(10px, 1.5vh, 18px);
+  padding:clamp(20px, 2.6vh, 30px) clamp(18px, 2.2vw, 32px) clamp(11px, 1.5vh, 18px);
+  width:fit-content;
+  max-width:calc(100% - clamp(32px, 6vw, 72px));
+  background-color:#fdfcf3;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 10' preserveAspectRatio='xMidYMid meet'><rect x='0' y='8.5' width='22' height='1.5' fill='%23235B4E'/><path d='M2,8.5 L2,6 L5,6 L5,3.5 L8,3.5 L8,1 L14,1 L14,3.5 L17,3.5 L17,6 L20,6 L20,8.5 Z' fill='%23235B4E'/><circle cx='11' cy='2.2' r='0.6' fill='%239F2241'/></svg>"),
+    repeating-linear-gradient(to right,
+      #235B4E 0 12px,
+      #1a1a1a 12px 24px,
+      #9F2241 24px 36px);
+  background-repeat:repeat-x, no-repeat;
+  background-position:top left, bottom left;
+  background-size:
+    auto clamp(10px, 1.4vh, 13px),
+    100% clamp(3px, 0.5vh, 4px);
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
 body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-headline{
   font-style:italic;color:var(--ct);
 }
@@ -2286,14 +2312,17 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
 
     // For Mañanera (dailyt) only, move the headline DOM into the hero-wrap so
-    // it sits as an overlay at the bottom-edge of the image (magazine-cover
-    // style). The CSS scrim + Alfa Slab One red keep it legible over any
-    // image. For other sections, put it back in its normal slot above body.
+    // it sits as an overlay (cream label-strip) at the bottom-edge of the
+    // image. When there's no image, the hero-wrap holds the thumb-grid
+    // navigator instead — so the headline drops into the text column and
+    // appears below the thumb-grid as a static block (same cream-strip
+    // styling via shared CSS selector). For other sections, headline always
+    // goes in the text column above body.
     const _headline = el.querySelector('.mag-headline');
     const _heroWrap = el.querySelector('.mag-hero-wrap');
     const _textCol = el.querySelector('.mag-text');
     if(_headline && _heroWrap && _textCol){
-      if(group==='dailyt'){
+      if(group==='dailyt' && heroImg){
         if(!_heroWrap.contains(_headline)) _heroWrap.appendChild(_headline);
       } else {
         if(!_textCol.contains(_headline)) _textCol.insertBefore(_headline, _textCol.firstChild);
