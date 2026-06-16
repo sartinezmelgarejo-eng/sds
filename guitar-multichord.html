@@ -10353,13 +10353,16 @@ function renderAlternatives() {
     const sel = (sk === curKey) ? 'selected' : '';
     const playing = (sk === playKey) ? 'playing' : '';
     // Pro voicings carry pianoShape (MIDI array). The note list is the
-    // pitch-class sequence from low to high; the visual is a mini
-    // piano keyboard instead of a guitar fretboard. Standard voicings
-    // keep their existing renderMini + guitar-string note list.
+    // pitch-class sequence from low to high; the visual is a mini sheet-
+    // music staff (treble + bass clef) instead of a guitar fretboard.
+    // Standard voicings keep their existing renderMini + string note list.
     const isPro = Array.isArray(c.pianoShape) && c.pianoShape.length;
     let mini, notes;
     if (isPro) {
-      mini  = renderProMiniPiano(c.pianoShape, root, {W:88, H:92});
+      mini = renderChordStaff(c.shape, root, fc.quality, flats, {
+        W: 88, H: 96, minimal: true, showClef: true,
+        pianoShape: c.pianoShape,
+      });
       notes = c.pianoShape.map(m => nameOf(m % 12, flats)).join(' ');
     } else {
       mini  = renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7});
@@ -10437,13 +10440,32 @@ function renderAlternatives() {
     card.addEventListener('click', () => {
       const c = cands[+card.dataset.idx];
       if (!c) return;
+      // Pro voicings carry pianoShape (MIDI array). Propagate it through
+      // userVoicing so focusedShape() can hand it to the piano keyboard
+      // + audio + chord-staff for accurate rendering.
+      const _proPiano = Array.isArray(c.pianoShape) && c.pianoShape.length ? c.pianoShape.slice() : null;
       state.userVoicing = {
         shape: c.shape,
         type: c.type,
         stringSetIdx: c.stringSetIdx,
         inversion: c.inversion,
         stringSet: c.stringSet,
+        pianoShape: _proPiano,
       };
+      // Audition the picked voicing right away so the user HEARS what
+      // they clicked — same behavior the chord-map cards already give.
+      // chordDrone.start takes a MIDI array directly; pianoShape works
+      // verbatim, standard shapes get converted via STRING_OPEN_MIDI.
+      try {
+        if (typeof ensureAudio === 'function') ensureAudio();
+        const notes = _proPiano
+          ? _proPiano.slice()
+          : shapeArrayToNotes(c.shape);
+        if (notes.length && typeof chordDrone !== 'undefined' && chordDrone.start) {
+          const vol = (typeof currentDroneVolume === 'function') ? currentDroneVolume() * 1.8 : 0.18;
+          chordDrone.start(notes, vol, true);
+        }
+      } catch (_) { /* never block the click on a silent audio error */ }
       // Apply the new voicing to whichever cell the user is editing —
       // selected > focused > last-matching — not always the tail.
       const seq = state.composedProgression;
@@ -10455,10 +10477,11 @@ function renderAlternatives() {
         target.stringSetIdx = c.stringSetIdx;
         target.inversion = c.inversion;
         target.stringSet = c.stringSet;
+        target.pianoShape = _proPiano;
         target._candIdx = +card.dataset.idx;
         renderComposeStrip();
       }
-      applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion });
+      applyAltToComping(fc.id, { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion, pianoShape: _proPiano });
       renderAll();
     });
   });
@@ -12190,6 +12213,23 @@ function renderVoicingMenu() {
         state.proMode = !state.proMode;
         if (!state.proMode) {
           PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
+        }
+        // Force the player's page-plan cache to rebuild so the next
+        // trigger picks under the new pro vocabulary. Without this, an
+        // ongoing song would keep playing the standard voicings already
+        // baked into the cached page until the bar number rolled over.
+        if (typeof player !== 'undefined' && player) {
+          player._cachedPage = null;
+          player._cachedPeek = null;
+          if (player.playing && player.song) {
+            const typeByLabel = {};
+            player.song.forEach(s => {
+              const key = s.label + (s.modName || '');
+              if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
+              s.voicingType = typeByLabel[key];
+            });
+            player.voicingType = player._currentSection().voicingType;
+          }
         }
         _updateVoicingPrefButton();
         renderVoicingMenu();
