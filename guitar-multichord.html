@@ -7997,20 +7997,28 @@ function renderHorizontalTab(columns, sizing) {
   // black ink, italic serif labels, vertical stems anchoring each
   // chord-event, tuplet bracket for the bar's rhythmic identity.
   const hasNames = columns.some(c => c.chordName);
-  const labelH = hasNames ? (minimal ? 22 : 34) : 0;
+  // playCompact: scoped tightening for mobile-portrait PLAY mode only.
+  // Cell is square there (100vw/4 × 100vw/4) but the portrait viewBox
+  // (130×210) lets the chord-name label + bracket + gap eat ~24% of
+  // the vertical, so the strings only span ~76% of the cell. Pull those
+  // paddings in so the staff fills closer to 88% of the cell height.
+  // The flag stays opt-in so compose-mode (where the cells are taller,
+  // 150px+, and the strings already spread plenty) is untouched.
+  const playCompact = !!sizing?.playCompact;
+  const labelH = hasNames ? (playCompact ? 16 : (minimal ? 22 : 34)) : 0;
   // Longest visible chord name drives the per-slot font scaling so the
   // names never run into each other when one of them is long (Bm7b5,
   // F#m7, Cmaj7…). Same idea as the piano staff multi-chord path.
   const longestName = columns.reduce((m, c) =>
     c && c.chordName ? Math.max(m, c.chordName.length) : m, 1);
-  const bracketH = N > 1 ? (minimal ? 14 : 18) : 0;
-  const gapBeforeStaff = minimal ? 6 : 10;
+  const bracketH = N > 1 ? (playCompact ? 10 : (minimal ? 14 : 18)) : 0;
+  const gapBeforeStaff = playCompact ? 3 : (minimal ? 6 : 10);
   // Stems extend past the viewBox and get partially clipped — that's
   // fine and what the user prefers, since it lets the staff itself be
   // BIG (more lineSp, bigger fret numbers) inside the same viewBox.
   // padBot is just enough to keep the bottom string off the SVG edge.
   const stemLen = minimal ? 50 : 72;
-  const padBot = minimal ? 8 : 12;
+  const padBot = playCompact ? 4 : (minimal ? 8 : 12);
   const padTop = labelH + bracketH + gapBeforeStaff;
   const staffH = H - padTop - padBot;
   const lineSp = staffH / 5;            // 6 lines → 5 gaps
@@ -15347,7 +15355,7 @@ class Player {
         // of slot count; slot columns just pack tighter horizontally inside.
         const baseW = isMobileNow ? 130 : 165;
         const htabSizing = isMobileNow
-          ? { W: baseW, H: 210, minimal: true }
+          ? { W: baseW, H: 210, minimal: true, playCompact: true }
           : { W: baseW, H: 250, minimal: false };
         svg = renderHorizontalTab(columns, htabSizing);
       } else {
