@@ -285,6 +285,30 @@ body.sidebar-fullscreen .sidebar .mag-noticias-tab.active{
   color:var(--ct);border-bottom-color:var(--ct);
 }
 
+/* Body grid: vertical stack on stage (image on top, text below), horizontal
+   on satellites (square image left, text column right). Flex:1 lets the
+   content claim all remaining cell height so the footer pins to the bottom
+   without a vertical gap above it. */
+body.sidebar-fullscreen .sidebar .mag-body-grid{
+  flex:1;min-height:0;
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-grid{
+  display:flex;flex-direction:column;gap:18px;
+}
+body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-grid{
+  display:grid;
+  grid-template-columns:130px 1fr;
+  gap:14px;
+  align-items:start;
+}
+body.sidebar-fullscreen .sidebar .mag-satellite.no-hero-img .mag-body-grid{
+  grid-template-columns:1fr;
+}
+body.sidebar-fullscreen .sidebar .mag-text{
+  flex:1;min-width:0;min-height:0;
+  display:flex;flex-direction:column;
+}
+
 /* Hero image — persistent wrapper holds the slot height so layout doesn't
    shift while the img loads. The img fades in (.loaded class) once the
    browser has the bytes; otherwise the wrapper's section-tinted gradient
@@ -294,16 +318,16 @@ body.sidebar-fullscreen .sidebar .mag-hero-wrap{
   background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
 body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
-  height:38vh;max-height:420px;
-  margin:22px 0 20px;
+  height:34vh;max-height:380px;margin:0;
 }
+/* Satellite image is a square — best aspect for news portraits / podiums
+   where a wide crop would chop heads in half. */
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-hero-wrap{
-  height:18vh;max-height:160px;
-  margin:14px 0 12px;
+  width:130px;height:130px;aspect-ratio:1;margin:0;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img{
-  width:100%;height:100%;object-fit:cover;display:block;
-  opacity:0;transition:opacity .35s ease;
+  width:100%;height:100%;object-fit:cover;object-position:center 28%;
+  display:block;opacity:0;transition:opacity .35s ease;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
 /* When the slide has no image at all, collapse the wrapper so the headline
@@ -370,18 +394,27 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"].no-hero-img .mag
   font-family:'Playfair Display',Georgia,serif;font-weight:800;font-size:44px;color:#1a1a1a;
 }
 
-/* Body excerpt */
+/* Body excerpt — flex:1 within .mag-text so it claims the remaining vertical
+   space below the headline. overflow:hidden clips anything that doesn't fit;
+   a mask gradient on the bottom fades the last lines softly so the cut
+   doesn't read as abrupt. No JS char truncation: the full post text goes
+   in and CSS bounds it to the cell height. */
 body.sidebar-fullscreen .sidebar .mag-body-text{
   font-family:'Playfair Display',Georgia,serif;
-  color:#3a3a3a;margin:0;
+  color:#3a3a3a;margin:8px 0 0;
+  flex:1 1 0;min-height:0;
+  overflow:hidden;
+  mask-image:linear-gradient(to bottom, #000 90%, transparent 100%);
+  -webkit-mask-image:linear-gradient(to bottom, #000 90%, transparent 100%);
 }
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text{
   font-size:15.5px;line-height:1.6;
-  display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
+  overflow-wrap:break-word;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   font-size:12.5px;line-height:1.5;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  margin:6px 0 0;
+  overflow-wrap:break-word;
 }
 
 /* Cell footer: dots + counter + drill */
@@ -1669,6 +1702,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // Stable skeleton — emitted once per cell, then mutated by paintCell.
   // Mutating instead of innerHTML-swapping keeps the <img> element alive
   // across cycles, so cached images show instantly (no flash).
+  // Layout: .mag-body-grid wraps image + text. CSS swaps between vertical
+  // (stage) and horizontal (satellite) presentations on the same DOM.
   function renderCellShell(){
     return `
       <header class="mag-cell-head">
@@ -1677,9 +1712,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         <span class="mag-time"></span>
       </header>
       <div class="mag-noticias-tabs"></div>
-      <div class="mag-hero-wrap"><img class="mag-hero-img" alt="" decoding="async"></div>
-      <h2 class="mag-headline"></h2>
-      <p class="mag-body-text"></p>
+      <div class="mag-body-grid">
+        <div class="mag-hero-wrap"><img class="mag-hero-img" alt="" decoding="async"></div>
+        <div class="mag-text">
+          <h2 class="mag-headline"></h2>
+          <p class="mag-body-text"></p>
+        </div>
+      </div>
       <footer class="mag-cell-foot">
         <div class="mag-dots"></div>
         <span class="mag-counter"></span>
@@ -1740,22 +1779,15 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       img.removeAttribute('src'); img.dataset.url=''; img.classList.remove('loaded');
     }
 
-    // Headline + body. Use safeTxt (which preserves <a><b><i><u>) for the
-    // headline so the data's emphasis tags render as real HTML instead of
-    // showing literal "<u>..." text. For the body, only use safeTxt when
-    // it fits without truncation — otherwise strip tags + plain ellipsis to
-    // avoid chopping mid-tag.
+    // Headline + body. Both use safeTxt (preserves <a><b><i><u>, escapes the
+    // rest) so the data's emphasis tags render as real HTML. The body is no
+    // longer truncated in JS — CSS line-clamp + flex:1 + overflow:hidden let
+    // it fill the cell's available height and clip gracefully at the bottom.
     const lines=(slide.text||'').split('\n');
     el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
     const wholeBody = lines.slice(1).join(' ').replace(/\s+/g,' ').trim();
-    const bodyMax = kind==='stage' ? 340 : 130;
-    const plain = wholeBody.replace(/<[^>]+>/g,'');
     const bEl=el.querySelector('.mag-body-text');
-    if(plain.length > bodyMax){
-      bEl.textContent = plain.slice(0, bodyMax).trim() + '…';
-    } else {
-      bEl.innerHTML = safeTxt(wholeBody);
-    }
+    bEl.innerHTML = safeTxt(wholeBody);
     bEl.style.display = wholeBody ? '' : 'none';
 
     // Dots — rebuild only when batch length changes; otherwise just toggle .active
