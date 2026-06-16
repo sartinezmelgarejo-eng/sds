@@ -2250,14 +2250,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             el.style.removeProperty('--headline-color');  // not overlay anymore
           } else {
             if(!wrap.contains(hl)) wrap.appendChild(hl);
-            // Brightness-sample the bottom strip of the image (where the
-            // overlay sits) and pick a palette color that contrasts:
-            //   dark photo  → cream  #fdfcf3
-            //   bright photo → guinda var(--ct) (Pantone 7420)
-            // If the canvas read is CORS-blocked, fall back to guinda.
-            const lum = sampleHeroLuminance(img);
+            // Use the luminance pre-computed server-side in update-tg-feed.py
+            // and stored in sends.ndjson (we can't sample in-browser because
+            // every CDN we use serves without CORS — canvas reads would taint).
+            //   luminance < 0.45 (dark photo)  → cream  #fdfcf3
+            //   luminance >= 0.45 (bright)     → guinda var(--ct)
+            //   no luminance field             → guinda default
+            const slideForLum = batch[idx];
+            const lum = (typeof slideForLum.img_lum === 'number') ? slideForLum.img_lum
+                      : (slideForLum.source && typeof slideForLum.source.img_lum === 'number')
+                          ? slideForLum.source.img_lum
+                          : null;
             el.style.setProperty('--headline-color',
               (lum!==null && lum < 0.45) ? '#fdfcf3' : 'var(--ct)');
+            // Expose the picked value on the DOM for easy DevTools inspection
+            el.dataset.heroLum = (lum===null) ? '(none)' : String(lum);
           }
         }
       }
