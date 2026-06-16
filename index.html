@@ -393,9 +393,10 @@ body.sidebar-fullscreen .sidebar .mag-hero-img{
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
 /* Date/source metadata overlay on the hero — bottom-left photo-credit style.
    Used for onmexico posts that carry a "Month DD, YYYY | <symbol>" line as
-   their second line. Plain mono text on a translucent dark background. */
+   their second line. Plain mono text on a translucent dark background.
+   Visible whenever the element has text content; hidden via :empty when
+   paintStage clears it (no date detected) and when the stage has no image. */
 body.sidebar-fullscreen .sidebar .mag-hero-date{
-  display:none;
   position:absolute;
   bottom:clamp(6px, 1vh, 12px);
   left:clamp(6px, 1vw, 14px);
@@ -410,8 +411,7 @@ body.sidebar-fullscreen .sidebar .mag-hero-date{
   pointer-events:none;
   white-space:nowrap;
 }
-/* Hide the date overlay when there's no hero image — the thumb-grid
-   navigator owns that visual slot in the no-image stage state. */
+body.sidebar-fullscreen .sidebar .mag-hero-date:empty{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-date{display:none}
 /* When the slide has no image, hide the <img> and reveal the thumb-grid
    in the same slot. The thumb-grid lets the reader see + jump to the
@@ -2236,17 +2236,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       return true;
     });
 
-    // Date overlay (only when hero image is present — pinned bottom-left)
+    // Date overlay (pinned bottom-left of hero). CSS hides via :empty when
+    // we clear textContent, so the show/hide is driven purely by content.
     const dateEl = el.querySelector('.mag-hero-date');
-    if(dateEl){
-      if(dateLine){
-        dateEl.textContent = dateLine;
-        dateEl.style.display = '';
-      } else {
-        dateEl.textContent = '';
-        dateEl.style.display = 'none';
-      }
-    }
+    if(dateEl) dateEl.textContent = dateLine || '';
 
     const isMultiCol = group==='onmexico' && sections.length>=2;
     bEl.classList.toggle('multi-col', isMultiCol);
