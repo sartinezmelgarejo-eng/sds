@@ -342,11 +342,23 @@ body.sidebar-fullscreen .sidebar .mag-noticias-tab.active{
    on satellites (square image left, text column right). Flex:1 lets the
    content claim all remaining cell height so the footer pins to the bottom
    without a vertical gap above it. */
-/* Stage layout — image-on-top, text-below. Satellite has its own shell
-   (mini-feed grid + featured-desc), styled further down. */
+/* Stage layout — image-on-top, text-below by default. Satellite has its own
+   shell (mini-feed list), styled further down. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-grid{
   flex:1;min-height:0;
   display:flex;flex-direction:column;gap:18px;
+}
+/* Portrait hero: flip to 2-col side-by-side layout so the wide stage uses
+   horizontal space instead of leaving a half-empty body column. paintStage
+   adds .vertical-hero when the loaded image is taller than wide. */
+body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-body-grid{
+  display:grid;
+  grid-template-columns:minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap:24px;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-hero-wrap{
+  height:auto;max-height:none;
+  align-self:stretch;
 }
 body.sidebar-fullscreen .sidebar .mag-text{
   flex:1;min-width:0;min-height:0;
@@ -358,12 +370,16 @@ body.sidebar-fullscreen .sidebar .mag-text{
    section-tinted gradient shows through while images load, reading as a
    calm placeholder rather than a broken canvas. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
-  width:100%;height:34vh;max-height:380px;margin:0;
+  width:100%;height:28vh;max-height:320px;margin:0;
   overflow:hidden;position:relative;
   background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
+/* Hero img shows at its native aspect (no crop). Wrapper gradient fills the
+   letterbox bands. For vertical (portrait) heroes, paintStage flips the
+   stage into a 2-col grid via .vertical-hero so the photo gets a tall left
+   column and the text fills the right column. */
 body.sidebar-fullscreen .sidebar .mag-hero-img{
-  width:100%;height:100%;object-fit:cover;object-position:center 28%;
+  width:100%;height:100%;object-fit:contain;
   display:block;opacity:0;transition:opacity .35s ease;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
@@ -492,8 +508,12 @@ body.sidebar-fullscreen .sidebar .mag-body-text{
   -webkit-mask-image:linear-gradient(to bottom, #000 90%, transparent 100%);
 }
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text{
-  font-size:15.5px;line-height:1.6;
+  font-size:18px;line-height:1.65;
   overflow-wrap:break-word;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-body-text{
+  font-family:'Bodoni Moda','Playfair Display',Didot,Georgia,serif;
+  font-style:italic;font-size:20px;line-height:1.55;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   font-size:12.5px;line-height:1.5;
@@ -501,67 +521,112 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   overflow-wrap:break-word;
 }
 
-/* ── Satellite mini-feed ── 3-col grid of horizontal tiles (image left +
-   title right). Up to 6 tiles (3+3 max), the active one glows in section
-   color and its body shows in the featured-desc panel below. */
+/* ── Satellite mini-feed ── Vertical list of .mag-row entries. The active
+   row swells into a card (photo + headline + body) and pins to the top
+   via `order:1`; the rest stay below as compact rows (44px thumb + headline). */
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed{
-  display:grid;
-  grid-template-columns:repeat(3, minmax(0,1fr));
-  gap:8px;
-  margin:12px 0 0;
-  flex:0 0 auto;
+  flex:1 1 0;min-height:0;
+  display:flex;flex-direction:column;gap:5px;
+  margin:10px 0 0;
+  overflow:hidden;
 }
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile{
-  flex-direction:row;align-items:stretch;
-  height:64px;
+body.sidebar-fullscreen .sidebar .mag-row{
+  display:flex;gap:10px;align-items:stretch;
+  background:rgba(255,255,255,.45);
+  border:1px solid color-mix(in srgb, var(--ct) 18%, transparent);
+  border-radius:3px;padding:0;
+  cursor:pointer;text-align:left;
+  font-family:inherit;min-width:0;flex:0 0 auto;
+  overflow:hidden;
+  transition:background .2s, border-color .2s;
+  order:2;
 }
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-img{
-  width:64px;height:64px;aspect-ratio:1;flex-shrink:0;
+body.sidebar-fullscreen .sidebar .mag-row:hover{background:rgba(255,255,255,.7)}
+body.sidebar-fullscreen .sidebar .mag-row.active{
+  order:1;
+  border-color:color-mix(in srgb, var(--ct) 50%, transparent);
+  background:rgba(255,255,255,.85);
+  box-shadow:0 0 0 2px color-mix(in srgb, var(--ct) 28%, transparent);
+  padding:10px;flex-direction:column;gap:0;
+  margin-bottom:4px;
 }
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-title{
-  font-size:10.5px;line-height:1.22;font-weight:600;
-  padding:5px 7px 5px 9px;
-  -webkit-line-clamp:3;
-  align-self:center;
-  display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
+/* COLLAPSED row (default) — thumb left + headline right */
+body.sidebar-fullscreen .sidebar .mag-row .row-photo{
+  width:48px;height:48px;aspect-ratio:1;flex-shrink:0;
+  background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
+  overflow:hidden;
 }
-/* No-image tile in satellite mini-feed — collapses photo slot to a thicker
-   section-color stripe and promotes the headline to a Bodoni text-card.
-   Reads as a proper editorial card, not a stub. */
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile.no-img{
-  background:rgba(255,255,255,.65);
-  align-items:stretch;
+body.sidebar-fullscreen .sidebar .mag-row .row-img{
+  width:100%;height:100%;object-fit:cover;object-position:center 28%;
+  display:block;opacity:0;transition:opacity .35s ease;
 }
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile.no-img .mag-tile-img{
-  width:7px;height:auto;aspect-ratio:unset;flex:0 0 7px;
+body.sidebar-fullscreen .sidebar .mag-row .row-img.loaded{opacity:1}
+body.sidebar-fullscreen .sidebar .mag-row.no-img .row-img{display:none}
+body.sidebar-fullscreen .sidebar .mag-row .row-text{
+  flex:1;min-width:0;display:flex;flex-direction:column;
+  justify-content:center;padding:0 8px 0 0;
+}
+body.sidebar-fullscreen .sidebar .mag-row .row-headline{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:11.5px;line-height:1.25;font-weight:600;
+  color:#1a1a1a;margin:0;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+body.sidebar-fullscreen .sidebar .mag-row .row-body{display:none}
+/* No-image collapsed row — section-color stripe on the left, headline in Bodoni */
+body.sidebar-fullscreen .sidebar .mag-row.no-img{
+  background:rgba(255,255,255,.6);
+}
+body.sidebar-fullscreen .sidebar .mag-row.no-img .row-photo{
+  width:6px;height:auto;aspect-ratio:unset;flex:0 0 6px;
   background:color-mix(in srgb, var(--ct) 70%, #d4cdb8);
 }
-body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile.no-img .mag-tile-title{
+body.sidebar-fullscreen .sidebar .mag-row.no-img .row-headline{
   font-family:'Bodoni Moda',Didot,Georgia,serif;
-  font-size:13.5px;line-height:1.22;font-weight:700;
-  padding:10px 12px;
-  -webkit-line-clamp:3;
+  font-size:12.5px;line-height:1.22;font-weight:700;
   color:color-mix(in srgb, var(--ct) 75%, #1a1a1a);
-  align-self:center;
 }
-/* Featured description — the body of whichever tile is active.
-   flex:1 absorbs the remaining cell height below the mini-feed grid.
-   Mask fade at bottom for graceful clip of long content. */
-body.sidebar-fullscreen .sidebar .mag-featured-desc{
-  flex:1 1 0;min-height:0;
-  overflow:hidden;
-  padding-top:12px;margin-top:10px;
-  border-top:1px solid color-mix(in srgb, var(--ct) 30%, transparent);
-  mask-image:linear-gradient(to bottom, #000 86%, transparent 100%);
-  -webkit-mask-image:linear-gradient(to bottom, #000 86%, transparent 100%);
+
+/* EXPANDED row (active) — vertical card with photo on top + headline + body */
+body.sidebar-fullscreen .sidebar .mag-row.active .row-photo{
+  width:100%;height:auto;aspect-ratio:16/9;flex-shrink:0;
+  max-height:170px;margin-bottom:10px;
 }
-body.sidebar-fullscreen .sidebar .mag-featured-body{
+body.sidebar-fullscreen .sidebar .mag-row.active.no-img .row-photo{
+  display:none;
+}
+body.sidebar-fullscreen .sidebar .mag-row.active .row-text{
+  padding:0;width:100%;
+}
+body.sidebar-fullscreen .sidebar .mag-row.active .row-headline{
+  font-family:'Bodoni Moda',Didot,Georgia,serif;
+  font-size:17px;line-height:1.18;font-weight:700;
+  letter-spacing:-.2px;
+  -webkit-line-clamp:3;
+  margin:0 0 7px;color:#1a1a1a;
+}
+body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-row.active .row-headline{
+  font-style:italic;color:var(--ct);
+}
+body.sidebar-fullscreen .sidebar .mag-row.active .row-body{
+  display:-webkit-box;
+  -webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
   font-family:'Playfair Display',Georgia,serif;
-  font-size:12.5px;line-height:1.55;color:#2e2e2e;
+  font-size:13px;line-height:1.55;color:#2e2e2e;
   margin:0;overflow-wrap:break-word;
 }
-body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-featured-body{
+body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-row.active .row-body{
   font-style:italic;
+}
+/* No-image active row → big editorial pull-quote treatment for the headline */
+body.sidebar-fullscreen .sidebar .mag-row.active.no-img .row-headline{
+  font-size:22px;line-height:1.1;
+  color:color-mix(in srgb, var(--ct) 78%, #1a1a1a);
+  border-left:5px solid var(--ct);
+  padding-left:12px;margin-left:-4px;margin-bottom:10px;
+}
+body.sidebar-fullscreen .sidebar .mag-row.active.no-img .row-body{
+  -webkit-line-clamp:6;
 }
 
 /* No-image treatment for stage thumb tiles — instead of a gradient
@@ -1884,8 +1949,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         <button class="mag-drill"></button>
       </footer>`;
     if(kind==='satellite'){
-      // Mini-feed of tiles + featured description panel for the active slide.
-      return `${head}<div class="mag-mini-feed"></div><div class="mag-featured-desc"></div>${foot}`;
+      // Mini-feed is a vertical list of .mag-row entries. CSS toggles the
+      // active row into an expanded card (photo + headline + body) and pins
+      // it to the top via `order:1`; the rest stay collapsed (thumb + headline).
+      return `${head}<div class="mag-mini-feed"></div>${foot}`;
     }
     // stage — hero image OR thumb navigator (when no image), then headline + body.
     return `${head}
@@ -1988,25 +2055,37 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
     } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Hero image (race-guarded swap)
+    // Hero image (race-guarded swap). On load we also flip the stage into
+    // a side-by-side 2-col layout for portrait images (naturalHeight > naturalWidth)
+    // so the wide stage doesn't leave the right half empty.
     const heroImg = slide.img || (slide.source && slide.source.img) || null;
     el.classList.toggle('no-hero-img', !heroImg);
     const img=el.querySelector('.mag-hero-img');
+    const applyOrientation=()=>{
+      const isPortrait = img.naturalWidth>0 && img.naturalHeight > img.naturalWidth*1.05;
+      el.classList.toggle('vertical-hero', isPortrait);
+    };
     if(heroImg){
       if(img.dataset.url!==heroImg){
         img.classList.remove('loaded');
+        el.classList.remove('vertical-hero');  // clear stale orientation
         img.dataset.url=heroImg;
         const target=heroImg;
-        img.onload=()=>{ if(img.dataset.url===target) img.classList.add('loaded') };
+        img.onload=()=>{ if(img.dataset.url!==target) return;
+          img.classList.add('loaded'); applyOrientation();
+        };
         img.onerror=()=>{ if(img.dataset.url!==target) return;
-          el.classList.add('no-hero-img'); img.removeAttribute('src'); img.dataset.url='';
+          el.classList.add('no-hero-img'); el.classList.remove('vertical-hero');
+          img.removeAttribute('src'); img.dataset.url='';
         };
         img.src=heroImg;
       } else if(img.complete && img.naturalWidth>0){
         img.classList.add('loaded');
+        applyOrientation();
       }
     } else {
       img.removeAttribute('src'); img.dataset.url=''; img.classList.remove('loaded');
+      el.classList.remove('vertical-hero');
     }
 
     // When no image, fill the hero slot with a thumbnail navigator of the
@@ -2033,6 +2112,50 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     paintFoot(el, group, batch, idx, 'stage');
   }
 
+  // Satellite uses .mag-row instead of .mag-tile. Each row has the same DOM
+  // (photo + text). CSS shows/hides body and resizes photo based on .active,
+  // and uses `order` to pin the active row to the top of the column.
+  function ensureRows(container, count){
+    if(container.children.length === count) return;
+    container.innerHTML = Array.from({length:count}).map((_,i)=>`
+      <button class="mag-row" data-slide-idx="${i}">
+        <div class="row-photo"><img class="row-img" alt="" decoding="async"></div>
+        <div class="row-text">
+          <h3 class="row-headline"></h3>
+          <p class="row-body"></p>
+        </div>
+      </button>
+    `).join('');
+  }
+  function paintRow(row, post, isActive){
+    const url = post.img || (post.source && post.source.img) || null;
+    row.classList.toggle('active', isActive);
+    const photo = row.querySelector('.row-img');
+    if(url){
+      row.classList.remove('no-img');
+      if(photo.dataset.url !== url){
+        photo.classList.remove('loaded');
+        photo.dataset.url = url;
+        const target = url;
+        photo.onload = ()=>{ if(photo.dataset.url===target) photo.classList.add('loaded') };
+        photo.onerror = ()=>{ if(photo.dataset.url!==target) return;
+          row.classList.add('no-img'); photo.removeAttribute('src'); photo.dataset.url='';
+        };
+        photo.src = url;
+      } else if(photo.complete && photo.naturalWidth>0){
+        photo.classList.add('loaded');
+      }
+    } else {
+      row.classList.add('no-img');
+      photo.removeAttribute('src'); photo.dataset.url='';
+      photo.classList.remove('loaded');
+    }
+    const lines = (post.text||'').split('\n');
+    row.querySelector('.row-headline').innerHTML = safeTxt(lines[0]||'');
+    const body = lines.slice(1).join(' ').replace(/\s+/g,' ').trim();
+    row.querySelector('.row-body').innerHTML = body ? safeTxt(body) : '';
+  }
+
   function paintSatellite(el, group, batch){
     const idx = magClampSlideIdx(group);
     const slide = batch[idx];
@@ -2042,22 +2165,14 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const tabsEl=el.querySelector('.mag-noticias-tabs');
     if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Mini-feed: 3-col grid of horizontal tiles (up to 6 total, 3+3 max).
-    // Active tile glows in section color; its body shows in featured-desc.
+    // Mini-feed: up to 6 rows. The active row is rendered as expanded card
+    // (photo + headline + body), pinned to the top via CSS `order`. Others
+    // stay below as collapsed list rows (thumb + headline only).
     const count = Math.min(batch.length, 6);
     const feedEl = el.querySelector('.mag-mini-feed');
     if(feedEl){
-      ensureTiles(feedEl, count);
-      [...feedEl.children].forEach((tile,i) => paintTile(tile, batch[i], i===idx));
-    }
-
-    // Featured description panel (active slide's body only)
-    const descEl = el.querySelector('.mag-featured-desc');
-    if(descEl){
-      const lines=(slide.text||'').split('\n');
-      const body = lines.slice(1).join(' ').replace(/\s+/g,' ').trim();
-      descEl.innerHTML = body ? `<p class="mag-featured-body">${safeTxt(body)}</p>` : '';
-      descEl.style.display = body ? '' : 'none';
+      ensureRows(feedEl, count);
+      [...feedEl.children].forEach((row,i) => paintRow(row, batch[i], i===idx));
     }
 
     paintFoot(el, group, batch, idx, 'satellite');
@@ -2293,16 +2408,17 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     updateCell(g);
     bumpCellTimer(g);
   });
-  // Click a mini-feed tile (or stage no-image thumb) → highlight that slide.
-  // Does NOT spotlight-swap the section (use the header / non-tile area for that).
+  // Click a mini-feed row (satellite) OR a stage no-image thumb tile →
+  // highlight that slide. Does NOT spotlight-swap the section (the header /
+  // non-row area is what swaps section into the stage).
   document.addEventListener('click',e=>{
-    const tile=e.target.closest('.mag-tile');
-    if(!tile) return;
+    const target=e.target.closest('.mag-tile, .mag-row');
+    if(!target) return;
     e.stopPropagation();
-    const cell=tile.closest('[data-group]');
+    const cell=target.closest('[data-group]');
     if(!cell) return;
     const g=cell.dataset.group;
-    magState.slideIdx[g]=parseInt(tile.dataset.slideIdx)||0;
+    magState.slideIdx[g]=parseInt(target.dataset.slideIdx)||0;
     updateCell(g);
     bumpCellTimer(g);
   });
