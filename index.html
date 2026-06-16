@@ -517,30 +517,23 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{
    poster character reads consistently. Satellite cells still use Bodoni
    (lighter weight) so they don't compete visually with the stage. */
 body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{
-  /* --headline-color is set by paintStage's brightness sampler when the
-     headline is overlaid on the photo: cream on dark photos, guinda on
-     bright. Defaults to guinda (var(--ct)) when no override (text-column
-     position, portrait images, CORS-blocked images). */
-  color:var(--headline-color, var(--ct));
+  color:var(--ct);  /* always guinda — section identity */
 }
-/* Mañanera (dailyt) only — headline moves into the hero-wrap as an overlay
-   at the bottom-edge of the image. No scrim/background — photo stays clean.
-   Legibility comes from layered text-shadows: a soft 16px dark halo darkens
-   the photo around the letterforms, a 4px drop shadow adds depth, a 1px
-   black outline sharpens edges, and the colored 2px offset shadow keeps
-   the Soviet poster character. Works on bright AND dark backgrounds. */
+/* Mañanera (dailyt) only — headline moves into the hero-wrap as a solid
+   cream label-strip at the bottom edge of the image. Editorial magazine-
+   masthead look: cream paper #fdfcf3 + guinda Alfa Slab One + a 2px
+   border-top in section color for an accent line. The colored 2px Soviet
+   offset shadow is kept for poster character; the dark halo is gone since
+   the cream bg makes it redundant. Always legible on any photo. */
 body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap .mag-headline{
   position:absolute;
   bottom:0;left:0;right:0;
   z-index:3;
   margin:0;
-  padding:clamp(14px, 2vh, 26px) clamp(16px, 2vw, 28px) clamp(12px, 1.6vh, 20px);
-  background:transparent;
-  text-shadow:
-    0 0 18px rgba(0,0,0,0.60),
-    0 2px 4px rgba(0,0,0,0.70),
-    0 0 1px rgba(0,0,0,0.95),
-    2px 2px 0 color-mix(in srgb, var(--ct) 32%, transparent);
+  padding:clamp(12px, 1.7vh, 22px) clamp(16px, 2vw, 28px) clamp(10px, 1.4vh, 18px);
+  background:#fdfcf3;
+  border-top:2px solid var(--ct);
+  text-shadow:2px 2px 0 color-mix(in srgb, var(--ct) 28%, transparent);
   display:-webkit-box;
   -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
@@ -2173,37 +2166,6 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }
   }
 
-  // Sample the bottom ~30% of a loaded image and return relative luminance
-  // (0=dark .. 1=bright) for the area where a headline overlay sits. Cached
-  // per src so we only pay for the canvas read once per image. Returns null
-  // when the canvas is CORS-tainted (image served without an Access-Control-
-  // Allow-Origin header), in which case the caller falls back to a default.
-  const luminanceCache=new Map();
-  function sampleHeroLuminance(img){
-    const url = img.dataset.url || img.src || '';
-    if(luminanceCache.has(url)) return luminanceCache.get(url);
-    let lum = null;
-    try{
-      const c=document.createElement('canvas');
-      const sH=Math.max(20, Math.floor(img.naturalHeight*0.30));
-      const sW=Math.min(220, img.naturalWidth);
-      c.width=sW; c.height=sH;
-      const cx=c.getContext('2d');
-      cx.drawImage(img,
-        0, img.naturalHeight-sH, img.naturalWidth, sH,
-        0, 0, sW, sH);
-      const px=cx.getImageData(0,0,sW,sH).data;
-      let sum=0; const n=px.length/4;
-      for(let i=0;i<px.length;i+=4){
-        const r=px[i]/255, g=px[i+1]/255, b=px[i+2]/255;
-        sum += 0.2126*r + 0.7152*g + 0.0722*b;
-      }
-      lum = sum/n;
-    } catch(_){ lum = null; }
-    luminanceCache.set(url, lum);
-    return lum;
-  }
-
   function paintStage(el, group, batch){
     const idx = magClampSlideIdx(group);
     const slide = batch[idx];
@@ -2250,32 +2212,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             el.style.removeProperty('--headline-color');  // not overlay anymore
           } else {
             if(!wrap.contains(hl)) wrap.appendChild(hl);
-            // Pick the headline color from our palette using two server-side
-            // signals stored in sends.ndjson (computed by update-tg-feed.py
-            // because CDN images are CORS-blocked from canvas reads):
-            //   img_lum  — sRGB luminance 0..1 of the bottom strip (perceived
-            //              brightness). Dark photos need cream so the red
-            //              doesn't drown.
-            //   img_dist — Euclidean RGB distance of the mean color from
-            //              guinda #9F2241. Photos with reddish tones (close
-            //              distance) need cream so the headline doesn't blend.
-            // Switch to cream when EITHER condition triggers. Otherwise guinda.
-            const slideForLum = batch[idx];
-            const srcLum = (slideForLum.source && typeof slideForLum.source.img_lum === 'number')
-                ? slideForLum.source.img_lum : null;
-            const srcDist = (slideForLum.source && typeof slideForLum.source.img_dist === 'number')
-                ? slideForLum.source.img_dist : null;
-            const lum = (typeof slideForLum.img_lum === 'number') ? slideForLum.img_lum : srcLum;
-            const dist = (typeof slideForLum.img_dist === 'number') ? slideForLum.img_dist : srcDist;
-            const isDark = lum !== null && lum < 0.45;
-            const isRedClash = dist !== null && dist < 100;  // close to guinda
-            // (95% of dailyt photos have dist 54-250; threshold 100 catches the
-            //  bright-but-reddish ones that the luminance check misses)
-            el.style.setProperty('--headline-color',
-              (isDark || isRedClash) ? '#fdfcf3' : 'var(--ct)');
-            // Expose decision signals on the DOM for easy DevTools inspection
-            el.dataset.heroLum = (lum===null) ? '(none)' : String(lum);
-            el.dataset.heroDist = (dist===null) ? '(none)' : String(dist);
+            // No color-picking logic anymore: the headline now sits on a
+            // solid cream label-strip (CSS), so guinda always reads sharp.
+            // img_lum / img_dist fields in sends.ndjson are kept (might be
+            // useful for future treatments) but the JS doesn't consume them.
           }
         }
       }
