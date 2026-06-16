@@ -517,6 +517,31 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{
 body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{
   color:var(--ct);  /* guinda for Mañanera — section identity */
 }
+/* Mañanera (dailyt) only — headline moves into the hero-wrap as an overlay
+   at the bottom-edge of the image (magazine-cover style). A cream scrim
+   fades from solid at the bottom to transparent above so the image stays
+   visible while the guinda red Alfa Slab One reads sharp on any image.
+   Strong text-shadow for extra legibility against bright/red photos. */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap .mag-headline{
+  position:absolute;
+  bottom:0;left:0;right:0;
+  z-index:3;
+  margin:0;
+  padding:clamp(40px, 6vh, 80px) clamp(20px, 2.2vw, 32px) clamp(14px, 2vh, 24px);
+  background:linear-gradient(to top,
+    rgba(253,252,243,0.96) 0%,
+    rgba(253,252,243,0.86) 35%,
+    rgba(253,252,243,0.45) 70%,
+    transparent 100%);
+  text-shadow:
+    2px 2px 0 color-mix(in srgb, var(--ct) 28%, transparent),
+    0 1px 6px rgba(0,0,0,0.10);
+  /* Cap to 3 lines so very long headlines don't blow up the layout */
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
 body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-headline{
   font-style:italic;color:var(--ct);
 }
@@ -2224,6 +2249,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     // columns. Other sections keep the flowing single body.
     const lines=(slide.text||'').split('\n');
     el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
+
+    // For Mañanera (dailyt) only, move the headline DOM into the hero-wrap so
+    // it sits as an overlay at the bottom-edge of the image (magazine-cover
+    // style). The CSS scrim + Alfa Slab One red keep it legible over any
+    // image. For other sections, put it back in its normal slot above body.
+    const _headline = el.querySelector('.mag-headline');
+    const _heroWrap = el.querySelector('.mag-hero-wrap');
+    const _textCol = el.querySelector('.mag-text');
+    if(_headline && _heroWrap && _textCol){
+      if(group==='dailyt'){
+        if(!_heroWrap.contains(_headline)) _heroWrap.appendChild(_headline);
+      } else {
+        if(!_textCol.contains(_headline)) _textCol.insertBefore(_headline, _textCol.firstChild);
+      }
+    }
     const bodyRaw = lines.slice(1).join('\n').trim();
     const bEl=el.querySelector('.mag-body-text');
     let sections = bodyRaw.split(/\n\s*\n+/).map(s=>s.trim()).filter(Boolean);
