@@ -318,6 +318,27 @@ body.sidebar-fullscreen .sidebar .mag-headline{
   font-family:'Bodoni Moda',Didot,Georgia,serif;
   font-weight:800;color:#1a1a1a;
   letter-spacing:-.4px;margin:0 0 14px;
+  overflow-wrap:break-word;word-break:break-word;
+}
+/* Inline tags inside headlines/body: the data has <u> used as a magazine
+   emphasis (not a hyperlink) — neutralize the underline visually and lean
+   into italic instead, which reads as editorial pull. Real <a> stays
+   underlined but in the section color tone. */
+body.sidebar-fullscreen .sidebar .mag-headline u,
+body.sidebar-fullscreen .sidebar .mag-body-text u{
+  text-decoration:none;font-style:italic;
+}
+body.sidebar-fullscreen .sidebar .mag-headline a,
+body.sidebar-fullscreen .sidebar .mag-body-text a{
+  color:inherit;
+  text-decoration:underline;
+  text-decoration-thickness:1px;
+  text-underline-offset:3px;
+  text-decoration-color:color-mix(in srgb, var(--ct) 50%, transparent);
+}
+body.sidebar-fullscreen .sidebar .mag-headline a:hover,
+body.sidebar-fullscreen .sidebar .mag-body-text a:hover{
+  text-decoration-color:var(--ct);
 }
 body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{
   font-size:36px;line-height:1.08;
@@ -368,7 +389,10 @@ body.sidebar-fullscreen .sidebar .mag-cell-foot{
   margin-top:auto;padding-top:18px;
   display:flex;align-items:center;gap:14px;
 }
-body.sidebar-fullscreen .sidebar .mag-dots{display:flex;gap:6px;align-items:center}
+body.sidebar-fullscreen .sidebar .mag-dots{
+  display:flex;gap:6px;align-items:center;
+  flex-wrap:wrap;max-width:62%;  /* leave room for counter + drill button */
+}
 body.sidebar-fullscreen .sidebar .mag-dot{
   width:6px;height:6px;border-radius:50%;
   background:color-mix(in srgb, var(--ct) 28%, #d4cdb8);
@@ -1693,8 +1717,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
     } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Hero image: persistent <img> element, only swap src. onerror flips to
-    // text-only treatment (no broken-image icon, no blank space lingering).
+    // Hero image: persistent <img> element, only swap src. Race-guard via
+    // dataset.url so a stale onload from an earlier slide can't mark the
+    // current one loaded by mistake. onerror flips to text-only treatment.
     const heroImg = slide.img || (slide.source && slide.source.img) || null;
     el.classList.toggle('no-hero-img', !heroImg);
     const img=el.querySelector('.mag-hero-img');
@@ -1702,24 +1727,36 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       if(img.dataset.url!==heroImg){
         img.classList.remove('loaded');
         img.dataset.url=heroImg;
-        img.onload=()=>img.classList.add('loaded');
-        img.onerror=()=>{ el.classList.add('no-hero-img'); img.removeAttribute('src'); img.dataset.url='' };
+        const target=heroImg;
+        img.onload=()=>{ if(img.dataset.url===target) img.classList.add('loaded') };
+        img.onerror=()=>{ if(img.dataset.url!==target) return;
+          el.classList.add('no-hero-img'); img.removeAttribute('src'); img.dataset.url='';
+        };
         img.src=heroImg;
-      } else if(img.complete){
+      } else if(img.complete && img.naturalWidth>0){
         img.classList.add('loaded');  // already cached
       }
     } else {
       img.removeAttribute('src'); img.dataset.url=''; img.classList.remove('loaded');
     }
 
-    // Headline + body
+    // Headline + body. Use safeTxt (which preserves <a><b><i><u>) for the
+    // headline so the data's emphasis tags render as real HTML instead of
+    // showing literal "<u>..." text. For the body, only use safeTxt when
+    // it fits without truncation — otherwise strip tags + plain ellipsis to
+    // avoid chopping mid-tag.
     const lines=(slide.text||'').split('\n');
-    el.querySelector('.mag-headline').textContent=lines[0]||'';
+    el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
+    const wholeBody = lines.slice(1).join(' ').replace(/\s+/g,' ').trim();
     const bodyMax = kind==='stage' ? 340 : 130;
-    const body=lines.slice(1).join(' ').replace(/\s+/g,' ').trim().slice(0, bodyMax);
+    const plain = wholeBody.replace(/<[^>]+>/g,'');
     const bEl=el.querySelector('.mag-body-text');
-    bEl.textContent=body;
-    bEl.style.display=body?'':'none';
+    if(plain.length > bodyMax){
+      bEl.textContent = plain.slice(0, bodyMax).trim() + '…';
+    } else {
+      bEl.innerHTML = safeTxt(wholeBody);
+    }
+    bEl.style.display = wholeBody ? '' : 'none';
 
     // Dots — rebuild only when batch length changes; otherwise just toggle .active
     const dotsEl=el.querySelector('.mag-dots');
@@ -1759,6 +1796,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(!magState.featured || !sections.find(s=>s.group===magState.featured)){
       magState.featured=sections[0].group;
     }
+    // For the initial entry, jump each cell to the first slide that actually
+    // has an image (Mañanera's first post is often a bare telegraph link with
+    // no image — looks weak as a cover). Only auto-advance if the user hasn't
+    // already touched this group's slideIdx (i.e. it's still 0).
+    ['dailyt','scant','onmexico'].forEach(g=>{
+      if(magState.slideIdx[g]!==0) return;
+      const b=magBatchFor(g);
+      const withImg=b.findIndex(x => x.img || (x.source && x.source.img));
+      if(withImg>0) magState.slideIdx[g]=withImg;
+    });
     const stageGroup=magState.featured;
     const satGroups=sections.map(s=>s.group).filter(g=>g!==stageGroup);
     const sm=meta(stageGroup);
