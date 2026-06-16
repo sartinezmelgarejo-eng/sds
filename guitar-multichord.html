@@ -5590,6 +5590,11 @@ const CHORD_MAP = {
       'n_I':    {chord:'I',    x:400, y:560, hub:true},
     },
     arrows: [
+      // `type` classifies harmonic gravity for visual opacity tier:
+      //   'resolve' = strong cadential pull (rendered full opacity)
+      //   undefined = lateral / functional motion (rendered ~70%)
+      //   'decor'   = deceptive or ornamental (rendered ~50%)
+      // Hub (I/i) arrows are suppressed entirely by the renderer.
       // Predominant descending-5ths chain (straight down left column)
       {from:'n_iii', to:'n_vi'},
       {from:'n_vi',  to:'n_ii'},
@@ -5597,33 +5602,33 @@ const CHORD_MAP = {
       {from:'n_ii',  to:'n_V'},
       {from:'n_IV',  to:'n_V'},
       // IV's alternate roles
-      {from:'n_IV',  to:'n_ii', curve:-1},
-      {from:'n_IV',  to:'n_I'},
+      {from:'n_IV',  to:'n_ii', curve:-1, type:'decor'},
+      {from:'n_IV',  to:'n_I',  type:'resolve'},
       // V → I (the move)
-      {from:'n_V',   to:'n_I'},
+      {from:'n_V',   to:'n_I',  type:'resolve'},
       // Deceptive V → vi (arches up-left around the predom column)
-      {from:'n_V',   to:'n_vi', curve:-1},
+      {from:'n_V',   to:'n_vi', curve:-1, type:'decor'},
       // iii's options
       {from:'n_iii', to:'n_IV'},                // stepwise neighbor
       {from:'n_iii', to:'n_V',  curve:1},       // long diagonal to dom
       // Borrowed iv path
-      {from:'n_iv',  to:'n_I'},
+      {from:'n_iv',  to:'n_I',   type:'resolve'},
       {from:'n_iv',  to:'n_bVII'},
-      {from:'n_bVII',to:'n_I'},
+      {from:'n_bVII',to:'n_I',   type:'resolve'},
       // Tritone sub
-      {from:'n_bII7',to:'n_I'},
+      {from:'n_bII7',to:'n_I',   type:'resolve'},
       // Secondaries to their targets
-      {from:'n_V_V', to:'n_V'},
-      {from:'n_V_ii',to:'n_ii'},
+      {from:'n_V_V', to:'n_V',   type:'resolve'},
+      {from:'n_V_ii',to:'n_ii',  type:'resolve'},
       // Secondary ii → its secondary V: vi acts as the "2" of V/V, so the
       // ii–V-of-V (Am7→D7) reads as a link between two permanent nodes.
       {from:'n_vi',  to:'n_V_V'},
       // vii° — diatonic leading-tone, resolves to I; IV → vii° is the classic Bach approach
-      {from:'n_vii', to:'n_I'},
+      {from:'n_vii', to:'n_I',   type:'resolve'},
       {from:'n_IV',  to:'n_vii'},
       // V7sus — typically resolves to V or directly to I
-      {from:'n_V7sus', to:'n_V'},
-      {from:'n_V7sus', to:'n_I'},
+      {from:'n_V7sus', to:'n_V', type:'resolve'},
+      {from:'n_V7sus', to:'n_I', type:'resolve'},
       // I (hub) → outgoing diatonic options
       {from:'n_I',   to:'n_ii'},
       {from:'n_I',   to:'n_iii'},
@@ -5699,24 +5704,24 @@ const CHORD_MAP = {
       {from:'n_bIII', to:'n_bVI'},
       {from:'n_bVI',  to:'n_iiø'},
       {from:'n_iiø',  to:'n_V7'},
-      {from:'n_V7',   to:'n_i'},
+      {from:'n_V7',   to:'n_i',  type:'resolve'},
       {from:'n_iv',   to:'n_V7'},
-      {from:'n_iv',   to:'n_i'},
-      {from:'n_iv',   to:'n_iiø'},
-      {from:'n_V7',   to:'n_bVI'},
-      {from:'n_bVII', to:'n_i'},
+      {from:'n_iv',   to:'n_i',  type:'resolve'},
+      {from:'n_iv',   to:'n_iiø', type:'decor'},
+      {from:'n_V7',   to:'n_bVI', type:'decor'}, // deceptive
+      {from:'n_bVII', to:'n_i',   type:'resolve'},
       {from:'n_bVI',  to:'n_bVII'},
       // Extensions resolving inward
-      {from:'n_bII7',  to:'n_i'},                  // tritone sub → tonic
-      {from:'n_V_iv',  to:'n_iv'},                 // secondary → iv
-      {from:'n_V_V',   to:'n_V7'},                 // secondary → V7
-      {from:'n_V7',    to:'n_I_pic', curve:-1},    // Picardy resolution
-      {from:'n_bIII7', to:'n_bVI'},                // sub-dom → bVI
-      {from:'n_vii7',  to:'n_i'},                  // leading-tone dim → i
-      {from:'n_IV',    to:'n_V7'},                 // parallel-major IV → V7 (cadence)
-      {from:'n_V7sus', to:'n_V7'},                 // sus dom → dom
-      {from:'n_V7sus', to:'n_i'},                  // sus dom → i (direct)
-      {from:'n_IV',    to:'n_i'},                  // or → i directly (plagal)
+      {from:'n_bII7',  to:'n_i',     type:'resolve'},     // tritone sub → tonic
+      {from:'n_V_iv',  to:'n_iv',    type:'resolve'},     // secondary → iv
+      {from:'n_V_V',   to:'n_V7',    type:'resolve'},     // secondary → V7
+      {from:'n_V7',    to:'n_I_pic', curve:-1, type:'resolve'},  // Picardy resolution (still cadential pull, just to parallel-major tonic)
+      {from:'n_bIII7', to:'n_bVI',   type:'resolve'},     // sub-dom → bVI
+      {from:'n_vii7',  to:'n_i',     type:'resolve'},     // leading-tone dim → i
+      {from:'n_IV',    to:'n_V7'},                        // parallel-major IV → V7 (cadence)
+      {from:'n_V7sus', to:'n_V7',    type:'resolve'},     // sus dom → dom
+      {from:'n_V7sus', to:'n_i',     type:'resolve'},     // sus dom → i (direct)
+      {from:'n_IV',    to:'n_i',     type:'resolve'},     // or → i directly (plagal)
       // i (tonic hub) → can go anywhere — show outgoing options (incl. parallels/borrowed)
       {from:'n_i',    to:'n_iiø'},
       {from:'n_i',    to:'n_iv'},
@@ -5731,7 +5736,7 @@ const CHORD_MAP = {
       {from:'n_bVII', to:'n_bVI'},
       // bVI como predom Phrygian al dominante; también plagal directa a i.
       {from:'n_bVI',  to:'n_V7'},
-      {from:'n_bVI',  to:'n_i'},
+      {from:'n_bVI',  to:'n_i',  type:'resolve'},
       // iv → V_V: el mismo cliché jazz que en major (IV → V/V), espejo
       // funcional en menor (iv → D7 en C-minor, p.ej.).
       {from:'n_iv',   to:'n_V_V'},
@@ -9442,16 +9447,17 @@ function renderChordMap() {
     const focusedNode = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
     if (focusedNode?.hub) return '';
 
-    // Voice-leading cost → opacity (smoother connections are bolder)
-    const va = voicings[aChord];
-    const vb = voicings[bChord];
-    let opacity = 0.85;
-    if (va?.shape && vb?.shape) {
-      const cost = totalVoiceMovement(va.shape, vb.shape);
-      if (cost <= 3) opacity = 1.0;
-      else if (cost <= 7) opacity = 0.8;
-      else opacity = 0.55;
-    }
+    // Movement type → opacity tier (Push 2 coherence pass):
+    //   'resolve' (cadential pull, V→I-style) = 1.0
+    //   undefined (lateral / functional motion) = 0.7
+    //   'decor'  (deceptive, counter, ornamental)  = 0.45
+    // Replaces the previous voice-leading-cost heuristic: now the line
+    // strength reflects HARMONIC GRAVITY, not how smooth the picker's
+    // voicings happen to be. Same arrow color/weight throughout; only
+    // opacity carries the tier so the eye reads "where the pull is" at a
+    // glance instead of having to compare three distinct line styles.
+    const type = arr.type;
+    const opacity = type === 'resolve' ? 1.0 : (type === 'decor' ? 0.45 : 0.7);
 
     // Hand-rolled arrowhead — compute the exact tangent at the path end so
     // direction is guaranteed correct on every browser (mobile Safari has
