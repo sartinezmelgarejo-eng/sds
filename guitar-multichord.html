@@ -18388,11 +18388,25 @@ function startBeatCounterLoop() {
     btn.textContent = '⌨ Keys';
     requestAnimationFrame(fitMap);
   }
-  window.addEventListener('resize', fitMap);
+  // Throttle the viewport-driven fits. On iOS, the soft keyboard
+  // appearing / hiding and the address bar auto-hide spew many resize
+  // and scroll events in a row, each one triggering a CSS-variable
+  // recalculation + reflow. fitMap itself is light, but at 60+ fires/sec
+  // it visibly stutters on mid-tier phones. rAF-coalescing keeps it to
+  // one execution per frame max, which is what we wanted all along.
+  let _fitMapRafId = null;
+  const _fitMapThrottled = () => {
+    if (_fitMapRafId) return;
+    _fitMapRafId = requestAnimationFrame(() => {
+      _fitMapRafId = null;
+      fitMap();
+    });
+  };
+  window.addEventListener('resize', _fitMapThrottled);
   window.addEventListener('orientationchange', () => setTimeout(fitMap, 200));
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', fitMap);
-    window.visualViewport.addEventListener('scroll', fitMap);
+    window.visualViewport.addEventListener('resize', _fitMapThrottled);
+    window.visualViewport.addEventListener('scroll', _fitMapThrottled);
   }
   btn.addEventListener('click', () => {
     document.body.classList.contains('map-overlay-open') ? close() : open();
@@ -18418,7 +18432,25 @@ const DEGREE_SHORTCUTS = {
    Each entry: {shape, type, ...meta}. meta carries stringSetIdx/inversion
    (drop-2/sus) or stringSet (shells/triads/guides) so the green info bar
    can describe what's currently selected. */
+// Memoization cache for the master voicing builder. The result for any
+// (quality, rootPc, allShapes-flag, instrument) is purely deterministic —
+// no state from outside those inputs changes the output. Between chord
+// triggers nothing here moves, but renderChordMap calls this ONCE PER
+// CHORD on the map (12-20 chords) every frame, and after Phase A/B the
+// candidate pool roughly doubled. Memoizing converts that cost from
+// "rebuild all candidates × every chord × every trigger" to a Map.get on
+// cache hit (the steady state during play). Invalidates on instrument
+// flip because the guitar playability filter doesn't run on piano.
+const _allDistinctCache = new Map();
+let _allDistinctCacheInstrument = null;
 function allDistinctVoicings(quality, rootPc, opts = {}) {
+  if (_allDistinctCacheInstrument !== state.instrument) {
+    _allDistinctCache.clear();
+    _allDistinctCacheInstrument = state.instrument;
+  }
+  const cacheKey = `${quality}|${rootPc}|${opts.allShapes ? 'a' : 'n'}`;
+  const cached = _allDistinctCache.get(cacheKey);
+  if (cached) return cached;
   const out = [];
   const seen = new Set();
   const keyOf = (sh) => sh.map((f, s) => f >= 0 ? `${s}.${f}` : '').filter(Boolean).sort().join(',');
@@ -18611,6 +18643,7 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   if (openSh) strums.push({ shape: openSh, stringSet: 'OPEN', variant: 'open' });
   strums.sort(byReg).forEach(s => add(s.shape, 'strum', { stringSet: s.stringSet, variant: s.variant }));
 
+  _allDistinctCache.set(cacheKey, out);
   return out;
 }
 
