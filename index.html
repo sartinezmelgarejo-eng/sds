@@ -357,7 +357,7 @@ body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-body-grid{
   gap:24px;
 }
 body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-hero-wrap{
-  height:auto;max-height:none;
+  height:auto;max-height:65vh;
   align-self:stretch;
 }
 body.sidebar-fullscreen .sidebar .mag-text{
@@ -370,14 +370,19 @@ body.sidebar-fullscreen .sidebar .mag-text{
    section-tinted gradient shows through while images load, reading as a
    calm placeholder rather than a broken canvas. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
-  width:100%;height:28vh;max-height:320px;margin:0;
+  width:100%;height:auto;margin:0;
+  aspect-ratio: var(--hero-aspect, 16/9);
+  max-height:52vh;
   overflow:hidden;position:relative;
   background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
-/* Hero img shows at its native aspect (no crop). Wrapper gradient fills the
-   letterbox bands. For vertical (portrait) heroes, paintStage flips the
-   stage into a 2-col grid via .vertical-hero so the photo gets a tall left
-   column and the text fills the right column. */
+/* Hero img shows at its native aspect (no crop). The wrapper picks up the
+   image's natural aspect ratio via the --hero-aspect CSS variable (set by
+   paintStage on image load), so there are NO letterbox bands — the wrapper
+   takes the shape of the image, then max-height caps the vertical so it
+   doesn't dominate the cell. For portraits, .vertical-hero flips the stage
+   into a 2-col grid; the wrapper's aspect-ratio still drives shape inside
+   the left column. */
 body.sidebar-fullscreen .sidebar .mag-hero-img{
   width:100%;height:100%;object-fit:contain;
   display:block;opacity:0;transition:opacity .35s ease;
@@ -537,18 +542,18 @@ body.sidebar-fullscreen .sidebar .mag-row{
   border-radius:3px;padding:0;
   cursor:pointer;text-align:left;
   font-family:inherit;min-width:0;flex:0 0 auto;
+  min-height:54px;
   overflow:hidden;
   transition:background .2s, border-color .2s;
-  order:2;
 }
 body.sidebar-fullscreen .sidebar .mag-row:hover{background:rgba(255,255,255,.7)}
 body.sidebar-fullscreen .sidebar .mag-row.active{
-  order:1;
   border-color:color-mix(in srgb, var(--ct) 50%, transparent);
   background:rgba(255,255,255,.85);
   box-shadow:0 0 0 2px color-mix(in srgb, var(--ct) 28%, transparent);
   padding:10px;flex-direction:column;gap:0;
-  margin-bottom:4px;
+  margin-bottom:6px;
+  min-height:160px;
 }
 /* COLLAPSED row (default) — thumb left + headline right */
 body.sidebar-fullscreen .sidebar .mag-row .row-photo{
@@ -2062,8 +2067,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     el.classList.toggle('no-hero-img', !heroImg);
     const img=el.querySelector('.mag-hero-img');
     const applyOrientation=()=>{
-      const isPortrait = img.naturalWidth>0 && img.naturalHeight > img.naturalWidth*1.05;
+      if(!(img.naturalWidth>0)) return;
+      const isPortrait = img.naturalHeight > img.naturalWidth*1.05;
       el.classList.toggle('vertical-hero', isPortrait);
+      // Drive the hero-wrap aspect-ratio off the image's natural shape so
+      // the wrapper matches the image (no letterbox bands), then max-height
+      // CSS caps the vertical so it doesn't dominate the cell.
+      el.style.setProperty('--hero-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
     };
     if(heroImg){
       if(img.dataset.url!==heroImg){
@@ -2076,6 +2086,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         };
         img.onerror=()=>{ if(img.dataset.url!==target) return;
           el.classList.add('no-hero-img'); el.classList.remove('vertical-hero');
+          el.style.removeProperty('--hero-aspect');
           img.removeAttribute('src'); img.dataset.url='';
         };
         img.src=heroImg;
@@ -2086,6 +2097,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     } else {
       img.removeAttribute('src'); img.dataset.url=''; img.classList.remove('loaded');
       el.classList.remove('vertical-hero');
+      el.style.removeProperty('--hero-aspect');
     }
 
     // When no image, fill the hero slot with a thumbnail navigator of the
@@ -2166,13 +2178,20 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
     // Mini-feed: up to 6 rows. The active row is rendered as expanded card
-    // (photo + headline + body), pinned to the top via CSS `order`. Others
-    // stay below as collapsed list rows (thumb + headline only).
+    // (photo + headline + body), pinned to the top via DOM reorder (insertBefore
+    // — keeps the <img> alive, just moves the row). Others stay below as
+    // collapsed list rows (thumb + headline only).
     const count = Math.min(batch.length, 6);
     const feedEl = el.querySelector('.mag-mini-feed');
     if(feedEl){
       ensureRows(feedEl, count);
       [...feedEl.children].forEach((row,i) => paintRow(row, batch[i], i===idx));
+      // Pin the active row at the top. insertBefore on an existing child is
+      // a move (no DOM destruction), so the persistent <img> survives.
+      const activeRow = feedEl.children[idx];
+      if(activeRow && activeRow !== feedEl.firstChild){
+        feedEl.insertBefore(activeRow, feedEl.firstChild);
+      }
     }
 
     paintFoot(el, group, batch, idx, 'satellite');
