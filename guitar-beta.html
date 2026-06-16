@@ -8150,8 +8150,14 @@ function renderHorizontalTab(columns, sizing) {
     // doesn't have to squint — they ARE the content, the lines just
     // anchor them.
     if (col.shape) {
-      const fontSize = minimal ? 18 : 26;
-      const dy = minimal ? 6 : 9;
+      // playCompact bumps fret-number font + muted-× to gain absolute
+      // legibility now that the staff fills more of the cell. The
+      // mobile-play cell is small in device pixels so even 18→22 viewBox
+      // (~22% larger) reads as a meaningful upgrade.
+      const fontSize = playCompact ? 22 : (minimal ? 18 : 26);
+      const dy = playCompact ? 7 : (minimal ? 6 : 9);
+      const muteFs = playCompact ? 12 : (minimal ? 10 : 12);
+      const muteDy = playCompact ? 4.5 : (minimal ? 4 : 4.5);
       let topY = Infinity;            // y of the topmost played fret (for stem anchor)
       let hasAnyFret = false;
       for (let str = 0; str < 6; str++) {
@@ -8159,8 +8165,8 @@ function renderHorizontalTab(columns, sizing) {
         const y = staffTopY + displayIdx * lineSp;
         const fret = col.shape[str];
         if (fret < 0) {
-          s += `<text x="${cx}" y="${y + (minimal ? 4 : 4.5)}" text-anchor="middle"
-                  font-size="${minimal ? 10 : 12}"
+          s += `<text x="${cx}" y="${y + muteDy}" text-anchor="middle"
+                  font-size="${muteFs}"
                   font-family="'Cormorant Garamond', Georgia, serif"
                   font-style="italic" fill="#9a948a">×</text>`;
         } else {
