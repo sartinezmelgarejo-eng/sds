@@ -6575,19 +6575,142 @@ function mccoySpreadVoicing(quality, rootPc) {
   return { pianoShape: [0, 7, 15, 20, 25, 29, 34, 39].map(i => base + i) };
 }
 
+// ─── 10. LH 10th Stride ───────────────────────────────────────────
+// Art Tatum / Oscar Peterson / James P. Johnson. Bass note + 10th
+// interval (R + 3rd UP an octave) + RH chord stab. Captured here as
+// a 5-note SUSTAINED voicing — the time-domain "bass-then-chord"
+// alternation lives in the strum pattern, but the harmonic content
+// is what we ship.
+const STRIDE_INTERVALS = {
+  'maj7': [0, 16, 19, 23, 26],  // R - 10 - 5 - 7 - 9
+  'maj9': [0, 16, 19, 23, 26],
+  '7':    [0, 16, 19, 22, 26],  // R - 10 - 5 - b7 - 9
+  '9':    [0, 16, 19, 22, 26],
+  'm7':   [0, 15, 19, 22, 26],  // R - 10(b3) - 5 - b7 - 9
+  'm9':   [0, 15, 19, 22, 26],
+  '6':    [0, 16, 19, 21, 26],
+  'm6':   [0, 15, 19, 21, 26],
+};
+function stride10thVoicing(quality, rootPc) {
+  const ints = STRIDE_INTERVALS[quality];
+  if (!ints) return null;
+  // Bass R at C2 register so the 10th lands around E3.
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  return { pianoShape: ints.map(i => base + i) };
+}
+
+// ─── 11. Phineas Octaves ──────────────────────────────────────────
+// RH bebop lines doubled in octaves (thumb + pinky). For chord
+// comping, we voice the chord notes AND their octave doubles so the
+// sound has the characteristic "fat unison" weight. 6 notes: R-3-5-7
+// in LH register + R-3 doubled an octave up in RH.
+const PHINEAS_INTERVALS = {
+  'maj7': [0, 4, 7, 11, 12, 16],  // R-3-5-7 + R'+3' (octave doubles)
+  '7':    [0, 4, 7, 10, 12, 16],
+  'm7':   [0, 3, 7, 10, 12, 15],
+  'm9':   [0, 3, 7, 10, 14, 19],  // sub the second octave with the 9 + 5
+  '6':    [0, 4, 7, 9, 12, 16],
+  'm6':   [0, 3, 7, 9, 12, 15],
+};
+function phineasOctavesVoicing(quality, rootPc) {
+  const ints = PHINEAS_INTERVALS[quality];
+  if (!ints) return null;
+  const baseOct = _proLHOctave(rootPc, 0, 48, 59);
+  const base = rootPc + 12 * baseOct;
+  return { pianoShape: ints.map(i => base + i) };
+}
+
+// ─── 12. Gospel Quartal Stack ─────────────────────────────────────
+// Bass + LH 4ths + RH 4ths layered. Cory Henry / Bob James idiom.
+// For Cm: C2 + F3-Bb3-Eb4 (LH 4ths) + Ab4-Db5 (RH 4ths continuing).
+const GOSPEL_OK = new Set(['m7', 'm9', '7sus4', '9sus4', 'sus4']);
+function gospelQuartalVoicing(quality, rootPc) {
+  if (!GOSPEL_OK.has(quality)) return null;
+  // Bass R at C2 register.
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  // Intervals from R: 0 (bass), then 4ths stacked starting from the 4 of
+  // the chord. For Cm: C2 + F3(17)-Bb3(22)-Eb4(27)-Ab4(32)-Db5(37).
+  return { pianoShape: [0, 17, 22, 27, 32, 37].map(i => base + i) };
+}
+
+// ─── 13. Glasper ø-as-m11 ──────────────────────────────────────────
+// Robert Glasper re-voices half-diminished as a bright m11, swapping
+// the b5 for the 5 so it reads as a tonic instead of a tension chord.
+// Cm7b5 voiced as Cm11(no b5): C2 + Eb3-F3-Bb3-D4.
+const GLASPER_OK = new Set(['m7b5', 'm9b5']);
+function glasperHalfDimVoicing(quality, rootPc) {
+  if (!GLASPER_OK.has(quality)) return null;
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  // Intervals from R: 0 (bass) + b3(15) + 11/4(17) + b7(22) + 9(26).
+  // Note: the b5 (Gb for Cm7b5) is INTENTIONALLY omitted — that's
+  // what makes it sound like a bright m11 instead of half-diminished.
+  return { pianoShape: [0, 15, 17, 22, 26].map(i => base + i) };
+}
+
+// ─── 14. Monk Cluster ─────────────────────────────────────────────
+// 5-note half-step / whole-step cluster. Approach voicing or static
+// color block. For any root, build the cluster around the chord's 5th
+// of the chord: G-Ab-A-B-C for a C-rooted cluster.
+function monkClusterVoicing(quality, rootPc) {
+  // Quality-agnostic — Monk used clusters over EVERY chord he played.
+  // Place cluster around the chord's 5th (rootPc + 7).
+  const anchorPc = (rootPc + 7) % 12;
+  const anchorOct = _proLHOctave(anchorPc, 0, 55, 66);   // anchor around G3-F4
+  const anchor = anchorPc + 12 * anchorOct;
+  // m2 + M2 + M2 + m2 cluster — Monk's signature density.
+  return { pianoShape: [anchor, anchor + 1, anchor + 3, anchor + 5, anchor + 7] };
+}
+
+// ─── 15. Polychord (D/C, etc.) ────────────────────────────────────
+// Bass note + different triad above. For Cmaj7: C2 + D-F#-A (D major
+// triad up there). Reads as Cmaj7#11 or as bitonal feel depending on
+// context. Stravinsky → Bill Evans → Lyle Mays vocabulary.
+//   maj7: bass + II major triad (D-F#-A for Cmaj7) → lydian color
+//   7:    bass + bII major triad (Db-F-Ab for C7) → altered tritone-sub
+//   m7:   bass + IV major triad (F-A-C for Cm7) → m11 color
+const POLYCHORD_TRIAD_OFFSETS = {
+  // {bass interval, triad root interval, triad type (0=major, 3=minor)}
+  'maj7': [0, 14, 18, 21],  // bass + D-F#-A from C = +14 (D), +18 (F#), +21 (A)
+  'maj9': [0, 14, 18, 21],
+  '7':    [0, 13, 17, 20],  // bass + Db-F-Ab from C = +13 (Db), +17 (F), +20 (Ab)
+  '9':    [0, 13, 17, 20],
+  'm7':   [0, 17, 21, 24],  // bass + F-A-C from C = +17 (F), +21 (A), +24 (C')
+  'm9':   [0, 17, 21, 24],
+};
+function polychordVoicing(quality, rootPc) {
+  const ints = POLYCHORD_TRIAD_OFFSETS[quality];
+  if (!ints) return null;
+  // Bass at C2 register so the upper triad sits up at the RH register.
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  return { pianoShape: ints.map(i => base + i) };
+}
+
 // ─── Pro family registry ──────────────────────────────────────────
 // Maps family name → builder. Used by allDistinctVoicings + _pickShape
 // when state.instrument === 'piano' AND state.proMode === true.
 const PRO_BUILDERS = {
+  // Phase 1 — bebop foundations
   'rootlessA':   rootlessAVoicing,
   'rootlessB':   rootlessBVoicing,
   'powellShell': powellShellVoicing,
   'soWhatFull':  soWhatFullVoicing,
   'mehldau10th': mehldau10thVoicing,
+  // Phase 2 — upper structures + locked hands + McCoy
   'ustSharp11':  ustSharp11Voicing,
   'ustAlt':      ustAltVoicing,
   'lockedHands': lockedHandsVoicing,
   'mccoySpread': mccoySpreadVoicing,
+  // Phase 3 — specialist voicings
+  'stride10th':       stride10thVoicing,
+  'phineasOctaves':   phineasOctavesVoicing,
+  'gospelQuartal':    gospelQuartalVoicing,
+  'glasperHalfDim':   glasperHalfDimVoicing,
+  'monkCluster':      monkClusterVoicing,
+  'polychord':        polychordVoicing,
 };
 
 function susVoicing(quality, rootPc, stringSetIdx, inversion) {
@@ -11565,6 +11688,13 @@ const VOICING_OPTIONS = [
   {value: 'ustAlt',      emoji: '🔻', label: 'UST V7alt', desc: 'Altered dom — shell + tritone-sub triad', proPianoOnly: true},
   {value: 'lockedHands', emoji: '🤝', label: 'Locked Hands', desc: 'Shearing block chord — melody + close chord + octave', proPianoOnly: true},
   {value: 'mccoySpread', emoji: '🌋', label: 'McCoy Spread', desc: '5th bass + stacked 4ths across 4 octaves', proPianoOnly: true},
+  // ── Phase 3: specialist voicings ──
+  {value: 'stride10th',     emoji: '🚂', label: 'Stride 10th',     desc: 'bass + 10th + chord — Tatum / Peterson solo piano', proPianoOnly: true},
+  {value: 'phineasOctaves', emoji: '👯', label: 'Phineas Octaves', desc: 'chord notes + their octave doubles — Newborn fat sound', proPianoOnly: true},
+  {value: 'gospelQuartal',  emoji: '⛪', label: 'Gospel Quartal',  desc: 'bass + 4ths stacked through both hands — Cory Henry', proPianoOnly: true},
+  {value: 'glasperHalfDim', emoji: '🌙', label: 'Glasper ø',        desc: 'half-diminished re-voiced as bright m11 — neo-soul', proPianoOnly: true},
+  {value: 'monkCluster',    emoji: '🎩', label: 'Monk Cluster',    desc: 'm2 + M2 + M2 dense cluster — approach color', proPianoOnly: true},
+  {value: 'polychord',      emoji: '🎭', label: 'Polychord',       desc: 'bass + different triad above — Stravinsky / Evans', proPianoOnly: true},
 ];
 // Multi-select voicing filter. The set holds the type ids the user has
 // allowed; when it covers every id we're in legacy "ALL" mode (no
@@ -11624,12 +11754,16 @@ const VOICING_BUTTON_LABEL = {
   rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL',
   soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
   ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
+  stride10th: 'STRIDE', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
+  glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK', polychord: 'POLYCHORD',
 };
 const VOICING_SHORT_CODE = {
   drop2: 'D2', drop3: 'D3', shell: 'SH',
   triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', quartal: 'Q4', strum: 'ST',
   rootlessA: 'RA', rootlessB: 'RB', powellShell: 'PS', soWhatFull: 'SW', mehldau10th: 'M10',
   ustSharp11: 'U#', ustAlt: 'UA', lockedHands: 'LH', mccoySpread: 'MC',
+  stride10th: 'ST10', phineasOctaves: 'PO', gospelQuartal: 'GQ',
+  glasperHalfDim: 'Gø', monkCluster: 'MK', polychord: 'PC',
 };
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
@@ -11793,6 +11927,52 @@ const VOICE_ICONS = {
     <circle cx="18" cy="5"  r="1.4" fill="#1a1a1a"/>
     <circle cx="21" cy="3.5"r="1.4" fill="#1a1a1a"/>
     <circle cx="24" cy="2.5"r="1.4" fill="#1a1a1a"/>
+  </svg>`,
+  // STRIDE 10TH — low bass dot + arrow up + high cluster (alternation viz)
+  stride10th: `<svg viewBox="0 0 26 16">
+    <circle cx="4" cy="13" r="2" fill="#1a1a1a"/>
+    <path d="M 9 11 L 17 5" stroke="#1a1a1a" stroke-width="1" stroke-linecap="round"/>
+    <path d="M 15 4 L 17 5 L 16 7" stroke="#1a1a1a" stroke-width="1" fill="none" stroke-linecap="round"/>
+    <circle cx="20" cy="4" r="1.5" fill="#1a1a1a"/>
+    <circle cx="22" cy="6" r="1.5" fill="#1a1a1a"/>
+  </svg>`,
+  // PHINEAS OCTAVES — pairs of dots (each pitch doubled)
+  phineasOctaves: `<svg viewBox="0 0 26 16">
+    <circle cx="6"  cy="13" r="1.6" fill="#1a1a1a"/>
+    <circle cx="9"  cy="13" r="1.6" fill="#1a1a1a"/>
+    <circle cx="13" cy="9"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="16" cy="9"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="20" cy="5"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="23" cy="5"  r="1.6" fill="#1a1a1a"/>
+  </svg>`,
+  // GOSPEL QUARTAL — bass dot + tall 4ths stack on a spine
+  gospelQuartal: `<svg viewBox="0 0 26 16">
+    <circle cx="5" cy="14" r="2" fill="#1a1a1a"/>
+    <line x1="14" y1="2" x2="14" y2="13" stroke="#1a1a1a" stroke-width="0.6"/>
+    <circle cx="14" cy="2"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="14" cy="5"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="14" cy="8"  r="1.6" fill="#1a1a1a"/>
+    <circle cx="14" cy="11" r="1.6" fill="#1a1a1a"/>
+    <circle cx="14" cy="13.5" r="1.6" fill="#1a1a1a"/>
+  </svg>`,
+  // GLASPER ø — ø symbol (circle with slash)
+  glasperHalfDim: `<svg viewBox="0 0 26 16">
+    <circle cx="13" cy="8" r="5.5" fill="none" stroke="#1a1a1a" stroke-width="1.4"/>
+    <line x1="7" y1="13" x2="19" y2="3" stroke="#1a1a1a" stroke-width="1.4" stroke-linecap="round"/>
+    <text x="13" y="11" font-size="6" font-weight="700" text-anchor="middle" fill="#1a1a1a">11</text>
+  </svg>`,
+  // MONK CLUSTER — 5 dots crammed tight together
+  monkCluster: `<svg viewBox="0 0 26 16">
+    <circle cx="8"  cy="8" r="2.2" fill="#1a1a1a"/>
+    <circle cx="11" cy="8" r="2.2" fill="#1a1a1a"/>
+    <circle cx="14" cy="8" r="2.2" fill="#1a1a1a"/>
+    <circle cx="17" cy="8" r="2.2" fill="#1a1a1a"/>
+    <circle cx="20" cy="8" r="2.2" fill="#1a1a1a"/>
+  </svg>`,
+  // POLYCHORD — two stacked triangles in different colors
+  polychord: `<svg viewBox="0 0 26 16">
+    <path d="M 13 14 L 7 9 L 19 9 Z" fill="#7e2438"/>
+    <path d="M 13 2 L 7 8 L 19 8 Z" fill="#1a1a1a"/>
   </svg>`,
 };
 
@@ -12974,7 +13154,7 @@ const PROGRESSION_VOICING = {
   // get any Pro weight at all because Pro voicings would clash with their
   // texture.
   'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15, lockedHands:15, ustAlt:10},
-  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, extensions:0.3},
+  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, stride10th:15, extensions:0.3},
   'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:50, add9:12, extensions:0.2},
   'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
   'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:50, add9:12, extensions:0.2},
@@ -12991,7 +13171,7 @@ const PROGRESSION_VOICING = {
   // progression keeps normal jazz voicings around it.
   'V7sus–V–I':                    {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
-  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25},
+  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25, gospelQuartal:15, polychord:10},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:35, rootlessB:35, powellShell:15, mehldau10th:15},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:20, lockedHands:15},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:10, extensions:0.3},
@@ -13017,7 +13197,7 @@ const PROGRESSION_VOICING = {
   'Country pedal Iadd9–IVadd9':         {drop2:10, drop3:10, shell:5,  triad:25, sus:0, strum:30, add9:30, extensions:0.05},
   'AABA-A double':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   // minor
-  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:15, mehldau10th:15},
+  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:15, mehldau10th:15, glasperHalfDim:20},
   'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0, strum:0},
   'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.15},
   'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, add9:8,  extensions:0.2},
@@ -15045,7 +15225,9 @@ class Player {
     // Friendly voicing label matching the compose-mode info bar.
     const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
       rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
-      ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD' };
+      ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
+      stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
+      glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
     const pvType = state.playerVoicing?.type;
     const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
     const voicingTxt = pvLabel
@@ -19366,6 +19548,12 @@ const FAMILY_BIAS = {
   ustAlt:      4,
   lockedHands: 4,
   mccoySpread: 5,  // 8 notes — niche, only fires when explicitly chosen.
+  stride10th:      4,
+  phineasOctaves:  4,
+  gospelQuartal:   5,
+  glasperHalfDim:  5,
+  monkCluster:     5,  // approach voicing, deliberately rare
+  polychord:       5,
 };
 // Deterministic per-candidate hash → noise in [-3, 3]. Used in place
 // of Math.random() so the picker returns the SAME family for the
