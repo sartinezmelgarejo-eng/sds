@@ -7438,7 +7438,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Returns null if the shape produces no notes. Used for the base chord and,
   // when sizing.slots is set, per-slot to vary notes across the bar without
   // changing the staff layout itself.
-  const buildSlotChord = (shp, root, qual) => {
+  const buildSlotChord = (shp, root, qual, pianoOverride) => {
     const qq = QUALITIES[qual];
     if (!qq) return null;
     const slotPcToDeg = {};
@@ -7446,9 +7446,14 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       const pc = ((root + semi) % 12 + 12) % 12;
       if (!(pc in slotPcToDeg)) slotPcToDeg[pc] = qq.degs[i];
     });
-    const slotMidis = shp.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
-                         .filter(x => x !== null)
-                         .sort((a, b) => a - b);
+    // Pro voicings carry pianoShape (MIDI array) instead of fret positions.
+    // When provided, use it directly — the placeholder fret shape would
+    // map to zero notes and the entire staff would render blank.
+    const slotMidis = (Array.isArray(pianoOverride) && pianoOverride.length)
+      ? pianoOverride.slice().sort((a, b) => a - b)
+      : shp.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+           .filter(x => x !== null)
+           .sort((a, b) => a - b);
     if (!slotMidis.length) return null;
     // Note spelling follows DEGREES inside the chord — each chord tone gets
     // a letter derived from the root letter + diatonic offset for its
@@ -7526,7 +7531,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     }
     return { pcToDeg: slotPcToDeg, midis: slotMidis, positions: slotPos, offsetX: slotOff };
   };
-  const baseData = buildSlotChord(baseShape, baseRoot, baseQuality);
+  const baseData = buildSlotChord(baseShape, baseRoot, baseQuality, basePiano);
   if (!baseData) return '';
   const positions = baseData.positions;
   // Per-slot accessor — base for single-chord cells; per-slot when slotChords
@@ -7536,7 +7541,7 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     if (!slotChords) return baseData;
     const slot = slotChords[s];
     if (!slot) return baseData;
-    return buildSlotChord(slot.shape, slot.root, slot.quality) || baseData;
+    return buildSlotChord(slot.shape, slot.root, slot.quality, slot.pianoShape) || baseData;
   };
 
   // 5 staff lines per staff — extend the FULL width of the cell so adjacent
@@ -12231,9 +12236,16 @@ function renderVoicingMenu() {
             player.voicingType = player._currentSection().voicingType;
           }
         }
+        // Forget per-chord remembered voicings so each chord re-picks
+        // under the new vocabulary on its next render.
+        state.progressionVoicings = {};
         _updateVoicingPrefButton();
         renderVoicingMenu();
         if (typeof renderChordMap === 'function') renderChordMap();
+        // Other voicings strip needs to refresh too — its candidate list
+        // grows by 12-15 pro families when Pro Mode flips on, shrinks
+        // back to the standard set when it flips off.
+        if (typeof renderAlternatives === 'function') renderAlternatives();
         return;
       }
       const isPro = isProFamily(id);
