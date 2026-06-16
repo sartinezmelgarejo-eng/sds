@@ -13324,7 +13324,20 @@ class Player {
       // Resolve song structure (default AABA). The literal sentinel
       // 'RANDOM' rolls a fresh common structure on every song gen.
       const structureStr = _resolveSongStructure(state.songStructure);
-      const letters = structureStr.split('');
+      // Self-contained forms (BLUES / JAZZ_BLUES) collide with the
+      // composed-progression path: splitting 'BLUES' letter-by-letter
+      // produces B/L/U/E/S phantom sections, none of which match 'A',
+      // so the user's composition gets silently discarded and the AI
+      // pours 5 blues progressions on top. Snap to AABA when a
+      // composition exists — the composed strip becomes the A
+      // section(s) as the user expects. The captured-song path at
+      // :13496 already special-cases formType structures; this brings
+      // the composed-from-scratch path in line.
+      const _structDefForCompose = SONG_STRUCTURES.find(s => s.id === structureStr);
+      const effectiveStructStr = (_structDefForCompose && _structDefForCompose.formType)
+        ? 'AABA'
+        : structureStr;
+      const letters = effectiveStructStr.split('');
       const uniqueLetters = [...new Set(letters)];
       // Section A is the composed one; B/C/D/E come from the user's
       // composed strip if they typed cells past chord 8/16/24/32.
