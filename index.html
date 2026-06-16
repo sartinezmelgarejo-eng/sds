@@ -472,6 +472,40 @@ body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-thumbs{
   grid-template-rows:repeat(2, 1fr);
   gap:10px;width:100%;height:100%;
 }
+/* Gallery mode (📸 posts): the .mag-hero-thumbs container is repurposed
+   to show all album photos. Hide the single <img>, override the wrap so
+   it just frames the grid, and let the grid auto-size by number of cols
+   (driven by --gallery-cols set in paintStage). Tiles are square photos
+   with no title overlay. */
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-hero-img{display:none}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-hero-wrap{
+  background:transparent;padding:0;
+  width:100%;height:auto;
+  align-self:stretch;
+  max-height:none;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-hero-thumbs{
+  display:grid;
+  grid-template-columns:repeat(var(--gallery-cols, 3), 1fr);
+  gap:8px;width:100%;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-tile.gallery-tile{
+  aspect-ratio:1;
+  position:relative;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile .mag-tile-img{
+  width:100%;height:100%;
+  aspect-ratio:unset;
+  flex:1 1 auto;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile .mag-tile-title{
+  display:none;  /* no title overlay for pure-photo gallery tiles */
+}
+/* The date overlay + source watermark are about article context — they
+   don't apply to gallery posts. Hide them so they don't sit awkwardly
+   on the grid. */
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-hero-date,
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .mag-hero-source{display:none}
 
 /* Tile — shared element used by stage thumbs and satellite mini-feed.
    Same DOM, CSS chooses orientation/size by parent context below. */
@@ -635,7 +669,8 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap 
    the text column below the thumb-grid (no absolute positioning). The
    shared selector list above already covers visual styling; this rule adds
    the bottom margin so the body excerpt below has breathing room. */
-body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].no-hero-img .mag-text .mag-headline{
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].no-hero-img .mag-text .mag-headline,
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].gallery-hero .mag-text .mag-headline{
   margin:0 0 clamp(10px, 1.5vh, 18px);
   padding:clamp(20px, 2.6vh, 30px) clamp(18px, 2.2vw, 32px) clamp(11px, 1.5vh, 18px);
   width:fit-content;
@@ -1871,7 +1906,40 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   transition:background .15s;
 }
 #lightbox .lb-close:hover{background:rgba(0,0,0,.9);border-color:rgba(255,255,255,.4)}
+/* Carousel controls — only visible in carousel mode (.lb-carousel class on
+   the lightbox root, toggled by openCarousel JS). Prev/Next sit at the
+   left/right edges, vertically centered. Counter pins to top-left. */
+#lightbox .lb-prev,#lightbox .lb-next{
+  position:absolute;top:50%;transform:translateY(-50%);
+  width:54px;height:54px;
+  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.18);
+  border-radius:50%;color:#fff;font-size:30px;line-height:1;
+  cursor:pointer;font-family:inherit;padding:0;
+  display:none;align-items:center;justify-content:center;
+  transition:background .15s, opacity .15s;
+  z-index:2;
+}
+#lightbox.lb-carousel .lb-prev,#lightbox.lb-carousel .lb-next{display:flex}
+#lightbox .lb-prev{left:18px}
+#lightbox .lb-next{right:18px}
+#lightbox .lb-prev:hover,#lightbox .lb-next:hover{background:rgba(0,0,0,.8);border-color:rgba(255,255,255,.4)}
+#lightbox .lb-prev.disabled,#lightbox .lb-next.disabled{
+  opacity:.25;pointer-events:none;
+}
+#lightbox .lb-counter{
+  position:absolute;top:18px;left:20px;
+  background:rgba(0,0,0,.55);
+  color:#fdfcf3;
+  padding:6px 12px;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:12px;font-weight:600;letter-spacing:.5px;
+  border-radius:3px;
+  display:none;
+  z-index:2;
+}
+#lightbox.lb-carousel .lb-counter{display:block}
 .m-tg-item img,.m-tg-item .src-img{cursor:zoom-in}
+body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zoom-in}
 </style></head><body>
 
 
@@ -2356,8 +2424,22 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     // Hero image (race-guarded swap). On load we also flip the stage into
     // a side-by-side 2-col layout for portrait images (naturalHeight > naturalWidth)
     // so the wide stage doesn't leave the right half empty.
-    const heroImg = slide.img || (slide.source && slide.source.img) || null;
-    el.classList.toggle('no-hero-img', !heroImg);
+    // Gallery mode: posts whose text starts with 📸 (Mañanera del Pueblo
+    // daily breakdown + event posts) carry an `imgs` array of all the
+    // album's photos. Instead of one hero image, we fill the .mag-hero-thumbs
+    // grid with one tile per photo; each tile opens the lightbox carousel
+    // at that index when clicked.
+    const isGalleryPost = Array.isArray(slide.imgs) && slide.imgs.length>1
+                          && /^📸/.test(slide.text||'');
+    el.classList.toggle('gallery-hero', isGalleryPost);
+    // Expose the current gallery for the lightbox's click handler. It's
+    // keyed by group so the satellites + stage stay isolated.
+    if(!window.__magSlideImgs) window.__magSlideImgs = {};
+    window.__magSlideImgs[group] = isGalleryPost ? slide.imgs.slice() : null;
+    const heroImg = isGalleryPost
+      ? null  // gallery posts hide the single <img> and use the grid instead
+      : (slide.img || (slide.source && slide.source.img) || null);
+    el.classList.toggle('no-hero-img', !heroImg && !isGalleryPost);
     const img=el.querySelector('.mag-hero-img');
     const applyOrientation=()=>{
       if(!(img.naturalWidth>0)) return;
@@ -2413,14 +2495,51 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       el.style.removeProperty('--hero-aspect');
     }
 
-    // When no image, fill the hero slot with a thumbnail navigator of the
-    // other batch posts (3-col grid, up to 6 tiles). Click to jump.
+    // Hero-thumbs container has three modes (mutually exclusive):
+    //   1. Gallery: 📸 post with imgs[] — fill with the album photos.
+    //      Tiles carry data-gallery-idx; clicking opens lightbox carousel.
+    //   2. No-image navigator: stage post has no image, batch has >1 posts —
+    //      show other batch posts as a 3-col grid; click to navigate.
+    //   3. Empty: cleared.
     const thumbsEl = el.querySelector('.mag-hero-thumbs');
     if(thumbsEl){
-      if(!heroImg && batch.length > 1){
+      if(isGalleryPost){
+        const imgs = slide.imgs;
+        ensureTiles(thumbsEl, imgs.length);
+        const cols = imgs.length <= 3 ? imgs.length
+                   : imgs.length <= 6 ? 3
+                   : imgs.length <= 8 ? 4
+                                      : 4;
+        thumbsEl.style.setProperty('--gallery-cols', cols);
+        [...thumbsEl.children].forEach((tile,i)=>{
+          tile.classList.add('gallery-tile');
+          tile.classList.remove('no-img','active');
+          tile.dataset.galleryIdx = i;
+          tile.removeAttribute('data-slide-idx');
+          const photo = tile.querySelector('.mag-tile-photo');
+          if(photo.dataset.url !== imgs[i]){
+            photo.classList.remove('loaded');
+            photo.dataset.url = imgs[i];
+            const target = imgs[i];
+            photo.onload  = ()=>{ if(photo.dataset.url===target) photo.classList.add('loaded') };
+            photo.onerror = ()=>{ if(photo.dataset.url===target){
+              tile.classList.add('no-img'); photo.removeAttribute('src'); photo.dataset.url='';
+            }};
+            photo.src = imgs[i];
+          } else if(photo.complete && photo.naturalWidth>0){
+            photo.classList.add('loaded');
+          }
+          const title = tile.querySelector('.mag-tile-title');
+          if(title) title.textContent = '';
+        });
+      } else if(!heroImg && batch.length > 1){
         const count = Math.min(batch.length, 6);
         ensureTiles(thumbsEl, count);
-        [...thumbsEl.children].forEach((tile,i) => paintTile(tile, batch[i], i===idx));
+        [...thumbsEl.children].forEach((tile,i) => {
+          tile.classList.remove('gallery-tile');
+          tile.removeAttribute('data-gallery-idx');
+          paintTile(tile, batch[i], i===idx);
+        });
       } else if(thumbsEl.children.length){
         thumbsEl.innerHTML = '';
       }
@@ -3126,39 +3245,96 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   },{passive:true});
 })();
 
-/* ─── Lightbox: click any feed image to view at full resolution ─── */
+/* ─── Lightbox: click any feed image to view at full resolution.
+   Single-image mode for feed-item clicks; carousel mode for gallery posts
+   (📸 Mañanera albums) — opens at the clicked tile's index and supports
+   prev/next via on-screen arrows or ← / → keys. ───────────────────────── */
 (function(){
   let lb;
+  // Carousel state — populated by openCarousel, cleared on close.
+  let imgs=[], idx=0;
   function ensureLB(){
     if(lb)return lb;
     lb=document.createElement('div');
     lb.id='lightbox';
-    lb.innerHTML='<button class="lb-close" aria-label="Close">×</button><img alt="">';
+    lb.innerHTML='<button class="lb-close" aria-label="Close">×</button>'
+               +'<div class="lb-counter"></div>'
+               +'<button class="lb-prev" aria-label="Previous">‹</button>'
+               +'<button class="lb-next" aria-label="Next">›</button>'
+               +'<img alt="">';
     document.body.appendChild(lb);
     lb.addEventListener('click',e=>{
-      if(e.target.tagName==='IMG' && !e.target.classList.contains('lb-close'))return;
+      // Clicking the image or the nav buttons should NOT close — only backdrop.
+      if(e.target.tagName==='IMG') return;
+      if(e.target.closest('.lb-prev,.lb-next,.lb-close,.lb-counter')) return;
       close();
     });
+    lb.querySelector('.lb-prev').addEventListener('click',e=>{e.stopPropagation();step(-1)});
+    lb.querySelector('.lb-next').addEventListener('click',e=>{e.stopPropagation();step(1)});
     return lb;
+  }
+  function syncCarouselUI(){
+    if(!lb) return;
+    lb.querySelector('img').src = imgs[idx];
+    lb.querySelector('.lb-counter').textContent = `${idx+1} / ${imgs.length}`;
+    lb.querySelector('.lb-prev').classList.toggle('disabled', idx===0);
+    lb.querySelector('.lb-next').classList.toggle('disabled', idx===imgs.length-1);
+  }
+  function step(delta){
+    if(!imgs.length) return;
+    const next = idx + delta;
+    if(next<0 || next>=imgs.length) return;
+    idx = next;
+    syncCarouselUI();
   }
   function open(src){
     const el=ensureLB();
+    imgs=[]; idx=0;
+    el.classList.remove('lb-carousel');
     el.querySelector('img').src=src;
     el.classList.add('open');
     document.documentElement.style.overflow='hidden';
   }
+  function openCarousel(imageList, startIdx){
+    const el=ensureLB();
+    imgs = imageList.slice();
+    idx = Math.max(0, Math.min(startIdx|0, imgs.length-1));
+    el.classList.add('lb-carousel');
+    syncCarouselUI();
+    el.classList.add('open');
+    document.documentElement.style.overflow='hidden';
+  }
   function close(){
-    if(lb)lb.classList.remove('open');
+    if(lb){ lb.classList.remove('open','lb-carousel'); }
+    imgs=[]; idx=0;
     document.documentElement.style.overflow='';
   }
   // Capture phase: intercept image clicks BEFORE the source-card <a> or any parent click handler fires
   document.addEventListener('click',e=>{
+    // Gallery tile click → open carousel at this index.
+    const tile = e.target.closest('.mag-stage.gallery-hero .mag-tile.gallery-tile');
+    if(tile){
+      const stage = tile.closest('.mag-stage');
+      const group = stage && stage.dataset.group;
+      if(group && window.__magSlideImgs && window.__magSlideImgs[group]){
+        e.preventDefault(); e.stopPropagation();
+        openCarousel(window.__magSlideImgs[group], parseInt(tile.dataset.galleryIdx)||0);
+        return;
+      }
+    }
     const img=e.target.closest('.m-tg-item > img, .m-tg-item .src-img');
     if(!img||!img.src)return;
     e.preventDefault();e.stopPropagation();
     open(img.src);
   },true);
-  document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+  document.addEventListener('keydown',e=>{
+    if(!lb || !lb.classList.contains('open')) return;
+    if(e.key==='Escape'){ close(); return }
+    if(lb.classList.contains('lb-carousel')){
+      if(e.key==='ArrowLeft'){ e.preventDefault(); step(-1) }
+      else if(e.key==='ArrowRight'){ e.preventDefault(); step(1) }
+    }
+  });
 })();
 </script>
 </body></html>
