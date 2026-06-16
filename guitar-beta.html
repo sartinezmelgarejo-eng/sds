@@ -3531,20 +3531,20 @@
      When a non-hub chord is focused, idle cards step back (dim + desaturate)
      so the connected zone (focused + related + hover-target + popups) pops forward.
      Scoped to :not(.player-active) so it never interferes with playback highlights. */
-  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub))
+  body:not(.player-active) #chord-map:is(:has(.map-card.focused:not(.hub)), :has(.map-card.popup.persistent))
     .map-card:not(.focused):not(.related):not(.playing):not(.next-up):not(.popup):not(.hover-target) {
     opacity: 0.38;
     filter: saturate(0.55);
   }
   /* Connected on-map cards: full brightness, no function tint — clean and neutral.
      The border-left stripe still encodes harmonic role without washing the card. */
-  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub)) .map-card.related:not(.popup) {
+  body:not(.player-active) #chord-map:is(:has(.map-card.focused:not(.hub)), :has(.map-card.popup.persistent)) .map-card.related:not(.popup) {
     opacity: 1 !important;
     filter: none !important;
     background: var(--panel) !important;
   }
   /* Hover-target card stays fully bright while its approach popups are showing */
-  body:not(.player-active) #chord-map:has(.map-card.focused:not(.hub)) .map-card.hover-target {
+  body:not(.player-active) #chord-map:is(:has(.map-card.focused:not(.hub)), :has(.map-card.popup.persistent)) .map-card.hover-target {
     opacity: 1 !important;
     filter: none !important;
   }
@@ -9496,14 +9496,23 @@ function renderChordMap() {
   }).join('');
 
   // ── Light up the cards connected to the focused chord ──
-  // Find chord IDs that the focused chord points TO or FROM
+  // Find chord IDs that the focused chord points TO or FROM.
+  // When the focused chord is popup-only (e.g. bII7/V, V/iii), there's no
+  // on-map node for it — so we ALSO light up its resolve-target's network
+  // (the "context" chord). Otherwise the persistent popup sits floating in
+  // a fully-bright map because no on-map card carries .focused/.related.
+  const _focusedChDef = (currentMap()?.chordDefs || {})[state.focusedChord];
+  const _contextChord = (_focusedChDef?.popup && _focusedChDef.resolvesTo)
+    ? _focusedChDef.resolvesTo
+    : null;
   const relatedIds = new Set();
+  if (_contextChord) relatedIds.add(_contextChord);
   map.arrows.forEach(arr => {
     const a = map.nodes[arr.from];
     const b = map.nodes[arr.to];
     if (!a || !b) return;
-    if (a.chord === state.focusedChord) relatedIds.add(b.chord);
-    if (b.chord === state.focusedChord) relatedIds.add(a.chord);
+    if (a.chord === state.focusedChord || a.chord === _contextChord) relatedIds.add(b.chord);
+    if (b.chord === state.focusedChord || b.chord === _contextChord) relatedIds.add(a.chord);
   });
   const focusedNode2 = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
   const isFocusedHub = !!focusedNode2?.hub;
