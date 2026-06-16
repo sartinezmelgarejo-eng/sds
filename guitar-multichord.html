@@ -12863,15 +12863,16 @@ class Player {
       // Quartal "So What" stack on D-G-B-e (R-11-b7-b3 rootful, or
       // 5-R-11-b7 rootless from the 5). Only m7 / m9 / 7sus4 / 9sus4
       // qualities; everything else returns null and soft-falls to drop2
-      // at the family-filter level.
+      // at the family-filter level. Add every higher-octave copy that
+      // still fits on the neck so the picker has lower- and upper-
+      // register options (Dm7 quartal at fret 0 AND fret 12, etc.).
       ['root', '5th'].forEach(v => {
-        const sh = quartalVoicing(quality, root, v);
-        if (sh) {
-          // Tag the candidate so pickByStrategy can apply a parallel-
-          // motion bonus when both the prev and curr shapes are quartal
-          // on the same string set (which is always D-G-B-e for now).
+        let sh = quartalVoicing(quality, root, v);
+        while (sh) {
           Object.defineProperty(sh, '__quartalVar', { value: v });
           cands.push(sh);
+          const shifted = sh.map(f => f >= 0 ? f + 12 : -1);
+          sh = shifted.every(f => f === -1 || f <= N_FRETS) ? shifted : null;
         }
       });
     } else if (type === 'add9') {
@@ -18512,10 +18513,13 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   // 4.4. Quartal "So What" voicings — modal-jazz color (McCoy / Bill Evans).
   // Two-finger barre on D-G-B-e producing four stacked perfect 4ths.
   // Only m7/m9/7sus4/9sus4 qualities; QUARTAL_OK gates the others.
+  // withOctaves expands the base shape into every higher-octave copy that
+  // still fits on the neck — same pattern the drop-2/drop-3 sections use
+  // so Dm7 at fret 0 also offers Dm7 at fret 12, etc.
   if (QUARTAL_OK.has(quality)) {
     ['root', '5th'].forEach(v => {
-      const sh = quartalVoicing(quality, rootPc, v);
-      if (sh) add(sh, 'quartal', { variant: v });
+      const base = quartalVoicing(quality, rootPc, v);
+      if (base) withOctaves(sh => add(sh, 'quartal', { variant: v }), base);
     });
   }
 
