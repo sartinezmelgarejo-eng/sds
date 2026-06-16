@@ -6308,6 +6308,51 @@ function powerVoicing(quality, rootPc, type = 'E') {
    drill the whole progression in suspended voicings without changing chord
    identities in the map.
 */
+/* ─── Quartal ("So What") voicing ───
+   4 stacked perfect 4ths on the top string set (D-G-B-e). McCoy Tyner /
+   Bill Evans / Herbie Hancock modal-jazz vocabulary — the Bill Evans
+   "So What" chord for Dm is D-G-C-F, and on guitar that's a clean
+   2-finger barre at the root's fret on D string.
+
+   Geometry: the D-G-B-e tuning has intervals 5-4-5 semitones. To get
+   four stacked perfect 4ths (5-5-5-5) we shift the upper two strings
+   up one fret each. Pattern relative to the D-string fret X is:
+       X, X, X+1, X+1   on   D, G, B, e
+   The bass and 5th-string voices are muted (x).
+
+   Variants:
+     'root' — root on D string. Voicing = R-11-b7-b3 (m7 rootful).
+              Dm7 → D-G-C-F at fret 0.
+     '5th'  — 5th on D string (rootless from the 5). Voicing = 5-R-11-b7.
+              Dm7 → A-D-G-C at fret 7. Higher position, lighter sound.
+
+   QUARTAL_OK gates the qualities where the voicing makes sense:
+     - m7 / m9: rootful (R-11-b7-b3) or rootless from-5
+     - 7sus4 / 9sus4: same shape; the b3 of the parent m7 doubles as a
+       legitimate sus-color tone (the 4 of the V7sus chord cousin)
+   Excluded: maj7/7 (b7 vs maj7 ambiguity), m7b5/dim (no perfect 5/4
+   stack), pure sus2 (no 7 in the voicing), and the explicit 5-note
+   9 qualities (would need an upgrade path beyond this builder).
+*/
+const QUARTAL_OK = new Set(['m7', 'm9', '7sus4', '9sus4']);
+function quartalVoicing(quality, rootPc, variant = 'root') {
+  if (!QUARTAL_OK.has(quality)) return null;
+  // Anchor offset (semitones above the chord root): the variant decides
+  // which chord tone sits at the bottom of the stack.
+  const anchorOffset = variant === '5th' ? 7 : 0;
+  const anchorPc = ((rootPc + anchorOffset) % 12 + 12) % 12;
+  // Walk octaves until the anchor fret lands in playable range on the
+  // D string (string index 2, open midi 50).
+  for (let oct = 24; oct <= 72; oct += 12) {
+    const anchorMidi = oct + anchorPc;
+    const dFret = anchorMidi - STRING_OPEN_MIDI[2];
+    if (dFret < 0 || dFret + 1 > N_FRETS) continue;
+    const shape = [-1, -1, dFret, dFret, dFret + 1, dFret + 1];
+    return shape;
+  }
+  return null;
+}
+
 function susVoicing(quality, rootPc, stringSetIdx, inversion) {
   const q = QUALITIES[quality];
   if (!q) return null;
@@ -11204,6 +11249,7 @@ const VOICING_OPTIONS = [
   {value: 'guide', emoji: '✌️', label: '3rds + 7ths', desc: 'shells without the root'},
   {value: 'sus',   emoji: '🪷', label: 'Sus',    desc: 'every chord as R-4-5-7 (suspended)'},
   {value: 'add9',  emoji: '💧', label: 'Add9',   desc: 'pop / folk color — R-3-5-9 (drops the 7)'},
+  {value: 'quartal', emoji: '🏛️', label: 'Quartal', desc: 'modal "So What" stack of 4ths (m7 / sus only)'},
   {value: 'strum', emoji: '🎸', label: 'Strum',  desc: 'rhythm-guitar grips — barre, open & power chords'},
 ];
 // Multi-select voicing filter. The set holds the type ids the user has
@@ -11238,11 +11284,11 @@ function filterShapeCandidates(cands) {
 //   3+ selected → MIX·N where N is the count.
 const VOICING_BUTTON_LABEL = {
   drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS',
-  triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', add9: 'ADD9', strum: 'STRUM',
+  triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', add9: 'ADD9', quartal: 'QUARTAL', strum: 'STRUM',
 };
 const VOICING_SHORT_CODE = {
   drop2: 'D2', drop3: 'D3', shell: 'SH',
-  triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', strum: 'ST',
+  triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', quartal: 'Q4', strum: 'ST',
 };
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
@@ -12260,6 +12306,15 @@ const PROGRESSIONS = {
       {chord:'i',bars:2,qualityOverride:'madd9'},
       {chord:'IV',bars:2,qualityOverride:'maj7'},
     ]},
+    // ─── Quartal showcase (Phase B — modal Dorian vamp) ───
+    // i m9 alternating with IV maj7 (borrowed from parallel major =
+    // Dorian IV). The m9 invites quartal; the IVmaj7 forces a contrast
+    // family (drop-2/drop-3) so the listener actually hears the quartal
+    // texture against something else, instead of monotone all-quartal.
+    {name:'Dorian quartal vamp i9–IVmaj7', len:4, steps:[
+      {chord:'i',bars:2,qualityOverride:'m9'},
+      {chord:'IV',bars:2,qualityOverride:'maj7'},
+    ]},
   ]
 };
 
@@ -12392,7 +12447,12 @@ const SISTER_FAMILY = {
   // including open cowboy add9 shapes). Pairing it with triad makes a
   // mostly-triad pop section spill some add9 color for variety, and
   // vice-versa, without ever swinging into drop-2 jazz territory.
-  add9:  'triad',
+  add9:    'triad',
+  // Quartal pairs with sus — they share the modal-jazz vocabulary and
+  // both omit the chord's 3rd (sus by replacement, quartal by structure).
+  // A modal section flicking between sus voicings and quartal stacks
+  // stays coherent.
+  quartal: 'sus',
 };
 // Strum weights are mixed in per progression by genre. (Strum is the
 // rhythm-guitar grip family: barre + open + power as sub-variants.)
@@ -12439,7 +12499,7 @@ const PROGRESSION_VOICING = {
   // progression keeps normal jazz voicings around it.
   'V7sus–V–I':                    {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
-  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15},
+  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:20, extensions:0.3},
@@ -12482,6 +12542,10 @@ const PROGRESSION_VOICING = {
   'Andalusian extended':          {drop2:10, drop3:25, shell:5,  triad:35, sus:0, strum:45},
   // Modal madd9 vamp — minor-key showcase for Phase A.
   'Modal madd9 vamp i(add9)–IVmaj7': {drop2:15, drop3:5,  shell:0,  triad:25, sus:0, strum:25, add9:40, extensions:0.1},
+  // Dorian quartal vamp — minor-key showcase for Phase B. Heavy quartal
+  // on the m9, drop-2/drop-3 cover the IVmaj7 (quartal doesn't catch
+  // major-7 qualities). The alternation lets the quartal sound stand out.
+  'Dorian quartal vamp i9–IVmaj7':   {drop2:25, drop3:15, shell:0,  triad:0,  sus:5, strum:0,  quartal:55, extensions:1.0},
   'Minor blues fragment':         {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
   'i–V/iv–iv–V7 turnaround':      {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'iiø–V7–iv–bII7–i':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12520,7 +12584,7 @@ const PROGRESSION_VOICING = {
   // Minor additions
   'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5},
   'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  extensions:1.2},
-  'So What modal vamp':           {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0,  extensions:1.4},
+  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, extensions:1.4},
   // ─── Multi-chord progressions ───
   // Jazz turnarounds: drop-2 dominant + a touch of drop-3 for the bebop feel.
   'Bird-style turnaround':        {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
@@ -12780,6 +12844,21 @@ class Player {
           if (sh) cands.push(sh);
         }
       }
+    } else if (type === 'quartal') {
+      // Quartal "So What" stack on D-G-B-e (R-11-b7-b3 rootful, or
+      // 5-R-11-b7 rootless from the 5). Only m7 / m9 / 7sus4 / 9sus4
+      // qualities; everything else returns null and soft-falls to drop2
+      // at the family-filter level.
+      ['root', '5th'].forEach(v => {
+        const sh = quartalVoicing(quality, root, v);
+        if (sh) {
+          // Tag the candidate so pickByStrategy can apply a parallel-
+          // motion bonus when both the prev and curr shapes are quartal
+          // on the same string set (which is always D-G-B-e for now).
+          Object.defineProperty(sh, '__quartalVar', { value: v });
+          cands.push(sh);
+        }
+      });
     } else if (type === 'add9') {
       // add9 substitution: R-3-5-9 (or R-b3-5-9 for minor-flavored qualities).
       // Only applies to qualities in ADD9_OK; dominant 7ths, sus, dim/m7b5
@@ -18415,6 +18494,16 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   });
   guides.sort(byReg).forEach(g => add(g.shape, 'guide', { stringSet: g.stringSet }));
 
+  // 4.4. Quartal "So What" voicings — modal-jazz color (McCoy / Bill Evans).
+  // Two-finger barre on D-G-B-e producing four stacked perfect 4ths.
+  // Only m7/m9/7sus4/9sus4 qualities; QUARTAL_OK gates the others.
+  if (QUARTAL_OK.has(quality)) {
+    ['root', '5th'].forEach(v => {
+      const sh = quartalVoicing(quality, rootPc, v);
+      if (sh) add(sh, 'quartal', { variant: v });
+    });
+  }
+
   // 4.5. add9 / madd9 substitution voicings — pop/folk color. Only for
   // qualities in ADD9_OK (no dominants, no diminished/half-dim, no sus).
   // 3 string sets × 4 inversions × octaves + the open-cowboy grip if it
@@ -18553,7 +18642,8 @@ const FAMILY_BIAS = {
   triad: 3,
   guide: 6,
   sus:   5,
-  add9:  3,   // add9 sits at triad-level bias — pop progressions promote it via PROGRESSION_VOICING weights, not a global pull.
+  add9:  3,    // add9 sits at triad-level bias — pop progressions promote it via PROGRESSION_VOICING weights, not a global pull.
+  quartal: 4, // quartal is niche — only fires when explicitly weighted by a modal progression or selected as a family.
   strum: 4,   // Strum (barre/open/power) — neutral bias; mostly picked via PROGRESSION_VOICING weights or 'strum' pref
 };
 // Deterministic per-candidate hash → noise in [-3, 3]. Used in place
