@@ -391,6 +391,28 @@ body.sidebar-fullscreen .sidebar .mag-hero-img{
   display:block;opacity:0;transition:opacity .35s ease;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
+/* Date/source metadata overlay on the hero — bottom-left photo-credit style.
+   Used for onmexico posts that carry a "Month DD, YYYY | <symbol>" line as
+   their second line. Plain mono text on a translucent dark background. */
+body.sidebar-fullscreen .sidebar .mag-hero-date{
+  display:none;
+  position:absolute;
+  bottom:clamp(6px, 1vh, 12px);
+  left:clamp(6px, 1vw, 14px);
+  z-index:2;
+  background:rgba(0,0,0,.65);
+  color:#fdfcf3;
+  padding:4px 9px 4px 10px;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:clamp(9px, 1.1vh, 11px);
+  font-weight:600;letter-spacing:.7px;text-transform:uppercase;
+  border-radius:2px;
+  pointer-events:none;
+  white-space:nowrap;
+}
+/* Hide the date overlay when there's no hero image — the thumb-grid
+   navigator owns that visual slot in the no-image stage state. */
+body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-date{display:none}
 /* When the slide has no image, hide the <img> and reveal the thumb-grid
    in the same slot. The thumb-grid lets the reader see + jump to the
    other batch posts — useful for sections like Mañanera where the first
@@ -2045,6 +2067,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         <div class="mag-hero-wrap">
           <img class="mag-hero-img" alt="" decoding="async">
           <div class="mag-hero-thumbs"></div>
+          <div class="mag-hero-date"></div>
         </div>
         <div class="mag-text">
           <h2 class="mag-headline"></h2>
@@ -2193,16 +2216,38 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       }
     }
 
-    // Headline + body. Onmexico (international) posts follow a 3-section
-    // format separated by blank lines (context / Sheinbaum response / bullet
-    // quotes). For onmexico stage we split on \n\n and render each section
-    // as its own newspaper-style column. Other sections keep the flowing
-    // single body.
+    // Headline + body. Onmexico (international) posts follow a peculiar format:
+    // [Headline] / [Date metadata: "Month DD, YYYY | <symbol>"] / context /
+    // Sheinbaum response / bullet quotes — sections separated by blank lines.
+    // We strip the date line (it gets rendered as a photo-credit-style overlay
+    // on the hero image) and lay the 3 real content sections out as newspaper
+    // columns. Other sections keep the flowing single body.
     const lines=(slide.text||'').split('\n');
     el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
     const bodyRaw = lines.slice(1).join('\n').trim();
     const bEl=el.querySelector('.mag-body-text');
-    const sections = bodyRaw.split(/\n\s*\n+/).map(s=>s.trim()).filter(Boolean);
+    let sections = bodyRaw.split(/\n\s*\n+/).map(s=>s.trim()).filter(Boolean);
+
+    // Detect & strip a "Month DD, YYYY | <symbol>" date metadata line.
+    const dateRegex = /^[A-Z][a-z]+\s+\d{1,2},?\s+\d{4}\s*\|.+$/;
+    let dateLine = null;
+    sections = sections.filter(s=>{
+      if(dateLine===null && dateRegex.test(s)){ dateLine=s; return false }
+      return true;
+    });
+
+    // Date overlay (only when hero image is present — pinned bottom-left)
+    const dateEl = el.querySelector('.mag-hero-date');
+    if(dateEl){
+      if(dateLine){
+        dateEl.textContent = dateLine;
+        dateEl.style.display = '';
+      } else {
+        dateEl.textContent = '';
+        dateEl.style.display = 'none';
+      }
+    }
+
     const isMultiCol = group==='onmexico' && sections.length>=2;
     bEl.classList.toggle('multi-col', isMultiCol);
     bEl.dataset.colCount = isMultiCol ? Math.min(sections.length, 3) : '';
@@ -2210,9 +2255,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       bEl.innerHTML = sections.slice(0,3)
         .map(s=>`<div class="mag-body-col">${safeTxt(s)}</div>`).join('');
     } else {
-      bEl.innerHTML = safeTxt(bodyRaw.replace(/\s+/g,' ').trim());
+      const flat = sections.join('\n\n').replace(/\s+/g,' ').trim();
+      bEl.innerHTML = safeTxt(flat);
     }
-    bEl.style.display = bodyRaw ? '' : 'none';
+    bEl.style.display = sections.length ? '' : 'none';
 
     paintFoot(el, group, batch, idx, 'stage');
   }
