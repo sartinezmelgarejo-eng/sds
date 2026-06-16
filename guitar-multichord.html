@@ -6353,6 +6353,159 @@ function quartalVoicing(quality, rootPc, variant = 'root') {
   return null;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   PRO MODE — Piano-only voicings (Phase 1: Bebop foundations)
+   ════════════════════════════════════════════════════════════════════
+   These voicings use a different shape format: `pianoShape` is an
+   array of MIDI numbers (not a 6-element fret array), because the
+   piano vocabulary spans wider intervals (10ths, 5-note quartal
+   stacks) than six guitar strings can grab. They only surface when
+   state.instrument === 'piano' AND state.proMode === true. Audio uses
+   pianoShape directly; chord-map cards keep showing the guitar
+   voicings as a fingering reference, so the Pro family only affects
+   play-mode output.
+
+   Voice-leading inside the rootless voicings happens implicitly via
+   A↔B alternation (A for one chord, B for the next, swapping the
+   bottom voice between the 3rd and the b7).
+*/
+
+// Pick the octave that lands a target MIDI pitch in the LH comping
+// register (around C3-B3, MIDI 48-59). Used by every pro builder
+// below so the voicing always sits where Bill Evans / Wynton Kelly
+// would have played it.
+function _proLHOctave(rootPc, lowestInterval, lowMidi = 48, highMidi = 59) {
+  for (let n = 2; n <= 6; n++) {
+    const m = rootPc + lowestInterval + 12 * n;
+    if (m >= lowMidi && m <= highMidi) return n;
+  }
+  return 4;
+}
+
+// ─── 1. Rootless A voicing ───────────────────────────────────────
+// Bottom-up: 3 - 5 - 7 - 9. The most-played jazz piano voicing on
+// every ii-V-I from Powell onward.
+//   m7   → b3-5-b7-9   (Dm7 = F-A-C-E)
+//   maj7 → 3-5-7-9     (Cmaj7 = E-G-B-D)
+//   7    → b7-9-3-13   (G7 = F-A-B-E)  (a special inversion, see
+//                       comment below for why it's still called "A")
+// The "A vs B" distinction is the rotation pattern across a ii-V-I
+// chain — A on the ii, B on the V, A on the I (or vice-versa) — so
+// adjacent voicings share two voices and the other two move by step.
+const ROOTLESS_A_INTERVALS = {
+  'm7':   [3, 7, 10, 14],   // b3 - 5 - b7 - 9
+  'm9':   [3, 7, 10, 14],   // same (chord notes match)
+  'mMaj7':[3, 7, 11, 14],   // b3 - 5 - 7 - 9
+  'maj7': [4, 7, 11, 14],   // 3 - 5 - 7 - 9
+  'maj9': [4, 7, 11, 14],
+  '7':    [10, 14, 16, 21], // b7 - 9 - 3 (+12) - 13 (+12)
+  '9':    [10, 14, 16, 21],
+};
+function rootlessAVoicing(quality, rootPc) {
+  const ints = ROOTLESS_A_INTERVALS[quality];
+  if (!ints) return null;
+  const oct = _proLHOctave(rootPc, ints[0]);
+  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+}
+
+// ─── 2. Rootless B voicing ───────────────────────────────────────
+// Bottom-up: 7 - 9 - 3 - 5. Same notes as A but rotated — the b7
+// (or 3) drops to the bottom.
+const ROOTLESS_B_INTERVALS = {
+  'm7':   [10, 14, 15, 19], // b7 - 9 - b3 (+12) - 5 (+12)
+  'm9':   [10, 14, 15, 19],
+  'mMaj7':[11, 14, 15, 19],
+  'maj7': [11, 14, 16, 19], // 7 - 9 - 3 (+12) - 5 (+12)
+  'maj9': [11, 14, 16, 19],
+  '7':    [4, 9, 10, 14],   // 3 - 13 - b7 - 9  (all within one octave above R)
+  '9':    [4, 9, 10, 14],
+};
+function rootlessBVoicing(quality, rootPc) {
+  const ints = ROOTLESS_B_INTERVALS[quality];
+  if (!ints) return null;
+  // B voicing's bass note sits a step higher than A's — center it
+  // around middle C (Bb3-D4) so the LH stays in the canonical bebop
+  // comping register.
+  const oct = _proLHOctave(rootPc, ints[0], 55, 64);
+  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+}
+
+// ─── 3. Powell Shell (LH-only economy) ────────────────────────────
+// Three-note grip: R + 3 + b7. Bud Powell, Wynton Kelly, Phineas
+// Newborn left hand while the right hand blew eighth-note lines.
+// Sits BELOW middle C — deeper register supports the soloist.
+const POWELL_SHELL_INTERVALS = {
+  'maj7': [0, 4, 11],   // R - 3 - 7
+  'maj9': [0, 4, 11],
+  '7':    [0, 4, 10],   // R - 3 - b7
+  '9':    [0, 4, 10],
+  'm7':   [0, 3, 10],   // R - b3 - b7
+  'm9':   [0, 3, 10],
+  'mMaj7':[0, 3, 11],   // R - b3 - 7
+  'm7b5': [0, 3, 10],   // R - b3 - b7 (b5 implied by chord context)
+};
+function powellShellVoicing(quality, rootPc) {
+  const ints = POWELL_SHELL_INTERVALS[quality];
+  if (!ints) return null;
+  // Place R in MIDI 36-47 range (deep LH, G2-B2-ish)
+  const oct = _proLHOctave(rootPc, 0, 36, 47);
+  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+}
+
+// ─── 4. So What Full 5-note voicing ───────────────────────────────
+// Literal Bill Evans Dm chord: E-A-D-G-C from bass up — four stacked
+// perfect 4ths. Five notes spanning an octave. The thumb crosses
+// between LH and RH on this grip.
+//   m7/m9: stack from the 5 (rootPc+7) UP, all in perfect 4ths
+//   For Dm: 5=A, +5=D (R), +5=G (11), +5=C (b7), +5=F (b3)
+//   So intervals from rootPc: [-5, 0, 5, 10, 15] = 5-R-11-b7-b3
+// 7sus4 / 9sus4 share the geometry (different functional reading).
+const SO_WHAT_OK = new Set(['m7', 'm9', '7sus4', '9sus4']);
+function soWhatFullVoicing(quality, rootPc) {
+  if (!SO_WHAT_OK.has(quality)) return null;
+  // Bottom note = 5 of chord = rootPc + 7 (or - 5 from root, same pc).
+  // Place bottom around E2-G2 (MIDI 40-43) for the canonical register.
+  const fifthPc = (rootPc + 7) % 12;
+  const oct = _proLHOctave(fifthPc, 0, 40, 47);
+  const bottomMidi = fifthPc + 12 * oct;
+  // Stack 4 more perfect 4ths above (5 semitones each).
+  return { pianoShape: [0, 5, 10, 15, 20].map(i => bottomMidi + i) };
+}
+
+// ─── 5. Mehldau 10th Spread ───────────────────────────────────────
+// Brad Mehldau / Keith Jarrett / late Bill Evans. Bass + 10th + RH
+// upper structure. The 10th interval (16 semitones) is the iconic
+// LH piano voicing — impossible on guitar.
+//   maj7: R bass + 10 (3 up an octave) + 7 + 9 + 5
+//   m7:   R bass + 10 (b3 up an octave) + b7 + 9 + 5
+//   7:    R bass + 10 (3 up an octave) + b7 + 9 + 13
+const MEHLDAU_INTERVALS = {
+  'maj7': [0, 16, 23, 26, 31],  // R - 10 - 7 - 9 - 5
+  'maj9': [0, 16, 23, 26, 31],
+  'm7':   [0, 15, 22, 26, 31],  // R - 10(b3) - b7 - 9 - 5
+  'm9':   [0, 15, 22, 26, 31],
+  '7':    [0, 16, 22, 26, 33],  // R - 10 - b7 - 9 - 13
+  '9':    [0, 16, 22, 26, 33],
+};
+function mehldau10thVoicing(quality, rootPc) {
+  const ints = MEHLDAU_INTERVALS[quality];
+  if (!ints) return null;
+  // Bass at C2 region (MIDI 36-47).
+  const oct = _proLHOctave(rootPc, 0, 36, 47);
+  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+}
+
+// ─── Pro family registry ──────────────────────────────────────────
+// Maps family name → builder. Used by allDistinctVoicings + _pickShape
+// when state.instrument === 'piano' AND state.proMode === true.
+const PRO_BUILDERS = {
+  'rootlessA':   rootlessAVoicing,
+  'rootlessB':   rootlessBVoicing,
+  'powellShell': powellShellVoicing,
+  'soWhatFull':  soWhatFullVoicing,
+  'mehldau10th': mehldau10thVoicing,
+};
+
 function susVoicing(quality, rootPc, stringSetIdx, inversion) {
   const q = QUALITIES[quality];
   if (!q) return null;
@@ -6389,6 +6542,31 @@ function totalVoiceMovement(shapeA, shapeB) {
   }
   return total;
 }
+
+// Unified shape→MIDI-notes converter. Pro voicings carry `pianoShape`
+// (an array of MIDI numbers) while standard voicings carry the 6-element
+// fret `shape`. This helper normalizes both into the {notes:[midi]} the
+// audio + visualizers expect.
+function shapeNotes(voicing) {
+  if (!voicing) return [];
+  if (Array.isArray(voicing.pianoShape) && voicing.pianoShape.length) {
+    return voicing.pianoShape.slice();
+  }
+  const sh = Array.isArray(voicing.shape) ? voicing.shape : voicing;
+  if (!Array.isArray(sh)) return [];
+  return sh.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+}
+// For places that already have the shape array and want notes back.
+function shapeArrayToNotes(sh) {
+  if (!Array.isArray(sh)) return [];
+  return sh.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+}
+// Pro voicings don't have a guitar shape; the chord-map mini-fretboards
+// expect one. This dummy keeps the renderer from null-erroring while
+// signaling "no guitar representation" so the renderer can fall back
+// to a chord-name-only card. Used by allDistinctVoicings when adding
+// pro candidates that participate in the picker but aren't drawn.
+const PRO_PLACEHOLDER_SHAPE = [-1, -1, -1, -1, -1, -1];
 
 function avgFret(shape) {
   const fs = shape.filter(f => f >= 0);
@@ -6617,6 +6795,7 @@ const state = {
   keyPc: _pickStartKeyPc(),
   tonality: _pickStartTonality(),
   instrument: 'guitar',     // 'guitar' | 'piano' — swaps chord neck for piano keyboard
+  proMode: false,           // Piano-only Pro voicings (Bill Evans rootless, So What, Mehldau 10th, …) — gated by instrument==='piano'
   display: 'notes',
   focusedChord: 'I',
   userVoicing: null,
@@ -6746,9 +6925,16 @@ function focusedShape() {
       ...state.userVoicing,
     };
   }
-  // If the AI is currently playing this chord with a specific voicing, show that one
+  // If the AI is currently playing this chord with a specific voicing, show that one.
+  // Pro voicings ride alongside via pianoShape (MIDI array); pass it through so
+  // the piano keyboard can light up the actual played notes instead of trying
+  // to convert the placeholder fret-shape.
   if (state.playerVoicing && state.playerVoicing.chord === state.focusedChord && state.playerVoicing.shape) {
-    return { shape: state.playerVoicing.shape, type: state.playerVoicing.type };
+    return {
+      shape: state.playerVoicing.shape,
+      type: state.playerVoicing.type,
+      pianoShape: state.playerVoicing.pianoShape || null,
+    };
   }
   // Default: register-aware musical voicing.
   // Propagate the FULL voicing metadata (type + stringSet/idx) so the
@@ -11284,6 +11470,12 @@ const VOICING_OPTIONS = [
   {value: 'add9',  emoji: '💧', label: 'Add9',   desc: 'pop / folk color — R-3-5-9 (drops the 7)'},
   {value: 'quartal', emoji: '🏛️', label: 'Quartal', desc: 'modal "So What" stack of 4ths (m7 / sus only)'},
   {value: 'strum', emoji: '🎸', label: 'Strum',  desc: 'rhythm-guitar grips — barre, open & power chords'},
+  // ── Pro Mode voicings (piano-only, gated by state.proMode + state.instrument === 'piano') ──
+  {value: 'rootlessA',   emoji: '🪞', label: 'Rootless A', desc: 'Bill Evans 3-5-7-9 LH — every ii-V-I', proPianoOnly: true},
+  {value: 'rootlessB',   emoji: '🪞', label: 'Rootless B', desc: 'b7-9-3-5 partner — alternates with A', proPianoOnly: true},
+  {value: 'powellShell', emoji: '🌑', label: 'Powell Shell', desc: 'R + 3 + b7 LH economy — bop comping', proPianoOnly: true},
+  {value: 'soWhatFull',  emoji: '🗼', label: 'So What Full', desc: '5-note stacked 4ths E-A-D-G-C — modal canon', proPianoOnly: true},
+  {value: 'mehldau10th', emoji: '🌊', label: 'Mehldau 10th', desc: 'R bass + 10th + extensions — wide piano spread', proPianoOnly: true},
 ];
 // Multi-select voicing filter. The set holds the type ids the user has
 // allowed; when it covers every id we're in legacy "ALL" mode (no
@@ -11292,16 +11484,38 @@ const VOICING_OPTIONS = [
 // multi-chord slot writes. Soft fallback to drop2 (the existing emergency
 // fallback at ~:6572) kicks in if no allowed type yields a shape for a
 // given chord, so play never breaks.
-const VOICING_TYPE_IDS = VOICING_OPTIONS.filter(v => v.value !== 'all').map(v => v.value);
+// Standard voicing families — always available regardless of instrument.
+// Pro voicings live in VOICING_OPTIONS too (proPianoOnly:true) but they
+// are excluded from the default "ALL" set so guitarists never get
+// surprised by them. Pro voicings join the set only when the user
+// explicitly enables proMode AND the instrument is piano.
+const VOICING_TYPE_IDS = VOICING_OPTIONS
+  .filter(v => v.value !== 'all' && !v.proPianoOnly)
+  .map(v => v.value);
+const PRO_VOICING_TYPE_IDS = VOICING_OPTIONS
+  .filter(v => v.proPianoOnly)
+  .map(v => v.value);
+function isProFamily(t) { return PRO_VOICING_TYPE_IDS.indexOf(t) >= 0; }
+function isProAvailable() {
+  return state.instrument === 'piano' && state.proMode === true;
+}
 let voicingPrefSet = new Set(VOICING_TYPE_IDS);
 function voicingPrefIsAll() {
-  return voicingPrefSet.size === VOICING_TYPE_IDS.length;
+  // "ALL" means every standard family is selected. Pro families can be
+  // added on top without flipping ALL off — they're additive, not part
+  // of the default vocabulary. So ignore pros when computing ALL state.
+  return VOICING_TYPE_IDS.every(t => voicingPrefSet.has(t));
 }
 function isVoicingAllowed(type) {
   return voicingPrefIsAll() || (type && voicingPrefSet.has(type));
 }
 function allowedVoicingTypes() {
-  return voicingPrefIsAll() ? VOICING_TYPE_IDS.slice() : [...voicingPrefSet];
+  if (voicingPrefIsAll()) {
+    // Standard set + any pro families the user added on top.
+    const selectedPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+    return VOICING_TYPE_IDS.concat(selectedPros);
+  }
+  return [...voicingPrefSet];
 }
 function filterShapeCandidates(cands) {
   if (voicingPrefIsAll() || !cands || !cands.length) return cands;
@@ -11318,10 +11532,13 @@ function filterShapeCandidates(cands) {
 const VOICING_BUTTON_LABEL = {
   drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS',
   triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', add9: 'ADD9', quartal: 'QUARTAL', strum: 'STRUM',
+  rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL',
+  soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
 };
 const VOICING_SHORT_CODE = {
   drop2: 'D2', drop3: 'D3', shell: 'SH',
   triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', quartal: 'Q4', strum: 'ST',
+  rootlessA: 'RA', rootlessB: 'RB', powellShell: 'PS', soWhatFull: 'SW', mehldau10th: 'M10',
 };
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
@@ -11417,6 +11634,44 @@ const VOICE_ICONS = {
     <circle cx="14" cy="5" r="1.4" fill="#1a1a1a"/>
     <circle cx="19" cy="7" r="1.4" fill="#1a1a1a"/>
   </svg>`,
+  // ── Pro Mode icons (piano-only voicings) ────────────────────────────
+  // ROOTLESS A — 4 dots in close-position diagonal pattern (rising 3-5-7-9)
+  rootlessA: `<svg viewBox="0 0 26 16">
+    <circle cx="7"  cy="13" r="2" fill="#7e2438"/>
+    <circle cx="11" cy="10" r="2" fill="#7e2438"/>
+    <circle cx="15" cy="7"  r="2" fill="#7e2438"/>
+    <circle cx="19" cy="4"  r="2" fill="#7e2438"/>
+  </svg>`,
+  // ROOTLESS B — same dots but rotated 180° (b7-9-3-5 inverted view)
+  rootlessB: `<svg viewBox="0 0 26 16">
+    <circle cx="7"  cy="4"  r="2" fill="#7e2438"/>
+    <circle cx="11" cy="7"  r="2" fill="#7e2438"/>
+    <circle cx="15" cy="10" r="2" fill="#7e2438"/>
+    <circle cx="19" cy="13" r="2" fill="#7e2438"/>
+  </svg>`,
+  // POWELL SHELL — 3 dots in triangle (R + 3 + b7 — minimal LH)
+  powellShell: `<svg viewBox="0 0 26 16">
+    <circle cx="6"  cy="12" r="2.2" fill="#1a1a1a"/>
+    <circle cx="13" cy="6"  r="2.2" fill="#1a1a1a"/>
+    <circle cx="20" cy="12" r="2.2" fill="#1a1a1a"/>
+  </svg>`,
+  // SO WHAT FULL — 5 dots stacked vertically in 4ths (literal voicing visual)
+  soWhatFull: `<svg viewBox="0 0 26 16">
+    <line x1="13" y1="2" x2="13" y2="14" stroke="#1a1a1a" stroke-width="0.6"/>
+    <circle cx="13" cy="2"  r="1.8" fill="#1a1a1a"/>
+    <circle cx="13" cy="5"  r="1.8" fill="#1a1a1a"/>
+    <circle cx="13" cy="8"  r="1.8" fill="#1a1a1a"/>
+    <circle cx="13" cy="11" r="1.8" fill="#1a1a1a"/>
+    <circle cx="13" cy="14" r="1.8" fill="#1a1a1a"/>
+  </svg>`,
+  // MEHLDAU 10TH — wide spread, low bass dot + high cluster
+  mehldau10th: `<svg viewBox="0 0 26 16">
+    <circle cx="4"  cy="13" r="2.4" fill="#1a1a1a"/>
+    <line x1="4" y1="13" x2="20" y2="4" stroke="#1a1a1a" stroke-width="0.5" stroke-dasharray="1,1"/>
+    <circle cx="16" cy="5"  r="1.5" fill="#1a1a1a"/>
+    <circle cx="19" cy="4"  r="1.5" fill="#1a1a1a"/>
+    <circle cx="22" cy="6"  r="1.5" fill="#1a1a1a"/>
+  </svg>`,
 };
 
 function _updateVoicingPrefButton() {
@@ -11432,14 +11687,40 @@ function renderVoicingMenu() {
   // the last individual off snaps back to ALL so play never has zero-
   // allowed types. Menu stays open after a click; outside-click handler at
   // :11057 closes it.
-  voicingMenu.innerHTML = VOICING_OPTIONS.map(v => {
+  // Pro Mode (piano-only): when state.proMode is OFF, hide the proPianoOnly
+  // rows entirely. When ON, append them under a divider so they read as
+  // an opt-in extension to the standard vocabulary. Pros can be selected
+  // ADDITIVELY on top of ALL standard — voicingPrefIsAll() only checks
+  // the standard set, so adding "Rootless A" keeps ALL checked.
+  const showPro = isProAvailable();
+  const visibleOptions = showPro
+    ? VOICING_OPTIONS
+    : VOICING_OPTIONS.filter(v => !v.proPianoOnly);
+  const proToggleHtml = (state.instrument === 'piano')
+    ? `
+    <div class="sound-menu-item pro-toggle ${state.proMode ? 'selected' : ''}" data-voicing="__pro_toggle__"
+         style="border-top:1px solid #d8d4c6;padding-top:10px;margin-top:6px;background:${state.proMode ? '#f5ecd0' : 'transparent'};">
+      <span class="menu-ico" style="font-size:18px">⚡</span>
+      <span style="flex:1">
+        <strong>Pro Mode${state.proMode ? ' · ON' : ''}</strong>
+        <span style="display:block;font-size:10px;opacity:0.65;font-style:italic">${state.proMode ? 'piano voicings shown below' : 'reveals Bill Evans rootless, So What, Mehldau 10th…'}</span>
+      </span>
+      <span class="check">✓</span>
+    </div>` : '';
+  voicingMenu.innerHTML = visibleOptions.map((v, idx) => {
     // When ALL is on, only ALL gets the checkmark — individual rows stay
     // unchecked (less visual noise). When in a partial filter, ALL is off
     // and only the actively-allowed types show their checks.
     const selected = (v.value === 'all')
       ? voicingPrefIsAll()
-      : (!voicingPrefIsAll() && voicingPrefSet.has(v.value));
-    return `
+      : (v.proPianoOnly
+          ? voicingPrefSet.has(v.value)  // Pros: show check whenever they're in the set, regardless of ALL state
+          : (!voicingPrefIsAll() && voicingPrefSet.has(v.value)));
+    const isFirstPro = v.proPianoOnly && (idx === 0 || !visibleOptions[idx - 1].proPianoOnly);
+    const sep = isFirstPro
+      ? `<div style="padding:8px 12px 4px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;color:#7e2438;text-transform:uppercase;border-top:1px solid #d8d4c6;margin-top:6px;">Pro · Piano voicings</div>`
+      : '';
+    return sep + `
     <div class="sound-menu-item ${selected ? 'selected' : ''}" data-voicing="${v.value}">
       <span class="menu-ico">${VOICE_ICONS[v.value] || ''}</span>
       <span style="flex:1">
@@ -11448,19 +11729,45 @@ function renderVoicingMenu() {
       </span>
       <span class="check">✓</span>
     </div>`;
-  }).join('');
+  }).join('') + proToggleHtml;
   voicingMenu.querySelectorAll('[data-voicing]').forEach(item => {
     item.addEventListener('click', e => {
       e.stopPropagation();
       const id = item.dataset.voicing;
+      if (id === '__pro_toggle__') {
+        // Flip Pro Mode. Doesn't touch voicingPrefSet — the user
+        // explicitly opts in to each pro family via its own row.
+        state.proMode = !state.proMode;
+        // When turning off, drop any pro selections so the picker
+        // doesn't keep trying to fire them.
+        if (!state.proMode) {
+          PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
+        }
+        _updateVoicingPrefButton();
+        renderVoicingMenu();
+        if (typeof renderChordMap === 'function') renderChordMap();
+        return;
+      }
+      const isPro = isProFamily(id);
       if (id === 'all') {
         voicingPrefSet = new Set(VOICING_TYPE_IDS);
+      } else if (isPro) {
+        // Pro families toggle ADDITIVELY — never collapse the standard set.
+        if (voicingPrefSet.has(id)) voicingPrefSet.delete(id);
+        else voicingPrefSet.add(id);
       } else if (voicingPrefIsAll()) {
-        // First specific click out of ALL → switch to a single-type filter.
-        voicingPrefSet = new Set([id]);
+        // First specific standard click out of ALL → switch to single-type
+        // filter. Pros already in the set stay.
+        const keptPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+        voicingPrefSet = new Set([id, ...keptPros]);
       } else if (voicingPrefSet.has(id)) {
         voicingPrefSet.delete(id);
-        if (voicingPrefSet.size === 0) voicingPrefSet = new Set(VOICING_TYPE_IDS);
+        // If everything got toggled off, snap to standard ALL.
+        const anyStandard = VOICING_TYPE_IDS.some(t => voicingPrefSet.has(t));
+        if (!anyStandard) {
+          const keptPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+          voicingPrefSet = new Set([...VOICING_TYPE_IDS, ...keptPros]);
+        }
       } else {
         voicingPrefSet.add(id);
       }
@@ -12538,10 +12845,16 @@ const HEAVY_ROCK_PROGS = new Set([
 // Defaults to 1.0 when the field is missing.
 const PROGRESSION_VOICING = {
   // major
-  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
+  // Pro voicings only fire when state.proMode is ON + state.instrument is piano
+  // + user has selected the family in the voicing menu. Weights mark the
+  // progressions where they BELONG idiomatically — bebop ii-V-I gets heavy
+  // rootless weight; modal vamps get soWhatFull; pop progressions don't
+  // get any Pro weight at all because Pro voicings would clash with their
+  // texture.
+  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
   'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, extensions:0.3},
   'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:50, add9:12, extensions:0.2},
-  'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
+  'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
   'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:50, add9:12, extensions:0.2},
   'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0,  add9:8},
   'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
@@ -12557,11 +12870,11 @@ const PROGRESSION_VOICING = {
   'V7sus–V–I':                    {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25},
-  'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
-  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0},
+  'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:35, rootlessB:35, powellShell:15, mehldau10th:15},
+  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:20},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:10, extensions:0.3},
   'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:55, add9:15, extensions:0.15},
-  'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
+  'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, mehldau10th:15},
   'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
   'I – V/V – V – I':              {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12582,7 +12895,7 @@ const PROGRESSION_VOICING = {
   'Country pedal Iadd9–IVadd9':         {drop2:10, drop3:10, shell:5,  triad:25, sus:0, strum:30, add9:30, extensions:0.05},
   'AABA-A double':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   // minor
-  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
+  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:15, mehldau10th:15},
   'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0, strum:0},
   'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.15},
   'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, add9:8,  extensions:0.2},
@@ -12649,7 +12962,7 @@ const PROGRESSION_VOICING = {
   // Minor additions
   'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5},
   'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  extensions:1.2},
-  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, extensions:1.4},
+  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, soWhatFull:60, extensions:1.4},
   // ─── Multi-chord progressions ───
   // Jazz turnarounds: drop-2 dominant + a touch of drop-3 for the bebop feel.
   'Bird-style turnaround':        {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
@@ -12944,6 +13257,21 @@ class Player {
         root
       );
       if (openSh) cands.push(openSh);
+    } else if (PRO_BUILDERS[type]) {
+      // Pro Mode (piano-only): pianoShape is an array of MIDI numbers.
+      // Wrap it into a placeholder fret-shape so the existing scorer
+      // can handle it (avgFret will return 0, registerCost won't pull
+      // toward the guitar sweet spot — that's fine, pro voicings have
+      // their own register baked into pianoShape). The placeholder is
+      // tagged with __pianoShape so downstream audio + visualizers can
+      // read the real MIDI notes.
+      const proResult = PRO_BUILDERS[type](quality, root);
+      if (proResult && proResult.pianoShape) {
+        const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
+        Object.defineProperty(placeholder, '__pianoShape', { value: proResult.pianoShape });
+        Object.defineProperty(placeholder, '__proType', { value: type });
+        cands.push(placeholder);
+      }
     } else if (type === 'strum') {
       // Rhythm-guitar grip family. Two barre sub-variants:
       //   • 7th  — full 4-note barre with the chord's natural 7th
@@ -12984,6 +13312,17 @@ class Player {
       if (playable.length) cands.length = 0, cands.push(...playable);
       // If NOTHING is playable, fall back to the raw list so we
       // don't return null on an obscure chord.
+    }
+
+    // Pro Mode fast path: each pro builder produces exactly ONE
+    // canonical voicing per (quality, root) — there are no inversions
+    // or string sets to score. Returning directly skips the register
+    // cost (which would punish the placeholder shape's avgFret=0) and
+    // the voice-leading scorer (which doesn't apply to a different
+    // notes count). The pianoShape rides on the array via
+    // __pianoShape; the trigger lifts it onto the cell.
+    if (cands.length === 1 && cands[0] && cands[0].__pianoShape) {
+      return cands[0];
     }
 
     // No previous reference → strong pull to fret-6/7 sweet spot.
@@ -14152,8 +14491,10 @@ class Player {
     const planned = this._cachedPage[barInPage];
     let type = this.voicingType;
     let shape = null;
+    let pianoShape = null;
     if (planned && planned.chord === chordId && planned.shape) {
       shape = planned.shape;
+      pianoShape = planned.pianoShape || (shape && shape.__pianoShape) || null;
       type = planned.voicingType || type;
     } else {
       // True last-resort fallback (shouldn't happen with the rebuild above)
@@ -14182,10 +14523,13 @@ class Player {
 
     state.focusedChord = chordId;
     state.userVoicing = null;
-    state.playerVoicing = { chord: chordId, shape, type };
-    // Remember how this chord was played so its map card defaults to this voicing
-    // for the rest of the progression — even when it's not the focused/next-up chord.
-    state.progressionVoicings[chordId] = { shape, type };
+    // Pro voicings ride alongside shape via pianoShape (MIDI array). The
+    // audio path uses pianoShape directly when present; chord-map cards
+    // ignore it (they keep showing the guitar-shape preview as a finger
+    // reference). state.playerVoicing carries both so downstream readers
+    // (now-playing icon, predict-next, etc.) can choose.
+    state.playerVoicing = { chord: chordId, shape, type, pianoShape };
+    state.progressionVoicings[chordId] = { shape, type, pianoShape };
     this.previousShape = shape;
 
     // Reset the in-bar slot index BEFORE predicting, so the prediction
@@ -14194,7 +14538,11 @@ class Player {
     this.currentBarSlot = 0;
     this._predictNextVoicing();
 
-    const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+    // Pro voicings: use pianoShape (MIDI array) directly. Standard
+    // voicings: convert the fret shape to MIDI via STRING_OPEN_MIDI.
+    const notes = pianoShape && pianoShape.length
+      ? pianoShape.slice()
+      : shapeArrayToNotes(shape);
     const vol = currentDroneVolume() * 1.8;
 
     // Rhythmic subdivisions: bar divided into N equal slots. Slot 0 fires
@@ -14573,7 +14921,8 @@ class Player {
       ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
 
     // Friendly voicing label matching the compose-mode info bar.
-    const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM' };
+    const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
+      rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH' };
     const pvType = state.playerVoicing?.type;
     const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
     const voicingTxt = pvLabel
@@ -15156,6 +15505,11 @@ class Player {
             });
           }
         }
+        // Pro voicings stash their MIDI notes on shape.__pianoShape (the
+        // shape itself is the [-1,-1,…] placeholder). Lift it onto the
+        // cell so _triggerChord and the visualizers can find it without
+        // poking non-enumerable shape props.
+        const _pianoShape = (shape && shape.__pianoShape) ? shape.__pianoShape.slice() : null;
         const entry = {
           chord: seg.chord,
           qualityOverride: stepForEntry?.qualityOverride || null,
@@ -15165,6 +15519,7 @@ class Player {
           // the info bar / pause-click handler can label it correctly.
           voicingType: (typeof finalType !== 'undefined') ? finalType : segType,
           shape,
+          pianoShape: _pianoShape,
           subdivisions: seg.subdivisions || (enrichedSlots && enrichedSlots.length) || 1,
           subdivMute: seg.subdivMute || [],
           slots: enrichedSlots,
@@ -16749,31 +17104,83 @@ function paintPianoNotes() {
   //   - user picked a specific voicing card  → returns state.userVoicing
   // Going through playerVoicing first masked the click because
   // playerVoicing is always set during playback.
-  const liveShape   = focusedShape()?.shape;
+  const fs = focusedShape();
+  const liveShape   = fs?.shape;
+  const livePiano   = fs?.pianoShape || null;   // Pro voicings carry MIDI here
   const liveChordId = state.focusedChord;
   const nextShape   = state.nextVoicing?.shape;
+  const nextPiano   = state.nextVoicing?.pianoShape || null;
   const nextChordId = state.nextVoicing?.chord;
+
+  // Compute the MIDI sets for both live and next voicings — pro voicings
+  // use pianoShape directly, standard ones convert via STRING_OPEN_MIDI.
+  const liveMidis = livePiano && livePiano.length
+    ? livePiano.slice()
+    : (liveShape ? shapeArrayToNotes(liveShape) : []);
+  const nextMidis = nextPiano && nextPiano.length
+    ? nextPiano.slice()
+    : (nextShape ? shapeArrayToNotes(nextShape) : []);
 
   // Sustained notes — same MIDI in both voicings (mark with a soft halo)
   const staysSet = new Set();
-  if (liveShape && nextShape) {
-    for (let str = 0; str < 6; str++) {
-      if (liveShape[str] >= 0 && liveShape[str] === nextShape[str]) {
-        staysSet.add(STRING_OPEN_MIDI[str] + liveShape[str]);
-      }
-    }
+  if (liveMidis.length && nextMidis.length) {
+    const nextSet = new Set(nextMidis);
+    for (const m of liveMidis) if (nextSet.has(m)) staysSet.add(m);
   }
 
   let s = '';
   // 1. NEXT chord as hollow outlines (below)
-  if (nextShape && nextChordId) {
-    s += _paintPianoVoicing(svg, nextShape, nextChordId, true, staysSet);
+  if (nextMidis.length && nextChordId) {
+    s += _paintPianoVoicingMidis(svg, nextMidis, nextChordId, true, staysSet);
   }
   // 2. LIVE chord as filled discs (above)
-  if (liveShape && liveChordId) {
-    s += _paintPianoVoicing(svg, liveShape, liveChordId, false, staysSet);
+  if (liveMidis.length && liveChordId) {
+    s += _paintPianoVoicingMidis(svg, liveMidis, liveChordId, false, staysSet);
   }
   group.innerHTML = s;
+}
+
+// MIDI-driven painter (works for both standard shape and pianoShape).
+// Shares all the styling logic with the original _paintPianoVoicing
+// — it just receives the MIDI list directly instead of converting from
+// a fret shape.
+function _paintPianoVoicingMidis(svg, midis, chordId, preview, staysSet) {
+  const map = currentMap();
+  const ch = map.chordDefs[chordId];
+  if (!ch) return '';
+  const root = chordRoot(ch);
+  const q = QUALITIES[ch.quality];
+  const pcToDeg = {};
+  q.ints.forEach((semi, i) => {
+    const pc = ((root + semi) % 12 + 12) % 12;
+    if (!(pc in pcToDeg)) pcToDeg[pc] = q.degs[i];
+  });
+  let s = '';
+  for (const midi of midis) {
+    const keyEl = svg.querySelector(`[data-midi="${midi}"]`);
+    if (!keyEl) continue;
+    const bb = keyEl.getBBox();
+    const pc = ((midi % 12) + 12) % 12;
+    const deg = pcToDeg[pc] || '';
+    const color = intervalColor(deg) || '#a07820';
+    const cx = bb.x + bb.width / 2;
+    const isBlack = isBlackKey(midi);
+    const r = isBlack ? 8 : 10;
+    const cy = bb.y + bb.height - (isBlack ? 14 : 18);
+    const isStay = staysSet.has(midi);
+    if (preview) {
+      const previewR = r + 2;
+      s += `<circle cx="${cx}" cy="${cy}" r="${previewR}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="3,2" opacity="0.85"/>`;
+    } else {
+      if (isStay) s += `<circle cx="${cx}" cy="${cy}" r="${r + 4}" fill="${color}" opacity="0.18"/>`;
+      s += `<circle class="kb-dot" cx="${cx}" cy="${cy}" r="${r}" fill="${color}"/>`;
+      if (deg) {
+        const isDarkText = (color === '#facc15' || color === '#fde68a' || color === '#f4c542');
+        s += `<text class="kb-deg ${isDarkText ? 'dark' : ''}" x="${cx}" y="${cy + 4}">${deg}</text>`;
+      }
+    }
+  }
+  return s;
 }
 
 // Helper: paint one voicing's notes onto the keyboard
@@ -18821,9 +19228,17 @@ const FAMILY_BIAS = {
   triad: 3,
   guide: 6,
   sus:   5,
-  add9:  3,    // add9 sits at triad-level bias — pop progressions promote it via PROGRESSION_VOICING weights, not a global pull.
-  quartal: 4, // quartal is niche — only fires when explicitly weighted by a modal progression or selected as a family.
-  strum: 4,   // Strum (barre/open/power) — neutral bias; mostly picked via PROGRESSION_VOICING weights or 'strum' pref
+  add9:  3,
+  quartal: 4,
+  strum: 4,
+  // Pro Mode pianos — neutral bias; fully driven by PROGRESSION_VOICING
+  // weights so they only fire on jazz progressions and only when the user
+  // has explicitly enabled Pro Mode + selected them.
+  rootlessA:   3,
+  rootlessB:   3,
+  powellShell: 4,
+  soWhatFull:  4,
+  mehldau10th: 4,
 };
 // Deterministic per-candidate hash → noise in [-3, 3]. Used in place
 // of Math.random() so the picker returns the SAME family for the
