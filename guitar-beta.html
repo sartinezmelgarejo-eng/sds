@@ -6454,20 +6454,22 @@ function powellShellVoicing(quality, rootPc) {
 
 // ─── 4. So What Full 5-note voicing ───────────────────────────────
 // Literal Bill Evans Dm chord: E-A-D-G-C from bass up — four stacked
-// perfect 4ths. Five notes spanning an octave. The thumb crosses
-// between LH and RH on this grip.
-//   m7/m9: stack from the 5 (rootPc+7) UP, all in perfect 4ths
-//   For Dm: 5=A, +5=D (R), +5=G (11), +5=C (b7), +5=F (b3)
-//   So intervals from rootPc: [-5, 0, 5, 10, 15] = 5-R-11-b7-b3
-// 7sus4 / 9sus4 share the geometry (different functional reading).
+// perfect 4ths. Five notes spanning an octave. The bottom voice is
+// the 9 of the chord (E for Dm); from there the 4ths climb up to the
+// b7 (C) at the top. Spans roughly E2 to C4 — bass clef into the
+// middle-C zone, the canonical Bill Evans two-handed grip.
+//   m7/m9: bottom=9, then 5, R, 11, b7
+//   For Dm: E(9), A(5), D(R), G(11), C(b7)
+// 7sus4 / 9sus4 share the geometry (different functional reading —
+// the b7 of the m7 doubles as the 4 of the dom7sus4 cousin).
 const SO_WHAT_OK = new Set(['m7', 'm9', '7sus4', '9sus4']);
 function soWhatFullVoicing(quality, rootPc) {
   if (!SO_WHAT_OK.has(quality)) return null;
-  // Bottom note = 5 of chord = rootPc + 7 (or - 5 from root, same pc).
-  // Place bottom around E2-G2 (MIDI 40-43) for the canonical register.
-  const fifthPc = (rootPc + 7) % 12;
-  const oct = _proLHOctave(fifthPc, 0, 40, 47);
-  const bottomMidi = fifthPc + 12 * oct;
+  // Bottom note = 9 of chord = rootPc + 2 (pc-wise). Place around
+  // E2-B2 (MIDI 40-47) for the iconic Bill Evans register.
+  const ninthPc = ((rootPc + 2) % 12 + 12) % 12;
+  const oct = _proLHOctave(ninthPc, 0, 40, 47);
+  const bottomMidi = ninthPc + 12 * oct;
   // Stack 4 more perfect 4ths above (5 semitones each).
   return { pianoShape: [0, 5, 10, 15, 20].map(i => bottomMidi + i) };
 }
@@ -6672,12 +6674,20 @@ function monkClusterVoicing(quality, rootPc) {
 //   7:    bass + bII major triad (Db-F-Ab for C7) → altered tritone-sub
 //   m7:   bass + IV major triad (F-A-C for Cm7) → m11 color
 const POLYCHORD_TRIAD_OFFSETS = {
-  // {bass interval, triad root interval, triad type (0=major, 3=minor)}
-  'maj7': [0, 14, 18, 21],  // bass + D-F#-A from C = +14 (D), +18 (F#), +21 (A)
-  'maj9': [0, 14, 18, 21],
-  '7':    [0, 13, 17, 20],  // bass + Db-F-Ab from C = +13 (Db), +17 (F), +20 (Ab)
-  '9':    [0, 13, 17, 20],
-  'm7':   [0, 17, 21, 24],  // bass + F-A-C from C = +17 (F), +21 (A), +24 (C')
+  // {bass interval, triad notes in RH register (one octave higher than
+  // the bass + triad-root interval). The triad MUST sit up in the
+  // soprano range for the polychord effect to read — otherwise the
+  // triad blurs into the bass and the bitonal character disappears.
+  // Cmaj7 polychord = C2 + D4-F#4-A4 (D major 5th up an octave above C bass).
+  'maj7': [0, 26, 30, 33],  // bass + D4 (+26) + F#4 (+30) + A4 (+33)
+  'maj9': [0, 26, 30, 33],
+  // C7 polychord = C2 + Db4-F4-Ab4 (tritone-sub Db major)
+  '7':    [0, 25, 29, 32],
+  '9':    [0, 25, 29, 32],
+  // Cm7 polychord = C2 + F3-A3-C4 (F major triad = m11 color).
+  // m7 keeps the triad slightly lower because it's the "softer" polychord
+  // — F over Cm reads as a natural extension, not a bitonal clash.
+  'm7':   [0, 17, 21, 24],
   'm9':   [0, 17, 21, 24],
 };
 function polychordVoicing(quality, rootPc) {
@@ -19736,6 +19746,13 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   if (!chordTag) return primaryType;
   const override = FUNCTION_OVERRIDE[chordTag];
   if (!override || override.alt === primaryType) return primaryType;
+  // Pro voicings live in their own canonical register (Bill Evans rootless,
+  // McCoy spread, Mehldau 10th…) and switching to a standard family mid-
+  // section for one chord function creates the exact "texture pop" the
+  // user flagged as un-smooth. When the section primary is a Pro family,
+  // keep every chord in that family — voice-leading inside one pro family
+  // is uniformly smooth (A↔A and B↔B chains share 2-3 common tones).
+  if (isProFamily(primaryType)) return primaryType;
   // Respect the multi-select voicing filter: only promote to the alt
   // family if the user has it enabled. This preserves the "don't surprise
   // the user with a type they didn't choose" intent of the old single-
