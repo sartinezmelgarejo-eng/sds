@@ -9385,6 +9385,13 @@ function renderChordMap() {
   // Render arrows using node positions
   arrowsSvg.setAttribute('viewBox', `0 0 ${MAP_DIMS.width} ${MAP_DIMS.height}`);
   const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+  // Pre-compute every arrow's "from>to" edge so the render loop can detect
+  // bidirectional pairs (V↔vi, V7↔bVI, bVI↔bVII) in O(1). When a pair has
+  // both directions, only the one that LEAVES the focused chord is drawn —
+  // so focusing V shows V→vi (deceptive coral), focusing vi shows vi→V
+  // (lateral teal). Chains (V/V→V→I etc.) stay unidirectional and survive
+  // intact since their reverse never exists.
+  const allEdges = new Set(map.arrows.map(a => a.from + '>' + a.to));
   arrowsSvg.innerHTML = `
     <defs>
       <!-- Tiny, minimal arrowhead — only shown on highlighted arrows -->
@@ -9446,6 +9453,13 @@ function renderChordMap() {
     // The relationships are conveyed by glowing the connected cards instead.
     const focusedNode = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
     if (focusedNode?.hub) return '';
+
+    // Bidirectional collapse: if this arrow's reverse (B→A) also exists in
+    // the map AND the focused chord isn't the source (it's the target), skip
+    // this one. The reverse will render instead. Net effect: V↔vi shows only
+    // V→vi when V is focused, only vi→V when vi is focused. Chains untouched
+    // (their reverse never exists).
+    if (allEdges.has(arr.to + '>' + arr.from) && aChord !== state.focusedChord) return '';
 
     // Movement type → line color (Push 2 coherence pass):
     //   'resolve' (cadential pull, V→I-style)        = amber #a07820 (the accent)
