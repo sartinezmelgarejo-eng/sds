@@ -8602,15 +8602,18 @@ function _renderHoverPopups(chordId, allowedIds) {
     // `domNode` / `domCell` tell the ii where to seat itself.
     let domAnchorX, domAnchorY, domNode = null, domCell = null;
     // ── Case A: approach is ALREADY a card on the map ──
-    // Don't create a popup, just draw a connector arrow from its
-    // existing card to the hovered target. This handles V/ii, V/V,
-    // etc. — the secondary dominants permanently visible on the map.
+    // Don't create a popup, and DON'T draw the V/X → X connector arrow
+    // either: the main map render already handles that arrow because
+    // it touches the focused chord. Drawing here used to overlay a
+    // second nearly-identical amber arrow on top, reading as a "double
+    // line." We still need domAnchor for the sii chain below (the
+    // ii → V/X arrow is NOT drawn by the main render when X is focused,
+    // so the popup system has to draw that one).
     if (!approach.isPopup) {
       domNode = findNodeFor(appId);
       if (!domNode) return;
       domAnchorX = domNode.x + 48;
       domAnchorY = domNode.y + 50;
-      drawArrowFrom(domAnchorX, domAnchorY);
     } else {
       // ── Case B: approach is popup-only — render its card + arrow ──
       // If this chord is already showing as the persistent popup, reuse its
