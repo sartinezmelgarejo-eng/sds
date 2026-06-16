@@ -2296,19 +2296,22 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }).filter(s=>s.ts);
     if(!sections.length) return '<div class="m-tg-empty">No posts yet</div>';
     sections.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    // Detect first-ever build (magState.featured was null before). Auto-jump
+    // to the first image-bearing slide ONLY on first build, otherwise the
+    // user's explicit slide picks (click-to-promote, tile clicks) would
+    // get clobbered every time the magazine re-renders.
+    const isFirstBuild = !magState.featured;
     if(!magState.featured || !sections.find(s=>s.group===magState.featured)){
       magState.featured=sections[0].group;
     }
-    // For the initial entry, jump each cell to the first slide that actually
-    // has an image (Mañanera's first post is often a bare telegraph link with
-    // no image — looks weak as a cover). Only auto-advance if the user hasn't
-    // already touched this group's slideIdx (i.e. it's still 0).
-    ['dailyt','scant','onmexico'].forEach(g=>{
-      if(magState.slideIdx[g]!==0) return;
-      const b=magBatchFor(g);
-      const withImg=b.findIndex(x => x.img || (x.source && x.source.img));
-      if(withImg>0) magState.slideIdx[g]=withImg;
-    });
+    if(isFirstBuild){
+      ['dailyt','scant','onmexico'].forEach(g=>{
+        if(magState.slideIdx[g]!==0) return;
+        const b=magBatchFor(g);
+        const withImg=b.findIndex(x => x.img || (x.source && x.source.img));
+        if(withImg>0) magState.slideIdx[g]=withImg;
+      });
+    }
     const stageGroup=magState.featured;
     const satGroups=sections.map(s=>s.group).filter(g=>g!==stageGroup);
     const sm=meta(stageGroup);
@@ -2499,9 +2502,10 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     updateCell(g);
     bumpCellTimer(g);
   });
-  // Click a mini-feed row (satellite) OR a stage no-image thumb tile →
-  // highlight that slide. Does NOT spotlight-swap the section (the header /
-  // non-row area is what swaps section into the stage).
+  // Click a satellite tile / active pin row → set that slide as the section's
+  // current AND promote the section to the stage so the clicked post opens
+  // in the big spread. Click on a stage no-image thumb → just navigate within
+  // the stage (no swap needed; we're already there).
   document.addEventListener('click',e=>{
     const target=e.target.closest('.mag-tile, .mag-row');
     if(!target) return;
@@ -2510,7 +2514,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(!cell) return;
     const g=cell.dataset.group;
     magState.slideIdx[g]=parseInt(target.dataset.slideIdx)||0;
-    updateCell(g);
+    if(cell.dataset.cell==='satellite' && magState.featured!==g){
+      magState.featured=g;
+      renderMobile();  // full rebuild swaps stage ↔ clicked satellite
+    } else {
+      updateCell(g);
+    }
     bumpCellTimer(g);
   });
   // Click a noticias time-of-day tab → switch batch, warm the new batch's images, reset timer.
