@@ -13245,6 +13245,12 @@ class Player {
               bars: 1,
               roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
               composedShape: c.shape,
+              // Carry the composed voicing family forward so play-mode
+              // surfaces (now-playing badge icon, strip variant detail)
+              // match what the user actually heard while composing.
+              // Without this, the section primary's family (drop2 etc.)
+              // overwrites it and the badge mislabels add9/quartal/etc.
+              composedType: c.voicingType,
               subdivisions: c.subdivisions || 1,
               subdivMute: c.subdivMute ? [...c.subdivMute] : [],
               // Multi-chord bars carry per-slot shape/chord/voicing so the
@@ -13505,6 +13511,9 @@ class Player {
             bars: 1,
             roman: (map.chordDefs[c.chord] && map.chordDefs[c.chord].roman) || c.chord,
             composedShape: c.shape,
+            // See identical comment at the buildSteps site above — preserves
+            // the composed family tag through the captured-sections path.
+            composedType: c.voicingType,
             subdivisions: c.subdivisions || 1,
             subdivMute: c.subdivMute ? [...c.subdivMute] : [],
             slots: c.slots ? c.slots.map(sl => sl ? {...sl} : null) : null,
@@ -14854,8 +14863,11 @@ class Player {
       const stepBars = isFirst ? barsLeft : step.bars;
       const barsToShow = Math.min(stepBars, n - totalBars);
       // voicingType comes straight from the section's pre-assignment — guaranteed
-      // to match what the player will pick when it transitions in.
-      const simVoicingType = section.voicingType || this.voicingType;
+      // to match what the player will pick when it transitions in. EXCEPT
+      // when the step was hand-composed: the user explicitly chose a family
+      // when they cycled to that voicing, and that choice has to win over
+      // the section primary so the now-playing badge stays honest.
+      const simVoicingType = step.composedType || section.voicingType || this.voicingType;
       result.push({
         roman: step.roman,
         chord: step.chord,
@@ -14866,6 +14878,7 @@ class Player {
         tonality: simTonality,
         voicingType: simVoicingType,
         composedShape: step.composedShape,  // honors user-typed inversions
+        composedType: step.composedType,    // honors user-chosen family
         subdivisions: step.subdivisions || (step.slots && step.slots.length) || 1,
         subdivMute: step.subdivMute || [],
         slots: step.slots || null,
