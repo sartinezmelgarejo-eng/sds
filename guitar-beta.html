@@ -10520,7 +10520,12 @@ class Drone {
     const sustainVol = peakVol * 0.62;
     const noteG = ctx.createGain();
     noteG.gain.setValueAtTime(0, t);
-    noteG.gain.linearRampToValueAtTime(peakVol, t + 0.008);
+    // 8ms attack was too aggressive — when the audio thread is under
+    // load on mobile (multiple oscillator creations per chord), the
+    // OscillatorNode.start() can land 10-20ms after the gain ramp has
+    // already peaked, producing the audible click the user heard.
+    // 20ms gives the scheduler enough slack to actually catch the ramp.
+    noteG.gain.linearRampToValueAtTime(peakVol, t + 0.020);
     noteG.gain.exponentialRampToValueAtTime(sustainVol, t + 0.5);
     carrier.connect(noteG);
     noteG.connect(this.master);
@@ -10542,7 +10547,8 @@ class Drone {
     const sineG = ctx.createGain(); sineG.gain.value = 0.48;
     const noteG = ctx.createGain();
     noteG.gain.setValueAtTime(0, t);
-    noteG.gain.linearRampToValueAtTime(0.12 * pitchRoll, t + 0.025);
+    // Bumped 25ms → 40ms — same anti-click slack as the rhodes voice.
+    noteG.gain.linearRampToValueAtTime(0.12 * pitchRoll, t + 0.040);
     o1.connect(filt); o2.connect(filt);
     o3.connect(sineG); sineG.connect(filt);
     filt.connect(noteG); noteG.connect(this.master);
@@ -10567,7 +10573,10 @@ class Drone {
     const pitchRoll = 1.0 - (i / total) * 0.30;
     const noteG = ctx.createGain();
     noteG.gain.setValueAtTime(0, t);
-    noteG.gain.linearRampToValueAtTime(0.12 * pitchRoll, t + 0.04);
+    // Bumped 40ms → 60ms. Hammond drawbars stack 5 oscillators per note;
+    // creation latency on mobile compounds and the 40ms ramp was missing
+    // the start callback. 60ms is still well below perceptual attack time.
+    noteG.gain.linearRampToValueAtTime(0.12 * pitchRoll, t + 0.060);
     // Soft lowpass for warmth
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass';
@@ -10618,7 +10627,8 @@ class Drone {
     const peakVol = 0.22 * pitchRoll;
     const env = ctx.createGain();
     env.gain.setValueAtTime(0.0001, t);
-    env.gain.exponentialRampToValueAtTime(peakVol, t + 0.018);            // soft felt attack
+    // Same mobile-slack bump as other voices — 18 → 30ms for the felt attack
+    env.gain.exponentialRampToValueAtTime(peakVol, t + 0.030);            // soft felt attack
     env.gain.exponentialRampToValueAtTime(peakVol * 0.5,  t + 0.35);       // hammer pluck dies
     env.gain.exponentialRampToValueAtTime(peakVol * 0.15, t + decayTime * 0.55);
     env.gain.exponentialRampToValueAtTime(0.0001,         t + decayTime);  // full fade to silence
@@ -10675,7 +10685,10 @@ class Drone {
     // Gentle plucked-string envelope: brief settling after the pluck, then slow body decay.
     const decayTime = midi < 55 ? 6.5 : (midi < 65 ? 5.5 : (midi < 72 ? 4.5 : 3.5));
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    // 12ms attack was barely enough on desktop; under mobile load with
+    // KS buffer source + 2 filter nodes + shared FX bus, the buffer
+    // source can take 15-25ms to actually start. Bumped to 30ms.
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.030);
     // Small settle: pluck transient drops ~15% in the first half-second
     g.gain.exponentialRampToValueAtTime(vol * 0.85, t + 0.5);
     // Long slow decay through the body of the note
@@ -14173,9 +14186,14 @@ class Player {
       for (let s = 1; s < subN; s++) {
         if (subMute[s]) continue;
         const slotAudioTime = t0 + (s / subN) * barDur;
-        // Wake up ~30 ms before the slot so Drone.start has time to wire up
+        // Wake up ~80 ms before the slot so Drone.start has time to wire up
         // oscillators, then it schedules the actual strike AT slotAudioTime.
-        const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 30);
+        // Was 30 ms, which was enough on desktop but too tight on mobile —
+        // setTimeout drift under load could land the wake AFTER the scheduled
+        // audio time, clamping the start to "now" and producing late chords.
+        // 80 ms gives roomy slack; the actual audio strike still fires
+        // sample-accurate via audioCtx.currentTime + delta.
+        const wallWait = Math.max(0, (slotAudioTime - audioCtx.currentTime) * 1000 - 80);
         const fireAt = slotAudioTime;
         const slotNotes = notesForSlot(s);
         const slotIdx  = s;
