@@ -2250,21 +2250,30 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
             el.style.removeProperty('--headline-color');  // not overlay anymore
           } else {
             if(!wrap.contains(hl)) wrap.appendChild(hl);
-            // Use the luminance pre-computed server-side in update-tg-feed.py
-            // and stored in sends.ndjson (we can't sample in-browser because
-            // every CDN we use serves without CORS — canvas reads would taint).
-            //   luminance < 0.45 (dark photo)  → cream  #fdfcf3
-            //   luminance >= 0.45 (bright)     → guinda var(--ct)
-            //   no luminance field             → guinda default
+            // Pick the headline color from our palette using two server-side
+            // signals stored in sends.ndjson (computed by update-tg-feed.py
+            // because CDN images are CORS-blocked from canvas reads):
+            //   img_lum  — sRGB luminance 0..1 of the bottom strip (perceived
+            //              brightness). Dark photos need cream so the red
+            //              doesn't drown.
+            //   img_dist — Euclidean RGB distance of the mean color from
+            //              guinda #9F2241. Photos with reddish tones (close
+            //              distance) need cream so the headline doesn't blend.
+            // Switch to cream when EITHER condition triggers. Otherwise guinda.
             const slideForLum = batch[idx];
-            const lum = (typeof slideForLum.img_lum === 'number') ? slideForLum.img_lum
-                      : (slideForLum.source && typeof slideForLum.source.img_lum === 'number')
-                          ? slideForLum.source.img_lum
-                          : null;
+            const srcLum = (slideForLum.source && typeof slideForLum.source.img_lum === 'number')
+                ? slideForLum.source.img_lum : null;
+            const srcDist = (slideForLum.source && typeof slideForLum.source.img_dist === 'number')
+                ? slideForLum.source.img_dist : null;
+            const lum = (typeof slideForLum.img_lum === 'number') ? slideForLum.img_lum : srcLum;
+            const dist = (typeof slideForLum.img_dist === 'number') ? slideForLum.img_dist : srcDist;
+            const isDark = lum !== null && lum < 0.45;
+            const isRedClash = dist !== null && dist < 85;  // close to guinda
             el.style.setProperty('--headline-color',
-              (lum!==null && lum < 0.45) ? '#fdfcf3' : 'var(--ct)');
-            // Expose the picked value on the DOM for easy DevTools inspection
+              (isDark || isRedClash) ? '#fdfcf3' : 'var(--ct)');
+            // Expose decision signals on the DOM for easy DevTools inspection
             el.dataset.heroLum = (lum===null) ? '(none)' : String(lum);
+            el.dataset.heroDist = (dist===null) ? '(none)' : String(dist);
           }
         }
       }
