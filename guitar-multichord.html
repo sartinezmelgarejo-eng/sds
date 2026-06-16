@@ -14100,6 +14100,14 @@ class Player {
     }
     if (!shape) return;
 
+    // Belt-and-suspenders family-label promotion: even when the cell came
+    // from a pre-baked plan or composed strip, re-check whether the shape
+    // carries the 9 against an add9/madd9 quality and promote the family
+    // tag so the now-playing icon never lies about what's sounding.
+    const _stepNowForLabel = this._currentStep();
+    const _eqForLabel = effectiveQuality(_stepNowForLabel, ch);
+    type = _displayVoicingFamily(type, _eqForLabel, root, shape);
+
     state.focusedChord = chordId;
     state.userVoicing = null;
     state.playerVoicing = { chord: chordId, shape, type };
@@ -14488,7 +14496,7 @@ class Player {
       ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
 
     // Friendly voicing label matching the compose-mode info bar.
-    const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
+    const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM' };
     const pvType = state.playerVoicing?.type;
     const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
     const voicingTxt = pvLabel
@@ -18055,7 +18063,7 @@ function renderComposeInfo() {
   const name  = chordNameForVoicing(ch.quality, root, fs?.shape, flats)
     || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
   const typeRaw = fs?.type || state.userVoicing?.type || defaultAllowedType('drop2');
-  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
+  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM' };
   const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
   const INV_LABEL = ['root pos', '1st inv', '2nd inv', '3rd inv'];
