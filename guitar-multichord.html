@@ -10468,19 +10468,32 @@ function renderAlternatives() {
         pianoShape: _proPiano,
       };
       // Audition the picked voicing right away so the user HEARS what
-      // they clicked — same behavior the chord-map cards already give.
-      // chordDrone.start takes a MIDI array directly; pianoShape works
-      // verbatim, standard shapes get converted via STRING_OPEN_MIDI.
+      // they clicked. On iOS / strict-gesture contexts the AudioContext
+      // starts suspended; resume() is async so calling chordDrone.start
+      // immediately can land before the context is actually running and
+      // produce silence. Await the resume in that case so the first
+      // click after page load reliably plays.
+      const _notesForAudio = _proPiano
+        ? _proPiano.slice()
+        : shapeArrayToNotes(c.shape);
+      const _playAudition = () => {
+        try {
+          if (_notesForAudio.length && typeof chordDrone !== 'undefined' && chordDrone.start) {
+            const vol = (typeof currentDroneVolume === 'function') ? currentDroneVolume() * 1.8 : 0.18;
+            chordDrone.start(_notesForAudio, vol, true);
+          }
+        } catch (_) { /* silent */ }
+      };
       try {
-        if (typeof ensureAudio === 'function') ensureAudio();
-        const notes = _proPiano
-          ? _proPiano.slice()
-          : shapeArrayToNotes(c.shape);
-        if (notes.length && typeof chordDrone !== 'undefined' && chordDrone.start) {
-          const vol = (typeof currentDroneVolume === 'function') ? currentDroneVolume() * 1.8 : 0.18;
-          chordDrone.start(notes, vol, true);
+        const ctx = (typeof ensureAudio === 'function') ? ensureAudio() : null;
+        if (ctx && ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+          // Promise.then dispatches onto the next microtask, so the audio
+          // node graph wires up only AFTER the context is actually running.
+          ctx.resume().then(_playAudition).catch(_playAudition);
+        } else {
+          _playAudition();
         }
-      } catch (_) { /* never block the click on a silent audio error */ }
+      } catch (_) { _playAudition(); }
       // Apply the new voicing to whichever cell the user is editing —
       // selected > focused > last-matching — not always the tail.
       const seq = state.composedProgression;
