@@ -9539,7 +9539,15 @@ function renderChordMap() {
   //     drawn in this view, so the network stays dimmed.
   if (_focusedIsPopupOnly) {
     if (_contextChord) relatedIds.add(_contextChord);
-    if (_focusedChDef?.sii) relatedIds.add(_focusedChDef.sii);
+    // Two chain partners possible:
+    //   • sii: focused IS the secondary V (e.g. V/vi), its ii partner is vii.
+    //   • siiOf: focused IS the secondary ii (e.g. iiø/ii), its V partner is V/ii.
+    // Both have a visible chain arrow drawn by the popup system, so both
+    // deserve to be marked related. siiOf was missing — that's why clicking
+    // iiø/ii left V/ii dimmed even though the arrow connecting them was right
+    // there.
+    if (_focusedChDef?.sii)   relatedIds.add(_focusedChDef.sii);
+    if (_focusedChDef?.siiOf) relatedIds.add(_focusedChDef.siiOf);
   } else {
     map.arrows.forEach(arr => {
       const a = map.nodes[arr.from];
