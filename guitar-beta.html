@@ -5930,6 +5930,12 @@ function getKeySig(keyPc, tonality) {
 function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
   const q = QUALITIES[quality];
   if (!q || q.ints.length !== 4) return null;
+  // add9 / madd9 share the drop-2 geometry but get the same tight span
+  // cap as addNinthVoicing — the 14-semitone top voice produces nasty
+  // 6-fret stretches at upper-register ss=0 inv=0 that pass the generic
+  // isPlayableShape limit. Catching it here means qualityOverride:'add9'
+  // steps never land on an unfretable grip.
+  const _wideExt = (quality === 'add9' || quality === 'madd9');
   let close = [...q.ints];
   for (let i = 0; i < inversion; i++) {
     close = [close[1], close[2], close[3], close[0] + 12];
@@ -5941,6 +5947,11 @@ function dropTwoVoicing(quality, rootPc, stringSetIdx, inversion) {
     const voiceMidis = dropped.map(s => rootMidi + s);
     const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      if (_wideExt) {
+        const minF = Math.min(...frets);
+        const maxF = Math.max(...frets);
+        if (maxF - minF > 5) continue;
+      }
       const shape = [-1, -1, -1, -1, -1, -1];
       set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
       return shape;
@@ -6031,6 +6042,16 @@ function addNinthVoicing(quality, rootPc, stringSetIdx, inversion) {
     const voiceMidis = dropped.map(s => rootMidi + s);
     const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
     if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      // The R→9 interval (14 semitones) means add9 / madd9 geometries
+      // can land at the very edge of isPlayableShape's upper-register
+      // span limit (≤6 frets when minF ≥ 9). For minor-flavor madd9
+      // specifically, the b3→9 gap is 11 semitones and on adjacent
+      // strings that's a hard 6-fret pinky stretch every single time.
+      // Cap span at 5 here so only truly grabbable add9 grips ship;
+      // higher octaves keep being tried in the loop until one fits.
+      const minF = Math.min(...frets);
+      const maxF = Math.max(...frets);
+      if (maxF - minF > 5) continue;
       const shape = [-1, -1, -1, -1, -1, -1];
       set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
       return shape;
