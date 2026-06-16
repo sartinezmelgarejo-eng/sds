@@ -215,26 +215,30 @@ body.sidebar-fullscreen .sidebar .m-tg-list.is-magazine::-webkit-scrollbar{displ
 
 body.sidebar-fullscreen .sidebar .mag-front{
   display:grid;
-  grid-template-columns:minmax(0, 1.55fr) minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows:1fr;
+  grid-template-columns:minmax(0, 1.7fr) minmax(0, 1fr);
+  grid-template-rows:1fr 1fr;
   height:100%;background:#fdfcf3;
   font-family:'Playfair Display',Georgia,serif;
 }
 body.sidebar-fullscreen .sidebar .mag-stage{
+  grid-row:1 / span 2;
   display:flex;flex-direction:column;
-  padding:34px 40px 26px;
+  padding:34px 44px 30px;
   border-right:1px solid #e6dfc8;
   min-width:0;min-height:0;overflow:hidden;
 }
+body.sidebar-fullscreen .sidebar .mag-rail{
+  display:flex;flex-direction:column;
+  min-width:0;min-height:0;
+}
 body.sidebar-fullscreen .sidebar .mag-satellite{
   display:flex;flex-direction:column;
-  padding:24px 26px 18px;
-  overflow:hidden;min-width:0;min-height:0;cursor:pointer;
+  padding:22px 28px 16px;
+  overflow:hidden;min-height:0;cursor:pointer;
   transition:background .2s;
-  border-right:1px solid #e6dfc8;
 }
-body.sidebar-fullscreen .sidebar .mag-satellite:last-child{border-right:none}
 body.sidebar-fullscreen .sidebar .mag-satellite:focus-visible{outline:2px solid var(--ct);outline-offset:-4px}
+body.sidebar-fullscreen .sidebar .mag-satellite:first-of-type{border-bottom:1px solid #e6dfc8}
 
 /* ── Tricolor mexicano + texturas de papel por sección ── Cada cell se
    viste con un wash sutil del color de su bandera: Mañanera rojo,
@@ -497,31 +501,30 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   overflow-wrap:break-word;
 }
 
-/* ── Satellite mini-feed ── Now each satellite is its own full-height
-   column. Mini-feed is a single vertical list of horizontal tiles
-   (photo left + title right) running top to bottom. Below the list
-   sits the featured-desc panel — predictable reading area for the
-   active post's body. The mini-feed takes ~60% of available height,
-   the desc panel ~40%. Both scroll/mask if content overflows. */
+/* ── Satellite mini-feed ── Each satellite (half-viewport-tall) has a
+   vertical column of horizontal tiles (photo left + title right)
+   running top to bottom. Below sits the featured-desc panel — a
+   predictable reading area for the active post's body. Mini-feed
+   scrolls if it overflows; the active tile auto-scrolls into view. */
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed{
   display:flex;flex-direction:column;
-  gap:4px;
-  margin:12px 0 0;
-  flex:2 1 0;min-height:0;
+  gap:3px;
+  margin:10px 0 0;
+  flex:1 1 0;min-height:0;
   overflow-y:auto;scrollbar-width:none;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed::-webkit-scrollbar{display:none}
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile{
   flex-direction:row;align-items:stretch;
   flex:0 0 auto;
-  min-height:62px;
+  min-height:54px;
 }
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-img{
-  width:62px;height:62px;aspect-ratio:1;flex-shrink:0;
+  width:54px;height:54px;aspect-ratio:1;flex-shrink:0;
 }
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-title{
-  font-size:11.5px;line-height:1.28;font-weight:600;
-  padding:6px 9px 6px 10px;
+  font-size:11px;line-height:1.25;font-weight:600;
+  padding:5px 8px 5px 10px;
   -webkit-line-clamp:3;
   align-self:center;
   display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
@@ -538,19 +541,19 @@ body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile.no-img .mag-tile-title
   -webkit-line-clamp:3;
 }
 /* Featured description — the body of whichever tile is active.
-   ~40% of cell height (mini-feed takes ~60%). Mask fade at bottom for
-   gracefully clipping long content. */
+   ~38% of satellite cell, with min-height so it's always readable.
+   Mask fade at bottom for graceful clip of long content. */
 body.sidebar-fullscreen .sidebar .mag-featured-desc{
-  flex:1 1 0;min-height:140px;
+  flex:0 0 38%;min-height:110px;
   overflow:hidden;
-  padding-top:14px;margin-top:8px;
+  padding-top:12px;margin-top:8px;
   border-top:1px solid color-mix(in srgb, var(--ct) 30%, transparent);
   mask-image:linear-gradient(to bottom, #000 86%, transparent 100%);
   -webkit-mask-image:linear-gradient(to bottom, #000 86%, transparent 100%);
 }
 body.sidebar-fullscreen .sidebar .mag-featured-body{
   font-family:'Playfair Display',Georgia,serif;
-  font-size:13.5px;line-height:1.6;color:#2e2e2e;
+  font-size:12.5px;line-height:1.55;color:#2e2e2e;
   margin:0;overflow-wrap:break-word;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-featured-body{
@@ -613,18 +616,16 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   font-style:italic;font-size:13px;
 }
 
-/* Responsive: narrow fullscreen → 3 columns stack into rows */
+/* Responsive: narrow fullscreen → rail moves below stage */
 @media (max-width:1100px){
   body.sidebar-fullscreen .sidebar .mag-front{
     grid-template-columns:1fr;
-    grid-template-rows:1.4fr 1fr 1fr;
+    grid-template-rows:1.2fr 1fr;
   }
-  body.sidebar-fullscreen .sidebar .mag-stage,
-  body.sidebar-fullscreen .sidebar .mag-satellite{
-    border-right:none;
-    border-bottom:1px solid #e6dfc8;
+  body.sidebar-fullscreen .sidebar .mag-stage{
+    grid-row:1;border-right:none;border-bottom:1px solid #e6dfc8;
   }
-  body.sidebar-fullscreen .sidebar .mag-satellite:last-child{border-bottom:none}
+  body.sidebar-fullscreen .sidebar .mag-rail{grid-row:2}
   body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{height:28vh}
   body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:28px}
   body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:32px}
@@ -2037,13 +2038,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const tabsEl=el.querySelector('.mag-noticias-tabs');
     if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Mini-feed: up to 6 tiles, 3-col grid (3 top + up to 3 bottom).
-    // The active tile glows in section color; its body shows in the panel below.
-    const count = Math.min(batch.length, 6);
+    // Mini-feed: vertical column of tiles top-to-bottom (mini-feed scrolls
+    // if there are too many for the cell height). Active tile glows; its
+    // body shows in the panel below. Scroll active into view smoothly.
+    const count = Math.min(batch.length, 8);
     const feedEl = el.querySelector('.mag-mini-feed');
     if(feedEl){
       ensureTiles(feedEl, count);
       [...feedEl.children].forEach((tile,i) => paintTile(tile, batch[i], i===idx));
+      const activeTile = feedEl.children[idx];
+      if(activeTile){
+        const fr=feedEl.getBoundingClientRect(), tr=activeTile.getBoundingClientRect();
+        if(tr.top < fr.top || tr.bottom > fr.bottom){
+          activeTile.scrollIntoView({behavior:'smooth',block:'nearest'});
+        }
+      }
     }
 
     // Featured description panel (active slide's body only)
@@ -2107,7 +2116,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }).join('');
     return `<div class="mag-front">
       <section class="mag-stage" data-group="${esc(stageGroup)}" data-cell="stage" data-shell-kind="stage" style="--ct:${sm.color}">${renderCellShell('stage')}</section>
-      ${satellites}
+      <aside class="mag-rail">${satellites}</aside>
     </div>`;
   }
   // Paint every cell currently in the DOM. Called after attaching the shell HTML.
