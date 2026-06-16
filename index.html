@@ -501,30 +501,26 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   overflow-wrap:break-word;
 }
 
-/* ── Satellite mini-feed ── Each satellite (half-viewport-tall) has a
-   vertical column of horizontal tiles (photo left + title right)
-   running top to bottom. Below sits the featured-desc panel — a
-   predictable reading area for the active post's body. Mini-feed
-   scrolls if it overflows; the active tile auto-scrolls into view. */
+/* ── Satellite mini-feed ── 3-col grid of horizontal tiles (image left +
+   title right). Up to 6 tiles (3+3 max), the active one glows in section
+   color and its body shows in the featured-desc panel below. */
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed{
-  display:flex;flex-direction:column;
-  gap:4px;
-  margin:10px 0 0;
-  flex:1 1 0;min-height:0;
-  overflow-y:auto;scrollbar-width:none;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0,1fr));
+  gap:8px;
+  margin:12px 0 0;
+  flex:0 0 auto;
 }
-body.sidebar-fullscreen .sidebar .mag-satellite .mag-mini-feed::-webkit-scrollbar{display:none}
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile{
   flex-direction:row;align-items:stretch;
-  flex:0 0 auto;
-  min-height:64px;
+  height:64px;
 }
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-img{
   width:64px;height:64px;aspect-ratio:1;flex-shrink:0;
 }
 body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile-title{
-  font-size:11.5px;line-height:1.3;font-weight:600;
-  padding:7px 9px 7px 11px;
+  font-size:10.5px;line-height:1.22;font-weight:600;
+  padding:5px 7px 5px 9px;
   -webkit-line-clamp:3;
   align-self:center;
   display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
@@ -549,10 +545,10 @@ body.sidebar-fullscreen .sidebar .mag-mini-feed .mag-tile.no-img .mag-tile-title
   align-self:center;
 }
 /* Featured description — the body of whichever tile is active.
-   ~32% of satellite cell, with min-height so it's always readable.
+   flex:1 absorbs the remaining cell height below the mini-feed grid.
    Mask fade at bottom for graceful clip of long content. */
 body.sidebar-fullscreen .sidebar .mag-featured-desc{
-  flex:0 0 32%;min-height:100px;
+  flex:1 1 0;min-height:0;
   overflow:hidden;
   padding-top:12px;margin-top:10px;
   border-top:1px solid color-mix(in srgb, var(--ct) 30%, transparent);
@@ -2046,21 +2042,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const tabsEl=el.querySelector('.mag-noticias-tabs');
     if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
-    // Mini-feed: vertical column of tiles top-to-bottom (mini-feed scrolls
-    // if there are too many for the cell height). Active tile glows; its
-    // body shows in the panel below. Scroll active into view smoothly.
-    const count = Math.min(batch.length, 8);
+    // Mini-feed: 3-col grid of horizontal tiles (up to 6 total, 3+3 max).
+    // Active tile glows in section color; its body shows in featured-desc.
+    const count = Math.min(batch.length, 6);
     const feedEl = el.querySelector('.mag-mini-feed');
     if(feedEl){
       ensureTiles(feedEl, count);
       [...feedEl.children].forEach((tile,i) => paintTile(tile, batch[i], i===idx));
-      const activeTile = feedEl.children[idx];
-      if(activeTile){
-        const fr=feedEl.getBoundingClientRect(), tr=activeTile.getBoundingClientRect();
-        if(tr.top < fr.top || tr.bottom > fr.bottom){
-          activeTile.scrollIntoView({behavior:'smooth',block:'nearest'});
-        }
-      }
     }
 
     // Featured description panel (active slide's body only)
