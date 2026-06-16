@@ -463,13 +463,13 @@ body.sidebar-fullscreen .sidebar .mag-hero-thumbs{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-img{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-wrap{
   background:transparent;padding:0;
-  width:100%;height:34vh;  /* explicit dims so the thumb-grid has space */
+  width:100%;height:50vh;  /* room for up to 3 rows of thumbs */
   align-self:stretch;
 }
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-thumbs{
   display:grid;
   grid-template-columns:repeat(3, 1fr);
-  grid-template-rows:repeat(2, 1fr);
+  grid-auto-rows:1fr;     /* rows auto-expand based on tile count, up to 3 */
   gap:10px;width:100%;height:100%;
 }
 /* Gallery mode (📸 posts): the .mag-hero-thumbs container is repurposed
@@ -710,6 +710,14 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].gallery-hero .m
   -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
   overflow:hidden;
+}
+/* When the cream-strip headline lives in the text column under no-hero-img
+   (Mañanera Breakdown post), pin it to the bottom of the flex column via
+   margin-top:auto. The 3×3 thumb-grid above gets all the breathing room;
+   the strip reads as the foot of the cell. Gallery mode is excluded — its
+   strip sits naturally below the grid since the grid is already the focus. */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].no-hero-img .mag-text .mag-headline{
+  margin-top:auto;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-headline{
   font-style:italic;color:var(--ct);
@@ -2552,7 +2560,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
           if(title) title.textContent = '';
         });
       } else if(!heroImg && batch.length > 1){
-        const count = Math.min(batch.length, 6);
+        const count = Math.min(batch.length, 9);  // 3-col × up-to-3-row grid
         ensureTiles(thumbsEl, count);
         [...thumbsEl.children].forEach((tile,i) => {
           tile.classList.remove('gallery-tile');
