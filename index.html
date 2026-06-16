@@ -437,6 +437,11 @@ body.sidebar-fullscreen .sidebar .mag-hero-source{
 }
 body.sidebar-fullscreen .sidebar .mag-hero-source:empty{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-source{display:none}
+/* Icon-only watermark (onmexico) — symmetric padding so the favicon
+   doesn't sit lopsided in an asymmetric pill. */
+body.sidebar-fullscreen .sidebar .mag-hero-source:has(.mag-source-icon:only-child){
+  padding:5px 7px;
+}
 body.sidebar-fullscreen .sidebar .mag-source-icon{
   width:14px;height:14px;
   border-radius:2px;
@@ -2473,11 +2478,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(dateEl) dateEl.textContent = dateLine || '';
 
     // Source watermark on the hero photo — favicon (via Google's service)
-    // + outlet name, pinned bottom-right. For noticias (scant) we parse
-    // the trailing "Source: <outlet>" line out of the body and use that
-    // name. For internacional (onmexico) we extract the outlet from the
-    // headline's "OUTLET: rest" prefix. Mañanera's source is the article
-    // breakdown on telegra.ph, not an outlet — skipped.
+    // pinned bottom-right, with the outlet name when useful. For noticias
+    // (scant) we parse the trailing "Source: <outlet>" line out of the
+    // body and show it as the watermark text. For internacional (onmexico)
+    // the outlet is already in the headline ("REUTERS/AOL: …") so we
+    // skip the name and show only the favicon — no duplication. Mañanera's
+    // source is the telegra.ph breakdown, not an outlet — fully skipped.
     let srcName='', srcDomain=(slide.source && slide.source.domain)||'';
     if(group==='scant'){
       const srcIdx = sections.findIndex(s=>/^Source:\s+/i.test(s));
@@ -2485,19 +2491,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         srcName = sections[srcIdx].replace(/^Source:\s+/i,'').trim();
         sections.splice(srcIdx,1);  // strip the line from body
       }
-    } else if(group==='onmexico'){
-      const head=(lines[0]||'').trim();
-      const ci=head.indexOf(':');
-      if(ci>0 && ci<40) srcName = head.slice(0,ci).trim();
+      if(!srcName) srcName = srcDomain;
     }
-    if(!srcName) srcName = srcDomain;
     const srcEl = el.querySelector('.mag-hero-source');
     if(srcEl){
-      if(srcName && heroImg && group!=='dailyt'){
+      if((srcName || srcDomain) && heroImg && group!=='dailyt'){
         const fav = srcDomain
           ? `<img class="mag-source-icon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(srcDomain)}&sz=64" alt="" loading="lazy">`
           : '';
-        srcEl.innerHTML = `${fav}<span class="mag-source-name">${esc(srcName)}</span>`;
+        const nm = srcName ? `<span class="mag-source-name">${esc(srcName)}</span>` : '';
+        srcEl.innerHTML = `${fav}${nm}`;
       } else {
         srcEl.innerHTML = '';
       }
