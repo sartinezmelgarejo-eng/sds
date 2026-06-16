@@ -524,6 +524,33 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-body-text{
   font-style:italic;
   font-size:clamp(15px, 2vh, 21px);line-height:1.55;
 }
+/* Onmexico multi-column body — newspaper-style layout when the post follows
+   the 3-section format (context / response / bullets separated by blank lines).
+   Each section gets its own column with a hairline divider between them. */
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text.multi-col{
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:0;
+  mask-image:none;-webkit-mask-image:none;
+  overflow:visible;
+  font-size:clamp(11px, 1.45vh, 14.5px);line-height:1.55;
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text.multi-col[data-col-count="2"]{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text.multi-col .mag-body-col{
+  white-space:pre-line;
+  padding:0 clamp(12px, 1.5vw, 22px);
+  border-right:1px solid color-mix(in srgb, var(--ct) 25%, transparent);
+  min-width:0;
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text.multi-col .mag-body-col:first-child{
+  padding-left:0;
+}
+body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text.multi-col .mag-body-col:last-child{
+  padding-right:0;
+  border-right:none;
+}
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
   font-size:12.5px;line-height:1.5;
   margin:6px 0 0;
@@ -2166,13 +2193,26 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       }
     }
 
-    // Headline + body
+    // Headline + body. Onmexico (international) posts follow a 3-section
+    // format separated by blank lines (context / Sheinbaum response / bullet
+    // quotes). For onmexico stage we split on \n\n and render each section
+    // as its own newspaper-style column. Other sections keep the flowing
+    // single body.
     const lines=(slide.text||'').split('\n');
     el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
-    const wholeBody = lines.slice(1).join(' ').replace(/\s+/g,' ').trim();
+    const bodyRaw = lines.slice(1).join('\n').trim();
     const bEl=el.querySelector('.mag-body-text');
-    bEl.innerHTML = safeTxt(wholeBody);
-    bEl.style.display = wholeBody ? '' : 'none';
+    const sections = bodyRaw.split(/\n\s*\n+/).map(s=>s.trim()).filter(Boolean);
+    const isMultiCol = group==='onmexico' && sections.length>=2;
+    bEl.classList.toggle('multi-col', isMultiCol);
+    bEl.dataset.colCount = isMultiCol ? Math.min(sections.length, 3) : '';
+    if(isMultiCol){
+      bEl.innerHTML = sections.slice(0,3)
+        .map(s=>`<div class="mag-body-col">${safeTxt(s)}</div>`).join('');
+    } else {
+      bEl.innerHTML = safeTxt(bodyRaw.replace(/\s+/g,' ').trim());
+    }
+    bEl.style.display = bodyRaw ? '' : 'none';
 
     paintFoot(el, group, batch, idx, 'stage');
   }
