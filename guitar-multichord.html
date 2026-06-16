@@ -5504,6 +5504,14 @@ const QUALITIES = {
   'm9':    {ints:[0,3,7,10,2],   degs:['R','b3','5','b7','9'],    sfx:'m9'},     // Minor 9 (neo-soul, modal)
   'maj9':  {ints:[0,4,7,11,2],   degs:['R','3','5','7','9'],      sfx:'maj9'},   // Major 9 (bossa, neo-soul tonic)
   '9':     {ints:[0,4,7,10,2],   degs:['R','3','5','b7','9'],     sfx:'9'},      // Dominant 9 (V9 in ii-V-I)
+  // ─── add9 / madd9 family (pop/folk color) ───
+  // 4-note: R-3-5-9 / R-b3-5-9 (drops the 7th). Distinct from maj9/m9
+  // because there's NO 7th — the lighter, brighter sound of Cadd9,
+  // Wonderwall-style strumming, Em(add9) folk vamps. Common in pop,
+  // country, indie, Britpop, neo-soul, ambient. Inappropriate for
+  // dominant chords (need b7) and for bebop where the 9 wants the 7.
+  'add9':  {ints:[0,4,7,14],     degs:['R','3','5','9'],          sfx:'add9'},   // Major triad + 9 (Cadd9, Gadd9)
+  'madd9': {ints:[0,3,7,14],     degs:['R','b3','5','9'],         sfx:'m(add9)'}, // Minor triad + 9 (Em(add9))
 };
 
 // Resolve the effective quality for a chord step. A progression step
@@ -5817,10 +5825,28 @@ const UPGRADE_RULES_BY_QUALITY = {
     { hasInts: [2], suffix: '9' },     // dom7  + 9th present → "9"
   ],
   'm7': [
+    // m7 voiced WITHOUT the b7 but WITH the 9 → "m(add9)". Must come BEFORE
+    // the m9 rule below; the add9 substitution drops the b7, so without the
+    // notInts guard the m7+9 voicing would be tagged "m9" even when the b7
+    // is missing.
+    { hasInts: [2], notInts: [10], suffix: 'm(add9)' },
     { hasInts: [2], suffix: 'm9' },    // min7  + 9th present → "m9"
   ],
   'maj7': [
+    // Same idea as m7: voicing with the 9 but missing the major 7 → "add9".
+    // Naming uses bare "add9" (e.g. "Cadd9") rather than "maj(add9)" to
+    // match the universal pop-chart convention.
+    { hasInts: [2], notInts: [11], suffix: 'add9' },
     { hasInts: [2], suffix: 'maj9' },  // maj7  + 9th present → "maj9"
+  ],
+  '6': [
+    { hasInts: [2], notInts: [9], suffix: 'add9' },   // 6 voiced without the 6 but with 9
+  ],
+  'm6': [
+    { hasInts: [2], notInts: [9], suffix: 'm(add9)' }, // m6 voiced without the 6 but with 9
+  ],
+  'mMaj7': [
+    { hasInts: [2], notInts: [11], suffix: 'm(add9)' }, // mMaj7 minus 7 + 9 → m(add9)
   ],
 };
 
@@ -5844,9 +5870,14 @@ function chordNameForVoicing(quality, root, shape, flats) {
   const upRules = UPGRADE_RULES_BY_QUALITY[quality];
   if (upRules) {
     for (const rule of upRules) {
-      if (rule.hasInts.every(i => pcs.has((root + i) % 12))) {
-        return nameOf(root, flats) + rule.suffix;
-      }
+      const hasAll = rule.hasInts.every(i => pcs.has((root + i) % 12));
+      if (!hasAll) continue;
+      // notInts (optional): rule only fires if NONE of these intervals are
+      // in the voicing. Lets us distinguish "m7 voiced as m(add9)" (no b7)
+      // from "m7 voiced as m9" (has b7 + 9) under the same canonical quality.
+      const hasNone = !rule.notInts || rule.notInts.every(i => !pcs.has((root + i) % 12));
+      if (!hasNone) continue;
+      return nameOf(root, flats) + rule.suffix;
     }
   }
   // Degrade rules: if the voicing is MISSING canonical tones, name down.
@@ -5961,6 +5992,51 @@ function dropTwoMinorNinthVoicing(rootPc, stringSetIdx, inversion) {
 }
 function dropTwoMajorNinthVoicing(rootPc, stringSetIdx, inversion) {
   return _dropTwoRootlessExtVoicing(rootPc, [4, 7, 11, 14], stringSetIdx, inversion);
+}
+
+/* ─── add9 / madd9 voicing ───
+   4-note R-3-5-9 (or R-b3-5-9) — the chord with a 9 substituted for what
+   would have been the 7. Pop/folk staple: Cadd9, Gadd9, Em(add9). Uses
+   the same drop-2 geometry as the regular drop-2 builder (3 string sets ×
+   4 inversions × every octave) so the resulting shapes are real
+   guitar grips, not arbitrary clusters. Quality gating in ADD9_OK keeps
+   it off of dominant 7ths (which need the b7) and altered/diminished
+   colors. */
+// Qualities whose canonical chord can be substituted with an add9 / madd9
+// voicing. Includes the explicit 'add9' / 'madd9' qualities so that a step
+// with qualityOverride:'add9' routed through the 'add9' family handler
+// stays in that family (instead of soft-falling to drop2 with the same
+// shape). V7 quality '7' is intentionally NOT in ADD9_OK — dropping the
+// b7 from a dominant kills its function. Same for m7b5 / dim7 (b5 is
+// identity) and sus / 7sus (sus is identity, the 3rd is already missing).
+const ADD9_OK = new Set(['maj7', 'm7', 'mMaj7', '6', 'm6', 'add9', 'madd9']);
+function _isMinorFlavoredForAdd9(quality) {
+  return quality === 'm7' || quality === 'mMaj7' || quality === 'm6' || quality === 'madd9';
+}
+function addNinthVoicing(quality, rootPc, stringSetIdx, inversion) {
+  if (!ADD9_OK.has(quality)) return null;
+  const isMinor = _isMinorFlavoredForAdd9(quality);
+  // R-3-5-9 (major) or R-b3-5-9 (minor). Drop-2 geometry: rotate for
+  // inversions, then drop the 2nd-from-top voice an octave so the
+  // 4 voices fit on adjacent strings.
+  const closeBase = isMinor ? [0, 3, 7, 14] : [0, 4, 7, 14];
+  let close = [...closeBase];
+  for (let i = 0; i < inversion; i++) {
+    close = [close[1], close[2], close[3], close[0] + 12];
+  }
+  const dropped = [close[0], close[1], close[2] - 12, close[3]].sort((a, b) => a - b);
+  const set = STRING_SETS[stringSetIdx].idx;
+  for (let oct = 24; oct <= 84; oct += 12) {
+    const rootMidi = oct + rootPc;
+    const voiceMidis = dropped.map(s => rootMidi + s);
+    const frets = set.map((sIdx, i) => voiceMidis[i] - STRING_OPEN_MIDI[sIdx]);
+    if (frets.every(f => f >= 0 && f <= N_FRETS)) {
+      const shape = [-1, -1, -1, -1, -1, -1];
+      set.forEach((sIdx, i) => { shape[sIdx] = frets[i]; });
+      return shape;
+    }
+  }
+  return null;
 }
 
 /* ─── Drop-3 voicing ───
@@ -6134,6 +6210,10 @@ const OPEN_CHORDS = {
     'm':   [0, 2, 2, 0, 0, 0],
     '7':   [0, 2, 0, 1, 0, 0],
     'm7':  [0, 2, 0, 0, 0, 0],
+    // Em(add9) — open B + open e + F# (the 9 = F#) on B string fret 7? No,
+    // classic Em(add9) uses the open B with 2nd-fret F# on the low E. Shape
+    // 0-2-2-0-0-2: E-B-E-G-B-F# = R-5-R-b3-5-9. Iconic folk vamp grip.
+    'madd9': [0, 2, 2, 0, 0, 2],
   },
   9: {  // A
     'maj':  [-1, 0, 2, 2, 2, 0],
@@ -6141,6 +6221,9 @@ const OPEN_CHORDS = {
     '7':    [-1, 0, 2, 0, 2, 0],
     'm7':   [-1, 0, 2, 0, 1, 0],
     'maj7': [-1, 0, 2, 1, 2, 0],
+    // Aadd9 — x-0-2-4-2-0 = x-A-E-A-C#-B = R-5-R-3-9. Common Beatles-style
+    // strum grip; the open B on top supplies the 9.
+    'add9': [-1, 0, 2, 4, 2, 0],
   },
   2: {  // D
     'maj':  [-1, -1, 0, 2, 3, 2],
@@ -6148,16 +6231,25 @@ const OPEN_CHORDS = {
     '7':    [-1, -1, 0, 2, 1, 2],
     'm7':   [-1, -1, 0, 2, 1, 1],
     'maj7': [-1, -1, 0, 2, 2, 2],
+    // Dadd9 — xx-0-2-3-0 = D-A-D-E. The open high-E rings as the 9.
+    'add9': [-1, -1, 0, 2, 3, 0],
   },
   7: {  // G
     'maj':  [3, 2, 0, 0, 0, 3],
     '7':    [3, 2, 0, 0, 0, 1],
     'maj7': [3, 2, 0, 0, 0, 2],
+    // Gadd9 — 3-x-0-2-0-3 = G-x-D-A-B-G = R-5-9-3-R. Pat-Metheny/Lemonheads
+    // shape; the fret-2 on G string adds A (the 9). Mutes the A string to
+    // keep the bass on the low E G.
+    'add9': [3, -1, 0, 2, 0, 3],
   },
   0: {  // C
     'maj':  [-1, 3, 2, 0, 1, 0],
     '7':    [-1, 3, 2, 3, 1, 0],
     'maj7': [-1, 3, 2, 0, 0, 0],
+    // Cadd9 — x-3-2-0-3-0 = x-C-E-G-D-E = R-3-5-9-R. THE canonical pop add9
+    // grip (Wonderwall opening, More Than a Feeling, etc.).
+    'add9': [-1, 3, 2, 0, 3, 0],
   },
 };
 // Map fancier qualities to their natural triadic open equivalent. Lets
@@ -6166,6 +6258,12 @@ const OPEN_QUALITY_FALLBACK = {
   '6':     'maj',
   'mMaj7': 'm',
   'm6':    'm',
+  // add9 / madd9 fall back to the plain triad when no dedicated add9
+  // shape exists for that root. The picker still adds the 9 algorithmically
+  // via the drop-2 add9 builder in non-open registers, but the open-position
+  // strummer keeps a recognizable shape under their fingers.
+  'add9':  'maj',
+  'madd9': 'm',
 };
 function openVoicing(quality, rootPc) {
   const bag = OPEN_CHORDS[rootPc];
@@ -11103,6 +11201,7 @@ const VOICING_OPTIONS = [
   {value: 'triad', emoji: '🔺', label: 'Triads', desc: '3-note R + 3 + 5'},
   {value: 'guide', emoji: '✌️', label: '3rds + 7ths', desc: 'shells without the root'},
   {value: 'sus',   emoji: '🪷', label: 'Sus',    desc: 'every chord as R-4-5-7 (suspended)'},
+  {value: 'add9',  emoji: '💧', label: 'Add9',   desc: 'pop / folk color — R-3-5-9 (drops the 7)'},
   {value: 'strum', emoji: '🎸', label: 'Strum',  desc: 'rhythm-guitar grips — barre, open & power chords'},
 ];
 // Multi-select voicing filter. The set holds the type ids the user has
@@ -11137,11 +11236,11 @@ function filterShapeCandidates(cands) {
 //   3+ selected → MIX·N where N is the count.
 const VOICING_BUTTON_LABEL = {
   drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS',
-  triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', strum: 'STRUM',
+  triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', add9: 'ADD9', strum: 'STRUM',
 };
 const VOICING_SHORT_CODE = {
   drop2: 'D2', drop3: 'D3', shell: 'SH',
-  triad: 'TR', guide: 'GU', sus: 'SU', strum: 'ST',
+  triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', strum: 'ST',
 };
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
@@ -12041,6 +12140,21 @@ const PROGRESSIONS = {
       {chord:'ii',bars:1,slots:[{chord:'ii'},{chord:'V'}]},
       {chord:'I',bars:1},
     ]},
+    // ─── add9 showcase progressions (Phase A: add9 / madd9 voicings) ───
+    // Three idiomatic vamps that put the new add9 family front-and-center.
+    // Each carries a `qualityOverride:'add9'` on the chords where the open
+    // grip is iconic, so the picker is FORCED to build add9 there even
+    // when the family roll lands elsewhere.
+    {name:'Britpop strummer Iadd9–vi–IVadd9–V', len:4, steps:[
+      {chord:'I',bars:1,qualityOverride:'add9'},
+      {chord:'vi',bars:1},
+      {chord:'IV',bars:1,qualityOverride:'add9'},
+      {chord:'V',bars:1},
+    ]},
+    {name:'Country pedal Iadd9–IVadd9',     len:4, steps:[
+      {chord:'I',bars:2,qualityOverride:'add9'},
+      {chord:'IV',bars:2,qualityOverride:'add9'},
+    ]},
   ],
   minor: [
     // ─── 4-bar diatonic-only ───
@@ -12135,6 +12249,14 @@ const PROGRESSIONS = {
       {chord:'i',bars:1},{chord:'bVII',bars:1},
       {chord:'iiø',bars:1,slots:[{chord:'iiø'},{chord:'V7'}]},
       {chord:'i',bars:1},
+    ]},
+    // ─── add9 showcase (Phase A — minor key vamp) ───
+    // Modal madd9 over IVmaj7 — Scarborough-Fair-ish folk vamp with the
+    // 9 ringing over the tonic minor. madd9 on i drops the b7 so the
+    // tonic stays bright; IVmaj7 (parallel-major borrow) supplies contrast.
+    {name:'Modal madd9 vamp i(add9)–IVmaj7', len:4, steps:[
+      {chord:'i',bars:2,qualityOverride:'madd9'},
+      {chord:'IV',bars:2,qualityOverride:'maj7'},
     ]},
   ]
 };
@@ -12264,6 +12386,11 @@ const SISTER_FAMILY = {
   drop3: 'drop2',
   shell: 'triad',
   triad: 'shell',
+  // add9 sits between triad (pure R-3-5) and strum (rhythm-guitar grips
+  // including open cowboy add9 shapes). Pairing it with triad makes a
+  // mostly-triad pop section spill some add9 color for variety, and
+  // vice-versa, without ever swinging into drop-2 jazz territory.
+  add9:  'triad',
 };
 // Strum weights are mixed in per progression by genre. (Strum is the
 // rhythm-guitar grip family: barre + open + power as sub-variants.)
@@ -12293,11 +12420,11 @@ const HEAVY_ROCK_PROGS = new Set([
 const PROGRESSION_VOICING = {
   // major
   'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
-  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:40, extensions:0.3},
-  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:45, extensions:0.2},
+  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:40, add9:20, extensions:0.3},
+  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:45, add9:25, extensions:0.2},
   'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
-  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:45, extensions:0.2},
-  'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0},
+  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:45, add9:25, extensions:0.2},
+  'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0,  add9:15},
   'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0, extensions:0.05},
   'I–vii°–vi–V':                  {drop2:25, drop3:15, shell:20, triad:35, sus:0, strum:10, extensions:0.15},
@@ -12313,8 +12440,8 @@ const PROGRESSION_VOICING = {
   'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0},
-  'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, extensions:0.3},
-  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:50, extensions:0.15},
+  'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:20, extensions:0.3},
+  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:50, add9:25, extensions:0.15},
   'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12325,15 +12452,19 @@ const PROGRESSION_VOICING = {
   'iv – I (borrowed)':            {drop2:40, drop3:35, shell:20, triad:5,  sus:0, strum:0},
   'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0, strum:0},
   'I – iv – bVII – I':            {drop2:25, drop3:40, shell:15, triad:5,  sus:0, strum:20, extensions:0.4},
-  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, extensions:0.4},
-  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:40, extensions:0.2},
+  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, add9:20, extensions:0.4},
+  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:40, add9:20, extensions:0.2},
+  // Add9 showcase progressions — add9-heavy, strum supplies the rhythm-
+  // guitar color around it.
+  'Britpop strummer Iadd9–vi–IVadd9–V': {drop2:10, drop3:5,  shell:0,  triad:20, sus:0, strum:35, add9:45, extensions:0.1},
+  'Country pedal Iadd9–IVadd9':         {drop2:5,  drop3:5,  shell:0,  triad:20, sus:0, strum:30, add9:50, extensions:0.05},
   'AABA-A double':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   // minor
   'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0, strum:0},
   'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.15},
-  'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, extensions:0.2},
-  'bVI–bVII–i':                   {drop2:20, drop3:30, shell:10, triad:25, sus:0, strum:20, extensions:0.3},
+  'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, add9:15, extensions:0.2},
+  'bVI–bVII–i':                   {drop2:20, drop3:30, shell:10, triad:25, sus:0, strum:20, add9:12, extensions:0.3},
   'iiø–bII7–i (tritone sub)':     {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
   'iv–bII7–i':                    {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
   'vii°7–i Bach cadence':         {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0, extensions:0.05},
@@ -12347,6 +12478,8 @@ const PROGRESSION_VOICING = {
   'i–iv–V7–i (long)':             {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'bIII–bVI–iiø–V7–i':            {drop2:45, drop3:30, shell:20, triad:5,  sus:0, strum:0},
   'Andalusian extended':          {drop2:10, drop3:25, shell:5,  triad:35, sus:0, strum:45},
+  // Modal madd9 vamp — minor-key showcase for Phase A.
+  'Modal madd9 vamp i(add9)–IVmaj7': {drop2:15, drop3:5,  shell:0,  triad:25, sus:0, strum:25, add9:40, extensions:0.1},
   'Minor blues fragment':         {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
   'i–V/iv–iv–V7 turnaround':      {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'iiø–V7–iv–bII7–i':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12645,6 +12778,25 @@ class Player {
           if (sh) cands.push(sh);
         }
       }
+    } else if (type === 'add9') {
+      // add9 substitution: R-3-5-9 (or R-b3-5-9 for minor-flavored qualities).
+      // Only applies to qualities in ADD9_OK; dominant 7ths, sus, dim/m7b5
+      // return null from addNinthVoicing and fall through to the soft drop2
+      // fallback at the family-filter level.
+      for (let ss = 0; ss < STRING_SETS.length; ss++) {
+        for (let inv = 0; inv < 4; inv++) {
+          const sh = addNinthVoicing(quality, root, ss, inv);
+          if (sh) cands.push(sh);
+        }
+      }
+      // Open-cowboy add9 grip if available for this root (Cadd9, Gadd9, etc.).
+      // Lets the picker land on a real strummed grip when starting fresh or
+      // when the previous chord was already in the open neighborhood.
+      const openSh = openVoicing(
+        _isMinorFlavoredForAdd9(quality) ? 'madd9' : 'add9',
+        root
+      );
+      if (openSh) cands.push(openSh);
     } else if (type === 'strum') {
       // Rhythm-guitar grip family. Two barre sub-variants:
       //   • 7th  — full 4-note barre with the chord's natural 7th
@@ -18261,6 +18413,29 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
   });
   guides.sort(byReg).forEach(g => add(g.shape, 'guide', { stringSet: g.stringSet }));
 
+  // 4.5. add9 / madd9 substitution voicings — pop/folk color. Only for
+  // qualities in ADD9_OK (no dominants, no diminished/half-dim, no sus).
+  // 3 string sets × 4 inversions × octaves + the open-cowboy grip if it
+  // exists for this root. Builder returns null when quality is gated out,
+  // so this whole block is a no-op for V7 / iiø / vii° / etc.
+  if (ADD9_OK.has(quality)) {
+    const add9s = [];
+    for (let ss = 0; ss < STRING_SETS.length; ss++) {
+      for (let inv = 0; inv < 4; inv++) {
+        const base = addNinthVoicing(quality, rootPc, ss, inv);
+        if (!base) continue;
+        withOctaves(sh => add9s.push({ shape: sh, stringSetIdx: ss, inversion: inv }), base);
+      }
+    }
+    add9s.sort(byReg).forEach(a => add(a.shape, 'add9', { stringSetIdx: a.stringSetIdx, inversion: a.inversion }));
+    // Open-position add9 grip — single shape per root, only for {C, G, D, A, E}.
+    const openSh = openVoicing(
+      _isMinorFlavoredForAdd9(quality) ? 'madd9' : 'add9',
+      rootPc
+    );
+    if (openSh) add(openSh, 'add9', { stringSet: 'OPEN' });
+  }
+
   // 5. Sus voicings (3 sets × 4 inversions × N octaves)
   const suss = [];
   for (let ss = 0; ss < STRING_SETS.length; ss++) {
@@ -18376,6 +18551,7 @@ const FAMILY_BIAS = {
   triad: 3,
   guide: 6,
   sus:   5,
+  add9:  3,   // add9 sits at triad-level bias — pop progressions promote it via PROGRESSION_VOICING weights, not a global pull.
   strum: 4,   // Strum (barre/open/power) — neutral bias; mostly picked via PROGRESSION_VOICING weights or 'strum' pref
 };
 // Deterministic per-candidate hash → noise in [-3, 3]. Used in place
