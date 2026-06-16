@@ -413,6 +413,43 @@ body.sidebar-fullscreen .sidebar .mag-hero-date{
 }
 body.sidebar-fullscreen .sidebar .mag-hero-date:empty{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-date{display:none}
+/* Source watermark — favicon + outlet name pinned to the bottom-right
+   of the hero photo. Pill style with translucent dark background,
+   backdrop-blur, small cream text. Pointer-events disabled so it doesn't
+   eat clicks on the photo (the headline link is the click target). */
+body.sidebar-fullscreen .sidebar .mag-hero-source{
+  position:absolute;
+  bottom:clamp(6px, 1vh, 12px);
+  right:clamp(6px, 1vw, 14px);
+  z-index:2;
+  display:flex;align-items:center;gap:6px;
+  background:rgba(20,20,20,.72);
+  color:#fdfcf3;
+  padding:4px 10px 4px 7px;
+  font-family:'Helvetica Neue','SF Pro Text',system-ui,sans-serif;
+  font-size:clamp(9px, 1.05vh, 11px);
+  font-weight:600;letter-spacing:.3px;
+  border-radius:3px;
+  -webkit-backdrop-filter:blur(6px) saturate(1.1);
+  backdrop-filter:blur(6px) saturate(1.1);
+  pointer-events:none;
+  max-width:60%;
+}
+body.sidebar-fullscreen .sidebar .mag-hero-source:empty{display:none}
+body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-source{display:none}
+body.sidebar-fullscreen .sidebar .mag-source-icon{
+  width:14px;height:14px;
+  border-radius:2px;
+  background:#fff;             /* fallback in case icon has alpha */
+  flex-shrink:0;
+  object-fit:contain;
+}
+body.sidebar-fullscreen .sidebar .mag-source-name{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  text-transform:uppercase;
+}
 /* When the slide has no image, hide the <img> and reveal the thumb-grid
    in the same slot. The thumb-grid lets the reader see + jump to the
    other batch posts — useful for sections like Mañanera where the first
@@ -2215,6 +2252,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
           <img class="mag-hero-img" alt="" decoding="async">
           <div class="mag-hero-thumbs"></div>
           <div class="mag-hero-date"></div>
+          <div class="mag-hero-source"></div>
         </div>
         <div class="mag-text">
           <h2 class="mag-headline"></h2>
@@ -2433,6 +2471,37 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     // we clear textContent, so the show/hide is driven purely by content.
     const dateEl = el.querySelector('.mag-hero-date');
     if(dateEl) dateEl.textContent = dateLine || '';
+
+    // Source watermark on the hero photo — favicon (via Google's service)
+    // + outlet name, pinned bottom-right. For noticias (scant) we parse
+    // the trailing "Source: <outlet>" line out of the body and use that
+    // name. For internacional (onmexico) we extract the outlet from the
+    // headline's "OUTLET: rest" prefix. Mañanera's source is the article
+    // breakdown on telegra.ph, not an outlet — skipped.
+    let srcName='', srcDomain=(slide.source && slide.source.domain)||'';
+    if(group==='scant'){
+      const srcIdx = sections.findIndex(s=>/^Source:\s+/i.test(s));
+      if(srcIdx>=0){
+        srcName = sections[srcIdx].replace(/^Source:\s+/i,'').trim();
+        sections.splice(srcIdx,1);  // strip the line from body
+      }
+    } else if(group==='onmexico'){
+      const head=(lines[0]||'').trim();
+      const ci=head.indexOf(':');
+      if(ci>0 && ci<40) srcName = head.slice(0,ci).trim();
+    }
+    if(!srcName) srcName = srcDomain;
+    const srcEl = el.querySelector('.mag-hero-source');
+    if(srcEl){
+      if(srcName && heroImg && group!=='dailyt'){
+        const fav = srcDomain
+          ? `<img class="mag-source-icon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(srcDomain)}&sz=64" alt="" loading="lazy">`
+          : '';
+        srcEl.innerHTML = `${fav}<span class="mag-source-name">${esc(srcName)}</span>`;
+      } else {
+        srcEl.innerHTML = '';
+      }
+    }
 
     const isMultiCol = group==='onmexico' && sections.length>=2;
     bEl.classList.toggle('multi-col', isMultiCol);
