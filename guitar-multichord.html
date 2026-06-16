@@ -12539,10 +12539,10 @@ const HEAVY_ROCK_PROGS = new Set([
 const PROGRESSION_VOICING = {
   // major
   'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
-  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:40, add9:10, extensions:0.3},
-  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:45, add9:12, extensions:0.2},
+  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, extensions:0.3},
+  'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:50, add9:12, extensions:0.2},
   'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
-  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:45, add9:12, extensions:0.2},
+  'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:50, add9:12, extensions:0.2},
   'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0,  add9:8},
   'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'IV–vii°–I (Bach)':             {drop2:15, drop3:15, shell:25, triad:45, sus:0, strum:0, extensions:0.05},
@@ -12560,7 +12560,7 @@ const PROGRESSION_VOICING = {
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
   'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:10, extensions:0.3},
-  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:50, add9:15, extensions:0.15},
+  'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:55, add9:15, extensions:0.15},
   'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12572,7 +12572,7 @@ const PROGRESSION_VOICING = {
   'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0, strum:0},
   'I – iv – bVII – I':            {drop2:25, drop3:40, shell:15, triad:5,  sus:0, strum:20, extensions:0.4},
   'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, add9:10, extensions:0.4},
-  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:40, add9:10, extensions:0.2},
+  'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:45, add9:10, extensions:0.2},
   // Add9 showcase progressions — qualityOverride on I and IV forces add9
   // SOUND on those bars regardless of family pick, so the showcase still
   // delivers its name. The weight just controls how often add9 is also
@@ -12642,7 +12642,7 @@ const PROGRESSION_VOICING = {
   '12-bar quick-change blues':    {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20, extensions:0.6},
   'Jazz blues with ii-V subs':    {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0,  extensions:1.2},
   // Country — triads + strum (cowboy chords if in cowboy keys)
-  'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:30, add9:15, extensions:0.1},
+  'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:35, add9:15, extensions:0.1},
   'Train beat I7-IV7-V7':         {drop2:15, drop3:10, shell:15, triad:25, sus:0, strum:35, extensions:0.15},
   // Bossa — drop-3 dominant (Romance bossa pattern). Bossa wants 9s.
   'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, extensions:1.3},
@@ -13067,8 +13067,17 @@ class Player {
       const regionShift = Math.abs(af - prevAvg);
       const candStrings = sh.map((f, i) => f >= 0 ? i : -1).filter(i => i >= 0).join(',');
       const stringSetPenalty = (prevStrings === candStrings) ? 0 : 4;
-      // Strong sweet-spot anchor (quadratic outside frets 4-9)
-      const reg = Math.abs(af - 6.5);
+      // Strong sweet-spot anchor (quadratic outside the tolerance zone).
+      // Subtle register arc across a song: non-A sections (B, C, D, E)
+      // shift the sweet spot UP by 1.5 frets so the bridge / interlude
+      // sits noticeably brighter than the A-section comping. AABA gets
+      // a single peak on B; ABCD gets a flat brighter middle. Magnitude
+      // is intentionally small so it never "forces" — the voice-leading
+      // term still dominates the score; the arc just resolves ties in
+      // the upward direction for non-A sections.
+      const _sectLabel = opts.sectionLabel;
+      const _arcTarget = (_sectLabel && _sectLabel !== 'A') ? 8.0 : 6.5;
+      const reg = Math.abs(af - _arcTarget);
       const regSpot = reg <= 2.5 ? 0 : Math.pow(reg - 2.5, 1.9);
       // Recovery bias: if previous was high or low, prefer candidates that come back toward center
       let recoveryBias = 0;
@@ -15100,9 +15109,12 @@ class Player {
             seg.songIdx ?? 0, seg.stepIdx ?? 0, seg.sectionIter ?? 0
           );
           // Progression name passes through so the strum variant bias
-          // (triad vs 7th) knows which genre we're in.
+          // (triad vs 7th) knows which genre we're in. Section label
+          // (A/B/C…) drives the subtle register arc — non-A sections
+          // get a slightly brighter sweet-spot anchor.
           const progName = this.song[seg.songIdx]?.progression?.name;
-          const pickOpts = { progName };
+          const sectionLabel = this.song[seg.songIdx]?.label;
+          const pickOpts = { progName, sectionLabel };
           // Look up the step to honor its qualityOverride (Jobim, blues
           // alt dominants, Maiden Voyage 9sus4, etc.).
           const stepData = this.song[seg.songIdx]?.progression?.steps?.[seg.stepIdx];
