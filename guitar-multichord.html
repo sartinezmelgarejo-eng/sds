@@ -11843,13 +11843,28 @@ function voicingPrefIsAll() {
 function isVoicingAllowed(type) {
   return voicingPrefIsAll() || (type && voicingPrefSet.has(type));
 }
+// "Pro ALL" mode — when Pro Mode is ON but the user has NOT individually
+// selected any pro family. Mirrors the standard ALL: turning Pro Mode on
+// is itself the "include everything pro" gesture; clicking an individual
+// pro narrows to just that one (and adding more from there grows the set).
+function proPrefIsAll() {
+  if (!state.proMode) return false;
+  return !PRO_VOICING_TYPE_IDS.some(t => voicingPrefSet.has(t));
+}
 function allowedVoicingTypes() {
-  if (voicingPrefIsAll()) {
-    // Standard set + any pro families the user added on top.
-    const selectedPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
-    return VOICING_TYPE_IDS.concat(selectedPros);
+  // Standards: full set when ALL is on, otherwise just the explicit picks.
+  const standards = voicingPrefIsAll()
+    ? VOICING_TYPE_IDS.slice()
+    : VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+  // Pros: hidden when Pro Mode is off; ALL pros when Pro Mode is on with
+  // no individual selection; just the picked ones when narrowed.
+  let pros = [];
+  if (state.proMode) {
+    pros = proPrefIsAll()
+      ? PRO_VOICING_TYPE_IDS.slice()
+      : PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
   }
-  return [...voicingPrefSet];
+  return standards.concat(pros);
 }
 function filterShapeCandidates(cands) {
   if (voicingPrefIsAll() || !cands || !cands.length) return cands;
@@ -12113,6 +12128,8 @@ function renderVoicingMenu() {
   const visibleOptions = showPro
     ? VOICING_OPTIONS
     : VOICING_OPTIONS.filter(v => !v.proPianoOnly);
+  const _proAll = proPrefIsAll();
+  const _proNarrowedCount = state.proMode ? PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t)).length : 0;
   const proToggleHtml = (state.instrument === 'piano')
     ? `
     <div class="sound-menu-item pro-toggle ${state.proMode ? 'selected' : ''}" data-voicing="__pro_toggle__"
@@ -12120,7 +12137,13 @@ function renderVoicingMenu() {
       <span class="menu-ico" style="font-size:18px">⚡</span>
       <span style="flex:1">
         <strong>Pro Mode${state.proMode ? ' · ON' : ''}</strong>
-        <span style="display:block;font-size:10px;opacity:0.65;font-style:italic">${state.proMode ? 'piano voicings shown below' : 'reveals Bill Evans rootless, So What, Mehldau 10th…'}</span>
+        <span style="display:block;font-size:10px;opacity:0.65;font-style:italic">${
+          state.proMode
+            ? (_proAll
+                ? 'ALL · 15 piano voicings active — click a row below to narrow'
+                : `narrowed · ${_proNarrowedCount} selected — click toggle again to disable Pro Mode`)
+            : 'reveals Bill Evans rootless, So What, Mehldau 10th… as ALL'
+        }</span>
       </span>
       <span class="check">✓</span>
     </div>` : '';
@@ -12131,7 +12154,11 @@ function renderVoicingMenu() {
     const selected = (v.value === 'all')
       ? voicingPrefIsAll()
       : (v.proPianoOnly
-          ? voicingPrefSet.has(v.value)  // Pros: show check whenever they're in the set, regardless of ALL state
+          // Pros: palomita only when narrowed AND specifically picked.
+          // When Pro ALL is active (toggle on, no individual selection)
+          // the rows stay unchecked — the toggle's description tells
+          // the user that ALL 15 are active.
+          ? (state.proMode && !_proAll && voicingPrefSet.has(v.value))
           : (!voicingPrefIsAll() && voicingPrefSet.has(v.value)));
     const isFirstPro = v.proPianoOnly && (idx === 0 || !visibleOptions[idx - 1].proPianoOnly);
     const sep = isFirstPro
@@ -12152,15 +12179,16 @@ function renderVoicingMenu() {
       e.stopPropagation();
       const id = item.dataset.voicing;
       if (id === '__pro_toggle__') {
-        // Flip Pro Mode.
-        //  ON  → ADD all pro families to the selection (inclusive ALL).
-        //        The user can then deselect individual pros if they want
-        //        to narrow it down. Standards stay as they were.
-        //  OFF → drop ALL pros so the picker stops trying to fire them.
+        // Flip Pro Mode. Mirrors the standard ALL semantics:
+        //   ON  → the toggle itself means "include all 15 pros." No
+        //         checkmarks on individual rows; the description on
+        //         the toggle row says "ALL · 15". Click an individual
+        //         pro to NARROW (clears the implicit ALL, adds just
+        //         that one to voicingPrefSet).
+        //   OFF → hide pro rows and drop any narrowed selections so
+        //         the picker stops trying to fire them.
         state.proMode = !state.proMode;
-        if (state.proMode) {
-          PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
-        } else {
+        if (!state.proMode) {
           PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
         }
         _updateVoicingPrefButton();
@@ -12174,9 +12202,17 @@ function renderVoicingMenu() {
         // user doesn't lose their Pro selection just by re-confirming ALL).
         VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
       } else if (isPro) {
-        // Pro families toggle ADDITIVELY — never collapse the standard set.
-        if (voicingPrefSet.has(id)) voicingPrefSet.delete(id);
-        else voicingPrefSet.add(id);
+        // Mirror the standard ALL → narrow semantics for pros: when Pro
+        // Mode is on and no individual pro is selected (= Pro ALL active),
+        // the first individual click NARROWS to just that one. Subsequent
+        // clicks toggle each pro additively.
+        if (proPrefIsAll()) {
+          voicingPrefSet.add(id);
+        } else if (voicingPrefSet.has(id)) {
+          voicingPrefSet.delete(id);
+        } else {
+          voicingPrefSet.add(id);
+        }
       } else if (voicingPrefIsAll()) {
         // First specific standard click out of ALL → switch to single-type
         // filter. Pros already in the set stay.
