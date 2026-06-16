@@ -9502,24 +9502,31 @@ function renderChordMap() {
   // (the "context" chord). Otherwise the persistent popup sits floating in
   // a fully-bright map because no on-map card carries .focused/.related.
   const _focusedChDef = (currentMap()?.chordDefs || {})[state.focusedChord];
-  const _contextChord = (_focusedChDef?.popup && _focusedChDef.resolvesTo)
+  const _focusedIsPopupOnly = !!_focusedChDef?.popup;
+  const _contextChord = (_focusedIsPopupOnly && _focusedChDef.resolvesTo)
     ? _focusedChDef.resolvesTo
     : null;
   const relatedIds = new Set();
-  if (_contextChord) relatedIds.add(_contextChord);
-  // If the focused popup has a secondary-ii partner (e.g. V/vi has sii=vii),
-  // include it too — the popup system draws the ii→V chain arrow into it,
-  // so it deserves to be marked as related (not stay dimmed). Only does
-  // anything when the sii is itself an on-map node (popup-only siis have no
-  // card to light up; they get their own popup treatment elsewhere).
-  if (_focusedChDef?.sii) relatedIds.add(_focusedChDef.sii);
-  map.arrows.forEach(arr => {
-    const a = map.nodes[arr.from];
-    const b = map.nodes[arr.to];
-    if (!a || !b) return;
-    if (a.chord === state.focusedChord || a.chord === _contextChord) relatedIds.add(b.chord);
-    if (b.chord === state.focusedChord || b.chord === _contextChord) relatedIds.add(a.chord);
-  });
+  // Visible-arrow rule: light up only cards that have a line on screen.
+  //   • On-map focus (V, ii, vi, V/V…) → all arrow-connected nodes (main
+  //     render draws every arrow touching the focused chord).
+  //   • Popup-only focus (V/IV, V/vi, bII7/V…) → only the popup→target
+  //     arrow and the sii→popup chain are drawn. So only the target and
+  //     the sii (if it's on-map) should brighten. Target's broader
+  //     network may be harmonically related but those arrows are NOT
+  //     drawn in this view, so the network stays dimmed.
+  if (_focusedIsPopupOnly) {
+    if (_contextChord) relatedIds.add(_contextChord);
+    if (_focusedChDef?.sii) relatedIds.add(_focusedChDef.sii);
+  } else {
+    map.arrows.forEach(arr => {
+      const a = map.nodes[arr.from];
+      const b = map.nodes[arr.to];
+      if (!a || !b) return;
+      if (a.chord === state.focusedChord) relatedIds.add(b.chord);
+      if (b.chord === state.focusedChord) relatedIds.add(a.chord);
+    });
+  }
   const focusedNode2 = Object.values(map.nodes).find(n => n.chord === state.focusedChord);
   const isFocusedHub = !!focusedNode2?.hub;
   document.querySelectorAll('.map-card').forEach(c => {
