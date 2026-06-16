@@ -12152,12 +12152,15 @@ function renderVoicingMenu() {
       e.stopPropagation();
       const id = item.dataset.voicing;
       if (id === '__pro_toggle__') {
-        // Flip Pro Mode. Doesn't touch voicingPrefSet — the user
-        // explicitly opts in to each pro family via its own row.
+        // Flip Pro Mode.
+        //  ON  → ADD all pro families to the selection (inclusive ALL).
+        //        The user can then deselect individual pros if they want
+        //        to narrow it down. Standards stay as they were.
+        //  OFF → drop ALL pros so the picker stops trying to fire them.
         state.proMode = !state.proMode;
-        // When turning off, drop any pro selections so the picker
-        // doesn't keep trying to fire them.
-        if (!state.proMode) {
+        if (state.proMode) {
+          PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
+        } else {
           PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
         }
         _updateVoicingPrefButton();
@@ -12167,7 +12170,9 @@ function renderVoicingMenu() {
       }
       const isPro = isProFamily(id);
       if (id === 'all') {
-        voicingPrefSet = new Set(VOICING_TYPE_IDS);
+        // Click ALL → refill the standard set (pros stay as-is so the
+        // user doesn't lose their Pro selection just by re-confirming ALL).
+        VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
       } else if (isPro) {
         // Pro families toggle ADDITIVELY — never collapse the standard set.
         if (voicingPrefSet.has(id)) voicingPrefSet.delete(id);
@@ -12179,14 +12184,16 @@ function renderVoicingMenu() {
         voicingPrefSet = new Set([id, ...keptPros]);
       } else if (voicingPrefSet.has(id)) {
         voicingPrefSet.delete(id);
-        // If everything got toggled off, snap to standard ALL.
-        const anyStandard = VOICING_TYPE_IDS.some(t => voicingPrefSet.has(t));
-        if (!anyStandard) {
-          const keptPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
-          voicingPrefSet = new Set([...VOICING_TYPE_IDS, ...keptPros]);
-        }
       } else {
         voicingPrefSet.add(id);
+      }
+      // Safety net: the picker needs SOMETHING to choose from. Only snap
+      // back to ALL standard when the entire set is empty — having only
+      // pros selected is now valid (the user can exclude every basic
+      // voicing and play with Pro Mode alone). _pickShapeFiltered's drop2
+      // fallback handles chords that no pro builder supports.
+      if (voicingPrefSet.size === 0) {
+        voicingPrefSet = new Set(VOICING_TYPE_IDS);
       }
       _updateVoicingPrefButton();
       renderVoicingMenu();
