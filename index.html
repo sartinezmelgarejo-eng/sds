@@ -2444,20 +2444,22 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // Render each blank-line-separated section as a <p> so paragraph
       // breaks survive in the magazine view. Within a section, collapse
       // any soft line breaks into a single space so the paragraph flows.
-      // For Mañanera (dailyt): auto-bold quoted phrases (straight, curly,
-      // angle marks) — those are the citable statements ("esto fue lo que
-      // dijo Sheinbaum") and bolding them gives the body editorial weight
-      // + makes the post scannable. Other sections render plain. Note:
-      // safeTxt() escapes straight " to &quot; (and ' to &#39;), so the
-      // regex matches the escaped form. Curly + angle quotes are not
-      // escaped by safeTxt and pass through literally. Non-greedy match
-      // pairs each opening with the nearest matching closing.
+      // For Mañanera (dailyt): auto-bold quoted phrases AND credit lines.
+      // Quote pattern: "esto fue lo que dijo Sheinbaum" (straight/curly/
+      // angle marks). Credit pattern: a paragraph that starts with an
+      // em-dash "— <link to article>President Sheinbaum, …</link>".
+      // Together: quote + attribution stand out as the citable core of
+      // the post; the rest of the body (context/breakdown) reads normal.
+      // safeTxt() escapes straight " to &quot; so the regex matches the
+      // escaped form. Curly + angle marks pass through literally.
       bEl.innerHTML = sections.map(s=>{
         let t = safeTxt(s.replace(/\s+/g,' ').trim());
         if(group==='dailyt'){
           t = t
             .replace(/&quot;(.+?)&quot;/g, '&quot;<strong>$1</strong>&quot;')
             .replace(/([“«])(.+?)([”»])/g, '$1<strong>$2</strong>$3');
+          // Credit paragraph (starts with em-dash) — bold the whole line.
+          if(/^—\s/.test(t)) t = `<strong>${t}</strong>`;
         }
         return `<p>${t}</p>`;
       }).join('');
