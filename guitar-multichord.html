@@ -14096,6 +14096,7 @@ class Player {
         shape = this._pickShape(eq, root, 'drop2', this.previousShape, pickOpts);
         type = 'drop2';
       }
+      type = _displayVoicingFamily(type, eq, root, shape);
     }
     if (!shape) return;
 
@@ -15028,6 +15029,10 @@ class Player {
           const eq = effectiveQuality(stepData, ch);
           shape = this._pickShape(eq, root, finalType, prevShape, pickOpts);
           if (!shape) { shape = this._pickShape(eq, root, 'drop2', prevShape, pickOpts); finalType = 'drop2'; }
+          // qualityOverride:'add9'/'madd9' steps will sound add9 even when
+          // the section family is drop2/triad/strum — promote the displayed
+          // family so the now-playing badge matches the chord identity.
+          finalType = _displayVoicingFamily(finalType, eq, root, shape);
         }
         // Carry the step's qualityOverride (if any) onto the cell so
         // every downstream renderer (chord-name in strip, dashboard
@@ -15054,7 +15059,7 @@ class Player {
               return {
                 ...sl,
                 shape: sShape || sl.shape || null,
-                voicingType: sl.voicingType || segType,
+                voicingType: sl.voicingType || _displayVoicingFamily(segType, sCh.quality, sRoot, sShape),
               };
             });
           }
@@ -18636,6 +18641,27 @@ const FUNCTION_OVERRIDE = {
 // promote the chord to its natural alternate family. Deterministic
 // per song position so re-rendering the same bar always picks the
 // same family (no flicker).
+// When a step carries qualityOverride:'add9' / 'madd9' the section primary
+// family might be drop2 / triad / strum etc., but the resulting SHAPE is an
+// add9 voicing (R-3-5-9). Reporting the cell's voicingType as the builder
+// family (e.g. "drop2") would tell the user a lie — the now-playing badge
+// would show the drop-2 icon while the chord identity is clearly add9.
+// This helper promotes the displayed family to 'add9' when the chord IS
+// add9-flavored AND the built shape actually contains the 9. When the 9
+// is missing (e.g. triad family stripped it) we keep the builder family,
+// which is the honest call.
+function _displayVoicingFamily(builtType, quality, rootPc, shape) {
+  if (!builtType || builtType === 'add9') return builtType;
+  if (quality !== 'add9' && quality !== 'madd9') return builtType;
+  if (!shape || !Array.isArray(shape)) return builtType;
+  const ninthPc = ((rootPc | 0) + 2 + 12) % 12;
+  for (let s = 0; s < shape.length; s++) {
+    if (shape[s] < 0) continue;
+    if (((STRING_OPEN_MIDI[s] + shape[s]) % 12) === ninthPc) return 'add9';
+  }
+  return builtType;
+}
+
 function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIter) {
   if (!chordTag) return primaryType;
   const override = FUNCTION_OVERRIDE[chordTag];
