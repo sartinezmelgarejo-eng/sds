@@ -361,7 +361,10 @@ body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-body-grid{
 }
 body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-hero-wrap{
   height:auto;max-height:65vh;
-  align-self:stretch;
+  align-self:stretch;width:auto;
+}
+body.sidebar-fullscreen .sidebar .mag-stage.vertical-hero .mag-hero-img{
+  max-height:65vh;
 }
 body.sidebar-fullscreen .sidebar .mag-text{
   flex:1;min-width:0;min-height:0;
@@ -373,21 +376,18 @@ body.sidebar-fullscreen .sidebar .mag-text{
    section-tinted gradient shows through while images load, reading as a
    calm placeholder rather than a broken canvas. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
-  width:100%;height:auto;margin:0;
-  aspect-ratio: var(--hero-aspect, 16/9);
-  max-height:52vh;
+  align-self:flex-start;  /* peg image LEFT, no centering — wrap shrinks to image */
+  width:auto;height:auto;margin:0;
+  max-width:100%;max-height:52vh;
   overflow:hidden;position:relative;
   background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
-/* Hero img shows at its native aspect (no crop). The wrapper picks up the
-   image's natural aspect ratio via the --hero-aspect CSS variable (set by
-   paintStage on image load), so there are NO letterbox bands — the wrapper
-   takes the shape of the image, then max-height caps the vertical so it
-   doesn't dominate the cell. For portraits, .vertical-hero flips the stage
-   into a 2-col grid; the wrapper's aspect-ratio still drives shape inside
-   the left column. */
+/* Image rendered at native aspect with caps. No letterbox: width and height
+   are auto with max-* limits, so the image dictates wrap size — no bands
+   appear because the wrap is the image's actual size. */
 body.sidebar-fullscreen .sidebar .mag-hero-img{
-  width:100%;height:100%;object-fit:contain;
+  max-width:100%;max-height:52vh;
+  width:auto;height:auto;
   display:block;opacity:0;transition:opacity .35s ease;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
@@ -421,6 +421,8 @@ body.sidebar-fullscreen .sidebar .mag-hero-thumbs{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-img{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-wrap{
   background:transparent;padding:0;
+  width:100%;height:34vh;  /* explicit dims so the thumb-grid has space */
+  align-self:stretch;
 }
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-thumbs{
   display:grid;
@@ -518,25 +520,23 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{
   color:var(--ct);  /* guinda for Mañanera — section identity */
 }
 /* Mañanera (dailyt) only — headline moves into the hero-wrap as an overlay
-   at the bottom-edge of the image (magazine-cover style). A cream scrim
-   fades from solid at the bottom to transparent above so the image stays
-   visible while the guinda red Alfa Slab One reads sharp on any image.
-   Strong text-shadow for extra legibility against bright/red photos. */
+   at the bottom-edge of the image. No scrim/background — photo stays clean.
+   Legibility comes from layered text-shadows: a soft 16px dark halo darkens
+   the photo around the letterforms, a 4px drop shadow adds depth, a 1px
+   black outline sharpens edges, and the colored 2px offset shadow keeps
+   the Soviet poster character. Works on bright AND dark backgrounds. */
 body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap .mag-headline{
   position:absolute;
   bottom:0;left:0;right:0;
   z-index:3;
   margin:0;
-  padding:clamp(40px, 6vh, 80px) clamp(20px, 2.2vw, 32px) clamp(14px, 2vh, 24px);
-  background:linear-gradient(to top,
-    rgba(253,252,243,0.96) 0%,
-    rgba(253,252,243,0.86) 35%,
-    rgba(253,252,243,0.45) 70%,
-    transparent 100%);
+  padding:clamp(14px, 2vh, 26px) clamp(16px, 2vw, 28px) clamp(12px, 1.6vh, 20px);
+  background:transparent;
   text-shadow:
-    2px 2px 0 color-mix(in srgb, var(--ct) 28%, transparent),
-    0 1px 6px rgba(0,0,0,0.10);
-  /* Cap to 3 lines so very long headlines don't blow up the layout */
+    0 0 18px rgba(0,0,0,0.60),
+    0 2px 4px rgba(0,0,0,0.70),
+    0 0 1px rgba(0,0,0,0.95),
+    2px 2px 0 color-mix(in srgb, var(--ct) 32%, transparent);
   display:-webkit-box;
   -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
