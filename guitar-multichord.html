@@ -6495,6 +6495,86 @@ function mehldau10thVoicing(quality, rootPc) {
   return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
 }
 
+// ─── 6. Upper Structure V7#11 (Lydian Dominant) ──────────────────
+// LH shell (R-3-b7) + RH major triad a whole step UP from the root.
+// For G7 (root G): LH G-B-F + RH D-F#-A (D major triad). The triad
+// supplies 9-#11-13 of G7 all at once. The "Joe Henderson" sound.
+// Six notes total spanning two octaves.
+const UST_SHARP11_OK = new Set(['7', '9', '7#11']);
+function ustSharp11Voicing(quality, rootPc) {
+  if (!UST_SHARP11_OK.has(quality)) return null;
+  // Bass octave: place R in C2-B2 range (MIDI 36-47) so dom7 V chords
+  // sit at the canonical bass-clef position (G2 for G7, C2 for C7, etc.).
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  // Intervals from R: 0 (R), 4 (3), 10 (b7) — LH shell.
+  // Then RH triad a whole step up: D-F#-A from G means +7 above the bass
+  // (the 5th of bV which is two octaves and a 5th, simpler: D4 = R + 19
+  // in semitones for G7 / D-major-triad).
+  return { pianoShape: [0, 4, 10, 19, 23, 26].map(i => base + i) };
+}
+
+// ─── 7. Upper Structure V7alt (b9 #9 b13) ────────────────────────
+// LH shell + RH MAJOR triad a tritone away (bV). For G7: LH G-F-B
+// (different shell layout) + RH Db-F-Ab. Db major contains b9, #9
+// and b13 of G7 — the textbook "altered" sound. Resolves smoothly
+// to Cmaj7 via the tritone-sub voice-leading.
+const UST_ALT_OK = new Set(['7', '7alt', '9', '7b9']);
+function ustAltVoicing(quality, rootPc) {
+  if (!UST_ALT_OK.has(quality)) return null;
+  // Same bass register as UST #11 — C2-B2 range.
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  // LH: R + b7 + 3 (the 3 sitting an octave up to clear room).
+  // RH: Db-F-Ab major triad (bV).
+  // For G7alt centered at G2: G2-F3-B3-Db4-F4-Ab4
+  // Intervals from R: [0, 10, 16, 18, 22, 25].
+  return { pianoShape: [0, 10, 16, 18, 22, 25].map(i => base + i) };
+}
+
+// ─── 8. Locked Hands (Shearing Block Chord) ──────────────────────
+// Melody on top + close 4-note chord + melody doubled an octave
+// below. Five notes moving in parallel. Default: root as melody.
+//   maj7: C4-E4-G4-B4-C5 (Cmaj7 with C melody)
+//   m7:   C4-Eb4-G4-Bb4-C5
+//   7:    C4-E4-G4-Bb4-C5
+const LOCKED_HANDS_INTERVALS = {
+  'maj7': [12, 16, 19, 23, 24],
+  'maj9': [12, 16, 19, 23, 24],
+  '7':    [12, 16, 19, 22, 24],
+  '9':    [12, 16, 19, 22, 24],
+  'm7':   [12, 15, 19, 22, 24],
+  'm9':   [12, 15, 19, 22, 24],
+  '6':    [12, 16, 19, 21, 24],
+  'm6':   [12, 15, 19, 21, 24],
+  'mMaj7':[12, 15, 19, 23, 24],
+};
+function lockedHandsVoicing(quality, rootPc) {
+  const ints = LOCKED_HANDS_INTERVALS[quality];
+  if (!ints) return null;
+  // Bottom voice = R + 12 (octave above the chord root) lands in
+  // MIDI 56-67 = G#3-G4 — the canonical Shearing locked-hands voicing
+  // sits with the bottom voice around middle C (C4 = 60).
+  const baseOct = _proLHOctave(rootPc, 12, 56, 67);
+  const base = rootPc + 12 * baseOct;
+  return { pianoShape: ints.map(i => base + i) };
+}
+
+// ─── 9. McCoy Spread Quartals ─────────────────────────────────────
+// For Cm: C2 + G2 (LH open 5th) + Eb3-Ab3-Db4 (LH 4ths stack) +
+// F4-Bb4-Eb5 (RH 4ths stack). Eight notes spanning four octaves.
+// Only fires on m7/m9 — quartal stacks on dom7/maj7 lose the modal
+// flavor that's the point.
+const MCCOY_OK = new Set(['m7', 'm9']);
+function mccoySpreadVoicing(quality, rootPc) {
+  if (!MCCOY_OK.has(quality)) return null;
+  // Bass R at C2 register.
+  const baseOct = _proLHOctave(rootPc, 0, 36, 47);
+  const base = rootPc + 12 * baseOct;
+  // Intervals from R for the eight-note spread: P5 bass + 4ths layered.
+  return { pianoShape: [0, 7, 15, 20, 25, 29, 34, 39].map(i => base + i) };
+}
+
 // ─── Pro family registry ──────────────────────────────────────────
 // Maps family name → builder. Used by allDistinctVoicings + _pickShape
 // when state.instrument === 'piano' AND state.proMode === true.
@@ -6504,6 +6584,10 @@ const PRO_BUILDERS = {
   'powellShell': powellShellVoicing,
   'soWhatFull':  soWhatFullVoicing,
   'mehldau10th': mehldau10thVoicing,
+  'ustSharp11':  ustSharp11Voicing,
+  'ustAlt':      ustAltVoicing,
+  'lockedHands': lockedHandsVoicing,
+  'mccoySpread': mccoySpreadVoicing,
 };
 
 function susVoicing(quality, rootPc, stringSetIdx, inversion) {
@@ -11476,6 +11560,11 @@ const VOICING_OPTIONS = [
   {value: 'powellShell', emoji: '🌑', label: 'Powell Shell', desc: 'R + 3 + b7 LH economy — bop comping', proPianoOnly: true},
   {value: 'soWhatFull',  emoji: '🗼', label: 'So What Full', desc: '5-note stacked 4ths E-A-D-G-C — modal canon', proPianoOnly: true},
   {value: 'mehldau10th', emoji: '🌊', label: 'Mehldau 10th', desc: 'R bass + 10th + extensions — wide piano spread', proPianoOnly: true},
+  // ── Phase 2: Upper Structures + Locked Hands + McCoy Spread ──
+  {value: 'ustSharp11',  emoji: '🔺', label: 'UST V7#11', desc: 'Lydian dom — shell + whole-step major triad', proPianoOnly: true},
+  {value: 'ustAlt',      emoji: '🔻', label: 'UST V7alt', desc: 'Altered dom — shell + tritone-sub triad', proPianoOnly: true},
+  {value: 'lockedHands', emoji: '🤝', label: 'Locked Hands', desc: 'Shearing block chord — melody + close chord + octave', proPianoOnly: true},
+  {value: 'mccoySpread', emoji: '🌋', label: 'McCoy Spread', desc: '5th bass + stacked 4ths across 4 octaves', proPianoOnly: true},
 ];
 // Multi-select voicing filter. The set holds the type ids the user has
 // allowed; when it covers every id we're in legacy "ALL" mode (no
@@ -11534,11 +11623,13 @@ const VOICING_BUTTON_LABEL = {
   triad: 'TRIADS', guide: 'GUIDE', sus: 'SUS', add9: 'ADD9', quartal: 'QUARTAL', strum: 'STRUM',
   rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL',
   soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
+  ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
 };
 const VOICING_SHORT_CODE = {
   drop2: 'D2', drop3: 'D3', shell: 'SH',
   triad: 'TR', guide: 'GU', sus: 'SU', add9: 'A9', quartal: 'Q4', strum: 'ST',
   rootlessA: 'RA', rootlessB: 'RB', powellShell: 'PS', soWhatFull: 'SW', mehldau10th: 'M10',
+  ustSharp11: 'U#', ustAlt: 'UA', lockedHands: 'LH', mccoySpread: 'MC',
 };
 function getVoicingPrefLabel() {
   if (voicingPrefIsAll()) return 'ALL';
@@ -11671,6 +11762,37 @@ const VOICE_ICONS = {
     <circle cx="16" cy="5"  r="1.5" fill="#1a1a1a"/>
     <circle cx="19" cy="4"  r="1.5" fill="#1a1a1a"/>
     <circle cx="22" cy="6"  r="1.5" fill="#1a1a1a"/>
+  </svg>`,
+  // UST V7#11 — LH shell triangle + RH triad triangle, separated
+  ustSharp11: `<svg viewBox="0 0 26 16">
+    <path d="M 3 13 L 8 13 L 5.5 9 Z" fill="#7e2438"/>
+    <path d="M 17 6 L 23 6 L 20 2 Z" fill="#a07820"/>
+    <line x1="6" y1="9" x2="20" y2="6" stroke="#1a1a1a" stroke-width="0.4" stroke-dasharray="1,1"/>
+  </svg>`,
+  // UST V7alt — LH triangle + RH inverted triangle (tritone sub)
+  ustAlt: `<svg viewBox="0 0 26 16">
+    <path d="M 3 13 L 8 13 L 5.5 9 Z" fill="#7e2438"/>
+    <path d="M 17 2 L 23 2 L 20 6 Z" fill="#a07820"/>
+    <line x1="6" y1="9" x2="20" y2="6" stroke="#1a1a1a" stroke-width="0.4" stroke-dasharray="1,1"/>
+  </svg>`,
+  // LOCKED HANDS — 5 horizontal dashes stacked (melody + chord + octave)
+  lockedHands: `<svg viewBox="0 0 26 16">
+    <line x1="6" y1="3"  x2="20" y2="3"  stroke="#1a1a1a" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="6" y1="6"  x2="20" y2="6"  stroke="#1a1a1a" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="6" y1="9"  x2="20" y2="9"  stroke="#1a1a1a" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="6" y1="12" x2="20" y2="12" stroke="#1a1a1a" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="6" y1="14.5" x2="20" y2="14.5" stroke="#1a1a1a" stroke-width="0.9" stroke-linecap="round"/>
+  </svg>`,
+  // McCOY SPREAD — bass dot + ascending 4ths stack (8 dots total)
+  mccoySpread: `<svg viewBox="0 0 26 16">
+    <circle cx="3"  cy="14" r="1.6" fill="#1a1a1a"/>
+    <circle cx="6"  cy="12" r="1.4" fill="#1a1a1a"/>
+    <circle cx="9"  cy="10" r="1.4" fill="#1a1a1a"/>
+    <circle cx="12" cy="8"  r="1.4" fill="#1a1a1a"/>
+    <circle cx="15" cy="6.5"r="1.4" fill="#1a1a1a"/>
+    <circle cx="18" cy="5"  r="1.4" fill="#1a1a1a"/>
+    <circle cx="21" cy="3.5"r="1.4" fill="#1a1a1a"/>
+    <circle cx="24" cy="2.5"r="1.4" fill="#1a1a1a"/>
   </svg>`,
 };
 
@@ -12851,7 +12973,7 @@ const PROGRESSION_VOICING = {
   // rootless weight; modal vamps get soWhatFull; pop progressions don't
   // get any Pro weight at all because Pro voicings would clash with their
   // texture.
-  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
+  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15, lockedHands:15, ustAlt:10},
   'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, extensions:0.3},
   'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:50, add9:12, extensions:0.2},
   'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
@@ -12871,7 +12993,7 @@ const PROGRESSION_VOICING = {
   'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
   'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25},
   'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:35, rootlessB:35, powellShell:15, mehldau10th:15},
-  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:20},
+  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:20, lockedHands:15},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:10, extensions:0.3},
   'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:55, add9:15, extensions:0.15},
   'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, mehldau10th:15},
@@ -12923,7 +13045,7 @@ const PROGRESSION_VOICING = {
   // Dorian quartal vamp — minor-key showcase for Phase B. Heavy quartal
   // on the m9, drop-2/drop-3 cover the IVmaj7 (quartal doesn't catch
   // major-7 qualities). The alternation lets the quartal sound stand out.
-  'Dorian quartal vamp i9–IVmaj7':   {drop2:25, drop3:15, shell:0,  triad:0,  sus:5, strum:0,  quartal:55, extensions:1.0},
+  'Dorian quartal vamp i9–IVmaj7':   {drop2:25, drop3:15, shell:0,  triad:0,  sus:5, strum:0,  quartal:55, mccoySpread:25, extensions:1.0},
   'Minor blues fragment':         {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
   'i–V/iv–iv–V7 turnaround':      {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'iiø–V7–iv–bII7–i':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
@@ -12958,11 +13080,11 @@ const PROGRESSION_VOICING = {
   'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:35, add9:15, extensions:0.1},
   'Train beat I7-IV7-V7':         {drop2:15, drop3:10, shell:15, triad:25, sus:0, strum:35, extensions:0.15},
   // Bossa — drop-3 dominant (Romance bossa pattern). Bossa wants 9s.
-  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, extensions:1.3},
+  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, ustSharp11:30, extensions:1.3},
   // Minor additions
   'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5},
-  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  extensions:1.2},
-  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, soWhatFull:60, extensions:1.4},
+  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  ustAlt:30, rootlessA:20, extensions:1.2},
+  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, soWhatFull:60, mccoySpread:25, extensions:1.4},
   // ─── Multi-chord progressions ───
   // Jazz turnarounds: drop-2 dominant + a touch of drop-3 for the bebop feel.
   'Bird-style turnaround':        {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
@@ -14922,7 +15044,8 @@ class Player {
 
     // Friendly voicing label matching the compose-mode info bar.
     const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
-      rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH' };
+      rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
+      ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD' };
     const pvType = state.playerVoicing?.type;
     const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
     const voicingTxt = pvLabel
@@ -19239,6 +19362,10 @@ const FAMILY_BIAS = {
   powellShell: 4,
   soWhatFull:  4,
   mehldau10th: 4,
+  ustSharp11:  4,
+  ustAlt:      4,
+  lockedHands: 4,
+  mccoySpread: 5,  // 8 notes — niche, only fires when explicitly chosen.
 };
 // Deterministic per-candidate hash → noise in [-3, 3]. Used in place
 // of Math.random() so the picker returns the SAME family for the
