@@ -2330,7 +2330,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     // on the hero image) and lay the 3 real content sections out as newspaper
     // columns. Other sections keep the flowing single body.
     const lines=(slide.text||'').split('\n');
-    el.querySelector('.mag-headline').innerHTML = safeTxt(lines[0]||'');
+    // If the post has a source URL (the original article from the outlet),
+    // wrap the headline text in an <a> so clicking opens it in a new tab.
+    // Especially useful for noticias/internacional; mañanera posts that
+    // include an official URL get the same treatment. Posts without a
+    // source URL render plain text.
+    const _hlText = safeTxt(lines[0]||'');
+    const _srcUrl = slide.source && slide.source.url;
+    el.querySelector('.mag-headline').innerHTML = _srcUrl
+      ? `<a href="${esc(_srcUrl)}" target="_blank" rel="noopener noreferrer">${_hlText}</a>`
+      : _hlText;
 
     // For Mañanera (dailyt) only, move the headline DOM into the hero-wrap so
     // it sits as an overlay (cream label-strip) at the bottom-edge of the
