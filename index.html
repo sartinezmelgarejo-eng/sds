@@ -621,10 +621,12 @@ body.sidebar-fullscreen .sidebar .mag-body-text{
   -webkit-mask-image:linear-gradient(to bottom, #000 90%, transparent 100%);
 }
 /* Stage body — fully standardized across all sections: Playfair Display,
-   one reading scale, line-height 1.55, roman (no italic). No section
-   variation in the body. */
+   one reading scale, line-height 1.55, roman (no italic). The clamp is
+   multiplied by --body-scale (set by paintStage based on text length),
+   so long posts auto-shrink and short posts auto-grow within ~0.78–1.10. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text{
-  font-size:clamp(18px, 2.5vh, 24px);line-height:1.55;
+  font-size:calc(clamp(18px, 2.5vh, 24px) * var(--body-scale, 1));
+  line-height:1.55;
   overflow-wrap:break-word;
 }
 /* Onmexico multi-column body — newspaper-style layout when the post follows
@@ -2414,6 +2416,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       bEl.innerHTML = safeTxt(flat);
     }
     bEl.style.display = sections.length ? '' : 'none';
+
+    // Auto-adapt body font scale based on text length so long posts shrink
+    // to fit (more text visible) and short posts grow to fill the cell.
+    // CSS multiplies this scalar into the body font-size clamp.
+    // Smooth curve clamped to [0.78, 1.10]: scale=1 around ~300 chars.
+    const bodyLen = sections.reduce((n,s)=> n + s.length, 0);
+    const scale = bodyLen
+      ? Math.max(0.78, Math.min(1.10, 1 + (300 - bodyLen) / 2500))
+      : 1;
+    el.style.setProperty('--body-scale', scale.toFixed(3));
 
     paintFoot(el, group, batch, idx, 'stage');
   }
