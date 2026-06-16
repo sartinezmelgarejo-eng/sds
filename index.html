@@ -2109,16 +2109,49 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   }
   // (Re)set a single cell's cycle timer. Called from startMagCycling and
   // whenever the user interacts manually (dot click, tab click) so the next
-  // auto-advance doesn't fire surprisingly soon.
+  // auto-advance doesn't fire surprisingly soon. When the featured stage
+  // cell cycles through ALL its posts (wraps back to 0) we auto-promote
+  // the next non-empty section to stage, so a sleeper reader sees the
+  // whole front page rotate without interaction.
   function bumpCellTimer(g){
     if(magState.timers[g]) clearInterval(magState.timers[g]);
     magState.timers[g]=setInterval(()=>{
       if(magState.paused[g]) return;
       const b=magBatchFor(g);
-      if(b.length<2) return;
-      magState.slideIdx[g]=(magState.slideIdx[g]+1)%b.length;
+      if(!b.length) return;                       // no posts → nothing to do
+      if(b.length<2){
+        // Single-post section on stage: after one tick, advance featured.
+        // Satellites with 1 post just sit (no rotation needed).
+        if(g===magState.featured) advanceFeatured(g);
+        return;
+      }
+      const next=magState.slideIdx[g]+1;
+      const wrapping=next>=b.length;
+      magState.slideIdx[g]=wrapping ? 0 : next;
+      if(wrapping && g===magState.featured){
+        advanceFeatured(g);
+        return;
+      }
       updateCell(g);
-    }, 8000);
+    }, 12000);
+  }
+  // Auto-promote the next non-empty section to stage when the current
+  // featured has cycled through all its posts. Resets the new featured's
+  // slideIdx to 0 so it starts fresh from its most recent post.
+  function advanceFeatured(currentGroup){
+    const sections=['dailyt','scant','onmexico'];
+    const start=sections.indexOf(currentGroup);
+    if(start<0) return;
+    for(let i=1; i<=sections.length; i++){
+      const candidate=sections[(start+i)%sections.length];
+      const batch=magBatchFor(candidate);
+      if(batch && batch.length){
+        magState.featured=candidate;
+        magState.slideIdx[candidate]=0;
+        renderMobile();
+        return;
+      }
+    }
   }
 
   // Stable skeletons — kind-specific. Mutated in place by paintCell so the
