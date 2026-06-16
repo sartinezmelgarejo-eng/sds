@@ -11457,6 +11457,13 @@ function tonicMidiNotes() {
 }
 function chordMidiNotes() {
   const fs = focusedShape();
+  if (!fs) return [];
+  // Pro voicings carry pianoShape (MIDI array) instead of fret positions.
+  // Without this branch, updateActiveDrones would re-start chordDrone
+  // with an empty-notes payload immediately after a pro audition click
+  // (the placeholder fret-shape maps to zero MIDI notes), killing the
+  // audition we just scheduled.
+  if (Array.isArray(fs.pianoShape) && fs.pianoShape.length) return fs.pianoShape.slice();
   if (!fs.shape) return [];
   return fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
 }
