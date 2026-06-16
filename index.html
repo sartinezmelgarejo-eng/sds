@@ -2444,22 +2444,36 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // Render each blank-line-separated section as a <p> so paragraph
       // breaks survive in the magazine view. Within a section, collapse
       // any soft line breaks into a single space so the paragraph flows.
-      // For Mañanera (dailyt): auto-bold quoted phrases AND credit lines.
-      // Quote pattern: "esto fue lo que dijo Sheinbaum" (straight/curly/
-      // angle marks). Credit pattern: a paragraph that starts with an
-      // em-dash "— <link to article>President Sheinbaum, …</link>".
-      // Together: quote + attribution stand out as the citable core of
-      // the post; the rest of the body (context/breakdown) reads normal.
-      // safeTxt() escapes straight " to &quot; so the regex matches the
-      // escaped form. Curly + angle marks pass through literally.
+      // Auto-bold key citation patterns per section so the body becomes
+      // scannable. safeTxt() escapes straight " → &quot; and ' → &#39;,
+      // so quote regexes match the escaped forms. Curly + angle marks
+      // pass through literally.
+      //
+      // - Mañanera (dailyt): bold double-quoted text (Sheinbaum's
+      //   citable lines) + bold the em-dash credit paragraph (the article
+      //   link with the attribution).
+      // - Internacional (onmexico): bold double-quoted text (outlet
+      //   headlines, Trump/Sheinbaum quotes — the framing the article
+      //   actually leans on).
+      // - Noticias (scant): citations come in single quotes, but
+      //   apostrophes (Mexico's, Trump's) share the same character. To
+      //   avoid false matches, only bold single-quoted text preceded by
+      //   ": " — the "Name: 'their quote'" intro pattern. Apostrophes in
+      //   possessives never follow ": " so they're safely skipped. Also
+      //   bold double quotes if they happen to appear.
+      const boldDouble = s => s
+        .replace(/&quot;(.+?)&quot;/g, '&quot;<strong>$1</strong>&quot;')
+        .replace(/([“«])(.+?)([”»])/g, '$1<strong>$2</strong>$3');
       bEl.innerHTML = sections.map(s=>{
         let t = safeTxt(s.replace(/\s+/g,' ').trim());
         if(group==='dailyt'){
-          t = t
-            .replace(/&quot;(.+?)&quot;/g, '&quot;<strong>$1</strong>&quot;')
-            .replace(/([“«])(.+?)([”»])/g, '$1<strong>$2</strong>$3');
-          // Credit paragraph (starts with em-dash) — bold the whole line.
+          t = boldDouble(t);
           if(/^—\s/.test(t)) t = `<strong>${t}</strong>`;
+        } else if(group==='onmexico'){
+          t = boldDouble(t);
+        } else if(group==='scant'){
+          t = boldDouble(t)
+            .replace(/(:\s+)&#39;(.+?)&#39;/g, '$1&#39;<strong>$2</strong>&#39;');
         }
         return `<p>${t}</p>`;
       }).join('');
