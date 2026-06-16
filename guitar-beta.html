@@ -8428,9 +8428,17 @@ function _renderHoverPopups(chordId, allowedIds) {
           // The pinned partner only goes away when the persistent ii does
           // (see _clearPersistentPopup), so the user can click V next to
           // complete the ii→V→I chain.
+          // Strip any previously-applied .persistent from the partner's
+          // snapshot — otherwise a card that was persistent BEFORE this
+          // click (e.g. V/iii after the user clicked V/iii first) gets
+          // re-injected with both `persistent` AND `partner-pinned`, so
+          // it keeps the green "currently composing" look even though
+          // the new ii is what just got committed. Strip it so partner
+          // returns to a normal hover state.
+          const _baseCls = snap.className.replace(/\bpersistent\b/g, '').replace(/\s+/g, ' ').trim();
           el.className = snap.isIi
-            ? snap.className + ' persistent'
-            : snap.className + ' partner-pinned';
+            ? _baseCls + ' persistent'
+            : _baseCls + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -8442,6 +8450,11 @@ function _renderHoverPopups(chordId, allowedIds) {
               ev2.stopPropagation();
               _persistentPopupChordId = vAppId;
               _persistentPopupNode    = chordId;
+              // Capture the partner's CURRENT pixel position so the next
+              // _redrawPersistentPopup keeps it in place instead of
+              // re-allocating a fresh slot (which would make the popup
+              // jump to a new location after the click).
+              _persistentPopupPos = { x: parseFloat(el.style.left), y: parseFloat(el.style.top) };
               if (typeof composeAddChord === 'function') {
                 composeAddChord(vAppId, ev2.shiftKey, _shiftSide === 'left' ? -1 : 1);
               }
@@ -8493,9 +8506,14 @@ function _renderHoverPopups(chordId, allowedIds) {
           // doesn't immediately wipe it via _clearHoverPopups. Same fix as
           // the ii-first path above — keeps the chain visible until the
           // user either clicks ii to add it or composes elsewhere.
+          // Strip any previously-applied .persistent from the partner's
+          // snapshot for the same reason as the secondaryIi branch above:
+          // mirror handling so the partner (ii here) drops back to a
+          // normal hover state instead of staying green.
+          const _baseCls = snap.className.replace(/\bpersistent\b/g, '').replace(/\s+/g, ' ').trim();
           el.className = snap.isV
-            ? snap.className + ' persistent'
-            : snap.className + ' partner-pinned';
+            ? _baseCls + ' persistent'
+            : _baseCls + ' partner-pinned';
           el.style.cssText = `left:${snap.left};top:${snap.top};width:${snap.width};height:${snap.height};position:absolute;`;
           el.dataset.chord  = snap.appId;
           el.dataset.popup  = '1';
@@ -8506,6 +8524,10 @@ function _renderHoverPopups(chordId, allowedIds) {
               ev2.stopPropagation();
               _persistentPopupChordId = iiAppId;
               _persistentPopupNode    = chordId;
+              // Same position-capture as the secondaryIi partner branch:
+              // pin the ii partner's CURRENT slot so the redraw doesn't
+              // jump it to a freshly-allocated position.
+              _persistentPopupPos = { x: parseFloat(el.style.left), y: parseFloat(el.style.top) };
               if (typeof composeAddChord === 'function') {
                 composeAddChord(iiAppId, ev2.shiftKey, _shiftSide === 'left' ? -1 : 1);
               }
