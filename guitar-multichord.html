@@ -16498,18 +16498,35 @@ class Player {
 
     // Re-render the chord map so each card's mini-fretboard reflects the latest voicing
     // (the focused chord uses state.playerVoicing; others recompute smoothest from it).
-    // Per-chord rebuild is expensive on mobile (innerHTML wipe + 15-25 mini-SVG
-    // cards) and visibly stutters playback. The cards only need a fresh
-    // rebuild when the underlying chord SET changes — section / key / tonality
-    // / scope / instrument / proMode swap. Within a single section, the per-
-    // chord highlight (playing/next-up/in-progression) is already handled by
-    // class toggling below — no rebuild needed. User: "en el telefono como
-    // que la verdad si se traba un poquito aun."
-    const _curSecLabel = this._currentSection()?.label || '';
-    const _mapKey = `${_curSecLabel}|${state.keyPc}|${state.tonality}|${chordScope}|${state.instrument}|${state.proMode ? 'p' : 's'}`;
-    if (this._lastChordMapKey !== _mapKey) {
-      renderChordMap();
-      this._lastChordMapKey = _mapKey;
+    // Three-tier skip:
+    //   1. Mobile + play mode + overlay closed → the chord-map host is
+    //      `display:none` and the mobile-map toggle is also hidden by
+    //      CSS during player-active, so the user CANNOT see the map.
+    //      Building 15-25 SVG cards into invisible DOM is pure waste —
+    //      skip entirely. User: "en mobile ni siquiera se ve el chord
+    //      map en play mode jaja."
+    //   2. Otherwise: rebuild only when the underlying chord SET changes
+    //      (sectionLabel / keyPc / tonality / scope / instrument /
+    //      proMode). Within a single section, the per-chord highlight
+    //      (playing / next-up / in-progression) is already handled by
+    //      class toggling below — no rebuild needed.
+    //   3. In compose mode renderChordMap is called via OTHER paths
+    //      (renderAll on key/scope changes, click handlers on cards,
+    //      etc.), so the per-chord "breathing" voicing previews keep
+    //      updating like before — the skip only affects play mode.
+    const _isMobile = window.innerWidth <= 800;
+    const _mapOverlayOpen = document.body.classList.contains('map-overlay-open');
+    if (_isMobile && !_mapOverlayOpen) {
+      // Mark cache stale so when user exits play / opens overlay / hits
+      // desktop, the next _updateVisuals rebuilds against current state.
+      this._lastChordMapKey = null;
+    } else {
+      const _curSecLabel = this._currentSection()?.label || '';
+      const _mapKey = `${_curSecLabel}|${state.keyPc}|${state.tonality}|${chordScope}|${state.instrument}|${state.proMode ? 'p' : 's'}`;
+      if (this._lastChordMapKey !== _mapKey) {
+        renderChordMap();
+        this._lastChordMapKey = _mapKey;
+      }
     }
 
     // Build a set of chord IDs that appear in the CURRENT section's progression.
@@ -16517,41 +16534,52 @@ class Player {
     const progressionChordIds = new Set();
     this._currentSection()?.progression?.steps?.forEach(step => progressionChordIds.add(step.chord));
 
-    // Re-apply playing / next-up / in-progression classes (renderChordMap creates fresh cards)
+    // The map-card class toggles + popup rendering all paint into the
+    // chord-map container. On mobile play that container is `display:none`
+    // and the user can't open the overlay (toggle button hidden via
+    // `body.player-active`), so every querySelectorAll + class flip is
+    // touching invisible DOM. Skip them too — only the audio + the strip
+    // / now-playing badge / chord-neck matter on mobile play.
     const isLastBar = this.barsRemaining === 1;
-    document.querySelectorAll('.map-card').forEach(c => {
-      c.classList.remove('playing', 'next-up', 'about-to-start', 'in-progression');
-      if (progressionChordIds.has(c.dataset.chord)) c.classList.add('in-progression');
-      if (c.dataset.chord === curId) c.classList.add('playing');
-      else if (c.dataset.chord === nxtId) {
-        c.classList.add('next-up');
-        if (isLastBar) {
-          void c.offsetWidth;
-          c.classList.add('about-to-start');
+    if (!(_isMobile && !_mapOverlayOpen)) {
+      // Re-apply playing / next-up / in-progression classes (renderChordMap creates fresh cards)
+      document.querySelectorAll('.map-card').forEach(c => {
+        c.classList.remove('playing', 'next-up', 'about-to-start', 'in-progression');
+        if (progressionChordIds.has(c.dataset.chord)) c.classList.add('in-progression');
+        if (c.dataset.chord === curId) c.classList.add('playing');
+        else if (c.dataset.chord === nxtId) {
+          c.classList.add('next-up');
+          if (isLastBar) {
+            void c.offsetWidth;
+            c.classList.add('about-to-start');
+          }
         }
+      });
+      // Render temporary popup cards for chords that exist in chordDefs but
+      // not on the map (V/iii, iiø, bIIImaj7, etc.). They appear one bar
+      // ahead (yellow next-up) and transition to playing-green when their
+      // bar starts, with a connector arrow to their resolvesTo target.
+      if (typeof _renderPopupCards === 'function') {
+        _renderPopupCards(curId, nxtId, isLastBar);
       }
-    });
-    // Render temporary popup cards for chords that exist in chordDefs but
-    // not on the map (V/iii, iiø, bIIImaj7, etc.). They appear one bar
-    // ahead (yellow next-up) and transition to playing-green when their
-    // bar starts, with a connector arrow to their resolvesTo target.
-    if (typeof _renderPopupCards === 'function') {
-      _renderPopupCards(curId, nxtId, isLastBar);
     }
     // Quality-override badge on existing map cards: when the playing
     // chord uses an altered quality (bII7 → 7#11, V → 7alt, etc.), a
     // small badge in the corner shows the alteration. Lets the user
     // know that "bII7" is currently sounding as bII7#11 without
-    // creating a separate chord ID.
-    document.querySelectorAll('.map-card .mc-quality-badge').forEach(el => el.remove());
-    const curStepNow = this._currentStep();
-    if (curStepNow && curStepNow.qualityOverride) {
-      const card = document.querySelector(`.map-card[data-chord="${curId}"]`);
-      if (card) {
-        const badge = document.createElement('span');
-        badge.className = 'mc-quality-badge';
-        badge.textContent = QUALITIES[curStepNow.qualityOverride].sfx;
-        card.appendChild(badge);
+    // creating a separate chord ID. Same mobile-play skip — badges live
+    // on map cards which are invisible in that state.
+    if (!(_isMobile && !_mapOverlayOpen)) {
+      document.querySelectorAll('.map-card .mc-quality-badge').forEach(el => el.remove());
+      const curStepNow = this._currentStep();
+      if (curStepNow && curStepNow.qualityOverride) {
+        const card = document.querySelector(`.map-card[data-chord="${curId}"]`);
+        if (card) {
+          const badge = document.createElement('span');
+          badge.className = 'mc-quality-badge';
+          badge.textContent = QUALITIES[curStepNow.qualityOverride].sfx;
+          card.appendChild(badge);
+        }
       }
     }
 
