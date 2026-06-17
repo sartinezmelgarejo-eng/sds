@@ -2671,6 +2671,37 @@
        must pop in/out instantly and synchronously when hover-paired. */
   }
   .rb-cell:last-child { border-right: none; }
+  /* Silent rest cell — the bar still occupies its slot in the grid
+     but draws a whole-rest glyph + label so the user reads it as
+     "this bar is intentionally silent", not "the grid skipped a bar". */
+  .rb-cell.rb-rest {
+    color: #5a5a64;
+    opacity: 0.72;
+  }
+  .rb-cell.rb-rest .rb-rest-glyph {
+    font-family: 'Bravura Text', 'Petaluma', 'Maestro', 'Apple Symbols', 'Segoe UI Symbol', 'Noto Music', 'Symbola', serif;
+    font-size: 26px;
+    line-height: 1;
+    color: #2a2014;
+  }
+  .rb-cell.rb-rest .rb-rest-label {
+    font-size: 10px;
+    font-style: italic;
+    letter-spacing: 1.2px;
+    color: #5a5a64;
+    margin-top: 2px;
+  }
+  .rb-tab-cell.rb-tab-rest {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rb-tab-cell.rb-tab-rest .rb-rest-glyph {
+    font-family: 'Bravura Text', 'Petaluma', 'Maestro', 'Apple Symbols', 'Segoe UI Symbol', 'Noto Music', 'Symbola', serif;
+    font-size: 44px;
+    color: #2a2014;
+    opacity: 0.55;
+  }
   /* Cells of the composed strip are clickable (audition + focus). */
   body:not(.player-active) [data-compose-idx] { cursor: pointer; }
   body:not(.player-active) [data-compose-empty] { cursor: pointer; }
@@ -16914,6 +16945,12 @@ class Player {
         composedShape: step.composedShape,  // honors user-typed inversions
         composedPianoShape: step.composedPianoShape || null,  // pro voicing MIDI
         composedType: step.composedType,    // honors user-chosen family
+        // Propagate the step's silent-rest flag so the playback strip
+        // can render a rest indicator instead of a blank cell (without
+        // this, fragments like "Breath then I-IV" looked like the grid
+        // had glitched a missing bar — user: "se me hace que se confunde
+        // entre 4 acordes y 4 compases").
+        _silent: !!step._silent,
         subdivisions: step.subdivisions || (step.slots && step.slots.length) || 1,
         subdivMute: step.subdivMute || [],
         slots: step.slots || null,
@@ -17187,6 +17224,10 @@ class Player {
           voicingType: _entryType,
           shape,
           pianoShape: _pianoShape,
+          // _silent travels through from the step → seg → entry so the
+          // strip renderer can distinguish "intentional rest" (draw a
+          // rest glyph) from "missing data" (blank cell).
+          _silent: !!seg._silent,
           subdivisions: seg.subdivisions || (enrichedSlots && enrichedSlots.length) || 1,
           subdivMute: seg.subdivMute || [],
           slots: enrichedSlots,
@@ -17267,6 +17308,16 @@ class Player {
 
     const cellsHtml = cells.map((cell, i) => {
       if (!cell) return `<div class="rb-cell"></div>`;
+      const isCurrentSilent = i === currentIdx;
+      const isImminentSilent = i === imminentIdx;
+      // Silent rest cell — render a whole-rest glyph + "rest" label so
+      // the user reads the empty bar as an intentional silence, not a
+      // glitch. Without this the cell came back as a blank box and the
+      // strip looked like it had skipped a bar.
+      if (cell._silent) {
+        const restCls = `rb-cell rb-rest ${isCurrentSilent ? 'current' : ''} ${isImminentSilent ? 'imminent' : ''}`;
+        return `<div class="${restCls}" data-pb-cell-idx="${i}"><div class="rb-rest-glyph">𝄻</div><div class="rb-rest-label">rest</div></div>`;
+      }
       const ch = map.chordDefs[cell.chord];
       if (!ch) return `<div class="rb-cell"></div>`;
       // Use the cell's recorded keyPc so chords across a key-cycle boundary
@@ -17323,6 +17374,11 @@ class Player {
       const isImminent = i === imminentIdx;
       const cls = `rb-tab-cell ${isCurrent ? 'current' : ''} ${isImminent ? 'imminent' : ''}`;
       if (!cell) return `<div class="${cls}"></div>`;
+      // Silent rest cell — same rest glyph in the tab strip below so
+      // the silence reads consistently above + below.
+      if (cell._silent) {
+        return `<div class="${cls} rb-tab-rest"><div class="rb-rest-glyph">𝄻</div></div>`;
+      }
       // Continuation bar (same chord still sounding from the previous bar).
       // Piano mode: empty staff with a simile sign (continues the score).
       // Guitar mode: show the same `%` simile glyph compose uses, since
