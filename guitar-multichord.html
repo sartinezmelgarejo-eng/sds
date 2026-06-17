@@ -12018,6 +12018,12 @@ function isVoicingAllowed(type) {
   // menu row stores e.g. 'rootlessA' but the picker also fires
   // 'rootlessB' for the same row). Expand and check.
   if (isProFamily(type)) return _proEffectiveTypes().has(type);
+  // 'pro' meta-type — the section primary that opens to all enabled
+  // pros. Allowed iff Pro Mode is on AND at least one pro family is
+  // implicitly or explicitly enabled.
+  if (type === 'pro') {
+    return state.proMode && (proPrefIsAll() || PRO_VOICING_MENU_IDS.some(t => voicingPrefSet.has(t)));
+  }
   return false;
 }
 // "Pro ALL" mode — when Pro Mode is ON but the user has NOT individually
@@ -13583,10 +13589,10 @@ const PROGRESSION_VOICING = {
   // rootless weight; modal vamps get soWhatFull; pop progressions don't
   // get any Pro weight at all because Pro voicings would clash with their
   // texture.
-  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15, lockedHands:15, ustAlt:10},
-  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, stride10th:15, extensions:0.3},
+  'ii–V–I':                       {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0, pro:115},
+  'I–IV–V–I':                     {drop2:30, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:10, extensions:0.3, pro:15},
   'vi–IV–I–V':                    {drop2:30, drop3:10, shell:10, triad:25, sus:0, strum:50, add9:12, extensions:0.2},
-  'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15, mehldau10th:15},
+  'I–vi–ii–V (turnaround)':       {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, pro:90},
   'I–V–vi–IV':                    {drop2:30, drop3:10, shell:10, triad:30, sus:0, strum:50, add9:12, extensions:0.2},
   'Plagal IV–I':                  {drop2:30, drop3:30, shell:25, triad:15, sus:0, strum:0,  add9:8},
   'Deceptive ii–V–vi':            {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0},
@@ -13601,22 +13607,22 @@ const PROGRESSION_VOICING = {
   // progression keeps normal jazz voicings around it.
   'V7sus–V–I':                    {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0},
   'ii–V7sus–V–I':                 {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0},
-  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25, gospelQuartal:15, polychord:10},
-  'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, rootlessA:35, rootlessB:35, powellShell:15, mehldau10th:15, soWhatFull:15},
-  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:20, lockedHands:15},
+  'I–V7sus–IV (modal)':           {drop2:40, drop3:25, shell:15, triad:15, sus:0, strum:15, quartal:25, pro:25},
+  'iii–vi–ii–V–I':                {drop2:65, drop3:15, shell:15, triad:5,  sus:0, strum:0, pro:115},
+  'Rhythm Changes A':             {drop2:70, drop3:10, shell:15, triad:5,  sus:0, strum:0, pro:95},
   'I–IV (long)':                  {drop2:30, drop3:15, shell:15, triad:30, sus:0, strum:30, add9:10, extensions:0.3},
   'Pop ballad I–V–vi–IV ×2':      {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:55, add9:15, extensions:0.15},
-  'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, mehldau10th:15, ustSharp11:10},
-  'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, ustAlt:15},
-  'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, powellShell:15},
-  'I – V/V – V – I':              {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, ustSharp11:10},
-  'iii – V/ii – ii – V – I':      {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:30, rootlessB:30, mehldau10th:15, powellShell:10},
-  'bII7 – I (tritone sub)':       {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0, ustAlt:25, rootlessA:20},
-  'ii – bII7 – I':                {drop2:55, drop3:30, shell:10, triad:5,  sus:0, strum:0, ustAlt:20, rootlessA:25, rootlessB:25, monkCluster:15},
-  'iv – I (borrowed)':            {drop2:40, drop3:35, shell:20, triad:5,  sus:0, strum:0, lockedHands:15, rootlessA:15},
-  'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0, strum:0, lockedHands:15, rootlessA:15},
+  'Extended ii–V–I':              {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0, pro:85},
+  'V/V – V – I':                  {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0, pro:65},
+  'V/ii – ii – V – I':            {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, pro:75},
+  'I – V/V – V – I':              {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, pro:60},
+  'iii – V/ii – ii – V – I':      {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, pro:85},
+  'bII7 – I (tritone sub)':       {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0, pro:45},
+  'ii – bII7 – I':                {drop2:55, drop3:30, shell:10, triad:5,  sus:0, strum:0, pro:85},
+  'iv – I (borrowed)':            {drop2:40, drop3:35, shell:20, triad:5,  sus:0, strum:0, pro:30},
+  'Backdoor iv – bVII – I':       {drop2:30, drop3:45, shell:15, triad:10, sus:0, strum:0, pro:30},
   'I – iv – bVII – I':            {drop2:25, drop3:40, shell:15, triad:5,  sus:0, strum:20, extensions:0.4},
-  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, add9:10, extensions:0.4, gospelQuartal:15, quartal:10},
+  'Mixolydian vamp I – bVII':     {drop2:25, drop3:25, shell:15, triad:20, sus:0, strum:25, add9:10, extensions:0.4, quartal:10, pro:15},
   'I – iii – IV – iv (Creep)':    {drop2:20, drop3:10, shell:10, triad:40, sus:0, strum:45, add9:10, extensions:0.2},
   // Add9 showcase progressions — qualityOverride on I and IV forces add9
   // SOUND on those bars regardless of family pick, so the showcase still
@@ -13625,9 +13631,9 @@ const PROGRESSION_VOICING = {
   // dropped to 25-30 so other families share the section.
   'Britpop strummer Iadd9–vi–IVadd9–V': {drop2:15, drop3:10, shell:5,  triad:25, sus:0, strum:35, add9:25, extensions:0.1},
   'Country pedal Iadd9–IVadd9':         {drop2:10, drop3:10, shell:5,  triad:25, sus:0, strum:30, add9:30, extensions:0.05},
-  'AABA-A double':                {drop2:55, drop3:15, shell:10, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, stride10th:20, phineasOctaves:15},
+  'AABA-A double':                {drop2:55, drop3:15, shell:10, triad:5,  sus:0, strum:0, pro:85},
   // minor
-  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:15, mehldau10th:15, glasperHalfDim:20},
+  'iiø–V7–i':                     {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, pro:100},
   'iv–V7–i':                      {drop2:50, drop3:25, shell:20, triad:5,  sus:0, strum:0},
   'i–bVII–bVI–V7 (Andalusian)':   {drop2:15, drop3:25, shell:10, triad:30, sus:0, strum:40, extensions:0.15},
   'i–iv–bVII–bIII':               {drop2:25, drop3:35, shell:10, triad:10, sus:0, strum:35, add9:8,  extensions:0.2},
@@ -13655,14 +13661,14 @@ const PROGRESSION_VOICING = {
   // Dorian quartal vamp — minor-key showcase for Phase B. Heavy quartal
   // on the m9, drop-2/drop-3 cover the IVmaj7 (quartal doesn't catch
   // major-7 qualities). The alternation lets the quartal sound stand out.
-  'Dorian quartal vamp i9–IVmaj7':   {drop2:25, drop3:15, shell:0,  triad:0,  sus:5, strum:0,  quartal:55, mccoySpread:25, extensions:1.0},
+  'Dorian quartal vamp i9–IVmaj7':   {drop2:25, drop3:15, shell:0,  triad:0,  sus:5, strum:0,  quartal:55, extensions:1.0, pro:25},
   'Minor blues fragment':         {drop2:60, drop3:15, shell:20, triad:5,  sus:0, strum:0},
   'i–V/iv–iv–V7 turnaround':      {drop2:50, drop3:30, shell:15, triad:5,  sus:0, strum:0},
   'iiø–V7–iv–bII7–i':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
-  'i–IV–iiø–V7 (modal mix)':      {drop2:45, drop3:25, shell:15, triad:10, sus:0, strum:15, glasperHalfDim:20, rootlessA:15, rootlessB:15},
+  'i–IV–iiø–V7 (modal mix)':      {drop2:45, drop3:25, shell:15, triad:10, sus:0, strum:15, pro:50},
   'Picardy ending':               {drop2:25, drop3:30, shell:25, triad:20, sus:0, strum:0},
   'bIII7 backdoor':               {drop2:30, drop3:50, shell:15, triad:5,  sus:0, strum:0},
-  'Romance bossa':                {drop2:25, drop3:55, shell:15, triad:5,  sus:0, strum:0, mehldau10th:25, rootlessA:15},
+  'Romance bossa':                {drop2:25, drop3:55, shell:15, triad:5,  sus:0, strum:0, pro:40},
   'Autumn Leaves':                {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0},
   'i – bVI – bVII – i (epic)':   {drop2:20, drop3:25, shell:10, triad:20, sus:0, strum:40, extensions:0.15},
   'i – bIII – bVII – iv':        {drop2:20, drop3:30, shell:10, triad:15, sus:0, strum:35, extensions:0.15},
@@ -13670,11 +13676,11 @@ const PROGRESSION_VOICING = {
   'Jazz minor long':              {drop2:45, drop3:35, shell:15, triad:5,  sus:0, strum:0},
   // ─── May 2026 additions ───
   // Jazz-heavy popup turnarounds — favor drop-2 + drop-3 like the rest of the jazz catalog
-  'Apple turnaround V/iii':       {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, mehldau10th:10},
-  'Sweet Georgia Brown turn':     {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:10},
-  'V/IV tonification':            {drop2:45, drop3:25, shell:15, triad:10, sus:0, strum:5, lockedHands:15, rootlessA:15},
-  'Tritone sub turnaround':       {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, ustAlt:25, rootlessA:20, rootlessB:20},
-  'Modal interchange cycle':      {drop2:35, drop3:30, shell:15, triad:10, sus:0, strum:10, mccoySpread:20, polychord:15, gospelQuartal:10},
+  'Apple turnaround V/iii':       {drop2:55, drop3:20, shell:20, triad:5,  sus:0, strum:0, pro:60},
+  'Sweet Georgia Brown turn':     {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, pro:60},
+  'V/IV tonification':            {drop2:45, drop3:25, shell:15, triad:10, sus:0, strum:5, pro:30},
+  'Tritone sub turnaround':       {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, pro:65},
+  'Modal interchange cycle':      {drop2:35, drop3:30, shell:15, triad:10, sus:0, strum:10, pro:45},
   'iiø borrow ballad':            {drop2:55, drop3:20, shell:15, triad:5,  sus:0, strum:5},
   // Pop / folk staples — triads + open strum dominate
   '50s doo-wop I-vi-IV-V':        {drop2:20, drop3:10, shell:10, triad:35, sus:0, strum:25, add9:10, extensions:0.15},
@@ -13685,24 +13691,24 @@ const PROGRESSION_VOICING = {
   // wouldn't want too many.
   '12-bar blues':                 {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20, extensions:0.6},
   '12-bar quick-change blues':    {drop2:20, drop3:30, shell:20, triad:10, sus:0, strum:20, extensions:0.6},
-  'Jazz blues with ii-V subs':    {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0,  extensions:1.2, rootlessA:25, rootlessB:25, powellShell:15},
+  'Jazz blues with ii-V subs':    {drop2:60, drop3:20, shell:15, triad:5,  sus:0, strum:0,  extensions:1.2, pro:65},
   // Country — triads + strum (cowboy chords if in cowboy keys)
   'Country I-IV-I-V':             {drop2:15, drop3:10, shell:15, triad:30, sus:0, strum:35, add9:15, extensions:0.1},
   'Train beat I7-IV7-V7':         {drop2:15, drop3:10, shell:15, triad:25, sus:0, strum:35, extensions:0.15},
   // Bossa — drop-3 dominant (Romance bossa pattern). Bossa wants 9s.
-  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, ustSharp11:30, extensions:1.3},
+  'Jobim Imaj7-bII7#11':          {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0, extensions:1.3, pro:30},
   // Minor additions
-  'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5, rootlessA:20, rootlessB:20, glasperHalfDim:15},
-  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0,  ustAlt:30, rootlessA:20, extensions:1.2},
-  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, soWhatFull:60, mccoySpread:25, extensions:1.4},
+  'Minor 12-bar blues':           {drop2:25, drop3:30, shell:20, triad:10, sus:0, strum:15, extensions:0.5, pro:55},
+  'Stella opening (iiø-V7alt-iv)':{drop2:60, drop3:25, shell:10, triad:5,  sus:0, strum:0, extensions:1.2, pro:50},
+  'So What modal vamp':           {drop2:15, drop3:10, shell:5,  triad:0,  sus:5, strum:0,  quartal:65, extensions:1.4, pro:85},
   // ─── Multi-chord progressions ───
   // Jazz turnarounds: drop-2 dominant + a touch of drop-3 for the bebop feel.
-  'Bird-style turnaround':        {drop2:55, drop3:15, shell:10, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, powellShell:10, phineasOctaves:15},
-  'Bird-style blues last 4':      {drop2:55, drop3:20, shell:15, triad:5,  sus:0, strum:5,  extensions:1.0, rootlessA:25, rootlessB:25, powellShell:10},
+  'Bird-style turnaround':        {drop2:55, drop3:15, shell:10, triad:5,  sus:0, strum:0, pro:75},
+  'Bird-style blues last 4':      {drop2:55, drop3:20, shell:15, triad:5,  sus:0, strum:5,  extensions:1.0, pro:60},
   // Bossa: drop-3 heavy (Romance pattern), more 9ths.
-  'Bossa ii-V chain':             {drop2:35, drop3:50, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3, rootlessA:25, rootlessB:25, mehldau10th:15},
-  'Minor ii-V chain':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, rootlessA:25, rootlessB:25, glasperHalfDim:15},
-  'Bossa noir':                   {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3, rootlessA:25, rootlessB:25, glasperHalfDim:20},
+  'Bossa ii-V chain':             {drop2:35, drop3:50, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3, pro:65},
+  'Minor ii-V chain':             {drop2:55, drop3:25, shell:15, triad:5,  sus:0, strum:0, pro:65},
+  'Bossa noir':                   {drop2:30, drop3:55, shell:10, triad:5,  sus:0, strum:0,  extensions:1.3, pro:70},
   // ─── Gentle multi-chord / rest progressions ───
   // Pop ballads: triads + strum dominate, the ii-V cell is the only jazz moment.
   'Pop ballad V/V kick':          {drop2:25, drop3:10, shell:10, triad:35, sus:0, strum:45, add9:12, extensions:0.2},
@@ -13721,9 +13727,9 @@ const PROGRESSION_VOICING = {
   // Standards still nonzero so these stay listenable with Pro Mode off
   // (they'd just play as drop-2/drop-3). Pro Mode on tips the picker
   // strongly toward the featured pro family on each.
-  'Glasper neo-soul vamp iiø–V7alt–Imaj9': {drop2:15, drop3:10, shell:8, triad:5, sus:0, strum:0, extensions:1.3, glasperHalfDim:40, ustAlt:30, soWhatFull:25, rootlessA:20},
-  'Mehldau triadic cycle IV–iii–ii–I':     {drop2:15, drop3:10, shell:8, triad:5, sus:0, strum:0, extensions:1.2, mehldau10th:55, stride10th:20, rootlessA:25, rootlessB:25},
-  'McCoy modal expedition i9–IVmaj7–bVII9': {drop2:10, drop3:8,  shell:5, triad:0, sus:5, strum:0, extensions:1.4, mccoySpread:50, quartal:50, soWhatFull:30, gospelQuartal:20},
+  'Glasper neo-soul vamp iiø–V7alt–Imaj9': {drop2:15, drop3:10, shell:8, triad:5, sus:0, strum:0, extensions:1.3, pro:115},
+  'Mehldau triadic cycle IV–iii–ii–I':     {drop2:15, drop3:10, shell:8, triad:5, sus:0, strum:0, extensions:1.2, pro:125},
+  'McCoy modal expedition i9–IVmaj7–bVII9': {drop2:10, drop3:8,  shell:5, triad:0, sus:5, strum:0, extensions:1.4, quartal:50, pro:100},
 };
 
 // Weighted-random pick from a {family: weight} map. Sums weights and
@@ -13828,14 +13834,29 @@ class Player {
       const sister = SISTER_FAMILY[prev];
       if (sister) weights[sister] = (weights[sister] || 0) + sisterBonus;
     }
+    // Pro meta-weight: PROGRESSION_VOICING uses a single `pro:<N>` field
+    // (the collapsed sum of what used to be per-pro-family weights). Drop
+    // it when Pro Mode is off so the progression behaves as if no pros
+    // existed. When Pro Mode is on, also drop it if the user has narrowed
+    // away from every pro family (no pros in voicingPrefSet AND not
+    // proPrefIsAll — i.e. the user explicitly excluded every pro).
+    if (weights.pro !== undefined) {
+      const proEnabled = state.proMode && (proPrefIsAll() || PRO_VOICING_MENU_IDS.some(t => voicingPrefSet.has(t)));
+      if (!proEnabled) delete weights.pro;
+    }
     // User filter: when the menu is restricted to a subset, drop weights
     // for non-allowed types so the weighted pick stays inside the filter.
     // Continuity bonus on `prev` may have lifted a now-disallowed type;
     // dropping it here is the right thing. If the entire weight table
     // empties out (e.g. progression weights and filter don't intersect),
-    // fall back to a flat distribution over the allowed types.
+    // fall back to a flat distribution over the allowed types. The `pro`
+    // meta key is special: it's never in voicingPrefSet (which stores
+    // menu IDs) but is implicitly allowed whenever Pro Mode is on and
+    // any pro is enabled — handled by the block above, so the narrow
+    // filter here lets it through unchanged.
     if (!voicingPrefIsAll()) {
       for (const k of Object.keys(weights)) {
+        if (k === 'pro') continue;
         if (!voicingPrefSet.has(k)) delete weights[k];
       }
       if (!Object.keys(weights).length) {
@@ -13996,7 +14017,7 @@ class Player {
         root
       );
       if (openSh) cands.push(openSh);
-    } else if (PRO_BUILDERS[type]) {
+    } else if (type === 'pro' || PRO_BUILDERS[type]) {
       // Pro Mode (piano-only): pianoShape is an array of MIDI numbers.
       // Each builder may return:
       //   {pianoShape:[…]} — single canonical voicing.
@@ -14012,17 +14033,27 @@ class Player {
       // All builds become candidates; the pro fast-path below picks
       // the smoothest by MIDI movement against prevShape.
       //
-      // Special case for the Rootless A+B menu pair: when type is
-      // 'rootlessA' OR 'rootlessB', run BOTH builders. The user picks
-      // the pair as a unit in the menu, and bebop voice-leading
-      // genuinely wants whichever of A or B sits closer to the prev
-      // chord — the multi-pro fast-path picks smoothest by MIDI
-      // movement, naturally producing the A→B→A pattern on a classic
-      // ii-V-I (because there A→B IS the smoothest move) without
-      // forcing it elsewhere.
-      const proTypesToBuild = (type === 'rootlessA' || type === 'rootlessB')
-        ? ['rootlessA', 'rootlessB']
-        : [type];
+      // Three cases for which families to build:
+      //   type='pro' (meta)         → every enabled pro family. This
+      //     is the new flow: PROGRESSION_VOICING uses a single `pro`
+      //     weight, the section primary picker lands on 'pro', and
+      //     the dispatcher opens to the whole pro vocabulary so the
+      //     voice-leading multi-pro fast-path picks chord-by-chord
+      //     (true Pro-Mode-style mixing, not a uniform 8-bar lock to
+      //     one family).
+      //   type='rootlessA' / 'rootlessB' → both (menu-pair rule).
+      //   any other pro type        → just that builder.
+      let proTypesToBuild;
+      if (type === 'pro') {
+        const eff = _proEffectiveTypes();
+        proTypesToBuild = eff.size
+          ? PRO_VOICING_TYPE_IDS.filter(t => eff.has(t))
+          : PRO_VOICING_TYPE_IDS.slice();   // proPrefIsAll → all of them
+      } else if (type === 'rootlessA' || type === 'rootlessB') {
+        proTypesToBuild = ['rootlessA', 'rootlessB'];
+      } else {
+        proTypesToBuild = [type];
+      }
       for (const ptype of proTypesToBuild) {
         const builder = PRO_BUILDERS[ptype];
         if (!builder) continue;
@@ -20211,13 +20242,80 @@ function pickByStrategy(cands, prevShape) {
   if (!cands || !cands.length) return -1;
   const strat = state.autoStrategy || 'smoothest';
   if (strat === 'random') return Math.floor(Math.random() * cands.length);
-  // Pro-mode MIDI scoring: when EVERY candidate carries a pianoShape
-  // (Pro Mode narrowed to one-or-more pro families), fret-based
-  // scoring is meaningless (the placeholder shape is all -1, so
-  // avgFret = 0 and totalVoiceMovement = 0 for every candidate).
-  // Score by MIDI voice-movement against prev's pianoShape (when prev
-  // is pro) or fret-converted MIDI (when prev is standard). For low /
-  // high strategies, score by mean MIDI register instead.
+  // Unified MIDI scoring for MIXED pools (some candidates have
+  // pianoShape, some have only the standard fret shape). Without this,
+  // the fret-based scorer below penalizes pro placeholders' avgFret=0
+  // and standards always win — defeating the point of enabling pros
+  // alongside standards in the compose menu. Convert every candidate
+  // to a MIDI set, score by min |Δ| against prev, apply a small
+  // continuity bonus when the candidate's family matches the prev
+  // chord's, and a small family-bias penalty so on ties standards
+  // don't unfairly trump pros (or vice-versa).
+  const hasAnyPro = cands.some(c => c && Array.isArray(c.pianoShape) && c.pianoShape.length);
+  const hasAnyStd = cands.some(c => c && (!c.pianoShape || !c.pianoShape.length));
+  if (hasAnyPro && hasAnyStd) {
+    const toMidi = (c) => {
+      if (Array.isArray(c.pianoShape) && c.pianoShape.length) return c.pianoShape.slice();
+      if (!Array.isArray(c.shape)) return [];
+      const out = [];
+      for (let s = 0; s < 6; s++) {
+        const f = c.shape[s];
+        if (f >= 0) out.push(STRING_OPEN_MIDI[s] + f);
+      }
+      return out;
+    };
+    let prevMidi = [];
+    let prevType = null;
+    if (prevShape) {
+      if (Array.isArray(prevShape.pianoShape) && prevShape.pianoShape.length) {
+        prevMidi = prevShape.pianoShape.slice();
+        prevType = prevShape.type || null;
+      } else if (Array.isArray(prevShape) && prevShape.length === 6) {
+        for (let s = 0; s < 6; s++) {
+          const f = prevShape[s];
+          if (f >= 0) prevMidi.push(STRING_OPEN_MIDI[s] + f);
+        }
+      } else if (prevShape.shape && Array.isArray(prevShape.shape)) {
+        for (let s = 0; s < 6; s++) {
+          const f = prevShape.shape[s];
+          if (f >= 0) prevMidi.push(STRING_OPEN_MIDI[s] + f);
+        }
+        prevType = prevShape.type || null;
+      }
+    }
+    if (strat === 'low' || strat === 'high') {
+      let bestI = 0;
+      let bestVal = strat === 'low' ? Infinity : -Infinity;
+      cands.forEach((c, i) => {
+        const m = toMidi(c);
+        if (!m.length) return;
+        const avg = m.reduce((a, b) => a + b, 0) / m.length;
+        if (strat === 'low' && avg < bestVal) { bestVal = avg; bestI = i; }
+        if (strat === 'high' && avg > bestVal) { bestVal = avg; bestI = i; }
+      });
+      return bestI;
+    }
+    const prevSorted = prevMidi.slice().sort((a, b) => a - b);
+    let bestI = 0;
+    let bestScore = Infinity;
+    cands.forEach((c, i) => {
+      const cur = toMidi(c).sort((a, b) => a - b);
+      if (!cur.length) return;
+      let mv = 0;
+      if (prevSorted.length) {
+        const n = Math.min(cur.length, prevSorted.length);
+        for (let k = 0; k < n; k++) mv += Math.abs(cur[k] - prevSorted[k]);
+      }
+      // Continuity bonus: -1.5 (equivalent to ~1.5 semitones of movement
+      // saved) when this candidate matches prev's family. Small enough
+      // that a clear voice-leading win still trumps continuity.
+      let score = mv;
+      if (prevType && c.type === prevType) score -= 1.5;
+      if (score < bestScore) { bestScore = score; bestI = i; }
+    });
+    return bestI;
+  }
+  // Pure-pro MIDI scoring (every candidate has pianoShape).
   if (cands.every(c => c && Array.isArray(c.pianoShape) && c.pianoShape.length)) {
     if (strat === 'low' || strat === 'high') {
       let bestI = 0;
