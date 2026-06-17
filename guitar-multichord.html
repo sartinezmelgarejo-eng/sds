@@ -8062,6 +8062,36 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // treble line) the stem HANGS DOWN; otherwise it rises up. Matches
   // classical engraving convention applied to the combined grand staff.
   const slotStems = [];   // [{cx, endY, dir}] or null for muted slots
+  // Multi-chord beamed groups: classical engraving wants every stem in
+  // a beamed run going the SAME direction AND ending at the SAME Y so
+  // the beam reads as one straight thick line, not a zig-zag of
+  // per-slot-averaged segments. Pre-pass over all slots to compute a
+  // uniform direction (based on the collective extreme note across the
+  // bar) and a uniform stem-end Y (extreme note + standard stem length).
+  // Falls back to per-slot per-chord choice when not a beamed group
+  // (subN ≤ 4) or when single-chord (slotChords is null so the existing
+  // per-slot logic applies anyway).
+  let uniformBeamDir = null;
+  let uniformBeamEndY = null;
+  if (hasFlag && slotChords) {
+    const beamAllY = [];
+    for (let s = 0; s < subN; s++) {
+      if (subMute[s]) continue;
+      const sd = getSlotData(s);
+      if (sd && sd.positions && sd.positions.length) {
+        beamAllY.push(...sd.positions.map(p => p.y));
+      }
+    }
+    if (beamAllY.length) {
+      const collectiveTop = Math.min(...beamAllY);
+      const collectiveBot = Math.max(...beamAllY);
+      uniformBeamDir = collectiveTop < trebleBotY ? 1 : -1;  // 1 = down, -1 = up
+      const beamStemLen = lineSp * 3.6;
+      uniformBeamEndY = uniformBeamDir === 1
+        ? collectiveBot + beamStemLen
+        : collectiveTop - beamStemLen;
+    }
+  }
   // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
   // effect at each y position. The baseline is the key signature (a letter
   // in sigLetterSet defaults to sig.type). When a note's acc differs from
@@ -8116,7 +8146,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       const slotAllY = sPos.length ? sPos.map(p => p.y) : [];
       const slotTopY = slotAllY.length ? Math.min(...slotAllY) : 0;
       const slotBotY = slotAllY.length ? Math.max(...slotAllY) : 0;
-      const slotDir  = slotAllY.length ? (slotTopY < trebleBotY ? 1 : -1) : -1;
+      // Beamed multi-chord groups (subN ≥ 5, multi-chord cell): use the
+      // pre-computed uniform direction so every stem in the run aligns,
+      // letting the beam draw as one straight horizontal bar.
+      const slotDir = (uniformBeamDir !== null) ? uniformBeamDir
+                       : (slotAllY.length ? (slotTopY < trebleBotY ? 1 : -1) : -1);
       sPos.forEach((p, i) => {
         // dir=1 (stem-down on the LEFT of cx)  → dx negative, displaced LEFT
         // dir=-1 (stem-up on the RIGHT of cx) → dx positive, displaced RIGHT
@@ -8156,7 +8190,12 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
         const stemLen = lineSp * 3.2;
         const stemX = cx + (slotDir === -1 ? noteR * 1.1 : -noteR * 1.1);
         const y1 = slotDir === -1 ? slotBotY : slotTopY;
-        const y2 = slotDir === -1 ? (slotTopY - stemLen) : (slotBotY + stemLen);
+        // Beamed multi-chord groups: all stems END at the same Y so the
+        // beam runs flat. Single-chord cells (and unbeamed subdivisions)
+        // keep the per-slot stem length.
+        const y2 = (uniformBeamEndY !== null)
+          ? uniformBeamEndY
+          : (slotDir === -1 ? (slotTopY - stemLen) : (slotBotY + stemLen));
         slotInner += `<line x1="${stemX}" y1="${y1}" x2="${stemX}" y2="${y2}" stroke="#1a1a1a" stroke-width="${Math.max(0.9, noteR * 0.25)}" stroke-linecap="round"/>`;
         slotStems.push({ cx: stemX, endY: y2, dir: slotDir });
       } else {
