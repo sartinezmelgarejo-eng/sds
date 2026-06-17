@@ -21239,16 +21239,17 @@ function composeCycleVoicing() {
   const allowed = filterShapeCandidates(allCands);
   const pool = allowed.length ? allowed : allCands;
   if (pool.length < 2) return;
-  // Stable key per candidate so the visited set is comparable across
-  // re-builds of allDistinctVoicings (object identities don't survive).
-  const candKey = (c) => {
-    if (Array.isArray(c.pianoShape) && c.pianoShape.length) return 'p:' + c.pianoShape.join(',');
-    return [c.type, c.stringSetIdx ?? '', c.inversion ?? '', c.stringSet ?? '', c.variant ?? ''].join('|');
-  };
-  const cellKey = (cell) => {
-    if (Array.isArray(cell.pianoShape) && cell.pianoShape.length) return 'p:' + cell.pianoShape.join(',');
-    return [cell.voicingType || '', cell.stringSetIdx ?? '', cell.inversion ?? '', cell.stringSet ?? '', cell.variant ?? ''].join('|');
-  };
+  // Family-level grouping: each voicing FAMILY contributes ONE entry to
+  // the cycle. Walking through 5 inversions of drop-2 is repetitive,
+  // not exploratory — what we want is "next FAMILY, smoothest voicing
+  // in that family". So the visited set tracks type+variant, not the
+  // specific shape. SoWhat's "ninth" vs "fifth" rotations have
+  // genuinely different bass voices, so the variant tag lets BOTH
+  // surface as separate cycle entries. Everything else (drop2 in
+  // various inversions, rootlessA at canonical register, etc.)
+  // collapses to one entry per family.
+  const candKey = (c) => [c.type || '', c.variant || ''].join('|');
+  const cellKey = (cell) => [cell.voicingType || '', cell.variant || ''].join('|');
   // Lazily initialize cycle state when first invoked on this cell.
   if (!target._cycleOrigin || !target._cycleVisited) {
     const originKey = cellKey(target);
