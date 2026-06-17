@@ -14167,16 +14167,16 @@ class Player {
     // Baseline pro injection: when Pro Mode is on and pros are enabled
     // BUT the progression has no `pro` field of its own (most pop / folk
     // / country progressions, by design — see PROGRESSION_VOICING comment
-    // about preserving genre-no-pros character), inject a baseline pro
-    // weight proportional to the progression's standard total. This
-    // lets Pro Mode users hear pros across the entire repertoire — rootless
-    // and Mehldau 10ths fit any maj/min/7 chord, which is most of the
-    // diatonic vocabulary, so there's no musical reason to lock pros out
-    // of pop progressions just because they weren't tagged. Multiplier
-    // 0.6 lands pros at ~37% of the picker's distribution on pure-pop
-    // progressions (and higher on jazz/modal where pros also have
-    // an explicit pro weight that ADDS to the baseline rather than
-    // replacing it). User opt-out: turn Pro Mode off or click ALL row.
+    // about preserving genre-no-pros character), inject a small baseline
+    // pro weight proportional to the progression's standard total. This
+    // lets pros still surface OCCASIONALLY across the whole repertoire
+    // instead of being locked out of un-tagged genres, but doesn't make
+    // them the default. Multiplier 0.3 lands pros at ~15-20% of the
+    // picker's distribution on pure-pop progressions (was 0.6 / ~37%,
+    // which made Country I-IV-I-V sections come out 'all rootlessA' and
+    // similar genre clashes the user flagged). Jazz/modal progressions
+    // that carry their OWN explicit `pro:N` field aren't touched — this
+    // injection only fires when no pro weight already exists.
     if (proEnabled && weights.pro === undefined) {
       let standardTotal = 0;
       for (const k in weights) {
@@ -14184,7 +14184,7 @@ class Player {
         standardTotal += weights[k];
       }
       if (standardTotal > 0) {
-        weights.pro = Math.round(standardTotal * 0.6);
+        weights.pro = Math.round(standardTotal * 0.3);
       }
     }
     // User filter: when the menu is restricted to a subset, drop weights
