@@ -22962,6 +22962,30 @@ renderAll = function() {
 // resized the window to trigger a reflow).
 if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
 renderAll();
+// Defensive re-evaluations to catch a known glitch: at HIGH browser
+// zoom (or before fonts finish loading), the very first layout pass
+// can mis-measure container widths — #player-info has width:100% so a
+// wrong-width parent compresses it into a squished band until the user
+// resizes the window. Two deferred re-calls clean that up without
+// the user having to touch zoom:
+//   - rAF after renderAll: layout has now ran a full frame
+//   - window 'load': webfonts + images + everything settled
+// Each one re-runs relocatePlayerInfo + a renderFretboard + compose
+// strip refresh so any width-dependent surface re-measures cleanly.
+const _settleLayout = () => {
+  if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
+  if (typeof renderFretboard === 'function') renderFretboard();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
+};
+requestAnimationFrame(() => requestAnimationFrame(_settleLayout));
+window.addEventListener('load', _settleLayout);
+// Browser zoom changes fire visualViewport's resize (not always
+// window resize). Hook into it so toggling zoom relocates the card
+// to the right container immediately without waiting for a manual
+// window resize.
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', _settleLayout);
+}
 window.addEventListener('resize', () => {
   renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
