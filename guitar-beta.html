@@ -3648,6 +3648,26 @@
     background: #fff8e6;
     box-shadow: inset 0 0 0 1px var(--accent);
   }
+  /* Pro voicings: always "lit" with a warm parchment background so the
+     mini-staff (notes drawn in dark) reads as ink on aged paper. The
+     dark renderChordStaff strokes were getting lost on the default
+     light-gray card bg — pros looked "apagados / oscuros" next to the
+     colorful guitar-shape standards. Now they always feel alive. */
+  .alt-card.is-pro {
+    background: linear-gradient(to bottom, #fff8e0, #f5e9c4);
+    border-color: #c9a878;
+  }
+  .alt-card.is-pro:hover {
+    border-color: #b08d52;
+    background: linear-gradient(to bottom, #fffbe6, #f8eed0);
+  }
+  /* Selected pro → gold glow that visually beats the parchment glow,
+     so the click feedback is unambiguous. */
+  .alt-card.is-pro.selected {
+    border-color: #d4a017;
+    background: linear-gradient(to bottom, #fff8d4, #ffe39a);
+    box-shadow: inset 0 0 0 1.5px #d4a017, 0 0 12px rgba(212, 160, 23, 0.55);
+  }
   /* .playing = the voicing the AI player is sounding RIGHT NOW. Distinct
      from .selected (user choice) so both can coexist: AUTO card shows
      selected (auto-mode active) on the left, while the actual sounding
@@ -3655,6 +3675,10 @@
   .alt-card.playing {
     border-color: #4a7a5a;
     box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.18);
+  }
+  .alt-card.is-pro.playing {
+    border-color: #4a7a5a;
+    box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.22);
   }
   .alt-card svg { width: 88px; height: 92px; }
   .alt-card .ac-label {
@@ -10424,8 +10448,9 @@ function renderAlternatives() {
       mini  = renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7});
       notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
     }
+    const proClass = isPro ? 'is-pro' : '';
     html += `
-      <div class="alt-card ${sel} ${playing}" data-idx="${i}">
+      <div class="alt-card ${sel} ${playing} ${proClass}" data-idx="${i}">
         ${mini}
         <div class="ac-label">${labelFor(c)}</div>
         <div class="ac-notes">${notes}</div>
