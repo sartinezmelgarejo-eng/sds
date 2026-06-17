@@ -3681,6 +3681,38 @@
     border-color: #4a7a5a;
     box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.22);
   }
+  /* PIANO PRO transition flash — fires when the user clicks the Pro
+     Mode toggle from guitar mode. Bridges the perceptual switch from
+     "I clicked a button" to "the instrument changed under me" with a
+     brief elegant gold chip in the screen center. */
+  .piano-pro-flash {
+    position: fixed;
+    top: 38%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, #d4a017, #b88a0c);
+    color: #fffbeb;
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-weight: 700;
+    font-size: 24px;
+    letter-spacing: 7px;
+    padding: 18px 44px;
+    border-radius: 4px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.32),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+                inset 0 -3px 8px rgba(0, 0, 0, 0.18);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.22);
+    z-index: 99999;
+    pointer-events: none;
+    opacity: 0;
+    animation: pianoProFlashAnim 1.4s ease-out forwards;
+  }
+  @keyframes pianoProFlashAnim {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.84); }
+    18%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -52%) scale(1.06); }
+  }
   .alt-card svg { width: 88px; height: 92px; }
   .alt-card .ac-label {
     font-size: 8px;
@@ -12438,23 +12470,28 @@ function renderVoicingMenu() {
   // internal candidate set.
   const _proNarrowedCount = state.proMode ? PRO_VOICING_MENU_IDS.filter(t => voicingPrefSet.has(t)).length : 0;
   const _proTotalRows = PRO_VOICING_MENU_IDS.length;
-  const proToggleHtml = (state.instrument === 'piano')
-    ? `
+  // Pro Mode toggle: always rendered. In piano mode it toggles
+  // normally. In guitar mode it's the bridge into piano — click flashes
+  // a brief "PIANO PRO" badge then auto-switches the instrument.
+  const _isGuitar = state.instrument !== 'piano';
+  const proToggleHtml = `
     <div class="sound-menu-item pro-toggle ${state.proMode ? 'selected' : ''}" data-voicing="__pro_toggle__"
          style="border-top:1px solid #d8d4c6;padding-top:10px;margin-top:6px;background:${state.proMode ? '#f5ecd0' : 'transparent'};">
       <span class="menu-ico" style="font-size:18px">⚡</span>
       <span style="flex:1">
         <strong>Pro Mode${state.proMode ? ' · ON' : ''}</strong>
         <span style="display:block;font-size:10px;opacity:0.65;font-style:italic">${
-          state.proMode
-            ? (_proAll
-                ? `ALL · ${_proTotalRows} piano voicings active — click a row below to narrow`
-                : `narrowed · ${_proNarrowedCount} selected — click toggle again to disable Pro Mode`)
-            : 'reveals Bill Evans rootless, So What, Mehldau 10th… as ALL'
+          _isGuitar
+            ? 'piano-only voicings — click to switch instrument and enable'
+            : state.proMode
+              ? (_proAll
+                  ? `ALL · ${_proTotalRows} piano voicings active — click a row below to narrow`
+                  : `narrowed · ${_proNarrowedCount} selected — click toggle again to disable Pro Mode`)
+              : 'reveals Bill Evans rootless, So What, Mehldau 10th… as ALL'
         }</span>
       </span>
       <span class="check">✓</span>
-    </div>` : '';
+    </div>`;
   voicingMenu.innerHTML = visibleOptions.map((v, idx) => {
     // When ALL is on, only ALL gets the checkmark — individual rows stay
     // unchecked (less visual noise). When in a partial filter, ALL is off
@@ -12559,7 +12596,33 @@ function _voicingPostChange() {
   if (typeof renderFretboard  === 'function') renderFretboard();
 }
 
+function _showPianoProFlash() {
+  // Brief elegant gold-on-cream chip that fades in/out in the center
+  // of the screen. CSS animation handles the fade; we just append +
+  // schedule removal so the DOM stays clean.
+  const el = document.createElement('div');
+  el.className = 'piano-pro-flash';
+  el.textContent = 'PIANO PRO';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1400);
+}
 function _voicingProModeFlip() {
+  // From guitar mode, Pro Mode is the bridge into piano: show the brief
+  // elegant flash, switch instrument, then flip Pro Mode on. Pro Mode
+  // never gets toggled OFF from a guitar-mode click — that'd be a UX
+  // dead end since pros only render in piano.
+  if (state.instrument !== 'piano') {
+    _showPianoProFlash();
+    setInstrument('piano');
+    if (!state.proMode) {
+      state.proMode = true;
+    }
+    state.progressionVoicings = {};
+    _updateVoicingPrefButton();
+    renderVoicingMenu();
+    if (typeof renderAll === 'function') renderAll();
+    return;
+  }
   state.proMode = !state.proMode;
   if (!state.proMode) {
     PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
