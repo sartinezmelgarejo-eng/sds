@@ -8083,25 +8083,15 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       }
     }
     if (beamAllY.length) {
-      const collectiveTop = Math.min(...beamAllY);
-      const collectiveBot = Math.max(...beamAllY);
-      // Grand-staff chord notes routinely span 20+ semitones (bass +
-      // treble), so anchoring the beam at "extreme note ± full stem
-      // length" pushes it OFF the visible staff. Instead, park the
-      // beam just outside the staff edges — stems then have varying
-      // lengths per slot but the beam is short, visible, and reads as
-      // classical engraving where heavy chord-noteheads beam together
-      // on a single bar near the staff boundary.
-      // Direction: prefer stems-down when the collective MIDDLE of the
-      // chord cluster sits above the grand-staff median (middle C),
-      // mirroring classical convention but biased toward stem-down for
-      // dense piano voicings (which the eye reads top-to-bottom).
-      const collectiveMid = (collectiveTop + collectiveBot) / 2;
-      const gridMid = middleCY;  // grand-staff median (between staves)
-      uniformBeamDir = collectiveMid <= gridMid ? 1 : -1;
-      uniformBeamEndY = uniformBeamDir === 1
-        ? bassBotY + lineSp * 1.4    // just below bass staff bottom
-        : trebleTopY - lineSp * 1.4; // just above treble staff top
+      // Always stems-DOWN for multichord beam groups. The chord-name
+      // labels sit above the staff (in the labelH region) and a
+      // stems-up beam parked above the treble landed right where those
+      // labels read — visual clash. Stems-down + beam below the bass
+      // staff keeps the chord-name area clean and matches typical
+      // jazz lead-sheet engraving where dense rhythmic chord stabs
+      // beam below the staff.
+      uniformBeamDir = 1;
+      uniformBeamEndY = bassBotY + lineSp * 1.4;
     }
   }
   // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
