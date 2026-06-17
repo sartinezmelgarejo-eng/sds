@@ -7448,8 +7448,11 @@ function renderContinuationStaff(sizing) {
   const showClef = sizing?.showClef !== false;
   const clefW = showClef ? 22 : 3;
   const labelH = sizing?.minimal ? 14 : 26;
-  const padTop = labelH;
-  const padBot = sizing?.minimal ? 7 : 9;
+  // Same +10/+8 beam reservation as renderChordStaff so the
+  // continuation simile cell's staff lines align horizontally with
+  // any beamed multichord cell in the same row.
+  const padTop = labelH + 10;
+  const padBot = (sizing?.minimal ? 7 : 9) + 8;
   const gapY = 2;
   const lineSp = (H - padTop - padBot) / (8 + gapY);
   const trebleTopY = padTop;
@@ -7616,13 +7619,19 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // just enough room for the text itself, no extra padding stacked on top.
   // The staff body keeps more vertical room as a result.
   const labelH = (nameLabel || romanLabel) ? (sizing?.minimal ? 14 : 26) : 3;
-  // Multichord cells with 5+ subdivisions draw a beam below the bass
-  // (stems-down) or above the treble (stems-up). Give them a bit of
-  // extra top + bottom padding so the beam has room to land inside
-  // the cell instead of getting clipped or overlapping chord-name text.
+  // Beam reservation: ALWAYS reserve the same top/bottom padding so
+  // staff line geometry (trebleTopY / lineSp / bassBotY) is IDENTICAL
+  // across every cell in the row — beamed or not. Previously the
+  // padding was only added for cells with 5+ subdivisions, which made
+  // lineSp shrink for those cells and the staff lines visibly jump
+  // out of alignment when one beamed cell sat next to non-beamed
+  // neighbors (user: "las lineas de la partitura se desfazan").
+  // Cost: non-beamed cells now have a slightly smaller staff (~14%
+  // less vertical room), but the row reads as one continuous engraved
+  // partitura instead of a stairstep.
   const _willHaveBeam = slotChords && subNEarly >= 5;
-  const padTop = labelH + (_willHaveBeam ? 10 : 0);
-  const padBot = (sizing?.minimal ? 7 : 9) + (_willHaveBeam ? 8 : 0);
+  const padTop = labelH + 10;
+  const padBot = (sizing?.minimal ? 7 : 9) + 8;
   // gap = 2 line-spacings so middle-C (one full ledger below treble bottom AND
   // one full ledger above bass top) sits at exactly the geometric mid-point
   // between the two staves. Anything less and the C-hint reads like B3.
