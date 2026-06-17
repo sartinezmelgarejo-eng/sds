@@ -23967,10 +23967,39 @@ function _midiCollectBassComposed() {
         events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
       }
     } else {
-      // Single-chord cell — sustained whole-bar root (existing behavior).
+      // Single-chord cell — apply player.bassPattern per BAR (so a tied
+      // multi-bar chord still gets a fresh anchor each bar, mirroring
+      // the live scheduler's `for (let b = 0; b < stepBars; b++)`
+      // loop). Three patterns from _pickBassPattern():
+      //   whole     → root sustains the whole bar
+      //   two-feel  → root on beat 1 AND beat 3 (boom-boom)
+      //   fifth     → root on beat 1, FIFTH on beat 3 (boom-chuck)
+      // Previously the export hard-coded the whole pattern, so a song
+      // playing two-feel with bass thumps on every beat 3 exported as
+      // ONE long held note per bar — the bass "didn't follow."
+      const ticksPerBeat = 480;
+      const barLen2 = ticksPerBeat * 4;
+      const pattern = player.bassPattern || 'two-feel';
       const note = bassMidiForPc(rootPc);
-      events.push({ tick, type: 'on', note, vel: 100 });
-      events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+      const fifthNote = note + 7;
+      for (let b = 0; b < bars; b++) {
+        const barStart = tick + b * barLen2;
+        const beat3 = barStart + 2 * ticksPerBeat;
+        if (pattern === 'two-feel') {
+          events.push({ tick: barStart, type: 'on', note, vel: 100 });
+          events.push({ tick: beat3 - 1, type: 'off', note, vel: 0 });
+          events.push({ tick: beat3, type: 'on', note, vel: 100 });
+          events.push({ tick: barStart + barLen2 - 1, type: 'off', note, vel: 0 });
+        } else if (pattern === 'fifth') {
+          events.push({ tick: barStart, type: 'on', note, vel: 100 });
+          events.push({ tick: beat3 - 1, type: 'off', note, vel: 0 });
+          events.push({ tick: beat3, type: 'on', note: fifthNote, vel: 90 });
+          events.push({ tick: barStart + barLen2 - 1, type: 'off', note: fifthNote, vel: 0 });
+        } else {
+          events.push({ tick: barStart, type: 'on', note, vel: 100 });
+          events.push({ tick: barStart + barLen2 - 1, type: 'off', note, vel: 0 });
+        }
+      }
     }
     tick += dur;
   }
@@ -24026,9 +24055,33 @@ function _midiCollectBassSong() {
             events.push({ tick: nextStart - 1, type: 'off', note, vel: 0 });
           }
         } else {
+          // Single-chord step — apply this SECTION's bassPattern per bar.
+          // Sections each carry their own pre-assigned bassPattern (see
+          // _generateSong / bassByLabel), so a song that modulates
+          // between sections also switches its bass feel correctly.
+          const barLen3 = ticksPerBeat * 4;
+          const pattern = section.bassPattern || 'two-feel';
           const note = bassMidiForPc(rootPc);
-          events.push({ tick, type: 'on', note, vel: 100 });
-          events.push({ tick: tick + dur - 1, type: 'off', note, vel: 0 });
+          const fifthNote = note + 7;
+          const stepBars = step.bars || 1;
+          for (let b = 0; b < stepBars; b++) {
+            const barStart = tick + b * barLen3;
+            const beat3 = barStart + 2 * ticksPerBeat;
+            if (pattern === 'two-feel') {
+              events.push({ tick: barStart, type: 'on', note, vel: 100 });
+              events.push({ tick: beat3 - 1, type: 'off', note, vel: 0 });
+              events.push({ tick: beat3, type: 'on', note, vel: 100 });
+              events.push({ tick: barStart + barLen3 - 1, type: 'off', note, vel: 0 });
+            } else if (pattern === 'fifth') {
+              events.push({ tick: barStart, type: 'on', note, vel: 100 });
+              events.push({ tick: beat3 - 1, type: 'off', note, vel: 0 });
+              events.push({ tick: beat3, type: 'on', note: fifthNote, vel: 90 });
+              events.push({ tick: barStart + barLen3 - 1, type: 'off', note: fifthNote, vel: 0 });
+            } else {
+              events.push({ tick: barStart, type: 'on', note, vel: 100 });
+              events.push({ tick: barStart + barLen3 - 1, type: 'off', note, vel: 0 });
+            }
+          }
         }
         tick += dur;
       }
