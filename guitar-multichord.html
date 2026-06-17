@@ -20795,9 +20795,15 @@ const FUNCTION_OVERRIDE = {
   // on dominant V7 = canonical bebop), without making them the only
   // choice. User: 'siento como que los rootless los subestimamos para
   // acordes mayores, funcionan bien a veces no?'
-  tonic:     { alt: 'drop3', prob: 0.13, proAlt: ['mehldau10th', 'rootlessA'], proProb: 0.13 },
-  predom:    { alt: 'shell', prob: 0.16, proAlt: ['rootlessA', 'mehldau10th'], proProb: 0.17 },
-  dom:       { alt: 'drop3', prob: 0.20, proAlt: ['ustAlt', 'rootlessB'],      proProb: 0.16 },
+  // `alt` can also be an array (resolved the same way as proAlt). Pro-
+  // adjacent standards (add9, quartal, sus) get slipped in here so they
+  // surface BOTH on standard primary sections (the usual stdAlt slice)
+  // AND on pro-meta sections (a dedicated reduced-probability slice
+  // below — see _voicingTypeForChord). User: 'add9 y algunos otros de
+  // la seccion basic, deberian mezclarse mas con los pro.'
+  tonic:     { alt: ['drop3', 'add9'],  prob: 0.13, proAlt: ['mehldau10th', 'rootlessA'], proProb: 0.13 },
+  predom:    { alt: ['shell', 'quartal'], prob: 0.16, proAlt: ['rootlessA', 'mehldau10th'], proProb: 0.17 },
+  dom:       { alt: ['drop3', 'sus'],   prob: 0.20, proAlt: ['ustAlt', 'rootlessB'],      proProb: 0.16 },
   secondary: { alt: 'drop3', prob: 0.22, proAlt: 'ustSharp11',                  proProb: 0.13 },
   borrowed:  { alt: 'drop3', prob: 0.22, proAlt: ['lockedHands', 'rootlessA'], proProb: 0.13 },
 };
@@ -20839,13 +20845,45 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   // because each role's proAlt would FORCE a different family on top of
   // what voice-leading was already picking. User: 'cuando una progresion
   // es del voicing general de pro, a veces hay saltos innecesarios.'
-  // Skip the override entirely on 'pro'-meta sections — let voice-
-  // leading + memory drive within-section family variety, not role-based
-  // probability. Specific-pro primaries (rootlessA, mehldau10th, etc.
-  // when picked directly, NOT meta) still get accents via the existing
-  // bidirectional mixing — those sections aren't using the multi-pro
-  // picker so they need FUNCTION_OVERRIDE for chord-to-chord variety.
-  if (primaryType === 'pro') return primaryType;
+  // Pro-meta sections get a NARROW exception: the proAlt slice stays
+  // suppressed (avoiding redundant pro-on-pro variety), but the stdAlt
+  // slice fires at reduced probability AND only when the array form
+  // contains a pro-adjacent standard (add9 on tonic, quartal on
+  // predom, sus on dom). User: 'add9 y algunos otros de la seccion
+  // basic, deberian mezclarse mas con los pro' — gives pro sections an
+  // occasional textural breath without bringing back the role-based
+  // pro-on-pro layering. Returns early when no pro-adjacent option
+  // exists for this role (secondary, borrowed) or when the dice rolls
+  // outside the reduced slice.
+  if (primaryType === 'pro') {
+    const altOpts = Array.isArray(override.alt) ? override.alt : [override.alt];
+    // Pro-adjacent standards: extensions / modal / suspended flavors
+    // that mesh with pro voicings. drop2/drop3/triad/strum/shell are
+    // too vanilla and stay out of pro sections.
+    const PRO_ADJACENT = new Set(['add9', 'quartal', 'sus', 'madd9']);
+    const proAdjOpts = altOpts.filter(o => PRO_ADJACENT.has(o) && isVoicingAllowed(o));
+    if (!proAdjOpts.length) return primaryType;
+    // Deterministic 0..1 hash on song position + chord function so the
+    // accent is stable across re-renders of the same bar.
+    const seed0 = `${songIdx}|${stepIdx}|${sectionIter}|${chordTag}|pro`;
+    let h0 = 2166136261;
+    for (let i = 0; i < seed0.length; i++) {
+      h0 ^= seed0.charCodeAt(i);
+      h0 = Math.imul(h0, 16777619);
+    }
+    const r0 = ((h0 >>> 0) % 10000) / 10000;
+    // Reduced slice (~50% of normal prob) keeps pro sections cohesive
+    // — typical 5-chord pro section averages 0-1 standard accents.
+    const proAdjProb = (override.prob || 0) * 0.5;
+    if (r0 < proAdjProb) {
+      // Pick from the pro-adjacent options via a secondary hash.
+      let h1 = (h0 >>> 0) ^ 0x9e3779b1;
+      h1 = Math.imul(h1, 16777619);
+      const i1 = Math.abs(h1) % proAdjOpts.length;
+      return proAdjOpts[i1];
+    }
+    return primaryType;
+  }
   // Bidirectional mixing: a single deterministic hash carves [0,1] into
   // [0..proProb)        → pro accent  (e.g. drop2 section gets a mehldau10th tonic,
   //                                    OR mehldau10th section gets a rootlessA predom)
@@ -20884,7 +20922,20 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
       proCandidate = proCandidate[i2];
     }
   }
-  const stdCandidate = override.alt;
+  // alt as array: same resolution pattern as proAlt above. Uses a
+  // third hash slice so the alt CHOICE doesn't correlate with the
+  // proAlt CHOICE either.
+  let stdCandidate = override.alt;
+  if (Array.isArray(stdCandidate)) {
+    if (!stdCandidate.length) {
+      stdCandidate = null;
+    } else {
+      let h3 = (h >>> 0) ^ 0xb5297a4d;
+      h3 = Math.imul(h3, 16777619);
+      const i3 = Math.abs(h3) % stdCandidate.length;
+      stdCandidate = stdCandidate[i3];
+    }
+  }
   const proEligible = state.proMode
     && proCandidate
     && proCandidate !== primaryType
