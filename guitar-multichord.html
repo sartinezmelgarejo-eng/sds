@@ -20502,11 +20502,17 @@ const FUNCTION_OVERRIDE = {
   //   one texture for 8 bars.
   // The two slices (proProb, prob) are disjoint segments of [0,1]; the
   // remaining probability mass keeps the section primary.
-  tonic:     { alt: 'drop3', prob: 0.15, proAlt: 'mehldau10th', proProb: 0.15 },
-  predom:    { alt: 'shell', prob: 0.18, proAlt: 'rootlessA',   proProb: 0.20 },
-  dom:       { alt: 'drop3', prob: 0.22, proAlt: 'ustAlt',      proProb: 0.18 },
-  secondary: { alt: 'drop3', prob: 0.25, proAlt: 'ustSharp11',  proProb: 0.15 },
-  borrowed:  { alt: 'drop3', prob: 0.25, proAlt: 'lockedHands', proProb: 0.15 },
+  // Probabilities dialed down ~20-25% vs the prior round so the
+  // section primary sticks across more chords. User: 'siento que falta
+  // un poquitito mas de continuidad … ciertos acordes no parecen
+  // repetirse o no lo suficiente.' Previous values landed accents on
+  // ~30-40% of chords in a 5-chord section; now ~20-30%, which keeps
+  // the variety alive without erasing the section's textural identity.
+  tonic:     { alt: 'drop3', prob: 0.10, proAlt: 'mehldau10th', proProb: 0.10 },
+  predom:    { alt: 'shell', prob: 0.13, proAlt: 'rootlessA',   proProb: 0.14 },
+  dom:       { alt: 'drop3', prob: 0.16, proAlt: 'ustAlt',      proProb: 0.13 },
+  secondary: { alt: 'drop3', prob: 0.18, proAlt: 'ustSharp11',  proProb: 0.11 },
+  borrowed:  { alt: 'drop3', prob: 0.18, proAlt: 'lockedHands', proProb: 0.11 },
 };
 // Decide the voicing type to use for one chord-event. The section
 // primary is the default; with FUNCTION_OVERRIDE probability we
@@ -20696,15 +20702,19 @@ function pickByStrategy(cands, prevShape) {
       }
       let score = mv;
       const candIsPro = !!(c.pianoShape && c.pianoShape.length);
-      // Same-family continuity bonus (~1.5 semitones equivalent).
-      if (prevType && c.type === prevType) score -= 1.5;
-      // Pro meta-continuity: when prev was any pro family AND this
-      // candidate is also a pro family, give continuity even across
-      // distinct pro families. This treats the entire Pro vocabulary
-      // as ONE meta-category for continuity purposes — matches the
-      // user-facing model where Pro Mode is a single toggle and the
-      // pros are designed to mix among themselves.
-      else if (prevIsPro && candIsPro) score -= 1.0;
+      // Same-family continuity bonus (~3.5 semitones equivalent). The
+      // previous 1.5 wasn't enough to make a family STICK across
+      // multiple chords — a 2-semitone voice-leading win on a different
+      // family would flip it on every chord, and sections felt choppy.
+      // 3.5 means same-family wins ties up to ~3 semitones, which keeps
+      // the section's textural identity without locking out clear
+      // voice-leading switches.
+      if (prevType && c.type === prevType) score -= 3.5;
+      // Pro meta-continuity bumped to 2.0 to match the same-family
+      // continuity strength when crossing pro family boundaries — the
+      // entire Pro vocabulary still reads as one meta-category for
+      // textural identity.
+      else if (prevIsPro && candIsPro) score -= 2.0;
       // Pro fairness bias for mixed pools: standards have 50-80
       // candidates per chord vs ~45 pros, AND pro voicings naturally
       // span wider MIDI ranges (mehldau10th = ~24 semitones vs
