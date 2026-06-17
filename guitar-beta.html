@@ -14634,6 +14634,18 @@ class Player {
         // changes that genuinely want a different family).
         if (prevProType && c.__proType === prevProType) score -= 3.5;
         else if (prevPrevProType && c.__proType === prevPrevProType) score -= 1.5;
+        // Spread tax — wide voicings like Mehldau 10th (C2 to G4 = 31
+        // semis) and McCoy Spread / Polychord can win the smoothest-
+        // MIDI race marginally even when a compact voicing would be the
+        // more natural choice. Tax candidates whose register span
+        // exceeds 24 semis (two octaves), at 0.25 score per extra semi.
+        // 31-semi mehldau → +1.75 tax. Enough to lose marginal ties to
+        // compact families, not enough to lock it out when it's
+        // genuinely the smoothest by a clear margin. User: 'me gusta el
+        // mehldau pero a veces lo metes donde el voice-leading no
+        // viene al caso.'
+        const spread = cur[cur.length - 1] - cur[0];
+        if (spread > 24) score += (spread - 24) * 0.25;
         // Top-voice continuity — penalize large soprano jumps. The
         // first 5 semitones of top movement are free (a fourth or less
         // is a normal melodic step or leap). Beyond that, quadratic
