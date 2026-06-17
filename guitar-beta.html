@@ -7249,7 +7249,15 @@ function computeAllVoicings() {
     if (id === focused.id) continue;
     // 1. AI's predicted next-up voicing wins (most accurate)
     if (state.nextVoicing && state.nextVoicing.chord === id && state.nextVoicing.shape) {
-      result[id] = { shape: state.nextVoicing.shape, type: state.nextVoicing.type };
+      result[id] = {
+        shape: state.nextVoicing.shape,
+        type: state.nextVoicing.type,
+        // Pro voicings carry MIDI on pianoShape — propagate so chord-map
+        // cards can render the staff partitura instead of the blank
+        // placeholder fret-shape.
+        pianoShape: (Array.isArray(state.nextVoicing.pianoShape) && state.nextVoicing.pianoShape.length)
+          ? state.nextVoicing.pianoShape.slice() : null,
+      };
       continue;
     }
     // 2. Cached voicing from this run of the progression — keeps each played
@@ -7271,7 +7279,14 @@ function computeAllVoicings() {
       // (via _pickVoicingType). _pickShapeFiltered keeps continuity AND
       // falls back through the rest of the allowed types + drop2.
       const picked = player._pickShapeFiltered(ch.quality, r, player.voicingType, focShape.shape);
-      result[id] = picked ? { shape: picked.shape, type: picked.type } : null;
+      // _pickShapeFiltered returns {shape, type}; the shape may be a pro
+      // placeholder with non-enumerable __pianoShape stashed by the
+      // dispatcher. Lift it onto pianoShape so the renderer can find it.
+      const pickedPiano = (picked && picked.shape && picked.shape.__pianoShape && picked.shape.__pianoShape.length)
+        ? picked.shape.__pianoShape.slice() : null;
+      result[id] = picked
+        ? { shape: picked.shape, type: picked.type, pianoShape: pickedPiano }
+        : null;
     } else {
       // Filter candidates to the allowed voicing types so the chord map
       // card visually matches what'll be written into the compose cell on
@@ -7288,7 +7303,14 @@ function computeAllVoicings() {
         const prevForPicker = lastCell && lastCell.shape ? lastCell.shape : null;
         const idx = pickByStrategy(cands, prevForPicker);
         const c = cands[idx];
-        result[id] = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion, stringSet: c.stringSet };
+        result[id] = {
+          shape: c.shape, type: c.type,
+          stringSetIdx: c.stringSetIdx, inversion: c.inversion, stringSet: c.stringSet,
+          // Pro candidates carry pianoShape as an own field; propagate
+          // so the chord-map card can render the partitura.
+          pianoShape: (Array.isArray(c.pianoShape) && c.pianoShape.length)
+            ? c.pianoShape.slice() : null,
+        };
       } else {
         result[id] = smoothestVoicing(ch.quality, r, focShape.shape);
       }
@@ -10074,7 +10096,22 @@ function renderChordMap() {
     card.style.top = `${node.y}px`;
     card.dataset.chord = node.chord;
     const sizing = isHub ? {W:130, H:120, r:9} : (isSatellite ? {W:72, H:80, r:5.5} : {W:96, H:104, r:7.5});
-    const svg = v?.shape ? renderMini(v.shape, root, ch.quality, flats, sizing) : '';
+    // Pro voicings: the placeholder fret-shape carries no fingering info,
+    // so renderMini would draw a blank fretboard. Switch to renderChordStaff
+    // (mini grand-staff with the actual MIDI notes) at the same physical
+    // dimensions — replaces the lost "tab" with a "partitura" of the pro
+    // voicing. Hub / satellite / diatonic sizes are respected.
+    const isProV = v && Array.isArray(v.pianoShape) && v.pianoShape.length;
+    let svg = '';
+    if (isProV) {
+      svg = renderChordStaff(v.shape, root, ch.quality, flats, {
+        W: sizing.W, H: sizing.H,
+        minimal: true, showClef: !isSatellite,  // hide clef on satellite (too small to read)
+        pianoShape: v.pianoShape,
+      });
+    } else if (v?.shape) {
+      svg = renderMini(v.shape, root, ch.quality, flats, sizing);
+    }
     card.innerHTML = `
       <div class="mc-top">
         <span class="mc-roman">${ch.roman}</span>
