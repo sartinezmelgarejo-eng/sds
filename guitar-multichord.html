@@ -3662,6 +3662,35 @@
     border-color: #b08d52;
     background: linear-gradient(to bottom, #fffbe6, #f8eed0);
   }
+  /* Pro voicings get a tiny gold sparkle in the top-right corner —
+     premium accent that distinguishes them from piano-mode standards
+     without taking any real card space (lives in the corner margin).
+     Applies to both alt-cards (Other voicings strip) and map-cards
+     (chord-map constellation). Positioned absolutely so it floats
+     over the staff drawing without affecting layout. */
+  .alt-card.is-pro,
+  .map-card.is-pro {
+    position: relative;
+  }
+  .alt-card.is-pro::before,
+  .map-card.is-pro::before {
+    content: '✧';
+    position: absolute;
+    top: 1px;
+    right: 4px;
+    font-size: 11px;
+    line-height: 1;
+    color: #b88a0c;
+    opacity: 0.78;
+    pointer-events: none;
+    text-shadow: 0 0 2px rgba(212, 160, 23, 0.4);
+    z-index: 2;
+  }
+  .alt-card.is-pro.selected::before,
+  .map-card.is-pro.selected::before {
+    color: #8a6608;
+    opacity: 1;
+  }
   /* Selected piano-staff card → gold glow that beats the parchment, so
      the click feedback is unambiguous regardless of standard vs pro. */
   .alt-card.is-piano-staff.selected {
@@ -10160,7 +10189,8 @@ function renderChordMap() {
     const isHub = node.hub;
     const card = document.createElement('div');
     const isSatellite = (ch.tag === 'secondary' || ch.tag === 'borrowed');
-    card.className = `map-card tag-${ch.tag} ${isHub ? 'hub' : ''} ${isFocus ? 'focused' : ''} ${isSatellite ? 'satellite' : 'diatonic'}`;
+    const isProMapCard = v && Array.isArray(v.pianoShape) && v.pianoShape.length;
+    card.className = `map-card tag-${ch.tag} ${isHub ? 'hub' : ''} ${isFocus ? 'focused' : ''} ${isSatellite ? 'satellite' : 'diatonic'} ${isProMapCard ? 'is-pro' : ''}`;
     card.style.left = `${node.x}px`;
     card.style.top = `${node.y}px`;
     card.dataset.chord = node.chord;
@@ -10581,8 +10611,9 @@ function renderAlternatives() {
       notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
     }
     const staffClass = useStaff ? 'is-piano-staff' : '';
+    const proClass = isPro ? 'is-pro' : '';
     html += `
-      <div class="alt-card ${sel} ${playing} ${staffClass}" data-idx="${i}">
+      <div class="alt-card ${sel} ${playing} ${staffClass} ${proClass}" data-idx="${i}">
         ${mini}
         <div class="ac-label">${labelFor(c)}</div>
         <div class="ac-notes">${notes}</div>
