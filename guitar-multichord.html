@@ -3747,12 +3747,18 @@
      selected (auto-mode active) on the left, while the actual sounding
      voicing card gets the playing highlight in the middle of the row. */
   .alt-card.playing {
-    border-color: #4a7a5a;
-    box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.18);
+    border-color: #2d8659;
+    box-shadow: inset 0 0 0 2px #2d8659, 0 0 0 3px rgba(45, 134, 89, 0.32), 0 0 14px rgba(45, 134, 89, 0.42);
   }
+  /* Pro Mode (piano staff cards) gets an extra-emphatic green so the
+     "sounding right now" card stands out against the parchment + gold
+     sparkle palette. User: "puedes hacer el verde de other voicing
+     en pro mode del acorde seleccionado que sea un poquito mas
+     evidente." */
   .alt-card.is-piano-staff.playing {
-    border-color: #4a7a5a;
-    box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.22);
+    border-color: #1f7a4a;
+    background: linear-gradient(to bottom, #e8f6ec, #c6e8d2);
+    box-shadow: inset 0 0 0 2.5px #1f7a4a, 0 0 0 3px rgba(31, 122, 74, 0.42), 0 0 18px rgba(31, 122, 74, 0.55);
   }
   /* PIANO PRO transition flash — fires when the user clicks the Pro
      Mode toggle from guitar mode. Bridges the perceptual switch from
@@ -10715,6 +10721,24 @@ function renderAlternatives() {
     glasperHalfDim: '#7e2438', monkCluster: '#7e2438', polychord: '#7e2438',
   };
 
+  // Resolve which card index gets the green `.playing` highlight.
+  // First pass: exact pianoShape / fret-shape match against the live
+  // played voicing. If none of the visible cards matches (common when
+  // the picker landed on an OCTAVE VARIANT of a pro voicing — those
+  // are filtered out of the strip via _octaveAlt), fall back to the
+  // first card of the same FAMILY/TYPE as the played voicing, so the
+  // green still lands on the row the user can SEE belongs to the
+  // sounding voicing. Without this fallback, "some chords highlight
+  // the wrong card" — user: "algunos acordes highlightean smoothest
+  // en lugar del que esta tocando."
+  let playingIdx = -1;
+  if (playKey) {
+    playingIdx = cands.findIndex(c => candKey(c) === playKey);
+    if (playingIdx < 0 && state.playerVoicing && state.playerVoicing.type) {
+      const playedType = state.playerVoicing.type;
+      playingIdx = cands.findIndex(c => c.type === playedType);
+    }
+  }
   let lastType = null;
   cands.forEach((c, i) => {
     if (lastType !== c.type) {
@@ -10724,7 +10748,7 @@ function renderAlternatives() {
     }
     const sk = candKey(c);
     const sel = (sk === curKey) ? 'selected' : '';
-    const playing = (sk === playKey) ? 'playing' : '';
+    const playing = (i === playingIdx) ? 'playing' : '';
     // Pro voicings carry pianoShape (MIDI array). The note list is the
     // pitch-class sequence from low to high; the visual is a mini sheet-
     // music staff (treble + bass clef) instead of a guitar fretboard.
