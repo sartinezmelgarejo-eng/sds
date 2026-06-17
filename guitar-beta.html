@@ -11711,8 +11711,15 @@ function ringFocusedChord() {
   if (player.playing) return;
   ensureAudio();
   const fs = focusedShape();
-  if (!fs?.shape) return;
-  const notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  if (!fs) return;
+  // Pro voicings carry MIDI on pianoShape and use a placeholder fret
+  // shape — converting the placeholder via STRING_OPEN_MIDI gives an
+  // empty notes array and silence. Prefer pianoShape when present.
+  const notes = (Array.isArray(fs.pianoShape) && fs.pianoShape.length)
+    ? fs.pianoShape.slice()
+    : (fs.shape
+        ? fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null)
+        : []);
   if (!notes.length) return;
   chordDrone.start(notes, currentDroneVolume() * 1.8, true);
   // Safety: fade the master after ~2s so audio never lingers indefinitely
@@ -11735,11 +11742,23 @@ function auditionChord(chordId, opts = {}) {
   // PAUSED counts — the user is still in play mode, just stopped audio.
   if (!player.playing && !player.paused) return;
   ensureAudio();
-  // Caller can pass a shape directly (preview audition that bypasses
-  // state.focusedChord — keeps the player's visualization untouched).
-  const shape = opts.shape || (focusedShape() && focusedShape().shape);
-  if (!shape) return;
-  const notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  // Caller can pass a shape directly OR a pianoShape (pro voicings
+  // ride on a placeholder fret shape — only pianoShape carries the
+  // real MIDI). Fall back to focusedShape when neither is provided.
+  let notes = [];
+  if (Array.isArray(opts.pianoShape) && opts.pianoShape.length) {
+    notes = opts.pianoShape.slice();
+  } else if (opts.shape) {
+    notes = opts.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+  } else {
+    const fs = focusedShape();
+    if (!fs) return;
+    if (Array.isArray(fs.pianoShape) && fs.pianoShape.length) {
+      notes = fs.pianoShape.slice();
+    } else if (fs.shape) {
+      notes = fs.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
+    }
+  }
   if (!notes.length) return;
   chordDrone.start(notes, currentDroneVolume() * 1.8, true);
   // No focus mutation happened, so there's nothing to revert.
@@ -20067,6 +20086,17 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     const masterIdx = cands.indexOf(chosen);
     return masterIdx >= 0 ? masterIdx : 0;
   };
+  // Build the state.userVoicing object the focusedShape() path reads —
+  // includes pianoShape (Pro voicings carry MIDI on this field; the
+  // placeholder fret shape alone is silent + visually blank).
+  const _voicingFromCand = (c) => {
+    const v = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
+    if (Array.isArray(c.pianoShape) && c.pianoShape.length) {
+      v.pianoShape = c.pianoShape.slice();
+      if (c.variant) v.variant = c.variant;
+    }
+    return v;
+  };
   const writeCell = (target, idx) => {
     const c = cands[idx];
     const cell = {
@@ -20174,7 +20204,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       }
       const c = cands[newIdx];
       state.focusedChord = chordId;
-      state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
+      state.userVoicing = _voicingFromCand(c);
       renderAll();
       renderComposeStrip();
       ringFocusedChord();
@@ -20207,7 +20237,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     seq[selIdx] = writeCell(selIdx, newIdx);
     const c = cands[newIdx];
     state.focusedChord = chordId;
-    state.userVoicing = { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion };
+    state.userVoicing = _voicingFromCand(c);
     // One-shot replace path — clear the arm so the NEXT chord pick
     // appends at the end again (back to normal compose flow). Also
     // clear the focused-idx so the cell visually returns to its
@@ -20254,7 +20284,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   state.focusedChord = chordId;
   state._composeFocusedIdx = null; // reset to follow last chord
   state.userVoicing = c
-    ? { shape: c.shape, type: c.type, stringSetIdx: c.stringSetIdx, inversion: c.inversion }
+    ? _voicingFromCand(c)
     : { shape: cur.shape };
   // Auto-switch song structure when the user composes their way into a
   // new section. Each threshold fires once-per-cross — the user can
