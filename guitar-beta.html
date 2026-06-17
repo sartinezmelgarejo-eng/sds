@@ -7588,8 +7588,13 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // just enough room for the text itself, no extra padding stacked on top.
   // The staff body keeps more vertical room as a result.
   const labelH = (nameLabel || romanLabel) ? (sizing?.minimal ? 14 : 26) : 3;
-  const padTop = labelH;
-  const padBot = (sizing?.minimal ? 7 : 9);
+  // Multichord cells with 5+ subdivisions draw a beam below the bass
+  // (stems-down) or above the treble (stems-up). Give them a bit of
+  // extra top + bottom padding so the beam has room to land inside
+  // the cell instead of getting clipped or overlapping chord-name text.
+  const _willHaveBeam = slotChords && subNEarly >= 5;
+  const padTop = labelH + (_willHaveBeam ? 10 : 0);
+  const padBot = (sizing?.minimal ? 7 : 9) + (_willHaveBeam ? 8 : 0);
   // gap = 2 line-spacings so middle-C (one full ledger below treble bottom AND
   // one full ledger above bass top) sits at exactly the geometric mid-point
   // between the two staves. Anything less and the C-hint reads like B3.
@@ -8083,15 +8088,21 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       }
     }
     if (beamAllY.length) {
-      // Always stems-DOWN for multichord beam groups. The chord-name
-      // labels sit above the staff (in the labelH region) and a
-      // stems-up beam parked above the treble landed right where those
-      // labels read — visual clash. Stems-down + beam below the bass
-      // staff keeps the chord-name area clean and matches typical
-      // jazz lead-sheet engraving where dense rhythmic chord stabs
-      // beam below the staff.
-      uniformBeamDir = 1;
-      uniformBeamEndY = bassBotY + lineSp * 1.4;
+      // Direction follows classical convention: cluster center above
+      // the grand-staff median (middle C) → stems DOWN (beam below
+      // bass); below the median → stems UP (beam above treble, sits
+      // BELOW the chord-name labels thanks to the extra padTop above).
+      const collectiveTop = Math.min(...beamAllY);
+      const collectiveBot = Math.max(...beamAllY);
+      const collectiveMid = (collectiveTop + collectiveBot) / 2;
+      uniformBeamDir = collectiveMid < middleCY ? 1 : -1;
+      // Park the beam JUST outside the staff (small offset so it's
+      // visible right at the boundary, not floating off the cell).
+      // Extra padTop / padBot above ensure these positions stay inside
+      // the cell's H even when the beam sits at the very edge.
+      uniformBeamEndY = uniformBeamDir === 1
+        ? bassBotY + lineSp * 0.55     // stems-down: just below bass
+        : trebleTopY - lineSp * 0.55;  // stems-up: just above treble (still below chord names)
     }
   }
   // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
