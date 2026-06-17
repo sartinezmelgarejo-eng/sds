@@ -6803,7 +6803,11 @@ const MONK_CLUSTER_OK = new Set([
   '7alt', '7#11', '7b9', '7#9',       // altered dominants — cluster fits
 ]);
 function monkClusterVoicing(quality, rootPc) {
-  if (!MONK_CLUSTER_OK.has(quality)) return null;
+  // 4% escape hatch on non-idiomatic qualities — the user wants Monk
+  // Cluster to remain a 'wait what?' surprise occasionally on bright
+  // chords (maj7, add9, etc.), not be hard-locked out. Rare enough to
+  // feel like a deliberate choice, not constant intrusion.
+  if (!MONK_CLUSTER_OK.has(quality) && Math.random() >= 0.04) return null;
   // Place cluster around the chord's 5th (rootPc + 7).
   const anchorPc = (rootPc + 7) % 12;
   const anchorOct = _proLHOctave(anchorPc, 0, 55, 66);   // anchor around G3-F4
