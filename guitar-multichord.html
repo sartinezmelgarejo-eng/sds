@@ -2425,14 +2425,21 @@
     /* Phone-dialer layout placement on the 3-col grid:
          row 1: 1 2 3
          row 2: 4 5 6
-         row 3: 7 ▼ ▲
-         row 4: × ▶ ⌫ */
-    .compose-pad .compose-btn[data-act="inv-down"] { grid-row: 3; grid-column: 1; margin-left: 0; }
-    .compose-pad .compose-btn[data-n="7"]          { grid-row: 3; grid-column: 2; }
-    .compose-pad .compose-btn[data-act="inv-up"]   { grid-row: 3; grid-column: 3; }
-    .compose-pad .compose-btn[data-act="clear"]    { grid-row: 4; grid-column: 1; }
-    .compose-pad .compose-btn[data-act="play"]     { grid-row: 4; grid-column: 2; }
-    .compose-pad .compose-btn[data-act="del"]      { grid-row: 4; grid-column: 3; }
+         row 3: ▼ 7 ⟲9
+         row 4: × ▶ ⌫
+       The cycle-voicing button slots into row-3-col-3 (the natural
+       phone-dialer "9" position) and the inv-up button moves up to
+       beside ▼ in row 3 col 1. Inv-down + Inv-up share row 4-... no
+       wait — actually we keep ▼ at col 1, 7 at col 2, ⟲9 at col 3,
+       and the ▲ shifts into row 4. Slightly different from the original
+       but keeps muscle-memory for ▼ 7 and adds 9 at its dialer home. */
+    .compose-pad .compose-btn[data-act="inv-down"]      { grid-row: 3; grid-column: 1; margin-left: 0; }
+    .compose-pad .compose-btn[data-n="7"]               { grid-row: 3; grid-column: 2; }
+    .compose-pad .compose-btn[data-act="cycle-voicing"] { grid-row: 3; grid-column: 3; }
+    .compose-pad .compose-btn[data-act="inv-up"]        { grid-row: 4; grid-column: 1; }
+    .compose-pad .compose-btn[data-act="clear"]         { grid-row: 5; grid-column: 1; }
+    .compose-pad .compose-btn[data-act="play"]          { grid-row: 5; grid-column: 2; }
+    .compose-pad .compose-btn[data-act="del"]           { grid-row: 5; grid-column: 3; }
 
     /* Padding so the bottom-pinned keypad doesn't cover the content above
        AND the last row's subdivision pill (hangs below cell) is fully
@@ -21206,6 +21213,120 @@ function composeCycleLastInversion(direction) {
     : seq.length - 1;
   composeAddChord(seq[idx].chord, true, direction);
 }
+// "9" key — cycle the target cell through ALL allowed voicings without
+// repeating, picking the smoothest MIDI move from current at each step.
+// Once every voicing has been visited, wrap back to the cell's ORIGINAL
+// voicing (the V0 the cycle started from) and the cycle reopens.
+// State (visited Set + origin snapshot) lives ON the cell — any non-9
+// edit path (typing 1-7, picking from a chord-map card, picking from
+// the alt strip) creates a fresh cell object via writeCell that lacks
+// _cycleVisited / _cycleOrigin, so hard-reset is automatic.
+function composeCycleVoicing() {
+  const seq = state.composedProgression;
+  if (!seq.length) return;
+  const idx = (state.composedSelectedIdx !== null && state.composedSelectedIdx !== undefined
+                && state.composedSelectedIdx >= 0 && state.composedSelectedIdx < seq.length)
+    ? state.composedSelectedIdx
+    : (seq.length - 1);
+  const target = seq[idx];
+  if (!target || !target.chord) return;
+  const ch = currentMap().chordDefs[target.chord];
+  if (!ch) return;
+  const root = chordRoot(ch);
+  // Pool: hidden octave-alt candidates excluded so the cycle walks the
+  // "canonical visible" set the user sees in the alternatives strip.
+  const allCands = allDistinctVoicings(ch.quality, root).filter(c => !c._octaveAlt);
+  const allowed = filterShapeCandidates(allCands);
+  const pool = allowed.length ? allowed : allCands;
+  if (pool.length < 2) return;
+  // Stable key per candidate so the visited set is comparable across
+  // re-builds of allDistinctVoicings (object identities don't survive).
+  const candKey = (c) => {
+    if (Array.isArray(c.pianoShape) && c.pianoShape.length) return 'p:' + c.pianoShape.join(',');
+    return [c.type, c.stringSetIdx ?? '', c.inversion ?? '', c.stringSet ?? '', c.variant ?? ''].join('|');
+  };
+  const cellKey = (cell) => {
+    if (Array.isArray(cell.pianoShape) && cell.pianoShape.length) return 'p:' + cell.pianoShape.join(',');
+    return [cell.voicingType || '', cell.stringSetIdx ?? '', cell.inversion ?? '', cell.stringSet ?? '', cell.variant ?? ''].join('|');
+  };
+  // Lazily initialize cycle state when first invoked on this cell.
+  if (!target._cycleOrigin || !target._cycleVisited) {
+    const originKey = cellKey(target);
+    target._cycleOrigin = {
+      key: originKey,
+      shape: target.shape,
+      pianoShape: (target.pianoShape && target.pianoShape.length) ? target.pianoShape.slice() : null,
+      voicingType: target.voicingType,
+      stringSetIdx: target.stringSetIdx,
+      inversion: target.inversion,
+      stringSet: target.stringSet,
+      variant: target.variant || null,
+    };
+    target._cycleVisited = new Set([originKey]);
+  }
+  _composeSaveUndo();
+  const unvisited = pool.filter(c => !target._cycleVisited.has(candKey(c)));
+  if (!unvisited.length) {
+    // Wrap — restore to V0 and reset visited to {V0}.
+    const origin = target._cycleOrigin;
+    target.shape       = origin.shape;
+    target.pianoShape  = origin.pianoShape ? origin.pianoShape.slice() : null;
+    target.voicingType = origin.voicingType;
+    target.stringSetIdx = origin.stringSetIdx;
+    target.inversion   = origin.inversion;
+    target.stringSet   = origin.stringSet;
+    if (origin.variant) target.variant = origin.variant; else delete target.variant;
+    target._cycleVisited = new Set([origin.key]);
+  } else {
+    // Pick smoothest from unvisited by MIDI movement vs current cell.
+    const toMidi = (c) => {
+      if (Array.isArray(c.pianoShape) && c.pianoShape.length) return c.pianoShape.slice().sort((a,b) => a-b);
+      if (!Array.isArray(c.shape)) return [];
+      const out = [];
+      for (let s = 0; s < 6; s++) {
+        const f = c.shape[s];
+        if (f >= 0) out.push(STRING_OPEN_MIDI[s] + f);
+      }
+      return out.sort((a,b) => a-b);
+    };
+    const cur = (target.pianoShape && target.pianoShape.length)
+      ? target.pianoShape.slice().sort((a,b) => a-b)
+      : (target.shape ? target.shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null).sort((a,b) => a-b) : []);
+    let best = unvisited[0];
+    let bestMv = Infinity;
+    for (const c of unvisited) {
+      const cm = toMidi(c);
+      if (!cm.length) continue;
+      const n = Math.min(cm.length, cur.length);
+      let mv = 0;
+      for (let k = 0; k < n; k++) mv += Math.abs(cm[k] - cur[k]);
+      if (mv < bestMv) { bestMv = mv; best = c; }
+    }
+    target.shape       = best.shape;
+    target.pianoShape  = (best.pianoShape && best.pianoShape.length) ? best.pianoShape.slice() : null;
+    target.voicingType = best.type;
+    target.stringSetIdx = best.stringSetIdx;
+    target.inversion   = best.inversion;
+    target.stringSet   = best.stringSet;
+    if (best.variant) target.variant = best.variant; else delete target.variant;
+    target._candIdx = allCands.indexOf(best);
+    target._cycleVisited.add(candKey(best));
+  }
+  // Propagate to focused state so the chord map / alt strip / preview
+  // surfaces all reflect the cycled voicing on the next render.
+  state.focusedChord = target.chord;
+  state.userVoicing = {
+    shape: target.shape,
+    type: target.voicingType,
+    stringSetIdx: target.stringSetIdx,
+    inversion: target.inversion,
+    stringSet: target.stringSet,
+    pianoShape: (target.pianoShape && target.pianoShape.length) ? target.pianoShape.slice() : null,
+  };
+  renderAll();
+  if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  if (typeof ringFocusedChord === 'function') ringFocusedChord();
+}
 function composeDeleteLast() {
   if (!state.composedProgression.length) return;
   // Multi-chord slot selected → backspace mutes THAT slot instead of
@@ -21409,6 +21530,7 @@ function renderComposePad() {
     ${chordBtn(1)}${chordBtn(2)}${chordBtn(3)}
     ${chordBtn(4)}${chordBtn(5)}${chordBtn(6)}
     ${chordBtn(7)}
+    <button class="compose-btn compose-cycle" data-act="cycle-voicing" data-n="9" title="cycle voicing on the last chord (keyboard: 9)">⟲<span class="deg">9</span></button>
     <button class="compose-btn compose-inv" data-act="inv-down" title="lower inversion (Shift+←)">▼</button>
     <button class="compose-btn compose-inv" data-act="inv-up" title="raise inversion (Shift+→)">▲</button>
     <button class="compose-btn compose-del" data-act="del" title="delete last (Backspace)">⌫</button>
@@ -21465,11 +21587,12 @@ function renderComposePad() {
         }
         composeDeleteLast();
       }
-      else if (a === 'undo')     composeUndo();
-      else if (a === 'clear')    composeClear();
-      else if (a === 'play')     composePlay();
-      else if (a === 'inv-up')   composeCycleLastInversion(1);
-      else if (a === 'inv-down') composeCycleLastInversion(-1);
+      else if (a === 'undo')           composeUndo();
+      else if (a === 'clear')          composeClear();
+      else if (a === 'play')           composePlay();
+      else if (a === 'inv-up')         composeCycleLastInversion(1);
+      else if (a === 'inv-down')       composeCycleLastInversion(-1);
+      else if (a === 'cycle-voicing')  composeCycleVoicing();
     });
     // Touch flash — iOS Safari doesn't always paint :active on tap
     // (especially after scrollable ancestors enter the gesture mix), so
@@ -22817,6 +22940,22 @@ document.addEventListener('keydown', e => {
   if (isNaN(n) && e.code) {
     if (e.code.startsWith('Digit'))  n = parseInt(e.code.slice(5));
     else if (e.code.startsWith('Numpad')) n = parseInt(e.code.slice(6));
+  }
+  // "9" — cycle the target cell through ALL allowed voicings without
+  // repeating. Stateless to the user; the cell carries the visited Set.
+  // Only honored in compose mode; while playing or paused the keypad
+  // belongs to the player.
+  if (n === 9) {
+    if (!player.playing && !player.paused && state.composedProgression.length) {
+      e.preventDefault();
+      composeCycleVoicing();
+      const padBtn9 = document.querySelector('.compose-pad .compose-btn[data-n="9"]');
+      if (padBtn9) {
+        padBtn9.classList.add('flash');
+        setTimeout(() => padBtn9.classList.remove('flash'), 150);
+      }
+    }
+    return;
   }
   if (n < 1 || n > 7) return;
   const chordId = DEGREE_SHORTCUTS[state.tonality]?.[n];
