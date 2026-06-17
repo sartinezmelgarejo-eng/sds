@@ -1217,6 +1217,24 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
   transition:background .2s,border-color .2s;
 }
 .sidebar .m-view-btn:hover{background:rgba(159,34,65,.4);border-color:rgba(221,201,163,.5)}
+/* Magazine-mode variant: button morphs into an "Exit to apps" affordance.
+   Cream pill with guinda icon — visually distinct from the toggle so the
+   reader notices the button changed function in fullscreen. */
+body.sidebar-fullscreen .sidebar .m-view-btn.m-view-btn-apps{
+  background:linear-gradient(135deg, #fdfcf3 0%, #f4eed8 100%);
+  border:1.5px solid #9F2241;
+  color:#9F2241;
+  width:34px;height:34px;
+  border-radius:8px;
+  font-size:18px;font-weight:900;
+  box-shadow:0 2px 8px rgba(159,34,65,.18);
+}
+body.sidebar-fullscreen .sidebar .m-view-btn.m-view-btn-apps:hover{
+  background:linear-gradient(135deg, #fff 0%, #f0e8c8 100%);
+  border-color:#9F2241;
+  transform:scale(1.06);
+  box-shadow:0 4px 14px rgba(159,34,65,.32);
+}
 .d-feed-link{
   font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   color:#DDC9A3;text-decoration:none;
@@ -3360,7 +3378,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       const was=document.body.classList.contains('sidebar-fullscreen');
       document.body.classList.toggle('sidebar-fullscreen', w>=fsThreshold());
       const now=document.body.classList.contains('sidebar-fullscreen');
-      if(was!==now) renderMobile();  // flip between magazine and scroll on threshold cross
+      if(was!==now){
+        renderMobile();  // flip between magazine and scroll on threshold cross
+        // Sync the view-toggle button icon + styling for the new mode
+        if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
+      }
     };
     // Restore saved width on load (clamp to current viewport's max)
     const saved=parseInt(localStorage.getItem('sidebar-width')||'',10);
@@ -3432,19 +3454,43 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     });
   })();
 
-  // View toggle: compact ⇄ spacious. Preference persists in localStorage.
-  // Both mobile and desktop sidebar share the same mode + button class.
+  // View toggle button has two modes:
+  //  - Normal: toggles compact ⇄ spacious view of the feed
+  //  - Magazine mode (sidebar-fullscreen): becomes an "Exit to apps" button —
+  //    shrinks the sidebar back to default width so the apps grid surfaces
+  //    again. Icon + styling switch via CSS class.
   let viewMode = (function(){try{return localStorage.getItem('m-tg-view')||'compact'}catch{return 'compact'}})();
+  function isMagazineMode(){ return document.body.classList.contains('sidebar-fullscreen') }
   function applyView(){
     document.querySelectorAll('.m-tg-list').forEach(l=>l.classList.toggle('spacious', viewMode==='spacious'));
-    document.querySelectorAll('.m-view-btn').forEach(b=>{b.textContent = viewMode==='spacious' ? '☰' : '▦'});
+    document.querySelectorAll('.m-view-btn').forEach(b=>{
+      const mag = isMagazineMode();
+      b.classList.toggle('m-view-btn-apps', mag);
+      b.textContent = mag ? '⊞' : (viewMode==='spacious' ? '☰' : '▦');
+      b.setAttribute('aria-label', mag ? 'Back to apps' : 'Toggle view');
+    });
   }
+  // Expose applyView so the fullscreen-resize handler can call it when the
+  // body class changes (icon + style sync).
+  window.__applyMagViewBtn = applyView;
   document.querySelectorAll('.m-view-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      if(isMagazineMode()){
+        // Magazine mode → shrink sidebar back to default width and re-render
+        // as flat scroll. User can drag past 70% again to return to magazine.
+        const main = document.querySelector('.main');
+        const newW = Math.min(420, Math.floor(window.innerWidth*0.42));
+        if(main) main.style.gridTemplateColumns = '1fr ' + newW + 'px';
+        document.body.classList.remove('sidebar-fullscreen');
+        try{localStorage.setItem('sidebar-width', newW)}catch{}
+        applyView();
+        renderMobile();
+        return;
+      }
       viewMode = viewMode==='spacious' ? 'compact' : 'spacious';
       try{localStorage.setItem('m-tg-view',viewMode)}catch{}
       applyView();
-      renderMobile();  // re-render to clear any stale .expanded state
+      renderMobile();
     });
   });
   applyView();
