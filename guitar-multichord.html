@@ -10347,7 +10347,20 @@ function renderAlternatives() {
   // hides them so the user doesn't see Rootless A × 3 octaves.
   const cands = allDistinctVoicings(fc.quality, root).filter(c => !c._octaveAlt);
   const shapeKey = (sh) => sh.map((f, i) => f >= 0 ? `${i}.${f}` : '').filter(Boolean).join(',');
-  const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
+  // Pro voicings all share the SAME placeholder fret-shape [-1,-1,-1,…],
+  // so shapeKey alone would match every pro card against any pro
+  // selection — every pro would light up gold whenever one was clicked.
+  // For pros, key by pianoShape (the MIDI array, which IS unique per
+  // voicing) instead. Standards still key by fret-shape.
+  const candKey = (c) => {
+    if (Array.isArray(c.pianoShape) && c.pianoShape.length) {
+      return 'p:' + c.pianoShape.join(',');
+    }
+    return shapeKey(c.shape);
+  };
+  const curKey = (state.userVoicing && Array.isArray(state.userVoicing.pianoShape) && state.userVoicing.pianoShape.length)
+    ? 'p:' + state.userVoicing.pianoShape.join(',')
+    : (state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null);
   // The voicing currently SOUNDING via the AI player (independent of
   // user selection). When auto-mode is on, .selected lands on the AUTO
   // card to the left — without this, the scroll-into-view snapped to
@@ -10356,7 +10369,10 @@ function renderAlternatives() {
   const playKey = (player && player.playing
                    && state.playerVoicing && state.playerVoicing.shape
                    && state.playerVoicing.chord === fc.id)
-    ? shapeKey(state.playerVoicing.shape) : null;
+    ? (Array.isArray(state.playerVoicing.pianoShape) && state.playerVoicing.pianoShape.length
+        ? 'p:' + state.playerVoicing.pianoShape.join(',')
+        : shapeKey(state.playerVoicing.shape))
+    : null;
 
   const autoSel = state.userVoicing === null ? 'selected' : '';
   const STRAT_LABEL = { smoothest: 'smoothest', low: 'low pos', high: 'high pos', random: 'random' };
@@ -10429,7 +10445,7 @@ function renderAlternatives() {
       html += `<div class="alt-divider" style="color:${color}">${FAMILY[c.type] || c.type}</div>`;
       lastType = c.type;
     }
-    const sk = shapeKey(c.shape);
+    const sk = candKey(c);
     const sel = (sk === curKey) ? 'selected' : '';
     const playing = (sk === playKey) ? 'playing' : '';
     // Pro voicings carry pianoShape (MIDI array). The note list is the
