@@ -23445,7 +23445,18 @@ renderAll = function() {
 // Voicing preference and Bass are intentionally left at their compile-
 // time defaults ('all' / on) per the user's spec. No localStorage —
 // every new session re-rolls.
+// Each step is independently try/wrapped because the IIFE used to be
+// a single block — if ANY one of applyRhythmMode / setInstrument /
+// setBpm threw, the rest of the bootstrap (post-IIFE relocatePlayerInfo,
+// renderAll, _settleLayout setup) never executed and the page came up
+// half-rendered: black chord-neck, empty chord-map on mobile, dead
+// compose pad. The "1 in 5 reloads" symptom matched the randomness
+// here exercising different code paths each load. Wrapping each step
+// keeps the bootstrap moving forward even if one optional default
+// fails to apply — the app falls back to compile-time defaults for
+// that one knob and the rest of the page still renders.
 (function rollStartupDefaults() {
+  const _safe = (label, fn) => { try { fn(); } catch (e) { console.error('[rollStartupDefaults]', label, e); } };
   // Pick a key from a {value: weight} map. Weights are relative, no
   // need to sum to 100 — but we use percentages here for legibility.
   const pickWeighted = (map) => {
@@ -23461,43 +23472,51 @@ renderAll = function() {
   };
 
   // 🎹 Chord Sound — instrument that plays the chords
-  const soundPick = pickWeighted({
-    rhodes:  5,
-    piano:   60,
-    jazzgtr: 15,
-    pad:     10,
-    organ:   10,
+  _safe('sound', () => {
+    const soundPick = pickWeighted({
+      rhodes:  5,
+      piano:   60,
+      jazzgtr: 15,
+      pad:     10,
+      organ:   10,
+    });
+    droneTimbre = soundPick;
+    const sOpt = SOUND_OPTIONS.find(o => o.value === soundPick);
+    if (sOpt && soundBtn && typeof _updateKeysIcon === 'function') {
+      _updateKeysIcon();
+    }
   });
-  droneTimbre = soundPick;
-  const sOpt = SOUND_OPTIONS.find(o => o.value === soundPick);
-  if (sOpt && soundBtn && typeof _updateKeysIcon === 'function') {
-    _updateKeysIcon();
-  }
 
   // 🥁 Rhythm — drum/click pattern
-  const rhythmPick = pickWeighted({
-    ride:    50,
-    drums:   15,
-    twofour: 25,
-    click:   5,
-    off:     5,
+  _safe('rhythm', () => {
+    const rhythmPick = pickWeighted({
+      ride:    50,
+      drums:   15,
+      twofour: 25,
+      click:   5,
+      off:     5,
+    });
+    applyRhythmMode(rhythmPick);
   });
-  applyRhythmMode(rhythmPick);
 
   // 🎸 Instrument view — guitar fretboard vs piano keyboard
-  const instPick = pickWeighted({ guitar: 65, piano: 35 });
-  setInstrument(instPick);
+  _safe('instrument', () => {
+    const instPick = pickWeighted({ guitar: 65, piano: 35 });
+    setInstrument(instPick);
+  });
 
   // ⏱ BPM — first pick a range, then a uniform integer inside it
-  const bpmRange = pickWeighted({
-    '90-110':  30,
-    '110-130': 40,
-    '130-150': 20,
-    '150-170': 10,
+  _safe('bpm', () => {
+    const bpmRange = pickWeighted({
+      '90-110':  30,
+      '110-130': 40,
+      '130-150': 20,
+      '150-170': 10,
+    });
+    const [lo, hi] = bpmRange.split('-').map(Number);
+    const bpm = lo + Math.floor(Math.random() * (hi - lo + 1));
+    setBpm(bpm);
   });
-  const [lo, hi] = bpmRange.split('-').map(Number);
-  const bpm = lo + Math.floor(Math.random() * (hi - lo + 1));
-  setBpm(bpm);
 })();
 
 // Initial placement of the now-playing card BEFORE renderAll — app
@@ -23507,8 +23526,10 @@ renderAll = function() {
 // ~220px), not against the wider .rb-area origin (which led to fonts
 // being sized too big and the card looking off until the user
 // resized the window to trigger a reflow).
-if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
-renderAll();
+try { if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo(); }
+catch (e) { console.error('[bootstrap] relocatePlayerInfo', e); }
+try { renderAll(); }
+catch (e) { console.error('[bootstrap] renderAll', e); }
 // Defensive re-evaluations to catch a known glitch: at HIGH browser
 // zoom (or before fonts finish loading), the very first layout pass
 // can mis-measure container widths — #player-info has width:100% so a
