@@ -8085,11 +8085,23 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
     if (beamAllY.length) {
       const collectiveTop = Math.min(...beamAllY);
       const collectiveBot = Math.max(...beamAllY);
-      uniformBeamDir = collectiveTop < trebleBotY ? 1 : -1;  // 1 = down, -1 = up
-      const beamStemLen = lineSp * 3.6;
+      // Grand-staff chord notes routinely span 20+ semitones (bass +
+      // treble), so anchoring the beam at "extreme note ± full stem
+      // length" pushes it OFF the visible staff. Instead, park the
+      // beam just outside the staff edges — stems then have varying
+      // lengths per slot but the beam is short, visible, and reads as
+      // classical engraving where heavy chord-noteheads beam together
+      // on a single bar near the staff boundary.
+      // Direction: prefer stems-down when the collective MIDDLE of the
+      // chord cluster sits above the grand-staff median (middle C),
+      // mirroring classical convention but biased toward stem-down for
+      // dense piano voicings (which the eye reads top-to-bottom).
+      const collectiveMid = (collectiveTop + collectiveBot) / 2;
+      const gridMid = middleCY;  // grand-staff median (between staves)
+      uniformBeamDir = collectiveMid <= gridMid ? 1 : -1;
       uniformBeamEndY = uniformBeamDir === 1
-        ? collectiveBot + beamStemLen
-        : collectiveTop - beamStemLen;
+        ? bassBotY + lineSp * 1.4    // just below bass staff bottom
+        : trebleTopY - lineSp * 1.4; // just above treble staff top
     }
   }
   // Per-bar accidental memory: tracks WHICH acc ('#', 'b', or '') is in
