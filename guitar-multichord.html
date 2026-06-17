@@ -14647,16 +14647,20 @@ class Player {
         const spread = cur[cur.length - 1] - cur[0];
         if (spread > 24) score += (spread - 24) * 0.25;
         // Top-voice continuity — penalize large soprano jumps. The
-        // first 5 semitones of top movement are free (a fourth or less
-        // is a normal melodic step or leap). Beyond that, quadratic
-        // penalty grows: 7-semi → ~1.0, 10-semi → ~3.3, 12-semi (octave)
-        // → ~5.2. Modest enough that genuinely smooth voice-leading
-        // (e.g. a chord change that demands an octave leap to stay in
-        // the same family register) still wins — but breaks ties in
-        // favor of candidates whose top voice tracks the prev melody.
+        // first 4 semitones of top movement are free (a major-third or
+        // less is a normal melodic step). Beyond that, quadratic
+        // penalty grows: 5-semi → ~0.5, 7-semi → ~2.0, 10-semi → ~4.9,
+        // 12-semi (octave) → ~7.0. Strict enough that cross-texture
+        // family switches (rootlessA → phineasOctaves with the doubled
+        // top jumping a 7th) lose to within-family voicings — but
+        // genuine voice-leading wins (where the next chord's register
+        // truly demands a leap) still pass through. User: 'no se si
+        // quiero quitar diversidad, solamente como que hay que ser
+        // mas conciente del top note' — keeps the pro vocabulary open
+        // but makes the soprano line drive the decision.
         const candTopMidi = cur[cur.length - 1];
         const topDelta = Math.abs(candTopMidi - prevTopMidi);
-        if (topDelta > 5) score += Math.pow(topDelta - 5, 1.3) * 0.4;
+        if (topDelta > 4) score += Math.pow(topDelta - 4, 1.3) * 0.5;
         return { cand: c, score, idx: i };
       });
       scored.sort((a, b) => a.score - b.score);
