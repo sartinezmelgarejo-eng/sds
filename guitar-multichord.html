@@ -16497,8 +16497,20 @@ class Player {
     const nxtId = this._nextDisplayChordId();
 
     // Re-render the chord map so each card's mini-fretboard reflects the latest voicing
-    // (the focused chord uses state.playerVoicing; others recompute smoothest from it)
-    renderChordMap();
+    // (the focused chord uses state.playerVoicing; others recompute smoothest from it).
+    // Per-chord rebuild is expensive on mobile (innerHTML wipe + 15-25 mini-SVG
+    // cards) and visibly stutters playback. The cards only need a fresh
+    // rebuild when the underlying chord SET changes — section / key / tonality
+    // / scope / instrument / proMode swap. Within a single section, the per-
+    // chord highlight (playing/next-up/in-progression) is already handled by
+    // class toggling below — no rebuild needed. User: "en el telefono como
+    // que la verdad si se traba un poquito aun."
+    const _curSecLabel = this._currentSection()?.label || '';
+    const _mapKey = `${_curSecLabel}|${state.keyPc}|${state.tonality}|${chordScope}|${state.instrument}|${state.proMode ? 'p' : 's'}`;
+    if (this._lastChordMapKey !== _mapKey) {
+      renderChordMap();
+      this._lastChordMapKey = _mapKey;
+    }
 
     // Build a set of chord IDs that appear in the CURRENT section's progression.
     // Updates at A→B transitions so the dot/dim reflects the immediate context.
