@@ -16208,6 +16208,8 @@ class Player {
               chord: sl.chord,
               shape: sl.shape,
               type: sl.voicingType || this.voicingType,
+              pianoShape: (Array.isArray(sl.pianoShape) && sl.pianoShape.length)
+                ? sl.pianoShape.slice() : null,
             };
             return;
           }
@@ -16264,12 +16266,31 @@ class Player {
     const planEntries = [...(this._cachedPage || []), this._cachedPeek].filter(Boolean);
     const plannedNext = planEntries.find((e, i) => i > barInPage && e.chord === nxtId);
     if (plannedNext) {
-      state.nextVoicing = { chord: nxtId, shape: plannedNext.shape, type: plannedNext.voicingType || nextType };
+      state.nextVoicing = {
+        chord: nxtId,
+        shape: plannedNext.shape,
+        type: plannedNext.voicingType || nextType,
+        pianoShape: (Array.isArray(plannedNext.pianoShape) && plannedNext.pianoShape.length)
+          ? plannedNext.pianoShape.slice() : null,
+      };
       return;
     }
     const nxtRoot = (nxtKeyPc + nxtCh.deg) % 12;
     const nxtShape = this._pickShape(nxtCh.quality, nxtRoot, nextType, state.playerVoicing.shape);
-    state.nextVoicing = nxtShape ? { chord: nxtId, shape: nxtShape, type: nextType } : null;
+    if (!nxtShape) { state.nextVoicing = null; return; }
+    // _pickShape returns a pro placeholder with __pianoShape stashed
+    // non-enumerably when the picked family is a pro voicing. Lift it
+    // so the chord-map upcoming card can render the staff (instead of
+    // the blank fret placeholder).
+    const nxtPiano = (nxtShape.__pianoShape && nxtShape.__pianoShape.length)
+      ? nxtShape.__pianoShape.slice() : null;
+    const nxtProType = (nxtShape.__proType) ? nxtShape.__proType : null;
+    state.nextVoicing = {
+      chord: nxtId,
+      shape: nxtShape,
+      type: nxtProType || nextType,
+      pianoShape: nxtPiano,
+    };
   }
 
   _updateVisuals() {
