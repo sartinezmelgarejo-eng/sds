@@ -20069,7 +20069,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   };
   const writeCell = (target, idx) => {
     const c = cands[idx];
-    return {
+    const cell = {
       chord: chordId,
       _candIdx: idx,
       shape: c.shape,
@@ -20081,6 +20081,16 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       inversion: c.inversion,
       stringSet: c.stringSet,
     };
+    // Pro voicings carry a pianoShape MIDI array — without it the cell
+    // would render the placeholder [-1,-1,-1,-1,-1,-1] fret shape and
+    // play nothing. Lift pianoShape (and the variant label, if any)
+    // onto the cell so the partitura staff, compose strip, audio
+    // trigger, and chord-piano keyboard all read the real MIDI notes.
+    if (Array.isArray(c.pianoShape) && c.pianoShape.length) {
+      cell.pianoShape = c.pianoShape.slice();
+      if (c.variant) cell.variant = c.variant;
+    }
+    return cell;
   };
 
   // ── MULTI-CHORD EDIT MODE: cell.slots[_multiChordEditSlotIdx] gets
