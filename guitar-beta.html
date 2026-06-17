@@ -14264,6 +14264,11 @@ class Player {
               bars: 1,
               roman: currentMap().chordDefs[c.chord]?.roman || c.chord,
               composedShape: c.shape,
+              // Pro voicings carry MIDI on pianoShape; the cell's shape
+              // is just the placeholder. Without this the player would
+              // re-pick the pro voicing from scratch during playback
+              // (and the section primary's family would clobber it).
+              composedPianoShape: c.pianoShape || null,
               // Carry the composed voicing family forward so play-mode
               // surfaces (now-playing badge icon, strip variant detail)
               // match what the user actually heard while composing.
@@ -14543,6 +14548,8 @@ class Player {
             bars: 1,
             roman: (map.chordDefs[c.chord] && map.chordDefs[c.chord].roman) || c.chord,
             composedShape: c.shape,
+            // Pro voicings carry MIDI on pianoShape (see buildSteps comment).
+            composedPianoShape: c.pianoShape || null,
             // See identical comment at the buildSteps site above — preserves
             // the composed family tag through the captured-sections path.
             composedType: c.voicingType,
@@ -14848,6 +14855,8 @@ class Player {
             stringSetIdx: cell.stringSetIdx,
             inversion: cell.inversion,
             stringSet: cell.stringSet,
+            pianoShape: (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+              ? cell.pianoShape.slice() : null,
           };
         }
       }
@@ -15928,6 +15937,7 @@ class Player {
         tonality: simTonality,
         voicingType: simVoicingType,
         composedShape: step.composedShape,  // honors user-typed inversions
+        composedPianoShape: step.composedPianoShape || null,  // pro voicing MIDI
         composedType: step.composedType,    // honors user-chosen family
         subdivisions: step.subdivisions || (step.slots && step.slots.length) || 1,
         subdivMute: step.subdivMute || [],
@@ -16039,6 +16049,10 @@ class Player {
           keyPc: state.keyPc,
           voicingType: sc.voicingType || this.voicingType,
           shape: sc.shape,
+          // Pro voicings — propagate MIDI so the prefill cells render +
+          // play correctly on a mid-page jump just like the live ones.
+          pianoShape: (Array.isArray(sc.pianoShape) && sc.pianoShape.length)
+            ? sc.pianoShape.slice() : null,
           subdivisions: sc.subdivisions || 1,
           subdivMute: sc.subdivMute || [],
           slots: sc.slots ? sc.slots.map(sl => sl ? {...sl} : null) : null,
@@ -16138,11 +16152,28 @@ class Player {
             });
           }
         }
-        // Pro voicings stash their MIDI notes on shape.__pianoShape (the
-        // shape itself is the [-1,-1,…] placeholder). Lift it onto the
-        // cell so _triggerChord and the visualizers can find it without
-        // poking non-enumerable shape props.
-        const _pianoShape = (shape && shape.__pianoShape) ? shape.__pianoShape.slice() : null;
+        // Pro voicings stash their MIDI notes in one of three places
+        // depending on where `shape` came from:
+        //   - AI-picked (_pickShape branch) → shape.__pianoShape (the
+        //     dispatcher tags the placeholder non-enumerably).
+        //   - User-composed (seg.composedShape branch) → seg.composedPianoShape
+        //     (the cell's shape is a plain placeholder; pianoShape rides
+        //     on the seg/step alongside it).
+        //   - Currently-playing anchor (state.playerVoicing branch when
+        //     bar === 0) → state.playerVoicing.pianoShape.
+        // Lift it onto the cell so _triggerChord and the visualizers can
+        // find it without re-deriving it.
+        let _pianoShape = null;
+        if (shape && shape.__pianoShape && shape.__pianoShape.length) {
+          _pianoShape = shape.__pianoShape.slice();
+        } else if (Array.isArray(seg.composedPianoShape) && seg.composedPianoShape.length) {
+          _pianoShape = seg.composedPianoShape.slice();
+        } else if (bar === 0 && state.playerVoicing
+                   && state.playerVoicing.chord === seg.chord
+                   && Array.isArray(state.playerVoicing.pianoShape)
+                   && state.playerVoicing.pianoShape.length) {
+          _pianoShape = state.playerVoicing.pianoShape.slice();
+        }
         const entry = {
           chord: seg.chord,
           qualityOverride: stepForEntry?.qualityOverride || null,
@@ -16900,20 +16931,32 @@ function _applyStripNavTarget(cell, newTotalBars) {
   player._stopArmed = false;
   if (cell.shape) {
     player.previousShape = cell.shape;
+    const _cellPiano = (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+      ? cell.pianoShape.slice() : null;
     state.playerVoicing = {
       chord: cell.chord,
       shape: cell.shape,
       type: cell.voicingType || player.voicingType,
+      pianoShape: _cellPiano,
     };
     ensureAudio();
-    const notes = cell.shape
-      .map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
-      .filter(x => x !== null);
+    // Pro voicings: pianoShape carries the real MIDI; the placeholder
+    // fret-shape would convert to an empty array via STRING_OPEN_MIDI.
+    const notes = _cellPiano && _cellPiano.length
+      ? _cellPiano.slice()
+      : cell.shape
+          .map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null)
+          .filter(x => x !== null);
     if (notes.length) chordDrone.start(notes, currentDroneVolume() * 1.8, true);
   }
   state.focusedChord = cell.chord;
   state.userVoicing = cell.shape
-    ? { shape: cell.shape, type: cell.voicingType || player.voicingType }
+    ? {
+        shape: cell.shape,
+        type: cell.voicingType || player.voicingType,
+        pianoShape: (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+          ? cell.pianoShape.slice() : null,
+      }
     : null;
   renderAll();
   // Rebuild the now-playing dashboard so the SONG·AABA letters reflect
@@ -17291,6 +17334,8 @@ document.getElementById('auto-edit').addEventListener('click', () => {
         stringSetIdx: cell.stringSetIdx,
         inversion: cell.inversion,
         stringSet: cell.stringSet,
+        pianoShape: (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+          ? cell.pianoShape.slice() : null,
       };
     }
   }
