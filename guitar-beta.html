@@ -10615,6 +10615,15 @@ function renderChordMap() {
    ════════════════════════════════════════════════════════════ */
 
 function renderAlternatives() {
+  // The whole `.bottom-bar` (containing the alternatives strip + the
+  // big fretboard) is `display:none` under 800px width — see CSS at
+  // `@media (max-width: 800px) .bottom-bar { display:none }`. Building
+  // 30+ alt-cards each with its own mini-fretboard/staff SVG into that
+  // hidden container is pure waste on phones (compose AND play). Skip
+  // entirely on mobile; the resize handler below re-fires this on
+  // mobile→desktop crossings so the strip populates if the user
+  // rotates / resizes back to a visible width.
+  if (window.innerWidth <= 800) return;
   const altRow = document.getElementById('alt-row');
   const altName = document.getElementById('alt-chord-name');
   const fc = focusedChord();
@@ -23843,6 +23852,9 @@ if (window.visualViewport) {
 window.addEventListener('resize', () => {
   renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  // mobile→desktop crossing (rotate / window resize) — repopulate the
+  // alternatives strip which the mobile guard left empty.
+  if (typeof renderAlternatives === 'function') renderAlternatives();
 });
 
 /* ─── MIDI Export ─── */
