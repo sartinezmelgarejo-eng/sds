@@ -20544,6 +20544,21 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   if (!chordTag) return primaryType;
   const override = FUNCTION_OVERRIDE[chordTag];
   if (!override) return primaryType;
+  // Pro meta primary: the section is ALREADY exploring the pro vocabulary
+  // chord-by-chord via _pickShape's multi-pro fast-path (voice-leading
+  // driven + 2-step family memory). Adding FUNCTION_OVERRIDE proAlt
+  // accents on top layered redundant variety — a 3-4 chord pro section
+  // could end up with rootlessA → ustAlt → mehldau10th → lockedHands
+  // because each role's proAlt would FORCE a different family on top of
+  // what voice-leading was already picking. User: 'cuando una progresion
+  // es del voicing general de pro, a veces hay saltos innecesarios.'
+  // Skip the override entirely on 'pro'-meta sections — let voice-
+  // leading + memory drive within-section family variety, not role-based
+  // probability. Specific-pro primaries (rootlessA, mehldau10th, etc.
+  // when picked directly, NOT meta) still get accents via the existing
+  // bidirectional mixing — those sections aren't using the multi-pro
+  // picker so they need FUNCTION_OVERRIDE for chord-to-chord variety.
+  if (primaryType === 'pro') return primaryType;
   // Bidirectional mixing: a single deterministic hash carves [0,1] into
   // [0..proProb)        → pro accent  (e.g. drop2 section gets a mehldau10th tonic,
   //                                    OR mehldau10th section gets a rootlessA predom)
