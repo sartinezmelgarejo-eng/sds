@@ -6790,16 +6790,24 @@ function glasperHalfDimVoicing(quality, rootPc) {
 }
 
 // ─── 14. Monk Cluster ─────────────────────────────────────────────
-// 5-note half-step / whole-step cluster. Approach voicing or static
-// color block. For any root, build the cluster around the chord's 5th
-// of the chord: G-Ab-A-B-C for a C-rooted cluster.
+// 5-note half-step / whole-step cluster (m2 + M2 + M2 + m2). Approach
+// voicing or static color block, anchored on the chord's 5th.
+// Quality-gated to where dissonance is musically idiomatic. Skipped on
+// bright tonic qualities (maj7, maj9, add9, madd9, mMaj7) where the
+// cluster fights the harmony's clarity — Monk himself used clusters
+// for tension and chromatic approach, NOT to color bright Imaj9.
+const MONK_CLUSTER_OK = new Set([
+  '7', '9', '7sus4', '9sus4',        // dominants — Monk's natural home
+  'm7', 'm9',                         // minor 7ths — works as color
+  'm7b5', 'dim7',                     // diminished — dissonance compounds
+  '7alt', '7#11', '7b9', '7#9',       // altered dominants — cluster fits
+]);
 function monkClusterVoicing(quality, rootPc) {
-  // Quality-agnostic — Monk used clusters over EVERY chord he played.
+  if (!MONK_CLUSTER_OK.has(quality)) return null;
   // Place cluster around the chord's 5th (rootPc + 7).
   const anchorPc = (rootPc + 7) % 12;
   const anchorOct = _proLHOctave(anchorPc, 0, 55, 66);   // anchor around G3-F4
   const anchor = anchorPc + 12 * anchorOct;
-  // m2 + M2 + M2 + m2 cluster — Monk's signature density.
   return { pianoShape: [anchor, anchor + 1, anchor + 3, anchor + 5, anchor + 7] };
 }
 
