@@ -13847,9 +13847,30 @@ class Player {
     // existed. When Pro Mode is on, also drop it if the user has narrowed
     // away from every pro family (no pros in voicingPrefSet AND not
     // proPrefIsAll — i.e. the user explicitly excluded every pro).
-    if (weights.pro !== undefined) {
-      const proEnabled = state.proMode && (proPrefIsAll() || PRO_VOICING_MENU_IDS.some(t => voicingPrefSet.has(t)));
-      if (!proEnabled) delete weights.pro;
+    const proEnabled = state.proMode && (proPrefIsAll() || PRO_VOICING_MENU_IDS.some(t => voicingPrefSet.has(t)));
+    if (weights.pro !== undefined && !proEnabled) delete weights.pro;
+    // Baseline pro injection: when Pro Mode is on and pros are enabled
+    // BUT the progression has no `pro` field of its own (most pop / folk
+    // / country progressions, by design — see PROGRESSION_VOICING comment
+    // about preserving genre-no-pros character), inject a baseline pro
+    // weight proportional to the progression's standard total. This
+    // lets Pro Mode users hear pros across the entire repertoire — rootless
+    // and Mehldau 10ths fit any maj/min/7 chord, which is most of the
+    // diatonic vocabulary, so there's no musical reason to lock pros out
+    // of pop progressions just because they weren't tagged. Multiplier
+    // 0.6 lands pros at ~37% of the picker's distribution on pure-pop
+    // progressions (and higher on jazz/modal where pros also have
+    // an explicit pro weight that ADDS to the baseline rather than
+    // replacing it). User opt-out: turn Pro Mode off or click ALL row.
+    if (proEnabled && weights.pro === undefined) {
+      let standardTotal = 0;
+      for (const k in weights) {
+        if (k === 'pro' || k === 'extensions') continue;
+        standardTotal += weights[k];
+      }
+      if (standardTotal > 0) {
+        weights.pro = Math.round(standardTotal * 0.6);
+      }
     }
     // User filter: when the menu is restricted to a subset, drop weights
     // for non-allowed types so the weighted pick stays inside the filter.
