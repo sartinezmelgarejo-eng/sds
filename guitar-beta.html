@@ -13728,6 +13728,104 @@ const PROGRESSIONS = {
   ]
 };
 
+/* ─── Progression FRAGMENTS — small 2/4-bar musical gestures ───
+   Each fragment is a "phrase atom" — opening, middle, or cadence —
+   tagged with what can come before (follows) and after (leads). The
+   section assembler stitches them into a full-section progression at
+   runtime, so a single fragment can participate in dozens of unique
+   section compositions. Hybrid with PROGRESSIONS: half the time a
+   section uses a curated full-length progression; the other half it's
+   assembled from fragments here.
+
+   Fields per fragment:
+     name      — unique label for trace / debugging
+     len       — bar count (2 or 4)
+     role      — 'opening' / 'middle' / 'cadence'
+     genre     — 'any' / 'jazz' / 'pop' / 'rock' / 'modal' / 'classical' / 'blues'
+                 (used for genre-bias when picking the next fragment)
+     follows   — array of fragment roles that can precede this one
+                 (omit for openings; they start the section)
+     leads     — array of fragment roles that can follow this one
+                 (omit when role='cadence' AND it actually closes; a
+                  deceptive cadence has leads:['middle','cadence'] so the
+                  composer knows it doesn't really close)
+     steps     — chord steps in the same shape as PROGRESSIONS entries
+*/
+const PROGRESSION_FRAGMENTS = {
+  major: [
+    // ─── OPENINGS — establish the home / tonic ───
+    {name:'I rest', len:2, role:'opening', genre:'any',
+      steps:[{chord:'I',bars:1},{chord:'I',bars:1}],
+      leads:['middle','cadence']},
+    {name:'I-IV opening', len:2, role:'opening', genre:'pop',
+      steps:[{chord:'I',bars:1},{chord:'IV',bars:1}],
+      leads:['middle','cadence']},
+    {name:'vi descent', len:2, role:'opening', genre:'pop',
+      steps:[{chord:'vi',bars:1},{chord:'IV',bars:1}],
+      leads:['middle','cadence']},
+    {name:'Bach diatonic', len:4, role:'opening', genre:'classical',
+      steps:[{chord:'I',bars:1},{chord:'V',bars:1},{chord:'vi',bars:1},{chord:'iii',bars:1}],
+      leads:['middle','cadence']},
+    {name:'Modal vamp open', len:2, role:'opening', genre:'modal',
+      steps:[{chord:'I',bars:1,qualityOverride:'maj7'},{chord:'IV',bars:1,qualityOverride:'maj7'}],
+      leads:['middle','cadence']},
+    {name:'Imaj7 statement', len:2, role:'opening', genre:'jazz',
+      steps:[{chord:'I',bars:1},{chord:'IV',bars:1}],
+      leads:['middle']},
+    {name:'Bluesy I7', len:2, role:'opening', genre:'blues',
+      steps:[{chord:'I',bars:1,qualityOverride:'7'},{chord:'I',bars:1,qualityOverride:'7'}],
+      leads:['middle','cadence']},
+    {name:'I-iii double', len:2, role:'opening', genre:'any',
+      steps:[{chord:'I',bars:1},{chord:'iii',bars:1}],
+      leads:['middle','cadence']},
+    // ─── MIDDLES — movement, tension, transition ───
+    {name:'Walk to V', len:2, role:'middle', genre:'jazz',
+      steps:[{chord:'V_V',bars:1},{chord:'V',bars:1}],
+      follows:['opening','middle'], leads:['cadence']},
+    {name:'ii-V cell', len:2, role:'middle', genre:'jazz',
+      steps:[{chord:'ii',bars:1},{chord:'V',bars:1}],
+      follows:['opening','middle'], leads:['cadence','middle']},
+    {name:'Modal interchange', len:2, role:'middle', genre:'rock',
+      steps:[{chord:'bVI',bars:1},{chord:'bVII',bars:1}],
+      follows:['opening','middle'], leads:['cadence']},
+    {name:'Bass step down', len:2, role:'middle', genre:'pop',
+      steps:[{chord:'iii',bars:1},{chord:'vi',bars:1}],
+      follows:['opening','middle'], leads:['middle','cadence']},
+    {name:'Pop progression', len:4, role:'middle', genre:'pop',
+      steps:[{chord:'I',bars:1},{chord:'V',bars:1},{chord:'vi',bars:1},{chord:'IV',bars:1}],
+      follows:['opening'], leads:['cadence']},
+    {name:'Diatonic 4ths', len:4, role:'middle', genre:'classical',
+      steps:[{chord:'IV',bars:1},{chord:'iii',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1}],
+      follows:['opening'], leads:['cadence']},
+    {name:'Backdoor approach', len:2, role:'middle', genre:'jazz',
+      steps:[{chord:'iv',bars:1},{chord:'bVII',bars:1}],
+      follows:['middle','opening'], leads:['cadence']},
+    {name:'Tonic pedal moves', len:4, role:'middle', genre:'rock',
+      steps:[{chord:'I',bars:1},{chord:'IV',bars:1},{chord:'V',bars:1},{chord:'I',bars:1}],
+      follows:['opening'], leads:['cadence']},
+    // ─── CADENCES — resolution ───
+    {name:'Authentic V-I', len:2, role:'cadence', genre:'any',
+      steps:[{chord:'V',bars:1},{chord:'I',bars:1}],
+      follows:['middle','opening']},
+    {name:'Plagal IV-I', len:2, role:'cadence', genre:'pop',
+      steps:[{chord:'IV',bars:1},{chord:'I',bars:1}],
+      follows:['middle','opening']},
+    {name:'Tritone sub bII7-I', len:2, role:'cadence', genre:'jazz',
+      steps:[{chord:'bII7',bars:1},{chord:'I',bars:1}],
+      follows:['middle']},
+    {name:'Deceptive V-vi', len:2, role:'cadence', genre:'any',
+      steps:[{chord:'V',bars:1},{chord:'vi',bars:1}],
+      follows:['middle'], leads:['middle','cadence']},
+    {name:'Half cadence ii-V', len:2, role:'cadence', genre:'classical',
+      steps:[{chord:'ii',bars:1},{chord:'V',bars:1}],
+      follows:['opening','middle'], leads:['middle','cadence']},
+    {name:'Jazz turnaround', len:4, role:'cadence', genre:'jazz',
+      steps:[{chord:'iii',bars:1},{chord:'vi',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1}],
+      follows:['opening','middle'], leads:['cadence']},
+  ],
+  minor: [],   // Phase 1 ships major-only; minor fragments come next round
+};
+
 /* ─── Per-progression song role tags ───
    What role each progression idiomatically plays in a song:
      A — the home / head / verse — establishes the tune
@@ -14741,7 +14839,122 @@ class Player {
     return this.song[nextSectionIdx]?.progression.steps[0].chord;
   }
 
+  // Stitch a progression from PROGRESSION_FRAGMENTS — opening + middle(s)
+  // + cadence — respecting each fragment's follows/leads rules and
+  // biasing by genre so consecutive fragments tend to belong to the
+  // same musical world. targetBars is the desired section length;
+  // assembler stops just before targetBars and lands a matching cadence.
+  _assembleFromFragments(targetBars, sectionRole) {
+    const list = PROGRESSION_FRAGMENTS[state.tonality] || [];
+    if (!list.length) return null;
+    const inScope = list.filter(f => f.steps.every(s => isChordInScope(s.chord)));
+    if (!inScope.length) return null;
+    const openings = inScope.filter(f => f.role === 'opening');
+    const middles  = inScope.filter(f => f.role === 'middle');
+    const cadences = inScope.filter(f => f.role === 'cadence');
+    if (!openings.length || !cadences.length) return null;
+    // Genre-biased weighted pick. Same genre as `currentGenre` → +30
+    // weight, 'any' genre → +15, otherwise base 10. Lets cross-genre
+    // happen occasionally (interesting accidents) without dominating.
+    const pickWithGenreBias = (pool, currentGenre) => {
+      if (!pool.length) return null;
+      const weights = pool.map(f => {
+        let w = 10;
+        if (f.genre === 'any') w += 15;
+        else if (currentGenre && f.genre === currentGenre) w += 30;
+        return w;
+      });
+      const total = weights.reduce((a,b) => a+b, 0);
+      let r = Math.random() * total;
+      for (let i = 0; i < pool.length; i++) {
+        r -= weights[i];
+        if (r <= 0) return pool[i];
+      }
+      return pool[pool.length - 1];
+    };
+    // 1. Opening.
+    const opening = pickWithGenreBias(openings, null);
+    if (!opening) return null;
+    const fragments = [opening];
+    let usedBars = opening.len;
+    let currentGenre = opening.genre;
+    let currentFragment = opening;
+    let safety = 8;  // hard cap so weird leads/follows can't infinite-loop
+    // 2. Middles until 2-4 bars remain for cadence.
+    while (usedBars < targetBars - 2 && safety-- > 0) {
+      const validNext = (middles || []).filter(m => {
+        const followsOk = !m.follows || m.follows.includes(currentFragment.role);
+        const fitsRoom = usedBars + m.len <= targetBars - 2;
+        const currentLeads = currentFragment.leads;
+        const leadsOk = !currentLeads || currentLeads.includes(m.role);
+        // Don't repeat the same fragment back-to-back — gives sections
+        // a sense of forward motion instead of cycling on one cell.
+        const notSelfRepeat = m.name !== currentFragment.name;
+        return followsOk && fitsRoom && leadsOk && notSelfRepeat;
+      });
+      if (!validNext.length) break;
+      const middle = pickWithGenreBias(validNext, currentGenre);
+      if (!middle) break;
+      fragments.push(middle);
+      usedBars += middle.len;
+      currentFragment = middle;
+      // Genre drift toward whatever just landed — lets the section
+      // change voice mid-stream when a cross-genre fragment slips in.
+      if (middle.genre && middle.genre !== 'any') currentGenre = middle.genre;
+    }
+    // 3. Cadence.
+    const cadenceRoom = targetBars - usedBars;
+    const validCadences = cadences.filter(c => {
+      const followsOk = !c.follows || c.follows.includes(currentFragment.role);
+      const fitsRoom = c.len <= cadenceRoom;
+      const currentLeads = currentFragment.leads;
+      const leadsOk = !currentLeads || currentLeads.includes(c.role);
+      return followsOk && fitsRoom && leadsOk;
+    });
+    if (validCadences.length) {
+      const cadence = pickWithGenreBias(validCadences, currentGenre);
+      if (cadence) { fragments.push(cadence); usedBars += cadence.len; }
+    }
+    // 4. Pad with a held I if we landed short (rare; cadence picker
+    // should usually fit). Better to overrun the section than under-fill.
+    if (usedBars < targetBars) {
+      const padBars = targetBars - usedBars;
+      fragments.push({
+        name: '_pad', len: padBars,
+        steps: [{ chord: 'I', bars: padBars }],
+      });
+      usedBars += padBars;
+    }
+    // 5. Build the assembled progression in PROGRESSIONS shape so
+    // downstream (PROGRESSION_VOICING lookup, _buildPagePlan, etc.) sees
+    // it just like a curated full-section progression.
+    const assembledName = 'Assembled: ' + fragments
+      .filter(f => f.name !== '_pad')
+      .map(f => f.name)
+      .join(' → ');
+    const allSteps = [];
+    for (const f of fragments) {
+      for (const step of f.steps) {
+        allSteps.push({ ...step });
+      }
+    }
+    return { name: assembledName, len: usedBars, steps: allSteps, _assembled: true };
+  }
   _pickProgression(avoidName = null, role = null) {
+    // Hybrid: ~50% chance to assemble from fragments when fragments exist
+    // for the current tonality. The other ~50% pulls from the curated
+    // PROGRESSIONS table as before. Both paths produce shape-compatible
+    // progressions so downstream code doesn't care which route was taken.
+    const fragList = PROGRESSION_FRAGMENTS[state.tonality];
+    if (fragList && fragList.length && Math.random() < 0.5) {
+      // Target bars: bias toward 4 and 8 (the song-form lengths that
+      // already dominate PROGRESSIONS, so song structures keep clean
+      // phrasing). Occasional 6 lets a section breathe oddly.
+      const targetChoices = [4, 4, 4, 8, 8, 8, 8, 6];
+      const targetBars = targetChoices[Math.floor(Math.random() * targetChoices.length)];
+      const assembled = this._assembleFromFragments(targetBars, role);
+      if (assembled) return assembled;
+    }
     const list = PROGRESSIONS[state.tonality] || [];
     if (!list.length) return null;
     // Only use progressions whose chords are all allowed by the current scope.
