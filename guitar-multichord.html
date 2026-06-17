@@ -6405,7 +6405,21 @@ function rootlessAVoicing(quality, rootPc) {
   const ints = ROOTLESS_A_INTERVALS[quality];
   if (!ints) return null;
   const oct = _proLHOctave(rootPc, ints[0]);
-  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+  const canonical = ints.map(i => rootPc + i + 12 * oct);
+  // ±1 octave variants for the picker only: when the canonical
+  // register would force a >octave jump against the previous chord
+  // (e.g. ii in canonical going down to V in canonical when the V
+  // sits higher in the cycle), the picker can drop or lift the whole
+  // grip so the voice-leading actually follows the melody instead of
+  // leaping. The "Other voicings" strip stays clean — only the
+  // canonical card shows there; octaveVariants are picker-only.
+  return {
+    pianoShape: canonical,
+    octaveVariants: [
+      { pianoShape: canonical.map(m => m - 12), label: 'low' },
+      { pianoShape: canonical.map(m => m + 12), label: 'high' },
+    ],
+  };
 }
 
 // ─── 2. Rootless B voicing ───────────────────────────────────────
@@ -6427,7 +6441,18 @@ function rootlessBVoicing(quality, rootPc) {
   // around middle C (Bb3-D4) so the LH stays in the canonical bebop
   // comping register.
   const oct = _proLHOctave(rootPc, ints[0], 55, 64);
-  return { pianoShape: ints.map(i => rootPc + i + 12 * oct) };
+  const canonical = ints.map(i => rootPc + i + 12 * oct);
+  // Same picker-only octave alternatives as rootlessA — gives the
+  // voice-leading enough range to follow the melody across a ii-V-I
+  // even when the canonical B register is on the wrong side of the
+  // previous chord.
+  return {
+    pianoShape: canonical,
+    octaveVariants: [
+      { pianoShape: canonical.map(m => m - 12), label: 'low' },
+      { pianoShape: canonical.map(m => m + 12), label: 'high' },
+    ],
+  };
 }
 
 // ─── 3. Powell Shell (LH-only economy) ────────────────────────────
@@ -10293,7 +10318,10 @@ function renderAlternatives() {
   altName.textContent = `${fc.roman} · ${chordName}`;
 
   // Master catalog — drop-2 → shells → triads → guides → sus, deduped.
-  const cands = allDistinctVoicings(fc.quality, root);
+  // Octave-variant pro candidates exist in the master list to give the
+  // compose-mode picker enough range for voice-leading, but the strip
+  // hides them so the user doesn't see Rootless A × 3 octaves.
+  const cands = allDistinctVoicings(fc.quality, root).filter(c => !c._octaveAlt);
   const shapeKey = (sh) => sh.map((f, i) => f >= 0 ? `${i}.${f}` : '').filter(Boolean).join(',');
   const curKey = state.userVoicing?.shape ? shapeKey(state.userVoicing.shape) : null;
   // The voicing currently SOUNDING via the AI player (independent of
@@ -10445,8 +10473,15 @@ function renderAlternatives() {
         const ch = currentMap().chordDefs[fc.id];
         const r  = chordRoot(ch);
         const all = allDistinctVoicings(ch.quality, r);
-        const prev = targetIdx > 0 ? seq[targetIdx - 1].shape : null;
-        const idx = pickByStrategy(all, prev);
+        // Pass the prev CELL (not just shape) so pickByStrategy's pro
+        // MIDI scoring path can read prevShape.pianoShape; otherwise
+        // it falls back to fret-mode and produces 0 movement on pro
+        // candidates.
+        const prevCell = targetIdx > 0 ? seq[targetIdx - 1] : null;
+        const prevForPicker = (prevCell && Array.isArray(prevCell.pianoShape) && prevCell.pianoShape.length)
+          ? { shape: prevCell.shape, pianoShape: prevCell.pianoShape.slice() }
+          : (prevCell ? prevCell.shape : null);
+        const idx = pickByStrategy(all, prevForPicker);
         if (idx >= 0) {
           const pk = all[idx];
           const target = seq[targetIdx];
@@ -10456,6 +10491,12 @@ function renderAlternatives() {
           target.stringSetIdx = pk.stringSetIdx;
           target.inversion = pk.inversion;
           target.stringSet = pk.stringSet;
+          if (Array.isArray(pk.pianoShape) && pk.pianoShape.length) {
+            target.pianoShape = pk.pianoShape.slice();
+            if (pk.variant) target.variant = pk.variant;
+          } else {
+            target.pianoShape = null;
+          }
           renderComposeStrip();
         }
       }
@@ -13855,16 +13896,29 @@ class Player {
       if (openSh) cands.push(openSh);
     } else if (PRO_BUILDERS[type]) {
       // Pro Mode (piano-only): pianoShape is an array of MIDI numbers.
-      // Each builder returns either {pianoShape:[…]} (single canonical
-      // voicing) OR {variants:[{pianoShape:[…], label}, …]} (multiple
-      // valid rotations — e.g. So What's "ninth" vs "fifth"). Each
-      // variant becomes its own candidate; downstream voice-leading
-      // (handled in the pro fast-path below) picks the smoothest.
+      // Each builder may return:
+      //   {pianoShape:[…]} — single canonical voicing.
+      //   {variants:[{pianoShape,label}, …]} — multiple rotations/bass
+      //     choices, each a musically distinct voicing (e.g. So What's
+      //     "ninth" vs "fifth"). All variants appear in the "Other
+      //     voicings" strip AND feed the picker.
+      //   {pianoShape:[…], octaveVariants:[{pianoShape,label}, …]} —
+      //     canonical + extra octave transpositions for voice-leading
+      //     only. Strip shows only the canonical card (clean UX), but
+      //     the picker considers ±octave so smooth voice-leading can
+      //     reach the previous chord without leaping.
+      // All builds become candidates; the pro fast-path below picks
+      // the smoothest by MIDI movement against prevShape.
       const proResult = PRO_BUILDERS[type](quality, root);
       if (proResult) {
         const builds = Array.isArray(proResult.variants)
-          ? proResult.variants
+          ? proResult.variants.slice()
           : (proResult.pianoShape ? [{ pianoShape: proResult.pianoShape }] : []);
+        if (Array.isArray(proResult.octaveVariants)) {
+          for (const ov of proResult.octaveVariants) {
+            if (ov && ov.pianoShape) builds.push(ov);
+          }
+        }
         for (const b of builds) {
           if (!b || !b.pianoShape) continue;
           const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
@@ -19815,13 +19869,16 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
       if (!builder) continue;
       const r = builder(quality, rootPc);
       if (!r) continue;
-      // Builder may return a single pianoShape OR multiple variants
-      // (e.g. So What's "ninth" vs "fifth" rotations). Each variant
-      // becomes its own card in the alternatives strip — both are
-      // valid voicings and the user can pick whichever they want to
-      // hear / drop into compose.
+      // Three sources of pro candidates:
+      //   r.pianoShape    — single canonical (most builders)
+      //   r.variants[]    — multiple rotations/bass choices, all
+      //                     musically distinct (e.g. So What ninth vs
+      //                     fifth). Shown in the alternatives strip.
+      //   r.octaveVariants[] — ±octave transpositions for picker only;
+      //                     hidden from the strip via _octaveAlt so
+      //                     the user doesn't see Rootless A × 3 octaves.
       const builds = Array.isArray(r.variants)
-        ? r.variants
+        ? r.variants.slice()
         : (r.pianoShape ? [{ pianoShape: r.pianoShape }] : []);
       for (const b of builds) {
         if (!b || !b.pianoShape) continue;
@@ -19831,6 +19888,19 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
         const entry = { shape: placeholder, type: proType, pianoShape: b.pianoShape };
         if (b.label) entry.variant = b.label;
         out.push(entry);
+      }
+      if (Array.isArray(r.octaveVariants)) {
+        for (const ov of r.octaveVariants) {
+          if (!ov || !ov.pianoShape) continue;
+          const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
+          const entry = {
+            shape: placeholder, type: proType,
+            pianoShape: ov.pianoShape,
+            _octaveAlt: true,
+          };
+          if (ov.label) entry.variant = ov.label;
+          out.push(entry);
+        }
       }
     }
   }
@@ -20002,6 +20072,50 @@ function pickByStrategy(cands, prevShape) {
   if (!cands || !cands.length) return -1;
   const strat = state.autoStrategy || 'smoothest';
   if (strat === 'random') return Math.floor(Math.random() * cands.length);
+  // Pro-mode MIDI scoring: when EVERY candidate carries a pianoShape
+  // (Pro Mode narrowed to one-or-more pro families), fret-based
+  // scoring is meaningless (the placeholder shape is all -1, so
+  // avgFret = 0 and totalVoiceMovement = 0 for every candidate).
+  // Score by MIDI voice-movement against prev's pianoShape (when prev
+  // is pro) or fret-converted MIDI (when prev is standard). For low /
+  // high strategies, score by mean MIDI register instead.
+  if (cands.every(c => c && Array.isArray(c.pianoShape) && c.pianoShape.length)) {
+    if (strat === 'low' || strat === 'high') {
+      let bestI = 0;
+      let bestVal = strat === 'low' ? Infinity : -Infinity;
+      cands.forEach((c, i) => {
+        const avg = c.pianoShape.reduce((a, b) => a + b, 0) / c.pianoShape.length;
+        if (strat === 'low' && avg < bestVal) { bestVal = avg; bestI = i; }
+        if (strat === 'high' && avg > bestVal) { bestVal = avg; bestI = i; }
+      });
+      return bestI;
+    }
+    // smoothest: minimum total |Δ| between sorted MIDI arrays.
+    let prevMidi = null;
+    if (prevShape) {
+      if (Array.isArray(prevShape.pianoShape) && prevShape.pianoShape.length) {
+        prevMidi = prevShape.pianoShape.slice();
+      } else if (Array.isArray(prevShape) && prevShape.length === 6) {
+        prevMidi = [];
+        for (let s = 0; s < 6; s++) {
+          const f = prevShape[s];
+          if (f >= 0) prevMidi.push(STRING_OPEN_MIDI[s] + f);
+        }
+      }
+    }
+    if (!prevMidi || !prevMidi.length) return 0;
+    const prevSorted = prevMidi.slice().sort((a, b) => a - b);
+    let bestI = 0;
+    let bestMv = Infinity;
+    cands.forEach((c, i) => {
+      const cur = c.pianoShape.slice().sort((a, b) => a - b);
+      const n = Math.min(cur.length, prevSorted.length);
+      let mv = 0;
+      for (let k = 0; k < n; k++) mv += Math.abs(cur[k] - prevSorted[k]);
+      if (mv < bestMv) { bestMv = mv; bestI = i; }
+    });
+    return bestI;
+  }
   let bestIdx = 0, bestScore = Infinity;
   const prevKey = _shapeKey(prevShape);
   cands.forEach((c, i) => {
@@ -20123,9 +20237,20 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
   // still walks the FULL master `cands` so the user can manually browse any
   // voicing — restricting cycle would feel surprising.
   const filteredCands = filterShapeCandidates(cands);
-  const pickBest = (prevShape) => {
+  // Wrap the prev cell so pickByStrategy's pro-MIDI scoring path can
+  // see pianoShape. Without this it'd fall back to fret-shape (all -1
+  // for pros), produce 0 movement for every candidate, and the picker
+  // would lose the octave-shift signal that smooths voice-leading.
+  const _prevForPicker = (cell) => {
+    if (!cell) return null;
+    if (Array.isArray(cell.pianoShape) && cell.pianoShape.length) {
+      return { shape: cell.shape, pianoShape: cell.pianoShape.slice() };
+    }
+    return cell.shape || null;
+  };
+  const pickBest = (prevCell) => {
     const pool = filteredCands.length ? filteredCands : cands;
-    const localIdx = pickByStrategy(pool, prevShape);
+    const localIdx = pickByStrategy(pool, _prevForPicker(prevCell));
     if (localIdx < 0) return 0;
     const chosen = pool[localIdx];
     const masterIdx = cands.indexOf(chosen);
@@ -20184,13 +20309,12 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
       const slotIdx = Math.max(0, Math.min(editCell.slots.length - 1, state._multiChordEditSlotIdx ?? 0));
       _composeSaveUndo();
       const prevSlot = slotIdx > 0 ? editCell.slots[slotIdx - 1] : null;
-      const prevShape = prevSlot ? prevSlot.shape : null;
       let newIdx;
       if (cycleInversion && editCell.slots[slotIdx]?.chord === chordId) {
         const cur = editCell.slots[slotIdx];
         newIdx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
       } else {
-        newIdx = pickBest(prevShape);
+        newIdx = pickBest(prevSlot);
       }
       editCell.slots[slotIdx] = writeCell(slotIdx, newIdx);
       // Writing a chord to a previously-muted slot un-mutes it — the user
@@ -20277,7 +20401,7 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
     if (cycleInversion && cur.chord === chordId) {
       newIdx = ((cur._candIdx ?? 0) + direction + cands.length) % cands.length;
     } else {
-      newIdx = pickBest(selIdx > 0 ? seq[selIdx - 1].shape : null);
+      newIdx = pickBest(selIdx > 0 ? seq[selIdx - 1] : null);
     }
     seq[selIdx] = writeCell(selIdx, newIdx);
     const c = cands[newIdx];
@@ -20318,9 +20442,14 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
         stringSetIdx: last.stringSetIdx,
         inversion: last.inversion,
         stringSet: last.stringSet,
+        // Pro voicings keep MIDI on pianoShape; without this a
+        // same-chord repeat would land a placeholder cell + go silent.
+        pianoShape: (Array.isArray(last.pianoShape) && last.pianoShape.length)
+          ? last.pianoShape.slice() : null,
+        variant: last.variant || null,
       });
     } else {
-      newIdx = pickBest(last ? last.shape : null);
+      newIdx = pickBest(last || null);
       seq.push(writeCell(seq.length, newIdx));
     }
   }
