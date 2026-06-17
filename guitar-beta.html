@@ -6658,7 +6658,15 @@ function ustSharp11Voicing(quality, rootPc) {
 // (different shell layout) + RH Db-F-Ab. Db major contains b9, #9
 // and b13 of G7 — the textbook "altered" sound. Resolves smoothly
 // to Cmaj7 via the tritone-sub voice-leading.
-const UST_ALT_OK = new Set(['7', '7alt', '9', '7b9']);
+// ustAlt stacks #9 + b13 + #11 on top of the dom. On truly altered
+// qualities (7alt / 7b9 / 7#9) those tensions are already implied —
+// the voicing is just spelling them out. On plain '7' / '9' (no
+// alteration in the step), the same tensions sound gratuitous: the
+// dom didn't ASK to be altered, so dropping ustAlt on it comes off
+// "over the top" (user: "alt can be good but sometimes a little
+// over the top"). Gate restricted to qualities that actually carry
+// alterations.
+const UST_ALT_OK = new Set(['7alt', '7b9', '7#9']);
 function ustAltVoicing(quality, rootPc) {
   if (!UST_ALT_OK.has(quality)) return null;
   // Same bass register as UST #11 — C2-B2 range.
@@ -20829,7 +20837,7 @@ const FUNCTION_OVERRIDE = {
   // la seccion basic, deberian mezclarse mas con los pro.'
   tonic:     { alt: ['drop3', 'add9'],  prob: 0.13, proAlt: ['mehldau10th', 'rootlessA', 'stride10th'], proProb: 0.13 },
   predom:    { alt: ['shell', 'quartal'], prob: 0.16, proAlt: ['rootlessA', 'mehldau10th'], proProb: 0.17 },
-  dom:       { alt: ['drop3', 'sus'],   prob: 0.20, proAlt: ['ustAlt', 'rootlessB'],      proProb: 0.16 },
+  dom:       { alt: ['drop3', 'sus'],   prob: 0.20, proAlt: ['rootlessB', 'powellShell', 'mehldau10th', 'ustAlt'], proProb: 0.16 },
   secondary: { alt: 'drop3', prob: 0.22, proAlt: 'ustSharp11',                  proProb: 0.13 },
   borrowed:  { alt: 'drop3', prob: 0.22, proAlt: ['lockedHands', 'rootlessA'], proProb: 0.13 },
 };
