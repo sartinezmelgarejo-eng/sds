@@ -11998,8 +11998,27 @@ function voicingPrefIsAll() {
   // of the default vocabulary. So ignore pros when computing ALL state.
   return VOICING_TYPE_IDS.every(t => voicingPrefSet.has(t));
 }
+// "Effective allowed pro candidate types": expands the menu-id set
+// (voicingPrefSet contains 'rootlessA' the menu row) to the internal
+// candidate-id set ({'rootlessA','rootlessB'}) so filter / dispatch can
+// match candidate.type directly. Computed lazily — small enough.
+function _proEffectiveTypes() {
+  const eff = new Set();
+  for (const t of voicingPrefSet) {
+    if (!isProMenuId(t)) continue;
+    _proExpandMenuId(t).forEach(x => eff.add(x));
+  }
+  return eff;
+}
 function isVoicingAllowed(type) {
-  return voicingPrefIsAll() || (type && voicingPrefSet.has(type));
+  if (voicingPrefIsAll()) return true;
+  if (!type) return false;
+  if (voicingPrefSet.has(type)) return true;
+  // Pro candidate types may not appear in voicingPrefSet directly (the
+  // menu row stores e.g. 'rootlessA' but the picker also fires
+  // 'rootlessB' for the same row). Expand and check.
+  if (isProFamily(type)) return _proEffectiveTypes().has(type);
+  return false;
 }
 // "Pro ALL" mode — when Pro Mode is ON but the user has NOT individually
 // selected any pro family. Mirrors the standard ALL: turning Pro Mode on
@@ -12007,7 +12026,10 @@ function isVoicingAllowed(type) {
 // pro narrows to just that one (and adding more from there grows the set).
 function proPrefIsAll() {
   if (!state.proMode) return false;
-  return !PRO_VOICING_TYPE_IDS.some(t => voicingPrefSet.has(t));
+  // Check against MENU ids — voicingPrefSet only ever stores menu ids,
+  // never the expanded internal types (e.g. 'rootlessB' is never in the
+  // set; it's reached via the 'rootlessA' menu row's proPair).
+  return !PRO_VOICING_MENU_IDS.some(t => voicingPrefSet.has(t));
 }
 function allowedVoicingTypes() {
   // Standards: full set when ALL is on, otherwise just the explicit picks.
@@ -12015,18 +12037,30 @@ function allowedVoicingTypes() {
     ? VOICING_TYPE_IDS.slice()
     : VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
   // Pros: hidden when Pro Mode is off; ALL pros when Pro Mode is on with
-  // no individual selection; just the picked ones when narrowed.
+  // no individual selection; the EXPANDED set of picked ones when
+  // narrowed (so 'rootlessA' menu row contributes both 'rootlessA' and
+  // 'rootlessB' to the picker's vocabulary).
   let pros = [];
   if (state.proMode) {
-    pros = proPrefIsAll()
-      ? PRO_VOICING_TYPE_IDS.slice()
-      : PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+    if (proPrefIsAll()) {
+      pros = PRO_VOICING_TYPE_IDS.slice();
+    } else {
+      const eff = _proEffectiveTypes();
+      pros = PRO_VOICING_TYPE_IDS.filter(t => eff.has(t));
+    }
   }
   return standards.concat(pros);
 }
 function filterShapeCandidates(cands) {
   if (voicingPrefIsAll() || !cands || !cands.length) return cands;
-  const filtered = cands.filter(c => c && c.type && voicingPrefSet.has(c.type));
+  const eff = _proEffectiveTypes();
+  const filtered = cands.filter(c => {
+    if (!c || !c.type) return false;
+    if (voicingPrefSet.has(c.type)) return true;
+    // Expansion match — candidate is one of a paired menu row's
+    // internal types (e.g. 'rootlessB' for the 'rootlessA' row).
+    return eff.has(c.type);
+  });
   return filtered.length ? filtered : cands;
 }
 // Compact labels for the voicing button so the toolbar stays a constant
@@ -12287,7 +12321,11 @@ function renderVoicingMenu() {
     ? VOICING_OPTIONS
     : VOICING_OPTIONS.filter(v => !v.proPianoOnly);
   const _proAll = proPrefIsAll();
-  const _proNarrowedCount = state.proMode ? PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t)).length : 0;
+  // Count against MENU ids (rows the user sees in the menu) so the
+  // narrowed count matches "rows you've ticked", not the expanded
+  // internal candidate set.
+  const _proNarrowedCount = state.proMode ? PRO_VOICING_MENU_IDS.filter(t => voicingPrefSet.has(t)).length : 0;
+  const _proTotalRows = PRO_VOICING_MENU_IDS.length;
   const proToggleHtml = (state.instrument === 'piano')
     ? `
     <div class="sound-menu-item pro-toggle ${state.proMode ? 'selected' : ''}" data-voicing="__pro_toggle__"
@@ -12298,7 +12336,7 @@ function renderVoicingMenu() {
         <span style="display:block;font-size:10px;opacity:0.65;font-style:italic">${
           state.proMode
             ? (_proAll
-                ? 'ALL · 15 piano voicings active — click a row below to narrow'
+                ? `ALL · ${_proTotalRows} piano voicings active — click a row below to narrow`
                 : `narrowed · ${_proNarrowedCount} selected — click toggle again to disable Pro Mode`)
             : 'reveals Bill Evans rootless, So What, Mehldau 10th… as ALL'
         }</span>
