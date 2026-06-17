@@ -6465,13 +6465,26 @@ function powellShellVoicing(quality, rootPc) {
 const SO_WHAT_OK = new Set(['m7', 'm9', '7sus4', '9sus4']);
 function soWhatFullVoicing(quality, rootPc) {
   if (!SO_WHAT_OK.has(quality)) return null;
-  // Bottom note = 9 of chord = rootPc + 2 (pc-wise). Place around
-  // E2-B2 (MIDI 40-47) for the iconic Bill Evans register.
+  // Two valid rotations of the stacked-4ths "So What" voicing. Both
+  // contain the same chord tones (R, b3, 5, b7, 11) — just rotated
+  // around a different bass voice. The picker chooses whichever
+  // gives smoother voice-leading from the previous chord.
+  //   'ninth' (Bill Evans literal): 9-5-R-11-b7 from bottom up.
+  //           Dm = E2-A2-D3-G3-C4 — the intro to Kind of Blue's "So What".
+  //   'fifth' (rotation): 5-R-11-b7-b3 from bottom up.
+  //           Dm = A2-D3-G3-C4-F4 — same chord rotated, b3 on top.
+  //           Equally idiomatic in modal comping.
   const ninthPc = ((rootPc + 2) % 12 + 12) % 12;
-  const oct = _proLHOctave(ninthPc, 0, 40, 47);
-  const bottomMidi = ninthPc + 12 * oct;
-  // Stack 4 more perfect 4ths above (5 semitones each).
-  return { pianoShape: [0, 5, 10, 15, 20].map(i => bottomMidi + i) };
+  const fifthPc = ((rootPc + 7) % 12 + 12) % 12;
+  const ninthOct = _proLHOctave(ninthPc, 0, 40, 47);
+  const fifthOct = _proLHOctave(fifthPc, 0, 40, 47);
+  const stack = [0, 5, 10, 15, 20];
+  return {
+    variants: [
+      { pianoShape: stack.map(i => ninthPc + 12 * ninthOct + i), label: 'ninth' },
+      { pianoShape: stack.map(i => fifthPc + 12 * fifthOct + i), label: 'fifth' },
+    ],
+  };
 }
 
 // ─── 5. Mehldau 10th Spread ───────────────────────────────────────
@@ -13812,18 +13825,24 @@ class Player {
       if (openSh) cands.push(openSh);
     } else if (PRO_BUILDERS[type]) {
       // Pro Mode (piano-only): pianoShape is an array of MIDI numbers.
-      // Wrap it into a placeholder fret-shape so the existing scorer
-      // can handle it (avgFret will return 0, registerCost won't pull
-      // toward the guitar sweet spot — that's fine, pro voicings have
-      // their own register baked into pianoShape). The placeholder is
-      // tagged with __pianoShape so downstream audio + visualizers can
-      // read the real MIDI notes.
+      // Each builder returns either {pianoShape:[…]} (single canonical
+      // voicing) OR {variants:[{pianoShape:[…], label}, …]} (multiple
+      // valid rotations — e.g. So What's "ninth" vs "fifth"). Each
+      // variant becomes its own candidate; downstream voice-leading
+      // (handled in the pro fast-path below) picks the smoothest.
       const proResult = PRO_BUILDERS[type](quality, root);
-      if (proResult && proResult.pianoShape) {
-        const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
-        Object.defineProperty(placeholder, '__pianoShape', { value: proResult.pianoShape });
-        Object.defineProperty(placeholder, '__proType', { value: type });
-        cands.push(placeholder);
+      if (proResult) {
+        const builds = Array.isArray(proResult.variants)
+          ? proResult.variants
+          : (proResult.pianoShape ? [{ pianoShape: proResult.pianoShape }] : []);
+        for (const b of builds) {
+          if (!b || !b.pianoShape) continue;
+          const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
+          Object.defineProperty(placeholder, '__pianoShape', { value: b.pianoShape });
+          Object.defineProperty(placeholder, '__proType', { value: type });
+          if (b.label) Object.defineProperty(placeholder, '__proVariant', { value: b.label });
+          cands.push(placeholder);
+        }
       }
     } else if (type === 'strum') {
       // Rhythm-guitar grip family. Two barre sub-variants:
@@ -13867,15 +13886,43 @@ class Player {
       // don't return null on an obscure chord.
     }
 
-    // Pro Mode fast path: each pro builder produces exactly ONE
-    // canonical voicing per (quality, root) — there are no inversions
-    // or string sets to score. Returning directly skips the register
-    // cost (which would punish the placeholder shape's avgFret=0) and
-    // the voice-leading scorer (which doesn't apply to a different
-    // notes count). The pianoShape rides on the array via
-    // __pianoShape; the trigger lifts it onto the cell.
-    if (cands.length === 1 && cands[0] && cands[0].__pianoShape) {
-      return cands[0];
+    // Pro Mode fast path: pro builders produce one or more canonical
+    // pianoShape candidates per (quality, root) — there are no
+    // inversions or string sets to score. We bypass the fret-based
+    // register cost (which would punish the placeholder shape's
+    // avgFret=0) and the voice-leading scorer (different notes count).
+    // The pianoShape rides on the array via __pianoShape; the trigger
+    // lifts it onto the cell. When a builder returns multiple variants
+    // (e.g. So What's "ninth" vs "fifth" rotations of the stacked-4ths
+    // voicing), pick whichever has minimum MIDI movement from the
+    // previous chord. Without a prev reference, keep the first variant
+    // (which is the canonical / iconic register for that voicing).
+    if (cands.length >= 1 && cands.every(c => c && c.__pianoShape)) {
+      if (cands.length === 1) return cands[0];
+      let prevMidi = null;
+      if (prevShape) {
+        if (Array.isArray(prevShape.__pianoShape) && prevShape.__pianoShape.length) {
+          prevMidi = prevShape.__pianoShape.slice();
+        } else if (prevShape.length === 6) {
+          prevMidi = [];
+          for (let s = 0; s < 6; s++) {
+            const f = prevShape[s];
+            if (f >= 0) prevMidi.push(STRING_OPEN_MIDI[s] + f);
+          }
+        }
+      }
+      if (!prevMidi || !prevMidi.length) return cands[0];
+      const prevSorted = prevMidi.slice().sort((a, b) => a - b);
+      let bestIdx = 0;
+      let bestMv = Infinity;
+      cands.forEach((c, i) => {
+        const cur = c.__pianoShape.slice().sort((a, b) => a - b);
+        const n = Math.min(cur.length, prevSorted.length);
+        let mv = 0;
+        for (let k = 0; k < n; k++) mv += Math.abs(cur[k] - prevSorted[k]);
+        if (mv < bestMv) { bestMv = mv; bestIdx = i; }
+      });
+      return cands[bestIdx];
     }
 
     // No previous reference → strong pull to fret-6/7 sweet spot.
@@ -19692,11 +19739,24 @@ function allDistinctVoicings(quality, rootPc, opts = {}) {
       const builder = PRO_BUILDERS[proType];
       if (!builder) continue;
       const r = builder(quality, rootPc);
-      if (!r || !r.pianoShape) continue;
-      const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
-      // pianoShape stored as an own enumerable field so the renderer
-      // can iterate it without resorting to non-enumerable lookups.
-      out.push({ shape: placeholder, type: proType, pianoShape: r.pianoShape });
+      if (!r) continue;
+      // Builder may return a single pianoShape OR multiple variants
+      // (e.g. So What's "ninth" vs "fifth" rotations). Each variant
+      // becomes its own card in the alternatives strip — both are
+      // valid voicings and the user can pick whichever they want to
+      // hear / drop into compose.
+      const builds = Array.isArray(r.variants)
+        ? r.variants
+        : (r.pianoShape ? [{ pianoShape: r.pianoShape }] : []);
+      for (const b of builds) {
+        if (!b || !b.pianoShape) continue;
+        const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
+        // pianoShape stored as an own enumerable field so the renderer
+        // can iterate it without resorting to non-enumerable lookups.
+        const entry = { shape: placeholder, type: proType, pianoShape: b.pianoShape };
+        if (b.label) entry.variant = b.label;
+        out.push(entry);
+      }
     }
   }
 
