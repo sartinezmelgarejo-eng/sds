@@ -20073,11 +20073,22 @@ function composedCandidatesFor(quality, rootPc) {
 //   secondary → drop-3 (highlighted)      ~45%
 //   borrowed  → drop-3 (color chord)      ~45%
 const FUNCTION_OVERRIDE = {
-  tonic:     { alt: 'drop3', prob: 0.15 },
-  predom:    { alt: 'shell', prob: 0.18 },
-  dom:       { alt: 'drop3', prob: 0.25 },
-  secondary: { alt: 'drop3', prob: 0.30 },
-  borrowed:  { alt: 'drop3', prob: 0.30 },
+  // alt / prob — standard family accent. Pre-existing behavior.
+  // proAlt / proProb — pro family accent for the same chord role. Only
+  //   fires when state.proMode is on AND user has the proAlt family
+  //   enabled. Lets a section with a standard primary occasionally drop
+  //   a pro voicing on its natural-function chord (tonic gets a Mehldau
+  //   10th, dominant gets a ustAlt, etc.) for textural color. AND lets
+  //   a section with a pro primary occasionally surface a standard
+  //   drop-3 accent on the same role, so pro sections don't lock into
+  //   one texture for 8 bars.
+  // The two slices (proProb, prob) are disjoint segments of [0,1]; the
+  // remaining probability mass keeps the section primary.
+  tonic:     { alt: 'drop3', prob: 0.15, proAlt: 'mehldau10th', proProb: 0.15 },
+  predom:    { alt: 'shell', prob: 0.18, proAlt: 'rootlessA',   proProb: 0.20 },
+  dom:       { alt: 'drop3', prob: 0.22, proAlt: 'ustAlt',      proProb: 0.18 },
+  secondary: { alt: 'drop3', prob: 0.25, proAlt: 'ustSharp11',  proProb: 0.15 },
+  borrowed:  { alt: 'drop3', prob: 0.25, proAlt: 'lockedHands', proProb: 0.15 },
 };
 // Decide the voicing type to use for one chord-event. The section
 // primary is the default; with FUNCTION_OVERRIDE probability we
@@ -20108,27 +20119,27 @@ function _displayVoicingFamily(builtType, quality, rootPc, shape) {
 function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIter) {
   if (!chordTag) return primaryType;
   const override = FUNCTION_OVERRIDE[chordTag];
-  if (!override || override.alt === primaryType) return primaryType;
-  // Pro voicings live in their own canonical register (Bill Evans rootless,
-  // McCoy spread, Mehldau 10th…) and switching to a standard family mid-
-  // section for one chord function creates the exact "texture pop" the
-  // user flagged as un-smooth. When the section primary is a Pro family,
-  // keep every chord in that family — voice-leading inside one pro family
-  // is uniformly smooth (A↔A and B↔B chains share 2-3 common tones).
-  // rootlessA ↔ rootlessB is its own case: don't force strict 1:1 parity
-  // alternation here. _pickShape's dispatcher generates BOTH families'
-  // candidates (plus ±octave variants) when type is either A or B, and
-  // the multi-pro fast-path picks whichever has minimum MIDI movement
-  // against the previous shape. That matches the bebop pattern naturally
-  // in ii-V-I chains (A→B→A is genuinely the smoothest path there) AND
-  // handles non-ii-V-I motions where the parity convention would mis-fire.
-  if (isProFamily(primaryType)) return primaryType;
-  // Respect the multi-select voicing filter: only promote to the alt
-  // family if the user has it enabled. This preserves the "don't surprise
-  // the user with a type they didn't choose" intent of the old single-
-  // select check (voicingPref !== 'all') while still allowing overrides
-  // within the allowed subset.
-  if (!isVoicingAllowed(override.alt)) return primaryType;
+  if (!override) return primaryType;
+  // Bidirectional mixing: a single deterministic hash carves [0,1] into
+  // [0..proProb)        → pro accent  (e.g. drop2 section gets a mehldau10th tonic,
+  //                                    OR mehldau10th section gets a rootlessA predom)
+  // [proProb..+altProb) → std accent  (e.g. drop2 section gets a drop3 dominant,
+  //                                    OR mehldau10th section gets a drop3 tonic)
+  // remainder           → keep primaryType (section identity dominates)
+  // Both accents respect isVoicingAllowed so the user's narrowed voicing
+  // menu is never overridden. proAlt slice ONLY engages when Pro Mode is
+  // on; otherwise the full pro slice rolls over into "stay primary" and
+  // behavior degrades cleanly to the pre-Pro-Mode FUNCTION_OVERRIDE.
+  const proCandidate = override.proAlt;
+  const stdCandidate = override.alt;
+  const proEligible = state.proMode
+    && proCandidate
+    && proCandidate !== primaryType
+    && isVoicingAllowed(proCandidate);
+  const stdEligible = stdCandidate
+    && stdCandidate !== primaryType
+    && isVoicingAllowed(stdCandidate);
+  if (!proEligible && !stdEligible) return primaryType;
   // Deterministic 0..1 hash seeded on song position + chord function.
   const seed = `${songIdx}|${stepIdx}|${sectionIter}|${chordTag}|${primaryType}`;
   let h = 2166136261;
@@ -20137,7 +20148,11 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
     h = Math.imul(h, 16777619);
   }
   const r = ((h >>> 0) % 10000) / 10000;
-  return r < override.prob ? override.alt : primaryType;
+  const proProb = proEligible ? (override.proProb || 0) : 0;
+  const stdProb = stdEligible ? (override.prob || 0)    : 0;
+  if (r < proProb) return proCandidate;
+  if (r < proProb + stdProb) return stdCandidate;
+  return primaryType;
 }
 
 // Per-family bias used by the smoothest picker. Drop-2 stays the
