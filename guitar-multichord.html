@@ -13807,6 +13807,22 @@ const PROGRESSION_FRAGMENTS = {
     {name:'I-iii double', len:2, role:'opening', genre:'any',
       steps:[{chord:'I',bars:1},{chord:'iii',bars:1}],
       leads:['middle','cadence']},
+    // Rhythmic-variety openings: occasional multichord cells + silent
+    // breaths. User: "deberíamos meter en los assembled más variedad
+    // de ritmo con multichord ocasionales y mini progresiones de 2
+    // compases y así que tengan estas características, talvez hasta
+    // silencios." Each one is still a 2-bar mini-progression so the
+    // assembler can stitch them in alongside the existing fragments.
+    {name:'I-V cascade to I', len:2, role:'opening', genre:'jazz',
+      steps:[
+        {chord:'I',bars:1,subdivisions:2,slots:[{chord:'I'},{chord:'V'}]},
+        {chord:'I',bars:1},
+      ], leads:['middle','cadence']},
+    {name:'Breath then I-IV', len:2, role:'opening', genre:'any',
+      steps:[
+        {chord:null,bars:1,_silent:true},
+        {chord:'I',bars:1,subdivisions:2,slots:[{chord:'I'},{chord:'IV'}]},
+      ], leads:['middle','cadence']},
     // ─── MIDDLES — movement, tension, transition ───
     {name:'Walk to V', len:2, role:'middle', genre:'jazz',
       steps:[{chord:'V_V',bars:1},{chord:'V',bars:1}],
@@ -13832,6 +13848,27 @@ const PROGRESSION_FRAGMENTS = {
     {name:'Tonic pedal moves', len:4, role:'middle', genre:'rock',
       steps:[{chord:'I',bars:1},{chord:'IV',bars:1},{chord:'V',bars:1},{chord:'I',bars:1}],
       follows:['opening'], leads:['cadence']},
+    // Rhythmic-variety middles
+    {name:'ii-V cascade', len:2, role:'middle', genre:'jazz',
+      steps:[
+        {chord:'ii',bars:1,subdivisions:2,slots:[{chord:'ii'},{chord:'V'}]},
+        {chord:'I',bars:1,subdivisions:2,slots:[{chord:'I'},{chord:'vi'}]},
+      ], follows:['opening','middle'], leads:['cadence','middle']},
+    {name:'Pause and motion', len:2, role:'middle', genre:'any',
+      steps:[
+        {chord:null,bars:1,_silent:true},
+        {chord:'ii',bars:1,subdivisions:2,slots:[{chord:'ii'},{chord:'V'}]},
+      ], follows:['opening','middle'], leads:['cadence','middle']},
+    {name:'Chromatic walkdown', len:2, role:'middle', genre:'jazz',
+      steps:[
+        {chord:'I',bars:1,subdivisions:2,slots:[{chord:'I'},{chord:'bVII'}]},
+        {chord:'bVI',bars:1,subdivisions:2,slots:[{chord:'bVI'},{chord:'bVII'}]},
+      ], follows:['opening','middle'], leads:['cadence']},
+    {name:'iii-vi pivot doubletime', len:2, role:'middle', genre:'jazz',
+      steps:[
+        {chord:'iii',bars:1,subdivisions:2,slots:[{chord:'iii'},{chord:'vi'}]},
+        {chord:'ii',bars:1,subdivisions:2,slots:[{chord:'ii'},{chord:'V'}]},
+      ], follows:['opening','middle'], leads:['cadence']},
     // ─── CADENCES — resolution ───
     {name:'Authentic V-I', len:2, role:'cadence', genre:'any',
       steps:[{chord:'V',bars:1},{chord:'I',bars:1}],
@@ -13851,6 +13888,22 @@ const PROGRESSION_FRAGMENTS = {
     {name:'Jazz turnaround', len:4, role:'cadence', genre:'jazz',
       steps:[{chord:'iii',bars:1},{chord:'vi',bars:1},{chord:'ii',bars:1},{chord:'V',bars:1}],
       follows:['opening','middle'], leads:['cadence']},
+    // Rhythmic-variety cadences
+    {name:'iii-vi-ii-V doubletime', len:2, role:'cadence', genre:'jazz',
+      steps:[
+        {chord:'iii',bars:1,subdivisions:2,slots:[{chord:'iii'},{chord:'vi'}]},
+        {chord:'ii',bars:1,subdivisions:2,slots:[{chord:'ii'},{chord:'V'}]},
+      ], follows:['opening','middle']},
+    {name:'Suspense V-I', len:2, role:'cadence', genre:'any',
+      steps:[
+        {chord:null,bars:1,_silent:true},
+        {chord:'V',bars:1,subdivisions:2,slots:[{chord:'V'},{chord:'I'}]},
+      ], follows:['middle']},
+    {name:'V-bII7 to I', len:2, role:'cadence', genre:'jazz',
+      steps:[
+        {chord:'V',bars:1,subdivisions:2,slots:[{chord:'V'},{chord:'bII7'}]},
+        {chord:'I',bars:1},
+      ], follows:['middle']},
   ],
   minor: [],   // Phase 1 ships major-only; minor fragments come next round
 };
@@ -14922,7 +14975,19 @@ class Player {
   _assembleFromFragments(targetBars, sectionRole) {
     const list = PROGRESSION_FRAGMENTS[state.tonality] || [];
     if (!list.length) return null;
-    const inScope = list.filter(f => f.steps.every(s => isChordInScope(s.chord)));
+    // A step is in scope when:
+    //   - it's a silent rest (no chord to validate), OR
+    //   - its main chord is in scope AND every multichord slot's chord
+    //     is also in scope (a fragment with a borrowed-chord slot
+    //     would be excluded if the user has chord scope set to
+    //     'diatonic', for example).
+    const stepInScope = (s) => {
+      if (s._silent) return true;
+      if (!isChordInScope(s.chord)) return false;
+      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl.chord || isChordInScope(sl.chord));
+      return true;
+    };
+    const inScope = list.filter(f => f.steps.every(stepInScope));
     if (!inScope.length) return null;
     const openings = inScope.filter(f => f.role === 'opening');
     const middles  = inScope.filter(f => f.role === 'middle');
@@ -15033,7 +15098,17 @@ class Player {
     const list = PROGRESSIONS[state.tonality] || [];
     if (!list.length) return null;
     // Only use progressions whose chords are all allowed by the current scope.
-    let inScope = list.filter(p => p.steps.every(step => isChordInScope(step.chord)));
+    // Silent rests + multichord slots get the same treatment as the
+    // fragment-assembly filter above: rest steps pass through and slot
+    // chords must all be in scope. Without this, 'Pop with breath'
+    // (which has a _silent step) was always filtered out.
+    const stepInScope = (s) => {
+      if (s._silent) return true;
+      if (!isChordInScope(s.chord)) return false;
+      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl.chord || isChordInScope(sl.chord));
+      return true;
+    };
+    let inScope = list.filter(p => p.steps.every(stepInScope));
     if (!inScope.length) inScope = list; // safety: never starve the player
     // Role filter: keep progressions tagged for this song role (A/B/C).
     // Unlisted progressions default to ['A'] so they never disappear.
