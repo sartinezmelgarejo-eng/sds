@@ -16435,13 +16435,29 @@ class Player {
       ? `<span class="pi-iter">×${this.sectionIter + 1}/${section.repeats}</span>` : '';
 
     // Friendly voicing label matching the compose-mode info bar.
+    // ustAlt → 'ALT' (the single word jazz musicians actually use, vs
+    // the technical "UST V7alt" which reads as jargon). The chord name
+    // already shows "G7alt" via the strict UST_ALT_OK gate, so the
+    // badge reinforces "alt" without doubling jargon.
     const PV_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
       rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
-      ustSharp11: 'UST #11', ustAlt: 'UST ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
+      ustSharp11: 'UST #11', ustAlt: 'ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
       stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
       glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
     const pvType = state.playerVoicing?.type;
-    const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
+    let pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
+    // Rootless voicings don't change the chord's harmonic identity —
+    // they're just the underlying 7th chord played without the root
+    // (Bill Evans hallmark). The badge surfaces the chord QUALITY
+    // (m7 / maj7 / 7 / m9 / etc.) instead of "ROOTLESS A/B", so the
+    // user reads it as "this is a 7th chord, voiced rootless" rather
+    // than as a separate exotic voicing family.
+    if ((pvType === 'rootlessA' || pvType === 'rootlessB') && curEffQ && QUALITIES[curEffQ]) {
+      const qSfx = QUALITIES[curEffQ].sfx;
+      // Empty sfx (canonical major triad) — fall through to a clear
+      // "7TH" fallback rather than rendering an empty badge.
+      pvLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
+    }
     const voicingTxt = pvLabel
       ? `<span class="pi-voicing">${pvLabel} · ${this.bassPattern}</span>`
       : '';
