@@ -437,10 +437,14 @@ body.sidebar-fullscreen .sidebar .mag-hero-source{
 }
 body.sidebar-fullscreen .sidebar .mag-hero-source:empty{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-source{display:none}
-/* Icon-only watermark (onmexico) — symmetric padding so the favicon
-   doesn't sit lopsided in an asymmetric pill. */
+/* Icon-only watermark (onmexico/internacional) — symmetric padding +
+   bigger favicon so it carries its own weight without text alongside. */
 body.sidebar-fullscreen .sidebar .mag-hero-source:has(.mag-source-icon:only-child){
-  padding:9px 12px;
+  padding:12px 14px;
+}
+body.sidebar-fullscreen .sidebar .mag-hero-source:has(.mag-source-icon:only-child) .mag-source-icon{
+  width:40px;height:40px;
+  border-radius:5px;
 }
 body.sidebar-fullscreen .sidebar .mag-source-icon{
   width:24px;height:24px;
@@ -678,7 +682,7 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-hero-wrap 
   background-position:top left, bottom left;
   background-size:
     auto clamp(10px, 1.4vh, 13px),
-    100% clamp(3px, 0.5vh, 4px);
+    100% clamp(5px, 0.7vh, 7px);
   display:-webkit-box;
   -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
@@ -705,7 +709,7 @@ body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"].gallery-hero .m
   background-position:top left, bottom left;
   background-size:
     auto clamp(10px, 1.4vh, 13px),
-    100% clamp(3px, 0.5vh, 4px);
+    100% clamp(5px, 0.7vh, 7px);
   display:-webkit-box;
   -webkit-line-clamp:3;
   -webkit-box-orient:vertical;
@@ -1966,8 +1970,11 @@ body.sidebar-resizing *{cursor:ew-resize!important;user-select:none!important}
 }
 #lightbox.lb-carousel .lb-counter{display:block}
 .m-tg-item img,.m-tg-item .src-img{cursor:zoom-in}
+/* body has tabindex="-1" so ←/→ keys work without click on load —
+   suppress the visible focus ring (this isn't real keyboard navigation). */
+body:focus,body:focus-visible{outline:none}
 body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zoom-in}
-</style></head><body>
+</style></head><body tabindex="-1">
 
 
 <div class="search-stack">
@@ -3273,6 +3280,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     });
   });
   applyView();
+  // Focus body on load so ← / → arrow keys work immediately without
+  // requiring a click. tabindex="-1" on <body> makes it programmatically
+  // focusable (not in the tab order). Skip if the URL bar grabbed focus
+  // for an obvious reason (search/anchor query string).
+  try { document.body.focus({preventScroll:true}); } catch(_) {}
   // Fetch translations manifest in parallel (so the chip can appear once data lands)
   fetch('translations/manifest.json?v='+Date.now()).then(r=>r.ok?r.json():[]).then(data=>{
     translationItems=(data||[]).slice().sort((a,b)=>(b.translated_date||'').localeCompare(a.translated_date||''));
