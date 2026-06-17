@@ -16077,6 +16077,15 @@ class Player {
       // Null chordId = silent rest cell — actually go quiet (don't let the
       // previous chord drone keep ringing through the rest).
       if (chordDrone.playing) chordDrone.stop();
+      // Mark the silence so the user FEELS it as a "conscious rest"
+      // instead of the song dying. If the metronome is ALREADY playing
+      // (any rhythm mode except 'off'), drums + cymbals already paint
+      // the meter through the rest — no extra ticks needed. If rhythm
+      // is 'off', schedule a quiet wood-block tick on every beat of the
+      // rest's bars so the listener can still count "1-2-3-4" through
+      // the silence. (User: "las pausas deberian tocarla la bateria...
+      // sino es como si no existiera, es un silencio consciente.")
+      this._scheduleRestPulse(barStartTime);
       return;
     }
     const root = (state.keyPc + ch.deg) % 12;
@@ -16305,6 +16314,43 @@ class Player {
         }
       }
     }
+  }
+
+  // Wood-block tick on every beat of a silent step's bar(s), but ONLY
+  // when the metronome is currently off. With any rhythm mode on the
+  // drums/ride already mark the meter through the rest, so the fallback
+  // tick would just double-up. Volume is intentionally quiet (~0.06)
+  // so it reads as a metronomic ghost, not a kick.
+  _scheduleRestPulse(barStartTime) {
+    if (!audioCtx) return;
+    if (metronome.playing && currentRhythmMode !== 'off') return;
+    const step = this._currentStep();
+    const stepBars = (step && step.bars) || 1;
+    const beatDur = 60 / metronome.bpm;
+    const t0 = (barStartTime != null)
+      ? Math.max(audioCtx.currentTime, barStartTime)
+      : audioCtx.currentTime;
+    for (let b = 0; b < stepBars; b++) {
+      const barStart = t0 + b * 4 * beatDur;
+      for (let beat = 0; beat < 4; beat++) {
+        this._playRestTick(barStart + beat * beatDur, beat === 0);
+      }
+    }
+  }
+  _playRestTick(time, isDownbeat) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    // Downbeat sits a touch higher so the listener can find "1" in the
+    // silence without having to count from the previous bar.
+    osc.frequency.setValueAtTime(isDownbeat ? 960 : 720, time);
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(isDownbeat ? 0.08 : 0.05, time + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(time);
+    osc.stop(time + 0.1);
   }
 
   _predictNextVoicing() {
