@@ -11007,9 +11007,26 @@ function setInstrument(inst) {
       if (stack) stack.remove();
     }
   }
+  // Invalidate the per-(quality,root) candidate cache — the cache key
+  // is instrument-dependent because pros are only generated on piano,
+  // so a stale guitar-mode cache hide them when flipping to piano (and
+  // vice-versa leaves placeholder pros in the guitar pool).
+  if (typeof _allDistinctCache !== 'undefined' && _allDistinctCache && _allDistinctCache.clear) {
+    _allDistinctCache.clear();
+  }
   if (typeof renderChordPiano === 'function') renderChordPiano();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
   if ((player.playing || player.paused) && typeof player._renderRealBook === 'function') player._renderRealBook();
+  // Chord-map cards + Other voicings strip swap render mode between
+  // fretboard (guitar) and grand-staff (piano), so both surfaces have
+  // to redraw on every instrument flip — otherwise the user sees the
+  // old surface kind from before the switch.
+  if (typeof renderChordMap === 'function') renderChordMap();
+  if (typeof renderAlternatives === 'function') renderAlternatives();
+  // Focused-chord neck preview (renderFretboard) and any other surface
+  // tied to renderAll. Cheap enough that a full pass here makes the
+  // flip feel atomic instead of "did it work or not?"
+  if (typeof renderAll === 'function') renderAll();
 }
 // Wire the two visual cells — direct set instead of toggle so each
 // side is sticky (clicking the active side is a no-op rather than a
