@@ -19854,8 +19854,22 @@ function lp_syncControls() {
         : state.userVoicing?.shape;
       infoName.textContent = chordNameForVoicing(ch.quality, root, liveShape, flats)
         || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
-      const TLBL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS' };
-      const typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
+      // Full label map matches the main now-playing card (PV_LABEL in
+      // _updateVisuals) — pros surface their friendly family name
+      // here too instead of falling through to e.g. "ROOTLESSA".
+      // ustAlt → 'ALT' and rootless → chord-quality (m7/maj7/7) follow
+      // the same rules so the landscape overlay reads identically to
+      // the green now-playing bar.
+      const TLBL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
+        rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
+        ustSharp11: 'UST #11', ustAlt: 'ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
+        stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
+        glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
+      let typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
+      if ((type === 'rootlessA' || type === 'rootlessB') && QUALITIES[ch.quality]) {
+        const qSfx = QUALITIES[ch.quality].sfx;
+        typeLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
+      }
       const roman = ch.roman || '';
       infoSub.textContent = [roman, typeLabel].filter(Boolean).join(' · ');
     } else {
@@ -20420,8 +20434,22 @@ function renderComposeInfo() {
   const name  = chordNameForVoicing(ch.quality, root, fs?.shape, flats)
     || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
   const typeRaw = fs?.type || state.userVoicing?.type || defaultAllowedType('drop2');
-  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM' };
-  const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
+  // Same label map the play-mode now-playing badge uses, extended with
+  // every pro family so compose-mode mobile / desktop badge surfaces a
+  // friendly "ROOTLESS A" / "ALT" instead of falling through to
+  // typeRaw.toUpperCase() which renders as "ROOTLESSA" / "USTALT".
+  const TYPE_LABEL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELLS', triad: 'TRIAD', guide: 'GUIDE', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
+    rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
+    ustSharp11: 'UST #11', ustAlt: 'ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
+    stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
+    glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
+  let typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
+  // Rootless voicings echo the chord quality (m7/maj7/7) — same rule
+  // play-mode uses, so the user sees consistent labeling across modes.
+  if ((typeRaw === 'rootlessA' || typeRaw === 'rootlessB') && QUALITIES[ch.quality]) {
+    const qSfx = QUALITIES[ch.quality].sfx;
+    typeLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
+  }
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
   const INV_LABEL = ['root pos', '1st inv', '2nd inv', '3rd inv'];
   const inv = fs?.inversion;
