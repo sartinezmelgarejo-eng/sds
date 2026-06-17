@@ -19202,17 +19202,22 @@ function repaintChordNeckNotes() {
 }
 
 function renderAll() {
-  syncTonalityToggle();
-  renderKeyRow();
-  renderScaleStrip();
-  renderChordMap();
-  renderAlternatives();
-  renderFretboard();
-  updateActiveDrones();
-  if (typeof renderComposeStrip === 'function') renderComposeStrip();
-  if (typeof renderComposePad === 'function') renderComposePad();
-  renderComposeInfo();
-  if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
+  // Each render is wrapped so a single intermittent failure (rare race
+  // during the very first paint after a hard reload) doesn't cascade
+  // and leave downstream surfaces blank (chord-neck black, compose pad
+  // not rendered, etc.). Errors are logged so they can be diagnosed.
+  const _safe = (label, fn) => { try { fn(); } catch (e) { console.error('[renderAll]', label, e); } };
+  _safe('syncTonalityToggle', syncTonalityToggle);
+  _safe('renderKeyRow', renderKeyRow);
+  _safe('renderScaleStrip', renderScaleStrip);
+  _safe('renderChordMap', renderChordMap);
+  _safe('renderAlternatives', renderAlternatives);
+  _safe('renderFretboard', renderFretboard);
+  _safe('updateActiveDrones', updateActiveDrones);
+  if (typeof renderComposeStrip === 'function') _safe('renderComposeStrip', renderComposeStrip);
+  if (typeof renderComposePad === 'function') _safe('renderComposePad', renderComposePad);
+  _safe('renderComposeInfo', renderComposeInfo);
+  if (typeof renderLandscapePlay === 'function') _safe('renderLandscapePlay', renderLandscapePlay);
 }
 
 /* ════════════════════════════════════════════════════════════
@@ -23518,6 +23523,18 @@ const _settleLayout = () => {
   if (typeof relocatePlayerInfo === 'function') relocatePlayerInfo();
   if (typeof renderFretboard === 'function') renderFretboard();
   if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  // Defensive re-paint for the two surfaces seen to occasionally end up
+  // blank on the very first paint of a hard reload: the chord-neck SVG
+  // (its CSS background is #1a1410 dark brown, so an empty SVG looks
+  // like a black box) and the compose pad. If the first renderAll pass
+  // completed cleanly these are no-ops; if anything threw mid-pass,
+  // these re-runs paper over it without the user having to refresh.
+  if (typeof renderScaleStrip === 'function') {
+    try { renderScaleStrip(); } catch (e) { console.error('[settle] renderScaleStrip', e); }
+  }
+  if (typeof renderComposePad === 'function') {
+    try { renderComposePad(); } catch (e) { console.error('[settle] renderComposePad', e); }
+  }
 };
 requestAnimationFrame(() => requestAnimationFrame(_settleLayout));
 window.addEventListener('load', _settleLayout);
