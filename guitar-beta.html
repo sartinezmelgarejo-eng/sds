@@ -12304,16 +12304,27 @@ function renderVoicingMenu() {
       }
       const isPro = isProFamily(id);
       if (id === 'all') {
-        // Click ALL → refill the standard set (pros stay as-is so the
-        // user doesn't lose their Pro selection just by re-confirming ALL).
+        // Click ALL → bring basics back AND reset pros to Pro ALL. This
+        // is the "fresh start" gesture: full default standard vocabulary
+        // + full default pro vocabulary (Pro ALL active = no individual
+        // pro narrowed). Pro Mode itself stays on/off as it was.
         VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
+        PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
       } else if (isPro) {
-        // Mirror the standard ALL → narrow semantics for pros: when Pro
-        // Mode is on and no individual pro is selected (= Pro ALL active),
-        // the first individual click NARROWS to just that one. Subsequent
-        // clicks toggle each pro additively.
+        // Hybrid pro semantics — "click a pro = isolate this voicing":
+        //   1. proPrefIsAll() AND voicingPrefIsAll()  → fresh Pro Mode
+        //      state, user clicks rootlessA. Intent is to isolate the
+        //      voicing, so nuke standards too. Set becomes {clicked pro}.
+        //      ALL row brings basics back.
+        //   2. proPrefIsAll() but standards already narrowed → respect
+        //      the user's standard curation, just add the pro on top.
+        //   3. pros already narrowed → toggle (add/delete).
         if (proPrefIsAll()) {
-          voicingPrefSet.add(id);
+          if (voicingPrefIsAll()) {
+            voicingPrefSet = new Set([id]);
+          } else {
+            voicingPrefSet.add(id);
+          }
         } else if (voicingPrefSet.has(id)) {
           voicingPrefSet.delete(id);
         } else {
