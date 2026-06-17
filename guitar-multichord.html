@@ -20506,11 +20506,18 @@ const FUNCTION_OVERRIDE = {
   // pre-tuning baseline and the over-corrected values: standards get
   // their accent variety back, pros stay cohesive via the pro-meta
   // bypass at the top of _voicingTypeForChord.
-  tonic:     { alt: 'drop3', prob: 0.13, proAlt: 'mehldau10th', proProb: 0.13 },
-  predom:    { alt: 'shell', prob: 0.16, proAlt: 'rootlessA',   proProb: 0.17 },
-  dom:       { alt: 'drop3', prob: 0.20, proAlt: 'ustAlt',      proProb: 0.16 },
-  secondary: { alt: 'drop3', prob: 0.22, proAlt: 'ustSharp11',  proProb: 0.13 },
-  borrowed:  { alt: 'drop3', prob: 0.22, proAlt: 'lockedHands', proProb: 0.13 },
+  // proAlt can be a single family or an array — when array, the
+  // selector hash deterministically picks from it. This lets rootless
+  // voicings surface on roles they were previously locked out of
+  // (rootlessA on tonic maj7 = the Bill Evans iconic sound; rootlessB
+  // on dominant V7 = canonical bebop), without making them the only
+  // choice. User: 'siento como que los rootless los subestimamos para
+  // acordes mayores, funcionan bien a veces no?'
+  tonic:     { alt: 'drop3', prob: 0.13, proAlt: ['mehldau10th', 'rootlessA'], proProb: 0.13 },
+  predom:    { alt: 'shell', prob: 0.16, proAlt: ['rootlessA', 'mehldau10th'], proProb: 0.17 },
+  dom:       { alt: 'drop3', prob: 0.20, proAlt: ['ustAlt', 'rootlessB'],      proProb: 0.16 },
+  secondary: { alt: 'drop3', prob: 0.22, proAlt: 'ustSharp11',                  proProb: 0.13 },
+  borrowed:  { alt: 'drop3', prob: 0.22, proAlt: ['lockedHands', 'rootlessA'], proProb: 0.13 },
 };
 // Decide the voicing type to use for one chord-event. The section
 // primary is the default; with FUNCTION_OVERRIDE probability we
@@ -20567,7 +20574,34 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   // menu is never overridden. proAlt slice ONLY engages when Pro Mode is
   // on; otherwise the full pro slice rolls over into "stay primary" and
   // behavior degrades cleanly to the pre-Pro-Mode FUNCTION_OVERRIDE.
-  const proCandidate = override.proAlt;
+  // Deterministic 0..1 hash seeded on song position + chord function.
+  // Computed BEFORE resolving proCandidate because the array form of
+  // proAlt needs the same hash to pick its index.
+  const seed = `${songIdx}|${stepIdx}|${sectionIter}|${chordTag}|${primaryType}`;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  const r = ((h >>> 0) % 10000) / 10000;
+  // proAlt as array: deterministically pick from the array using a
+  // secondary hash slice so the choice is stable per song-position but
+  // uncorrelated with the prob roll. Falls back to original behavior
+  // when proAlt is a single string.
+  let proCandidate = override.proAlt;
+  if (Array.isArray(proCandidate)) {
+    if (!proCandidate.length) {
+      proCandidate = null;
+    } else {
+      // Independent index hash so the proAlt CHOICE and the prob ROLL
+      // don't correlate (otherwise low-r picks would always land on
+      // arr[0] for both decisions, killing the variety we just added).
+      let h2 = (h >>> 0) ^ 0x9e3779b1;
+      h2 = Math.imul(h2, 16777619);
+      const i2 = Math.abs(h2) % proCandidate.length;
+      proCandidate = proCandidate[i2];
+    }
+  }
   const stdCandidate = override.alt;
   const proEligible = state.proMode
     && proCandidate
@@ -20577,14 +20611,6 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
     && stdCandidate !== primaryType
     && isVoicingAllowed(stdCandidate);
   if (!proEligible && !stdEligible) return primaryType;
-  // Deterministic 0..1 hash seeded on song position + chord function.
-  const seed = `${songIdx}|${stepIdx}|${sectionIter}|${chordTag}|${primaryType}`;
-  let h = 2166136261;
-  for (let i = 0; i < seed.length; i++) {
-    h ^= seed.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  const r = ((h >>> 0) % 10000) / 10000;
   const proProb = proEligible ? (override.proProb || 0) : 0;
   const stdProb = stdEligible ? (override.prob || 0)    : 0;
   if (r < proProb) return proCandidate;
