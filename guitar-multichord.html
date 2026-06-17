@@ -14590,6 +14590,14 @@ class Player {
       }
       if (!prevMidi || !prevMidi.length) return cands[0];
       const prevSorted = prevMidi.slice().sort((a, b) => a - b);
+      // Top voice (soprano) of prev — used for the top-voice continuity
+      // penalty so the multi-pro picker doesn't fly the melody line
+      // around when switching between pro families with different
+      // canonical registers. e.g. rootlessA top sits ~C4-E4 area;
+      // mehldau10th top sits ~G4-C5; jumping between them on
+      // consecutive chords creates a +8 semi soprano leap that reads
+      // as a melodic glitch even when total MIDI movement is small.
+      const prevTopMidi = prevSorted[prevSorted.length - 1];
       // Score every candidate, sort, then either return the best (default)
       // or the 2nd-best when opts.rotateVoicing is set — that lets
       // repeated-chord cells get a different voicing without abandoning
@@ -14614,6 +14622,17 @@ class Player {
         // changes that genuinely want a different family).
         if (prevProType && c.__proType === prevProType) score -= 3.5;
         else if (prevPrevProType && c.__proType === prevPrevProType) score -= 1.5;
+        // Top-voice continuity — penalize large soprano jumps. The
+        // first 5 semitones of top movement are free (a fourth or less
+        // is a normal melodic step or leap). Beyond that, quadratic
+        // penalty grows: 7-semi → ~1.0, 10-semi → ~3.3, 12-semi (octave)
+        // → ~5.2. Modest enough that genuinely smooth voice-leading
+        // (e.g. a chord change that demands an octave leap to stay in
+        // the same family register) still wins — but breaks ties in
+        // favor of candidates whose top voice tracks the prev melody.
+        const candTopMidi = cur[cur.length - 1];
+        const topDelta = Math.abs(candTopMidi - prevTopMidi);
+        if (topDelta > 5) score += Math.pow(topDelta - 5, 1.3) * 0.4;
         return { cand: c, score, idx: i };
       });
       scored.sort((a, b) => a.score - b.score);
