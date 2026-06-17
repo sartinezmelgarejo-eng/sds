@@ -12377,128 +12377,135 @@ function renderVoicingMenu() {
     </div>`;
   }).join('') + proToggleHtml;
   voicingMenu.querySelectorAll('[data-voicing]').forEach(item => {
-    item.addEventListener('click', e => {
+    item.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       const id = item.dataset.voicing;
       if (id === '__pro_toggle__') {
-        // Flip Pro Mode. Mirrors the standard ALL semantics:
-        //   ON  → the toggle itself means "include all 15 pros." No
-        //         checkmarks on individual rows; the description on
-        //         the toggle row says "ALL · 15". Click an individual
-        //         pro to NARROW (clears the implicit ALL, adds just
-        //         that one to voicingPrefSet).
-        //   OFF → hide pro rows and drop any narrowed selections so
-        //         the picker stops trying to fire them.
-        state.proMode = !state.proMode;
-        if (!state.proMode) {
-          PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
-        }
-        // Force the player's page-plan cache to rebuild so the next
-        // trigger picks under the new pro vocabulary. Without this, an
-        // ongoing song would keep playing the standard voicings already
-        // baked into the cached page until the bar number rolled over.
-        if (typeof player !== 'undefined' && player) {
-          player._cachedPage = null;
-          player._cachedPeek = null;
-          if (player.playing && player.song) {
-            const typeByLabel = {};
-            player.song.forEach(s => {
-              const key = s.label + (s.modName || '');
-              if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
-              s.voicingType = typeByLabel[key];
-            });
-            player.voicingType = player._currentSection().voicingType;
-          }
-        }
-        // Forget per-chord remembered voicings so each chord re-picks
-        // under the new vocabulary on its next render.
-        state.progressionVoicings = {};
-        _updateVoicingPrefButton();
-        renderVoicingMenu();
-        // Full renderAll so every surface (chord-map cards, partitura
-        // staff cells, Other voicings strip, chord-piano keyboard,
-        // chord-neck guitar) refreshes under the new pro vocabulary.
-        // Just renderChordMap + renderAlternatives left the partitura +
-        // piano keyboard stale until the next chord trigger or click.
-        if (typeof renderAll === 'function') renderAll();
-        else {
-          if (typeof renderChordMap === 'function') renderChordMap();
-          if (typeof renderAlternatives === 'function') renderAlternatives();
-        }
+        // Pro Mode toggle never participates in drag — it's the gate,
+        // not a voicing row. Handle as a click and exit.
+        _voicingProModeFlip();
         return;
       }
-      const isPro = isProFamily(id);
-      if (id === 'all') {
-        // Click ALL → bring basics back AND reset pros to Pro ALL. This
-        // is the "fresh start" gesture: full default standard vocabulary
-        // + full default pro vocabulary (Pro ALL active = no individual
-        // pro narrowed). Pro Mode itself stays on/off as it was.
-        VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
-        PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
-      } else if (isPro) {
-        // Hybrid pro semantics — "click a pro = isolate this voicing":
-        //   1. proPrefIsAll() AND voicingPrefIsAll()  → fresh Pro Mode
-        //      state, user clicks rootlessA. Intent is to isolate the
-        //      voicing, so nuke standards too. Set becomes {clicked pro}.
-        //      ALL row brings basics back.
-        //   2. proPrefIsAll() but standards already narrowed → respect
-        //      the user's standard curation, just add the pro on top.
-        //   3. pros already narrowed → toggle (add/delete).
-        if (proPrefIsAll()) {
-          if (voicingPrefIsAll()) {
-            voicingPrefSet = new Set([id]);
-          } else {
-            voicingPrefSet.add(id);
-          }
-        } else if (voicingPrefSet.has(id)) {
-          voicingPrefSet.delete(id);
-        } else {
-          voicingPrefSet.add(id);
-        }
-      } else if (voicingPrefIsAll()) {
-        // First specific standard click out of ALL → switch to single-type
-        // filter. Pros already in the set stay.
-        const keptPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
-        voicingPrefSet = new Set([id, ...keptPros]);
-      } else if (voicingPrefSet.has(id)) {
-        voicingPrefSet.delete(id);
-      } else {
-        voicingPrefSet.add(id);
-      }
-      // Safety net: the picker needs SOMETHING to choose from. Only snap
-      // back to ALL standard when the entire set is empty — having only
-      // pros selected is now valid (the user can exclude every basic
-      // voicing and play with Pro Mode alone). _pickShapeFiltered's drop2
-      // fallback handles chords that no pro builder supports.
-      if (voicingPrefSet.size === 0) {
-        voicingPrefSet = new Set(VOICING_TYPE_IDS);
-      }
-      _updateVoicingPrefButton();
-      renderVoicingMenu();
-      // Re-assign voicingType per section so the strip lookahead and the
-      // player stay synchronized under the new preference.
-      if (player.playing && player.song) {
-        const typeByLabel = {};
-        player.song.forEach(s => {
-          const key = s.label + (s.modName || '');
-          if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
-          s.voicingType = typeByLabel[key];
-        });
-        player.voicingType = player._currentSection().voicingType;
-        player._cachedPage = null;     // strip recomputes with new types
-      }
-      // Re-render only what depends on the voicing filter. renderAll()
-      // here was triggering layout reflow on mobile (visualViewport scroll
-      // → fitMap → chord-map host resize) every time a voicing was
-      // toggled. The compose strip, key row, scale strip, etc. don't
-      // depend on the filter — already-written cells keep their stored
-      // voicings — so re-rendering them on filter changes was both
-      // wasteful and visually disruptive.
-      if (typeof renderChordMap   === 'function') renderChordMap();
-      if (typeof renderFretboard  === 'function') renderFretboard();
+      // Begin drag tracking. The first row toggles via the existing
+      // hybrid logic; subsequent rows touched during drag get a simple
+      // add/delete toggle so the gesture paints across the menu.
+      _voicingDragSeen = new Set([id]);
+      _voicingApplyChange(id);
+      _voicingPostChange();
     });
   });
 }
+
+// ─── Voicing menu state mutation (shared by click + drag handlers) ───
+//
+// Pulled out of the renderVoicingMenu click closure so the drag
+// continuation (pointermove) can reuse the same logic. Returns true
+// when voicingPrefSet actually changed.
+function _voicingApplyChange(id) {
+  if (id === '__pro_toggle__') return false;
+  const isPro = isProFamily(id);
+  if (id === 'all') {
+    // Click ALL → bring basics back AND reset pros to Pro ALL.
+    VOICING_TYPE_IDS.forEach(t => voicingPrefSet.add(t));
+    PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
+  } else if (isPro) {
+    // Hybrid pro semantics — click a pro = isolate when fresh, toggle
+    // otherwise. See the renderVoicingMenu comment block for details.
+    if (proPrefIsAll()) {
+      if (voicingPrefIsAll()) {
+        voicingPrefSet = new Set([id]);
+      } else {
+        voicingPrefSet.add(id);
+      }
+    } else if (voicingPrefSet.has(id)) {
+      voicingPrefSet.delete(id);
+    } else {
+      voicingPrefSet.add(id);
+    }
+  } else if (voicingPrefIsAll()) {
+    const keptPros = PRO_VOICING_TYPE_IDS.filter(t => voicingPrefSet.has(t));
+    voicingPrefSet = new Set([id, ...keptPros]);
+  } else if (voicingPrefSet.has(id)) {
+    voicingPrefSet.delete(id);
+  } else {
+    voicingPrefSet.add(id);
+  }
+  if (voicingPrefSet.size === 0) {
+    voicingPrefSet = new Set(VOICING_TYPE_IDS);
+  }
+  return true;
+}
+
+function _voicingPostChange() {
+  _updateVoicingPrefButton();
+  renderVoicingMenu();
+  if (player.playing && player.song) {
+    const typeByLabel = {};
+    player.song.forEach(s => {
+      const key = s.label + (s.modName || '');
+      if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
+      s.voicingType = typeByLabel[key];
+    });
+    player.voicingType = player._currentSection().voicingType;
+    player._cachedPage = null;
+  }
+  if (typeof renderChordMap   === 'function') renderChordMap();
+  if (typeof renderFretboard  === 'function') renderFretboard();
+}
+
+function _voicingProModeFlip() {
+  state.proMode = !state.proMode;
+  if (!state.proMode) {
+    PRO_VOICING_TYPE_IDS.forEach(t => voicingPrefSet.delete(t));
+  }
+  if (typeof player !== 'undefined' && player) {
+    player._cachedPage = null;
+    player._cachedPeek = null;
+    if (player.playing && player.song) {
+      const typeByLabel = {};
+      player.song.forEach(s => {
+        const key = s.label + (s.modName || '');
+        if (typeByLabel[key] === undefined) typeByLabel[key] = player._pickVoicingType();
+        s.voicingType = typeByLabel[key];
+      });
+      player.voicingType = player._currentSection().voicingType;
+    }
+  }
+  state.progressionVoicings = {};
+  _updateVoicingPrefButton();
+  renderVoicingMenu();
+  if (typeof renderAll === 'function') renderAll();
+  else {
+    if (typeof renderChordMap === 'function') renderChordMap();
+    if (typeof renderAlternatives === 'function') renderAlternatives();
+  }
+}
+
+// ─── Drag-to-select on the voicing menu ───
+//
+// Hold down on one row + drag through others = each row touched gets
+// toggled in a single gesture. Document-level pointermove + pointerup
+// listeners (registered once) drive the drag continuation. The Pro
+// Mode toggle row and the ALL row are excluded from drag (they're
+// deliberate single-click actions).
+let _voicingDragSeen = null;
+document.addEventListener('pointermove', (e) => {
+  if (!_voicingDragSeen) return;
+  if (voicingMenu.hidden) { _voicingDragSeen = null; return; }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  if (!el || !el.closest) return;
+  const row = el.closest('[data-voicing]');
+  if (!row || !voicingMenu.contains(row)) return;
+  const id = row.dataset.voicing;
+  if (!id || _voicingDragSeen.has(id)) return;
+  if (id === '__pro_toggle__' || id === 'all') return;
+  _voicingDragSeen.add(id);
+  _voicingApplyChange(id);
+  _voicingPostChange();
+});
+function _voicingEndDrag() { _voicingDragSeen = null; }
+document.addEventListener('pointerup', _voicingEndDrag);
+document.addEventListener('pointercancel', _voicingEndDrag);
 
 voicingBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -21743,10 +21750,30 @@ function applyCellSubdivisions(cell, cellIdx, newN) {
         chord: cell.chord, _candIdx: cell._candIdx, shape: cell.shape,
         voicingType: cell.voicingType, stringSetIdx: cell.stringSetIdx,
         inversion: cell.inversion, stringSet: cell.stringSet,
+        // Pro voicings: pianoShape (MIDI array) must seed into every
+        // slot, otherwise the placeholder fret-shape carries no notes
+        // and the staff renders blank + audio plays silent on slots
+        // that fell back to seed instead of source[i].
+        pianoShape: (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+          ? cell.pianoShape.slice() : null,
+        variant: cell.variant || null,
       };
-      cell.slots = Array.from({ length: newN }, (_, i) =>
-        source[i] ? { ...source[i] } : { ...seed }
-      );
+      cell.slots = Array.from({ length: newN }, (_, i) => {
+        const src = source[i];
+        if (src) {
+          // Clone, preserving pianoShape if it was on the source slot.
+          const out = { ...src };
+          if (Array.isArray(src.pianoShape) && src.pianoShape.length) {
+            out.pianoShape = src.pianoShape.slice();
+          }
+          return out;
+        }
+        const out = { ...seed };
+        if (Array.isArray(seed.pianoShape) && seed.pianoShape.length) {
+          out.pianoShape = seed.pianoShape.slice();
+        }
+        return out;
+      });
     }
     // Keep _savedSlots around — user might collapse + re-expand many
     // times while landing on the right N. It only gets cleared when the
@@ -21899,7 +21926,20 @@ document.addEventListener('click', (ev) => {
     const slot = cell.slots[slotIdx];
     if (slot && slot.chord) {
       state.focusedChord = slot.chord;
-      state.userVoicing = slot.shape ? { shape: slot.shape } : null;
+      // Pro voicings: propagate pianoShape so the focused-chord
+      // partitura + piano keyboard + audio audition render the actual
+      // MIDI instead of the placeholder fret-shape.
+      state.userVoicing = slot.shape
+        ? {
+            shape: slot.shape,
+            type: slot.voicingType,
+            stringSetIdx: slot.stringSetIdx,
+            inversion: slot.inversion,
+            stringSet: slot.stringSet,
+            pianoShape: (Array.isArray(slot.pianoShape) && slot.pianoShape.length)
+              ? slot.pianoShape.slice() : null,
+          }
+        : null;
     }
     renderComposeStrip();
     if (typeof renderAll === 'function') renderAll();
@@ -21946,8 +21986,21 @@ document.addEventListener('click', (ev) => {
         stringSetIdx: cell.stringSetIdx,
         inversion: cell.inversion,
         stringSet: cell.stringSet,
+        // Pro voicings: seed pianoShape so every slot carries the
+        // MIDI array. Without this, when the user converts a pro
+        // single-chord cell into multichord, every slot resets to a
+        // silent placeholder.
+        pianoShape: (Array.isArray(cell.pianoShape) && cell.pianoShape.length)
+          ? cell.pianoShape.slice() : null,
+        variant: cell.variant || null,
       };
-      cell.slots = Array.from({ length: cell.subdivisions }, () => ({ ...seed }));
+      cell.slots = Array.from({ length: cell.subdivisions }, () => {
+        const s = { ...seed };
+        if (Array.isArray(seed.pianoShape) && seed.pianoShape.length) {
+          s.pianoShape = seed.pianoShape.slice();
+        }
+        return s;
+      });
     }
     state._multiChordEditCell = idx;
     // Start at the first NON-MUTED slot from 1 onward. If the user
