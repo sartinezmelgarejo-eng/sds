@@ -14160,9 +14160,13 @@ class Player {
     if (cands.length >= 1 && cands.every(c => c && c.__pianoShape)) {
       if (cands.length === 1) return cands[0];
       let prevMidi = null;
+      let prevProType = null;
+      let prevPrevProType = null;
       if (prevShape) {
         if (Array.isArray(prevShape.__pianoShape) && prevShape.__pianoShape.length) {
           prevMidi = prevShape.__pianoShape.slice();
+          prevProType = prevShape.__proType || null;
+          prevPrevProType = prevShape.__prevProType || null;
         } else if (prevShape.length === 6) {
           prevMidi = [];
           for (let s = 0; s < 6; s++) {
@@ -14174,15 +14178,38 @@ class Player {
       if (!prevMidi || !prevMidi.length) return cands[0];
       const prevSorted = prevMidi.slice().sort((a, b) => a - b);
       let bestIdx = 0;
-      let bestMv = Infinity;
+      let bestScore = Infinity;
       cands.forEach((c, i) => {
         const cur = c.__pianoShape.slice().sort((a, b) => a - b);
         const n = Math.min(cur.length, prevSorted.length);
         let mv = 0;
         for (let k = 0; k < n; k++) mv += Math.abs(cur[k] - prevSorted[k]);
-        if (mv < bestMv) { bestMv = mv; bestIdx = i; }
+        let score = mv;
+        // Pro family memory — two-step lookback for coherence within a
+        // section. Without this each chord independently picks the
+        // smoothest pro family by MIDI movement, so rootlessA →
+        // mehldau10th → rootlessA → lockedHands is normal — every chord
+        // is a fresh decision. User asked for "memoria un poco mas alla":
+        // give a -3.5 bonus to candidates matching the immediately prev
+        // chord's pro family (strong stickiness — same-family wins
+        // unless another family is 3.5+ semitones smoother), and a -1.5
+        // bonus to candidates matching TWO chords back (lighter pull
+        // toward the family the section has been exploring overall).
+        // Voice-leading still trumps memory on big wins (smooth chord
+        // changes that genuinely want a different family).
+        if (prevProType && c.__proType === prevProType) score -= 3.5;
+        else if (prevPrevProType && c.__proType === prevPrevProType) score -= 1.5;
+        if (score < bestScore) { bestScore = score; bestIdx = i; }
       });
-      return cands[bestIdx];
+      const winner = cands[bestIdx];
+      // Propagate prev-pro-type history into the winner so the next
+      // chord's pick can see TWO steps back (this commit's "memory una
+      // poco mas alla"). Non-enumerable so it doesn't pollute shape
+      // serialization or anything that iterates the array.
+      if (prevProType) {
+        Object.defineProperty(winner, '__prevProType', { value: prevProType, configurable: true });
+      }
+      return winner;
     }
 
     // No previous reference → strong pull to fret-6/7 sweet spot.
