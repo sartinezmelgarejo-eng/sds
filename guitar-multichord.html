@@ -14011,8 +14011,23 @@ class Player {
       //     reach the previous chord without leaping.
       // All builds become candidates; the pro fast-path below picks
       // the smoothest by MIDI movement against prevShape.
-      const proResult = PRO_BUILDERS[type](quality, root);
-      if (proResult) {
+      //
+      // Special case for the Rootless A+B menu pair: when type is
+      // 'rootlessA' OR 'rootlessB', run BOTH builders. The user picks
+      // the pair as a unit in the menu, and bebop voice-leading
+      // genuinely wants whichever of A or B sits closer to the prev
+      // chord — the multi-pro fast-path picks smoothest by MIDI
+      // movement, naturally producing the A→B→A pattern on a classic
+      // ii-V-I (because there A→B IS the smoothest move) without
+      // forcing it elsewhere.
+      const proTypesToBuild = (type === 'rootlessA' || type === 'rootlessB')
+        ? ['rootlessA', 'rootlessB']
+        : [type];
+      for (const ptype of proTypesToBuild) {
+        const builder = PRO_BUILDERS[ptype];
+        if (!builder) continue;
+        const proResult = builder(quality, root);
+        if (!proResult) continue;
         const builds = Array.isArray(proResult.variants)
           ? proResult.variants.slice()
           : (proResult.pianoShape ? [{ pianoShape: proResult.pianoShape }] : []);
@@ -14025,7 +14040,7 @@ class Player {
           if (!b || !b.pianoShape) continue;
           const placeholder = PRO_PLACEHOLDER_SHAPE.slice();
           Object.defineProperty(placeholder, '__pianoShape', { value: b.pianoShape });
-          Object.defineProperty(placeholder, '__proType', { value: type });
+          Object.defineProperty(placeholder, '__proType', { value: ptype });
           if (b.label) Object.defineProperty(placeholder, '__proVariant', { value: b.label });
           cands.push(placeholder);
         }
@@ -16330,14 +16345,24 @@ class Player {
                    && state.playerVoicing.pianoShape.length) {
           _pianoShape = state.playerVoicing.pianoShape.slice();
         }
+        // For the Rootless A+B menu pair, _pickShape's dispatcher runs
+        // BOTH builders and picks smoothest by MIDI movement — the
+        // winning candidate may not match the `finalType` we passed in
+        // (we asked for rootlessA, picker decided rootlessB was closer).
+        // Lift shape.__proType so the cell's voicingType reflects the
+        // actual voicing that's playing — drives the now-playing badge
+        // distinction between "ROOTLESS A" and "ROOTLESS B".
+        let _entryType = (typeof finalType !== 'undefined') ? finalType : segType;
+        if (shape && shape.__proType) _entryType = shape.__proType;
         const entry = {
           chord: seg.chord,
           qualityOverride: stepForEntry?.qualityOverride || null,
           barIdxInChord: (seg.barsAlreadyConsumed || 0) + b,
           keyPc: segKeyPc,
-          // Store the ACTUAL type picked (after function override) so
-          // the info bar / pause-click handler can label it correctly.
-          voicingType: (typeof finalType !== 'undefined') ? finalType : segType,
+          // Store the ACTUAL type picked (after function override AND
+          // after multi-pro fast-path resolution) so the info bar /
+          // pause-click handler / now-playing badge label correctly.
+          voicingType: _entryType,
           shape,
           pianoShape: _pianoShape,
           subdivisions: seg.subdivisions || (enrichedSlots && enrichedSlots.length) || 1,
@@ -20090,16 +20115,13 @@ function _voicingTypeForChord(primaryType, chordTag, songIdx, stepIdx, sectionIt
   // user flagged as un-smooth. When the section primary is a Pro family,
   // keep every chord in that family — voice-leading inside one pro family
   // is uniformly smooth (A↔A and B↔B chains share 2-3 common tones).
-  // EXCEPT rootlessA ↔ rootlessB: bebop tradition alternates A and B
-  // across a ii-V-I chain so the voicings share the most common tones
-  // (Dm7 A → G7 B → Cmaj7 A keeps F, A, E common across all three).
-  // Alternate per step index so the chain naturally falls into the
-  // Bill Evans pattern.
-  if (primaryType === 'rootlessA' || primaryType === 'rootlessB') {
-    const flip = (stepIdx % 2) === 1;
-    if (flip) return primaryType === 'rootlessA' ? 'rootlessB' : 'rootlessA';
-    return primaryType;
-  }
+  // rootlessA ↔ rootlessB is its own case: don't force strict 1:1 parity
+  // alternation here. _pickShape's dispatcher generates BOTH families'
+  // candidates (plus ±octave variants) when type is either A or B, and
+  // the multi-pro fast-path picks whichever has minimum MIDI movement
+  // against the previous shape. That matches the bebop pattern naturally
+  // in ii-V-I chains (A→B→A is genuinely the smoothest path there) AND
+  // handles non-ii-V-I motions where the parity convention would mis-fire.
   if (isProFamily(primaryType)) return primaryType;
   // Respect the multi-select voicing filter: only promote to the alt
   // family if the user has it enabled. This preserves the "don't surprise
