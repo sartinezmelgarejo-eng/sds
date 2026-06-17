@@ -3648,22 +3648,23 @@
     background: #fff8e6;
     box-shadow: inset 0 0 0 1px var(--accent);
   }
-  /* Pro voicings: always "lit" with a warm parchment background so the
-     mini-staff (notes drawn in dark) reads as ink on aged paper. The
-     dark renderChordStaff strokes were getting lost on the default
-     light-gray card bg — pros looked "apagados / oscuros" next to the
-     colorful guitar-shape standards. Now they always feel alive. */
-  .alt-card.is-pro {
+  /* Piano-mode staff cards: always "lit" with a warm parchment background
+     so the mini-staff (notes drawn in dark) reads as ink on aged paper.
+     Applies in piano mode to BOTH standards (drop2/drop3/etc. converted
+     to MIDI for the staff) AND pros (rootlessA/mehldau10th/etc. with
+     their own MIDI). In guitar mode standards stay on the default card
+     bg with the colorful fretboard visual. */
+  .alt-card.is-piano-staff {
     background: linear-gradient(to bottom, #fff8e0, #f5e9c4);
     border-color: #c9a878;
   }
-  .alt-card.is-pro:hover {
+  .alt-card.is-piano-staff:hover {
     border-color: #b08d52;
     background: linear-gradient(to bottom, #fffbe6, #f8eed0);
   }
-  /* Selected pro → gold glow that visually beats the parchment glow,
-     so the click feedback is unambiguous. */
-  .alt-card.is-pro.selected {
+  /* Selected piano-staff card → gold glow that beats the parchment, so
+     the click feedback is unambiguous regardless of standard vs pro. */
+  .alt-card.is-piano-staff.selected {
     border-color: #d4a017;
     background: linear-gradient(to bottom, #fff8d4, #ffe39a);
     box-shadow: inset 0 0 0 1.5px #d4a017, 0 0 12px rgba(212, 160, 23, 0.55);
@@ -3676,7 +3677,7 @@
     border-color: #4a7a5a;
     box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.18);
   }
-  .alt-card.is-pro.playing {
+  .alt-card.is-piano-staff.playing {
     border-color: #4a7a5a;
     box-shadow: inset 0 0 0 1px #4a7a5a, 0 0 0 2px rgba(74, 122, 90, 0.22);
   }
@@ -10096,18 +10097,20 @@ function renderChordMap() {
     card.style.top = `${node.y}px`;
     card.dataset.chord = node.chord;
     const sizing = isHub ? {W:130, H:120, r:9} : (isSatellite ? {W:72, H:80, r:5.5} : {W:96, H:104, r:7.5});
-    // Pro voicings: the placeholder fret-shape carries no fingering info,
-    // so renderMini would draw a blank fretboard. Switch to renderChordStaff
-    // (mini grand-staff with the actual MIDI notes) at the same physical
-    // dimensions — replaces the lost "tab" with a "partitura" of the pro
-    // voicing. Hub / satellite / diatonic sizes are respected.
+    // In piano mode, every chord-map card renders as a mini grand-staff
+    // partitura — pianists read notation, not fretboard fingerings.
+    // Pro voicings use pianoShape (MIDI array) directly; standards use
+    // their fret-shape which renderChordStaff auto-converts to MIDI via
+    // STRING_OPEN_MIDI. Guitar mode keeps the existing fretboard render.
     const isProV = v && Array.isArray(v.pianoShape) && v.pianoShape.length;
+    const usePianoStaff = state.instrument === 'piano' && (isProV || !!v?.shape);
     let svg = '';
-    if (isProV) {
+    if (usePianoStaff) {
       svg = renderChordStaff(v.shape, root, ch.quality, flats, {
         W: sizing.W, H: sizing.H,
-        minimal: true, showClef: !isSatellite,  // hide clef on satellite (too small to read)
-        pianoShape: v.pianoShape,
+        minimal: true,
+        showClef: !isSatellite,  // hide clef on satellite (too small to read)
+        pianoShape: isProV ? v.pianoShape : null,
       });
     } else if (v?.shape) {
       svg = renderMini(v.shape, root, ch.quality, flats, sizing);
@@ -10488,22 +10491,30 @@ function renderAlternatives() {
     // Pro voicings carry pianoShape (MIDI array). The note list is the
     // pitch-class sequence from low to high; the visual is a mini sheet-
     // music staff (treble + bass clef) instead of a guitar fretboard.
-    // Standard voicings keep their existing renderMini + string note list.
+    // In piano mode, ALL voicings render as a mini-staff — pianists read
+    // notation, not fretboard fingerings, so a row of fretboards next to
+    // a row of staves was a UX mismatch. Guitar mode still shows
+    // fretboards for standards.
     const isPro = Array.isArray(c.pianoShape) && c.pianoShape.length;
+    const useStaff = state.instrument === 'piano' && (isPro || (Array.isArray(c.shape) && c.shape.some(f => f >= 0)));
     let mini, notes;
-    if (isPro) {
+    if (useStaff) {
       mini = renderChordStaff(c.shape, root, fc.quality, flats, {
         W: 88, H: 96, minimal: true, showClef: true,
-        pianoShape: c.pianoShape,
+        pianoShape: isPro ? c.pianoShape : null,
       });
-      notes = c.pianoShape.map(m => nameOf(m % 12, flats)).join(' ');
+      if (isPro) {
+        notes = c.pianoShape.map(m => nameOf(m % 12, flats)).join(' ');
+      } else {
+        notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
+      }
     } else {
       mini  = renderMini(c.shape, root, fc.quality, flats, {W:88, H:92, r:7});
       notes = c.shape.map((f, st) => f < 0 ? '' : nameOf(noteAt(st, f), flats)).filter(x => x).join(' ');
     }
-    const proClass = isPro ? 'is-pro' : '';
+    const staffClass = useStaff ? 'is-piano-staff' : '';
     html += `
-      <div class="alt-card ${sel} ${playing} ${proClass}" data-idx="${i}">
+      <div class="alt-card ${sel} ${playing} ${staffClass}" data-idx="${i}">
         ${mini}
         <div class="ac-label">${labelFor(c)}</div>
         <div class="ac-notes">${notes}</div>
