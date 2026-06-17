@@ -14590,9 +14590,11 @@ class Player {
       }
       if (!prevMidi || !prevMidi.length) return cands[0];
       const prevSorted = prevMidi.slice().sort((a, b) => a - b);
-      let bestIdx = 0;
-      let bestScore = Infinity;
-      cands.forEach((c, i) => {
+      // Score every candidate, sort, then either return the best (default)
+      // or the 2nd-best when opts.rotateVoicing is set — that lets
+      // repeated-chord cells get a different voicing without abandoning
+      // voice-leading entirely. Falls back to best if there's only one.
+      const scored = cands.map((c, i) => {
         const cur = c.__pianoShape.slice().sort((a, b) => a - b);
         const n = Math.min(cur.length, prevSorted.length);
         let mv = 0;
@@ -14612,9 +14614,11 @@ class Player {
         // changes that genuinely want a different family).
         if (prevProType && c.__proType === prevProType) score -= 3.5;
         else if (prevPrevProType && c.__proType === prevPrevProType) score -= 1.5;
-        if (score < bestScore) { bestScore = score; bestIdx = i; }
+        return { cand: c, score, idx: i };
       });
-      const winner = cands[bestIdx];
+      scored.sort((a, b) => a.score - b.score);
+      const pickIdx = (opts.rotateVoicing && scored.length > 1) ? 1 : 0;
+      const winner = scored[pickIdx].cand;
       // Propagate prev-pro-type history into the winner so the next
       // chord's pick can see TWO steps back (this commit's "memory una
       // poco mas alla"). Non-enumerable so it doesn't pollute shape
@@ -14674,6 +14678,7 @@ class Player {
     if (!filtered.length) filtered = cands; // emergency fallback
 
     let best = null;
+    const _scoredStd = [];
     const prevStrings = prevShape.map((f, i) => f >= 0 ? i : -1).filter(i => i >= 0).join(',');
     // ── Goodrick rule prep ──
     // Compute the MIDI pitches of prev's top voice + its set of
@@ -14810,9 +14815,15 @@ class Player {
       const extBias = sh.__ext9 ? _extBiasBase : 0;
       // Weight: voice-leading * 1, region shift * 2.4, sweet-spot * 1, string set * 4, recovery * 1, goodrick * 9, jump * 1, top-voice ≈1.2, variant ≈±2, ext9 = 1.5 / extensions
       const score = (overlapCount ? moveSum : 5) + regionShift * 2.4 + stringSetPenalty + regSpot + recoveryBias + goodrickPenalty + jumpPenalty + topPenalty + variantBias + extBias;
-      if (!best || score < best.score) best = {shape: sh, score};
+      _scoredStd.push({ shape: sh, score });
     }
-    return best ? best.shape : filtered[0];
+    if (!_scoredStd.length) return filtered[0];
+    _scoredStd.sort((a, b) => a.score - b.score);
+    // When opts.rotateVoicing fires (caller detected repeated chord ID),
+    // pick the 2nd-best instead of best so the same chord lands a
+    // different voicing — Bill Evans-style motion on held harmony.
+    const stdPick = (opts.rotateVoicing && _scoredStd.length > 1) ? 1 : 0;
+    return _scoredStd[stdPick].shape;
   }
 
   _currentSection() { return this.song?.[this.songIdx]; }
@@ -16898,7 +16909,18 @@ class Player {
           // get a slightly brighter sweet-spot anchor.
           const progName = this.song[seg.songIdx]?.progression?.name;
           const sectionLabel = this.song[seg.songIdx]?.label;
-          const pickOpts = { progName, sectionLabel };
+          // Repeated chord rotation: when the SAME chord ID lands as
+          // two consecutive STEPS (e.g. Imaj9 → Imaj9 in Glasper, or a
+          // chord held across step boundaries), pull the picker toward
+          // a DIFFERENT voicing on the second one — Bill Evans hallmark
+          // of keeping movement alive even when harmony repeats. The
+          // 35% probability keeps it musically tasteful (not every
+          // repeat needs variation) while making cohesive sections feel
+          // less static. Skipped on continuation (b > 0 within the SAME
+          // step's bars) since those should stay locked.
+          const isRepeatedChord = (seg.chord === prevChord) && !isContinuation && (b === 0);
+          const rotateVoicing = isRepeatedChord && Math.random() < 0.35;
+          const pickOpts = { progName, sectionLabel, rotateVoicing };
           // Look up the step to honor its qualityOverride (Jobim, blues
           // alt dominants, Maiden Voyage 9sus4, etc.).
           const stepData = this.song[seg.songIdx]?.progression?.steps?.[seg.stepIdx];
