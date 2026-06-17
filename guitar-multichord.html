@@ -9132,15 +9132,26 @@ function _renderHoverPopups(chordId, allowedIds) {
   const buildPopupCard = (appId, chDef, x, y) => {
     const root = (state.keyPc + chDef.deg) % 12;
     let shape = null;
+    let popupPiano = null;
     if (typeof bestStartingVoicing === 'function') {
       const v = bestStartingVoicing(chDef.quality, root);
-      if (v) shape = v.shape;
+      if (v) {
+        shape = v.shape;
+        if (Array.isArray(v.pianoShape) && v.pianoShape.length) popupPiano = v.pianoShape;
+      }
     }
     const chordName = chordNameForVoicing(chDef.quality, root, shape, flats)
       || (nameOf(root, flats) + QUALITIES[chDef.quality].sfx);
-    const miniSvg = shape && typeof renderMini === 'function'
-      ? renderMini(shape, root, chDef.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
-      : '';
+    const miniSvg = !shape ? ''
+      : (state.instrument === 'piano' && typeof renderChordStaff === 'function')
+        ? renderChordStaff(shape, root, chDef.quality, flats, {
+            W: POPUP_W - 8, H: POPUP_H - 42,
+            minimal: true, showClef: true,
+            pianoShape: popupPiano,
+          })
+        : (typeof renderMini === 'function'
+            ? renderMini(shape, root, chDef.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
+            : '');
     const card = document.createElement('div');
     card.className = `map-card popup hover tag-${chDef.tag}`;
     card.style.left = `${x}px`;
@@ -9547,15 +9558,26 @@ function _redrawPersistentPopup() {
     || _getPopupSlot(targetNode, _persistentPopupNode, 0, POPUP_W, POPUP_H, GAP);
   const root = (state.keyPc + ch.deg) % 12;
   let shape = null;
+  let popupPiano = null;
   if (typeof bestStartingVoicing === 'function') {
     const v = bestStartingVoicing(ch.quality, root);
-    if (v) shape = v.shape;
+    if (v) {
+      shape = v.shape;
+      if (Array.isArray(v.pianoShape) && v.pianoShape.length) popupPiano = v.pianoShape;
+    }
   }
   const chordName = chordNameForVoicing(ch.quality, root, shape, flats)
     || (nameOf(root, flats) + QUALITIES[ch.quality].sfx);
-  const miniSvg = shape && typeof renderMini === 'function'
-    ? renderMini(shape, root, ch.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
-    : '';
+  const miniSvg = !shape ? ''
+    : (state.instrument === 'piano' && typeof renderChordStaff === 'function')
+      ? renderChordStaff(shape, root, ch.quality, flats, {
+          W: POPUP_W - 8, H: POPUP_H - 42,
+          minimal: true, showClef: true,
+          pianoShape: popupPiano,
+        })
+      : (typeof renderMini === 'function'
+          ? renderMini(shape, root, ch.quality, flats, { W: POPUP_W - 8, H: POPUP_H - 42, r: 6.5 })
+          : '');
   const labelTxt = ch.tag === 'secondary' ? 'SECONDARY DOM'
                   : ch.borrowedFrom ? 'MODAL INTERCHANGE'
                   : (ch.tag === 'borrowed' && /^bII7/.test(ch.roman)) ? 'TRITONE SUB'
@@ -10043,17 +10065,31 @@ function _renderPopupCards(curId, nxtId, isLastBar) {
     // chord (so the popup shows the EXACT inversion you're hearing).
     // Otherwise compute a best-starting voicing for the chord.
     let shape = null;
+    let popupPiano = null;
     if (isPlaying && state.playerVoicing && state.playerVoicing.chord === chordId && state.playerVoicing.shape) {
       shape = state.playerVoicing.shape;
+      if (Array.isArray(state.playerVoicing.pianoShape) && state.playerVoicing.pianoShape.length) {
+        popupPiano = state.playerVoicing.pianoShape;
+      }
     } else if (typeof bestStartingVoicing === 'function') {
       const v = bestStartingVoicing(eq, root);
-      if (v) shape = v.shape;
+      if (v) {
+        shape = v.shape;
+        if (Array.isArray(v.pianoShape) && v.pianoShape.length) popupPiano = v.pianoShape;
+      }
     }
     const chordName = chordNameForVoicing(eq, root, shape, flats)
       || (nameOf(root, flats) + QUALITIES[eq].sfx);
-    const miniSvg = shape && typeof renderMini === 'function'
-      ? renderMini(shape, root, eq, flats, { W: POPUP_W - 8, H: POPUP_H - 38, r: 6.5 })
-      : '';
+    const miniSvg = !shape ? ''
+      : (state.instrument === 'piano' && typeof renderChordStaff === 'function')
+        ? renderChordStaff(shape, root, eq, flats, {
+            W: POPUP_W - 8, H: POPUP_H - 38,
+            minimal: true, showClef: true,
+            pianoShape: popupPiano,
+          })
+        : (typeof renderMini === 'function'
+            ? renderMini(shape, root, eq, flats, { W: POPUP_W - 8, H: POPUP_H - 38, r: 6.5 })
+            : '');
     const card = document.createElement('div');
     let cls = `map-card popup tag-${ch.tag}`;
     if (isPlaying) cls += ' playing';
