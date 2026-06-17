@@ -644,6 +644,91 @@ body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{
 body.sidebar-fullscreen .sidebar .mag-stage .mag-headline:has(a:hover){
   transform:scale(1.04);
 }
+/* ── Outlet brand styling for Internacional (onmexico) headlines ──
+   Each outlet's wordmark prefix gets its actual brand color + font feel
+   so readers recognize REUTERS / BLOOMBERG / NYT / BBC etc. instantly.
+   Combo outlets ("AP/WAPO") split on / with a neutral gray separator.
+   Brand spans override the base Alfa Slab One uppercase styling. */
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-brand{
+  font-family:'Helvetica Neue','Arial Black',sans-serif;
+  font-weight:900;
+  letter-spacing:-.3px;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-sep{
+  color:#999;
+  font-weight:400;
+  margin:0 2px;
+  font-family:'Helvetica Neue',sans-serif;
+}
+/* Wire-service & breaking-news outlets — bold sans, brand colors */
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-reuters{color:#FF8000}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-bloomberg{color:#000;letter-spacing:-.5px}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-cnn{color:#CC0000}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-ap{color:#E0211C}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-afp{color:#000}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-cbs{color:#1A2C5B}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-npr{color:#1A1A1A;font-weight:700;letter-spacing:.5px}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-cnbc{color:#005594}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-pbs{color:#0078B6}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-kvia{color:#003F87}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-fox,
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-fox-news{color:#003366}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-outkick{color:#E11B22}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-ny-post{color:#CB1B1F}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-the-week{color:#E2231A}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-the-guardian,
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-guardian{color:#052962}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-al-jazeera{color:#E96100}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-euronews{color:#0046B8}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-responsible-statecraft{color:#1A4D8C;font-weight:700}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-defense-security-monitor,
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-gis-reports{color:#1A1A1A;font-weight:700}
+/* Serif-styled outlets — Playfair Display approximating their wordmarks */
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-nyt{
+  color:#000;font-family:'Playfair Display','Georgia',serif;
+  font-style:italic;font-weight:900;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-wsj{
+  color:#000;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-wapo{
+  color:#000;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-breitbart{
+  color:#BB1300;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;font-style:italic;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-telegraph{
+  color:#000;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;font-style:italic;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-globe-and-mail{
+  color:#000;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-newsweek{
+  color:#F5252A;font-family:'Playfair Display','Georgia',serif;
+  font-weight:900;font-style:italic;letter-spacing:0;
+}
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-latin-times{
+  color:#C8102E;font-family:'Playfair Display','Georgia',serif;
+  font-weight:700;font-style:italic;letter-spacing:0;
+}
+/* BBC — iconic white-on-black block. Inverse contrast inside the
+   uppercase Alfa Slab One context catches the eye. */
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-bbc{
+  color:#fff;background:#000;
+  padding:0 .25em;
+  letter-spacing:-.2px;
+}
+/* SILENCE — editorial flag for outlets that didn't cover a story.
+   Style as muted italic to signal "not an outlet, a critique". */
+body.sidebar-fullscreen .sidebar .mag-headline .outlet-silence{
+  color:#888;font-style:italic;font-weight:400;letter-spacing:.3px;
+  font-family:'Playfair Display','Georgia',serif;
+}
 body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{
   font-size:18px;line-height:1.18;margin:0 0 8px;
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
@@ -2467,6 +2552,33 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }
   }
 
+  // Convert an outlet name like "AL JAZEERA" or "AP/WAPO" into a CSS class
+  // slug ("al-jazeera"). Used by brandOutletPrefix below.
+  function outletSlug(name){
+    return name.toLowerCase()
+      .replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  }
+  // Wrap the leading "OUTLET[/OUTLET2]: " prefix of an onmexico headline
+  // in branded <span>s. The colon (and slash for combos) is rendered as a
+  // neutral separator. If the headline doesn't match the pattern, return
+  // unchanged. Operates on post-safeTxt HTML so `<a>` placeholders inside
+  // the headline aren't broken.
+  function brandOutletPrefix(html){
+    // Match leading uppercase prefix: A-Z, digits, /, ., -, &, spaces, accents.
+    // The prefix ends at the first ":" followed by whitespace.
+    const m = html.match(/^([A-Z][A-Z0-9/.\-\s&]*?):\s+([\s\S]+)$/);
+    if(!m) return html;
+    const prefix = m[1].trim();
+    const rest   = m[2];
+    // Combo outlets (AP/WAPO, REUTERS/BLOOMBERG, FOX/OUTKICK) — split on /,
+    // brand each piece, separator stays neutral gray.
+    const parts = prefix.split('/').map(p=>p.trim()).filter(Boolean);
+    const branded = parts.map(p=>{
+      const slug = outletSlug(p);
+      return `<span class="outlet-brand outlet-${slug}">${p}</span>`;
+    }).join('<span class="outlet-sep">/</span>');
+    return `${branded}<span class="outlet-sep">:</span> ${rest}`;
+  }
   function paintStage(el, group, batch){
     const idx = magClampSlideIdx(group);
     const slide = batch[idx];
@@ -2621,10 +2733,16 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     // Skipped for mañanera (dailyt) since the official URL is already
     // surfaced in the post's body credit — no need to duplicate it.
     const _hlText = safeTxt(lines[0]||'');
+    // For Internacional (onmexico) headlines, wrap the leading outlet
+    // prefix (everything before the first ":") in branded <span>s — each
+    // outlet gets its own brand color + font feel so readers recognize
+    // REUTERS / BLOOMBERG / NYT / BBC etc. at a glance. Combo outlets
+    // like "AP/WAPO" split on / so each part gets its own brand.
+    const _hlBranded = group==='onmexico' ? brandOutletPrefix(_hlText) : _hlText;
     const _srcUrl = slide.source && slide.source.url;
     el.querySelector('.mag-headline').innerHTML = (_srcUrl && group!=='dailyt')
-      ? `<a href="${esc(_srcUrl)}" target="_blank" rel="noopener noreferrer">${_hlText}</a>`
-      : _hlText;
+      ? `<a href="${esc(_srcUrl)}" target="_blank" rel="noopener noreferrer">${_hlBranded}</a>`
+      : _hlBranded;
 
     // For Mañanera (dailyt) only, move the headline DOM into the hero-wrap so
     // it sits as an overlay (cream label-strip) at the bottom-edge of the
