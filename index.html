@@ -2322,6 +2322,25 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       }
     }
   }
+  // Mirror of advanceFeatured for backward navigation: jump to the previous
+  // section and land on its LAST slide. Used by ← keyboard nav when the
+  // current featured is already on slide 0.
+  function retreatFeatured(currentGroup){
+    const sections=['dailyt','scant','onmexico'];
+    const start=sections.indexOf(currentGroup);
+    if(start<0) return;
+    const n=sections.length;
+    for(let i=1; i<=n; i++){
+      const candidate=sections[((start-i)%n+n)%n];
+      const batch=magBatchFor(candidate);
+      if(batch && batch.length){
+        magState.featured=candidate;
+        magState.slideIdx[candidate]=batch.length-1;
+        renderMobile();
+        return;
+      }
+    }
+  }
 
   // Stable skeletons — kind-specific. Mutated in place by paintCell so the
   // <img> elements survive cycles (cached images show instantly, no flash).
@@ -3082,6 +3101,42 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     e.preventDefault();
     const g=sat.dataset.group;
     if(g && g!==magState.featured){ magState.featured=g; renderMobile(); }
+  });
+  // Keyboard: ← / → navigate the stage post-by-post. When you hit the end
+  // of the current section's batch, jump to the next non-empty section's
+  // first slide (mirrors the auto-advance behavior). When you hit the
+  // start, jump back to the previous section's last slide. Skipped when
+  // the lightbox is open (it has its own ← / → for the carousel) or when
+  // a text input is focused.
+  document.addEventListener('keydown',e=>{
+    if(e.key!=='ArrowLeft' && e.key!=='ArrowRight') return;
+    if(!document.body.classList.contains('sidebar-fullscreen')) return;
+    const lb=document.getElementById('lightbox');
+    if(lb && lb.classList.contains('open')) return;
+    if(e.target && e.target.matches && e.target.matches('input, textarea, [contenteditable], select')) return;
+    const g=magState.featured;
+    if(!g) return;
+    const batch=magBatchFor(g);
+    if(!batch || !batch.length) return;
+    e.preventDefault();
+    const cur=magState.slideIdx[g]||0;
+    if(e.key==='ArrowRight'){
+      if(cur+1 >= batch.length){
+        advanceFeatured(g);
+      } else {
+        magState.slideIdx[g]=cur+1;
+        updateCell(g);
+        bumpCellTimer(g);
+      }
+    } else {
+      if(cur-1 < 0){
+        retreatFeatured(g);
+      } else {
+        magState.slideIdx[g]=cur-1;
+        updateCell(g);
+        bumpCellTimer(g);
+      }
+    }
   });
   // Mode toggle click — switch between Telegram and Translations (mobile + desktop)
   document.querySelectorAll('.m-mode-toggle').forEach(toggle=>{
