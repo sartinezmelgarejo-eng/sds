@@ -419,32 +419,32 @@ body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-date{display:n
    eat clicks on the photo (the headline link is the click target). */
 body.sidebar-fullscreen .sidebar .mag-hero-source{
   position:absolute;
-  bottom:clamp(6px, 1vh, 12px);
-  right:clamp(6px, 1vw, 14px);
+  bottom:clamp(10px, 1.6vh, 18px);
+  right:clamp(10px, 1.4vw, 20px);
   z-index:2;
-  display:flex;align-items:center;gap:6px;
+  display:flex;align-items:center;gap:10px;
   background:rgba(20,20,20,.72);
   color:#fdfcf3;
-  padding:4px 10px 4px 7px;
+  padding:9px 18px 9px 13px;
   font-family:'Helvetica Neue','SF Pro Text',system-ui,sans-serif;
-  font-size:clamp(9px, 1.05vh, 11px);
-  font-weight:600;letter-spacing:.3px;
-  border-radius:3px;
-  -webkit-backdrop-filter:blur(6px) saturate(1.1);
-  backdrop-filter:blur(6px) saturate(1.1);
+  font-size:clamp(15px, 1.9vh, 19px);
+  font-weight:700;letter-spacing:.4px;
+  border-radius:5px;
+  -webkit-backdrop-filter:blur(8px) saturate(1.15);
+  backdrop-filter:blur(8px) saturate(1.15);
   pointer-events:none;
-  max-width:60%;
+  max-width:70%;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-source:empty{display:none}
 body.sidebar-fullscreen .sidebar .mag-stage.no-hero-img .mag-hero-source{display:none}
 /* Icon-only watermark (onmexico) — symmetric padding so the favicon
    doesn't sit lopsided in an asymmetric pill. */
 body.sidebar-fullscreen .sidebar .mag-hero-source:has(.mag-source-icon:only-child){
-  padding:5px 7px;
+  padding:9px 12px;
 }
 body.sidebar-fullscreen .sidebar .mag-source-icon{
-  width:14px;height:14px;
-  border-radius:2px;
+  width:24px;height:24px;
+  border-radius:3px;
   background:#fff;             /* fallback in case icon has alpha */
   flex-shrink:0;
   object-fit:contain;
@@ -2201,6 +2201,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const its=mobileItems.filter(x=>groupOf(x.task)===group);
     return groupIntoBatches(its)[0]||[];
   }
+  // Return the last N batches concatenated (most recent first). Used for
+  // sections like Noticias + Internacional that should surface multiple
+  // runs at once (e.g. dragon run earlier in the day + onmexico run later).
+  function latestBatchesFor(group, n){
+    const its=mobileItems.filter(x=>groupOf(x.task)===group);
+    return groupIntoBatches(its).slice(0, n).flat();
+  }
   function todayBatchesFor(group){
     const its=mobileItems.filter(x=>groupOf(x.task)===group);
     const all=groupIntoBatches(its);
@@ -2238,11 +2245,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     paused:{},
   };
   function magBatchFor(group){
-    if(group==='scant'){
-      const todays=todayBatchesFor('scant');
-      if(todays.length) return todays[magState.noticiasBatchIdx % todays.length] || todays[0];
-    }
-    return latestBatchFor(group);
+    // Mañanera: only the latest batch (one daily breakdown is enough).
+    if(group==='dailyt') return latestBatchFor(group);
+    // Noticias + Internacional: keep the last 2 runs combined, so multiple
+    // updates throughout the day (dragon run + onmexico run, or morning
+    // scant + afternoon scant) all stay visible together.
+    return latestBatchesFor(group, 2);
   }
   function magClampSlideIdx(group){
     const b=magBatchFor(group);
@@ -2453,19 +2461,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     const slide = batch[idx];
     paintHead(el, group, batch, slide);
 
-    // Noticias tabs (only when scant is on stage with >1 batch today)
+    // Noticias batch tabs are no longer needed — magBatchFor() combines the
+    // last 2 batches for scant + onmexico so all today's runs surface
+    // together. Keep the empty slot in the shell for layout stability.
     const tabsEl=el.querySelector('.mag-noticias-tabs');
-    if(group==='scant'){
-      const todays=todayBatchesFor('scant');
-      if(todays.length>1){
-        const html=todays.map((b,i)=>{
-          const label=batchTimeBucket(b[0].ts);
-          return `<button class="mag-noticias-tab ${i===magState.noticiasBatchIdx?'active':''}" data-batch-idx="${i}">${esc(label)}</button>`;
-        }).join('');
-        if(tabsEl.innerHTML!==html) tabsEl.innerHTML=html;
-        tabsEl.style.display='';
-      } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
-    } else { tabsEl.style.display='none'; tabsEl.innerHTML='' }
+    if(tabsEl){ tabsEl.style.display='none'; tabsEl.innerHTML='' }
 
     // Hero image (race-guarded swap). On load we also flip the stage into
     // a side-by-side 2-col layout for portrait images (naturalHeight > naturalWidth)
@@ -2856,21 +2856,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     }).filter(s=>s.ts);
     if(!sections.length) return '<div class="m-tg-empty">No posts yet</div>';
     sections.sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
-    // Detect first-ever build (magState.featured was null before). Auto-jump
-    // to the first image-bearing slide ONLY on first build, otherwise the
-    // user's explicit slide picks (click-to-promote, tile clicks) would
-    // get clobbered every time the magazine re-renders.
-    const isFirstBuild = !magState.featured;
+    // Always start on slide 0 (most recent post). Even when the most recent
+    // is the no-image Mañanera Breakdown, that's a feature: the 3×3 preview
+    // grid below it is a useful at-a-glance index of the batch. Used to
+    // auto-skip to the first image-bearing slide; that was clobbering the
+    // user's intent.
     if(!magState.featured || !sections.find(s=>s.group===magState.featured)){
       magState.featured=sections[0].group;
-    }
-    if(isFirstBuild){
-      ['dailyt','scant','onmexico'].forEach(g=>{
-        if(magState.slideIdx[g]!==0) return;
-        const b=magBatchFor(g);
-        const withImg=b.findIndex(x => x.img || (x.source && x.source.img));
-        if(withImg>0) magState.slideIdx[g]=withImg;
-      });
     }
     const stageGroup=magState.featured;
     const satGroups=sections.map(s=>s.group).filter(g=>g!==stageGroup);
