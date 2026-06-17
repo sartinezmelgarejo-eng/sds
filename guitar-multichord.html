@@ -15410,6 +15410,9 @@ class Player {
       if (!slotsAreMulti) return notes;
       const sl = slotsArr[s];
       if (!sl || !sl.shape) return notes;
+      // Pro voicings carry MIDI on sl.pianoShape; the placeholder
+      // fret-shape would convert to an empty array.
+      if (Array.isArray(sl.pianoShape) && sl.pianoShape.length) return sl.pianoShape.slice();
       return sl.shape.map((f, st) => f >= 0 ? STRING_OPEN_MIDI[st] + f : null).filter(x => x !== null);
     };
 
@@ -16346,10 +16349,17 @@ class Player {
               const sRoot = (segKeyPc + sCh.deg) % 12;
               const sShape = this._pickShape(sCh.quality, sRoot, segType, prevSlotShape);
               if (sShape) prevSlotShape = sShape;
+              // Lift pianoShape + actual pro family type when _pickShape
+              // returned a pro placeholder (the dispatcher tags it via
+              // __pianoShape and __proType non-enumerably).
+              const slotPiano = (sShape && sShape.__pianoShape && sShape.__pianoShape.length)
+                ? sShape.__pianoShape.slice() : null;
+              const slotProType = (sShape && sShape.__proType) ? sShape.__proType : null;
               return {
                 ...sl,
                 shape: sShape || sl.shape || null,
-                voicingType: sl.voicingType || _displayVoicingFamily(segType, sCh.quality, sRoot, sShape),
+                pianoShape: slotPiano,
+                voicingType: sl.voicingType || slotProType || _displayVoicingFamily(segType, sCh.quality, sRoot, sShape),
               };
             });
           }
@@ -16583,6 +16593,11 @@ class Player {
           return {
             shape: slot.shape, root: sRoot, quality: sCh.quality,
             chordName: symbolizeChordName(cn), tag: sCh.tag,
+            // Pro voicings ride on pianoShape; buildSlotChord reads it
+            // to render the actual staff notes instead of the
+            // placeholder fret-shape.
+            pianoShape: (Array.isArray(slot.pianoShape) && slot.pianoShape.length)
+              ? slot.pianoShape.slice() : null,
           };
         });
         const allFilled = pianoSlots.every(p => p && p.shape);
@@ -20588,6 +20603,18 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
         editCell.stringSetIdx= s0.stringSetIdx;
         editCell.inversion   = s0.inversion;
         editCell.stringSet   = s0.stringSet;
+        // Pro voicings on slot 0: the cell's top-level pianoShape must
+        // mirror slot 0's too, otherwise renderComposeStrip's piano
+        // staff falls back to the placeholder fret shape and chord-piano
+        // / audio paths get an empty MIDI array. The .variant label
+        // (e.g. "ninth" vs "fifth" for So What) propagates with it.
+        if (Array.isArray(s0.pianoShape) && s0.pianoShape.length) {
+          editCell.pianoShape = s0.pianoShape.slice();
+          if (s0.variant) editCell.variant = s0.variant; else delete editCell.variant;
+        } else {
+          editCell.pianoShape = null;
+          delete editCell.variant;
+        }
       }
       // Advance to next slot ONLY if we entered edit mode via the chip
       // (auto-advance). Manual slot selection sticks: the user picked
@@ -21368,6 +21395,10 @@ function renderComposeStrip() {
               quality: sCh.quality,
               chordName: symbolizeChordName(cn),
               tag: sCh.tag,
+              // Pro voicings ride on pianoShape — propagate so the staff
+              // renders the actual MIDI notes instead of the placeholder.
+              pianoShape: (Array.isArray(slot.pianoShape) && slot.pianoShape.length)
+                ? slot.pianoShape.slice() : null,
             };
           });
           // Only switch on multi-chord rendering when every slot has data —
@@ -22568,6 +22599,8 @@ function _midiCollectComposed() {
       if (!slotsArr) return baseNotes;
       const sl = slotsArr[s];
       if (!sl || !sl.shape) return baseNotes;
+      // Pro voicings ride on pianoShape; placeholder fret-shape is silent.
+      if (Array.isArray(sl.pianoShape) && sl.pianoShape.length) return sl.pianoShape.slice();
       return shapeToNotes(sl.shape);
     };
     for (let s = 0; s < subN; s++) {
@@ -22639,6 +22672,7 @@ function _midiCollectSong() {
             if (!slotsArr) return notes;
             const sl = slotsArr[s];
             if (!sl || !sl.shape) return notes;
+            if (Array.isArray(sl.pianoShape) && sl.pianoShape.length) return sl.pianoShape.slice();
             return shapeToNotes(sl.shape);
           };
           for (let s = 0; s < subN; s++) {
