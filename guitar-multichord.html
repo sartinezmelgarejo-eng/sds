@@ -7369,11 +7369,19 @@ function computeAllVoicings() {
       const allCands = allDistinctVoicings(ch.quality, r);
       const cands = filterShapeCandidates(allCands);
       if (cands.length) {
-        // Mirror composeAddChord's prev-shape: last cell's shape if
-        // compose has content, otherwise null (first chord).
+        // Mirror composeAddChord's prev-shape EXACTLY — including
+        // pianoShape on a pro prev. composeAddChord wraps the last cell
+        // as { shape, pianoShape } so pickByStrategy can do MIDI-aware
+        // scoring; passing just lastCell.shape (the placeholder for a
+        // pro prev) sent pickByStrategy into the standard fret-scoring
+        // path which produced a DIFFERENT winner than the click handler.
+        // That mismatch was the source of "chord-map card shows X,
+        // click plays Y" especially around Pro Mode transitions.
         const seq = state.composedProgression;
         const lastCell = seq && seq.length ? seq[seq.length - 1] : null;
-        const prevForPicker = lastCell && lastCell.shape ? lastCell.shape : null;
+        const prevForPicker = (lastCell && Array.isArray(lastCell.pianoShape) && lastCell.pianoShape.length)
+          ? { shape: lastCell.shape, pianoShape: lastCell.pianoShape.slice(), type: lastCell.voicingType || null }
+          : (lastCell && lastCell.shape ? lastCell.shape : null);
         const idx = pickByStrategy(cands, prevForPicker);
         const c = cands[idx];
         result[id] = {
