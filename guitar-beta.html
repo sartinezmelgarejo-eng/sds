@@ -4650,8 +4650,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    /* Was 30x30 — too small for the 26:16-viewBox SVG to read as
+       distinct between rooms (drop2 vs drop3 vs the pro glyphs all
+       turned into similar dark blobs). 42x32 gives the SVG enough
+       canvas at the right aspect ratio. */
+    width: 42px;
+    height: 32px;
     color: #1a1a1a;
     flex-shrink: 0;
   }
@@ -4661,6 +4665,19 @@
     display: block;
   }
   #landscape-play .lp-info-icon:empty { display: none; }
+  /* Pulse the icon when the voicing family actually changes (only
+     fired by JS when dataset.voiceType differs from the new type)
+     so the user notices a swap — without it, a per-chord voicing
+     change at this size was easy to miss. Cheap scale + opacity
+     bounce, ~250ms, no layout shift. */
+  @keyframes lpInfoIconPulse {
+    0%   { transform: scale(0.85); opacity: 0.55; }
+    55%  { transform: scale(1.12); opacity: 1; }
+    100% { transform: scale(1);    opacity: 1; }
+  }
+  #landscape-play .lp-info-icon.lp-info-icon-pulse {
+    animation: lpInfoIconPulse 260ms ease-out;
+  }
   #landscape-play .lp-info-name {
     font-family: 'Cormorant Garamond', Georgia, serif;
     font-weight: 700;
@@ -20113,15 +20130,31 @@ function lp_syncControls() {
       infoSub.textContent = [roman, typeLabel].filter(Boolean).join(' · ');
       // Voicing-family icon pinned to the right of the lp-info cell —
       // same SVG glyph the desktop now-playing card and the mobile
-      // vertical bar use.
+      // vertical bar use. Only write innerHTML when the type actually
+      // changed (otherwise the SVG re-parses every tick on the same
+      // glyph) AND retrigger the flash animation so the user can
+      // SEE the change happen — without that, a per-chord voicing
+      // swap is invisible at the small lp-info size. User: "el icono
+      // como que se queda en el mismo visualmente en todo el song."
       if (infoIcon) {
-        const ic = (type && typeof VOICE_ICONS !== 'undefined' && VOICE_ICONS[type]) ? VOICE_ICONS[type] : '';
-        infoIcon.innerHTML = ic;
+        const lastType = infoIcon.dataset.voiceType || '';
+        if (type !== lastType) {
+          const ic = (type && typeof VOICE_ICONS !== 'undefined' && VOICE_ICONS[type]) ? VOICE_ICONS[type] : '';
+          infoIcon.innerHTML = ic;
+          infoIcon.dataset.voiceType = type || '';
+          // Retrigger the CSS pulse: remove + force reflow + re-add.
+          infoIcon.classList.remove('lp-info-icon-pulse');
+          void infoIcon.offsetWidth;
+          infoIcon.classList.add('lp-info-icon-pulse');
+        }
       }
     } else {
       infoName.textContent = '—';
       infoSub.textContent = '';
-      if (infoIcon) infoIcon.innerHTML = '';
+      if (infoIcon) {
+        infoIcon.innerHTML = '';
+        infoIcon.dataset.voiceType = '';
+      }
     }
   }
 }
