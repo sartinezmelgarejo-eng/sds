@@ -12929,12 +12929,18 @@ function renderVoicingMenu() {
         _voicingProModeFlip();
         return;
       }
-      // Begin drag tracking. The first row toggles via the existing
-      // hybrid logic; subsequent rows touched during drag get a simple
-      // add/delete toggle so the gesture paints across the menu.
-      _voicingDragSeen = new Set([id]);
+      // Apply the per-row toggle.
       _voicingApplyChange(id);
       _voicingPostChange();
+      // Drag-to-paint multi-select is mouse-only. On touch input the
+      // drag gesture conflicts with the menu's vertical scroll: the
+      // finger that tries to scroll instead paints toggles across
+      // every row it sweeps past. User: "el click drag del menu en
+      // mobil mejor no." A stylus ('pen') still gets drag — only
+      // raw finger touches skip it.
+      if (e.pointerType !== 'touch') {
+        _voicingDragSeen = new Set([id]);
+      }
     });
   });
 }
