@@ -10019,6 +10019,19 @@ function _setupChordMapTouch() {
 
   // Prevent iOS/Android native long-press context menu from stealing the hold.
   wrap.addEventListener('contextmenu', (e) => { e.preventDefault(); });
+  // Bulletproof iOS belt: the CSS user-select-none + touch-action-none
+  // pair is supposed to be enough, but iOS Safari still occasionally
+  // raises the text-selection magnifier on long-press over .mc-roman /
+  // .mc-name text inside a card. A document-level `selectstart` hook
+  // that preventDefault()s when the target is inside the chord map
+  // shuts that down regardless of cascade quirks. User: "sigue
+  // seleccionando el chord map como si fuera texto."
+  document.addEventListener('selectstart', (e) => {
+    const tgt = e.target;
+    if (tgt && tgt.closest && tgt.closest('#chord-map, .map-card')) {
+      e.preventDefault();
+    }
+  });
 
   wrap.addEventListener('touchstart', (e) => {
     if (player.playing || player.paused) return;
