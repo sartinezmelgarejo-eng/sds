@@ -999,6 +999,71 @@
     letter-spacing: 0.2px;
     line-height: 1;
   }
+  /* Mobile pill chain — same visual language as the desktop
+     pi-prog-pill but sized to fit the slim mobile row. Flex-grow on
+     the container claims free space and pushes the voicing block
+     to the right edge. */
+  #player-info .pi-prog-pills-mobile {
+    display: flex;
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+  }
+  #player-info .pi-prog-pill-mobile {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--text-dim);
+    opacity: 0.55;
+    line-height: 1;
+    padding: 1px 3px;
+    border-radius: 2px;
+    letter-spacing: 0.2px;
+  }
+  #player-info .pi-prog-pill-mobile.done {
+    opacity: 0.32;
+  }
+  #player-info .pi-prog-pill-mobile.now {
+    font-weight: 700;
+    background: var(--tag-tonic, #059669);
+    color: #fdfcf3;
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(5,150,105,0.42);
+  }
+  /* Voicing wrapper — icon + lowercase family label as one
+     inline unit on the right side of row 2. Replaces the prior
+     "ROOTLESS A · two-feel" text. */
+  #player-info .pi-voicing-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  #player-info .pi-voicing-icon-mobile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    color: var(--tag-tonic, #059669);
+  }
+  #player-info .pi-voicing-icon-mobile svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    stroke: currentColor;
+  }
+  #player-info .pi-voicing-label-mobile {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-style: italic;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.2px;
+    line-height: 1;
+  }
   /* Mobile section letters: dim the "done" ones so the progression
      through the form is visible at a glance (mirrors how the desktop
      pi-grid handles it). The .now styling already lives above. */
@@ -16785,6 +16850,19 @@ class Player {
       return `<span class="${cls}" style="flex:${bars} 1 0;" data-bars="${bars}">${stepRoman}</span>`;
     }).join('');
 
+    // Mobile mirror of pillsHtml — same logic, lighter class so the
+    // pills sit inside the slim mobile row without inheriting the
+    // big desktop pill typography. No flex:bars styling here because
+    // the mobile bar is too narrow to express bar-duration as width;
+    // the pills just sit side-by-side at uniform size.
+    const mobilePillsHtml = prog.steps.map((step, i) => {
+      let cls = 'pi-prog-pill-mobile';
+      if (i < this.currentStepIdx) cls += ' done';
+      else if (i === this.currentStepIdx) cls += ' now';
+      const stepRoman = map.chordDefs[step.chord]?.roman || step.chord;
+      return `<span class="${cls}">${stepRoman}</span>`;
+    }).join('');
+
     // Build a clean descriptor-only name. Strips the chord sequence
     // (since the pills already show it), the ×N iteration counter,
     // and bare parentheses (keeps their content). Leaves only words
@@ -16887,10 +16965,19 @@ class Player {
     const mobileIterHtml = section.repeats > 1
       ? `<span class="pi-meta-song-iter">×${this.sectionIter + 1}/${section.repeats}</span>`
       : '';
-    const mobileBottomRow = (cleanProgName || voicingTxt)
+    // Mobile bottom row redesign (user: "esque que diga rootless y two
+    // feel y aparte el dibujo. es overkill uno solo que sea claro"):
+    // roman pills on the left, voicing icon + lowercase family label
+    // on the right — no fragment descriptor, no bass-pattern text.
+    // pvLabel is already built above; voiceIcon is the SVG looked up
+    // from VOICE_ICONS earlier in this function.
+    const mobileVoicingHtml = pvLabel
+      ? `<span class="pi-voicing-mobile">${voiceIcon ? `<span class="pi-voicing-icon-mobile">${voiceIcon}</span>` : ''}<span class="pi-voicing-label-mobile">${pvLabel.toLowerCase()}</span></span>`
+      : '';
+    const mobileBottomRow = (mobilePillsHtml || mobileVoicingHtml)
       ? `<div class="pi-mobile-row pi-mobile-bot">
-          ${cleanProgName ? `<span class="pi-prog-mobile">${cleanProgName}</span>` : ''}
-          ${voicingTxt}
+          ${mobilePillsHtml ? `<div class="pi-prog-pills-mobile">${mobilePillsHtml}</div>` : ''}
+          ${mobileVoicingHtml}
         </div>`
       : '';
     const mobileHtml = `
