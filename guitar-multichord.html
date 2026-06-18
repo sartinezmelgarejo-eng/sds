@@ -12929,17 +12929,20 @@ function renderVoicingMenu() {
         _voicingProModeFlip();
         return;
       }
-      // Apply the per-row toggle.
-      _voicingApplyChange(id);
-      _voicingPostChange();
-      // Drag-to-paint multi-select is mouse-only. On touch input the
-      // drag gesture conflicts with the menu's vertical scroll: the
-      // finger that tries to scroll instead paints toggles across
-      // every row it sweeps past. User: "el click drag del menu en
-      // mobil mejor no." A stylus ('pen') still gets drag — only
-      // raw finger touches skip it.
       if (e.pointerType !== 'touch') {
+        // Mouse / stylus — immediate toggle + initialize drag-paint
+        // multi-select. Unchanged from before.
+        _voicingApplyChange(id);
+        _voicingPostChange();
         _voicingDragSeen = new Set([id]);
+      } else {
+        // Touch — DEFER the toggle to pointerup, and only fire if the
+        // finger barely moved. Otherwise the user's scroll gesture
+        // got captured as a row selection. User: "no puede distinguir
+        // entre click y scroll? como que me sigue seleccionando una
+        // cuando scroleo." The pending state is committed in the
+        // document-level pointerup handler below.
+        _voicingTouchPending = { id, startX: e.clientX, startY: e.clientY };
       }
     });
   });
@@ -13064,7 +13067,26 @@ function _voicingProModeFlip() {
 // Mode toggle row and the ALL row are excluded from drag (they're
 // deliberate single-click actions).
 let _voicingDragSeen = null;
+// Touch tap-vs-scroll detector. pointerdown on a touch row stashes
+// {id, startX, startY} here instead of toggling immediately. If the
+// finger moves more than TAP_SLOP pixels (a scroll gesture), the
+// pending state is cleared and no toggle fires. If the finger
+// releases first without crossing the slop, the pointerup handler
+// commits the toggle.
+let _voicingTouchPending = null;
+const _VOICING_TAP_SLOP = 8;
 document.addEventListener('pointermove', (e) => {
+  // Cancel a pending touch tap once the finger crosses the slop —
+  // that's a scroll, not a tap. Check this BEFORE the drag-paint
+  // branch so a touch that started outside the drag-paint codepath
+  // still gets cleared.
+  if (_voicingTouchPending) {
+    const dx = e.clientX - _voicingTouchPending.startX;
+    const dy = e.clientY - _voicingTouchPending.startY;
+    if (Math.abs(dx) > _VOICING_TAP_SLOP || Math.abs(dy) > _VOICING_TAP_SLOP) {
+      _voicingTouchPending = null;
+    }
+  }
   if (!_voicingDragSeen) return;
   if (voicingMenu.hidden) { _voicingDragSeen = null; return; }
   const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -13078,7 +13100,16 @@ document.addEventListener('pointermove', (e) => {
   _voicingApplyChange(id);
   _voicingPostChange();
 });
-function _voicingEndDrag() { _voicingDragSeen = null; }
+function _voicingEndDrag() {
+  // Commit the pending touch tap if it survived the slop check —
+  // finger lifted without scrolling, so the user wanted to toggle.
+  if (_voicingTouchPending && !voicingMenu.hidden) {
+    _voicingApplyChange(_voicingTouchPending.id);
+    _voicingPostChange();
+  }
+  _voicingTouchPending = null;
+  _voicingDragSeen = null;
+}
 document.addEventListener('pointerup', _voicingEndDrag);
 document.addEventListener('pointercancel', _voicingEndDrag);
 
