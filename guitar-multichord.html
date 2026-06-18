@@ -16505,37 +16505,28 @@ class Player {
     const curId = this._currentDisplayChordId();
     const nxtId = this._nextDisplayChordId();
 
-    // Re-render the chord map so each card's mini-fretboard reflects the latest voicing
-    // (the focused chord uses state.playerVoicing; others recompute smoothest from it).
-    // Three-tier skip:
-    //   1. Mobile + play mode + overlay closed → the chord-map host is
-    //      `display:none` and the mobile-map toggle is also hidden by
-    //      CSS during player-active, so the user CANNOT see the map.
-    //      Building 15-25 SVG cards into invisible DOM is pure waste —
-    //      skip entirely. User: "en mobile ni siquiera se ve el chord
-    //      map en play mode jaja."
-    //   2. Otherwise: rebuild only when the underlying chord SET changes
-    //      (sectionLabel / keyPc / tonality / scope / instrument /
-    //      proMode). Within a single section, the per-chord highlight
-    //      (playing / next-up / in-progression) is already handled by
-    //      class toggling below — no rebuild needed.
-    //   3. In compose mode renderChordMap is called via OTHER paths
-    //      (renderAll on key/scope changes, click handlers on cards,
-    //      etc.), so the per-chord "breathing" voicing previews keep
-    //      updating like before — the skip only affects play mode.
+    // Re-render the chord map so each card's mini-fretboard reflects the
+    // latest voicing (focused chord uses state.playerVoicing; others
+    // recompute smoothest from it).
+    //   - Mobile + play mode + overlay closed → chord-map host is
+    //     `display:none` and the toggle button is hidden by
+    //     `body.player-active`, so the user CANNOT see the map. Building
+    //     15-25 SVG cards into invisible DOM is pure waste, skip entirely.
+    //     User: "en mobile ni siquiera se ve el chord map en play mode."
+    //   - Desktop → ALWAYS rebuild. The cards' mini-staves show the
+    //     smoothest voicing each chord would land on relative to the
+    //     currently-playing one, so the previews actively "breathe" with
+    //     each chord change. An earlier round tried to cache this by
+    //     section to save mobile cost; the side effect on desktop was
+    //     that the previewed voicing diverged from what the AI actually
+    //     played (cards showed stale section-start voicings while audio
+    //     advanced). User caught it: "me dejaste raro el chord map en
+    //     desktop, ahora ni siquiera toca lo que muestra."
     const _isMobile = window.innerWidth <= 800;
     const _mapOverlayOpen = document.body.classList.contains('map-overlay-open');
-    if (_isMobile && !_mapOverlayOpen) {
-      // Mark cache stale so when user exits play / opens overlay / hits
-      // desktop, the next _updateVisuals rebuilds against current state.
-      this._lastChordMapKey = null;
-    } else {
-      const _curSecLabel = this._currentSection()?.label || '';
-      const _mapKey = `${_curSecLabel}|${state.keyPc}|${state.tonality}|${chordScope}|${state.instrument}|${state.proMode ? 'p' : 's'}`;
-      if (this._lastChordMapKey !== _mapKey) {
-        renderChordMap();
-        this._lastChordMapKey = _mapKey;
-      }
+    const _skipMapWork = _isMobile && !_mapOverlayOpen;
+    if (!_skipMapWork) {
+      renderChordMap();
     }
 
     // Build a set of chord IDs that appear in the CURRENT section's progression.
@@ -16550,7 +16541,7 @@ class Player {
     // touching invisible DOM. Skip them too — only the audio + the strip
     // / now-playing badge / chord-neck matter on mobile play.
     const isLastBar = this.barsRemaining === 1;
-    if (!(_isMobile && !_mapOverlayOpen)) {
+    if (!_skipMapWork) {
       // Re-apply playing / next-up / in-progression classes (renderChordMap creates fresh cards)
       document.querySelectorAll('.map-card').forEach(c => {
         c.classList.remove('playing', 'next-up', 'about-to-start', 'in-progression');
@@ -16578,7 +16569,7 @@ class Player {
     // know that "bII7" is currently sounding as bII7#11 without
     // creating a separate chord ID. Same mobile-play skip — badges live
     // on map cards which are invisible in that state.
-    if (!(_isMobile && !_mapOverlayOpen)) {
+    if (!_skipMapWork) {
       document.querySelectorAll('.map-card .mc-quality-badge').forEach(el => el.remove());
       const curStepNow = this._currentStep();
       if (curStepNow && curStepNow.qualityOverride) {
