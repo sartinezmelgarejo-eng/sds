@@ -395,6 +395,47 @@ body.sidebar-fullscreen .sidebar .mag-hero-img{
   display:block;opacity:0;transition:opacity .35s ease;
 }
 body.sidebar-fullscreen .sidebar .mag-hero-img.loaded{opacity:1}
+/* ── Low-res photo treatment for Noticias hero ──
+   Noticias outlets sometimes ship low-res images that look pixelated when
+   scaled up to the magazine hero size. Three layered effects mask the
+   resolution issues:
+     1. Blur 0.5px — softens hard JPEG compression edges
+     2. Contrast 1.07 + saturate 1.06 — restores presence lost to the blur
+     3. Grain overlay (SVG fractalNoise via ::after on wrap) at opacity .84
+        — the brain attributes the noise to "film/paper grain" instead of
+        reading the image as low quality. Classic print-magazine trick.
+   Watermark + outlet badge stay clean above the grain via z-index 2 vs 1.
+   The treatment is on by default (high preset). Add class "treatment-light"
+   on .mag-stage to swap to a more subtle version. */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"] .mag-hero-wrap{
+  --treatment-grain:.84;
+  --treatment-blur:.5px;
+  --treatment-contrast:1.07;
+  --treatment-saturate:1.06;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"].treatment-light .mag-hero-wrap{
+  --treatment-grain:.32;
+  --treatment-blur:.3px;
+  --treatment-contrast:1.04;
+  --treatment-saturate:1.03;
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"] .mag-hero-img{
+  filter:blur(var(--treatment-blur, 0)) contrast(var(--treatment-contrast, 1)) saturate(var(--treatment-saturate, 1));
+}
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"] .mag-hero-wrap::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:1;
+  pointer-events:none;
+  background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode:overlay;
+  opacity:var(--treatment-grain, 0);
+}
+/* Suppress the grain when there's no actual hero image (no-img thumbs grid
+   or gallery mode) — the grain only makes sense on a real photo. */
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"].no-hero-img .mag-hero-wrap::after,
+body.sidebar-fullscreen .sidebar .mag-stage[data-group="scant"].gallery-hero .mag-hero-wrap::after{display:none}
 /* Date/source metadata overlay on the hero — bottom-left photo-credit style.
    Used for onmexico posts that carry a "Month DD, YYYY | <symbol>" line as
    their second line. Plain mono text on a translucent dark background.
