@@ -16782,19 +16782,14 @@ class Player {
       stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
       glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
     const pvType = state.playerVoicing?.type;
-    let pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
-    // Rootless voicings don't change the chord's harmonic identity —
-    // they're just the underlying 7th chord played without the root
-    // (Bill Evans hallmark). The badge surfaces the chord QUALITY
-    // (m7 / maj7 / 7 / m9 / etc.) instead of "ROOTLESS A/B", so the
-    // user reads it as "this is a 7th chord, voiced rootless" rather
-    // than as a separate exotic voicing family.
-    if ((pvType === 'rootlessA' || pvType === 'rootlessB') && curEffQ && QUALITIES[curEffQ]) {
-      const qSfx = QUALITIES[curEffQ].sfx;
-      // Empty sfx (canonical major triad) — fall through to a clear
-      // "7TH" fallback rather than rendering an empty badge.
-      pvLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
-    }
+    // Rootless voicings keep their family name in the now-playing badge.
+    // The chord QUALITY (m7 / maj7 / 7) already shows naturally on the
+    // partitura (the staff renderer fills it via QUALITIES[q].sfx), so
+    // the badge is free to surface the VOICING family identity — what
+    // the user wants to know in the now-playing strip. User: "los
+    // rootless deberían decir rootless, eso del naming que te dije
+    // hace rato es mas bien para la partitura, no para el nowplaying."
+    const pvLabel = pvType ? (PV_LABEL[pvType] || pvType.toUpperCase()) : '';
     const voicingTxt = pvLabel
       ? `<span class="pi-voicing">${pvLabel} · ${this.bassPattern}</span>`
       : '';
@@ -19990,11 +19985,7 @@ function lp_syncControls() {
         ustSharp11: 'UST #11', ustAlt: 'ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
         stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
         glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
-      let typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
-      if ((type === 'rootlessA' || type === 'rootlessB') && QUALITIES[ch.quality]) {
-        const qSfx = QUALITIES[ch.quality].sfx;
-        typeLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
-      }
+      const typeLabel = type ? (TLBL[type] || type.toUpperCase()) : '';
       const roman = ch.roman || '';
       infoSub.textContent = [roman, typeLabel].filter(Boolean).join(' · ');
     } else {
@@ -20568,13 +20559,7 @@ function renderComposeInfo() {
     ustSharp11: 'UST #11', ustAlt: 'ALT', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
     stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
     glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
-  let typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
-  // Rootless voicings echo the chord quality (m7/maj7/7) — same rule
-  // play-mode uses, so the user sees consistent labeling across modes.
-  if ((typeRaw === 'rootlessA' || typeRaw === 'rootlessB') && QUALITIES[ch.quality]) {
-    const qSfx = QUALITIES[ch.quality].sfx;
-    typeLabel = qSfx ? qSfx.toUpperCase() : 'CHORD';
-  }
+  const typeLabel = TYPE_LABEL[typeRaw] || typeRaw.toUpperCase();
   const SET_LABEL = ['LOW', 'MID', 'TOP'];
   const INV_LABEL = ['root pos', '1st inv', '2nd inv', '3rd inv'];
   const inv = fs?.inversion;
