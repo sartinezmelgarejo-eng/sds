@@ -582,8 +582,48 @@
     flex-direction: column;
     gap: 1px;
     min-width: 120px;
+    /* When the menu's content is taller than the viewport (the
+       voicing menu in Pro Mode has ALL + 9 standards + 12+ pros +
+       toggle row = >20 items), cap height and scroll internally
+       instead of overflowing off-screen where the user can neither
+       see the bottom nor tap outside to dismiss. The 80px buffer
+       leaves room for the toolbar that sits above. */
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .sound-menu[hidden] { display: none; }
+  /* Mobile-only close button — pinned to the top of the menu so the
+     user always has an explicit way out, even when the menu fills
+     the viewport and there's no "outside" to tap. Pure × glyph in a
+     small circular hit target. User: "cuando abro el voicing menu
+     pro en telefono a veces es dificil o imposible de cerrar." */
+  .sound-menu-close-mobile { display: none; }
+  @media (max-width: 800px) {
+    .sound-menu-close-mobile {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: sticky;
+      top: 0;
+      align-self: flex-end;
+      width: 32px;
+      height: 32px;
+      margin: -2px -2px 4px auto;
+      border-radius: 50%;
+      background: rgba(31,29,24,0.06);
+      color: var(--text);
+      font-size: 22px;
+      line-height: 1;
+      font-weight: 400;
+      cursor: pointer;
+      flex-shrink: 0;
+      z-index: 2;
+    }
+    .sound-menu-close-mobile:active {
+      background: rgba(31,29,24,0.18);
+    }
+  }
   .sound-menu-item {
     padding: 6px 10px;
     border-radius: 5px;
@@ -12837,7 +12877,11 @@ function renderVoicingMenu() {
       </span>
       <span class="check">✓</span>
     </div>`;
-  voicingMenu.innerHTML = visibleOptions.map((v, idx) => {
+  // Mobile-only close button (CSS hides it above 800px). Prepended to
+  // the menu so it stays visible at the top while the user scrolls
+  // through the long voicing list. Wired below the .innerHTML write.
+  const closeBtnHtml = `<button type="button" class="sound-menu-close-mobile" data-voicing-close="1" aria-label="cerrar">×</button>`;
+  voicingMenu.innerHTML = closeBtnHtml + visibleOptions.map((v, idx) => {
     // When ALL is on, only ALL gets the checkmark — individual rows stay
     // unchecked (less visual noise). When in a partial filter, ALL is off
     // and only the actively-allowed types show their checks.
@@ -12864,6 +12908,17 @@ function renderVoicingMenu() {
       <span class="check">✓</span>
     </div>`;
   }).join('') + proToggleHtml;
+  // Wire the mobile × close button. Pointerdown (not click) so it
+  // fires before the document click-outside handler. stopPropagation
+  // prevents the outside-click logic from racing — we close
+  // explicitly here.
+  const closeBtn = voicingMenu.querySelector('[data-voicing-close]');
+  if (closeBtn) {
+    closeBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      voicingMenu.hidden = true;
+    });
+  }
   voicingMenu.querySelectorAll('[data-voicing]').forEach(item => {
     item.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
