@@ -118,9 +118,11 @@ body.sidebar-fullscreen .sidebar-resize{
 body.sidebar-fullscreen .sidebar .m-tg-list{
   padding:26px 28px 40px;
 }
-/* Translations dashboard iframe (only in fullscreen + Translations chip).
-   Eats the full sidebar area; the dashboard provides its own padding. */
-body.sidebar-fullscreen .sidebar .m-tg-list.is-tl-dashboard{
+/* Translations dashboard iframe — used in fullscreen sidebar (desktop)
+   and on mobile pages when the Translations chip is active. Eats the
+   full container area; the dashboard provides its own padding. */
+body.sidebar-fullscreen .sidebar .m-tg-list.is-tl-dashboard,
+.m-page .m-tg-list.is-tl-dashboard{
   padding:0;background:#fdfcf3;height:100%;overflow:hidden;
 }
 .m-tg-list.is-tl-dashboard .m-tl-dashboard{
@@ -3137,17 +3139,19 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         });
       });
     }
-    // Translations mode: in fullscreen sidebar → embed the editorial dashboard
-    // (translations/dashboard.html) via iframe; in any other context fall back
-    // to the inline list of translation cards.
+    // Translations mode: embed the editorial dashboard (translations/dashboard.html)
+    // via iframe in two contexts — desktop sidebar fullscreen AND mobile pages.
+    // Compact desktop sidebar keeps the inline list of translation cards.
     if(activeFilter==='__tl'){
       stopMagCycling();
       lists.forEach(l=>l.classList.remove('is-magazine'));
       const fullscreen=document.body.classList.contains('sidebar-fullscreen');
+      const isMobile=window.matchMedia('(max-width: 680px)').matches;
       const listHTML=buildTranslationHTML();
       lists.forEach(l=>{
         const inSidebar=!!l.closest('.sidebar');
-        if(fullscreen && inSidebar){
+        const useDashboard = (fullscreen && inSidebar) || (!inSidebar && isMobile);
+        if(useDashboard){
           if(!l.classList.contains('is-tl-dashboard')){
             l.innerHTML='<iframe class="m-tl-dashboard" src="translations/dashboard.html" title="Translations dashboard"></iframe>';
             l.classList.add('is-tl-dashboard');
@@ -3438,9 +3442,17 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       try{localStorage.setItem('sidebar-width',w)}catch{}
     });
     // Re-apply fullscreen state when the viewport itself resizes
+    let __wasMobile = window.matchMedia('(max-width: 680px)').matches;
     window.addEventListener('resize',()=>{
       const w=document.querySelector('.sidebar').offsetWidth;
       applyFullscreen(w);
+      // Re-render when crossing the mobile breakpoint so the Translations
+      // dashboard iframe ↔ inline list swap correctly on rotate / resize.
+      const nowMobile = window.matchMedia('(max-width: 680px)').matches;
+      if(nowMobile !== __wasMobile){
+        __wasMobile = nowMobile;
+        if(activeFilter === '__tl') renderMobile();
+      }
     });
     // Arrow-key navigation between posts when in fullscreen reader.
     // ↓ scrolls to the next .m-tg-item; ↑ to the previous one. The
