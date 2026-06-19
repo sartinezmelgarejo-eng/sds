@@ -792,9 +792,14 @@ details[open] .sources-grid{margin-top:14px}
       if(item.wp_post_id) card.rel = 'noopener';
       if(item.wp_post_id) card.dataset.wpId = item.wp_post_id;
       if(item.wp_status)  card.dataset.wpStatus = item.wp_status;
-      const primary  = `${item.slug}/img/${item.slug}-large.jpg`;
-      const fallback = `${item.slug}/img/${noDate(item.slug)}-large.jpg`;
-      const onerr = `if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='${esc(fallback)}';}else{this.remove();}`;
+      // Image source priority: WP CDN URL from manifest (most reliable —
+      // survives even when the local img/ folder is missing the derivative),
+      // then local {slug}-large.jpg, then local {slug-no-date}-large.jpg.
+      const wpImg   = item.featured_image || '';
+      const primary = wpImg || `${item.slug}/img/${item.slug}-large.jpg`;
+      const fb1     = wpImg ? `${item.slug}/img/${item.slug}-large.jpg` : `${item.slug}/img/${noDate(item.slug)}-large.jpg`;
+      const fb2     = wpImg ? `${item.slug}/img/${noDate(item.slug)}-large.jpg` : '';
+      const onerr = `if(!this.dataset.fbStep){this.dataset.fbStep='1';this.src='${esc(fb1)}';}else if(this.dataset.fbStep==='1' && '${esc(fb2)}'){this.dataset.fbStep='2';this.src='${esc(fb2)}';}else{this.remove();}`;
       const status = item.wp_status || '';
       const statusBadge = status
         ? `<span class="work-status status-${esc(status)}">${esc(wpStatusLabel[status]||status)}</span>`

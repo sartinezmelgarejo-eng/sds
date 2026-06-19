@@ -3533,11 +3533,34 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // focusable (not in the tab order). Skip if the URL bar grabbed focus
   // for an obvious reason (search/anchor query string).
   try { document.body.focus({preventScroll:true}); } catch(_) {}
+  // Smart-route on initial load: once BOTH the translation manifest and
+  // the Telegram feed have landed, compare the most-recent timestamp on
+  // each. If the latest translation is newer than the latest Telegram
+  // post, default to the Translations chip; otherwise leave the default
+  // Portada/magazine view. Skipped if the user already clicked a chip.
+  let __tlLoaded=false, __feedLoaded=false, __routedOnce=false;
+  function maybeSmartRoute(){
+    if(__routedOnce) return;
+    if(!__tlLoaded || !__feedLoaded) return;
+    __routedOnce = true;
+    if(activeFilter !== null) return;  // user already picked a chip
+    const tlMax = translationItems.reduce((m,x)=>{
+      const t = (x.last_modified || 0) * 1000;
+      return t > m ? t : m;
+    }, 0);
+    const feedMax = mobileItems.reduce((m,x)=>{
+      const t = Date.parse(x.ts || '');
+      return (isNaN(t) || t < m) ? m : t;
+    }, 0);
+    if(tlMax > feedMax) activeFilter = '__tl';
+  }
+
   // Fetch translations manifest in parallel (so the chip can appear once data lands)
   fetch('translations/manifest.json?v='+Date.now()).then(r=>r.ok?r.json():[]).then(data=>{
     translationItems=(data||[]).slice().sort((a,b)=>(b.translated_date||'').localeCompare(a.translated_date||''));
+    __tlLoaded=true; maybeSmartRoute();
     renderMobile();
-  }).catch(()=>{});
+  }).catch(()=>{__tlLoaded=true; maybeSmartRoute();});
 
   // Fetch sends.ndjson (preferred), fallback to tg-feed.json
   fetch('sends.ndjson?v='+Date.now(),{cache:'no-store'}).then(r=>{
@@ -3546,6 +3569,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     mobileItems=text.split('\n').filter(Boolean).map(l=>{
       try{return JSON.parse(l)}catch{return null}
     }).filter(s=>s&&s.chat==='resisres').sort((a,b)=>(b.ts||'').localeCompare(a.ts||''));
+    __feedLoaded=true; maybeSmartRoute();
     renderMobile();
   }).catch(()=>{
     // Fallback: shape tg-feed.json into the mobile schema
@@ -3555,8 +3579,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         msg_id:x.id, text:x.text, img:x.img,
         url:`https://t.me/resisres/${x.id}`
       }));
+      __feedLoaded=true; maybeSmartRoute();
       renderMobile();
-    }).catch(()=>{mobileItems=[];renderMobile()});
+    }).catch(()=>{mobileItems=[]; __feedLoaded=true; maybeSmartRoute(); renderMobile()});
   });
 })();
 
