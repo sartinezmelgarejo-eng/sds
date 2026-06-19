@@ -17184,9 +17184,13 @@ class Player {
       else if (i === this.currentStepIdx) cls += ' now';
       const bars = step.bars || 1;
       // Look up the chord def so the pill shows the readable roman
-      // ("V/V") instead of the internal chord ID ("V_V").
-      const stepRoman = map.chordDefs[step.chord]?.roman || step.chord;
-      return `<span class="${cls}" style="flex:${bars} 1 0;" data-bars="${bars}">${stepRoman}</span>`;
+      // ("V/V") instead of the internal chord ID ("V_V"). Silent steps
+      // get the rest glyph instead of falling through to the literal
+      // null → "null" string coercion.
+      const stepRoman = step._silent
+        ? '𝄻'
+        : (map.chordDefs[step.chord]?.roman || step.chord || '·');
+      return `<span class="${cls}${step._silent ? ' rest' : ''}" style="flex:${bars} 1 0;" data-bars="${bars}">${stepRoman}</span>`;
     }).join('');
 
     // Mobile mirror of pillsHtml — same logic, lighter class so the
@@ -17198,8 +17202,15 @@ class Player {
       let cls = 'pi-prog-pill-mobile';
       if (i < this.currentStepIdx) cls += ' done';
       else if (i === this.currentStepIdx) cls += ' now';
-      const stepRoman = map.chordDefs[step.chord]?.roman || step.chord;
-      return `<span class="${cls}">${stepRoman}</span>`;
+      // Silent rests render as the rest glyph instead of the literal
+      // string "null" (the old fallback `|| step.chord` coerced null
+      // → "null" when the step has no chord). User screenshot showed
+      // a green pill saying "null" at the start of an Andalusian-
+      // doubletime style assembled progression.
+      const stepRoman = step._silent
+        ? '𝄻'
+        : (map.chordDefs[step.chord]?.roman || step.chord || '·');
+      return `<span class="${cls}${step._silent ? ' rest' : ''}">${stepRoman}</span>`;
     }).join('');
 
     // Build a clean descriptor-only name. Strips the chord sequence
