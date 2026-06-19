@@ -15448,6 +15448,13 @@ class Player {
   _assembleFromFragments(targetBars, sectionRole) {
     const list = PROGRESSION_FRAGMENTS[state.tonality] || [];
     if (!list.length) return null;
+    // Filter openings: an opening fragment whose FIRST step is silent
+    // would launch the song with a bar of nothing — not musical. The
+    // user wants the song to START with sound. Silent steps are still
+    // welcome inside middles and cadences. User: "empezar con un
+    // silencio de compás completo una canción no tiene mucho sentido."
+    const openingStartsWithSilent = (f) =>
+      f.role === 'opening' && f.steps[0] && f.steps[0]._silent;
     // A step is in scope when:
     //   - it's a silent rest (no chord to validate), OR
     //   - its main chord is in scope AND every multichord slot's chord
@@ -15462,7 +15469,7 @@ class Player {
     };
     const inScope = list.filter(f => f.steps.every(stepInScope));
     if (!inScope.length) return null;
-    const openings = inScope.filter(f => f.role === 'opening');
+    const openings = inScope.filter(f => f.role === 'opening' && !openingStartsWithSilent(f));
     const middles  = inScope.filter(f => f.role === 'middle');
     const cadences = inScope.filter(f => f.role === 'cadence');
     if (!openings.length || !cadences.length) return null;
@@ -16516,24 +16523,6 @@ class Player {
         // Bar starts at this.nextBarTime in audio time — pass it through so
         // chord + subdivisions all schedule sample-accurate relative to it.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
-        // ── DEBUG overlay (temporary): when a silent step is entered,
-        // write a small visible status to a fixed div so we can see on
-        // mobile whether the silent bar is being honored in real time.
-        // Toggle via localStorage.debugSilent='1' (defaults on for now).
-        if (typeof document !== 'undefined') {
-          const _stepLbl = _step && _step._silent
-            ? '𝄻 SILENT'
-            : (_step && _step.chord) || '?';
-          const _info = `step ${this.currentStepIdx}: ${_stepLbl} · bars=${this.barsRemaining} · total=${this.totalBars}`;
-          let _dbg = document.getElementById('__silent_dbg');
-          if (!_dbg) {
-            _dbg = document.createElement('div');
-            _dbg.id = '__silent_dbg';
-            _dbg.style.cssText = 'position:fixed;top:4px;left:4px;z-index:99999;background:rgba(0,0,0,0.78);color:#fdfcf3;font:11px/1.2 monospace;padding:4px 8px;border-radius:4px;pointer-events:none;max-width:60vw;';
-            document.body.appendChild(_dbg);
-          }
-          _dbg.textContent = _info;
-        }
       }
       this._updateVisuals();
       this.nextBarTime += barDur;
