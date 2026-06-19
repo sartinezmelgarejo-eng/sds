@@ -118,6 +118,14 @@ body.sidebar-fullscreen .sidebar-resize{
 body.sidebar-fullscreen .sidebar .m-tg-list{
   padding:26px 28px 40px;
 }
+/* Translations dashboard iframe (only in fullscreen + Translations chip).
+   Eats the full sidebar area; the dashboard provides its own padding. */
+body.sidebar-fullscreen .sidebar .m-tg-list.is-tl-dashboard{
+  padding:0;background:#fdfcf3;height:100%;overflow:hidden;
+}
+.m-tg-list.is-tl-dashboard .m-tl-dashboard{
+  display:block;width:100%;height:100%;border:0;background:#fdfcf3;
+}
 body.sidebar-fullscreen .sidebar .m-tg-list .m-tg-item{
   max-width:none;
   margin:0 0 22px;
@@ -3129,16 +3137,30 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         });
       });
     }
-    // Translations mode: render translation cards
+    // Translations mode: in fullscreen sidebar → embed the editorial dashboard
+    // (translations/dashboard.html) via iframe; in any other context fall back
+    // to the inline list of translation cards.
     if(activeFilter==='__tl'){
       stopMagCycling();
       lists.forEach(l=>l.classList.remove('is-magazine'));
-      const html=buildTranslationHTML();
-      lists.forEach(l=>{l.innerHTML=html});
+      const fullscreen=document.body.classList.contains('sidebar-fullscreen');
+      const listHTML=buildTranslationHTML();
+      lists.forEach(l=>{
+        const inSidebar=!!l.closest('.sidebar');
+        if(fullscreen && inSidebar){
+          if(!l.classList.contains('is-tl-dashboard')){
+            l.innerHTML='<iframe class="m-tl-dashboard" src="translations/dashboard.html" title="Translations dashboard"></iframe>';
+            l.classList.add('is-tl-dashboard');
+          }
+        } else {
+          l.classList.remove('is-tl-dashboard');
+          l.innerHTML=listHTML;
+        }
+      });
     } else if(document.body.classList.contains('sidebar-fullscreen') && activeFilter===null && lists[0]?.closest('.sidebar')){
       // Magazine front page: desktop sidebar fullscreen with no filter
       const html=buildMagazineHTML();
-      lists.forEach(l=>{l.innerHTML=html; l.classList.add('is-magazine')});
+      lists.forEach(l=>{l.classList.remove('is-tl-dashboard'); l.innerHTML=html; l.classList.add('is-magazine')});
       // Paint cells against the attached skeleton + warm image cache so the
       // next auto-advance shows instantly.
       paintAllCells();
@@ -3146,7 +3168,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       startMagCycling();
     } else {
       stopMagCycling();
-      lists.forEach(l=>l.classList.remove('is-magazine'));
+      lists.forEach(l=>l.classList.remove('is-magazine','is-tl-dashboard'));
       const filtered=activeFilter?mobileItems.filter(x=>groupOf(x.task)===activeFilter):mobileItems;
       let html;
       if(!filtered.length){html='<div class="m-tg-empty">No posts yet</div>'}
