@@ -24253,6 +24253,28 @@ renderAll = function() {
     setInstrument(instPick);
   });
 
+  // ⚡ Pro Mode — when the session randomly comes up in piano, give
+  // it a 15% chance of also booting with Pro Mode already on, so the
+  // user gets surprised by the Bill Evans / Mehldau / McCoy voicings
+  // every once in a while without having to remember to toggle.
+  // Net frequency across all sessions: 35% piano × 15% pro = ~5%.
+  // Skipped when instrument rolled to guitar (pros are piano-only).
+  // Same gold "PIANO PRO" chip the manual toggle shows so the user
+  // sees what changed. User: "puedes hacer que muy de vez en cuando
+  // abra el app en pro mode? y que ponga el mensajito de igual
+  // manera para avisar."
+  _safe('proMode', () => {
+    if (state.instrument !== 'piano') return;
+    if (Math.random() < 0.15) {
+      state.proMode = true;
+      // The flash needs the DOM to be ready — defer via a double rAF
+      // so it lands after the initial renderAll paint.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (typeof _showPianoProFlash === 'function') _showPianoProFlash();
+      }));
+    }
+  });
+
   // ⏱ BPM — first pick a range, then a uniform integer inside it
   _safe('bpm', () => {
     const bpmRange = pickWeighted({
