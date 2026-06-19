@@ -12703,7 +12703,12 @@ const VOICING_SHORT_CODE = {
   glasperHalfDim: 'Gø', monkCluster: 'MK', polychord: 'PC',
 };
 function getVoicingPrefLabel() {
-  if (voicingPrefIsAll()) return 'ALL';
+  // When Pro Mode is on AND the user hasn't narrowed the menu, the
+  // button reads "PRO" instead of "ALL" — surfaces the upgraded
+  // vocabulary mode at the toolbar level so the user always knows
+  // when the Bill Evans / Mehldau / McCoy pool is live. User:
+  // "cuando se prende pro me gustaria que diga pro, en lugar de all."
+  if (voicingPrefIsAll()) return state.proMode ? 'PRO' : 'ALL';
   const selected = VOICING_OPTIONS
     .filter(o => o.value !== 'all' && voicingPrefSet.has(o.value));
   if (selected.length === 1) {
