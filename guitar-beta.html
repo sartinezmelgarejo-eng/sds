@@ -16508,10 +16508,32 @@ class Player {
             this.bassPattern = newSection.bassPattern || this._pickBassPattern();
           }
         }
-        this.barsRemaining = this._currentStep().bars;
+        // Safety: silent steps that somehow got bars=undefined/0 would
+        // make barsRemaining NaN (advance loops forever) or 0 (skip
+        // the step on the next tick). Force a minimum of 1 bar.
+        const _step = this._currentStep();
+        this.barsRemaining = (_step && _step.bars > 0) ? _step.bars : 1;
         // Bar starts at this.nextBarTime in audio time — pass it through so
         // chord + subdivisions all schedule sample-accurate relative to it.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
+        // ── DEBUG overlay (temporary): when a silent step is entered,
+        // write a small visible status to a fixed div so we can see on
+        // mobile whether the silent bar is being honored in real time.
+        // Toggle via localStorage.debugSilent='1' (defaults on for now).
+        if (typeof document !== 'undefined') {
+          const _stepLbl = _step && _step._silent
+            ? '𝄻 SILENT'
+            : (_step && _step.chord) || '?';
+          const _info = `step ${this.currentStepIdx}: ${_stepLbl} · bars=${this.barsRemaining} · total=${this.totalBars}`;
+          let _dbg = document.getElementById('__silent_dbg');
+          if (!_dbg) {
+            _dbg = document.createElement('div');
+            _dbg.id = '__silent_dbg';
+            _dbg.style.cssText = 'position:fixed;top:4px;left:4px;z-index:99999;background:rgba(0,0,0,0.78);color:#fdfcf3;font:11px/1.2 monospace;padding:4px 8px;border-radius:4px;pointer-events:none;max-width:60vw;';
+            document.body.appendChild(_dbg);
+          }
+          _dbg.textContent = _info;
+        }
       }
       this._updateVisuals();
       this.nextBarTime += barDur;
