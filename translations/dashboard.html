@@ -787,6 +787,24 @@ details[open] .sources-grid{margin-top:14px}
         c.classList.add('mini');
         miniHost.appendChild(c);
       });
+      /* Reposition each mini dot's hover popover with position:fixed so
+         it escapes the scrollable mini-sources box (overflow:auto otherwise
+         clips popovers that spawn near the top of the grid, hiding them
+         behind the Contralínea / Jornada banners). Compute coords from
+         the dot's bounding rect at mouseenter time so scrolling the grid
+         still places the popover correctly. */
+      miniHost.querySelectorAll('.src.mini').forEach(dot => {
+        const note = dot.querySelector('.note');
+        if(!note) return;
+        dot.addEventListener('mouseenter', () => {
+          const r = dot.getBoundingClientRect();
+          note.style.position  = 'fixed';
+          note.style.left      = (r.left + r.width/2) + 'px';
+          note.style.bottom    = (window.innerHeight - r.top + 10) + 'px';
+          note.style.transform = 'translateX(-50%) translateY(0)';
+          note.style.zIndex    = '9999';
+        });
+      });
     }
 
     /* Background refresh: for any rendered card whose cached wp_status is
