@@ -122,13 +122,18 @@ body::before{
 .work-grid{display:contents}  /* let cards flow into parent grid directly */
 .work-card{min-width:0}
 
-/* Primarias block — occupies 1 col, 1 row (same size as a work card) */
+/* Primarias block — occupies 1 col, 1 row (same size as a work card).
+   align-self:start keeps it from stretching to fill a taller-than-needed
+   row; fixed banner heights prevent oversized logo files from inflating
+   the whole grid. */
 .primaries-block{
   display:grid;
-  grid-template-rows:1fr 1fr;
+  grid-template-rows:auto auto;
   gap:10px;
   min-width:0;
+  align-self:start;
 }
+.primaries-block .source-primary{height:110px}
 .work-card{
   background:white;border:1px solid color-mix(in srgb,var(--guinda) 12%,transparent);border-radius:3px;overflow:hidden;
   transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;
@@ -156,7 +161,7 @@ body::before{
   min-height:0;
 }
 .source-primary:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(159,34,65,.16);border-color:var(--guinda)}
-.source-primary img{max-width:72%;max-height:74%;object-fit:contain;transition:transform .25s ease}
+.source-primary img{max-width:72%;max-height:74%;width:auto;height:auto;object-fit:contain;transition:transform .25s ease}
 .source-primary:hover img{transform:scale(1.05)}
 .source-primary::after{content:attr(data-label);position:absolute;bottom:8px;right:12px;font-family:'Bodoni Moda',serif;font-style:italic;font-size:10px;letter-spacing:.8px;text-transform:uppercase;color:#999;opacity:0;transition:opacity .25s ease}
 .source-primary:hover::after{opacity:.6}
@@ -686,16 +691,21 @@ details[open] .sources-grid{margin-top:14px}
     const WP_SITE = 'https://mexicosolidarity.com';
     const wpEdit = (id)=>`${WP_SITE}/wp-admin/post.php?post=${id}&action=edit`;
     const wpStatusLabel = {publish:'Live',draft:'Draft',pending:'Pending',future:'Scheduled',private:'Private'};
+    // Pick the right target for a card: published → public permalink,
+    // anything else → admin editor. Falls back to local viewer if no wp_post_id.
+    const linkFor = (item)=>{
+      if(item.wp_status==='publish' && item.wp_link) return item.wp_link;
+      if(item.wp_post_id) return wpEdit(item.wp_post_id);
+      return `viewer.html?slug=${encodeURIComponent(item.slug)}`;
+    };
     for(const item of top){
       const card = document.createElement('a');
       card.className = 'work-card';
-      // Primary click → WordPress draft editor (fallback to local viewer if
-      // wp_post_id is missing for some reason)
-      card.href = item.wp_post_id
-        ? wpEdit(item.wp_post_id)
-        : `viewer.html?slug=${encodeURIComponent(item.slug)}`;
+      card.href = linkFor(item);
       card.target = item.wp_post_id ? '_blank' : '_self';
       if(item.wp_post_id) card.rel = 'noopener';
+      if(item.wp_post_id) card.dataset.wpId = item.wp_post_id;
+      if(item.wp_status)  card.dataset.wpStatus = item.wp_status;
       const primary  = `${item.slug}/img/${item.slug}-large.jpg`;
       const fallback = `${item.slug}/img/${noDate(item.slug)}-large.jpg`;
       const onerr = `if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='${esc(fallback)}';}else{this.remove();}`;
@@ -724,6 +734,31 @@ details[open] .sources-grid{margin-top:14px}
       `;
       if(primariesBlock) grid.insertBefore(card, primariesBlock);
       else grid.appendChild(card);
+    }
+
+    /* Background refresh: for any rendered card whose cached wp_status is
+       NOT 'publish', do a public WP REST GET. If the post is now published
+       (200 OK + status=publish), silently swap the card link + badge to
+       the live URL. Lets the dashboard catch up without me having to tell
+       the bot every time I publish in WordPress.  No noise on failure: a
+       still-draft post 401s, we just leave the cached state alone. */
+    const cards = Array.from(grid.querySelectorAll('a.work-card[data-wp-id]'));
+    for(const card of cards){
+      if(card.dataset.wpStatus === 'publish') continue;  // already live, skip
+      const id = card.dataset.wpId;
+      fetch(`${WP_SITE}/wp-json/wp/v2/posts/${id}?_fields=status,link`, {cache:'no-store'})
+        .then(r => r.ok ? r.json() : null)
+        .then(j => {
+          if(!j || j.status !== 'publish' || !j.link) return;
+          card.href = j.link;
+          card.dataset.wpStatus = 'publish';
+          const badge = card.querySelector('.work-status');
+          if(badge){
+            badge.className = 'work-status status-publish';
+            badge.textContent = wpStatusLabel.publish;
+          }
+        })
+        .catch(()=>{});  // network error / 401 / CORS → leave alone
     }
   } catch(err) {
     console.warn('Translations dashboard: manifest load failed', err);
