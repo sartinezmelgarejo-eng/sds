@@ -683,21 +683,43 @@ details[open] .sources-grid{margin-top:14px}
       return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase();
     };
     const noDate = (s)=>String(s||'').replace(/^\d{4}-\d{2}-\d{2}-/, '');
+    const WP_SITE = 'https://mexicosolidarity.com';
+    const wpEdit = (id)=>`${WP_SITE}/wp-admin/post.php?post=${id}&action=edit`;
+    const wpStatusLabel = {publish:'Live',draft:'Draft',pending:'Pending',future:'Scheduled',private:'Private'};
     for(const item of top){
       const card = document.createElement('a');
       card.className = 'work-card';
-      card.href = `viewer.html?slug=${encodeURIComponent(item.slug)}`;
+      // Primary click → WordPress draft editor (fallback to local viewer if
+      // wp_post_id is missing for some reason)
+      card.href = item.wp_post_id
+        ? wpEdit(item.wp_post_id)
+        : `viewer.html?slug=${encodeURIComponent(item.slug)}`;
+      card.target = item.wp_post_id ? '_blank' : '_self';
+      if(item.wp_post_id) card.rel = 'noopener';
       const primary  = `${item.slug}/img/${item.slug}-large.jpg`;
       const fallback = `${item.slug}/img/${noDate(item.slug)}-large.jpg`;
       const onerr = `if(this.dataset.fb!=='1'){this.dataset.fb='1';this.src='${esc(fallback)}';}else{this.remove();}`;
+      const status = item.wp_status || '';
+      const statusBadge = status
+        ? `<span class="work-status status-${esc(status)}">${esc(wpStatusLabel[status]||status)}</span>`
+        : '';
+      const previewBtn = `<span class="work-preview" title="Open local HTML preview"
+        data-slug="${esc(item.slug)}"
+        onclick="event.preventDefault();event.stopPropagation();window.open('viewer.html?slug='+encodeURIComponent(this.dataset.slug),'_blank')">↗ preview</span>`;
       card.innerHTML = `
         <div class="work-thumb">
           <img class="work-thumb-img" src="${esc(primary)}" alt="" loading="lazy" onerror="${onerr}">
         </div>
         <div class="work-body">
-          <div class="work-outlet">${esc(item.outlet)}</div>
+          <div class="work-topline">
+            <span class="work-outlet">${esc(item.outlet)}</span>
+            ${statusBadge}
+          </div>
           <div class="work-headline">${esc(item.translated_title)}</div>
-          <div class="work-meta">${esc(fmtDate(item.translated_date))}</div>
+          <div class="work-foot">
+            <span class="work-meta">${esc(fmtDate(item.translated_date))}</span>
+            ${previewBtn}
+          </div>
         </div>
       `;
       if(primariesBlock) grid.insertBefore(card, primariesBlock);
@@ -712,6 +734,28 @@ details[open] .sources-grid{margin-top:14px}
 <style>
 .work-thumb{position:relative;overflow:hidden}
 .work-thumb .work-thumb-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+/* Work-card additions (real-data variant) — outlet + WP status in a topline,
+   foot with date + tiny "↗ preview" link pointing at the local viewer. */
+.work-card .work-topline{display:flex;align-items:center;gap:7px;margin-bottom:5px;flex-wrap:wrap}
+.work-card .work-topline .work-outlet{margin-bottom:0}
+.work-card .work-status{
+  padding:1px 6px;border-radius:2px;font-family:'Bodoni Moda',serif;font-style:italic;
+  font-size:8.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;
+}
+.work-card .work-status.status-publish{background:rgba(35,91,78,.15);color:var(--jade);border:1px solid rgba(35,91,78,.35)}
+.work-card .work-status.status-draft  {background:rgba(188,149,92,.18);color:#7a5b2a;border:1px solid rgba(188,149,92,.4)}
+.work-card .work-status.status-pending{background:rgba(159,34,65,.12);color:var(--guinda);border:1px solid rgba(159,34,65,.3)}
+.work-card .work-status.status-future {background:#e8e1f4;color:#5a3d8c;border:1px solid #cdb8e5}
+.work-card .work-status.status-private{background:#eee;color:#666;border:1px solid #ccc}
+.work-card .work-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:6px}
+.work-card .work-foot .work-meta{margin-top:0}
+.work-card .work-preview{
+  font-family:'Bodoni Moda',serif;font-style:italic;font-size:9px;letter-spacing:.5px;
+  text-transform:uppercase;color:#888;cursor:pointer;
+  padding:2px 6px;border:1px solid #d8d8d8;border-radius:2px;
+  background:rgba(255,255,255,.6);transition:all .15s ease;
+}
+.work-card .work-preview:hover{color:var(--guinda);border-color:var(--guinda);background:#fff}
 </style>
 
 </body>
