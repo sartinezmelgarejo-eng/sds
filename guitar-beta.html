@@ -16538,7 +16538,14 @@ class Player {
       // multichord-before-silent doesn't fire its slot 1 INTO the silent
       // bar. Without this, the previous step's V7 slot could land mid-
       // silence and make the rest feel shorter than it actually is.
-      if (chordDrone.playing) chordDrone.stop();
+      // Fast 80ms fade (vs default 350ms) so the silence lands NOW
+      // instead of after a fifth of a bar at fast BPMs. User: "se pasa
+      // de volada. practicamente no hay pausa. sobre todo en el audio
+      // es imperceptible." The 350ms default is good for chord-to-chord
+      // crossfades (preserves voice-leading glue), but a chord-to-rest
+      // transition wants the silence to start immediately so the user
+      // actually hears the gap.
+      if (chordDrone.playing) chordDrone.stop(80);
       if (this._subdivTimers && this._subdivTimers.length) {
         this._subdivTimers.forEach(t => clearTimeout(t));
         this._subdivTimers = [];
