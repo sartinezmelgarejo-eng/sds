@@ -1029,59 +1029,80 @@ body {
 #book-detail.active { display: block; }
 
 /* ───────────────────────────────────────────────────────────────────
-   Per-book NotebookLM slide-deck section. Sits between hero and content.
-   Framed like a leather-bound exhibit: oxblood/burgundy ground, double
-   gold inner rule, ornamental corner fleurons, no progress bar (the
-   counter handles position). Deck uses 16:9 aspect-ratio so the slide
-   image fills the frame exactly, no wasted vertical space.
+   Per-book NotebookLM slide-deck. Renders as a regular .book-section
+   card so it sits beside tesis/ideas in the grid without dominating.
+   The deck has an antique manuscript-frame: dark walnut wood border
+   with two inset gold rules and visible gold corner brackets. Click
+   ⤢ in the header to open the deck fullscreen in a lightbox.
    ─────────────────────────────────────────────────────────────────── */
-.book-deck-section{
-  position:relative;margin:24px 0 30px;
-  padding:22px 22px 18px;
-  background:
-    radial-gradient(ellipse at top, rgba(200,169,96,.06), transparent 70%),
-    linear-gradient(160deg, #2a1208 0%, #1a0a05 60%, #100604 100%);
-  border:1px solid #3a2010;
-  border-radius:6px;
+.section-deck > .book-section-title .book-deck-expand{
+  margin-left:auto;background:transparent;border:1px solid rgba(200,169,96,.35);
+  color:rgba(200,169,96,.75);width:26px;height:26px;border-radius:4px;
+  cursor:pointer;font-size:13px;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.section-deck > .book-section-title .book-deck-expand:hover{
+  background:rgba(200,169,96,.15);color:#d4b25e;border-color:#d4b25e;
+}
+
+/* The deck frame: walnut wood border + double gold inset rule */
+.book-deck{
+  position:relative;width:100%;
+  max-width:620px;margin:6px auto 4px;
+  padding:18px;
+  background:linear-gradient(135deg, #3a2515 0%, #2a1808 50%, #1a0d05 100%);
+  border:1px solid #1a0a02;
+  border-radius:2px;
   box-shadow:
     inset 0 0 0 1px #6b4a22,
-    inset 0 0 0 3px #1a0a05,
-    inset 0 0 0 4px #8b6a32,
-    inset 0 0 40px rgba(0,0,0,.5),
-    0 6px 18px rgba(0,0,0,.4);
-}
-.book-deck-section::before,
-.book-deck-section::after{
-  content:'❦';position:absolute;
-  color:rgba(200,169,96,.55);font-size:13px;
-  font-family:Georgia,serif;line-height:1;
-}
-.book-deck-section::before{top:10px;left:14px}
-.book-deck-section::after {top:10px;right:14px;transform:scaleX(-1)}
-.book-deck-section-head{
-  display:flex;align-items:baseline;gap:10px;
-  margin:4px 24px 16px;padding-bottom:10px;
-  border-bottom:1px solid rgba(200,169,96,.18);
-}
-.book-deck-section-icon{font-size:14px;line-height:1;opacity:.85}
-.book-deck-section-title{
-  font-family:'Cormorant Garamond',Georgia,serif;font-style:italic;
-  font-size:17px;font-weight:500;color:#d4b25e;
-  letter-spacing:.4px;
-}
-.book-deck-section-tag{
-  margin-left:auto;font-family:'SF Mono','Fira Code',monospace;
-  font-size:9.5px;text-transform:uppercase;letter-spacing:1.6px;
-  color:rgba(212,178,94,.55);
-}
-.book-deck{
-  position:relative;width:100%;background:#0a0a0f;
-  aspect-ratio:16/9;
-  border-radius:3px;overflow:hidden;
+    inset 0 0 0 4px #1a0a05,
+    inset 0 0 0 5px #c8a960,
+    inset 0 0 30px rgba(0,0,0,.5),
+    0 6px 20px rgba(0,0,0,.55),
+    0 1px 0 rgba(255,255,255,.04);
   user-select:none;
-  box-shadow:0 2px 8px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.4);
 }
-.book-deck-stack{position:absolute;inset:0}
+/* Four large gold corner brackets — visible, ornate, manuscript-style */
+.book-deck::before,
+.book-deck::after{
+  content:'';position:absolute;
+  width:22px;height:22px;
+  border:2px solid #d4b25e;
+  pointer-events:none;z-index:6;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.6));
+}
+.book-deck::before{
+  top:4px;left:4px;
+  border-right:none;border-bottom:none;
+}
+.book-deck::after{
+  top:4px;right:4px;
+  border-left:none;border-bottom:none;
+}
+.book-deck > .book-deck-stack::before,
+.book-deck > .book-deck-stack::after{
+  content:'';position:absolute;
+  width:22px;height:22px;
+  border:2px solid #d4b25e;
+  pointer-events:none;z-index:6;
+  filter:drop-shadow(0 0 2px rgba(0,0,0,.6));
+}
+.book-deck > .book-deck-stack::before{
+  bottom:-14px;left:-14px;
+  border-right:none;border-top:none;
+}
+.book-deck > .book-deck-stack::after{
+  bottom:-14px;right:-14px;
+  border-left:none;border-top:none;
+}
+
+/* The slide viewport sitting inside the frame */
+.book-deck-stack{
+  position:relative;width:100%;aspect-ratio:16/9;
+  background:#000;border-radius:1px;overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.8), inset 0 0 12px rgba(0,0,0,.4);
+}
 .book-deck-slide{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;background:#0a0a0f;
@@ -1094,28 +1115,101 @@ body {
   color:#e0d5b8;font-family:'Inter','Segoe UI',system-ui,sans-serif;
   display:flex;align-items:flex-end;justify-content:space-between;gap:14px;
   opacity:0;transition:opacity .25s ease;pointer-events:none;
+  z-index:5;
 }
 .book-deck:hover .book-deck-overlay,
 .book-deck.paused .book-deck-overlay{opacity:1;pointer-events:auto}
-.book-deck-tag{font-size:10.5px;color:#888;text-transform:uppercase;letter-spacing:1px;font-family:'SF Mono',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.book-deck-tag{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;font-family:'SF Mono',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .book-deck-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .book-deck-btn{
   background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
-  color:#e0d5b8;cursor:pointer;width:28px;height:28px;border-radius:50%;
-  font-size:13px;display:flex;align-items:center;justify-content:center;padding:0;
+  color:#e0d5b8;cursor:pointer;width:26px;height:26px;border-radius:50%;
+  font-size:12px;display:flex;align-items:center;justify-content:center;padding:0;
   transition:background .15s, border-color .15s;
 }
 .book-deck-btn:hover{background:rgba(200,169,96,.2);border-color:rgba(200,169,96,.45)}
-.book-deck-counter{font-size:10.5px;color:#aaa;font-family:'SF Mono',monospace;min-width:48px;text-align:center}
+.book-deck-counter{font-size:10px;color:#bbb;font-family:'SF Mono',monospace;min-width:46px;text-align:center}
+
 @media (max-width:600px){
-  .book-deck-section{margin:18px 0 24px;padding:14px 14px 12px}
-  .book-deck-section::before,
-  .book-deck-section::after{top:7px;font-size:11px}
-  .book-deck-section::before{left:10px}
-  .book-deck-section::after {right:10px}
-  .book-deck-section-head{margin:2px 14px 12px}
-  .book-deck-section-title{font-size:15px}
-  .book-deck-btn{width:26px;height:26px;font-size:12px}
+  .book-deck{padding:14px;max-width:none}
+  .book-deck::before,
+  .book-deck::after,
+  .book-deck > .book-deck-stack::before,
+  .book-deck > .book-deck-stack::after{width:16px;height:16px}
+}
+
+/* ── Deck lightbox modal (opened by ⤢) ── */
+#deck-lightbox{
+  position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.92);
+  display:none;align-items:center;justify-content:center;
+  padding:40px;
+}
+#deck-lightbox.active{display:flex}
+#deck-lightbox .lb-frame{
+  position:relative;width:min(94vw, 1400px);max-height:90vh;
+  aspect-ratio:16/9;
+  padding:24px;
+  background:linear-gradient(135deg, #3a2515 0%, #2a1808 50%, #1a0d05 100%);
+  border-radius:2px;
+  box-shadow:
+    inset 0 0 0 1px #6b4a22,
+    inset 0 0 0 4px #1a0a05,
+    inset 0 0 0 5px #c8a960,
+    inset 0 0 40px rgba(0,0,0,.5),
+    0 12px 40px rgba(0,0,0,.6);
+}
+#deck-lightbox .lb-frame::before,
+#deck-lightbox .lb-frame::after,
+#deck-lightbox .lb-stack::before,
+#deck-lightbox .lb-stack::after{
+  content:'';position:absolute;
+  width:28px;height:28px;
+  border:2.5px solid #d4b25e;
+  pointer-events:none;z-index:6;
+}
+#deck-lightbox .lb-frame::before{top:6px;left:6px;border-right:none;border-bottom:none}
+#deck-lightbox .lb-frame::after {top:6px;right:6px;border-left:none;border-bottom:none}
+#deck-lightbox .lb-stack::before{bottom:-18px;left:-18px;border-right:none;border-top:none}
+#deck-lightbox .lb-stack::after {bottom:-18px;right:-18px;border-left:none;border-top:none}
+#deck-lightbox .lb-stack{
+  position:relative;width:100%;height:100%;
+  background:#000;overflow:hidden;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.8);
+}
+#deck-lightbox .lb-slide{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;background:#000;
+  opacity:0;transition:opacity .5s ease;
+}
+#deck-lightbox .lb-slide.active{opacity:1}
+#deck-lightbox .lb-close{
+  position:absolute;top:-44px;right:-4px;
+  background:rgba(200,169,96,.15);border:1px solid #d4b25e;color:#e0d5b8;
+  width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;
+  display:flex;align-items:center;justify-content:center;padding:0;
+  z-index:10;
+}
+#deck-lightbox .lb-close:hover{background:rgba(200,169,96,.35)}
+#deck-lightbox .lb-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(0,0,0,.6);border:1px solid rgba(200,169,96,.5);
+  color:#e0d5b8;width:48px;height:48px;border-radius:50%;cursor:pointer;
+  font-size:22px;display:flex;align-items:center;justify-content:center;padding:0;
+  z-index:10;transition:background .15s;
+}
+#deck-lightbox .lb-nav:hover{background:rgba(200,169,96,.3)}
+#deck-lightbox .lb-prev{left:-72px}
+#deck-lightbox .lb-next{right:-72px}
+#deck-lightbox .lb-counter{
+  position:absolute;bottom:-36px;left:50%;transform:translateX(-50%);
+  font-family:'SF Mono',monospace;font-size:12px;color:#d4b25e;
+  letter-spacing:1.5px;
+}
+@media (max-width:900px){
+  #deck-lightbox{padding:20px}
+  #deck-lightbox .lb-prev{left:-4px;background:rgba(0,0,0,.85)}
+  #deck-lightbox .lb-next{right:-4px;background:rgba(0,0,0,.85)}
 }
 
 .book-hero {
@@ -3088,6 +3182,17 @@ body {
 
 <!-- ═══ BOOK DETAIL ═══ -->
 <div id="book-detail"></div>
+
+<!-- ═══ DECK LIGHTBOX (fullscreen NotebookLM slide view) ═══ -->
+<div id="deck-lightbox" role="dialog" aria-modal="true" aria-label="Briefing visual">
+  <div class="lb-frame">
+    <button class="lb-close" type="button" title="Cerrar (Esc)" onclick="closeDeckLightbox()">✕</button>
+    <div class="lb-stack" id="lb-stack"></div>
+    <button class="lb-nav lb-prev" type="button" title="Anterior" onclick="lightboxPrev()">‹</button>
+    <button class="lb-nav lb-next" type="button" title="Siguiente" onclick="lightboxNext()">›</button>
+    <div class="lb-counter" id="lb-counter">1 / 1</div>
+  </div>
+</div>
 
 <!-- ═══ AUTHOR DETAIL ═══ -->
 <div id="author-detail"></div>
@@ -6851,7 +6956,10 @@ body {
     const relatedHTML = related.length > 0 && conexiones.length === 0 ?
       '<details class="book-section section-relacionados" open><summary class="book-section-title"><span class="section-icon">🌐</span><span>Libros Relacionados</span><span class="section-count">'+related.length+'</span></summary><div style="display:flex;flex-wrap:wrap;gap:10px;">'+related.map(function(b){ return miniBookCard(b, true); }).join('')+'</div></details>' : '';
 
-    // Deck section (NotebookLM-generated slide deck for this book)
+    // Deck card (NotebookLM-generated slide deck for this book).
+    // Renders as a regular .book-section so it sits naturally beside
+    // tesis/ideas in the grid. Click the ⤢ button in the header to open
+    // the full deck in a fullscreen lightbox.
     let deckHTML = '';
     if (book.deck && book.deck.slides) {
       let imgsHTML = '';
@@ -6861,13 +6969,15 @@ body {
         imgsHTML += `<img class="book-deck-slide${i===1?' active':''}" src="decks/${book.id}/slide-${num}.jpg" alt="Slide ${i}" loading="${loading}">`;
       }
       deckHTML =
-        '<section class="book-deck-section">' +
-          '<header class="book-deck-section-head">' +
-            '<span class="book-deck-section-icon">🎴</span>' +
-            '<span class="book-deck-section-title">Briefing visual</span>' +
-            '<span class="book-deck-section-tag">NotebookLM · '+book.deck.slides+' slides</span>' +
-          '</header>' +
-          '<div class="book-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
+        '<details class="book-section section-deck" open>' +
+          '<summary class="book-section-title">' +
+            '<span class="section-icon">🎴</span>' +
+            '<span>Briefing visual</span>' +
+            '<span class="section-count">'+book.deck.slides+'</span>' +
+            '<button class="book-deck-expand" type="button" title="Pantalla completa" ' +
+              'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
+          '</summary>' +
+          '<div class="book-deck book-deck-compact" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
             '<div class="book-deck-stack">' + imgsHTML + '</div>' +
             '<div class="book-deck-overlay">' +
               '<span class="book-deck-tag">'+(book.deck.label||'NotebookLM briefing')+'</span>' +
@@ -6879,7 +6989,7 @@ body {
               '</div>' +
             '</div>' +
           '</div>' +
-        '</section>';
+        '</details>';
     }
 
     const detail = document.getElementById('book-detail');
@@ -6895,7 +7005,6 @@ body {
             getFileButtonHTML(book) +
           '</div>' +
         '</div>' +
-        deckHTML +
         '<div class="book-content-grid">' +
           '<div class="book-col-left">' +
             tesisHTML +
@@ -6909,6 +7018,7 @@ body {
             autorHTML +
           '</div>' +
           '<div class="book-col-full">' +
+            deckHTML +
             alertaHTML +
           '</div>' +
         '</div>' +
@@ -6973,6 +7083,72 @@ body {
 
     start();
   }
+
+  /* ─── Deck lightbox: expand button (⤢) opens this fullscreen view ─── */
+  let __lbIdx = 0, __lbCount = 0, __lbBookId = '', __lbTimer = null;
+  const LB_SLIDE_MS = 10000;
+
+  window.openDeckLightbox = function(bookId, count, label){
+    __lbBookId = bookId; __lbCount = count; __lbIdx = 0;
+    const stack = document.getElementById('lb-stack');
+    stack.innerHTML = '';
+    for (let i = 1; i <= count; i++){
+      const num = String(i).padStart(2,'0');
+      const img = document.createElement('img');
+      img.className = 'lb-slide' + (i===1 ? ' active' : '');
+      img.src = `decks/${bookId}/slide-${num}.jpg`;
+      img.alt = `Slide ${i}`;
+      img.loading = i <= 2 ? 'eager' : 'lazy';
+      stack.appendChild(img);
+    }
+    updateLightboxCounter();
+    document.getElementById('deck-lightbox').classList.add('active');
+    document.body.style.overflow = 'hidden';
+    startLightboxTimer();
+  };
+  window.closeDeckLightbox = function(){
+    document.getElementById('deck-lightbox').classList.remove('active');
+    document.body.style.overflow = '';
+    stopLightboxTimer();
+  };
+  window.lightboxPrev = function(){
+    __lbIdx = (__lbIdx - 1 + __lbCount) % __lbCount;
+    showLightboxSlide(); restartLightboxTimer();
+  };
+  window.lightboxNext = function(){
+    __lbIdx = (__lbIdx + 1) % __lbCount;
+    showLightboxSlide(); restartLightboxTimer();
+  };
+  function showLightboxSlide(){
+    const slides = document.querySelectorAll('#lb-stack .lb-slide');
+    slides.forEach(s => s.classList.remove('active'));
+    if (slides[__lbIdx]) slides[__lbIdx].classList.add('active');
+    updateLightboxCounter();
+  }
+  function updateLightboxCounter(){
+    document.getElementById('lb-counter').textContent = (__lbIdx+1)+' / '+__lbCount;
+  }
+  function startLightboxTimer(){
+    stopLightboxTimer();
+    __lbTimer = setInterval(window.lightboxNext, LB_SLIDE_MS);
+  }
+  function stopLightboxTimer(){
+    if (__lbTimer){ clearInterval(__lbTimer); __lbTimer = null; }
+  }
+  function restartLightboxTimer(){ stopLightboxTimer(); startLightboxTimer(); }
+
+  // Esc closes + arrow keys navigate when lightbox is open
+  document.addEventListener('keydown', function(e){
+    const lb = document.getElementById('deck-lightbox');
+    if (!lb || !lb.classList.contains('active')) return;
+    if (e.key === 'Escape') closeDeckLightbox();
+    else if (e.key === 'ArrowLeft') lightboxPrev();
+    else if (e.key === 'ArrowRight') lightboxNext();
+  });
+  // Click outside frame closes
+  document.getElementById('deck-lightbox')?.addEventListener('click', function(e){
+    if (e.target === this) closeDeckLightbox();
+  });
 
   let cameFromAuthor = false;
 
