@@ -7827,15 +7827,21 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // Base chord — used for slot 0 and as fallback for slots without their
   // own data. For multi-chord cells we still want valid base data so the
   // staff geometry, C-hint detection, etc. have something to chew on.
-  const baseShape   = slotChords ? slotChords[0].shape   : shape;
-  const baseRoot    = slotChords ? slotChords[0].root    : rootPc;
-  const baseQuality = slotChords ? slotChords[0].quality : quality;
+  // Pick the FIRST non-null slot rather than slot 0 directly: slot 0 can
+  // legitimately be null when a fragment starts with a half-bar rest
+  // (e.g. anacrusis cadences — slots:[null, {chord:'V'}]). If every slot
+  // is null (defensive — shouldn't happen in practice) fall back to the
+  // parent shape/rootPc/quality so the staff still has geometry.
+  const baseSlot = slotChords ? (slotChords.find(sl => sl) || null) : null;
+  const baseShape   = baseSlot ? baseSlot.shape   : (slotChords ? shape   : shape);
+  const baseRoot    = baseSlot ? baseSlot.root    : (slotChords ? rootPc  : rootPc);
+  const baseQuality = baseSlot ? baseSlot.quality : (slotChords ? quality : quality);
   // Pro voicings: if sizing.pianoShape (or per-slot pianoShape) is
   // present, use it directly — pro voicings span multiple octaves
   // (Mehldau 10th, McCoy spread) that the 6-element shape can't carry,
   // and the staff renderer should show the REAL voiced notes.
-  const basePiano = slotChords && slotChords[0].pianoShape
-    ? slotChords[0].pianoShape
+  const basePiano = baseSlot && baseSlot.pianoShape
+    ? baseSlot.pianoShape
     : (sizing?.pianoShape || null);
   const q = QUALITIES[baseQuality];
   if (!q) return '';
@@ -14257,6 +14263,17 @@ const PROGRESSION_FRAGMENTS = {
         {chord:'V',bars:1,subdivisions:2,slots:[{chord:'V'},{chord:'bII7'}]},
         {chord:'I',bars:1},
       ], follows:['middle']},
+    // Half-bar (2-beat) silence anacrusis: ii on bar 1, then bar 2
+    // rests for beats 1-2 and V crashes in on beat 3. slot 0 is null
+    // (rest) and muted; the staff renderer picks the first non-null
+    // slot for base geometry and respects subdivMute to draw a
+    // half-rest glyph in the empty slot. Audio + bass already gate
+    // muted slots upstream.
+    {name:'Anacrusis V cadence', len:2, role:'cadence', genre:'any',
+      steps:[
+        {chord:'ii',bars:1},
+        {chord:'V',bars:1,subdivisions:2,slots:[null,{chord:'V'}],subdivMute:[true,false]},
+      ], follows:['middle','opening']},
   ],
   minor: [
     // ─── OPENINGS — establish home / tonic in minor ───
@@ -14345,6 +14362,13 @@ const PROGRESSION_FRAGMENTS = {
         {chord:'V7',bars:1,subdivisions:2,slots:[{chord:'V7'},{chord:'bII7'}]},
         {chord:'i',bars:1},
       ], follows:['middle']},
+    // Half-bar (2-beat) silence anacrusis in minor: see the major
+    // counterpart for the rationale + safety notes.
+    {name:'Anacrusis V7 cadence', len:2, role:'cadence', genre:'any',
+      steps:[
+        {chord:'iiø',bars:1},
+        {chord:'V7',bars:1,subdivisions:2,slots:[null,{chord:'V7'}],subdivMute:[true,false]},
+      ], follows:['middle','opening']},
   ],
 };
 
@@ -15464,7 +15488,10 @@ class Player {
     const stepInScope = (s) => {
       if (s._silent) return true;
       if (!isChordInScope(s.chord)) return false;
-      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl.chord || isChordInScope(sl.chord));
+      // Slots can legitimately contain null (half-bar rest at a slot
+      // position — e.g. anacrusis cadences with slots:[null, {chord:'V'}]).
+      // Null slots have no chord to validate, so they're always in scope.
+      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl || !sl.chord || isChordInScope(sl.chord));
       return true;
     };
     const inScope = list.filter(f => f.steps.every(stepInScope));
@@ -15591,7 +15618,10 @@ class Player {
     const stepInScope = (s) => {
       if (s._silent) return true;
       if (!isChordInScope(s.chord)) return false;
-      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl.chord || isChordInScope(sl.chord));
+      // Slots can legitimately contain null (half-bar rest at a slot
+      // position — e.g. anacrusis cadences with slots:[null, {chord:'V'}]).
+      // Null slots have no chord to validate, so they're always in scope.
+      if (Array.isArray(s.slots)) return s.slots.every(sl => !sl || !sl.chord || isChordInScope(sl.chord));
       return true;
     };
     let inScope = list.filter(p => p.steps.every(stepInScope));
