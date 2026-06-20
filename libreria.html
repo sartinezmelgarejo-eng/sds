@@ -2942,6 +2942,202 @@ body {
 </head>
 <body>
 
+<!-- ═══ DECK HEADER: NotebookLM-generated slide decks cycling ═══ -->
+<style>
+  #deck-header{
+    width:100%;background:#0a0a0f;
+    border-bottom:1px solid var(--border, #222);
+    position:relative;overflow:hidden;
+    height:clamp(280px, 45vh, 520px);
+    user-select:none;
+  }
+  #deck-header .deck-stack{
+    position:absolute;inset:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  #deck-header .deck-slide{
+    position:absolute;inset:0;width:100%;height:100%;
+    object-fit:contain;background:#0a0a0f;
+    opacity:0;transition:opacity .6s ease;
+    pointer-events:none;
+  }
+  #deck-header .deck-slide.active{opacity:1;pointer-events:auto}
+  #deck-header .deck-overlay{
+    position:absolute;left:0;right:0;bottom:0;
+    padding:14px 22px 18px;
+    background:linear-gradient(to top, rgba(10,10,15,.92) 0%, rgba(10,10,15,.4) 70%, transparent 100%);
+    color:#e0d5b8;font-family:'Inter','Segoe UI',system-ui,sans-serif;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:18px;
+    opacity:0;transition:opacity .25s ease;
+    pointer-events:none;
+  }
+  #deck-header:hover .deck-overlay,
+  #deck-header.paused .deck-overlay{opacity:1;pointer-events:auto}
+  #deck-header .deck-meta{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+  #deck-header .deck-book{font-weight:600;font-size:14px;color:#f0c850;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #deck-header .deck-tag{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:1px;font-family:'SF Mono',monospace}
+  #deck-header .deck-controls{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  #deck-header .deck-btn{
+    background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);
+    color:#e0d5b8;cursor:pointer;
+    width:32px;height:32px;border-radius:50%;
+    font-size:14px;display:flex;align-items:center;justify-content:center;
+    transition:background .15s, border-color .15s;
+    padding:0;
+  }
+  #deck-header .deck-btn:hover{background:rgba(200,169,96,.18);border-color:rgba(200,169,96,.4)}
+  #deck-header .deck-counter{font-size:11px;color:#888;font-family:'SF Mono',monospace;min-width:48px;text-align:center}
+  #deck-header .deck-progress{
+    position:absolute;left:0;right:0;bottom:0;height:2px;background:rgba(255,255,255,.06);
+  }
+  #deck-header .deck-progress-bar{
+    height:100%;background:#c8a960;width:0%;
+    transition:width .12s linear;
+  }
+  @media (max-width:600px){
+    #deck-header{height:clamp(180px, 32vh, 280px)}
+    #deck-header .deck-overlay{padding:10px 14px 14px}
+    #deck-header .deck-book{font-size:12.5px}
+    #deck-header .deck-btn{width:28px;height:28px;font-size:13px}
+  }
+</style>
+
+<div id="deck-header" aria-label="Briefings de libros">
+  <div class="deck-stack" id="deck-stack"><!-- slides injected by JS --></div>
+  <div class="deck-overlay">
+    <div class="deck-meta">
+      <span class="deck-book" id="deck-book-label">Cargando…</span>
+      <span class="deck-tag" id="deck-tag">NotebookLM briefing</span>
+    </div>
+    <div class="deck-controls">
+      <button class="deck-btn" id="deck-prev" title="Anterior">‹</button>
+      <span class="deck-counter" id="deck-counter">– / –</span>
+      <button class="deck-btn" id="deck-pause" title="Pausa">⏸</button>
+      <button class="deck-btn" id="deck-next" title="Siguiente">›</button>
+    </div>
+  </div>
+  <div class="deck-progress"><div class="deck-progress-bar" id="deck-progress-bar"></div></div>
+</div>
+
+<script>
+/* ─── Deck cycling header ────────────────────────────────────────────────
+   Decks are NotebookLM-generated slide decks living under decks/<bookId>/.
+   Add a deck: drop slide-NN.jpg files into decks/<bookId>/ and push an
+   entry into LIBRERIA_DECKS below. The cycler rotates through all slides
+   of the active deck, then advances to the next deck. */
+(function(){
+  const LIBRERIA_DECKS = [
+    {
+      bookId: 'hassler',
+      bookLabel: 'Hassler — Sacrificios Humanos: ¿Realidad o Fantasía?',
+      slides: 13
+    }
+    // Add more decks here as NotebookLM exports are processed
+  ];
+  const SLIDE_MS = 9000;  // 9 seconds per slide
+
+  if(!LIBRERIA_DECKS.length) return;
+
+  const stack    = document.getElementById('deck-stack');
+  const bookLbl  = document.getElementById('deck-book-label');
+  const tagLbl   = document.getElementById('deck-tag');
+  const counter  = document.getElementById('deck-counter');
+  const progress = document.getElementById('deck-progress-bar');
+  const header   = document.getElementById('deck-header');
+  const btnPrev  = document.getElementById('deck-prev');
+  const btnNext  = document.getElementById('deck-next');
+  const btnPause = document.getElementById('deck-pause');
+
+  let deckIdx = 0;
+  let slideIdx = 0;
+  let paused = false;
+  let timer = null;
+
+  function buildSlidesFor(deck){
+    stack.innerHTML = '';
+    for(let i=1; i<=deck.slides; i++){
+      const img = document.createElement('img');
+      img.className = 'deck-slide' + (i===1 ? ' active' : '');
+      img.src = `decks/${deck.bookId}/slide-${String(i).padStart(2,'0')}.jpg`;
+      img.alt = `${deck.bookLabel} — slide ${i}`;
+      img.loading = i <= 2 ? 'eager' : 'lazy';
+      img.dataset.idx = i-1;
+      stack.appendChild(img);
+    }
+  }
+
+  function showSlide(i){
+    const slides = stack.querySelectorAll('.deck-slide');
+    if(!slides.length) return;
+    slides.forEach(s => s.classList.remove('active'));
+    slides[i].classList.add('active');
+    counter.textContent = `${i+1} / ${slides.length}`;
+    // Re-arm progress bar
+    progress.style.transition = 'none';
+    progress.style.width = '0%';
+    requestAnimationFrame(() => {
+      if(paused) return;
+      progress.style.transition = `width ${SLIDE_MS}ms linear`;
+      progress.style.width = '100%';
+    });
+  }
+
+  function advance(){
+    const deck = LIBRERIA_DECKS[deckIdx];
+    slideIdx++;
+    if(slideIdx >= deck.slides){
+      slideIdx = 0;
+      deckIdx = (deckIdx + 1) % LIBRERIA_DECKS.length;
+      loadDeck();
+    } else {
+      showSlide(slideIdx);
+    }
+  }
+
+  function loadDeck(){
+    const deck = LIBRERIA_DECKS[deckIdx];
+    bookLbl.textContent = deck.bookLabel;
+    tagLbl.textContent = `NotebookLM briefing · ${deck.slides} slides`;
+    buildSlidesFor(deck);
+    showSlide(0);
+  }
+
+  function startTimer(){
+    stopTimer();
+    if(paused) return;
+    timer = setInterval(advance, SLIDE_MS);
+  }
+  function stopTimer(){ if(timer){ clearInterval(timer); timer = null; } }
+
+  btnPrev.onclick = () => {
+    slideIdx = slideIdx > 0 ? slideIdx - 1 : LIBRERIA_DECKS[deckIdx].slides - 1;
+    showSlide(slideIdx);
+    if(!paused){ stopTimer(); startTimer(); }
+  };
+  btnNext.onclick = () => { advance(); if(!paused){ stopTimer(); startTimer(); } };
+  btnPause.onclick = () => {
+    paused = !paused;
+    btnPause.textContent = paused ? '▶' : '⏸';
+    btnPause.title = paused ? 'Reanudar' : 'Pausa';
+    header.classList.toggle('paused', paused);
+    if(paused){
+      stopTimer();
+      progress.style.transition = 'none';
+    } else {
+      showSlide(slideIdx);
+      startTimer();
+    }
+  };
+
+  // Pause auto-advance while hovering (but don't change pause state)
+  header.addEventListener('mouseenter', () => { if(!paused) stopTimer(); });
+  header.addEventListener('mouseleave', () => { if(!paused) startTimer(); });
+
+  loadDeck();
+  startTimer();
+})();
+</script>
+
 <!-- ═══ LANDING ═══ -->
 <section id="landing" style="display:none">
   <h1>Librería Samuel</h1>
