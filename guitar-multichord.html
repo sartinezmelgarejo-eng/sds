@@ -16618,6 +16618,19 @@ class Player {
         this._subdivTimers.forEach(t => clearTimeout(t));
         this._subdivTimers = [];
       }
+      // Strip + ghost preview refresh on silent. The non-silent path
+      // calls _ensurePagePlan + _predictNextVoicing as part of its
+      // chord-triggering work, which is what drives the 4-cell strip
+      // rolling to the next page and the chord-neck previewing the
+      // next bar. Without these, when a silent is the FIRST cell of
+      // a new page (bar 5/9/13/…), the strip stays frozen on the
+      // previous page and the user can't see the next chord until it
+      // actually starts playing. User: "cuando el silencio cae en
+      // el primero de las tiras de 4, no activa el cambio visual de
+      // acordes... no puedes ver el acorde que sigue (6) hasta que
+      // sale." Both calls are idempotent and cheap.
+      this._ensurePagePlan();
+      this._predictNextVoicing();
       // No wood-block fill during the rest. User: "se prende el
       // metronomo en lugar de quedarse el mismo rhythm que ya traia."
       // Whatever rhythm pattern was on stays on (drums keep painting
