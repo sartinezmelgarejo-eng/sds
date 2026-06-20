@@ -16466,8 +16466,13 @@ class Player {
         this.forceTriggerAtNextBar = false;
         // The bar that starts NOW lives at this.nextBarTime in audio time.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
-        this._updateVisuals();
+        // Time advance BEFORE visuals — see comment at the main advance
+        // block; a throw inside _updateVisuals must not strand
+        // nextBarTime sub-bar and cause a same-tick re-fire.
         this.nextBarTime += barDur;
+        try { this._updateVisuals(); } catch (e) {
+          if (typeof console !== 'undefined') console.warn('[_updateVisuals]', e);
+        }
         return;
       }
       this.totalBars++;
@@ -16501,8 +16506,11 @@ class Player {
           renderAll();
         }
         this._triggerChord(this._currentChordId(), this.nextBarTime);
-        this._updateVisuals();
+        // Time advance BEFORE visuals — see main-advance comment.
         this.nextBarTime += barDur;
+        try { this._updateVisuals(); } catch (e) {
+          if (typeof console !== 'undefined') console.warn('[_updateVisuals]', e);
+        }
         return;
       }
       if (this.barsRemaining <= 0) {
@@ -16596,8 +16604,22 @@ class Player {
         // chord + subdivisions all schedule sample-accurate relative to it.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
       }
-      this._updateVisuals();
+      // CRITICAL ORDER: nextBarTime += barDur MUST run before
+      // _updateVisuals. If _updateVisuals throws (e.g. when the new
+      // step is silent and some lookup expects a chord), the catch is
+      // outside this function (setInterval just continues), but the
+      // tail of this tick is aborted. Without the `+= barDur` running
+      // first, nextBarTime stays at my hard-anchor value (currentTime
+      // — see silent anchor above) and the next tick's check
+      // `nextBarTime < currentTime + 0.12` passes immediately, eating
+      // the silent step in one extra scheduler tick. Doing the time
+      // advance FIRST, with _updateVisuals wrapped in a try/catch as
+      // belt-and-suspenders, guarantees silent bars get their full bar
+      // of real time regardless of any visualizer crash.
       this.nextBarTime += barDur;
+      try { this._updateVisuals(); } catch (e) {
+        if (typeof console !== 'undefined') console.warn('[_updateVisuals]', e);
+      }
     }
   }
 
