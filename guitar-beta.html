@@ -7511,8 +7511,8 @@ const SONG_STRUCTURES = [
   // No A/B/C sections; just loops a blues form. The `formType` tag
   // tells _generateSong to bypass the AABA assembly and pick a single
   // pinned progression from the matching role.
-  { id: 'BLUES',     desc: '12-bar blues — cycles',                weight: 1,   formType: 'blues' },
-  { id: 'JAZZ_BLUES',desc: 'Bebop blues w/ ii-V subs — cycles',    weight: 0.5, formType: 'jazz-blues' },
+  { id: 'BLUES',     desc: '12-bar blues — cycles',                weight: 0.4, formType: 'blues' },
+  { id: 'JAZZ_BLUES',desc: 'Bebop blues w/ ii-V subs — cycles',    weight: 0.2, formType: 'jazz-blues' },
   { id: 'AABACA', desc: 'AABA with a C interlude before the last A',      rare: true },
   { id: 'ABAC',   desc: 'AB with a fresh ending',                          rare: true },
   { id: 'ABBA',   desc: 'Bridge sandwich',                                 rare: true },
@@ -15774,12 +15774,19 @@ class Player {
     }
 
     // ── Non-composed (AI random) path — same structure-aware build ──
-    const structureStr = _resolveSongStructure(state.songStructure);
+    let structureStr = _resolveSongStructure(state.songStructure);
 
     // Self-contained forms (BLUES, JAZZ_BLUES) — single section, no
     // AABA letters. Pick a matching progression from the dedicated role
     // pool and loop it; structure picker bypasses the role-A path so
     // these never get poured into a regular AABA's A section.
+    // User: "sigues confundiendo las letras de JAZZ BLUES y BLUES con
+    // letras de partes de canciones." Only return a self-contained
+    // section if we actually found a progression tagged for THIS form
+    // (jazz-blues for JAZZ_BLUES, blues for BLUES). If nothing matches
+    // we fall through to the AABA path below, so the dashboard never
+    // shows "JAZZ BLUES" labeling a Bach diatonic or other non-blues
+    // progression that was picked by an over-generous fallback.
     const structDef = SONG_STRUCTURES.find(s => s.id === structureStr);
     if (structDef && structDef.formType) {
       const list = PROGRESSIONS[state.tonality] || [];
@@ -15787,23 +15794,33 @@ class Player {
         const roles = PROGRESSION_ROLES[p.name] || [];
         return roles.includes(structDef.formType);
       });
-      // If the current tonality has no matching blues (e.g. JAZZ_BLUES
-      // while in minor mode), fall back to any 'blues' role in scope.
-      const fallback = !pool.length
+      // For JAZZ_BLUES we still accept a plain 'blues' fallback (the
+      // bebop catalog is small; a 12-bar blues in jazz dress is closer
+      // to what the user expects than no blues at all). For BLUES we
+      // only accept 'blues' role itself. Anything else → bail out.
+      const fallback = (!pool.length && structDef.formType === 'jazz-blues')
         ? list.filter(p => (PROGRESSION_ROLES[p.name] || []).includes('blues'))
         : pool;
-      const final = fallback.length ? fallback : list;
-      const prog = final[Math.floor(Math.random() * final.length)];
-      if (prog) {
-        const formProgName = prog.name;
-        return [{
-          label: structDef.id.replace('_', ' '),     // 'BLUES' / 'JAZZ BLUES' shows in dashboard
-          progression: prog,
-          repeats: 4,                                 // cycle the form 4x
-          voicingType: this._pickVoicingType({progName: formProgName}),
-          bassPattern: this._pickBassPattern(),
-        }];
+      if (fallback.length) {
+        const prog = fallback[Math.floor(Math.random() * fallback.length)];
+        if (prog) {
+          const formProgName = prog.name;
+          return [{
+            label: structDef.id.replace('_', ' '),     // 'BLUES' / 'JAZZ BLUES' shows in dashboard
+            progression: prog,
+            repeats: 4,                                 // cycle the form 4x
+            voicingType: this._pickVoicingType({progName: formProgName}),
+            bassPattern: this._pickBassPattern(),
+          }];
+        }
       }
+      // No actual blues progression available → fall through to the
+      // normal AABA assembly below. The 'JAZZ BLUES' / 'BLUES' label
+      // is intentionally dropped so the dashboard doesn't lie about
+      // what's playing. Swap structureStr too — otherwise the next
+      // line's .split('') would shatter "JAZZ_BLUES" into J/A/Z/Z/_/
+      // B/L/U/E/S phantom sections.
+      structureStr = 'AABA';
     }
 
     const letters = structureStr.split('');
@@ -16379,50 +16396,6 @@ class Player {
 
   _scheduler() {
     if (!audioCtx) return;
-    // ── DEBUG (temporary): rolling advance log + giant SILENT banner so
-    // the user can SEE whether a rest step is actually being entered by
-    // the scheduler (and for how long). Static analysis kept landing on
-    // "the code looks right" — this puts ground truth on screen.
-    if (typeof document !== 'undefined') {
-      const _step = this._currentStep();
-      const _isSilent = !!(_step && _step._silent);
-      const _lbl = _isSilent ? '𝄻 SILENT' : (_step && _step.chord) || '?';
-      const _dt = (this.nextBarTime - audioCtx.currentTime).toFixed(2);
-      // Top-right rolling state pill (small)
-      let _dbg = document.getElementById('__silent_dbg');
-      if (!_dbg) {
-        _dbg = document.createElement('div');
-        _dbg.id = '__silent_dbg';
-        _dbg.style.cssText = 'position:fixed;top:4px;right:4px;z-index:99999;background:rgba(0,0,0,0.85);color:#fdfcf3;font:10px/1.3 monospace;padding:4px 7px;border-radius:3px;pointer-events:none;white-space:pre;max-width:60vw;text-align:right;';
-        document.body.appendChild(_dbg);
-      }
-      // Initialize the advance log (last 6 step-entries)
-      if (!this._advLog) this._advLog = [];
-      // Detect a fresh step entry (currentStepIdx changed since last paint)
-      if (this._advLogLastIdx !== this.currentStepIdx) {
-        this._advLogLastIdx = this.currentStepIdx;
-        const tStr = audioCtx.currentTime.toFixed(2);
-        const nbtStr = this.nextBarTime.toFixed(2);
-        this._advLog.push(`@${tStr} → step ${this.currentStepIdx} ${_lbl} bars=${_step?.bars} nbt=${nbtStr}`);
-        if (this._advLog.length > 6) this._advLog.shift();
-      }
-      _dbg.textContent =
-        `now: step ${this.currentStepIdx} (${_lbl}) bR=${this.barsRemaining} t→${_dt}s\n` +
-        this._advLog.join('\n');
-      // Giant centered SILENT banner — only when current step is silent.
-      let _banner = document.getElementById('__silent_banner');
-      if (_isSilent) {
-        if (!_banner) {
-          _banner = document.createElement('div');
-          _banner.id = '__silent_banner';
-          _banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99998;background:rgba(0,180,255,0.92);color:#fff;font:bold 60px/1 system-ui,sans-serif;padding:32px 48px;border-radius:18px;pointer-events:none;letter-spacing:2px;box-shadow:0 12px 40px rgba(0,0,0,0.4);';
-          _banner.textContent = '𝄻 SILENT';
-          document.body.appendChild(_banner);
-        }
-      } else if (_banner) {
-        _banner.remove();
-      }
-    }
     // While the count-in is still in progress, do nothing.
     if (this._countInUntil && audioCtx.currentTime < this._countInUntil - 0.005) return;
     // The count-in just ended — fire the very first chord HERE (in the same
@@ -16645,15 +16618,10 @@ class Player {
         this._subdivTimers.forEach(t => clearTimeout(t));
         this._subdivTimers = [];
       }
-      // Mark the silence so the user FEELS it as a "conscious rest"
-      // instead of the song dying. If the metronome is ALREADY playing
-      // (any rhythm mode except 'off'), drums + cymbals already paint
-      // the meter through the rest — no extra ticks needed. If rhythm
-      // is 'off', schedule a quiet wood-block tick on every beat of the
-      // rest's bars so the listener can still count "1-2-3-4" through
-      // the silence. (User: "las pausas deberian tocarla la bateria...
-      // sino es como si no existiera, es un silencio consciente.")
-      this._scheduleRestPulse(barStartTime);
+      // No wood-block fill during the rest. User: "se prende el
+      // metronomo en lugar de quedarse el mismo rhythm que ya traia."
+      // Whatever rhythm pattern was on stays on (drums keep painting
+      // the meter); when rhythm is 'off', the silence is just silence.
       return;
     }
     const root = (state.keyPc + ch.deg) % 12;
@@ -16882,43 +16850,6 @@ class Player {
         }
       }
     }
-  }
-
-  // Wood-block tick on every beat of a silent step's bar(s), but ONLY
-  // when the metronome is currently off. With any rhythm mode on the
-  // drums/ride already mark the meter through the rest, so the fallback
-  // tick would just double-up. Volume is intentionally quiet (~0.06)
-  // so it reads as a metronomic ghost, not a kick.
-  _scheduleRestPulse(barStartTime) {
-    if (!audioCtx) return;
-    if (metronome.playing && currentRhythmMode !== 'off') return;
-    const step = this._currentStep();
-    const stepBars = (step && step.bars) || 1;
-    const beatDur = 60 / metronome.bpm;
-    const t0 = (barStartTime != null)
-      ? Math.max(audioCtx.currentTime, barStartTime)
-      : audioCtx.currentTime;
-    for (let b = 0; b < stepBars; b++) {
-      const barStart = t0 + b * 4 * beatDur;
-      for (let beat = 0; beat < 4; beat++) {
-        this._playRestTick(barStart + beat * beatDur, beat === 0);
-      }
-    }
-  }
-  _playRestTick(time, isDownbeat) {
-    if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    // Downbeat sits a touch higher so the listener can find "1" in the
-    // silence without having to count from the previous bar.
-    osc.frequency.setValueAtTime(isDownbeat ? 960 : 720, time);
-    gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.linearRampToValueAtTime(isDownbeat ? 0.08 : 0.05, time + 0.002);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.08);
-    osc.connect(gain).connect(audioCtx.destination);
-    osc.start(time);
-    osc.stop(time + 0.1);
   }
 
   _predictNextVoicing() {
