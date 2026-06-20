@@ -16402,7 +16402,8 @@ class Player {
       if (this._advLogLastIdx !== this.currentStepIdx) {
         this._advLogLastIdx = this.currentStepIdx;
         const tStr = audioCtx.currentTime.toFixed(2);
-        this._advLog.push(`@${tStr} → step ${this.currentStepIdx} ${_lbl} bars=${_step?.bars}`);
+        const nbtStr = this.nextBarTime.toFixed(2);
+        this._advLog.push(`@${tStr} → step ${this.currentStepIdx} ${_lbl} bars=${_step?.bars} nbt=${nbtStr}`);
         if (this._advLog.length > 6) this._advLog.shift();
       }
       _dbg.textContent =
@@ -16575,6 +16576,22 @@ class Player {
         // the step on the next tick). Force a minimum of 1 bar.
         const _step = this._currentStep();
         this.barsRemaining = (_step && _step.bars > 0) ? _step.bars : 1;
+        // Hard real-time anchor on silent step entry. The user reports
+        // silents flying by in ~40 ms even when bars=1 — the visible
+        // advance log showed step N→silent→step N+2 happening in two
+        // back-to-back scheduler ticks. Static analysis says
+        // `nextBarTime += barDur` (at the bottom of this branch) should
+        // keep the next check from firing for ~barDur seconds, but
+        // evidence says it isn't. Belt-and-suspenders: when the step
+        // we just advanced INTO is silent, reset nextBarTime to
+        // `audioCtx.currentTime`. After the unconditional `+= barDur`
+        // at the bottom runs, the value lands at `currentTime + barDur`
+        // — the exact end-of-silent-bar in REAL time, so the next-tick
+        // check `nextBarTime < currentTime + 0.12` can't pass until a
+        // full bar of real time has elapsed.
+        if (_step && _step._silent && audioCtx) {
+          this.nextBarTime = audioCtx.currentTime;
+        }
         // Bar starts at this.nextBarTime in audio time — pass it through so
         // chord + subdivisions all schedule sample-accurate relative to it.
         this._triggerChord(this._currentChordId(), this.nextBarTime);
