@@ -1029,36 +1029,40 @@ body {
 #book-detail.active { display: block; }
 
 /* ───────────────────────────────────────────────────────────────────
-   Book hero with NotebookLM deck. Starts as a thin top-banner with
-   the title + author overlaid at the bottom (slide cropped to that
-   strip). After 5 seconds the card expands smoothly to the full
-   1600/892 aspect, the bottom overlay fades, and a permanent
-   caption below the deck slides into place.
+   Book hero with NotebookLM deck. Initial state: looks like the
+   normal book hero (cover + title + author + estante + file-button
+   side-by-side) with the first slide as a heavily blurred, dimmed
+   background. After 5 seconds the hero fades out, the background
+   slide un-blurs and the container grows to the full 1600/892 slide
+   aspect; a permanent caption appears below.
    ─────────────────────────────────────────────────────────────────── */
 .book-hero-deck{
   position:relative;width:100%;
-  height:140px;max-height:140px;  /* compact banner initial */
-  background:#000;overflow:hidden;
+  min-height:260px;
+  background:#0a0a0f;overflow:hidden;
   border-radius:4px;
   box-shadow:0 10px 36px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04);
   user-select:none;margin-bottom:0;
-  transition:height 1.2s cubic-bezier(.4,0,.2,1), max-height 1.2s cubic-bezier(.4,0,.2,1);
-  animation:heroDeckIn .6s cubic-bezier(.2,.65,.3,1);
+  transition:min-height 1.2s cubic-bezier(.4,0,.2,1), max-height 1.2s cubic-bezier(.4,0,.2,1);
+  animation:heroDeckIn .5s ease;
 }
 @keyframes heroDeckIn{ from{opacity:0} to{opacity:1} }
 .book-hero-deck.expanded{
-  /* let the slide define height via aspect-ratio */
-  height:auto;max-height:min(60vh, calc(100vw * 892 / 1600));
+  min-height:0;
+  max-height:min(60vh, calc(100vw * 892 / 1600));
   aspect-ratio:1600/892;
 }
 
+/* Slide stack — sits behind everything, blurred + dim until expand */
 .hero-slide-stack{
-  position:absolute;inset:0;
-  filter:brightness(.45) saturate(.85);
-  transition:filter 1.1s cubic-bezier(.4,0,.2,1);
+  position:absolute;inset:0;z-index:0;
+  filter:blur(22px) brightness(.4) saturate(.75);
+  transform:scale(1.18);  /* hide blur fringes at the edges */
+  transition:filter 1.1s cubic-bezier(.4,0,.2,1), transform 1.1s cubic-bezier(.4,0,.2,1);
 }
 .book-hero-deck.expanded .hero-slide-stack{
-  filter:brightness(1) saturate(1);
+  filter:none;
+  transform:scale(1);
 }
 .hero-slide{
   position:absolute;inset:0;width:100%;height:100%;
@@ -1070,32 +1074,33 @@ body {
 .hero-slide.active{opacity:1}
 .book-hero-deck.expanded .hero-slide{object-fit:contain}
 
-/* Bottom overlay banner — only shown in compact state */
+/* Foreground hero metadata — same shape as the original .book-hero */
 .hero-meta-overlay{
-  position:absolute;left:0;right:0;bottom:0;z-index:5;
-  padding:14px 22px 16px;
-  background:linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.7) 50%, rgba(0,0,0,.2) 85%, transparent 100%);
-  color:#f0e6d0;
-  display:flex;gap:16px;align-items:flex-end;
-  transition:opacity .7s ease, transform .7s ease;
+  position:relative;z-index:5;
+  display:flex;gap:36px;align-items:flex-start;
+  padding:28px 32px;
+  color:var(--text-bright, #e8e0cc);
+  transition:opacity .8s ease, transform .8s cubic-bezier(.3,.65,.3,1);
 }
 .hero-meta-overlay > img,
-.hero-meta-overlay > .book-cover-wrap{display:none}  /* hide cover in compact overlay */
+.hero-meta-overlay > .book-cover-wrap{
+  width:120px;height:auto;flex-shrink:0;
+  border-radius:3px;box-shadow:0 6px 22px rgba(0,0,0,.55);
+}
 .hero-meta-overlay .hero-meta-info{flex:1;min-width:0}
 .hero-meta-overlay .hero-meta-info h2{
   font-family:'Cormorant Garamond',Georgia,serif;
-  font-size:22px;font-weight:600;line-height:1.15;
-  color:#f0e6d0;margin:0 0 4px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-size:30px;font-weight:600;line-height:1.12;
+  color:#f0e6d0;margin:0 0 8px;
+  text-shadow:0 2px 12px rgba(0,0,0,.7);
 }
 .hero-meta-overlay .hero-meta-info .book-author-full{
-  font-size:11.5px;color:#d4b25e;letter-spacing:.7px;text-transform:uppercase;margin:0;
+  font-size:12px;color:#d4b25e;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;
+  text-shadow:0 1px 6px rgba(0,0,0,.6);
 }
-.hero-meta-overlay .hero-meta-info .book-themes-list,
-.hero-meta-overlay .hero-meta-info .file-button-wrap,
-.hero-meta-overlay .hero-meta-info button.book-file-btn{display:none}
+.hero-meta-overlay .hero-meta-info .book-themes-list{margin:8px 0 12px}
 .book-hero-deck.expanded .hero-meta-overlay{
-  opacity:0;pointer-events:none;transform:translateY(8px);
+  opacity:0;pointer-events:none;transform:translateY(-10px);
 }
 
 /* Floating expand + counter + nav arrows on the deck */
