@@ -16534,8 +16534,16 @@ class Player {
     const ch = map.chordDefs[chordId];
     if (!ch) {
       // Null chordId = silent rest cell — actually go quiet (don't let the
-      // previous chord drone keep ringing through the rest).
+      // previous chord drone keep ringing through the rest). Also clear
+      // any pending subdivision timers from the previous step so a
+      // multichord-before-silent doesn't fire its slot 1 INTO the silent
+      // bar. Without this, the previous step's V7 slot could land mid-
+      // silence and make the rest feel shorter than it actually is.
       if (chordDrone.playing) chordDrone.stop();
+      if (this._subdivTimers && this._subdivTimers.length) {
+        this._subdivTimers.forEach(t => clearTimeout(t));
+        this._subdivTimers = [];
+      }
       // Mark the silence so the user FEELS it as a "conscious rest"
       // instead of the song dying. If the metronome is ALREADY playing
       // (any rhythm mode except 'off'), drums + cymbals already paint
