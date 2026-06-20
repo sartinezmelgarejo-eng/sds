@@ -57,21 +57,24 @@ traduce este
    - **Si la fuente está ≥ 800 wide**, genera dos versiones:
 
        **A) `<slug>-large.jpg` → Featured**
-       Si source `> 2048 wide`: downscale Lanczos a 2048 wide, quality 92 progressive.
-       Si source `< 2048 wide` y ≥ 800: **upscale Lanczos a 2048 wide**, quality 92 progressive (aplica a news translation drafts).
+       Si source `> 2048 wide`: downscale Lanczos a 2048 wide, quality 92 progressive. (sin treatment — grain ramp da factor 0 en ≥ 1900)
+       Si source `< 2048 wide` y ≥ 800: **treat_featured.py → upscale Lanczos a 2048 wide**, quality 92 progressive (aplica a news translation drafts).
        Si source `= 2048 wide`: re-save nativo, quality 92 progressive.
-       Sin treatment (sin grain, sin blur, sin contrast boost) — el source decide la calidad final.
+
+       **Orden estricto para low-res sources** (< 1900 wide):
+       1. Guarda source como JPG temporal a quality 95 progressive.
+       2. `/usr/local/bin/python3 ~/scripts/inbox/treat_featured.py <source.jpg> <treated.jpg>` — el helper aplica grain + blur + contrast/saturate boost con strength factor calculado del ancho DEL SOURCE (no del upscale). Ramp: width ≤ 1000 = factor 1.0, width = 1450 = 0.5, width ≥ 1900 = 0.0.
+       3. Upscale Lanczos a 2048 wide el `treated.jpg` → `<slug>-large.jpg` quality 92 progressive.
+       El treatment ANTES del upscale es crítico: el helper decide strength en función del ancho que ve, y si le pasas el upscale (2048) factor sale 0 y no hace nada. La grain mascara los artifacts de compresión + el blur Lanczos del upscale.
 
        **B) `<slug>-sm.jpg` → Social/OG/Twitter (raw)**
        ```bash
        /usr/local/bin/python3 ~/scripts/inbox/resize_social.py <source.jpg> /tmp/<slug>-sm.jpg
        ```
        El helper hace downscale Lanczos a 1400 wide solo si source > 1400. Si source ≤ 1400, re-save nativo. Quality 88.
-       NO grain, NO blur.
+       NO grain, NO blur. (`-sm` es para social cards en feed — la versión "raw" del source. El grain está solo en `-large` porque es la que se ve grande en el sitio.)
 
-       **Sobre `treat_featured.py`**: este helper sigue instalado en `~/scripts/inbox/` para uso manual en casos específicos (e.g. cuando Samuel quiere experimentar treatment en una imagen low-res particular), pero el flow estándar de translate NO lo invoca.
-
-       **Mañanera mode override**: en mañanera mode (cuando el source viene de presidencia.gob.mx), NO upscale — solo downscale o native. Ver Featured image section del mañanera mode al final del doc.
+       **Mañanera mode override**: en mañanera mode (cuando el source viene de presidencia.gob.mx), NO upscale ni treatment — solo downscale o native. Ver Featured image section del mañanera mode al final del doc.
 
      - **Respeta la proporción original**: NO center-crop a 3:2 a la fuerza. Si la fuente es 16:9 o 4:3, escala proporcionalmente al ancho objetivo y deja la altura natural. Solo si la fuente es EXTREMA (cuadrada 1:1 o más vertical que horizontal) avisa en el card y deja que Samuel decida — no hagas crop creativo.
      - Sube ambas a WP Media Library en paralelo. Cada una devuelve su `id`. Usa la `source_url` de `-large` en el `<img src>` del article HTML. Guarda la `source_url` y el `id` de `-sm` en `meta.json` bajo `social_image` (para el bloque `meta` del POST del paso 10b).
