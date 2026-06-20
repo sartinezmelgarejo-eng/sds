@@ -17791,6 +17791,23 @@ class Player {
           const eq = effectiveQuality(stepData, ch);
           shape = this._pickShape(eq, root, finalType, prevShape, pickOpts);
           if (!shape) { shape = this._pickShape(eq, root, 'drop2', prevShape, pickOpts); finalType = 'drop2'; }
+          // Last-resort: drop voice-leading constraints. Rare qualities
+          // like '7#11' / '7alt' have small candidate pools; certain
+          // prevShape contexts can leave zero matches. A no-prevShape
+          // pick almost always finds something. Without this, the strip
+          // cell ends up with shape=null and renders as an empty box
+          // (staff lines but no chord), even though the same chord
+          // sounds correctly (the trigger path stores its successful
+          // pick on state.playerVoicing). User: "¿por qué no se renderizó
+          // el segundo acorde en el tercer compás?" (Jobim #11 bII7).
+          if (!shape) { shape = this._pickShape(eq, root, 'drop2', null, pickOpts); finalType = 'drop2'; }
+          // If even that fails (quality has no voicings at all in catalog),
+          // fall back to the chord def's NATURAL quality so the cell at
+          // least shows the unadorned chord (Jobim's bII7#11 → bII7).
+          if (!shape && ch.quality && ch.quality !== eq) {
+            shape = this._pickShape(ch.quality, root, 'drop2', null, pickOpts);
+            finalType = 'drop2';
+          }
           // qualityOverride:'add9'/'madd9' steps will sound add9 even when
           // the section family is drop2/triad/strum — promote the displayed
           // family so the now-playing badge matches the chord identity.
