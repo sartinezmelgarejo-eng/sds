@@ -1028,11 +1028,34 @@ body {
 
 #book-detail.active { display: block; }
 
-/* Per-book NotebookLM slide-deck (cycling header inside book detail) */
+/* Per-book NotebookLM slide-deck section (sits between hero and content) */
+.book-deck-section{
+  margin:28px 0 36px;
+  padding:18px 20px 22px;
+  background:linear-gradient(180deg, rgba(200,169,96,.04) 0%, rgba(10,10,15,.4) 100%);
+  border:1px solid color-mix(in srgb, var(--accent, #c8a960) 18%, transparent);
+  border-radius:14px;
+}
+.book-deck-section-head{
+  display:flex;align-items:baseline;gap:10px;
+  margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid color-mix(in srgb, var(--accent, #c8a960) 14%, transparent);
+}
+.book-deck-section-icon{font-size:16px;line-height:1}
+.book-deck-section-title{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:18px;font-weight:600;color:var(--accent, #c8a960);
+  letter-spacing:.3px;
+}
+.book-deck-section-tag{
+  margin-left:auto;font-family:'SF Mono','Fira Code',monospace;
+  font-size:10px;text-transform:uppercase;letter-spacing:1.4px;
+  color:var(--text-dim, #888);
+}
 .book-deck{
-  position:relative;width:100%;background:#0a0a0f;border-radius:12px;
-  overflow:hidden;margin:14px 0 26px;
-  height:clamp(260px, 40vh, 480px);
+  position:relative;width:100%;background:#0a0a0f;border-radius:10px;
+  overflow:hidden;
+  height:clamp(260px, 42vh, 460px);
   user-select:none;border:1px solid #1a1a24;
 }
 .book-deck-stack{position:absolute;inset:0}
@@ -6812,26 +6835,32 @@ body {
         imgsHTML += `<img class="book-deck-slide${i===1?' active':''}" src="decks/${book.id}/slide-${num}.jpg" alt="Slide ${i}" loading="${loading}">`;
       }
       deckHTML =
-        '<div class="book-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
-          '<div class="book-deck-stack">' + imgsHTML + '</div>' +
-          '<div class="book-deck-overlay">' +
-            '<span class="book-deck-tag">'+(book.deck.label||'NotebookLM briefing')+' · '+book.deck.slides+' slides</span>' +
-            '<div class="book-deck-controls">' +
-              '<button class="book-deck-btn" data-act="prev" title="Anterior">‹</button>' +
-              '<span class="book-deck-counter">1 / '+book.deck.slides+'</span>' +
-              '<button class="book-deck-btn" data-act="pause" title="Pausa">⏸</button>' +
-              '<button class="book-deck-btn" data-act="next" title="Siguiente">›</button>' +
+        '<section class="book-deck-section">' +
+          '<header class="book-deck-section-head">' +
+            '<span class="book-deck-section-icon">🎴</span>' +
+            '<span class="book-deck-section-title">Briefing visual</span>' +
+            '<span class="book-deck-section-tag">NotebookLM · '+book.deck.slides+' slides</span>' +
+          '</header>' +
+          '<div class="book-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
+            '<div class="book-deck-stack">' + imgsHTML + '</div>' +
+            '<div class="book-deck-overlay">' +
+              '<span class="book-deck-tag">'+(book.deck.label||'NotebookLM briefing')+'</span>' +
+              '<div class="book-deck-controls">' +
+                '<button class="book-deck-btn" data-act="prev" title="Anterior">‹</button>' +
+                '<span class="book-deck-counter">1 / '+book.deck.slides+'</span>' +
+                '<button class="book-deck-btn" data-act="pause" title="Pausa">⏸</button>' +
+                '<button class="book-deck-btn" data-act="next" title="Siguiente">›</button>' +
+              '</div>' +
             '</div>' +
+            '<div class="book-deck-progress"><div class="book-deck-progress-bar"></div></div>' +
           '</div>' +
-          '<div class="book-deck-progress"><div class="book-deck-progress-bar"></div></div>' +
-        '</div>';
+        '</section>';
     }
 
     const detail = document.getElementById('book-detail');
     detail.innerHTML =
       '<div class="view-transition">' +
         '<button class="back-btn" onclick="closeBookDetail()">← Volver</button>' +
-        deckHTML +
         '<div class="book-hero">' +
           coverHTML +
           '<div class="book-hero-info">' +
@@ -6841,6 +6870,7 @@ body {
             getFileButtonHTML(book) +
           '</div>' +
         '</div>' +
+        deckHTML +
         '<div class="book-content-grid">' +
           '<div class="book-col-left">' +
             tesisHTML +
