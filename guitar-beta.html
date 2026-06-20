@@ -16379,21 +16379,48 @@ class Player {
 
   _scheduler() {
     if (!audioCtx) return;
-    // ── DEBUG (temporary): show step index, label, barsRemaining, and
-    // seconds-until-next-bar in the bottom-right corner. Helps verify
-    // whether the silent step actually occupies its full bar of time.
+    // ── DEBUG (temporary): rolling advance log + giant SILENT banner so
+    // the user can SEE whether a rest step is actually being entered by
+    // the scheduler (and for how long). Static analysis kept landing on
+    // "the code looks right" — this puts ground truth on screen.
     if (typeof document !== 'undefined') {
       const _step = this._currentStep();
-      const _lbl = _step && _step._silent ? '𝄻' : (_step && _step.chord) || '?';
+      const _isSilent = !!(_step && _step._silent);
+      const _lbl = _isSilent ? '𝄻 SILENT' : (_step && _step.chord) || '?';
       const _dt = (this.nextBarTime - audioCtx.currentTime).toFixed(2);
+      // Top-right rolling state pill (small)
       let _dbg = document.getElementById('__silent_dbg');
       if (!_dbg) {
         _dbg = document.createElement('div');
         _dbg.id = '__silent_dbg';
-        _dbg.style.cssText = 'position:fixed;bottom:4px;right:4px;z-index:99999;background:rgba(0,0,0,0.78);color:#fdfcf3;font:10px/1.2 monospace;padding:3px 6px;border-radius:3px;pointer-events:none;';
+        _dbg.style.cssText = 'position:fixed;top:4px;right:4px;z-index:99999;background:rgba(0,0,0,0.85);color:#fdfcf3;font:10px/1.3 monospace;padding:4px 7px;border-radius:3px;pointer-events:none;white-space:pre;max-width:60vw;text-align:right;';
         document.body.appendChild(_dbg);
       }
-      _dbg.textContent = `step ${this.currentStepIdx} (${_lbl}) · bR=${this.barsRemaining} · t→${_dt}s`;
+      // Initialize the advance log (last 6 step-entries)
+      if (!this._advLog) this._advLog = [];
+      // Detect a fresh step entry (currentStepIdx changed since last paint)
+      if (this._advLogLastIdx !== this.currentStepIdx) {
+        this._advLogLastIdx = this.currentStepIdx;
+        const tStr = audioCtx.currentTime.toFixed(2);
+        this._advLog.push(`@${tStr} → step ${this.currentStepIdx} ${_lbl} bars=${_step?.bars}`);
+        if (this._advLog.length > 6) this._advLog.shift();
+      }
+      _dbg.textContent =
+        `now: step ${this.currentStepIdx} (${_lbl}) bR=${this.barsRemaining} t→${_dt}s\n` +
+        this._advLog.join('\n');
+      // Giant centered SILENT banner — only when current step is silent.
+      let _banner = document.getElementById('__silent_banner');
+      if (_isSilent) {
+        if (!_banner) {
+          _banner = document.createElement('div');
+          _banner.id = '__silent_banner';
+          _banner.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99998;background:rgba(0,180,255,0.92);color:#fff;font:bold 60px/1 system-ui,sans-serif;padding:32px 48px;border-radius:18px;pointer-events:none;letter-spacing:2px;box-shadow:0 12px 40px rgba(0,0,0,0.4);';
+          _banner.textContent = '𝄻 SILENT';
+          document.body.appendChild(_banner);
+        }
+      } else if (_banner) {
+        _banner.remove();
+      }
     }
     // While the count-in is still in progress, do nothing.
     if (this._countInUntil && audioCtx.currentTime < this._countInUntil - 0.005) return;
@@ -16413,6 +16440,19 @@ class Player {
       return;
     }
     const barDur = (60 / metronome.bpm) * 4;
+    // Re-anchor if the schedule fell way behind real time (mobile tab
+    // throttling, heavy GC, audio context resume after suspend). Without
+    // this, each scheduler tick (30 ms) advances one bar — so 4 bars
+    // catch up in ~120 ms. Chord bars are still audible because audio
+    // is scheduled at the clamped t0=currentTime, but a silent bar
+    // sandwiched between two chords vanishes (its bar of "no audio"
+    // only lasts the 30 ms between ticks). User hears chord N → chord
+    // N+2 with effectively no pause. Re-anchoring nextBarTime to
+    // currentTime when we're > 0.5 s behind preserves bar duration so
+    // every step (silent or chord) gets its full musical time.
+    if (this.nextBarTime < audioCtx.currentTime - 0.5) {
+      this.nextBarTime = audioCtx.currentTime + 0.02;
+    }
     if (this.nextBarTime < audioCtx.currentTime + 0.12) {
       // If user jumped, trigger the new chord at THIS bar boundary
       // instead of advancing. Mirrors the count-in fire: we play the
