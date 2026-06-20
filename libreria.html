@@ -1038,31 +1038,27 @@ body {
    ─────────────────────────────────────────────────────────────────── */
 .book-hero-deck{
   position:relative;width:100%;
-  /* no min-height — container is exactly as tall as the hero metadata,
-     so the next section (tesis) starts immediately below without a
-     dark empty band */
   background:#0a0a0f;overflow:hidden;
   border-radius:4px;
   box-shadow:0 10px 36px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04);
-  user-select:none;margin-bottom:24px;
-  animation:heroDeckIn .5s ease;
+  user-select:none;margin-bottom:0;
+  cursor:zoom-in;
+  animation:heroDeckIn .6s ease;
+  transition:max-height 2.4s cubic-bezier(.22,1,.36,1);
 }
 @keyframes heroDeckIn{ from{opacity:0} to{opacity:1} }
-/* On expand, container grows to the slide's native aspect; the overlay
-   fades but its size remains, so the slide takes the visible space.
-   Transition is jumpy on aspect-ratio change but opacity + filter
-   animate smoothly which masks it. */
 .book-hero-deck.expanded{
   max-height:min(60vh, calc(100vw * 892 / 1600));
   aspect-ratio:1600/892;
 }
 
-/* Slide stack — sits behind everything, blurred + dim until expand */
+/* Slide stack — blurred + dim until expand; transition slow & dramatic */
 .hero-slide-stack{
   position:absolute;inset:0;z-index:0;
   filter:blur(22px) brightness(.4) saturate(.75);
-  transform:scale(1.18);  /* hide blur fringes at the edges */
-  transition:filter 1.1s cubic-bezier(.4,0,.2,1), transform 1.1s cubic-bezier(.4,0,.2,1);
+  transform:scale(1.18);
+  transition:filter 2.2s cubic-bezier(.22,1,.36,1) .25s,
+             transform 2.2s cubic-bezier(.22,1,.36,1) .25s;
 }
 .book-hero-deck.expanded .hero-slide-stack{
   filter:none;
@@ -1072,7 +1068,7 @@ body {
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:cover;object-position:center;
   background:#000;
-  opacity:0;transition:opacity 1s ease, object-fit 0s 1.2s;
+  opacity:0;transition:opacity 1.2s ease, object-fit 0s 2s;
   pointer-events:none;
 }
 .hero-slide.active{opacity:1}
@@ -1084,7 +1080,8 @@ body {
   display:flex;gap:32px;align-items:flex-start;
   padding:22px 28px 18px;
   color:var(--text-bright, #e8e0cc);
-  transition:opacity .8s ease, transform .8s cubic-bezier(.3,.65,.3,1);
+  cursor:zoom-in;
+  transition:opacity 1.4s ease, transform 1.4s cubic-bezier(.3,.65,.3,1);
 }
 .hero-meta-overlay > img,
 .hero-meta-overlay > .book-cover-wrap,
@@ -1114,16 +1111,8 @@ body {
   opacity:0;pointer-events:none;transform:translateY(-10px);
 }
 
-/* Floating expand + counter + nav arrows on the deck */
-.hero-deck-expand{
-  position:absolute;top:12px;right:12px;z-index:7;
-  background:rgba(0,0,0,.55);border:1px solid rgba(200,169,96,.5);
-  color:#d4b25e;width:32px;height:32px;border-radius:5px;
-  cursor:pointer;font-size:13px;line-height:1;padding:0;
-  display:flex;align-items:center;justify-content:center;
-  backdrop-filter:blur(6px);transition:all .15s;
-}
-.hero-deck-expand:hover{background:rgba(200,169,96,.25);color:#fff}
+/* Floating counter + nav arrows on the deck (no expand button — clicking
+   the slide opens the lightbox directly) */
 .hero-deck-counter{
   position:absolute;top:12px;left:12px;z-index:6;
   font-family:'SF Mono','Fira Code',monospace;
@@ -1158,18 +1147,20 @@ body {
   max-height:0;overflow:hidden;
   margin:0;padding:0;
   border-bottom:0 solid var(--border, #222);
-  opacity:0;transform:translateY(-10px);
-  transition:max-height .9s ease, opacity .7s ease, transform .9s cubic-bezier(.3,.65,.3,1),
-             margin .9s ease, padding .9s ease, border-bottom-width .9s ease;
+  opacity:0;transform:translateY(-14px);
+  transition:max-height 1.8s cubic-bezier(.22,1,.36,1),
+             opacity 1.4s ease,
+             transform 1.6s cubic-bezier(.22,1,.36,1),
+             margin 1.4s ease, padding 1.4s ease, border-bottom-width 1.4s ease;
   pointer-events:none;
 }
 .book-hero-deck.expanded + .book-hero-caption{
   max-height:240px;
-  margin:0 0 36px;padding:18px 4px 24px;
+  margin:0 0 36px;padding:20px 4px 26px;
   border-bottom-width:1px;
   opacity:1;transform:translateY(0);
   pointer-events:auto;
-  transition-delay:.3s;
+  transition-delay:.8s;  /* let the deck expand first */
 }
 .book-hero-caption > img,
 .book-hero-caption > .book-cover-wrap{
@@ -7035,12 +7026,11 @@ body {
         const loading = i <= 2 ? 'eager' : 'lazy';
         imgsHTML += `<img class="hero-slide${i===1?' active':''}" src="decks/${book.id}/slide-${num}.jpg" alt="" loading="${loading}">`;
       }
+      const escLabel = (book.deck.label||'').replace(/'/g,"\\'");
       heroHTML =
-        '<div class="book-hero-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
+        '<div class="book-hero-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'" data-deck-label="'+escLabel+'">' +
           '<div class="hero-slide-stack">' + imgsHTML + '</div>' +
           '<div class="hero-meta-overlay">' + heroMetaHTML + '</div>' +
-          '<button class="hero-deck-expand" type="button" title="Pantalla completa" ' +
-            'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
           '<div class="hero-deck-counter">1 / '+book.deck.slides+'</div>' +
           '<div class="hero-deck-nav">' +
             '<button class="hero-deck-arrow" data-act="prev" title="Anterior">‹</button>' +
@@ -7109,7 +7099,8 @@ body {
   /* Hero-deck cycling: the NotebookLM slides become the hero (full-width).
      Cover + title + author start overlaid on the first slide for ~5s,
      then transition down to a permanent caption below the deck. Hover
-     on the deck pauses cycling so the user can read a slide. */
+     pauses cycling. Click on the slide → fullscreen lightbox. Arrow
+     keys ←/→ navigate slides when the book detail is open. */
   function initHeroDeck(deckEl) {
     const slides  = deckEl.querySelectorAll('.hero-slide');
     const counter = deckEl.querySelector('.hero-deck-counter');
@@ -7117,8 +7108,11 @@ body {
     const btnNext = deckEl.querySelector('[data-act="next"]');
     if (!slides.length) return;
     const SLIDE_MS = 9000;
-    const META_REVEAL_MS = 5000;
+    const META_REVEAL_MS = 5500;
     let i = 0, timer = null, hoverPaused = false;
+    const bookId = deckEl.dataset.bookId;
+    const slideCount = parseInt(deckEl.dataset.slides) || slides.length;
+    const deckLabel = deckEl.dataset.deckLabel || '';
 
     function show(n){
       slides.forEach(s => s.classList.remove('active'));
@@ -7128,17 +7122,37 @@ body {
     function advance(){ i = (i+1) % slides.length; show(i); }
     function start(){ stop(); if (!hoverPaused) timer = setInterval(advance, SLIDE_MS); }
     function stop(){ if (timer){ clearInterval(timer); timer = null; } }
+    function prev(){ i = (i-1+slides.length) % slides.length; show(i); if(!hoverPaused){ stop(); start(); } }
+    function next(){ advance(); if(!hoverPaused){ stop(); start(); } }
 
-    btnPrev.onclick = () => { i = (i-1+slides.length) % slides.length; show(i); if(!hoverPaused){ stop(); start(); } };
-    btnNext.onclick = () => { advance(); if(!hoverPaused){ stop(); start(); } };
+    btnPrev.onclick = (e) => { e.stopPropagation(); prev(); };
+    btnNext.onclick = (e) => { e.stopPropagation(); next(); };
     deckEl.addEventListener('mouseenter', () => { hoverPaused = true; stop(); });
     deckEl.addEventListener('mouseleave', () => { hoverPaused = false; start(); });
 
+    /* Click anywhere on the slide → fullscreen lightbox.
+       Skip if click was on the arrows. */
+    deckEl.addEventListener('click', (e) => {
+      if (e.target.closest('.hero-deck-arrow')) return;
+      openDeckLightbox(bookId, slideCount, deckLabel);
+    });
+
+    /* Arrow-key navigation when the book detail is open (and lightbox
+       isn't, since the lightbox has its own arrow handler). */
+    function onKeydown(e){
+      if (e.target && (e.target.tagName==='INPUT' || e.target.tagName==='TEXTAREA')) return;
+      const lb = document.getElementById('deck-lightbox');
+      if (lb && lb.classList.contains('active')) return;
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); prev(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+    }
+    document.addEventListener('keydown', onKeydown);
+    /* Tag the listener on the element so closeBookDetail can clean up */
+    deckEl._heroDeckKeyHandler = onKeydown;
+
     start();
 
-    // Expand the deck from compact-banner to full aspect after 5s.
-    // CSS handles: height grows, slide brightens to full, bottom overlay
-    // fades out, caption below slides in.
+    // Expand the deck from compact-banner to full aspect after ~5.5s.
     setTimeout(() => deckEl.classList.add('expanded'), META_REVEAL_MS);
   }
 
@@ -7212,6 +7226,11 @@ body {
 
   function closeBookDetail() {
     const bd = document.getElementById('book-detail');
+    // Detach hero-deck arrow-key handler before wiping the DOM
+    const heroDeck = bd.querySelector('.book-hero-deck');
+    if (heroDeck && heroDeck._heroDeckKeyHandler) {
+      document.removeEventListener('keydown', heroDeck._heroDeckKeyHandler);
+    }
     bd.classList.remove('active');
     bd.style.display = 'none';
     bd.innerHTML = '';
