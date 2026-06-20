@@ -16379,7 +16379,26 @@ class Player {
 
   _scheduler() {
     if (!audioCtx) return;
-    // ── Count-in handling ──
+    // ── DEBUG overlay (temporary): every scheduler tick writes the
+    // current step + barsRemaining + how long until the next bar
+    // boundary. Helps confirm whether silent steps actually consume
+    // their bar of audio time or get advanced through too quickly.
+    if (typeof document !== 'undefined' && audioCtx) {
+      const _step = this._currentStep();
+      const _stepLbl = _step && _step._silent
+        ? '𝄻 SILENT'
+        : (_step && _step.chord) || '?';
+      const _dt = (this.nextBarTime - audioCtx.currentTime).toFixed(2);
+      const _info = `step ${this.currentStepIdx}: ${_stepLbl} · barsR=${this.barsRemaining} · t→next=${_dt}s · total=${this.totalBars}`;
+      let _dbg = document.getElementById('__silent_dbg');
+      if (!_dbg) {
+        _dbg = document.createElement('div');
+        _dbg.id = '__silent_dbg';
+        _dbg.style.cssText = 'position:fixed;top:4px;left:4px;z-index:99999;background:rgba(0,0,0,0.85);color:#fdfcf3;font:11px/1.2 monospace;padding:4px 8px;border-radius:4px;pointer-events:none;max-width:70vw;';
+        document.body.appendChild(_dbg);
+      }
+      _dbg.textContent = _info;
+    }
     // While the count-in is still in progress, do nothing.
     if (this._countInUntil && audioCtx.currentTime < this._countInUntil - 0.005) return;
     // The count-in just ended — fire the very first chord HERE (in the same
