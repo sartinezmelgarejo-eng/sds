@@ -1029,138 +1029,135 @@ body {
 #book-detail.active { display: block; }
 
 /* ───────────────────────────────────────────────────────────────────
-   Per-book NotebookLM slide-deck. Renders as a regular .book-section
-   card so it sits beside tesis/ideas in the grid without dominating.
-   The deck has an antique manuscript-frame: dark walnut wood border
-   with two inset gold rules and visible gold corner brackets. Click
-   ⤢ in the header to open the deck fullscreen in a lightbox.
+   Book hero with NotebookLM deck. The cycling deck IS the hero,
+   full-width at the slide's native 1600/892 aspect. Cover + title +
+   author start overlaid on top of slide 1 (glass card top-left) for
+   5 seconds, then fade + translate down to a caption below the deck
+   so the slides take center stage.
    ─────────────────────────────────────────────────────────────────── */
-.section-deck > .book-section-title .book-deck-expand{
-  margin-left:auto;background:transparent;border:1px solid rgba(200,169,96,.35);
-  color:rgba(200,169,96,.75);width:26px;height:26px;border-radius:4px;
-  cursor:pointer;font-size:13px;line-height:1;padding:0;
-  display:flex;align-items:center;justify-content:center;
-  transition:all .15s;
-}
-.section-deck > .book-section-title .book-deck-expand:hover{
-  background:rgba(200,169,96,.15);color:#d4b25e;border-color:#d4b25e;
-}
-
-/* When the deck card sits inside .book-hero (third column), hide the
-   summary title bar and put a floating ⤢ expand button on the frame
-   itself; deck width matches the hero info column visually. */
-.book-hero.has-deck{align-items:flex-start}
-.book-hero .section-deck{
-  flex-shrink:0;width:clamp(280px, 32vw, 380px);
-  margin:0;animation:none;
-}
-.book-hero .section-deck > .book-section-title{display:none}
-.book-hero .section-deck > .book-deck{margin:0}
-.book-hero .section-deck .book-deck-expand-float{
-  position:absolute;top:8px;right:8px;
-  background:rgba(0,0,0,.5);border:1px solid rgba(200,169,96,.6);
-  color:#d4b25e;width:28px;height:28px;border-radius:4px;
-  cursor:pointer;font-size:13px;line-height:1;padding:0;
-  display:flex;align-items:center;justify-content:center;
-  z-index:7;transition:all .15s;backdrop-filter:blur(4px);
-}
-.book-hero .section-deck .book-deck-expand-float:hover{
-  background:rgba(200,169,96,.25);color:#fff;
-}
-@media (max-width:899px){
-  .book-hero .section-deck{width:100%;margin-top:14px}
-}
-
-/* The deck frame: walnut wood border + double gold inset rule */
-.book-deck{
+.book-hero-deck{
   position:relative;width:100%;
-  max-width:620px;margin:6px auto 4px;
-  padding:18px;
-  background:linear-gradient(135deg, #3a2515 0%, #2a1808 50%, #1a0d05 100%);
-  border:1px solid #1a0a02;
-  border-radius:2px;
-  box-shadow:
-    inset 0 0 0 1px #6b4a22,
-    inset 0 0 0 4px #1a0a05,
-    inset 0 0 0 5px #c8a960,
-    inset 0 0 30px rgba(0,0,0,.5),
-    0 6px 20px rgba(0,0,0,.55),
-    0 1px 0 rgba(255,255,255,.04);
-  user-select:none;
+  aspect-ratio:1600/892;max-height:60vh;
+  background:#000;overflow:hidden;
+  border-radius:4px;
+  box-shadow:0 10px 36px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.04);
+  user-select:none;margin-bottom:0;
+  animation:heroDeckIn .8s cubic-bezier(.2,.65,.3,1);
 }
-/* Four large gold corner brackets — visible, ornate, manuscript-style */
-.book-deck::before,
-.book-deck::after{
-  content:'';position:absolute;
-  width:22px;height:22px;
-  border:2px solid #d4b25e;
-  pointer-events:none;z-index:6;
-  filter:drop-shadow(0 0 2px rgba(0,0,0,.6));
+@keyframes heroDeckIn{
+  from { opacity:0; transform:scale(.98); }
+  to   { opacity:1; transform:scale(1); }
 }
-.book-deck::before{
-  top:4px;left:4px;
-  border-right:none;border-bottom:none;
-}
-.book-deck::after{
-  top:4px;right:4px;
-  border-left:none;border-bottom:none;
-}
-.book-deck > .book-deck-stack::before,
-.book-deck > .book-deck-stack::after{
-  content:'';position:absolute;
-  width:22px;height:22px;
-  border:2px solid #d4b25e;
-  pointer-events:none;z-index:6;
-  filter:drop-shadow(0 0 2px rgba(0,0,0,.6));
-}
-.book-deck > .book-deck-stack::before{
-  bottom:-14px;left:-14px;
-  border-right:none;border-top:none;
-}
-.book-deck > .book-deck-stack::after{
-  bottom:-14px;right:-14px;
-  border-left:none;border-top:none;
-}
-
-/* The slide viewport sitting inside the frame */
-.book-deck-stack{
-  position:relative;width:100%;aspect-ratio:1600/892;
-  background:#000;border-radius:1px;overflow:hidden;
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.8), inset 0 0 12px rgba(0,0,0,.4);
-}
-.book-deck-slide{
+.hero-slide-stack{position:absolute;inset:0}
+.hero-slide{
   position:absolute;inset:0;width:100%;height:100%;
-  object-fit:contain;background:#0a0a0f;
-  opacity:0;transition:opacity .6s ease;pointer-events:none;
+  object-fit:contain;background:#000;
+  opacity:0;transition:opacity 1s ease;pointer-events:none;
 }
-.book-deck-slide.active{opacity:1;pointer-events:auto}
-.book-deck-overlay{
-  position:absolute;left:0;right:0;bottom:0;padding:10px 14px 12px;
-  background:linear-gradient(to top, rgba(10,10,15,.92), rgba(10,10,15,.3) 75%, transparent);
-  color:#e0d5b8;font-family:'Inter','Segoe UI',system-ui,sans-serif;
-  display:flex;align-items:flex-end;justify-content:space-between;gap:14px;
-  opacity:0;transition:opacity .25s ease;pointer-events:none;
-  z-index:5;
-}
-.book-deck:hover .book-deck-overlay,
-.book-deck.paused .book-deck-overlay{opacity:1;pointer-events:auto}
-.book-deck-tag{font-size:10px;color:#aaa;text-transform:uppercase;letter-spacing:1px;font-family:'SF Mono',monospace;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.book-deck-controls{display:flex;align-items:center;gap:6px;flex-shrink:0}
-.book-deck-btn{
-  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);
-  color:#e0d5b8;cursor:pointer;width:26px;height:26px;border-radius:50%;
-  font-size:12px;display:flex;align-items:center;justify-content:center;padding:0;
-  transition:background .15s, border-color .15s;
-}
-.book-deck-btn:hover{background:rgba(200,169,96,.2);border-color:rgba(200,169,96,.45)}
-.book-deck-counter{font-size:10px;color:#bbb;font-family:'SF Mono',monospace;min-width:46px;text-align:center}
+.hero-slide.active{opacity:1}
 
-@media (max-width:600px){
-  .book-deck{padding:14px;max-width:none}
-  .book-deck::before,
-  .book-deck::after,
-  .book-deck > .book-deck-stack::before,
-  .book-deck > .book-deck-stack::after{width:16px;height:16px}
+/* The glass overlay card on top of slide 1, fades after 5s */
+.hero-meta-overlay{
+  position:absolute;top:24px;left:24px;max-width:62%;
+  display:flex;gap:18px;align-items:flex-start;
+  padding:16px 22px;
+  background:rgba(10,10,15,.78);
+  border:1px solid rgba(200,169,96,.28);
+  border-radius:6px;
+  backdrop-filter:blur(10px) saturate(140%);
+  -webkit-backdrop-filter:blur(10px) saturate(140%);
+  box-shadow:0 6px 20px rgba(0,0,0,.4);
+  color:#e0d5b8;z-index:5;
+  transition:opacity .9s ease, transform .9s cubic-bezier(.3,.65,.3,1);
+  animation:heroMetaIn .8s cubic-bezier(.2,.65,.3,1) .25s backwards;
+}
+@keyframes heroMetaIn{
+  from { opacity:0; transform:translateY(-12px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.hero-meta-overlay > img,
+.hero-meta-overlay > .book-cover-wrap{
+  width:62px;height:auto;flex-shrink:0;
+  border-radius:2px;box-shadow:0 4px 12px rgba(0,0,0,.5);
+}
+.hero-meta-overlay .hero-meta-info h2{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:21px;font-weight:600;line-height:1.18;
+  color:#f0e6d0;margin:0 0 6px;
+}
+.hero-meta-overlay .hero-meta-info .book-author-full{
+  font-size:11.5px;color:#c8a960;letter-spacing:.8px;text-transform:uppercase;margin-bottom:8px;
+}
+.hero-meta-overlay .hero-meta-info .book-themes-list{margin:6px 0}
+.book-hero-deck.meta-revealed .hero-meta-overlay{
+  opacity:0;pointer-events:none;transform:translateY(14px);
+}
+
+/* Floating expand + counter + nav arrows on the deck */
+.hero-deck-expand{
+  position:absolute;top:14px;right:14px;z-index:7;
+  background:rgba(0,0,0,.55);border:1px solid rgba(200,169,96,.5);
+  color:#d4b25e;width:34px;height:34px;border-radius:6px;
+  cursor:pointer;font-size:14px;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(6px);transition:all .15s;
+}
+.hero-deck-expand:hover{background:rgba(200,169,96,.25);color:#fff}
+.hero-deck-counter{
+  position:absolute;bottom:14px;right:14px;z-index:6;
+  font-family:'SF Mono','Fira Code',monospace;
+  font-size:11px;color:rgba(255,255,255,.85);letter-spacing:1px;
+  background:rgba(0,0,0,.5);padding:4px 9px;border-radius:3px;
+  backdrop-filter:blur(4px);
+}
+.hero-deck-nav{position:absolute;inset:0;display:flex;justify-content:space-between;align-items:center;pointer-events:none;z-index:5;padding:0 14px}
+.hero-deck-arrow{
+  pointer-events:auto;
+  background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.15);
+  color:rgba(255,255,255,.85);
+  width:40px;height:40px;border-radius:50%;cursor:pointer;
+  font-size:20px;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .25s, background .15s;
+  backdrop-filter:blur(4px);
+}
+.book-hero-deck:hover .hero-deck-arrow{opacity:1}
+.hero-deck-arrow:hover{background:rgba(200,169,96,.3);border-color:#d4b25e}
+
+/* Caption below the deck — invisible until meta-revealed kicks in */
+.book-hero-caption{
+  display:flex;gap:22px;align-items:flex-start;
+  margin:0 0 36px;padding:18px 4px 0;
+  border-bottom:1px solid var(--border, #222);
+  padding-bottom:24px;
+  opacity:0;transform:translateY(-10px);
+  transition:opacity .9s ease .15s, transform .9s cubic-bezier(.3,.65,.3,1) .15s;
+}
+.book-hero-deck.meta-revealed + .book-hero-caption{
+  opacity:1;transform:translateY(0);
+}
+.book-hero-caption > img,
+.book-hero-caption > .book-cover-wrap{
+  width:70px;height:auto;flex-shrink:0;
+  border-radius:3px;box-shadow:0 4px 12px rgba(0,0,0,.4);
+}
+.book-hero-caption .hero-meta-info{flex:1;min-width:0}
+.book-hero-caption .hero-meta-info h2{
+  font-family:'Cormorant Garamond',Georgia,serif;
+  font-size:26px;font-weight:600;line-height:1.15;
+  color:var(--text-bright, #e8e0cc);margin:0 0 6px;
+}
+.book-hero-caption .hero-meta-info .book-author-full{margin-bottom:10px}
+
+@media (max-width:899px){
+  .book-hero-deck{aspect-ratio:1600/892;max-height:45vh}
+  .hero-meta-overlay{top:12px;left:12px;right:12px;max-width:none;padding:10px 14px;gap:12px}
+  .hero-meta-overlay > img{width:48px}
+  .hero-meta-overlay .hero-meta-info h2{font-size:16px}
+  .hero-deck-arrow{width:34px;height:34px;font-size:18px}
+  .book-hero-caption{flex-direction:row;gap:14px;padding:14px 0 18px;margin-bottom:24px}
+  .book-hero-caption > img{width:54px}
+  .book-hero-caption .hero-meta-info h2{font-size:20px}
 }
 
 /* ── Deck lightbox modal (opened by ⤢) ── */
@@ -6982,49 +6979,43 @@ body {
     const relatedHTML = related.length > 0 && conexiones.length === 0 ?
       '<details class="book-section section-relacionados" open><summary class="book-section-title"><span class="section-icon">🌐</span><span>Libros Relacionados</span><span class="section-count">'+related.length+'</span></summary><div style="display:flex;flex-wrap:wrap;gap:10px;">'+related.map(function(b){ return miniBookCard(b, true); }).join('')+'</div></details>' : '';
 
-    // Deck card (NotebookLM-generated slide deck for this book).
-    // Renders as a regular .book-section so it sits naturally beside
-    // tesis/ideas in the grid. Click the ⤢ button in the header to open
-    // the full deck in a fullscreen lightbox.
-    let deckHTML = '';
+    // The hero is bifurcated based on whether the book has a NotebookLM
+    // deck. With deck: full-width cycling deck IS the hero; cover + title
+    // sit overlaid on top of the first slide for ~5s, then transition
+    // down to a caption below the deck. Without deck: original hero.
+    const heroMetaHTML =
+      coverHTML +
+      '<div class="hero-meta-info">' +
+        '<h2>'+book.title+'</h2>' +
+        '<div class="book-author-full"><span class="book-author-link" onclick="event.stopPropagation(); openAuthor(\''+book.author.replace(/'/g,"\\'")+'\')">' + book.author + '</span> · '+book.year+'</div>' +
+        '<div class="book-themes-list">'+estantePill+'</div>' +
+        getFileButtonHTML(book) +
+      '</div>';
+
+    let heroHTML;
     if (book.deck && book.deck.slides) {
       let imgsHTML = '';
       for (let i = 1; i <= book.deck.slides; i++) {
         const num = String(i).padStart(2, '0');
         const loading = i <= 2 ? 'eager' : 'lazy';
-        imgsHTML += `<img class="book-deck-slide${i===1?' active':''}" src="decks/${book.id}/slide-${num}.jpg" alt="Slide ${i}" loading="${loading}">`;
+        imgsHTML += `<img class="hero-slide${i===1?' active':''}" src="decks/${book.id}/slide-${num}.jpg" alt="" loading="${loading}">`;
       }
-      deckHTML =
-        '<details class="book-section section-deck" open>' +
-          '<summary class="book-section-title">' +
-            '<span class="section-icon">🎴</span>' +
-            '<span>Briefing visual</span>' +
-            '<span class="section-count">'+book.deck.slides+'</span>' +
-            '<button class="book-deck-expand" type="button" title="Pantalla completa" ' +
-              'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
-          '</summary>' +
-          '<div class="book-deck book-deck-compact" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
-            '<button class="book-deck-expand-float" type="button" title="Pantalla completa" ' +
-              'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
-            '<div class="book-deck-stack">' + imgsHTML + '</div>' +
-            '<div class="book-deck-overlay">' +
-              '<span class="book-deck-tag">'+(book.deck.label||'NotebookLM briefing')+'</span>' +
-              '<div class="book-deck-controls">' +
-                '<button class="book-deck-btn" data-act="prev" title="Anterior">‹</button>' +
-                '<span class="book-deck-counter">1 / '+book.deck.slides+'</span>' +
-                '<button class="book-deck-btn" data-act="pause" title="Pausa">⏸</button>' +
-                '<button class="book-deck-btn" data-act="next" title="Siguiente">›</button>' +
-              '</div>' +
-            '</div>' +
+      heroHTML =
+        '<div class="book-hero-deck" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
+          '<div class="hero-slide-stack">' + imgsHTML + '</div>' +
+          '<div class="hero-meta-overlay">' + heroMetaHTML + '</div>' +
+          '<button class="hero-deck-expand" type="button" title="Pantalla completa" ' +
+            'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
+          '<div class="hero-deck-counter">1 / '+book.deck.slides+'</div>' +
+          '<div class="hero-deck-nav">' +
+            '<button class="hero-deck-arrow" data-act="prev" title="Anterior">‹</button>' +
+            '<button class="hero-deck-arrow" data-act="next" title="Siguiente">›</button>' +
           '</div>' +
-        '</details>';
-    }
-
-    const detail = document.getElementById('book-detail');
-    detail.innerHTML =
-      '<div class="view-transition">' +
-        '<button class="back-btn" onclick="closeBookDetail()">← Volver</button>' +
-        '<div class="book-hero' + (book.deck && book.deck.slides ? ' has-deck' : '') + '">' +
+        '</div>' +
+        '<div class="book-hero-caption">' + heroMetaHTML + '</div>';
+    } else {
+      heroHTML =
+        '<div class="book-hero">' +
           coverHTML +
           '<div class="book-hero-info">' +
             '<h2>'+book.title+'</h2>' +
@@ -7032,8 +7023,14 @@ body {
             '<div class="book-themes-list">'+estantePill+'</div>' +
             getFileButtonHTML(book) +
           '</div>' +
-          deckHTML +
-        '</div>' +
+        '</div>';
+    }
+
+    const detail = document.getElementById('book-detail');
+    detail.innerHTML =
+      '<div class="view-transition">' +
+        '<button class="back-btn" onclick="closeBookDetail()">← Volver</button>' +
+        heroHTML +
         '<div class="book-content-grid">' +
           '<div class="book-col-left">' +
             tesisHTML +
@@ -7065,28 +7062,28 @@ body {
     detail.style.display = 'block';
     detail.classList.add('active');
 
-    // Initialize deck cycling for this book if present
-    const deckEl = detail.querySelector('.book-deck');
-    if (deckEl) initBookDeck(deckEl);
+    // Initialize hero deck cycling + 5s meta-reveal animation
+    const heroDeck = detail.querySelector('.book-hero-deck');
+    if (heroDeck) initHeroDeck(heroDeck);
 
     requestAnimationFrame(() => {
       detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }
 
-  /* Deck cycling for the per-book NotebookLM briefing slide deck. Called
-     after book-detail innerHTML is set. Auto-advances slides with a fade
-     transition and a progress bar; pauses on hover; pause/prev/next
-     controls inside the overlay. Each book detail gets its own instance. */
-  function initBookDeck(deckEl) {
-    const slides   = deckEl.querySelectorAll('.book-deck-slide');
-    const counter  = deckEl.querySelector('.book-deck-counter');
-    const btnPrev  = deckEl.querySelector('[data-act="prev"]');
-    const btnNext  = deckEl.querySelector('[data-act="next"]');
-    const btnPause = deckEl.querySelector('[data-act="pause"]');
+  /* Hero-deck cycling: the NotebookLM slides become the hero (full-width).
+     Cover + title + author start overlaid on the first slide for ~5s,
+     then transition down to a permanent caption below the deck. Hover
+     on the deck pauses cycling so the user can read a slide. */
+  function initHeroDeck(deckEl) {
+    const slides  = deckEl.querySelectorAll('.hero-slide');
+    const counter = deckEl.querySelector('.hero-deck-counter');
+    const btnPrev = deckEl.querySelector('[data-act="prev"]');
+    const btnNext = deckEl.querySelector('[data-act="next"]');
     if (!slides.length) return;
     const SLIDE_MS = 9000;
-    let i = 0, paused = false, timer = null;
+    const META_REVEAL_MS = 5000;
+    let i = 0, timer = null, hoverPaused = false;
 
     function show(n){
       slides.forEach(s => s.classList.remove('active'));
@@ -7094,22 +7091,18 @@ body {
       counter.textContent = (n+1)+' / '+slides.length;
     }
     function advance(){ i = (i+1) % slides.length; show(i); }
-    function start(){ stop(); if (!paused) timer = setInterval(advance, SLIDE_MS); }
-    function stop(){ if (timer) { clearInterval(timer); timer = null; } }
+    function start(){ stop(); if (!hoverPaused) timer = setInterval(advance, SLIDE_MS); }
+    function stop(){ if (timer){ clearInterval(timer); timer = null; } }
 
-    btnPrev.onclick  = () => { i = (i-1+slides.length) % slides.length; show(i); if(!paused){ stop(); start(); } };
-    btnNext.onclick  = () => { advance(); if(!paused){ stop(); start(); } };
-    btnPause.onclick = () => {
-      paused = !paused;
-      btnPause.textContent = paused ? '▶' : '⏸';
-      btnPause.title = paused ? 'Reanudar' : 'Pausa';
-      deckEl.classList.toggle('paused', paused);
-      if (paused) stop(); else start();
-    };
-    deckEl.addEventListener('mouseenter', () => { if (!paused) stop(); });
-    deckEl.addEventListener('mouseleave', () => { if (!paused) start(); });
+    btnPrev.onclick = () => { i = (i-1+slides.length) % slides.length; show(i); if(!hoverPaused){ stop(); start(); } };
+    btnNext.onclick = () => { advance(); if(!hoverPaused){ stop(); start(); } };
+    deckEl.addEventListener('mouseenter', () => { hoverPaused = true; stop(); });
+    deckEl.addEventListener('mouseleave', () => { hoverPaused = false; start(); });
 
     start();
+
+    // Reveal the caption below + fade the overlay after 5s
+    setTimeout(() => deckEl.classList.add('meta-revealed'), META_REVEAL_MS);
   }
 
   /* ─── Deck lightbox: expand button (⤢) opens this fullscreen view ─── */
