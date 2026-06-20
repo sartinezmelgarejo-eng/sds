@@ -1046,6 +1046,31 @@ body {
   background:rgba(200,169,96,.15);color:#d4b25e;border-color:#d4b25e;
 }
 
+/* When the deck card sits inside .book-hero (third column), hide the
+   summary title bar and put a floating ⤢ expand button on the frame
+   itself; deck width matches the hero info column visually. */
+.book-hero.has-deck{align-items:flex-start}
+.book-hero .section-deck{
+  flex-shrink:0;width:clamp(280px, 32vw, 380px);
+  margin:0;animation:none;
+}
+.book-hero .section-deck > .book-section-title{display:none}
+.book-hero .section-deck > .book-deck{margin:0}
+.book-hero .section-deck .book-deck-expand-float{
+  position:absolute;top:8px;right:8px;
+  background:rgba(0,0,0,.5);border:1px solid rgba(200,169,96,.6);
+  color:#d4b25e;width:28px;height:28px;border-radius:4px;
+  cursor:pointer;font-size:13px;line-height:1;padding:0;
+  display:flex;align-items:center;justify-content:center;
+  z-index:7;transition:all .15s;backdrop-filter:blur(4px);
+}
+.book-hero .section-deck .book-deck-expand-float:hover{
+  background:rgba(200,169,96,.25);color:#fff;
+}
+@media (max-width:899px){
+  .book-hero .section-deck{width:100%;margin-top:14px}
+}
+
 /* The deck frame: walnut wood border + double gold inset rule */
 .book-deck{
   position:relative;width:100%;
@@ -6979,6 +7004,8 @@ body {
               'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
           '</summary>' +
           '<div class="book-deck book-deck-compact" data-book-id="'+book.id+'" data-slides="'+book.deck.slides+'">' +
+            '<button class="book-deck-expand-float" type="button" title="Pantalla completa" ' +
+              'onclick="event.preventDefault();event.stopPropagation();openDeckLightbox(\''+book.id+'\','+book.deck.slides+',\''+(book.deck.label||'').replace(/\x27/g,"\\\x27")+'\')">⤢</button>' +
             '<div class="book-deck-stack">' + imgsHTML + '</div>' +
             '<div class="book-deck-overlay">' +
               '<span class="book-deck-tag">'+(book.deck.label||'NotebookLM briefing')+'</span>' +
@@ -6997,7 +7024,7 @@ body {
     detail.innerHTML =
       '<div class="view-transition">' +
         '<button class="back-btn" onclick="closeBookDetail()">← Volver</button>' +
-        '<div class="book-hero">' +
+        '<div class="book-hero' + (book.deck && book.deck.slides ? ' has-deck' : '') + '">' +
           coverHTML +
           '<div class="book-hero-info">' +
             '<h2>'+book.title+'</h2>' +
@@ -7005,10 +7032,10 @@ body {
             '<div class="book-themes-list">'+estantePill+'</div>' +
             getFileButtonHTML(book) +
           '</div>' +
+          deckHTML +
         '</div>' +
         '<div class="book-content-grid">' +
           '<div class="book-col-left">' +
-            deckHTML +
             tesisHTML +
             quotesHTML +
             conexionesHTML +
