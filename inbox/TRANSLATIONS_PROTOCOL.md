@@ -50,24 +50,39 @@ traduce este
    - Mantén las imágenes locales en `img/` igual (sirven de backup y de preview en el viewer si WP cae)
    - **Manda todas las subidas en paralelo** con `concurrent.futures.ThreadPoolExecutor` o `asyncio` para no tardar 5×el tiempo si hay 5 imágenes
 
-5a-bis. **Featured image: SIEMPRE dos versiones** (para que los slots de WP — header + Yoast social — nunca queden con tamaño insuficiente):
+5a-bis. **Featured image: SIEMPRE dos versiones** (la no-upscale fue una lección específica de la mañanera mode, donde presidencia.gob.mx ya entrega fotos profesionales de alta-res — ahí upscalear no aporta nada. Para news translation drafts, los outlets mexicanos suelen servir fuentes 1200×900 o menos, y el theme del sitio necesita una imagen 2048-wide para que el header de post no se vea chico, así que **sí upscaleamos** al estándar 2048).
    - La **primera imagen** que aparece en el artículo se trata como featured. Las demás son body images.
    - **Hard floor: 800 px wide**. Si la fuente original es **< 800 wide**, NO subas nada. Aborta el step de upload de la featured (las body images siguen). Agrega warning grande al card:
      > `⚠️ Featured image: <W>×<H> — below 800-wide hard floor. NOT uploaded. Reply with a higher-res replacement as a FILE (no como foto, para evitar compresión de Telegram).`
-   - **Si la fuente está ≥ 800 wide**, SIEMPRE genera y sube ambas versiones con Pillow (`LANCZOS`, JPEG quality 92, progressive):
-       - `<slug>-large.jpg` → **2048 wide** target
-       - `<slug>-sm.jpg` → **1400 wide** target
-     - Cada versión es downscale si la fuente la rebasa, upscale si no. Pillow LANCZOS upscalea blandito pero llena el slot. Reporta el resultado en el card SIEMPRE (downscale limpio o upscale).
+   - **Si la fuente está ≥ 800 wide**, genera dos versiones:
+
+       **A) `<slug>-large.jpg` → Featured**
+       Si source `> 2048 wide`: downscale Lanczos a 2048 wide, quality 92 progressive.
+       Si source `< 2048 wide` y ≥ 800: **upscale Lanczos a 2048 wide**, quality 92 progressive (aplica a news translation drafts).
+       Si source `= 2048 wide`: re-save nativo, quality 92 progressive.
+       Sin treatment (sin grain, sin blur, sin contrast boost) — el source decide la calidad final.
+
+       **B) `<slug>-sm.jpg` → Social/OG/Twitter (raw)**
+       ```bash
+       /usr/local/bin/python3 ~/scripts/inbox/resize_social.py <source.jpg> /tmp/<slug>-sm.jpg
+       ```
+       El helper hace downscale Lanczos a 1400 wide solo si source > 1400. Si source ≤ 1400, re-save nativo. Quality 88.
+       NO grain, NO blur.
+
+       **Sobre `treat_featured.py`**: este helper sigue instalado en `~/scripts/inbox/` para uso manual en casos específicos (e.g. cuando Samuel quiere experimentar treatment en una imagen low-res particular), pero el flow estándar de translate NO lo invoca.
+
+       **Mañanera mode override**: en mañanera mode (cuando el source viene de presidencia.gob.mx), NO upscale — solo downscale o native. Ver Featured image section del mañanera mode al final del doc.
+
      - **Respeta la proporción original**: NO center-crop a 3:2 a la fuerza. Si la fuente es 16:9 o 4:3, escala proporcionalmente al ancho objetivo y deja la altura natural. Solo si la fuente es EXTREMA (cuadrada 1:1 o más vertical que horizontal) avisa en el card y deja que Samuel decida — no hagas crop creativo.
-     - Sube ambas a WP Media Library en paralelo. Usa la `source_url` de `-large` en `<img src>`. Guarda la `source_url` y el `id` de `-sm` en `meta.json` bajo `social_image` (Samuel la pega en el panel Social/X de Yoast manualmente).
+     - Sube ambas a WP Media Library en paralelo. Cada una devuelve su `id`. Usa la `source_url` de `-large` en el `<img src>` del article HTML. Guarda la `source_url` y el `id` de `-sm` en `meta.json` bajo `social_image` (para el bloque `meta` del POST del paso 10b).
    - **El card SIEMPRE reporta dimensiones originales + qué se hizo**, así Samuel decide si pide reemplazo aunque haya quedado funcional:
      ```
      📐 Featured: original <W>×<H>
-        → -large 2048×<h> (<downscale|upscale>)
-        → -sm 1400×<h> (<downscale|upscale>)
+        → -large <W>×<H> (<downscaled to 2048 | upscaled to 2048 | kept native — source = 2048>)
+        → -sm <W>×<H> (<downscaled to 1400 | kept native — source ≤ 1400>)
      ```
-     Si hubo upscale en cualquiera de las dos, agrega línea adicional:
-     > `⚠️ Featured was upscaled — reply with a higher-res replacement as a FILE if you want crisper output.`
+     Si la fuente es < 1500 wide (Featured se va a ver chica en el header del sitio), agrega línea adicional:
+     > `⚠️ Featured source is <W>×<H> (under 1500 wide). It'll display at native size — if you want it bigger in the sidebar, reply with a higher-res replacement as a FILE.`
    - **NUNCA duplicas la featured en el body**: en `article.html` aparece como la PRIMERA `<figure>`; el viewer la muestra en preview pero la excluye automáticamente del clipboard cuando Samuel pica Body, porque la featured va en el sidebar Featured Image de WP, no pegada en el cuerpo.
 
 5a-tris. **Body images: dimension check** (solo aviso, no redimensiona):
@@ -149,7 +164,7 @@ traduce este
 8. **Generar `meta.json`** con metadata estructurada
 8b. **Actualizar `translations/manifest.json`** (índice usado por `translations/index.html`):
    - Estructura: array de objetos, ordenado por `last_modified` desc (más reciente primero)
-   - Campos por entry: `slug`, `translated_title`, `original_title`, `author`, `outlet`, `original_date`, `translated_date`, `status`, `last_modified` (Unix timestamp en segundos, ej. `time.time()`)
+   - Campos por entry: `slug`, `translated_title`, `original_title`, `author`, `outlet`, `original_date`, `translated_date`, `status`, `last_modified` (Unix timestamp en segundos, ej. `time.time()`). Campos opcionales que se llenan al crear el WP draft (step 10b): `wp_post_id` (int), `wp_status` (string como devuelve WP — `draft`, `pending`, `publish`), `wp_link` (URL pública del post — usada por el dashboard cuando ya está `publish`), `featured_image` (string — copia el `source_url` del `social_image` de `meta.json` aquí; es la URL que el dashboard usa como thumb del card, sobrevive aunque borren el local `img/` durante la limpieza).
    - **Traducción nueva**: prepend el objeto al inicio del array
    - **Refinamiento**: encontrar la entry por `slug` y actualizar `last_modified` (y cualquier campo que haya cambiado, ej. `translated_title` si se editó). Después re-sortear por `last_modified` desc
    - **Status cambia a posted**: encontrar la entry y actualizar `status`. Re-sortear no necesario
@@ -179,21 +194,31 @@ traduce este
       ```
     - **Categories**: traduce `meta.suggested_category` a id buscando `GET /wp-json/wp/v2/categories?slug=<lower-kebab>` (e.g. "News Briefs" → slug `news-briefs`). Si el slug exacto no aparece, intenta `?search=<name>`. Si tampoco existe, NO crees una nueva — deja `categories: []` y agrega línea al card pidiéndole a Samuel que la elija.
     - **Tags**: para cada `#Tag` en `meta.suggested_tags`, busca `GET /wp-json/wp/v2/tags?slug=<lower-kebab>`. Si NO existe, créalo con `POST /wp-json/wp/v2/tags` (el guide dice los tags son para sorting interno; está OK crearlos). Acumula los ids.
-    - **Yoast fields** (opcional, depende de Yoast REST extension):
-      Agrega un objeto `meta` al payload:
+    - **Yoast fields** (depende de Yoast REST extension — Yoast Premium 23+ los expone por default).
+      Agrega un objeto `meta` al payload que cubra Social (Facebook/OG) **y** X (Twitter card):
       ```json
       "meta": {
         "_yoast_wpseo_metadesc": "<meta.meta_description>",
         "_yoast_wpseo_focuskw":  "<meta.focus_keyphrase>",
-        "_yoast_wpseo_opengraph-image":    "<source_url de -sm.jpg>",
-        "_yoast_wpseo_opengraph-image-id": <id de -sm.jpg>,
-        "_yoast_wpseo_twitter-image":      "<source_url de -sm.jpg>",
-        "_yoast_wpseo_twitter-image-id":   <id de -sm.jpg>
+        "_yoast_wpseo_opengraph-title":       "<meta.translated_title>",
+        "_yoast_wpseo_opengraph-description": "<meta.meta_description>",
+        "_yoast_wpseo_opengraph-image":       "<source_url de -sm.jpg>",
+        "_yoast_wpseo_opengraph-image-id":    <id de -sm.jpg>,
+        "_yoast_wpseo_twitter-title":         "<meta.translated_title>",
+        "_yoast_wpseo_twitter-description":   "<meta.meta_description>",
+        "_yoast_wpseo_twitter-image":         "<source_url de -sm.jpg>",
+        "_yoast_wpseo_twitter-image-id":      <id de -sm.jpg>
       }
       ```
-      Si la respuesta del API muestra que esos campos NO se aplicaron (el JSON de la respuesta no los lista o los lista vacíos), avísale a Samuel en el card que tendrá que llenarlos manualmente en el panel Yoast. NO falles toda la creación del draft por esto.
+      **Convención por default:** OG y Twitter usan el mismo title/description/image que el post (sin variantes). Si Samuel quiere variantes específicas (más cortas, distinto framing para X), los ajusta manual en el panel Yoast — la rutina solo llena la base.
+      Si la respuesta del API muestra que esos campos NO se aplicaron (el JSON de la respuesta no los lista o los lista vacíos), avísale a Samuel en el card que probablemente falta el mu-plugin de Yoast meta registration (ver `htmls/inbox/SOBERANIA_PROTOCOL.md` → "Edge case: Yoast meta no se aplican" para el snippet). NO falles toda la creación del draft por esto.
     - **Respuesta**: del JSON devuelto, extrae `id` (post ID) y `link` (URL pública del draft).
     - **URL del editor**: `{WP_SITE}/wp-admin/post.php?post=<id>&action=edit` — eso te lleva directo al editor en escritorio. En móvil la app de WP suele abrirlo desde el botón "Posts → Drafts".
+    - **Persistir el post ID** (CRÍTICO para que el dashboard de Translations linkee al editor / al post live en vez del HTML local):
+      - En `meta.json`: agrega/actualiza `wp_post_id` (int), `wp_status` (string como devuelve WP — `draft`, `pending`, `publish`), `wp_edit_url` (`{WP_SITE}/wp-admin/post.php?post=<id>&action=edit`), `wp_link` (campo `link` de la respuesta REST — la URL pública del post, ej. `https://mexicosolidarity.com/<slug-sin-fecha>/`).
+      - En `translations/manifest.json`: encuentra la entry por `slug` y agrega/actualiza `wp_post_id`, `wp_status`, `wp_link`, `featured_image` (`= social_image.source_url`). Sin `wp_post_id` las cards caen al fallback `viewer.html?slug=...` (HTML local). Sin `featured_image` el card aparece sin thumb (gradient placeholder).
+      - Para drafts el `wp_link` igual viene en la respuesta (apunta al preview público con `?preview_id=...`). Guárdalo igual; el dashboard solo lo usa si `wp_status==='publish'`.
+      - Si en algún refinamiento futuro el status cambia (ej. el draft pasó a `publish`), re-leer el post via `GET {WP_SITE}/wp-json/wp/v2/posts/<id>?_fields=status,link` y actualizar `wp_status` + `wp_link` en ambos archivos. El dashboard también hace un poll silencioso por su cuenta, así que esto es opcional para refinamientos; lo importante es que el draft inicial los guarde.
     - **Reporta en el card** una sección extra:
       ```
       📝 Draft created: <translated_title>
@@ -359,7 +384,7 @@ Regla de pulgar: **máximo 1-2 blockquotes por artículo**. Si todos son blockqu
 }
 ```
 
-- `meta_description` es CRÍTICO: Samuel lo pega en 4 lugares en WP (Excerpt en sidebar, Meta description Yoast, Social description Yoast, X description Yoast). Una sola oración, concrete, hook-y. Sigue el ejemplo de la posting guide ("Mexico's former President has released a statement on US attacks on Mexico, only his second political statement since his term's end, accusing US officials of plotting to 'weaken Morena.'").
+- `meta_description` es CRÍTICO: Samuel lo pega en 4 lugares en WP (Excerpt en sidebar, Meta description Yoast, Social description Yoast, X description Yoast). Una sola oración, concrete, hook-y. **Debe COMPLEMENTAR el título, no repetirlo.** Asume que el lector ya leyó la headline — el meta agrega lo que el headline NO dice: backstory, stakes, número específico, los actores afectados, el siguiente paso, o el ángulo que la headline no captura. **NO parafrasear el headline**; si el meta se puede reverse-traducir a una versión del título, está mal. **Target 110-155 chars**, una sola oración. Buen ejemplo de la posting guide: para un título tipo "AMLO Statement on US Attacks", el meta dice "Mexico's former President has released a statement on US attacks on Mexico, only his second political statement since his term's end, accusing US officials of plotting to 'weaken Morena.'" — agrega "segunda declaración desde fin de término" + "acusación específica", info que NO está en el headline. **Mal ejemplo**: título "No New Talks Between CNTE, Segob, and SEP, Sheinbaum Affirms" + meta "Sheinbaum says no new talks between CNTE, Segob, and SEP" → 100% redundante.
 - `focus_keyphrase` 2-5 palabras SEO-style (e.g. "Sandra Polaski interview", "Peñasquito mine workers", "Sheinbaum press conference").
 - `social_image` es la URL/id de la versión `-sm.jpg` (1400×933). Si la featured estaba sub-dimensionada y no se generó la versión chica, omite este campo y el card lo refleja.
 - `image_warnings` es array de strings; vacío si todo cumple. Aparecen también en el card del topic.
@@ -469,6 +494,20 @@ mañanera:
 ```
 
 (También acepta `mananera:` sin ñ por si el cliente Telegram se la come.)
+
+### Mensajes multipartes (REGLA DURA)
+
+El resumen de la mañanera NUNCA cabe en un solo mensaje de Telegram (límite ~4096 chars). **Siempre llegan en dos partes** (a veces más). Cuando recibas el primer `mañanera:` / `mananera:`:
+
+1. **Detecta si el mensaje está incompleto**: señales de incompletud:
+   - No aparece el footer `Department of Communications` (siempre cierra el resumen completo).
+   - La última oración se corta a media palabra o termina sin punto/coma natural.
+   - Faltan secciones esperadas (ej. el resumen siempre incluye Mexico–US, varios temas internos, sovereignty, etc. — si solo viste 2 o 3 headers y no hay `Department of Communications`, está incompleto).
+2. **Si está incompleto, NO hagas ningún trabajo**: no parsees, no construyas HTML, no hagas REST calls, no subas imágenes. Solo responde brevemente en el topic: `📥 Recibida parte 1, esperando la parte 2.`
+3. **Cuando llegue el siguiente mensaje** (sin prefijo `mañanera:`, solo el resto del contenido), **concatena** con el primero (en orden de llegada) y procesa el resumen completo como una sola unidad.
+4. Si pasan más de 5 minutos sin que llegue la segunda parte y Samuel manda otro mensaje no relacionado, pregúntale si quiere descartar la parte 1.
+
+Si por error procesas la parte 1 sola, vas a crear un draft incompleto + subir foto + crear tags innecesariamente; eso desperdicia tiempo y deja basura en WP. Mejor esperar.
 
 La **fecha no se manda explícita** — el bot la extrae del header del mensaje. El cuerpo típico tiene una línea como `*Monday, June 8, 2026*` o `*MORNING PRESIDENTIAL PRESS CONFERENCE*` seguida de la fecha. Parsea esa fecha y úsala para el title + slug. Si NO encuentras fecha en el cuerpo, usa **el día anterior a hoy** (las mañaneras se publican al día siguiente) y avísale a Samuel en el card por si necesita corregir.
 
@@ -584,7 +623,7 @@ Junta con comas, "and" antes del último. Empieza la oración SIEMPRE con `Presi
 2. **URL típico**: `https://www.gob.mx/presidencia/galerias` o `https://www.gob.mx/presidencia/multimedia/galerias`. Busca la entrada cuya fecha matchee con la del mensaje. Si la estructura cambia, intenta sus feeds RSS / sitemaps.
 3. **Cuando hay fotos disponibles del día**:
    - Filtra por imágenes donde Sheinbaum NO aparezca dominando la mitad superior (regla: la cara cubierta por el header del sitio se ve mal). Si tienes face detection disponible, úsala; si no, **prefiere fotos en formato landscape (ancho > alto)** y **evita primeros planos** (heurística: ancho ≥ 1.4× alto suele ser un wide shot).
-   - Sube las dos versiones (`-large` + `-sm`) siguiendo step 5a-bis del protocolo principal.
+   - Sube las dos versiones (`-large` + `-sm`) siguiendo step 5a-bis del protocolo principal, **excepto la regla de upscale**: en mañanera mode, NO upscale a 2048 si la fuente es menor. Las fotos de presidencia.gob.mx ya son alta-res (típicamente ≥ 2048 wide) y upscalear baja-res a 2048 solo redistribuye los mismos pixels en más espacio y se ve peor que dejarlo nativo (lección 2026-06-18). Si source < 2048, re-save native quality 92 progressive.
 4. **Cuando NO hay fotos publicadas todavía** (la galería del día está vacía o no existe):
    - **NO inventes**, NO uses foto de otra mañanera, NO uses placeholder.
    - Deja el draft SIN featured image.
