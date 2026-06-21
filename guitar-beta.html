@@ -24691,7 +24691,13 @@ function _buildMidiFile(events, label) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Defer revocation. `a.click()` dispatches the download synchronously
+  // but the browser's download manager reads the blob ASYNC. Revoking
+  // immediately can race the read and silently kill the download —
+  // especially in play mode, where the main thread is loaded with audio
+  // scheduling + raf updates. User: "a veces no deja guardar el MIDI."
+  // 1000 ms is enough for any download manager to finish reading.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
   return;
 }
 
@@ -24810,7 +24816,8 @@ function _buildMidiBundle(chordsEvents, bassEvents, label) {
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  // Defer revocation — see _buildMidiFile comment for rationale.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // Bass-only collectors: one root note per chord in bass register
