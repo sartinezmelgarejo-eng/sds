@@ -1508,6 +1508,75 @@ body {
   margin-bottom: 48px;
 }
 
+/* Mind-map tree */
+.mindmap-tree { font-family: 'Inter', sans-serif; font-size: 14px; padding: 8px 0; }
+.mindmap-tree ul { list-style: none; padding: 0 0 0 22px; margin: 0; position: relative; }
+.mindmap-tree > ul { padding-left: 0; }
+.mindmap-tree ul ul::before {
+  content: '';
+  position: absolute; left: 8px; top: 0; bottom: 12px;
+  width: 1px; background: linear-gradient(to bottom, var(--gold-dim) 0%, var(--border) 100%);
+  opacity: 0.5;
+}
+.mindmap-tree li { position: relative; margin: 4px 0; }
+.mindmap-tree li > .mm-node {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 12px;
+  background: rgba(200,169,96,0.06);
+  border: 1px solid rgba(200,169,96,0.18);
+  color: var(--text-bright);
+  cursor: default; user-select: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+.mindmap-tree li.has-children > .mm-node { cursor: pointer; }
+.mindmap-tree li.has-children > .mm-node:hover { background: rgba(200,169,96,0.14); border-color: var(--gold-dim); }
+.mindmap-tree li.has-children > .mm-node::before {
+  content: '▸';
+  color: var(--gold-dim);
+  font-size: 10px;
+  transition: transform 0.2s;
+  display: inline-block;
+  width: 10px;
+}
+.mindmap-tree li.has-children.open > .mm-node::before { transform: rotate(90deg); }
+.mindmap-tree li.has-children:not(.open) > ul { display: none; }
+.mindmap-tree li ul li::before {
+  content: '';
+  position: absolute; left: -14px; top: 16px;
+  width: 12px; height: 1px;
+  background: linear-gradient(to right, transparent, var(--border));
+  opacity: 0.6;
+}
+/* Root node — bigger, gold */
+.mindmap-tree > ul > li > .mm-node {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  font-weight: 600;
+  font-style: italic;
+  color: var(--gold);
+  background: rgba(200,169,96,0.12);
+  border-color: var(--gold-dim);
+  padding: 6px 14px;
+}
+/* Level 1 — section headings */
+.mindmap-tree > ul > li > ul > li > .mm-node {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-bright);
+}
+.mindmap-tree .mm-empty { color: var(--text-dim); font-style: italic; padding: 12px; }
+.mindmap-tree .mm-controls {
+  display: flex; gap: 8px; margin-bottom: 12px;
+  font-size: 11px; color: var(--gold-dim);
+}
+.mindmap-tree .mm-controls button {
+  background: none; border: 1px solid var(--border); color: var(--text-dim);
+  padding: 4px 10px; border-radius: 6px; cursor: pointer; font-size: 11px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.mindmap-tree .mm-controls button:hover { color: var(--gold); border-color: var(--gold-dim); }
+
 /* ═══ SECTION BACKGROUNDS — paper-textured, warm, library-like ═══ */
 /* Shared paper-grain texture via inline SVG noise (cached, no network) */
 :root {
@@ -3654,6 +3723,7 @@ body {
       id: "dussel", estante:"mexico_profundo", coverId: "dussel",
       filePath: "Enrique-Dussel/1492-El-Encubrimiento-del-Otro.pdf",
       deck: { slides: 13, label: "NotebookLM briefing — Uncovering the Other" },
+      mindmap: true,
       title: "1492: El Encubrimiento del Otro",
       author: "Enrique Dussel",
       year: 1992,
@@ -7037,6 +7107,11 @@ body {
         return '<div class="quote-block"><div class="quote-text">'+q.text+'</div><div class="quote-page">'+q.page+getQuotePageLink(book,q.text,idx)+'</div></div>';
       }).join('') + '</details>' : '';
 
+    // ── MAPA MENTAL (NotebookLM) ──
+    const mindmapHTML = book.mindmap ?
+      '<details class="book-section section-mindmap" open><summary class="book-section-title"><span class="section-icon">🧠</span><span>Mapa Mental</span></summary>' +
+      '<div class="mindmap-tree" data-book-id="'+book.id+'"><div class="mm-empty">Cargando mapa…</div></div></details>' : '';
+
     // ── POR QUÉ LEER ──
     const porqueHTML = book.porqueLeer ?
       '<details class="book-section section-porque" open><summary class="book-section-title"><span class="section-icon">🔥</span><span>Por Qué Leer Este Libro</span></summary><div class="book-porque">'+book.porqueLeer+'</div></details>' : '';
@@ -7132,6 +7207,7 @@ body {
           '</div>' +
           '<div class="book-col-right">' +
             ideasHTML +
+            mindmapHTML +
             porqueHTML +
             contextoHTML +
             autorHTML +
@@ -7158,6 +7234,18 @@ body {
     // Initialize hero deck cycling + 5s meta-reveal animation
     const heroDeck = detail.querySelector('.book-hero-deck');
     if (heroDeck) initHeroDeck(heroDeck);
+
+    // Mind-map (NotebookLM): fetch JSON + render tree
+    const mmEl = detail.querySelector('.mindmap-tree');
+    if (mmEl) {
+      const bid = mmEl.getAttribute('data-book-id');
+      fetch('decks/'+bid+'/mindmap.json')
+        .then(function(r) { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
+        .then(function(data) { renderMindmap(mmEl, data); })
+        .catch(function(e) {
+          mmEl.innerHTML = '<div class="mm-empty">No se pudo cargar el mapa ('+e.message+')</div>';
+        });
+    }
 
     requestAnimationFrame(() => {
       detail.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -7384,6 +7472,50 @@ body {
   })();
 
   let cameFromAuthor = false;
+
+  // Mind-map renderer: takes a {name, children:[]} tree and builds nested ul/li
+  // with expandable nodes (▸/▾). Root + level 1 start expanded; deeper levels collapsed.
+  function renderMindmap(container, root) {
+    function buildNode(node, depth) {
+      var li = document.createElement('li');
+      var nodeEl = document.createElement('div');
+      nodeEl.className = 'mm-node';
+      nodeEl.appendChild(document.createTextNode(node.name || ''));
+      li.appendChild(nodeEl);
+      if (node.children && node.children.length) {
+        li.classList.add('has-children');
+        if (depth < 2) li.classList.add('open'); // root + L1 open; L2+ collapsed
+        var ul = document.createElement('ul');
+        node.children.forEach(function(c) { ul.appendChild(buildNode(c, depth + 1)); });
+        li.appendChild(ul);
+        nodeEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          li.classList.toggle('open');
+        });
+      }
+      return li;
+    }
+    container.innerHTML = '';
+    var controls = document.createElement('div');
+    controls.className = 'mm-controls';
+    var btnExpand = document.createElement('button');
+    btnExpand.textContent = 'Expandir todo';
+    var btnCollapse = document.createElement('button');
+    btnCollapse.textContent = 'Colapsar todo';
+    controls.appendChild(btnExpand); controls.appendChild(btnCollapse);
+    container.appendChild(controls);
+    var ul = document.createElement('ul');
+    ul.appendChild(buildNode(root, 0));
+    container.appendChild(ul);
+    btnExpand.addEventListener('click', function() {
+      container.querySelectorAll('li.has-children').forEach(function(li) { li.classList.add('open'); });
+    });
+    btnCollapse.addEventListener('click', function() {
+      container.querySelectorAll('li.has-children').forEach(function(li, idx) {
+        if (idx === 0) li.classList.add('open'); else li.classList.remove('open');
+      });
+    });
+  }
 
   function closeBookDetail() {
     const bd = document.getElementById('book-detail');
