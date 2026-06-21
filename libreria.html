@@ -1565,6 +1565,42 @@ body {
   font-weight: 500;
   color: var(--text-bright);
 }
+.mindmap-tree li.has-desc > .mm-node { cursor: pointer; }
+.mindmap-tree li.has-desc > .mm-node:hover {
+  background: rgba(200,169,96,0.14);
+  border-color: var(--gold-dim);
+}
+.mindmap-tree li.has-desc > .mm-node::after {
+  content: '+';
+  margin-left: 6px;
+  color: var(--gold-dim);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  font-weight: 400;
+  transition: transform 0.2s;
+  display: inline-block;
+  width: 8px;
+}
+.mindmap-tree li.has-desc.desc-open > .mm-node::after {
+  content: '−';
+  color: var(--gold);
+}
+.mindmap-tree .mm-desc {
+  display: none;
+  margin: 6px 0 8px 18px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.18);
+  border-left: 2px solid var(--gold-dim);
+  border-radius: 0 6px 6px 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text);
+  max-width: 480px;
+}
+:root.light .mindmap-tree .mm-desc { background: rgba(70,55,25,0.05); }
+.mindmap-tree li.has-desc.desc-open > .mm-desc { display: block; }
 .mindmap-tree .mm-empty { color: var(--text-dim); font-style: italic; padding: 12px; }
 .mindmap-tree .mm-controls {
   display: flex; gap: 8px; margin-bottom: 12px;
@@ -7239,12 +7275,14 @@ body {
     const mmEl = detail.querySelector('.mindmap-tree');
     if (mmEl) {
       const bid = mmEl.getAttribute('data-book-id');
-      fetch('decks/'+bid+'/mindmap.json')
-        .then(function(r) { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); })
-        .then(function(data) { renderMindmap(mmEl, data); })
-        .catch(function(e) {
-          mmEl.innerHTML = '<div class="mm-empty">No se pudo cargar el mapa ('+e.message+')</div>';
-        });
+      Promise.all([
+        fetch('decks/'+bid+'/mindmap.json').then(function(r) { if (!r.ok) throw new Error('HTTP '+r.status); return r.json(); }),
+        fetch('decks/'+bid+'/mindmap-desc.json').then(function(r) { return r.ok ? r.json() : { descriptions: {} }; })
+      ]).then(function(results) {
+        renderMindmap(mmEl, results[0], results[1].descriptions || {});
+      }).catch(function(e) {
+        mmEl.innerHTML = '<div class="mm-empty">No se pudo cargar el mapa ('+e.message+')</div>';
+      });
     }
 
     requestAnimationFrame(() => {
@@ -7473,24 +7511,38 @@ body {
 
   let cameFromAuthor = false;
 
-  // Mind-map renderer: takes a {name, children:[]} tree and builds nested ul/li
-  // with expandable nodes (▸/▾). Root + level 1 start expanded; deeper levels collapsed.
-  function renderMindmap(container, root) {
+  // Mind-map renderer: takes a {name, children:[]} tree + descriptions{name:desc}
+  // Internal nodes expand/collapse on click. Leaves with a description toggle
+  // a description block below the pill.
+  function renderMindmap(container, root, descriptions) {
+    descriptions = descriptions || {};
     function buildNode(node, depth) {
       var li = document.createElement('li');
       var nodeEl = document.createElement('div');
       nodeEl.className = 'mm-node';
       nodeEl.appendChild(document.createTextNode(node.name || ''));
       li.appendChild(nodeEl);
-      if (node.children && node.children.length) {
+      var hasKids = node.children && node.children.length;
+      var desc = descriptions[node.name];
+      if (hasKids) {
         li.classList.add('has-children');
-        if (depth < 2) li.classList.add('open'); // root + L1 open; L2+ collapsed
+        if (depth < 2) li.classList.add('open');
         var ul = document.createElement('ul');
         node.children.forEach(function(c) { ul.appendChild(buildNode(c, depth + 1)); });
         li.appendChild(ul);
         nodeEl.addEventListener('click', function(e) {
           e.stopPropagation();
           li.classList.toggle('open');
+        });
+      } else if (desc) {
+        li.classList.add('has-desc');
+        var descEl = document.createElement('div');
+        descEl.className = 'mm-desc';
+        descEl.textContent = desc;
+        li.appendChild(descEl);
+        nodeEl.addEventListener('click', function(e) {
+          e.stopPropagation();
+          li.classList.toggle('desc-open');
         });
       }
       return li;
@@ -7509,11 +7561,13 @@ body {
     container.appendChild(ul);
     btnExpand.addEventListener('click', function() {
       container.querySelectorAll('li.has-children').forEach(function(li) { li.classList.add('open'); });
+      container.querySelectorAll('li.has-desc').forEach(function(li) { li.classList.add('desc-open'); });
     });
     btnCollapse.addEventListener('click', function() {
       container.querySelectorAll('li.has-children').forEach(function(li, idx) {
         if (idx === 0) li.classList.add('open'); else li.classList.remove('open');
       });
+      container.querySelectorAll('li.has-desc').forEach(function(li) { li.classList.remove('desc-open'); });
     });
   }
 
