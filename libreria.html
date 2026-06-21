@@ -7151,28 +7151,53 @@ body {
 
     start();
 
-    /* Cancel the auto-expand if the user starts scrolling down before the
-       5.5s timer fires — they're already reading the content below and we
-       don't want to shove the page around under them. The scroll listener
-       arms 400ms after init so the initial scrollIntoView doesn't trip it. */
+    /* Auto-expand timer that respects the user's scroll position:
+       - 5.5s after open, the deck expands if the user is still near the top
+       - If user scrolls away (>60px) before the timer fires → cancel
+       - If user scrolls back near the baseline (<20px) → restart the
+         5.5s timer fresh; expand triggers next time they hold still
+       - Once expanded, stop listening entirely
+       Listener arms 450ms after init so the initial scrollIntoView
+       doesn't accidentally trip it. */
     let scrollCancelled = false;
+    let expandTimer = null;
     let onScroll = null;
+
+    function tryScheduleExpand(){
+      if (deckEl.classList.contains('expanded')) return;
+      if (expandTimer) clearTimeout(expandTimer);
+      expandTimer = setTimeout(() => {
+        if (!scrollCancelled && !deckEl.classList.contains('expanded')) {
+          deckEl.classList.add('expanded');
+          cleanupScroll();
+        }
+      }, META_REVEAL_MS);
+    }
+    function cleanupScroll(){
+      if (onScroll) { window.removeEventListener('scroll', onScroll); onScroll = null; }
+      if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
+    }
+
     setTimeout(() => {
       const baselineY = window.scrollY;
       onScroll = () => {
-        if (Math.abs(window.scrollY - baselineY) > 60) {
+        if (deckEl.classList.contains('expanded')) return;
+        const delta = window.scrollY - baselineY;
+        if (delta > 60 && !scrollCancelled) {
+          // scrolled away — cancel the pending timer
           scrollCancelled = true;
-          window.removeEventListener('scroll', onScroll);
+          if (expandTimer) { clearTimeout(expandTimer); expandTimer = null; }
+        } else if (delta < 20 && scrollCancelled) {
+          // returned to top — restart the timer fresh
+          scrollCancelled = false;
+          tryScheduleExpand();
         }
       };
       window.addEventListener('scroll', onScroll, { passive: true });
+      tryScheduleExpand();
     }, 450);
-    deckEl._heroDeckScrollHandler = () => { if (onScroll) window.removeEventListener('scroll', onScroll); };
 
-    setTimeout(() => {
-      if (!scrollCancelled) deckEl.classList.add('expanded');
-      if (onScroll) { window.removeEventListener('scroll', onScroll); onScroll = null; }
-    }, META_REVEAL_MS);
+    deckEl._heroDeckScrollHandler = cleanupScroll;
   }
 
   /* ─── Deck lightbox: expand button (⤢) opens this fullscreen view ─── */
