@@ -7225,7 +7225,8 @@ body {
     document.addEventListener('keydown', onKeydown);
     deckEl._heroDeckKeyHandler = onKeydown;
 
-    start();
+    /* Don't start cycling until the deck has expanded — otherwise slide 1
+       loses most of its display time while it's still blurred/dimmed. */
 
     /* Auto-expand timer that respects the user's scroll position:
        - 5.5s after open, the deck expands if the user is still near the top
@@ -7245,6 +7246,9 @@ body {
       expandTimer = setTimeout(() => {
         if (!scrollCancelled && !deckEl.classList.contains('expanded')) {
           deckEl.classList.add('expanded');
+          /* Now that the slide is fully visible (un-blurred), start the
+             cycling so slide 1 gets the full 9s of clear display time. */
+          start();
           cleanupScroll();
         }
       }, META_REVEAL_MS);
