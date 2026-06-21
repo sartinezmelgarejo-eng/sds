@@ -7147,13 +7147,32 @@ body {
       else if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
     }
     document.addEventListener('keydown', onKeydown);
-    /* Tag the listener on the element so closeBookDetail can clean up */
     deckEl._heroDeckKeyHandler = onKeydown;
 
     start();
 
-    // Expand the deck from compact-banner to full aspect after ~5.5s.
-    setTimeout(() => deckEl.classList.add('expanded'), META_REVEAL_MS);
+    /* Cancel the auto-expand if the user starts scrolling down before the
+       5.5s timer fires — they're already reading the content below and we
+       don't want to shove the page around under them. The scroll listener
+       arms 400ms after init so the initial scrollIntoView doesn't trip it. */
+    let scrollCancelled = false;
+    let onScroll = null;
+    setTimeout(() => {
+      const baselineY = window.scrollY;
+      onScroll = () => {
+        if (Math.abs(window.scrollY - baselineY) > 60) {
+          scrollCancelled = true;
+          window.removeEventListener('scroll', onScroll);
+        }
+      };
+      window.addEventListener('scroll', onScroll, { passive: true });
+    }, 450);
+    deckEl._heroDeckScrollHandler = () => { if (onScroll) window.removeEventListener('scroll', onScroll); };
+
+    setTimeout(() => {
+      if (!scrollCancelled) deckEl.classList.add('expanded');
+      if (onScroll) { window.removeEventListener('scroll', onScroll); onScroll = null; }
+    }, META_REVEAL_MS);
   }
 
   /* ─── Deck lightbox: expand button (⤢) opens this fullscreen view ─── */
@@ -7226,10 +7245,11 @@ body {
 
   function closeBookDetail() {
     const bd = document.getElementById('book-detail');
-    // Detach hero-deck arrow-key handler before wiping the DOM
+    // Detach hero-deck handlers before wiping the DOM
     const heroDeck = bd.querySelector('.book-hero-deck');
-    if (heroDeck && heroDeck._heroDeckKeyHandler) {
-      document.removeEventListener('keydown', heroDeck._heroDeckKeyHandler);
+    if (heroDeck) {
+      if (heroDeck._heroDeckKeyHandler) document.removeEventListener('keydown', heroDeck._heroDeckKeyHandler);
+      if (heroDeck._heroDeckScrollHandler) heroDeck._heroDeckScrollHandler();
     }
     bd.classList.remove('active');
     bd.style.display = 'none';
