@@ -24579,12 +24579,26 @@ function _midiCollectSong() {
           prevShape = step.composedShape;
         } else {
           const rootPc = (secKey + def.deg) % 12;
-          const shape = player._pickShape(def.quality, rootPc, vType, prevShape);
+          // Honor the step's qualityOverride so the exported chord matches
+          // what the AI actually plays (Jobim's bII7#11, blues 7alt,
+          // Maiden Voyage 9sus4, etc.). Was `def.quality` before, which
+          // dropped the alteration and exported the bare chord. Also
+          // matches the live _triggerChord fallback chain (type → drop2)
+          // so MIDI and audio land on the same voicing family.
+          const eq = effectiveQuality(step, def);
+          const progName = prog.name;
+          const pickOpts = { progName };
+          let shape = player._pickShape(eq, rootPc, vType, prevShape, pickOpts);
+          if (!shape) shape = player._pickShape(eq, rootPc, 'drop2', prevShape, pickOpts);
           if (shape) {
             notes = shape.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null);
             prevShape = shape;
           } else {
-            const q = QUALITIES[def.quality];
+            // Last-resort fallback: synthesize the chord directly from the
+            // effective quality's interval pattern. Uses `eq` (not def.quality)
+            // so 7#11 / 7alt etc. include their alterations even when no
+            // catalog voicing exists.
+            const q = QUALITIES[eq] || QUALITIES[def.quality];
             notes = q ? q.ints.map(i => 48 + rootPc + i) : null;
           }
         }
