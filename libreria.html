@@ -1217,13 +1217,42 @@ body {
   .book-hero-caption .hero-meta-info h2{font-size:19px;line-height:1.2}
 }
 
-/* ── Deck lightbox modal (opened by ⤢) ── */
+/* ── Deck lightbox modal (opened by clicking a slide) ── */
 #deck-lightbox{
   position:fixed;inset:0;z-index:9999;
   background:rgba(0,0,0,.92);
   display:none;align-items:center;justify-content:center;
   padding:40px;
 }
+/* When the lightbox enters real Fullscreen API mode (mobile or desktop),
+   strip every frame decoration so the slide fills the entire device
+   screen edge-to-edge. */
+#deck-lightbox:fullscreen,
+#deck-lightbox:-webkit-full-screen{
+  padding:0;background:#000;
+}
+#deck-lightbox:fullscreen .lb-frame,
+#deck-lightbox:-webkit-full-screen .lb-frame{
+  width:100vw;height:100vh;max-height:none;
+  aspect-ratio:auto;padding:0;
+  background:#000;border-radius:0;box-shadow:none;
+}
+#deck-lightbox:fullscreen .lb-frame::before,
+#deck-lightbox:fullscreen .lb-frame::after,
+#deck-lightbox:fullscreen .lb-stack::before,
+#deck-lightbox:fullscreen .lb-stack::after,
+#deck-lightbox:-webkit-full-screen .lb-frame::before,
+#deck-lightbox:-webkit-full-screen .lb-frame::after,
+#deck-lightbox:-webkit-full-screen .lb-stack::before,
+#deck-lightbox:-webkit-full-screen .lb-stack::after{display:none}
+#deck-lightbox:fullscreen .lb-close,
+#deck-lightbox:-webkit-full-screen .lb-close{top:14px;right:14px}
+#deck-lightbox:fullscreen .lb-prev,
+#deck-lightbox:-webkit-full-screen .lb-prev{left:14px}
+#deck-lightbox:fullscreen .lb-next,
+#deck-lightbox:-webkit-full-screen .lb-next{right:14px}
+#deck-lightbox:fullscreen .lb-counter,
+#deck-lightbox:-webkit-full-screen .lb-counter{bottom:18px}
 #deck-lightbox.active{display:flex}
 #deck-lightbox .lb-frame{
   position:relative;width:min(94vw, 1400px);max-height:90vh;
@@ -7162,6 +7191,18 @@ body {
       openDeckLightbox(bookId, slideCount, deckLabel);
     });
 
+    /* Touch-swipe navigation for mobile: left swipe = next, right = prev. */
+    let touchStartX = null;
+    deckEl.addEventListener('touchstart', (e) => {
+      touchStartX = e.touches[0].clientX;
+    }, { passive: true });
+    deckEl.addEventListener('touchend', (e) => {
+      if (touchStartX === null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      touchStartX = null;
+      if (Math.abs(dx) > 50) { if (dx > 0) prev(); else next(); }
+    }, { passive: true });
+
     /* Arrow-key navigation when the book detail is open (and lightbox
        isn't, since the lightbox has its own arrow handler). */
     function onKeydown(e){
@@ -7243,15 +7284,34 @@ body {
       stack.appendChild(img);
     }
     updateLightboxCounter();
-    document.getElementById('deck-lightbox').classList.add('active');
+    const lb = document.getElementById('deck-lightbox');
+    lb.classList.add('active');
     document.body.style.overflow = 'hidden';
     startLightboxTimer();
+    /* Request real fullscreen — fills the device screen on mobile,
+       hides the browser chrome. Falls back silently if unavailable. */
+    const req = lb.requestFullscreen || lb.webkitRequestFullscreen || lb.msRequestFullscreen;
+    if (req) req.call(lb).catch(() => {});
   };
   window.closeDeckLightbox = function(){
     document.getElementById('deck-lightbox').classList.remove('active');
     document.body.style.overflow = '';
     stopLightboxTimer();
+    /* Exit fullscreen if we entered it */
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+      if (exit) exit.call(document).catch(() => {});
+    }
   };
+  /* When user presses Esc out of fullscreen (browser handles fullscreen
+     exit independently from our lightbox state) make sure we also close
+     the lightbox so they don't end up with a half-state. */
+  document.addEventListener('fullscreenchange', () => {
+    const lb = document.getElementById('deck-lightbox');
+    if (!document.fullscreenElement && lb && lb.classList.contains('active')) {
+      closeDeckLightbox();
+    }
+  });
   window.lightboxPrev = function(){
     __lbIdx = (__lbIdx - 1 + __lbCount) % __lbCount;
     showLightboxSlide(); restartLightboxTimer();
@@ -7290,6 +7350,20 @@ body {
   document.getElementById('deck-lightbox')?.addEventListener('click', function(e){
     if (e.target === this) closeDeckLightbox();
   });
+
+  // Touch-swipe navigation inside the lightbox (mobile)
+  (function(){
+    const stack = document.getElementById('lb-stack');
+    if (!stack) return;
+    let sx = null;
+    stack.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    stack.addEventListener('touchend', (e) => {
+      if (sx === null) return;
+      const dx = e.changedTouches[0].clientX - sx;
+      sx = null;
+      if (Math.abs(dx) > 50) { if (dx > 0) lightboxPrev(); else lightboxNext(); }
+    }, { passive: true });
+  })();
 
   let cameFromAuthor = false;
 
