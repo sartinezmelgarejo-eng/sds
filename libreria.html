@@ -812,9 +812,9 @@ body {
   z-index: 1;
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 20px 7px 18px;
-  margin: 12px 0 0 14px;
+  gap: 12px;
+  padding: 10px 26px 10px 22px;
+  margin: 16px 0 0 18px;
   background:
     linear-gradient(180deg,
       rgba(180,142,72,0.95) 0%,
@@ -860,8 +860,8 @@ body {
 }
 /* Engraved symbol on brass plaque — looks etched into the metal */
 .shelf-tab-engrav {
-  width: 26px;
-  height: 26px;
+  width: 34px;
+  height: 34px;
   color: #2a1a08;
   flex-shrink: 0;
   filter:
@@ -874,10 +874,10 @@ body {
 }
 .shelf-tab-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 17px;
+  font-size: 22px;
   font-weight: 600;
   color: #2a1a08;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
   text-shadow: 0 1px 0 rgba(255,225,160,0.35);
 }
@@ -889,15 +889,15 @@ body {
   z-index: 5;
   display: flex;
   align-items: flex-end;
-  gap: 3px;
-  padding: 12px 18px 0;
+  gap: 4px;
+  padding: 16px 24px 0;
   flex-wrap: wrap;
-  row-gap: 14px;
+  row-gap: 20px;
 }
 
 /* Individual micro book spine */
 .micro-book {
-  width: 48px;
+  width: 62px;
   flex-shrink: 0;
   border-radius: 1px;
   overflow: visible;
@@ -952,10 +952,11 @@ body {
   height: 100%;
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  font-size: 13px;
-  font-family: 'Inter', sans-serif;
-  letter-spacing: 0.3px;
-  opacity: 0.85;
+  font-size: 16px;
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 500;
+  letter-spacing: 0.4px;
+  opacity: 0.9;
   overflow: hidden;
 }
 
@@ -7149,19 +7150,24 @@ body {
 
       // Books as tiny spines with slight height variation
       const booksHTML = estBooks.map(function(b) {
-        var h = 76 + (hashCode(b.id) % 26);
+        var h = 100 + (hashCode(b.id) % 32);
         var hasCover = b.coverUrl || (b.coverId && coverImages[b.coverId]);
         var inner;
         var safeTitle = b.title.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
         var shortAuthor = b.author.split(' ').pop();
+        // Always paint the spine fallback (gradient + author label) so books
+        // look complete during slow image loads. Cover image overlays on top
+        // when it finishes loading; spine text peeks through if image is
+        // missing or failing.
+        var bgStyle = 'background:linear-gradient(160deg,#1e1e32,#14142a);border-left:2px solid '+est.color+';';
+        var spineSpan = '<span class="micro-spine" style="color:'+est.color+';position:absolute;inset:0;">'+shortAuthor+'</span>';
         if (hasCover) {
           var src = b.coverUrl || coverImages[b.coverId];
-          inner = '<img src="'+src+'" loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
-            '<span class="micro-spine" style="display:none;color:'+est.color+'">'+shortAuthor+'</span>';
+          inner = spineSpan +
+            '<img src="'+src+'" loading="lazy" decoding="async" style="position:relative;z-index:2;width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display=\'none\'">';
         } else {
-          inner = '<span class="micro-spine" style="color:'+est.color+'">'+shortAuthor+'</span>';
+          inner = spineSpan;
         }
-        var bgStyle = hasCover ? '' : 'background:linear-gradient(160deg,#1e1e32,#14142a);border-left:2px solid '+est.color+';';
         return '<div class="micro-book" style="height:'+h+'px;'+bgStyle+'" data-tip="'+safeTitle+'" onclick="openBook(\''+b.id+'\')">' +
           inner +
         '</div>';
