@@ -596,6 +596,59 @@ Samuel abre viewer.html?slug=&lt;slug&gt;
 <p>La carpeta <code>htmls/</code> debe mantenerse organizada. Los archivos de respaldo (<code>.backup</code>, <code>.bak</code>, <code>.pre-*-backup</code>) van en una subcarpeta <code>backups/</code>, no sueltos junto a los archivos activos. Además, <strong>no debe haber más de 4 respaldos por documento</strong> — al crear un quinto, se elimina el más antiguo. Esto evita que la carpeta se llene de archivos muertos.</p>
 
 <!-- ═══════════════════════════════════════ -->
+<h2>🆕 Protocolo para agregar un libro nuevo</h2>
+
+<p>Cuando aparece un PDF nuevo en <code>Books/</code> y queremos que aparezca en la librería con tratamiento completo, el flujo es de seis pasos. Ninguno se puede saltar sin perder algo (citas inventadas, slides faltantes, links que no llevan a la página correcta).</p>
+
+<ol>
+  <li>
+    <strong>Tirar el PDF a <code>Books/</code></strong> (o a una subcarpeta de autor). El nombre del archivo se preserva tal cual — no renombrar.
+  </li>
+  <li>
+    <strong>Curación con subagente</strong>. Claude lanza un subagente que <em>lee el PDF directamente</em> (no de memoria) y devuelve JSON con: <code>id</code>, <code>estante</code>, <code>title</code>, <code>author</code>, <code>year</code>, <code>desc</code>, <code>tesis</code> (5-8 oraciones), <code>ideas</code> (5-8 ideas específicas), <code>contexto</code>, <code>porqueLeer</code>, <code>tags</code> (de la taxonomía existente), y <code>quotes</code> (3+ citas <strong>verbatim</strong> con número de página impresa). El JSON queda en <code>/tmp/curated/&lt;bookId&gt;.json</code>.
+  </li>
+  <li>
+    <strong>Verificación de páginas con PyMuPDF</strong>. Cada cita se busca verbatim dentro del PDF y se captura su <em>PDF page real</em> (no la printed page). Esto resuelve offsets de front matter (índices, prefacios) que pueden ser de -14 a +6 páginas según el libro. Las páginas verificadas se guardan en <code>QUOTE_PAGES</code> con clave <code>"&lt;bookId&gt;::&lt;quoteIndex&gt;"</code>.
+  </li>
+  <li>
+    <strong>Generar slide deck con NotebookLM</strong> (opcional pero recomendado). Pasos: <code>notebooklm create</code> → <code>source add &lt;pdf&gt;</code> → <code>source wait</code> → <code>generate slide-deck --language &lt;es|en&gt;</code> → <code>artifact wait</code> → <code>download slide-deck</code> → convertir PDF a JPGs con <code>fitz</code>. Los JPGs van a <code>htmls/decks/&lt;bookId&gt;/slide-NN.jpg</code> y se agrega <code>deck: { slides: N, label: "NotebookLM briefing — &lt;artifact-title&gt;" }</code> a la entrada.
+  </li>
+  <li>
+    <strong>Inyectar la entrada</strong> al array <code>books</code> en <code>libreria.html</code>. Importante: añadir <strong>coma</strong> después del cierre <code>}</code> de la entrada anterior (los entries del array no terminan con coma, pero al añadir uno nuevo se vuelve necesaria). Validar JS antes de continuar (<code>jsc -e "new Function(read(...))"</code>).
+  </li>
+  <li>
+    <strong>Deploy</strong>. Copiar a <code>/tmp/sds/</code> (con retry x5 porque Google Drive a veces traba el archivo mid-sync), <code>git add libreria.html decks/&lt;bookId&gt;/</code>, commit, <code>git push origin gh-pages</code>. Actualizar conteos en este LEEME (libros, citas).
+  </li>
+</ol>
+
+<div class="warn">
+  <div class="warn-title">⚠️ Gotchas conocidos</div>
+  <ul>
+    <li><strong>Apóstrofos curly vs straight</strong>: si el filename del PDF tiene <code>'</code> (U+2019 curly), preservarlo en <code>filePath</code> exacto, no normalizarlo a <code>'</code> (U+0027) — el navegador no encuentra el archivo en gh-pages.</li>
+    <li><strong>Paths con espacios</strong> (Google Drive: "Other computers/My Mac/htmls/decks/&lt;id&gt;/"): nunca iterar con <code>for d in $NEW_DIRS</code> en bash — el word-split rompe la ruta. Usar <code>while IFS= read -r line</code> o iterar por <code>bookId</code> y reconstruir la ruta dentro del loop.</li>
+    <li><strong>Quotes verbatim</strong> (Regla 1): no parafrasear ni "limpiar" em-dashes ni signos. La regla de "evitar em-dashes en prosa" aplica a <code>tesis/ideas/contexto/porqueLeer</code>, <strong>no</strong> a <code>quotes</code> (esas son del autor original y se preservan tal cual).</li>
+    <li><strong>cp a Google Drive trabado</strong>: el archivo puede dar "Operation not permitted" si Drive está syncando en el momento. Retry hasta 5 veces con backoff de 30s antes de fallar.</li>
+    <li><strong>Subagentes en paralelo</strong>: para 5+ libros nuevos, lanzar en paralelo via Agent tool (uno por libro). Para 1-2, secuencial está bien.</li>
+  </ul>
+</div>
+
+<p>Scripts existentes que componen el pipeline:</p>
+<ul>
+  <li><code>~/scripts/notebooklm/regenerate-existing-decks.sh</code> — pasos 4 (generate slide deck) reutilizando un notebook ya creado.</li>
+  <li><code>~/scripts/notebooklm/deploy-new-decks.sh</code> — pasos 5-6 (inyectar deck field, copiar JPGs con retry, commit y push). Idempotente.</li>
+  <li><code>~/scripts/notebooklm/retry-pending-decks.sh</code> — re-disparar gens fallidos sin doble-quemar cuota.</li>
+</ul>
+
+<p>Para curación + verificación de páginas se hace con un subagente Claude (Read tool sobre el PDF) + script Python con <code>fitz</code> (PyMuPDF) que busca cada cita verbatim. El pipeline completo se puede orquestar desde Claude con el patrón:</p>
+
+<pre><code># 1. Claude lanza subagentes en paralelo (uno por PDF)
+# 2. Claude corre un script que verifica páginas con PyMuPDF y produce /tmp/curated/quote_pdf_pages.json
+# 3. Claude inyecta a libreria.html actualizando books[] + QUOTE_PAGES{}
+# 4. Si hay cuota NotebookLM, encola gen de slides; si no, los marca como pendientes
+# 5. cp + commit + push a gh-pages
+</code></pre>
+
+<!-- ═══════════════════════════════════════ -->
 <h2>🔄 Cuándo actualizar este documento</h2>
 
 <p>Este LEEME debe actualizarse cada vez que ocurra cualquiera de estas cosas:</p>
