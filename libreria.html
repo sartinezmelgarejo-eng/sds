@@ -332,6 +332,21 @@ body {
   color: var(--gold);
   border-bottom-color: var(--gold);
 }
+.author-sep {
+  color: var(--text-dim);
+  margin: 0 4px;
+  opacity: 0.65;
+  user-select: none;
+}
+.author-collective {
+  cursor: default;
+  font-style: italic;
+  border-bottom: none;
+}
+.author-collective:hover {
+  color: var(--text-dim);
+  border-bottom: none;
+}
 
 .nav-mode-btn {
   background: var(--surface);
@@ -7598,6 +7613,47 @@ body {
   // RENDER: BOOK DETAIL
   // ══════════════════════════════════════════════
 
+  // Parse a multi-author string into separate clickable chips.
+  // Patterns: "X y Y", "X & Y", "X / Y", "X, Y", "X; Y" (in priority order).
+  // Strip parenthetical suffixes like "(coordinadores)", "(ed.)", "(eds.)".
+  // Collective markers ("Varios", "(comp.)") render as single non-clickable label.
+  function parseAuthors(authorStr) {
+    if (!authorStr) return [];
+    // Strip parenthetical suffix
+    var s = authorStr.replace(/\s*\([^)]+\)\s*$/, '').trim();
+    // Strip after semicolon (collaborator lists)
+    var semi = s.indexOf(';');
+    if (semi > 0) s = s.slice(0, semi).trim();
+    // Collective?
+    if (/^Varios\b/i.test(s) || /\(comp\.\)/i.test(authorStr) || /\(eds?\.\)/i.test(authorStr)) {
+      return [{ name: s, collective: true }];
+    }
+    // Split on separators, preserving order. Pipeline:
+    //   1. Replace " y " (preceded by alpha, followed by capital) with ||
+    //   2. Replace " & " with ||
+    //   3. Replace " / " with ||
+    //   4. Replace ", " (but not inside parens — already stripped) with ||
+    s = s.replace(/\s+y\s+([A-ZÁÉÍÓÚÑ])/g, '||$1')
+         .replace(/\s+&\s+/g, '||')
+         .replace(/\s+\/\s+/g, '||')
+         .replace(/,\s+/g, '||');
+    return s.split('||').map(function(n) { return { name: n.trim(), collective: false }; })
+            .filter(function(a) { return a.name.length > 1; });
+  }
+
+  // Render an authors string as HTML — multiple clickable chips when applicable.
+  function renderAuthors(authorStr) {
+    var authors = parseAuthors(authorStr);
+    if (authors.length === 0) return '';
+    if (authors.length === 1 && authors[0].collective) {
+      return '<span class="book-author-link author-collective">' + authors[0].name + '</span>';
+    }
+    return authors.map(function(a) {
+      var esc = a.name.replace(/'/g, "\\'");
+      return '<span class="book-author-link" onclick="event.stopPropagation(); openAuthor(\'' + esc + '\')">' + a.name + '</span>';
+    }).join('<span class="author-sep"> · </span>');
+  }
+
   function openBook(bookId) {
     const book = books.find(b => b.id === bookId);
     if (!book) return;
@@ -7685,7 +7741,7 @@ body {
       coverHTML +
       '<div class="hero-meta-info">' +
         '<h2>'+book.title+'</h2>' +
-        '<div class="book-author-full"><span class="book-author-link" onclick="event.stopPropagation(); openAuthor(\''+book.author.replace(/'/g,"\\'")+'\')">' + book.author + '</span> · '+book.year+'</div>' +
+        '<div class="book-author-full">'+renderAuthors(book.author)+' · '+book.year+'</div>' +
         '<div class="book-themes-list">'+estantePill+'</div>' +
         getFileButtonHTML(book) +
       '</div>';
@@ -7716,7 +7772,7 @@ body {
           coverHTML +
           '<div class="book-hero-info">' +
             '<h2>'+book.title+'</h2>' +
-            '<div class="book-author-full"><span class="book-author-link" onclick="event.stopPropagation(); openAuthor(\''+book.author.replace(/'/g,"\\'")+'\')">' + book.author + '</span> · '+book.year+'</div>' +
+            '<div class="book-author-full">'+renderAuthors(book.author)+' · '+book.year+'</div>' +
             '<div class="book-themes-list">'+estantePill+'</div>' +
             getFileButtonHTML(book) +
           '</div>' +
