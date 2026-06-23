@@ -8185,6 +8185,19 @@ body {
   window.addEventListener('resize', positionDropdown);
   window.addEventListener('scroll', positionDropdown, { passive: true });
 
+  // The nav uses backdrop-filter, which creates a new containing block for
+  // position:fixed descendants. That means the search dropdown (originally
+  // inside the nav) anchors to the nav instead of the viewport, which on
+  // mobile makes it render in the wrong place / behind other content.
+  // Fix: move the dropdown to <body> so position:fixed truly anchors to
+  // the viewport.
+  document.addEventListener('DOMContentLoaded', function() {
+    var dd = document.getElementById('search-results-dropdown');
+    if (dd && dd.parentElement !== document.body) {
+      document.body.appendChild(dd);
+    }
+  });
+
   function closeSearch() {
     const dropdown = document.getElementById('search-results-dropdown');
     dropdown.style.display = 'none';
