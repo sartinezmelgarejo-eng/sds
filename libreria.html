@@ -3261,6 +3261,97 @@ body {
   --accent: var(--gold);
   --accent-dim: var(--gold-dim);
   --accent-tint: rgba(200,169,96,0.06);
+  --accent-2: var(--gold);
+  --accent-2-dim: var(--gold-dim);
+  position: relative;
+}
+/* Per-era background tint — subtle radial gradient washes evoking the period */
+.atlas-era-prehispanica::before,
+.atlas-era-colonial::before,
+.atlas-era-decimononica::before,
+.atlas-era-contemporanea::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: 12px;
+}
+.atlas-era-prehispanica::before {
+  background:
+    radial-gradient(ellipse at 88% 10%, rgba(184,101,77,0.07), transparent 55%),
+    radial-gradient(ellipse at 8% 92%, rgba(143,80,52,0.05), transparent 60%);
+}
+.atlas-era-colonial::before {
+  background:
+    radial-gradient(ellipse at 88% 10%, rgba(157,128,190,0.06), transparent 55%),
+    radial-gradient(ellipse at 8% 92%, rgba(157,128,190,0.04), transparent 60%);
+}
+.atlas-era-decimononica::before {
+  background:
+    radial-gradient(ellipse at 88% 10%, rgba(212,175,55,0.07), transparent 55%),
+    radial-gradient(ellipse at 8% 92%, rgba(140,109,46,0.04), transparent 60%);
+}
+.atlas-era-contemporanea::before {
+  background:
+    radial-gradient(ellipse at 88% 10%, rgba(91,143,190,0.06), transparent 55%),
+    radial-gradient(ellipse at 8% 92%, rgba(123,168,104,0.04), transparent 60%);
+}
+
+/* Modo chip — small caps badge tinted with --accent-2 */
+.atlas-modo-chip {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--accent-2);
+  background: color-mix(in srgb, var(--accent-2) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-2) 30%, transparent);
+  padding: 2px 7px 1px;
+  border-radius: 10px;
+  margin-left: 8px;
+  vertical-align: middle;
+  font-weight: 600;
+}
+
+/* Timeline event glyphs — replace the dot when keyword-matched */
+.concepto-tl-glyph {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg, #0d0d1a);
+  border: 1.5px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--accent);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--bg, #0d0d1a);
+}
+.concepto-tl-glyph svg { width: 13px; height: 13px; display: block; }
+.atlas-layout-cronologico .concepto-tl-glyph {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+  box-shadow: 0 0 0 4px var(--bg, #0d0d1a), 0 0 0 5.5px color-mix(in srgb, var(--accent) 38%, transparent);
+}
+.atlas-layout-cronologico .concepto-tl-glyph svg { width: 16px; height: 16px; }
+
+/* --accent-2 usage: period text + featured quote secondary stripe */
+.atlas-detail-view .atlas-head-period {
+  border-left: 2px solid color-mix(in srgb, var(--accent-2) 40%, transparent);
+  padding-left: 8px;
+  margin-left: -2px;
+}
+.atlas-detail-view .atlas-featured-quote {
+  background: linear-gradient(135deg, var(--accent-tint), color-mix(in srgb, var(--accent-2) 5%, transparent));
+}
+/* Book card meta line picks up modo color when available */
+.atlas-detail-view .atlas-book-meta {
+  color: var(--accent-2-dim);
 }
 .atlas-detail-head {
   display: flex;
@@ -10121,6 +10212,70 @@ body {
     return 'editorial';
   }
 
+  // Secondary accent by modo (production mode / political type)
+  function getConceptAccent2(c) {
+    var MODO = {
+      'comunal':     { c: '#7ba868', d: '#9ac08c' },
+      'imperial':    { c: '#c44d4d', d: '#d97070' },
+      'colonial':    { c: '#9d80be', d: '#b7a0d0' },
+      'socialista':  { c: '#5b8fbe', d: '#7eaad0' },
+      'soberanista': { c: '#d4af37', d: '#e5c569' }
+    };
+    return MODO[c.modo] || null;
+  }
+
+  // Detect historical era from periodo string or first timeline event year
+  function getConceptEra(c) {
+    var sources = [c.periodo || ''];
+    if (c.timeline && c.timeline[0]) sources.push(c.timeline[0].year || '');
+    for (var i = 0; i < sources.length; i++) {
+      var s = String(sources[i]).toLowerCase();
+      if (/a\.?\s*c\.?/.test(s)) return 'prehispanica';
+      var m = s.match(/(\d{3,4})/);
+      if (m) {
+        var y = parseInt(m[1]);
+        if (y < 1521) return 'prehispanica';
+        if (y < 1810) return 'colonial';
+        if (y < 1910) return 'decimononica';
+        return 'contemporanea';
+      }
+    }
+    return '';
+  }
+
+  // Mini SVG glyphs for timeline events — line-art, picks up currentColor
+  var EVENT_GLYPHS = {
+    battle:     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 3 L13 13 M13 3 L3 13"/></svg>',
+    treaty:     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 5 H13 M3 8 H13 M3 11 H11"/></svg>',
+    foundation: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M3 13 L8 3 L13 13 Z M5 9 H11"/></svg>',
+    death:      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 3 V13 M5 6 H11"/></svg>',
+    revolution: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M6 13 Q3 9 6 5 Q7 7 9 4 Q11 8 11 11 Q11 13 8 13 Z"/></svg>',
+    crown:      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 12 H13 V8 L11 5 L8 8 L5 5 L3 8 Z"/></svg>',
+    ship:       '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M2 11 L14 11 L12 13 H4 Z M8 4 V11 M5 7 H11"/></svg>',
+    document:   '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M4 3 H10 L12 5 V13 H4 Z M6 7 H10 M6 9 H10 M6 11 H9"/></svg>',
+    trade:      '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 V13 M3 6 H13 M3 6 L1.5 10 H4.5 Z M13 6 L11.5 10 H14.5 Z"/></svg>',
+    construction:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 13 H14 M4 13 V7 L8 4 L12 7 V13 M6 13 V10 H10 V13"/></svg>',
+    discovery:  '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="3.5"/><line x1="9.6" y1="9.6" x2="13" y2="13"/></svg>',
+    book:       '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M3 3 H8 V13 H3 Z M8 3 H13 V13 H8 Z M3 3 Q5.5 1 8 3 Q10.5 1 13 3"/></svg>'
+  };
+  function getEventGlyph(text) {
+    var t = String(text || '').toLowerCase();
+    if (/\bbatalla|\bguerra|\bconquist|\binvas|\basalt|\basedio|\bcombat|\bderrot|\bvict[oó]ria militar/.test(t)) return EVENT_GLYPHS.battle;
+    if (/\brevoluc|\binsurg|\blevantami|\balzami|\brebeli|\bsublev/.test(t)) return EVENT_GLYPHS.revolution;
+    if (/\bdescubr|\bllegada|\bdesembarc|\bexpedici|\bnavega.+atl|\barriba.+puerto/.test(t)) return EVENT_GLYPHS.ship;
+    if (/\btratado|\bpacto|\balianza|\bconvenio|\bacuerdo/.test(t)) return EVENT_GLYPHS.treaty;
+    if (/\brey\b|\breina\b|\bcorona|\bmonarc|\bemperador|\bemperatriz|\bdinast/.test(t)) return EVENT_GLYPHS.crown;
+    if (/\bley\b|\bconstituci|\bdecreto|\bedicto|\breforma\b|\bproclama/.test(t)) return EVENT_GLYPHS.document;
+    if (/\bmuerte|\bfallec|\basesin|\bejecut|\bmuere\b|\bmuri[oó]/.test(t)) return EVENT_GLYPHS.death;
+    if (/\bfund(a|aci[oó]n)|\bestablec|\binaug/.test(t)) return EVENT_GLYPHS.foundation;
+    if (/\bconstru|\bedific|\blevant.+(templo|piram|muro|edif)/.test(t)) return EVENT_GLYPHS.construction;
+    if (/\bcomercio|\bmercado|\btribut|\bgravam|\bimpuesto|\beconom[ií]a|\bplata\b|\boro\b/.test(t)) return EVENT_GLYPHS.trade;
+    if (/\bpiramide|\btemplo|\bciudad|\bcapital\b/.test(t)) return EVENT_GLYPHS.construction;
+    if (/\bpublic|\bescrib|\baparece.+libro|\bedici[oó]n/.test(t)) return EVENT_GLYPHS.book;
+    if (/\bdescubr|\bexplor|\binvent/.test(t)) return EVENT_GLYPHS.discovery;
+    return '';
+  }
+
   // Auto-extract scannable bullets from historia paragraphs (first sentence of each)
   function extractKeyIdeas(historia) {
     if (!historia) return [];
@@ -10151,9 +10306,13 @@ body {
 
     var hasHistoria = c.historia && c.historia.length > 0;
     var accent = getConceptAccent(c);
+    var accent2 = getConceptAccent2(c);
+    var era = getConceptEra(c);
 
     // Inline CSS vars on the view wrapper → drives all atlas-detail-* color tokens
-    var styleAttr = ' style="--accent:' + accent.accent + ';--accent-dim:' + accent.dim + ';--accent-tint:' + accent.tint + ';"';
+    var styleParts = '--accent:' + accent.accent + ';--accent-dim:' + accent.dim + ';--accent-tint:' + accent.tint + ';';
+    if (accent2) styleParts += '--accent-2:' + accent2.c + ';--accent-2-dim:' + accent2.d + ';';
+    var styleAttr = ' style="' + styleParts + '"';
 
     // Build a per-book quotes index so book cards can show a contextual quote about THIS concept
     var quotesByBook = {};
@@ -10165,7 +10324,9 @@ body {
     var headHTML = '<header class="atlas-detail-head">' +
       '<div class="atlas-head-badge"><div class="atlas-head-glyph">' + getConceptGlyph(c) + '</div></div>' +
       '<div class="atlas-head-meta">' +
-        '<div class="atlas-head-group">' + (c.group || '') + (c.subregion ? ' · ' + c.subregion : '') + '</div>' +
+        '<div class="atlas-head-group">' + (c.group || '') + (c.subregion ? ' · ' + c.subregion : '') +
+          (c.modo ? ' <span class="atlas-modo-chip">' + c.modo + '</span>' : '') +
+        '</div>' +
         '<h2>' + c.label + '</h2>' +
         ((c.periodo || c.territorio) ?
           '<div class="atlas-head-period">' + (c.periodo || '') +
@@ -10238,10 +10399,14 @@ body {
           });
           citasHTML += '</div>';
         }
+        var evGlyph = getEventGlyph(t.text);
+        var markerHTML = evGlyph
+          ? '<div class="concepto-tl-glyph">' + evGlyph + '</div>'
+          : '<div class="concepto-tl-dot"' + (hasCitas ? ' style="background:var(--accent,var(--gold));box-shadow:0 0 6px rgba(200,169,96,0.5);"' : '') + '></div>';
         timelineHTML += '<div class="concepto-tl-entry" style="' + (hasCitas ? 'cursor:pointer;' : '') + '"' +
           (hasCitas ? ' onclick="var el=this.querySelector(\'.concepto-tl-citas\');if(el){el.style.display=el.style.display===\'none\'?\'block\':\'none\';event.stopPropagation();}"' : '') + '>' +
           '<div class="concepto-tl-year">' + t.year + '</div>' +
-          '<div class="concepto-tl-dot"' + (hasCitas ? ' style="background:var(--accent,var(--gold));box-shadow:0 0 6px rgba(200,169,96,0.5);"' : '') + '></div>' +
+          markerHTML +
           '<div class="concepto-tl-text">' + t.text + citaIndicator + '</div>' +
           citasHTML +
         '</div>';
@@ -10359,7 +10524,7 @@ body {
         '</div>';
     }
 
-    var html = '<div class="view-transition atlas-detail-view atlas-layout-' + layout + '"' + styleAttr + '>' +
+    var html = '<div class="view-transition atlas-detail-view atlas-layout-' + layout + (era ? ' atlas-era-' + era : '') + '"' + styleAttr + '>' +
       '<button class="back-btn" onclick="showView(\'conceptos\')">← Atlas</button>' +
       headHTML +
       bodyHTML +
