@@ -3288,6 +3288,17 @@ body {
   line-height: 1;
   filter: drop-shadow(0 3px 10px color-mix(in srgb, var(--accent) 30%, transparent));
 }
+.atlas-head-monogram {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 600;
+  font-style: italic;
+  font-size: 56px;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 2px 12px color-mix(in srgb, var(--accent) 35%, transparent);
+  letter-spacing: -2px;
+  padding-bottom: 2px;
+}
 .atlas-head-meta { min-width: 0; flex: 1; padding-top: 4px; }
 .atlas-head-group {
   font-family: 'JetBrains Mono', monospace;
@@ -3448,6 +3459,16 @@ body {
   font-weight: 500;
 }
 .atlas-rail-section > h3 .atlas-rail-icon { font-size: 16px; }
+/* Editorial vertical rule replaces emoji icons in section headers */
+.atlas-rail-section > h3 .atlas-rail-mark {
+  display: inline-block;
+  width: 3px;
+  height: 18px;
+  background: var(--accent);
+  border-radius: 1px;
+  margin-right: 4px;
+  transform: translateY(2px);
+}
 .atlas-rail-count {
   margin-left: auto;
   font-family: 'JetBrains Mono', monospace;
@@ -9990,6 +10011,14 @@ body {
     return COLORS[c.group] || COLORS['Ideas'];
   }
 
+  // First meaningful letter of the concept label — drops stopwords like "El", "La", "Civilización"
+  function getConceptMonogram(c) {
+    var SKIP = {'el':1,'la':1,'los':1,'las':1,'un':1,'una':1,'de':1,'del':1,'civilización':1,'imperio':1,'república':1,'sistema':1,'la1':0};
+    var words = (c.label || '').split(/[\s\-]+/).filter(function(w){return w && !SKIP[w.toLowerCase()];});
+    if (!words.length) words = [c.label || '?'];
+    return words[0].charAt(0).toUpperCase();
+  }
+
   // Auto-extract scannable bullets from historia paragraphs (first sentence of each)
   function extractKeyIdeas(historia) {
     if (!historia) return [];
@@ -10032,7 +10061,7 @@ body {
 
     // ─── Header ───
     var headHTML = '<header class="atlas-detail-head">' +
-      '<div class="atlas-head-badge"><div class="atlas-head-icon">' + c.icon + '</div></div>' +
+      '<div class="atlas-head-badge"><div class="atlas-head-monogram">' + getConceptMonogram(c) + '</div></div>' +
       '<div class="atlas-head-meta">' +
         '<div class="atlas-head-group">' + (c.group || '') + (c.subregion ? ' · ' + c.subregion : '') + '</div>' +
         '<h2>' + c.label + '</h2>' +
@@ -10050,7 +10079,7 @@ body {
       var bullets = extractKeyIdeas(c.historia);
       if (bullets.length >= 2) {
         ideasHTML = '<aside class="atlas-ideas-clave">' +
-          '<div class="atlas-ideas-label">◆ Ideas clave</div>' +
+          '<div class="atlas-ideas-label">Ideas clave</div>' +
           '<ul>';
         bullets.forEach(function(b) { ideasHTML += '<li>' + b + '</li>'; });
         ideasHTML += '</ul></aside>';
@@ -10104,7 +10133,7 @@ body {
                 var off = PDF_PAGE_OFFSET[ct.libro] || 0;
                 var pp = bp + off;
                 if (pp < 1) pp = 1;
-                pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pp + '" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent,var(--gold));font-size:11px;text-decoration:none;">📄 PDF</a>';
+                pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pp + '" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent,var(--gold));font-size:11px;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;">PDF</a>';
               }
             }
             citasHTML += '<div style="margin-bottom:8px;">' +
@@ -10135,7 +10164,7 @@ body {
       var BOOK_LIMIT = 6;
       var bookSecId = uid + '_books';
       booksHTML = '<section class="atlas-rail-section">' +
-        '<h3><span class="atlas-rail-icon">📚</span>Explora en tu biblioteca<span class="atlas-rail-count">' + r.books.length + '</span></h3>' +
+        '<h3><span class="atlas-rail-mark"></span>Explora en tu biblioteca<span class="atlas-rail-count">' + r.books.length + '</span></h3>' +
         '<div class="atlas-book-deck">';
       r.books.forEach(function(b, i) {
         // Prefer a quote from this book that mentions this concept (contextual)
@@ -10175,7 +10204,7 @@ body {
       var Q_LIMIT = 3;
       var qSecId = uid + '_quotes';
       quotesHTML = '<section class="atlas-rail-section">' +
-        '<h3><span class="atlas-rail-icon">💬</span>Más citas<span class="atlas-rail-count">' + moreQ.length + '</span></h3>' +
+        '<h3><span class="atlas-rail-mark"></span>Más citas<span class="atlas-rail-count">' + moreQ.length + '</span></h3>' +
         '<div class="atlas-quote-deck">';
       moreQ.forEach(function(q, i) {
         var qText = q.text.length > 220 ? q.text.substring(0,220) + '…' : q.text;
