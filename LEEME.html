@@ -134,7 +134,11 @@
 <div class="container">
 
 <h1>Guía de archivos</h1>
-<p class="subtitle">Qué es cada cosa, cómo se conectan, y qué no tocar. Actualizado: junio 2026.</p>
+<p class="subtitle">Qué es cada cosa, cómo se conectan, y qué no tocar. Actualizado: 26 de junio de 2026.</p>
+
+<div class="connection">
+  <strong>Para agentes de IA (Claude Code / opencode / Cursor):</strong> hay un archivo <code>AGENTS.md</code> en este folder que es la versión condensada de operating rules — se auto-carga al iniciar cada sesión. Este LEEME es la referencia profunda (historia, arquitectura técnica). Empezar por <code>AGENTS.md</code>; venir aquí cuando se necesite contexto histórico o detalle de un sistema específico.
+</div>
 
 <!-- ═══════════════════════════════════════ -->
 <h2>📂 Estructura general</h2>
@@ -552,6 +556,61 @@ Samuel abre viewer.html?slug=&lt;slug&gt;
 </div>
 
 <!-- ═══════════════════════════════════════ -->
+<h2>🎨 Atlas — sistema de diseño del detalle de cada concepto</h2>
+
+<p>Cuando abres un concepto en la pestaña Atlas de <code>libreria.html</code>, la vista de detalle no es un template fijo — se compone dinámicamente con varios sistemas que dan a cada concepto su propia personalidad visual. Estado al 26 de junio de 2026:</p>
+
+<h3>Per-concept color combo (group × modo)</h3>
+<ul>
+  <li><strong><code>--accent</code></strong> viene de <code>c.group</code> (8 grupos: América=terracota, Eurasia=teal, Ideas=dorado, México=verde, Recursos=cobre, Sistemas=violeta, África=ochre, Global=plata).</li>
+  <li><strong><code>--accent-2</code></strong> viene de <code>c.modo</code> (5 modos: comunal=verde, imperial=rojo, colonial=violeta, socialista=azul, soberanista=dorado).</li>
+  <li>Combinaciones: <em>Olmecas</em> (América+comunal) = terracota+verde; <em>Imperio Mexica</em> (América+imperial) = terracota+rojo. ~40 combos únicos.</li>
+  <li>Drop-cap, glifo, hover y dots usan <code>--accent</code>. Period rule, gradient secundario del featured-quote y meta de book cards usan <code>--accent-2</code>.</li>
+</ul>
+
+<h3>Background tint por era</h3>
+<p>Auto-detectado por <code>getConceptEra(c)</code> a partir de <code>c.periodo</code> o el primer evento del timeline. Prehispánica (sepia cálido), colonial (vellum violeta), decimonónica (dorado), contemporánea (azul+verde). Aplica una clase <code>atlas-era-X</code> al wrapper con radial-gradients sutiles.</p>
+
+<h3>Glifo SVG por grupo (badge)</h3>
+<p>En lugar del emoji del campo <code>c.icon</code>, el badge muestra un glifo line-art SVG según <code>c.group</code>: pirámide escalonada para América, círculos concéntricos para Eurasia, espiral para Ideas, sol radiante para México, diamante facetado para Recursos, nodos conectados para Sistemas, creciente+punto para África, globo con meridiano para Global. Heredan <code>currentColor</code> del <code>--accent</code>.</p>
+
+<h3>Layouts variantes (despachados por <code>pickConceptLayout</code>)</h3>
+<ul>
+  <li><strong>editorial</strong> (default) — 2 columnas: historia + featured + timeline a la izquierda, libros + más citas en sticky rail a la derecha.</li>
+  <li><strong>cronologico</strong> — cuando <code>timeline.length &gt;= 4</code>. Timeline-hero ocupa ancho completo arriba (eventos 150-200px wide, dots con halo doble), abajo grid 1.8:1 con narrativa amplia y rail compacto. Aplica a ~15 conceptos (civilizaciones + procesos largos).</li>
+  <li><strong>dossier</strong> y <strong>dialéctico</strong> — pendientes de construir.</li>
+</ul>
+
+<h3>Mini-glifos en eventos del timeline</h3>
+<p><code>getEventGlyph(text)</code> matchea keywords contra 12 íconos SVG line-art: batalla (X), tratado (líneas), revolución (flama), corona, barco, documento, fundación, construcción, comercio (balanza), muerte (cruz), libro, descubrimiento (lupa). Cuando hay match, reemplaza el dot del timeline con un círculo que contiene el ícono. Hace la línea cronológica escaneable visualmente.</p>
+
+<div class="connection">
+  <strong>Helpers todos viven al tope de <code>openConcepto()</code> en libreria.html.</strong> Si agregas un nuevo layout, edita <code>pickConceptLayout</code> + agrega el branch en el dispatcher de bodyHTML + agrega CSS bajo selector <code>.atlas-layout-X</code>. Si agregas un nuevo grupo/modo/era, edita el respectivo helper.
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🎬 Pipeline de slides (NotebookLM)</h2>
+
+<p>Estado al 26 de junio de 2026: <strong>87 / 232 decks completados</strong> (145 restantes).</p>
+
+<ul>
+  <li><strong>Launchd job</strong>: <code>com.user.notebooklm-retry.plist</code> — dispara 6×/día (01:17, 07:11, 11:13, 15:23, 19:29, 22:37).</li>
+  <li><strong>Wrapper</strong>: <code>~/scripts/notebooklm/retry-pending-decks.wrapper.sh</code>.</li>
+  <li><strong>Worker</strong>: <code>~/scripts/notebooklm/process-queue.sh</code> — procesa pares en paralelo, se detiene en rate-limit de Google, 7-min cool-down entre pares.</li>
+  <li><strong>Deployer</strong>: <code>~/scripts/notebooklm/deploy-new-decks.sh</code> — inyecta <code>deck:</code> en libreria.html, cp+commit+push.</li>
+  <li><strong>Logs</strong>: <code>~/scripts/notebooklm/last-run.log</code> y <code>deploy.log</code>.</li>
+  <li><strong>Queue</strong>: <code>/tmp/process-queue.json</code> — array de <code>{bookId, filePath, title, lang, existing_notebook}</code>. El campo <code>lang</code> es crítico (alimenta <code>--language</code>).</li>
+</ul>
+
+<p>Google usa quota rolling-24h, así que bursts se rate-limitean rápido. Día típico = 1-2 fires producen decks, el resto throttled.</p>
+
+<p><strong>Fire manual</strong>:
+<pre style="margin:4px 0"><code>launchctl start com.user.notebooklm-retry</code></pre>
+</p>
+
+<p><strong>Fix del cp aplicado 2026-06-26</strong>: <code>retry_cp()</code> en <code>deploy-new-decks.sh</code> ahora hace cat-stream + mv en lugar de cp directo, con 12×60s de retry budget. Bypassa el lock semantics de Drive FUSE. Cubre ~99% de syncs; si aún así falla, ver "Rescate manual de decks" en la sección del protocolo de libros.</p>
+
+<!-- ═══════════════════════════════════════ -->
 <h2>📊 Estado actual del MAPA v2</h2>
 
 <p><strong>180 libros</strong> en 6 estantes: México Profundo, Transformaciones, Economía y Poder, Fundamentos, Revoluciones, Filosofía.</p>
@@ -598,39 +657,100 @@ Samuel abre viewer.html?slug=&lt;slug&gt;
 <!-- ═══════════════════════════════════════ -->
 <h2>🆕 Protocolo para agregar un libro nuevo</h2>
 
-<p>Cuando aparece un PDF nuevo en <code>Books/</code> y queremos que aparezca en la librería con tratamiento completo, el flujo es de seis pasos. Ninguno se puede saltar sin perder algo (citas inventadas, slides faltantes, links que no llevan a la página correcta).</p>
+<p>Cuando aparece un PDF nuevo en <code>Books/</code> y queremos que aparezca en la librería con tratamiento completo, el flujo es de <strong>diez pasos</strong>. Ninguno se puede saltar sin perder algo (citas inventadas, slides faltantes, links que no llevan a la página correcta, conexiones rotas, o portadas que muestran otro libro).</p>
 
 <ol>
   <li>
-    <strong>Tirar el PDF a <code>Books/</code></strong> (o a una subcarpeta de autor). El nombre del archivo se preserva tal cual — no renombrar.
+    <strong>Tirar el PDF a <code>Books/</code></strong> (o a una subcarpeta de autor). El nombre del archivo se preserva tal cual — no renombrar. Preservar apóstrofos curly <code>'</code> (U+2019) si los tiene; normalizarlos a straight <code>'</code> rompe el link en gh-pages.
   </li>
   <li>
-    <strong>Curación con subagente</strong>. Claude lanza un subagente que <em>lee el PDF directamente</em> (no de memoria) y devuelve JSON con: <code>id</code>, <code>estante</code>, <code>title</code>, <code>author</code>, <code>year</code>, <code>desc</code>, <code>tesis</code> (5-8 oraciones), <code>ideas</code> (5-8 ideas específicas), <code>contexto</code>, <code>porqueLeer</code>, <code>tags</code> (de la taxonomía existente), y <code>quotes</code> (3+ citas <strong>verbatim</strong> con número de página impresa). El JSON queda en <code>/tmp/curated/&lt;bookId&gt;.json</code>.
+    <strong>Curación con subagente</strong>. Claude lanza un subagente que <em>lee el PDF directamente</em> (no de memoria) y devuelve JSON con: <code>id</code>, <code>estante</code>, <code>title</code>, <code>author</code>, <code>year</code>, <code>desc</code>, <code>tesis</code> (5-8 oraciones), <code>ideas</code> (5-8 ideas específicas), <code>contexto</code>, <code>porqueLeer</code>, <code>tags</code> (de la taxonomía existente), <code>alerta</code> (opcional — caveats traducción, sesgos, etc.), y <code>quotes</code> (3+ citas <strong>verbatim</strong> con número de página impresa). El JSON queda en <code>/tmp/curated/&lt;bookId&gt;.json</code>.
   </li>
   <li>
     <strong>Verificación de páginas con PyMuPDF</strong>. Cada cita se busca verbatim dentro del PDF y se captura su <em>PDF page real</em> (no la printed page). Esto resuelve offsets de front matter (índices, prefacios) que pueden ser de -14 a +6 páginas según el libro. Las páginas verificadas se guardan en <code>QUOTE_PAGES</code> con clave <code>"&lt;bookId&gt;::&lt;quoteIndex&gt;"</code>.
   </li>
   <li>
-    <strong>Generar slide deck con NotebookLM</strong> (opcional pero recomendado). Pasos: <code>notebooklm create</code> → <code>source add &lt;pdf&gt;</code> → <code>source wait</code> → <code>generate slide-deck --language &lt;es|en&gt;</code> → <code>artifact wait</code> → <code>download slide-deck</code> → convertir PDF a JPGs con <code>fitz</code>. Los JPGs van a <code>htmls/decks/&lt;bookId&gt;/slide-NN.jpg</code> y se agrega <code>deck: { slides: N, label: "NotebookLM briefing — &lt;artifact-title&gt;" }</code> a la entrada.
+    <strong>Buscar y VERIFICAR la portada</strong>. Orden de preferencia: (a) sitio del editor (UTexas Press, FCE, Siglo XXI, etc.), (b) BiblioVault, (c) Google Books thumbnail, (d) Amazon en último lugar (ASINs colisionan entre ediciones).
+    <br><br>
+    <strong>Antes de commitear la URL: descarga el JPG y ábrelo visualmente para confirmar que sí es el libro correcto</strong>:
+    <pre style="margin:4px 0"><code>curl -sL -o /tmp/check-cover.jpg "&lt;URL&gt;" && open /tmp/check-cover.jpg</code></pre>
+    Lección 2026-06-25: <code>tutino2</code> traía cover de un fantasy novel de John Gwynne ("El Hambre de los Dioses") durante semanas porque nadie validó visualmente. Cinco segundos de verificación = no embarrassment.
   </li>
   <li>
-    <strong>Inyectar la entrada</strong> al array <code>books</code> en <code>libreria.html</code>. Importante: añadir <strong>coma</strong> después del cierre <code>}</code> de la entrada anterior (los entries del array no terminan con coma, pero al añadir uno nuevo se vuelve necesaria). Validar JS antes de continuar (<code>jsc -e "new Function(read(...))"</code>).
+    <strong>Construir <code>conexiones[]</code></strong> con libros relacionados. Cada entrada es <code>{bookId: "otro-id", razon: "..."}</code>. La razón debe explicar <em>qué tipo de relación</em>: contrapunto, continuación, refutación, aplica-la-teoría. Ejemplos concretos, no genéricos ("interesting read" no es razón).
+    <pre style="margin:4px 0"><code>conexiones: [
+  { bookId: "marxcapital", razon: "Marx teorizó la acumulación originaria; Galeano la narra con nombres y lugares." },
+  { bookId: "wallerstein1", razon: "Wallerstein da el marco macro; este libro hace el micro de la misma dinámica." }
+]</code></pre>
   </li>
   <li>
-    <strong>Deploy</strong>. Copiar a <code>/tmp/sds/</code> (con retry x5 porque Google Drive a veces traba el archivo mid-sync), <code>git add libreria.html decks/&lt;bookId&gt;/</code>, commit, <code>git push origin gh-pages</code>. Actualizar conteos en este LEEME (libros, citas).
+    <strong>Agregar refs al Atlas (<code>ref-concept</code> links)</strong> en <code>tesis</code>, <code>desc</code>, <code>contexto</code>, <code>porqueLeer</code> cuando el texto mencione un concepto que existe en <code>conceptos[]</code>. Pattern:
+    <pre style="margin:4px 0"><code>&lt;a class='ref-concept' onclick='event.stopPropagation();
+  showView("conceptos");
+  setTimeout(function(){openConcepto("sistema_mundo");},80);'&gt;sistema-mundo&lt;/a&gt;</code></pre>
+    <strong>Texto visible = nombre exacto del concepto.</strong> Máximo 1-2 refs por párrafo (regla anti-clutter del user, ver <code>feedback_no_meta_links</code>). No linkear palabras genéricas si no corresponden al nombre exacto del nodo del Atlas.
+  </li>
+  <li>
+    <strong>Citas del libro en timeline del Atlas (opcional)</strong>. Si una de las citas del libro comenta directamente un evento histórico que ya está en el <code>timeline[]</code> de algún concepto del Atlas, agrégala como cita de ese evento:
+    <pre style="margin:4px 0"><code>{ year: '1521', text: 'Cae Tenochtitlan', citas: [
+    { autor: 'Bernal Díaz', texto: 'verbatim quote...', libro: 'diazcastillo', pagina: 'p. 412' }
+  ]
+}</code></pre>
+    El formato de <code>pagina</code> es <code>"p. N"</code>; <code>getQuotePageLink()</code> extrae el número y aplica <code>PDF_PAGE_OFFSET[libroId]</code> para construir el deep link al PDF.
+  </li>
+  <li>
+    <strong>Inyectar la entrada</strong> al array <code>books</code> en <code>libreria.html</code>. Añadir <strong>coma</strong> después del cierre <code>}</code> de la entrada anterior. Validar JS:
+    <pre style="margin:4px 0"><code>/usr/local/bin/python3 -c "import re; src=open('libreria.html').read(); m=re.findall(r'&lt;script&gt;(.*?)&lt;/script&gt;',src,re.DOTALL); open('/tmp/lib.js','w').write('\n'.join(m))"
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -e "try{new Function(read('/tmp/lib.js'));print('PARSE OK')}catch(e){print('PARSE ERROR: '+e)}"</code></pre>
+    Debe imprimir <code>PARSE OK</code>. Si <code>PARSE ERROR</code>, NO continuar.
+  </li>
+  <li>
+    <strong>Encolar slides en el pipeline</strong>. Editar <code>/tmp/process-queue.json</code> y agregar:
+    <pre style="margin:4px 0"><code>{
+  "bookId": "yourbookid",
+  "filePath": "Author/File-Name.pdf",
+  "title": "Public-facing Title",
+  "lang": "es",          // ⚠️ crítico: 'es' o 'en' según idioma DEL LIBRO
+  "existing_notebook": null
+}</code></pre>
+    El campo <code>lang</code> alimenta <code>notebooklm generate slide-deck --language $LANG</code>. Si está mal, los slides salen en idioma equivocado y hay que regenerar manualmente. Los próximos fires de <code>launchctl start com.user.notebooklm-retry</code> lo agarran automáticamente (6 fires/día: 01:17, 07:11, 11:13, 15:23, 19:29, 22:37).
+  </li>
+  <li>
+    <strong>Deploy</strong>. Copiar a <code>/tmp/sds/</code>, <code>git add libreria.html</code>, commit, <code>git push origin gh-pages</code>. Los slides se deployean solos cuando el pipeline los termine (el <code>deploy-new-decks.sh</code> inyecta el field <code>deck:</code> automáticamente). Si hubo cambios al Atlas (refs al concepto, citas en timeline), también van en este push.
   </li>
 </ol>
 
 <div class="warn">
   <div class="warn-title">⚠️ Gotchas conocidos</div>
   <ul>
-    <li><strong>Apóstrofos curly vs straight</strong>: si el filename del PDF tiene <code>'</code> (U+2019 curly), preservarlo en <code>filePath</code> exacto, no normalizarlo a <code>'</code> (U+0027) — el navegador no encuentra el archivo en gh-pages.</li>
-    <li><strong>Paths con espacios</strong> (Google Drive: "Other computers/My Mac/htmls/decks/&lt;id&gt;/"): nunca iterar con <code>for d in $NEW_DIRS</code> en bash — el word-split rompe la ruta. Usar <code>while IFS= read -r line</code> o iterar por <code>bookId</code> y reconstruir la ruta dentro del loop.</li>
-    <li><strong>Quotes verbatim</strong> (Regla 1): no parafrasear ni "limpiar" em-dashes ni signos. La regla de "evitar em-dashes en prosa" aplica a <code>tesis/ideas/contexto/porqueLeer</code>, <strong>no</strong> a <code>quotes</code> (esas son del autor original y se preservan tal cual).</li>
-    <li><strong>cp a Google Drive trabado</strong>: el archivo puede dar "Operation not permitted" si Drive está syncando en el momento. Retry hasta 5 veces con backoff de 30s antes de fallar.</li>
-    <li><strong>Subagentes en paralelo</strong>: para 5+ libros nuevos, lanzar en paralelo via Agent tool (uno por libro). Para 1-2, secuencial está bien.</li>
+    <li><strong>Apóstrofos curly vs straight</strong>: si el filename del PDF tiene <code>'</code> (U+2019 curly), preservarlo en <code>filePath</code> exacto. No normalizar.</li>
+    <li><strong>Paths con espacios</strong> (Google Drive paths): nunca <code>for d in $NEW_DIRS</code> en bash — el word-split rompe la ruta. Usar <code>while IFS= read -r line</code> o iterar por <code>bookId</code>.</li>
+    <li><strong>Quotes verbatim</strong> (Regla 1): no parafrasear ni "limpiar" em-dashes ni signos. La regla de "evitar em-dashes en prosa" aplica a <code>tesis/ideas/contexto/porqueLeer</code>, <strong>no</strong> a <code>quotes</code>.</li>
+    <li><strong>cp a Google Drive trabado</strong> (actualizado 2026-06-26): el archivo da "Operation not permitted" cuando Drive está syncando. El script <code>deploy-new-decks.sh</code> ahora hace <code>cat src &gt; tmp && mv tmp dst</code> (bypassa el lock semantics de FUSE) con retry budget <strong>12×60s = 12 min</strong> (era 5×30s = 2.5 min). Si aún así falla, hay rescate manual — ver §6 abajo.</li>
+    <li><strong>Subagentes en paralelo</strong>: para 5+ libros nuevos, lanzar en paralelo via Agent tool. Para 1-2, secuencial está bien.</li>
+    <li><strong>Cover wrong-book</strong> (lección tutino2): siempre verificar visualmente el JPG antes de commitear el <code>coverUrl</code>.</li>
+    <li><strong>Atlas refs</strong> (regla del user): máximo 1-2 <code>ref-concept</code> por párrafo; texto visible debe ser el nombre EXACTO del concepto, no paráfrasis. Otherwise se vuelve confuso y "slop".</li>
   </ul>
 </div>
+
+<h3>Rescate manual de decks (cp-failure)</h3>
+
+<p>Si en <code>deploy.log</code> ves <code>cp permanently failed</code> después de un round exitoso de generación, los decks están en local pero no en gh-pages. Rescate:</p>
+
+<pre><code>SRC="/Users/samuelmartinez/Library/CloudStorage/GoogleDrive-sartinezmelgarejo@gmail.com/Other computers/My Mac/htmls"
+DST="/tmp/sds"
+cp "$SRC/libreria.html" "$DST/libreria.html"
+cp "$SRC/decks/registry.json" "$DST/decks/registry.json"
+for bid in &lt;list-from-log&gt;; do
+  mkdir -p "$DST/decks/$bid"
+  cp "$SRC/decks/$bid/"slide-*.jpg "$DST/decks/$bid/"
+done
+cd "$DST" && git add libreria.html decks/registry.json decks/&lt;bid&gt; ...
+git commit -m "libreria: deploy missing decks (cp-failure rescue)"
+git push origin gh-pages
+</code></pre>
+
+<p>Pasó dos veces (2026-06-25, 2026-06-26) antes del fix al script — bumpear retry a 12×60s + switch a cat-stream debería evitarlo, pero el patrón de rescate queda documentado.</p>
 
 <p>Scripts existentes que componen el pipeline:</p>
 <ul>
