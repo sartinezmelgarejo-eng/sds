@@ -2553,67 +2553,65 @@ body {
    TIMELINE — schema v2 (era headers, hero/minor events, perspectivas, pilares, world rail)
    ═══════════════════════════════════════════ */
 
-/* Era header — compact-by-default, click to reveal anchor cita + pilares */
+/* Era header — editorial spread inside .tl-era, ABOVE the events */
 .tl-era-header-spread {
-  margin: 0 0 14px;
-  padding: 6px 0 8px;
+  margin: 4px 0 22px;
+  padding: 20px 22px 18px;
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--era-color, var(--gold)) 8%, transparent),
+    transparent 70%);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--era-color, var(--gold)) 14%, transparent);
   position: relative;
-  background: none;
-  border: none;
 }
-.tl-era-header-spread[data-toggleable="1"] {
-  cursor: pointer;
+.tl-era-header-spread .tl-spread-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 14px;
 }
-.tl-era-header-spread[data-toggleable="1"]::after {
-  content: '+';
-  position: absolute;
-  right: 4px;
-  top: 4px;
-  width: 18px;
-  height: 18px;
+.tl-era-header-spread .tl-spread-glyph {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: radial-gradient(circle at 35% 30%, color-mix(in srgb, var(--era-color, var(--gold)) 18%, transparent), transparent 70%);
+  border: 1.5px solid color-mix(in srgb, var(--era-color, var(--gold)) 38%, transparent);
+  color: var(--era-color, var(--gold));
+}
+.tl-era-header-spread .tl-spread-glyph svg { width: 28px; height: 28px; }
+.tl-era-header-spread .tl-spread-titles { min-width: 0; flex: 1; }
+.tl-era-header-spread .tl-spread-years {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  font-weight: 400;
-  color: color-mix(in srgb, var(--era-color, var(--gold)) 60%, var(--text-dim));
-  opacity: 0.55;
-  border: 1px solid color-mix(in srgb, var(--era-color, var(--gold)) 25%, transparent);
-  border-radius: 50%;
-  transition: opacity 0.2s, transform 0.25s ease;
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--era-color, var(--gold)) 85%, var(--text-dim));
+  margin-bottom: 6px;
 }
-.tl-era-header-spread[data-toggleable="1"]:hover::after { opacity: 1; }
-.tl-era-header-spread.expanded::after {
-  content: '−';
-  transform: rotate(180deg);
-  opacity: 1;
-}
-.tl-era-header-spread .tl-spread-titles { padding-right: 28px; }
 .tl-era-header-spread .tl-spread-label {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
-  font-weight: 300;
+  font-size: 28px;
+  line-height: 1.05;
+  letter-spacing: -0.3px;
   color: var(--era-color, var(--gold));
-  margin: 0 0 4px;
-  letter-spacing: 0.2px;
-  line-height: 1.15;
+  margin: 0;
+  font-weight: 500;
 }
 .tl-era-header-spread .tl-spread-desc {
-  font-size: 13px;
-  color: var(--text-dim);
-  line-height: 1.6;
-  margin: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15.5px;
+  font-style: italic;
+  line-height: 1.55;
+  color: var(--text);
+  opacity: 0.85;
+  margin: 6px 0 0;
 }
-.tl-era-header-spread .tl-spread-detail {
-  display: none;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px dashed color-mix(in srgb, var(--era-color, var(--gold)) 22%, transparent);
-}
-.tl-era-header-spread.expanded .tl-spread-detail { display: block; }
 .tl-era-header-spread .tl-spread-anchor {
-  margin-top: 0;
+  margin-top: 14px;
   padding: 12px 16px 10px;
   border-left: 3px solid var(--era-color, var(--gold));
   background: rgba(255,255,255,0.015);
@@ -11882,7 +11880,9 @@ body {
     }
 
     function buildEraHeaderSpread(era) {
-      // Resolve ancla cita (explicit or derived from first hero event with citas)
+      var glyph = getEraGlyph(era);
+      var glyphHTML = glyph ? '<div class="tl-spread-glyph">' + glyph + '</div>' : '';
+
       var ancla = era.ancla;
       if (!ancla && era.events) {
         var heroWithCita = era.events.find(function(e){ return e.tipo === 'hero' && e.citas && e.citas.length > 0; });
@@ -11898,7 +11898,6 @@ body {
         '</div>';
       }
 
-      // Resolve pilares (union of libros_centrales from hero events)
       var pilaresHTML = '';
       if (era.events) {
         var pilarIds = [];
@@ -11911,7 +11910,7 @@ body {
           var pilarCards = pilarIds.slice(0, 4).map(function(id) {
             var b = books.find(function(bk){ return bk.id === id; });
             if (!b) return '';
-            return '<div class="tl-pillar-card" onclick="event.stopPropagation(); openBook(\'' + b.id + '\')">' +
+            return '<div class="tl-pillar-card" onclick="openBook(\'' + b.id + '\')">' +
               getCoverHTML(b, 'tiny') +
               '<div class="tl-pillar-text">' +
                 '<div class="tl-pillar-title">' + b.title + '</div>' +
@@ -11925,20 +11924,17 @@ body {
         }
       }
 
-      // Compact-by-default header: legacy title + desc.
-      // Anchor + pilares hidden in .tl-spread-detail; revealed on click of the header.
-      // Only show the expand affordance if there's actually richness to reveal.
-      var hasRichness = anchorHTML || pilaresHTML;
-      var toggleAttr = hasRichness ? ' data-toggleable="1"' : '';
-
-      return '<div class="tl-era-header-spread"' + toggleAttr + '>' +
-        '<div class="tl-spread-titles">' +
-          '<h3 class="tl-spread-label">' + era.label + '</h3>' +
-          (era.desc ? '<p class="tl-spread-desc">' + era.desc + '</p>' : '') +
+      return '<div class="tl-era-header-spread">' +
+        '<div class="tl-spread-top">' +
+          glyphHTML +
+          '<div class="tl-spread-titles">' +
+            '<div class="tl-spread-years">' + era.years + '</div>' +
+            '<h3 class="tl-spread-label">' + era.label + '</h3>' +
+            (era.desc ? '<p class="tl-spread-desc">' + era.desc + '</p>' : '') +
+          '</div>' +
         '</div>' +
-        (hasRichness
-          ? '<div class="tl-spread-detail">' + anchorHTML + pilaresHTML + '</div>'
-          : '') +
+        anchorHTML +
+        pilaresHTML +
       '</div>';
     }
 
@@ -12068,16 +12064,6 @@ body {
         if (attr && attr.dataset.book) openBook(attr.dataset.book);
         e.stopPropagation();
         return;
-      }
-      // Era header expand/collapse (compact-by-default → reveals ancla + pilares)
-      var eraHeader = e.target.closest('.tl-era-header-spread[data-toggleable="1"]');
-      if (eraHeader) {
-        // Don't toggle if click landed on an interactive child (pillar card, concept chip, book link)
-        if (!e.target.closest('.tl-pillar-card, .tl-tooltip-book-link, .tl-concepto-chip')) {
-          eraHeader.classList.toggle('expanded');
-          e.stopPropagation();
-          return;
-        }
       }
       // feedback removed
       var richEvt = e.target.closest('.tl-event--rich');
