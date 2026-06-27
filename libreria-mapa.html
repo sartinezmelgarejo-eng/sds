@@ -2741,31 +2741,39 @@ body {
 .tl-mapa-floating-cita-attr .quote-page-link:hover { color: #fff5d8; }
 
 /* "+N more" badge near pin */
-.tl-mapa-floating-more {
+/* Small cover thumb for extra citas beyond the first 2 expanded — click to swap into the visible pair. */
+.tl-mapa-cita-thumb {
   position: absolute;
-  font-family: 'Bodoni Moda', Didot, Georgia, serif;
-  font-weight: 800;
-  font-size: 10px;
-  color: #ce1126;
-  background: #fdfcf3;
-  border: 1px solid color-mix(in srgb, #ce1126 40%, transparent);
-  padding: 4px 10px;
-  border-radius: 12px;
+  width: 44px;
+  height: 66px;
+  background-size: cover;
+  background-position: center;
+  background-color: #d8c8a8;
+  border-radius: 1px;
   cursor: pointer;
   pointer-events: auto;
   z-index: 4;
-  letter-spacing: 1px;
-  text-transform: uppercase;
   opacity: 0;
-  transition: opacity 0.3s;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  transition: opacity 0.35s, transform 0.18s, box-shadow 0.18s;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.18);
 }
-.tl-mapa-floating-more.show { opacity: 1; }
-.tl-mapa-floating-more:hover { background: #ce1126; color: #fdfcf3; }
+.tl-mapa-cita-thumb.show { opacity: 1; }
+.tl-mapa-cita-thumb:hover {
+  transform: scale(1.12) translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(0,0,0,0.18);
+  z-index: 5;
+}
+.tl-mapa-cita-thumb.placeholder {
+  background-color: #235B4E;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bodoni Moda', serif; color: #fdfcf3; font-weight: 800; font-size: 18px;
+}
+:root.light .tl-mapa-cita-thumb { box-shadow: 0 4px 10px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.18); }
+:root.light .tl-mapa-cita-thumb:hover { box-shadow: 0 8px 18px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.18); }
 
-/* Hide-citas toggle: when off, citas + more badge disappear */
+/* Hide-citas toggle: when off, citas + thumbs disappear */
 .tl-mapa-globe.no-citas .tl-mapa-floating-cita,
-.tl-mapa-globe.no-citas .tl-mapa-floating-more { display: none !important; }
+.tl-mapa-globe.no-citas .tl-mapa-cita-thumb { display: none !important; }
 
 .tl-mapa-citas-toggle {
   position: absolute;
@@ -11839,15 +11847,21 @@ body {
         e.stopPropagation();
         return;
       }
-      // "+N citas" badge → open the book detail of the first hidden cita (simplest expansion)
-      var moreBadge = e.target.closest('#tl-mapa-cita-more');
-      if (moreBadge) {
+      // Cover thumb (extra cita) → swap into the second visible card slot
+      var thumb = e.target.closest('.tl-mapa-cita-thumb');
+      if (thumb) {
+        var clickedIdx = parseInt(thumb.getAttribute('data-cita-idx'));
         var layer = container.querySelector('#tl-mapa-citas-layer');
-        var citas = (layer && layer._citas) || [];
-        // Cycle through the hidden citas in subsequent badge clicks: swap the visible pair
-        // (For now: simple — open the first hidden cita's book if available)
-        var firstHidden = citas[2];
-        if (firstHidden && firstHidden.libro) openBook(firstHidden.libro);
+        if (layer && layer._citas && !isNaN(clickedIdx)) {
+          var citas = layer._citas;
+          var pair = layer._visiblePair || [0, 1];
+          // Swap the clicked thumb's cita into position 1, demote position 1 to thumb
+          var demoted = pair[1];
+          pair[1] = clickedIdx;
+          layer._visiblePair = pair;
+          // Re-render the layer with the new pair expanded
+          rerenderCitasFor(container);
+        }
         e.stopPropagation();
         return;
       }
@@ -11935,6 +11949,80 @@ body {
     return '<span class="detalle-lead">' + esc(t.slice(0, split)) + '</span>' + esc(t.slice(split));
   }
 
+  // Re-render the citas layer using the current ev + custom visiblePair (used on thumb swaps).
+  // Builds the same DOM as the initial render but reorders cards/thumbs based on _visiblePair.
+  function rerenderCitasFor(container) {
+    var layer = container.querySelector('#tl-mapa-citas-layer');
+    if (!layer || !layer._citas) return;
+    var citas = layer._citas;
+    var pair = layer._visiblePair || [0, Math.min(1, citas.length - 1)];
+    // Build cards for the pair (in slot order)
+    function buildCard(c, idx) {
+      var bk = books.find(function(b) { return b.id === c.libro; });
+      var bkTitle = bk ? bk.title : '';
+      var pdfLink = '';
+      var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
+      if (bk && bk.filePath && BOOKS_BASE_PATH && pageMatch) {
+        var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
+        if (pdfPage < 1) pdfPage = 1;
+        pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">p.' + pdfPage + '</a>';
+      }
+      var bookColor = null;
+      if (bk && typeof estantes !== 'undefined') {
+        var est = estantes.find(function(e) { return e.id === bk.estante; });
+        if (est) bookColor = est.color;
+      }
+      var coverSrc = bk && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]));
+      var styleParts = [];
+      if (coverSrc) styleParts.push("--book-cover-bg: url('" + coverSrc.replace(/'/g, "\\'") + "') center/cover no-repeat");
+      if (bookColor) styleParts.push('--book-color: ' + bookColor);
+      var styleAttr = styleParts.length ? ' style="' + styleParts.join('; ') + '"' : '';
+      // cover html
+      var coverHtml;
+      if (coverSrc) {
+        coverHtml = '<div class="cita-cover" style="background-image:url(\'' + coverSrc.replace(/'/g, "\\'") + '\')"></div>';
+      } else {
+        var letter = (bk && bk.title ? bk.title : c.autor || '?').charAt(0).toUpperCase();
+        var author = (bk ? bk.author : c.autor || '').split(' ').slice(-1)[0] || '';
+        coverHtml = '<div class="cita-cover placeholder" data-letter="' + letter + '" data-author="' + author.replace(/"/g, '&quot;') + '"></div>';
+      }
+      var scope = layer._scope || '';
+      return '<div class="tl-mapa-floating-cita ' + (scope === 'mundo' ? 'mundo' : '') + '" data-cita-idx="' + idx + '"' + styleAttr + '>' +
+        coverHtml +
+        '<div class="cita-card-rect">' +
+          '<div class="tl-mapa-floating-cita-text">“' + c.texto + '”</div>' +
+          '<div class="tl-mapa-floating-cita-attr">' +
+            (bkTitle ? '<span class="booklink" data-book="' + c.libro + '">' + bkTitle + '</span>' : c.autor) +
+            pdfLink +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+    function buildThumb(c, idx) {
+      var bk = books.find(function(b) { return b.id === c.libro; });
+      var src = bk && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]));
+      if (src) {
+        return '<div class="tl-mapa-cita-thumb" data-cita-idx="' + idx + '" style="background-image:url(\'' + src.replace(/'/g, "\\'") + '\')" title="' + (bk ? bk.title.replace(/"/g, '&quot;') : '') + '"></div>';
+      }
+      var letter = (bk && bk.title || c.autor || '?').charAt(0).toUpperCase();
+      return '<div class="tl-mapa-cita-thumb placeholder" data-cita-idx="' + idx + '" title="' + (bk ? bk.title.replace(/"/g, '&quot;') : '') + '">' + letter + '</div>';
+    }
+    var cards = pair.filter(function(i) { return i !== undefined && i !== null && citas[i]; }).map(function(i) { return buildCard(citas[i], i); }).join('');
+    var thumbs = citas.map(function(c, i) {
+      if (pair.indexOf(i) !== -1) return '';
+      return buildThumb(c, i);
+    }).join('');
+    layer.innerHTML = cards + thumbs;
+    // Re-position with the current label data anchor
+    if (typeof container._tlMapaSelect === 'function' && typeof container._lastSelectIdx === 'number') {
+      // Triggers a redraw which calls positionFloatingCitas
+      var ev_redraw = new Event('tl-mapa-relabel');
+    }
+    // Trigger immediate position refresh: dispatch click on no-op
+    var redraw = container._tlMapaRedraw;
+    if (typeof redraw === 'function') redraw();
+  }
+
   // ── Populate floating overlays for the active event ──
   function renderMapaDetail(container, ev) {
     var detalleEl = container.querySelector('#tl-mapa-detalle');
@@ -12000,11 +12088,22 @@ body {
         '</div>' +
       '</div>';
     }).join('');
-    var moreBadge = citas.length > SHOW
-      ? '<div class="tl-mapa-floating-more" id="tl-mapa-cita-more">+' + (citas.length - SHOW)  + '</div>'
-      : '';
-    citasLayerEl.innerHTML = cards + moreBadge;
+    // Extra citas (beyond the visible pair) render as small cover thumbs.
+    // Click swaps the thumb into the second expanded slot.
+    var thumbs = citas.slice(SHOW).map(function(c, k) {
+      var idx = SHOW + k;
+      var bk = books.find(function(b) { return b.id === c.libro; });
+      var src = bk && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]));
+      if (src) {
+        return '<div class="tl-mapa-cita-thumb" data-cita-idx="' + idx + '" style="background-image:url(\'' + src.replace(/'/g, "\\'") + '\')" title="' + (bk ? bk.title.replace(/"/g, '&quot;') : '') + '"></div>';
+      }
+      var letter = (bk && bk.title || c.autor || '?').charAt(0).toUpperCase();
+      return '<div class="tl-mapa-cita-thumb placeholder" data-cita-idx="' + idx + '" title="' + (bk ? bk.title.replace(/"/g, '&quot;') : '') + '">' + letter + '</div>';
+    }).join('');
+    citasLayerEl.innerHTML = cards + thumbs;
     citasLayerEl._citas = citas;
+    citasLayerEl._visiblePair = [0, Math.min(1, citas.length - 1)];
+    citasLayerEl._scope = ev.scope;
   }
 
   function initMapaGlobe(container, events, world, mxStates) {
@@ -12168,10 +12267,10 @@ body {
       var layer = container.querySelector('#tl-mapa-citas-layer');
       if (!layer) return;
       var cards = layer.querySelectorAll('.tl-mapa-floating-cita');
-      var more = layer.querySelector('#tl-mapa-cita-more');
+      var thumbs = layer.querySelectorAll('.tl-mapa-cita-thumb');
       if (!anchor) {
         cards.forEach(function(c) { c.classList.remove('show'); });
-        if (more) more.classList.remove('show');
+        thumbs.forEach(function(t) { t.classList.remove('show'); });
         return;
       }
       var globeEl = container.querySelector('#tl-mapa-globe');
@@ -12236,10 +12335,20 @@ body {
           card.classList.add('show');
         }
       });
-      if (more) {
-        more.style.left = (anchor.x - 25) + 'px';
-        more.style.top = (anchor.y + 12) + 'px';
-        more.classList.add('show');
+      // Place cover thumbs in a row directly below the pin
+      var THUMB_W = 44, THUMB_H = 66, THUMB_GAP = 5;
+      var nThumbs = thumbs.length;
+      if (nThumbs > 0) {
+        var totalW = nThumbs * THUMB_W + (nThumbs - 1) * THUMB_GAP;
+        var startX = anchor.x - totalW / 2;
+        // Clamp horizontally
+        startX = Math.max(8, Math.min(globeW - totalW - 8, startX));
+        var ty = Math.min(globeH - THUMB_H - 8, anchor.y + 30);
+        thumbs.forEach(function(t, k) {
+          t.style.left = (startX + k * (THUMB_W + THUMB_GAP)) + 'px';
+          t.style.top = ty + 'px';
+          t.classList.add('show');
+        });
       }
     }
 
@@ -12252,6 +12361,7 @@ body {
           .style('display', function(d) { return isVisible(d.ev.lugar.coords.lng, d.ev.lugar.coords.lat) ? '' : 'none'; });
       updateLabel();
     }
+    container._tlMapaRedraw = redraw;
     redraw();
 
     // Drag (cancels any animation in flight)
