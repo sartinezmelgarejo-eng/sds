@@ -2515,6 +2515,7 @@ body {
 .tl-mapa-nav:hover { background: var(--gold); color: #0d0d1a; border-color: var(--gold); }
 .tl-mapa-nav:active { transform: scale(0.92); }
 .tl-mapa-nav:disabled { opacity: 0.3; cursor: not-allowed; }
+.tl-mapa-nav--world { font-size: 14px; margin-left: 8px; }
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -11445,6 +11446,7 @@ body {
         '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
         '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
       '</div>' +
     '</div>';
   }
@@ -11577,7 +11579,10 @@ body {
       }
       requestAnimationFrame(tick);
     }
-    function rotateTo(lng, lat) { animateTo(lng, lat, ZOOM_SCALE); }
+    var hasUserSelected = false;
+    function rotateTo(lng, lat) {
+      animateTo(lng, lat, hasUserSelected ? ZOOM_SCALE : BASE_SCALE);
+    }
     function selectIdx(idx) {
       if (idx < 0 || idx >= events.length) return;
       currentIdx = idx;
@@ -11650,6 +11655,9 @@ body {
       }
 
       if (l.coords) rotateTo(l.coords.lng, l.coords.lat);
+      // Any selection after the initial render counts as a user-driven nav, so subsequent
+      // selectIdx calls will zoom in. The very first call (auto-fires on init) stays at base scale.
+      hasUserSelected = true;
 
       // Sync the event list (scroll active into view, mark active)
       var listEvts = container.querySelectorAll('.tl-mapa-evt');
@@ -11663,11 +11671,25 @@ body {
 
     // (Event list click handler is wired in renderTimelineMapaView's delegated handler)
 
-    // Prev/Next buttons
+    // Prev/Next + world buttons
     var prevBtn = container.querySelector('#tl-mapa-prev');
     var nextBtn = container.querySelector('#tl-mapa-next');
+    var worldBtn = container.querySelector('#tl-mapa-world');
     if (prevBtn) prevBtn.addEventListener('click', function() { selectIdx(currentIdx - 1); });
     if (nextBtn) nextBtn.addEventListener('click', function() { selectIdx(currentIdx + 1); });
+    if (worldBtn) worldBtn.addEventListener('click', function() {
+      // Zoom out to base scale, keep current rotation
+      var startScale = projection.scale();
+      var t0 = performance.now(), DUR = 500;
+      function tick(now) {
+        var t = Math.min(1, (now - t0) / DUR);
+        var e = d3.easeCubicInOut(t);
+        projection.scale(startScale + (BASE_SCALE - startScale) * e);
+        redraw();
+        if (t < 1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
 
     // Keyboard nav
     function keyHandler(e) {
