@@ -2471,6 +2471,89 @@ body {
   gap: 14px;
   border-top: 1px solid rgba(200,169,96,0.08);
 }
+
+/* Detail panel: detalle + citas, sits between the globe and the nav.
+   This is where the eye lives. Keeps user from looking back at the column. */
+.tl-mapa-detail {
+  padding: 14px 22px 10px;
+  border-top: 1px solid rgba(200,169,96,0.1);
+  font-size: 13px;
+  line-height: 1.6;
+  max-height: 32vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(200,169,96,0.25) transparent;
+}
+.tl-mapa-detail::-webkit-scrollbar { width: 6px; }
+.tl-mapa-detail::-webkit-scrollbar-thumb { background: rgba(200,169,96,0.25); border-radius: 3px; }
+.tl-mapa-detail-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15.5px;
+  font-style: italic;
+  color: var(--text);
+  line-height: 1.55;
+}
+.tl-mapa-detail-citas-toggle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: var(--text-dim);
+  letter-spacing: 1.4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  padding: 10px 0 6px;
+  display: inline-block;
+  transition: color 0.2s;
+  user-select: none;
+}
+.tl-mapa-detail-citas-toggle:hover { color: var(--gold); }
+.tl-mapa-detail-citas {
+  display: none;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(200,169,96,0.12);
+}
+.tl-mapa-detail.open .tl-mapa-detail-citas { display: block; }
+.tl-mapa-detail.open .tl-mapa-detail-citas-toggle::after { content: ' ↑'; }
+.tl-mapa-detail:not(.open) .tl-mapa-detail-citas-toggle::after { content: ' ↓'; }
+.tl-mapa-detail-cita {
+  padding: 8px 0 8px 14px;
+  border-left: 2px solid rgba(200,169,96,0.22);
+  margin-bottom: 10px;
+}
+.tl-mapa-detail-cita:last-child { margin-bottom: 2px; }
+.tl-mapa-detail-cita-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--text);
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+.tl-mapa-detail-cita-attr {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.3px;
+}
+.tl-mapa-detail-cita-attr .booklink {
+  color: var(--gold-dim);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.tl-mapa-detail-cita-attr .booklink:hover { color: var(--gold); }
+.tl-mapa-detail-cita-attr .quote-page-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  color: var(--gold-dim);
+  margin-left: 6px;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+.tl-mapa-detail-cita-attr .quote-page-link:hover { color: var(--gold); }
+
+/* In mapa view, hide the column's old per-event tooltip — detail lives on the map now */
+.tl-mapa-view .tl-event-tooltip { display: none !important; }
 .tl-mapa-nav-group {
   display: flex;
   align-items: center;
@@ -11379,42 +11462,34 @@ body {
       renderTimelineView();
     });
 
-    // Wire interactions on tl-event elements (lista-style) — single tracked handler
+    // Wire interactions — single tracked handler. The detail panel lives on the map now,
+    // so column clicks just select the event. Detail panel handles its own toggle + links.
     if (container._tlMapaClickHandler) {
       container.removeEventListener('click', container._tlMapaClickHandler);
     }
     container._tlMapaClickHandler = function(e) {
-      // Tooltip close button
-      var closeBtn = e.target.closest('.tl-tooltip-close');
-      if (closeBtn) {
-        var tt = closeBtn.closest('.tl-event-tooltip');
-        if (tt) tt.classList.remove('active');
-        e.stopPropagation();
-        return;
-      }
-      // Book link inside tooltip
-      var bookLink = e.target.closest('.tl-tooltip-book-link');
-      if (bookLink) {
-        var attr = bookLink.closest('.tl-tooltip-cita-attr');
-        if (attr && attr.dataset.book) openBook(attr.dataset.book);
-        e.stopPropagation();
-        return;
-      }
-      // PDF link inside tooltip: let it work, don't toggle
+      // PDF link inside detail: let it through
       if (e.target.closest('.quote-page-link')) return;
-      // Click on an event in the mapa column → select on map + toggle tooltip
-      var ev = e.target.closest('.tl-mapa-evt');
-      if (ev) {
-        var idx = parseInt(ev.getAttribute('data-idx'));
+      // Detail panel: citas toggle
+      var togBtn = e.target.closest('#tl-mapa-detail-toggle');
+      if (togBtn) {
+        var panel = container.querySelector('#tl-mapa-detail');
+        if (panel) panel.classList.toggle('open');
+        e.stopPropagation();
+        return;
+      }
+      // Detail panel: book link
+      var bookLink = e.target.closest('.tl-mapa-detail .booklink[data-book]');
+      if (bookLink) {
+        openBook(bookLink.getAttribute('data-book'));
+        e.stopPropagation();
+        return;
+      }
+      // Click on an event in the column → select on map (detail populates automatically)
+      var evEl = e.target.closest('.tl-mapa-evt');
+      if (evEl) {
+        var idx = parseInt(evEl.getAttribute('data-idx'));
         if (!isNaN(idx)) selectIdx(idx);
-        // Toggle this event's tooltip; close all others first
-        var tt = ev.querySelector('.tl-event-tooltip');
-        if (tt) {
-          container.querySelectorAll('.tl-event-tooltip.active').forEach(function(other) {
-            if (other !== tt) other.classList.remove('active');
-          });
-          tt.classList.toggle('active');
-        }
       }
     };
     container.addEventListener('click', container._tlMapaClickHandler);
@@ -11440,6 +11515,11 @@ body {
       '<div class="tl-mapa-globe" id="tl-mapa-globe">' +
         '<div class="tl-mapa-loading"><div class="tl-mapa-spinner"></div><div>Cargando mapa...</div></div>' +
       '</div>' +
+      '<div class="tl-mapa-detail" id="tl-mapa-detail">' +
+        '<div class="tl-mapa-detail-text" id="tl-mapa-detail-text"></div>' +
+        '<div class="tl-mapa-detail-citas-toggle" id="tl-mapa-detail-toggle" style="display:none"></div>' +
+        '<div class="tl-mapa-detail-citas" id="tl-mapa-detail-citas"></div>' +
+      '</div>' +
       '<div class="tl-mapa-nav-bar">' +
         '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
         '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
@@ -11447,6 +11527,51 @@ body {
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
       '</div>' +
     '</div>';
+  }
+
+  // ── Populate the on-map detail panel for the active event ──
+  function renderMapaDetail(container, ev) {
+    var det = container.querySelector('#tl-mapa-detail-text');
+    var toggle = container.querySelector('#tl-mapa-detail-toggle');
+    var citasWrap = container.querySelector('#tl-mapa-detail-citas');
+    var panel = container.querySelector('#tl-mapa-detail');
+    if (!det) return;
+    det.textContent = ev.detalle || '';
+    var citas = ev.citas || [];
+    if (toggle) {
+      if (citas.length) {
+        toggle.textContent = citas.length + ' cita' + (citas.length > 1 ? 's' : '');
+        toggle.style.display = '';
+      } else {
+        toggle.style.display = 'none';
+      }
+    }
+    if (citasWrap) {
+      citasWrap.innerHTML = citas.map(function(c) {
+        var bk = books.find(function(b) { return b.id === c.libro; });
+        var bkTitle = bk ? bk.title : '';
+        var pdfLink = '';
+        var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
+        if (bk && bk.filePath && BOOKS_BASE_PATH && pageMatch) {
+          var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
+          if (pdfPage < 1) pdfPage = 1;
+          pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">PDF p.' + pdfPage + '</a>';
+        }
+        return '<div class="tl-mapa-detail-cita">' +
+          '<div class="tl-mapa-detail-cita-text">“' + c.texto + '”</div>' +
+          '<div class="tl-mapa-detail-cita-attr">' +
+            '— ' + c.autor +
+            (bkTitle ? ', <span class="booklink" data-book="' + c.libro + '">' + bkTitle + '</span>' : '') +
+            (c.pagina ? ', ' + c.pagina : '') +
+            pdfLink +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+    // Reset to collapsed state when switching events; user opens on demand
+    if (panel) panel.classList.remove('open');
+    // Scroll the panel back to top
+    if (panel) panel.scrollTop = 0;
   }
 
   function initMapaGlobe(container, events, world) {
@@ -11723,6 +11848,9 @@ body {
       });
       var activeEl = container.querySelector('.tl-mapa-evt--active');
       if (activeEl) activeEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+
+      // Populate the on-map detail panel
+      renderMapaDetail(container, ev);
     }
 
     // (Event list click handler is wired in renderTimelineMapaView's delegated handler)
