@@ -11703,15 +11703,22 @@ body {
 
   // ── Render mapa view ──
   function renderTimelineMapaView(container, eras, tlScope) {
-    // Collect events with lugar
+    // Collect events with lugar. The México/Mundo split is GEOGRAPHIC when
+    // we have a lugar.pais (events that happened in MX go to México, events
+    // that happened elsewhere go to Mundo). Falls back to the original
+    // ev.scope tag for events without a country code.
     var mexicoEvents = [], mundoEvents = [];
+    function isMexicoEvent(ev) {
+      if (ev.lugar && ev.lugar.pais) return ev.lugar.pais === 'MX';
+      return ev.scope !== 'mundo';
+    }
     eras.forEach(function(era) {
       era.events.forEach(function(ev) {
         if (!ev.lugar) return;
         var copy = Object.assign({}, ev);
         copy._era = era;
-        if (ev.scope === 'mundo') mundoEvents.push(copy);
-        else mexicoEvents.push(copy);
+        if (isMexicoEvent(ev)) mexicoEvents.push(copy);
+        else mundoEvents.push(copy);
       });
     });
     function sortByDate(a, b) {
