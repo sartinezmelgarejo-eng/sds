@@ -11193,6 +11193,60 @@ body {
     return __tlMapaDepsPromise;
   }
 
+  // ── Render single timeline event (shared between Lista and Mapa) ──
+  function renderSingleEvent(ev, ci, eraIdx) {
+    var hasDetail = ev.detalle || (ev.citas && ev.citas.length > 0);
+    var richClass = hasDetail ? ' tl-event--rich' : '';
+    var tooltipHTML = '';
+    if (hasDetail) {
+      var detailPart = ev.detalle
+        ? '<div class="tl-tooltip-detail">' + ev.detalle + '</div>'
+        : '';
+      var citasPart = (ev.citas || []).map(function(c, citaI) {
+        var bk = books.find(function(b) { return b.id === c.libro; });
+        var bkTitle = bk ? bk.title : '';
+        var citaId = eraIdx + '::' + (ev.world ? 'w' : '') + ev.year + '::' + citaI;
+        var pdfPageLink = '';
+        if (bk && bk.filePath && BOOKS_BASE_PATH && !IS_MOBILE && c.pagina) {
+          var pageMatch = c.pagina.match(/^p\.\s*(\d+)/);
+          if (pageMatch) {
+            var bookPage = parseInt(pageMatch[1]);
+            var offset = PDF_PAGE_OFFSET[c.libro] || 0;
+            var pdfPage = bookPage + offset;
+            if (pdfPage < 1) pdfPage = 1;
+            var pdfUrl = getFileURL(bk.filePath) + '#page=' + pdfPage;
+            pdfPageLink = ' <a href="' + pdfUrl + '" class="quote-page-link" target="_blank" onclick="event.stopPropagation();">📄 Ver en PDF</a>';
+          }
+        }
+        return '<div class="tl-tooltip-cita" data-cita-id="' + citaId + '">' +
+          '<div class="tl-tooltip-cita-text">“' + c.texto + '”</div>' +
+          '<div class="tl-tooltip-cita-attr" data-book="' + c.libro + '">' +
+            '— ' + c.autor +
+            (bkTitle ? ', <span class="tl-tooltip-book-link" onclick="event.stopPropagation(); openBook(\'' + c.libro + '\');">' + bkTitle + '</span>' : '') +
+            (c.pagina ? ', ' + c.pagina : '') +
+            pdfPageLink +
+          '</div>' +
+        '</div>';
+      }).join('');
+      tooltipHTML = '<div class="tl-event-tooltip">' +
+        '<button class="tl-tooltip-close">×</button>' +
+        detailPart +
+        (citasPart ? '<div class="tl-tooltip-citas">' + citasPart + '</div>' : '') +
+      '</div>';
+    }
+    var scopeAttr = ev.scope ? ' data-scope="' + ev.scope + '"' : ' data-scope="mexico"';
+    var dateStr = ev._date ? formatEventDate(ev._date) : '';
+    var worldMark = ev.world ? '<span class="tl-event-world-dot" title="Mundo"></span>' : '';
+    var dateBlock = (dateStr || ev.world)
+      ? '<div class="tl-event-date">' + worldMark + dateStr + '</div>'
+      : '<div class="tl-event-date tl-event-date--empty">' + worldMark + '</div>';
+    return '<div class="tl-event' + richClass + (ev.world ? ' tl-event--world' : '') + '"' + scopeAttr + '>' +
+      dateBlock +
+      '<div class="tl-event-text">' + ev.text + '</div>' +
+      tooltipHTML +
+    '</div>';
+  }
+
   // ── Render mapa view event as a year-grouped column (same look as Lista) ──
   function renderMapaColumn(events) {
     if (!events.length) return '';
