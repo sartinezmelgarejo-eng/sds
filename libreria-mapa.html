@@ -2529,7 +2529,7 @@ body {
   color: #1a1a1a;
 }
 
-/* Cita cards: just cream paper bg, no pattern. Quote takes the focus. */
+/* Cita cards: cream paper with a soft, blurred wash of the book's shelf color */
 .tl-mapa-floating-cita {
   position: absolute;
   width: 320px;
@@ -2546,8 +2546,25 @@ body {
   display: flex;
   gap: 13px;
   align-items: flex-start;
+  overflow: hidden;
+  isolation: isolate;
 }
 .tl-mapa-floating-cita.mundo { border-color: rgba(44,77,110,0.22); }
+/* Soft color wash from the book's shelf color, anchored under the cover */
+.tl-mapa-floating-cita::before {
+  content: '';
+  position: absolute;
+  left: -10%;
+  top: -10%;
+  width: 80%;
+  height: 130%;
+  background: radial-gradient(ellipse at 25% 50%, var(--book-color, transparent) 0%, transparent 65%);
+  opacity: 0.28;
+  filter: blur(14px);
+  pointer-events: none;
+  z-index: -1;
+}
+.tl-mapa-floating-cita > * { position: relative; z-index: 0; }
 .tl-mapa-floating-cita.show { opacity: 1; transform: translateY(0); }
 .tl-mapa-floating-cita .cita-cover {
   flex-shrink: 0;
@@ -11808,7 +11825,13 @@ body {
         if (pdfPage < 1) pdfPage = 1;
         pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">p.' + pdfPage + '</a>';
       }
-      return '<div class="tl-mapa-floating-cita ' + (ev.scope === 'mundo' ? 'mundo' : '') + '" data-cita-idx="' + idx + '">' +
+      var bookColor = null;
+      if (bk && typeof estantes !== 'undefined') {
+        var est = estantes.find(function(e) { return e.id === bk.estante; });
+        if (est) bookColor = est.color;
+      }
+      var styleAttr = bookColor ? ' style="--book-color: ' + bookColor + '"' : '';
+      return '<div class="tl-mapa-floating-cita ' + (ev.scope === 'mundo' ? 'mundo' : '') + '" data-cita-idx="' + idx + '"' + styleAttr + '>' +
         coverHTML(bk, c.autor) +
         '<div class="cita-body">' +
           '<div class="tl-mapa-floating-cita-text">“' + c.texto + '”</div>' +
