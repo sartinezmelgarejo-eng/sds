@@ -58,7 +58,8 @@
   border-left-color: #4a6a8e;
   background: rgba(74,106,142,0.06);
 }
-:root.light .tl-event--world .tl-event-year { color: #4a6a8e; }
+:root.light .tl-event--world .tl-event-date { color: #4a6a8e; }
+:root.light .tl-year-marker { color: var(--era-color, var(--gold)); opacity: 0.85; }
 :root.light .poder-historia p:first-child::first-letter { color: #8a6d2e; }
 :root.light .concepto-tl-dot { box-shadow: 0 0 0 3px #e8e0d2; }
 :root.light .placeholder-cover, :root.light .placeholder-cover-mini {
@@ -2321,15 +2322,65 @@ body {
   margin-bottom: 20px;
 }
 
+/* Year-grouped layout: big year on the left, stack of events on the right */
+.tl-year-group {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 0 18px;
+  margin-bottom: 18px;
+  align-items: start;
+}
+.tl-year-marker {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 30px;
+  font-weight: 300;
+  color: var(--era-color, var(--gold));
+  line-height: 1;
+  letter-spacing: -0.5px;
+  padding-top: 10px;
+  text-align: right;
+  opacity: 0.95;
+}
+.tl-year-events {
+  border-left: 1px solid rgba(200,169,96,0.18);
+  padding-left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Per-event date prefix: month + day in mono, lowercase */
+.tl-event-date {
+  flex-shrink: 0;
+  min-width: 52px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  text-transform: lowercase;
+  padding-top: 3px;
+  opacity: 0.75;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.tl-event-date--empty { opacity: 0; }
+.tl-event-world-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6b8aad;
+  flex-shrink: 0;
+}
+
 /* World events in unified timeline: steel blue accent */
 .tl-event--world {
   border-left: 2px solid #6b8aad;
-  padding-left: 10px;
-  margin-left: 4px;
   background: rgba(107,138,173,0.04);
   border-radius: 4px;
 }
-.tl-event--world .tl-event-year {
+.tl-event--world .tl-event-date {
   color: #6b8aad;
 }
 .tl-event--world .tl-event-text {
@@ -2341,34 +2392,35 @@ body {
 /* Mexico events in unified timeline: gold accent */
 .tl-event:not(.tl-event--world) {
   border-left: 2px solid rgba(200,169,96,0.3);
-  padding-left: 10px;
-  margin-left: 4px;
 }
 
 .tl-event {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: flex-start;
-  margin-bottom: 10px;
-  padding: 8px 12px;
-  border-radius: 6px;
+  padding: 6px 10px;
+  border-radius: 4px;
   transition: background 0.3s;
 }
 .tl-event:hover { background: var(--surface); }
 
-.tl-event-year {
-  flex-shrink: 0;
-  min-width: 60px;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--era-color, var(--gold));
-}
-
 .tl-event-text {
   font-size: 13px;
   color: var(--text-dim);
-  line-height: 1.6;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .tl-year-group {
+    grid-template-columns: 64px 1fr;
+    gap: 0 12px;
+  }
+  .tl-year-marker {
+    font-size: 22px;
+    padding-top: 8px;
+  }
+  .tl-year-events { padding-left: 10px; }
+  .tl-event-date { min-width: 44px; font-size: 10px; }
 }
 
 /* Books grid within era */
@@ -10614,7 +10666,77 @@ body {
 
   // ══════════════════════════════════════════════
   
-  var timelineEras = []; 
+  var timelineEras = [];
+
+  // ── Date parsing helpers (extract year/month/day from event.year string) ──
+  var TL_MONTH_NAMES = {
+    'enero':1,'ene':1,'jan':1,'january':1,
+    'febrero':2,'feb':2,'february':2,
+    'marzo':3,'mar':3,'march':3,
+    'abril':4,'abr':4,'apr':4,'april':4,
+    'mayo':5,'may':5,
+    'junio':6,'jun':6,'june':6,
+    'julio':7,'jul':7,'july':7,
+    'agosto':8,'ago':8,'aug':8,'august':8,
+    'septiembre':9,'sept':9,'sep':9,'september':9,
+    'octubre':10,'oct':10,'october':10,
+    'noviembre':11,'nov':11,'november':11,
+    'diciembre':12,'dic':12,'dec':12,'december':12
+  };
+  var TL_MONTH_ABBR = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+  function parseEventDate(yr) {
+    var s = String(yr).trim();
+    var sl = s.toLowerCase();
+    var r = { year: null, month: null, day: null, isBC: false, raw: s };
+    if (/a\.?\s*c\.?|b\.?\s*c\.?/i.test(sl)) r.isBC = true;
+    var m = s.match(/^(-?\d{1,4})-(\d{1,2})(?:-(\d{1,2}))?\s*$/);
+    if (m) {
+      var y = parseInt(m[1]);
+      if (Math.abs(y) >= 100 || m[1].charAt(0) === '-') {
+        r.year = y;
+        r.month = parseInt(m[2]);
+        if (m[3]) r.day = parseInt(m[3]);
+        return r;
+      }
+    }
+    var dmy = s.match(/^(\d{1,2})-(\d{1,2})-(\d{1,4})$/);
+    if (dmy) {
+      var d3 = parseInt(dmy[1]), mo3 = parseInt(dmy[2]), y3 = parseInt(dmy[3]);
+      if (y3 >= 100) {
+        r.day = d3; r.month = mo3; r.year = y3;
+        return r;
+      }
+    }
+    if (/^-\d+$/.test(s)) {
+      r.year = parseInt(s); return r;
+    }
+    var monthMatch = sl.match(/\b(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|sept|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic|january|february|march|april|june|july|august|september|october|november|december|jan|apr|aug|dec)\b/);
+    if (monthMatch) {
+      r.month = TL_MONTH_NAMES[monthMatch[1]];
+      var dayMatch = sl.match(/\b(\d{1,2})\s*(?:de\s+)?(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|sept|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\b/);
+      if (dayMatch) r.day = parseInt(dayMatch[1]);
+    }
+    var ym = s.match(/\b(\d{4})\b/) || s.match(/\b(\d{3})\b/) || s.match(/(\d+)/);
+    if (ym) {
+      r.year = parseInt(ym[1]);
+      if (r.isBC) r.year = -r.year;
+    }
+    return r;
+  }
+  function formatYearMarker(yr) {
+    if (yr === null || yr === undefined) return '?';
+    if (yr < 0) return Math.abs(yr) + ' a.C.';
+    return String(yr);
+  }
+  function formatEventDate(d) {
+    if (d.month) {
+      var m = TL_MONTH_ABBR[d.month - 1];
+      if (d.day) return m + ' ' + d.day;
+      return m;
+    }
+    return '';
+  }
 
   function applyTimelineScope(container, scope) {
     var tl = container.querySelector('.tl-timeline');
@@ -10627,6 +10749,14 @@ body {
         var visible = (scope === 'ambos') || (scope === evScope);
         ev.style.display = visible ? '' : 'none';
         if (visible) anyVisible = true;
+      });
+      // Hide year-groups that have no visible events
+      era.querySelectorAll('.tl-year-group').forEach(function(yg) {
+        var hasVisible = false;
+        yg.querySelectorAll('.tl-event').forEach(function(ev) {
+          if (ev.style.display !== 'none') hasVisible = true;
+        });
+        yg.style.display = hasVisible ? '' : 'none';
       });
       // Hide whole era if no events visible
       era.style.display = anyVisible ? '' : 'none';
@@ -11463,8 +11593,13 @@ body {
         '</div>';
       }
       var scopeAttr = ev.scope ? ' data-scope="' + ev.scope + '"' : ' data-scope="mexico"';
+      var dateStr = ev._date ? formatEventDate(ev._date) : '';
+      var worldMark = ev.world ? '<span class="tl-event-world-dot" title="Mundo"></span>' : '';
+      var dateBlock = (dateStr || ev.world)
+        ? '<div class="tl-event-date">' + worldMark + dateStr + '</div>'
+        : '<div class="tl-event-date tl-event-date--empty">' + worldMark + '</div>';
       return '<div class="tl-event' + richClass + (ev.world ? ' tl-event--world' : '') + '"' + scopeAttr + '>' +
-        '<div class="tl-event-year">' + (ev.world ? '\uD83C\uDF0D ' : '') + ev.year + '</div>' +
+        dateBlock +
         '<div class="tl-event-text">' + ev.text + '</div>' +
         tooltipHTML +
       '</div>';
@@ -11504,13 +11639,43 @@ body {
         '</div>';
       }).join('');
 
-      // Events — single timeline, sorted by year (Mexico + World mixed)
-      // Sort: parse year as int, keep original order for same year
-      era.events.sort(function(a, b) {
-        return (parseInt(a.year) || 0) - (parseInt(b.year) || 0);
+      // Parse + sort events by full date (year/month/day)
+      era.events.forEach(function(ev) {
+        ev._date = parseEventDate(ev.year);
       });
+      era.events.sort(function(a, b) {
+        var ya = a._date.year ?? 99999, yb = b._date.year ?? 99999;
+        if (ya !== yb) return ya - yb;
+        var ma = a._date.month || 0, mb = b._date.month || 0;
+        if (ma !== mb) return ma - mb;
+        var da = a._date.day || 0, db = b._date.day || 0;
+        return da - db;
+      });
+
+      // Group by year
+      var yearGroups = [];
+      var currentGroup = null;
+      era.events.forEach(function(ev, i) {
+        var y = ev._date.year;
+        if (!currentGroup || currentGroup.year !== y) {
+          currentGroup = { year: y, events: [], indices: [] };
+          yearGroups.push(currentGroup);
+        }
+        currentGroup.events.push(ev);
+        currentGroup.indices.push(i);
+      });
+
       const eventsBlock = '<div class="tl-events">' +
-        era.events.map((ev, i) => renderSingleEvent(ev, i, eraIdx)).join('') +
+        yearGroups.map(function(grp) {
+          var yMark = formatYearMarker(grp.year);
+          var inner = grp.events.map(function(ev, k) {
+            return renderSingleEvent(ev, grp.indices[k], eraIdx);
+          }).join('');
+          return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
+            '<div class="tl-year-marker">' + yMark + '</div>' +
+            '<div class="tl-year-events">' + inner + '</div>' +
+          '</div>';
+        }).join('') +
       '</div>';
 
       return groupHeader + '<div class="tl-era" data-era-key="' + (era.key || '') + '" data-era-years="' + era.years + '" data-era-label="' + era.label.replace(/"/g,'&quot;') + '" style="--era-color:' + era.color + '">' +
@@ -11980,7 +12145,7 @@ button:focus-visible, input:focus-visible, [onclick]:focus-visible, summary:focu
 }
 
 /* Numerales antiguos en años y cifras serif */
-.stat-num, .tl-event-year, .tl-era-years, .tl-book-author,
+.stat-num, .tl-year-marker, .tl-era-years, .tl-book-author,
 .featured-author-line, .estante-book-year, .concepto-tl-year {
   font-feature-settings: "onum" 1, "pnum" 1;
 }
