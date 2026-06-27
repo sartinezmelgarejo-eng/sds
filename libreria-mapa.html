@@ -2406,28 +2406,55 @@ body {
 .tl-mapa-globe-wrap {
   position: sticky;
   top: 0;
-  background: radial-gradient(ellipse at center, #1a1410 0%, #0e0b08 70%);
-  border-radius: 12px;
-  border: 1px solid rgba(200,169,96,0.12);
-  overflow: hidden;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 .tl-mapa-globe-header {
-  padding: 10px 14px;
-  border-bottom: 1px solid rgba(200,169,96,0.12);
-  font-size: 11px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
+  padding: 4px 4px 10px;
+  border-bottom: 1px solid rgba(200,169,96,0.08);
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
 }
-.tl-mapa-globe-header > .tl-mapa-loc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tl-mapa-globe-header span b { color: var(--text); font-weight: 500; text-transform: none; letter-spacing: 0; }
+.tl-mapa-loc {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tl-mapa-loc-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+.tl-mapa-loc-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--gold);
+  line-height: 1.1;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-mapa-loc-name.mundo { color: #7faed8; }
+.tl-mapa-loc-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+  margin-top: 1px;
+}
 .tl-mapa-nav-group {
   display: flex;
   align-items: center;
@@ -11302,7 +11329,11 @@ body {
   function buildGlobeBlock(total) {
     return '<div class="tl-mapa-globe-wrap">' +
       '<div class="tl-mapa-globe-header">' +
-        '<span class="tl-mapa-loc"><b id="tl-mapa-current-yr">—</b> · <b id="tl-mapa-current-loc">—</b></span>' +
+        '<div class="tl-mapa-loc">' +
+          '<div class="tl-mapa-loc-year" id="tl-mapa-current-yr">—</div>' +
+          '<div class="tl-mapa-loc-name" id="tl-mapa-current-loc">—</div>' +
+          '<div class="tl-mapa-loc-meta" id="tl-mapa-current-meta"></div>' +
+        '</div>' +
         '<div class="tl-mapa-nav-group">' +
           '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
           '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
@@ -11442,9 +11473,14 @@ body {
       var l = ev.lugar;
       var hdr1 = container.querySelector('#tl-mapa-current-yr');
       var hdr2 = container.querySelector('#tl-mapa-current-loc');
+      var hdr3 = container.querySelector('#tl-mapa-current-meta');
       var ctr = container.querySelector('#tl-mapa-counter');
       if (hdr1) hdr1.textContent = ev.year;
-      if (hdr2) hdr2.textContent = l.nombre + ' (' + l.tipo + ', ' + l.pais + ')';
+      if (hdr2) {
+        hdr2.textContent = l.nombre;
+        hdr2.classList.toggle('mundo', ev.scope === 'mundo');
+      }
+      if (hdr3) hdr3.textContent = l.tipo + ' · ' + l.pais;
       if (ctr) ctr.textContent = (idx + 1) + ' / ' + events.length;
       var pBtn = container.querySelector('#tl-mapa-prev');
       var nBtn = container.querySelector('#tl-mapa-next');
