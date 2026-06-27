@@ -2331,6 +2331,38 @@ body {
 .tl-mapa-events {
   display: flex;
   flex-direction: column;
+  gap: 28px;
+}
+/* Era group inside the mapa column: title + years + a left rail color */
+.tl-mapa-era {
+  padding-left: 14px;
+  border-left: 2px solid var(--era-color, var(--gold));
+}
+.tl-mapa-era-header {
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(200,169,96,0.15);
+}
+.tl-mapa-era-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: var(--era-color, var(--gold));
+  line-height: 1.2;
+}
+.tl-mapa-era-years {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-top: 4px;
+  opacity: 0.85;
+}
+.tl-mapa-era-events {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 .tl-mapa-event {
@@ -11613,26 +11645,51 @@ body {
   // ── Render mapa view event as a year-grouped column (same look as Lista) ──
   function renderMapaColumn(events) {
     if (!events.length) return '';
-    var yearGroups = [];
-    var cur = null;
+    // Group by era first (preserving the era order events arrive in),
+    // then by year inside each era.
+    var eraGroups = [];
+    var byEra = {};
     events.forEach(function(ev) {
-      var y = ev._date && ev._date.year;
-      if (!cur || cur.year !== y) {
-        cur = { year: y, events: [] };
-        yearGroups.push(cur);
+      var era = ev._era;
+      if (!era) return;
+      var key = era.label || era.key || 'unknown';
+      if (!byEra[key]) {
+        byEra[key] = { era: era, events: [] };
+        eraGroups.push(byEra[key]);
       }
-      cur.events.push(ev);
+      byEra[key].events.push(ev);
     });
-    return '<div class="tl-events tl-mapa-events">' + yearGroups.map(function(grp) {
-      var yMark = formatYearMarker(grp.year);
-      var inner = grp.events.map(function(ev) {
-        // Use renderSingleEvent but inject data-idx for selection
-        var raw = renderSingleEvent(ev, ev._idx, 0);
-        return raw.replace('<div class="tl-event', '<div data-idx="' + ev._idx + '" class="tl-event tl-mapa-evt');
+    return '<div class="tl-events tl-mapa-events">' + eraGroups.map(function(eg) {
+      var era = eg.era;
+      var color = era.color || 'var(--gold)';
+      // Year-group inside the era
+      var yearGroups = [];
+      var cur = null;
+      eg.events.forEach(function(ev) {
+        var y = ev._date && ev._date.year;
+        if (!cur || cur.year !== y) {
+          cur = { year: y, events: [] };
+          yearGroups.push(cur);
+        }
+        cur.events.push(ev);
+      });
+      var yearsHTML = yearGroups.map(function(grp) {
+        var yMark = formatYearMarker(grp.year);
+        var inner = grp.events.map(function(ev) {
+          var raw = renderSingleEvent(ev, ev._idx, 0);
+          return raw.replace('<div class="tl-event', '<div data-idx="' + ev._idx + '" class="tl-event tl-mapa-evt');
+        }).join('');
+        return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
+          '<div class="tl-year-marker">' + yMark + '</div>' +
+          '<div class="tl-year-events">' + inner + '</div>' +
+        '</div>';
       }).join('');
-      return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
-        '<div class="tl-year-marker">' + yMark + '</div>' +
-        '<div class="tl-year-events">' + inner + '</div>' +
+      return '<div class="tl-mapa-era" style="--era-color: ' + color + '">' +
+        '<div class="tl-mapa-era-header">' +
+          '<div class="tl-mapa-era-title">' + era.label + '</div>' +
+          '<div class="tl-mapa-era-years">' + era.years + '</div>' +
+        '</div>' +
+        '<div class="tl-mapa-era-events">' + yearsHTML + '</div>' +
       '</div>';
     }).join('') + '</div>';
   }
