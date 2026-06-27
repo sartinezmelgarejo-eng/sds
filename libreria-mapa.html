@@ -2427,63 +2427,40 @@ body {
 :root.light .tl-mapa-globe-wrap {
   background: rgba(244, 237, 224, 0.65);
 }
-/* Active event header: the anchor, always visible above the globe */
+/* Globe header: just the place + year. The story sits in the column. */
 .tl-mapa-loc {
-  padding: 14px 18px 12px;
+  padding: 12px 18px 10px;
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   align-items: center;
-  border-bottom: 1px solid rgba(200,169,96,0.08);
+  border-bottom: 1px solid rgba(200,169,96,0.06);
 }
 .tl-mapa-loc-year {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: 10.5px;
   letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-dim);
+  opacity: 0.85;
 }
 .tl-mapa-loc-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 23px;
+  font-size: 26px;
   font-weight: 400;
-  color: var(--text);
-  line-height: 1.2;
+  color: var(--gold);
+  line-height: 1.15;
   letter-spacing: -0.3px;
   max-width: 100%;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
-.tl-mapa-loc-where {
-  font-family: 'Cormorant Garamond', serif;
-  font-style: italic;
-  font-size: 14px;
-  color: var(--gold);
-  margin-top: 1px;
-}
-.tl-mapa-loc-where.mundo { color: #7faed8; }
-.tl-mapa-loc-detalle {
-  font-size: 11.5px;
-  color: var(--text-dim);
-  line-height: 1.5;
-  margin-top: 6px;
-  max-width: 92%;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  font-style: italic;
-}
-.tl-mapa-loc-meta {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9.5px;
-  letter-spacing: 0.5px;
-  color: var(--text-dim);
-  margin-top: 4px;
-}
+.tl-mapa-loc-name.mundo { color: #7faed8; }
+.tl-mapa-loc-where, .tl-mapa-loc-detalle, .tl-mapa-loc-meta { display: none; }
 
 /* Nav bar at the bottom of the globe area, where the thumb reaches */
 .tl-mapa-nav-bar {
@@ -11328,9 +11305,7 @@ body {
     var mexHTML = renderMapaColumn(mexicoEvents);
     var munHTML = renderMapaColumn(mundoEvents);
 
-    var notice = totalAll > allEvents.length
-      ? '<div class="tl-mapa-notice">Vista mapa: ' + allEvents.length + ' de ' + totalAll + ' eventos con ubicación. Las otras eras están en proceso de geocodificación.</div>'
-      : '';
+    var notice = '';
 
     var bodyHTML;
     if (tlScope === 'ambos') {
@@ -11618,22 +11593,8 @@ body {
       var ctr = container.querySelector('#tl-mapa-counter');
       if (hdr1) hdr1.textContent = ev.year;
       if (hdr2) {
-        hdr2.textContent = ev.text;
-      }
-      if (hdrW) {
-        hdrW.textContent = 'en ' + l.nombre;
-        hdrW.classList.toggle('mundo', ev.scope === 'mundo');
-      }
-      if (hdrD) {
-        // Show first chunk of detalle as a snippet anchor
-        var det = (ev.detalle || '').trim();
-        // Strip up to repeating "Caída de México-Tenochtitlan:" type prefix matching ev.text
-        if (det && ev.text && det.toLowerCase().startsWith(ev.text.toLowerCase().slice(0, 25))) {
-          var afterColon = det.indexOf(':');
-          if (afterColon > 0 && afterColon < 80) det = det.slice(afterColon + 1).trim();
-        }
-        hdrD.textContent = det;
-        hdrD.style.display = det ? '' : 'none';
+        hdr2.textContent = l.nombre;
+        hdr2.classList.toggle('mundo', ev.scope === 'mundo');
       }
       if (hdr3) {
         // Only show country code if name doesn't already contain it
@@ -11776,17 +11737,7 @@ body {
           { year: '-1762', text: 'Hammurabi promulga edicto de mīšarum en Larsa', detalle: 'En el primer año tras la conquista (1762 a.C.), Hammurabi promulga un edicto de mīšarum —cancelación general de deudas— como piedra angular para reconstruir la prosperidad de Larsa. Según Kraus y Ellis, Hammurabi habría honrado un edicto previo de Rīm-Sîn de Larsa, promulgado probablemente por el jubileo del año 60 de su reinado. Es uno de los testimonios más claros del mecanismo cíclico de \'borrón y cuenta nueva\' que Hudson ha identificado como la clave de la sostenibilidad del orden socioeconómico del Bronce.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'There is every indication that Hammurabi\'s intent was to rebuild the city\'s prosperity. The cornerstone of this effort was his enactment of a debt-annulment edict in the first year following the conquest. ... Ellis 1976: 44–45 followed Kraus in understanding the edict to have honored a pre-existing edict of Rīm-Sîn\'s, presumably promulgated for the jubilee of his sixtieth year.', libro: 'hudson-ancient', pagina: '229'}] },
           { year: '-1750', text: 'Código de Hammurabi', detalle: 'Hacia 1750 a.C., al final de su reinado, Hammurabi de Babilonia (1792-1750) hace inscribir su célebre código en estelas de diorita. El código fija tarifas oficiales de salario para jornaleros agrícolas, regula el muškēnum (literalmente \'el que se postra\', el dependiente libre empobrecido que vende su libertad a cambio de protección), establece límites de tres años para la servidumbre por deudas y codifica los oficios. Steinkeller observa que el muškēnum es la prueba de que la dependencia laboral en la Babilonia paleobabilónica era principalmente económica, no jurídica.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'I refer here to the narrow (legal) sense of muškēnum, which is used in the Hammurabi Code and other OB law collections. As the etymology of this term shows, muškēnum, \'the one who prostrates himself,\' originally designated a person who assumes the status of dependence vis-à-vis another individual or some institution, most commonly, an impoverished freeman voluntarily agreeing to serve another person in exchange for upkeep and protection.', libro: 'hudson-ancient', pagina: '32'}] },
           { year: '-1646', text: 'Edicto de mīšarum de Ammi-saduqa', detalle: 'Ammi-saduqa de Babilonia (1646-1626 a.C.), tataranieto de Hammurabi, promulga al inicio de su reinado el edicto de mīšarum mejor conservado: cancela las deudas no comerciales acumuladas por los súbditos libres y los muškēnu, restaura las tierras vendidas bajo coacción y libera a los siervos por deudas. Es el último gran \'edicto de equidad\' documentado de la dinastía babilónica antes del colapso del Bronce; Hudson lo ha analizado extensamente como prueba del carácter institucionalizado del clean slate. El presente volumen lo asume como horizonte del periodo paleobabilónico.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'Throughout the recorded history of Mesopotamia corvée was the main source of labor. This was especially true of large construction projects. Steinkeller and Richardson show that such an employment of corvée is particularly well documented in the Ur III and Old Babylonian periods.', libro: 'hudson-ancient', pagina: '19'}] },
-          { year: '-1595', text: 'Mursili I saquea Babilonia', detalle: 'El año 1595 a.C. cierra el período paleobabilónico con la incursión del rey hitita Mursili I, que saquea Babilonia y termina con la dinastía amorrea. El reino cae poco después en manos de los casitas, que gobernarán Babilonia durante más de cuatro siglos. Para Hudson y los autores del volumen es también el inicio del lento eclipse del modelo del clean slate babilónico, en favor de un orden de propiedad más rígido y privatizado en el Levante y la Egeida del segundo milenio.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'Frayne, Douglas (1990), Old Babylonian Period (2003–1595 BC).', libro: 'hudson-ancient', pagina: '293'}] }
-        ],
-        bookIds: ['hudson-ancient']
-      },
-      {
-        group: 'mesoamerica',
-        label: 'Olmecas — Cultura Madre',
-        years: '1500 – 400 a.C.',
-        color: '#2dd4a8',
-        desc: 'La primera gran civilización de Mesoamérica. San Lorenzo y La Venta: cabezas colosales, pirámides, escritura, calendario, el juego de pelota y el concepto del cero. Todo lo que vendrá después tiene raíz olmeca.',
-        events: [
+          { year: '-1595', text: 'Mursili I saquea Babilonia', detalle: 'El año 1595 a.C. cierra el período paleobabilónico con la incursión del rey hitita Mursili I, que saquea Babilonia y termina con la dinastía amorrea. El reino cae poco después en manos de los casitas, que gobernarán Babilonia durante más de cuatro siglos. Para Hudson y los autores del volumen es también el inicio del lento eclipse del modelo del clean slate babilónico, en favor de un orden de propiedad más rígido y privatizado en el Levante y la Egeida del segundo milenio.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'Frayne, Douglas (1990), Old Babylonian Period (2003–1595 BC).', libro: 'hudson-ancient', pagina: '293'}] },
           { year: '-1200', text: 'Colapso del Bronce Final', detalle: 'Hacia 1200 a.C. el llamado Colapso del Bronce Final destruye los grandes palacios del Mediterráneo Oriental: Hatti, Ugarit, Pilos, Micenas, los centros levantinos. El último capítulo del volumen (Palaima) trata el caso micénico —Lineal B, palacios, contabilidad del trabajo en tablillas. Para los autores este colapso marca el cierre del modelo del \'gran palacio\' redistributivo del Bronce y prepara las condiciones para la aparición, en la Edad del Hierro, de economías más monetizadas, comercio fenicio, y eventualmente la polis griega clásica.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: '10. Palaima ... documents the Mycenaean society. ... Although similar forms of remuneration in kind existed in many other ancient civilizations, both in the Old and New Worlds...', libro: 'hudson-ancient', pagina: '4'}] },
           { year: '-881', text: 'Aššurnaṣirpal II edifica Kalḫu con deportados', detalle: 'En su tercer año de reinado (881 a.C.) Aššurnaṣirpal II de Asiria deporta 1,200 soldados zamuanos para edificar su nueva capital Kalḫu (la moderna Nimrud). Las deportaciones continúan: 3,050 de Suḫu (878), 500 de Laqû (877), 2,500 de Bīt-Adini (876), 3,000 de Bīt-Zamāni y Šubrû (866). Richardson calcula que la construcción de Kalḫu consumió más de 49 millones de jornadas de trabajo en quince años. El imperio neoasirio inaugura así una economía coercitiva basada en la deportación masiva como sustituto del andurārum babilónico, marcando el quiebre del modelo del clean slate.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'Aššurnaṣirpal was relatively specific in his claims about the dates, sizes, and origins of deportee labor forces specifically expropriated to Kalḫu for building work — from the 1,200 Zamuan troops (ERÉN.MEŠ) deported in his Year 3 (881 BC) to the 3,000 captives (šallātu) from Bīt-Zamāni and Šubrû in his tenth campaign (probably 866 BC).', libro: 'hudson-ancient', pagina: '220'}] },
           { year: '-744', text: 'Reformas imperiales de Tiglath-pileser III', detalle: 'Bajo Tiglath-pileser III (744-725 a.C.), el reformador del imperio neoasirio, se documenta la primera evidencia escrita de trabajo asalariado en Asiria: un recibo del 738 a.C. en el Palacio del Gobernador de Kalḫu, por una suma de cobre como compensación por salarios. Karen Radner muestra que el imperio neoasirio recurría sistemáticamente a mercenarios extranjeros, guardaespaldas, escoltas de caravanas y soldados a sueldo. El registro económico desmiente la imagen de una economía imperial puramente coercitiva.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'The earliest reference dates to the reign of Tiglath-pileser III (r. 744–725 BC). It is a legal document from the Governor\'s Palace in Kalhu (738 BC; Postgate 1973: no. 98; Radner 2007a: no. 1) in the form of a receipt for a sum of copper which is described as compensation for the recipient\'s wages.', libro: 'hudson-ancient', pagina: '303'}] },
@@ -11798,6 +11749,17 @@ body {
           { year: '-550', text: 'Ciro II funda el imperio aqueménida', detalle: 'En 550 a.C. Ciro II de Anshan, persa, derrota al medo Astiages y unifica Media y Persia, fundando el imperio aqueménida. En 539 toma Babilonia sin batalla, autorizando el regreso de los exiliados judíos (Edicto de Ciro). El archivo de Itti-Šamaš-balāṭu de Larsa muestra cómo un mercenario contratado, Amurru-šarru-uṣur, sirve como soldado del rey por la familia archive-owner desde el año 12 de Nabonido hasta el año 2 de Ciro: la transición imperial babilonia-persa fue absorbida sin ruptura por las redes privadas de trabajo asalariado.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'His son Amurru-šarru-uṣur acted as the \'king\'s soldier\' (ṣāb šarri) of Itti-Šamaš-balāṭu\'s sons from the twelfth(?) year of Nabonidus onwards at least until the second year of Cyrus.', libro: 'hudson-ancient', pagina: '325'}] },
           { year: '-522', text: 'Cambises II conquista Egipto', detalle: 'Cambises II (530-522 a.C.) hereda de su padre Ciro el imperio persa y conquista Egipto en 525 a.C. Los archivos del Eanna de Uruk, durante su reinado y el de su padre, demuestran que en la transición a la dominación persa los templos babilónicos siguieron operando con mayoría de mano de obra libre asalariada para el mantenimiento de la red de canales y los proyectos de obras públicas. La política aqueménida toleró las instituciones económicas neobabilónicas.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'Mention should also be made of a certain body of Eanna letters from the reign of Cambyses (and Cyrus; Stolper 2003). In all instances the evidence points unequivocally to the important role of hired labor.', libro: 'hudson-ancient', pagina: '321'}] },
           { year: '-484', text: 'Jerjes saquea Babilonia tras rebeliones', detalle: 'En 484 a.C. estallan en Babilonia dos rebeliones (Šamaš-erība y Bēl-šimmanni) contra el dominio persa de Jerjes I (486-465). La represión es feroz: Jerjes saquea Babilonia, deporta la estatua de Marduk y disuelve las viejas élites templarias. Para Jursa este es el verdadero fin del \'largo siglo VI\' babilónico —la última edad en que sobreviven las instituciones económicas mesopotámicas en su forma clásica. Los archivos privados se interrumpen abruptamente; la economía mesopotámica entra en la órbita helénica.', scope: 'mundo', citas: [{autor: 'Michael Hudson and Piotr Steinkeller (eds.)', texto: 'The bulk of the data comes from the \'long sixth century\' between the rise of the Neo-Babylonian empire (626 BC) and the Babylonian rebellions against Persian rule under Xerxes (484 BC).', libro: 'hudson-ancient', pagina: '317'}] }
+        ],
+        bookIds: ['hudson-ancient']
+      },
+      {
+        group: 'mesoamerica',
+        label: 'Olmecas — Cultura Madre',
+        years: '1500 – 400 a.C.',
+        color: '#2dd4a8',
+        desc: 'La primera gran civilización de Mesoamérica. San Lorenzo y La Venta: cabezas colosales, pirámides, escritura, calendario, el juego de pelota y el concepto del cero. Todo lo que vendrá después tiene raíz olmeca.',
+        events: [
+          
         ],
         bookIds: ['lopezaustin', 'historiapueblo', 'sacrificio']
       },
