@@ -11380,8 +11380,11 @@ body {
       renderTimelineView();
     });
 
-    // Wire interactions on tl-event elements (lista-style)
-    container.addEventListener('click', function(e) {
+    // Wire interactions on tl-event elements (lista-style) — single tracked handler
+    if (container._tlMapaClickHandler) {
+      container.removeEventListener('click', container._tlMapaClickHandler);
+    }
+    container._tlMapaClickHandler = function(e) {
       // Tooltip close button
       var closeBtn = e.target.closest('.tl-tooltip-close');
       if (closeBtn) {
@@ -11398,6 +11401,8 @@ body {
         e.stopPropagation();
         return;
       }
+      // PDF link inside tooltip: let it work, don't toggle
+      if (e.target.closest('.quote-page-link')) return;
       // Click on an event in the mapa column → select on map + toggle tooltip
       var ev = e.target.closest('.tl-mapa-evt');
       if (ev) {
@@ -11412,7 +11417,8 @@ body {
           tt.classList.toggle('active');
         }
       }
-    });
+    };
+    container.addEventListener('click', container._tlMapaClickHandler);
 
     // Initialize globe
     loadMapaDeps().then(function(world) {
@@ -11549,20 +11555,29 @@ body {
 
     // Selection state
     var currentIdx = 0;
-    function rotateTo(lng, lat) {
-      var target = [-lng, -lat, 0];
-      var start = projection.rotate();
-      var interp = d3.interpolate(start, target);
+    var BASE_SCALE = radius;
+    var ZOOM_SCALE = radius * 2.5;
+    function animateTo(lng, lat, targetScale) {
+      var startRot = projection.rotate();
+      var startScale = projection.scale();
+      var endRot = [-lng, -lat, 0];
+      // Avoid taking the long way around the globe
+      var dLon = endRot[0] - startRot[0];
+      if (dLon > 180) endRot[0] -= 360;
+      else if (dLon < -180) endRot[0] += 360;
+      var interpRot = d3.interpolate(startRot, endRot);
       var t0 = performance.now(), DUR = 700;
       function tick(now) {
         var t = Math.min(1, (now - t0) / DUR);
         var e = d3.easeCubicInOut(t);
-        projection.rotate(interp(e));
+        projection.rotate(interpRot(e));
+        projection.scale(startScale + (targetScale - startScale) * e);
         redraw();
         if (t < 1) requestAnimationFrame(tick);
       }
       requestAnimationFrame(tick);
     }
+    function rotateTo(lng, lat) { animateTo(lng, lat, ZOOM_SCALE); }
     function selectIdx(idx) {
       if (idx < 0 || idx >= events.length) return;
       currentIdx = idx;
