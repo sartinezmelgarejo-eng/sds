@@ -2512,9 +2512,13 @@ body {
   font-size: 20px;
   line-height: 1.42;
   color: #000;
-  font-weight: 700;
+  font-weight: 400;
   font-style: normal;
   letter-spacing: -0.1px;
+}
+/* Editorial lead: first phrase (up to colon or first period) in heavy black */
+.tl-mapa-floating-detalle .tl-mapa-detalle-body .detalle-lead {
+  font-weight: 800;
 }
 .tl-mapa-floating-detalle .tl-mapa-detalle-body::first-letter {
   font-family: 'Bodoni Moda', serif;
@@ -11741,6 +11745,26 @@ body {
     '</div>';
   }
 
+  // Split a detalle into [lead, rest] for the editorial bold-lead pattern.
+  // Prefer first colon if it lands early (≤80 chars); else first period.
+  function formatDetalleHTML(text) {
+    if (!text) return '';
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+    var t = String(text);
+    var split = -1;
+    var colon = t.indexOf(':');
+    if (colon > 0 && colon < 80) split = colon + 1;
+    if (split < 0) {
+      var period = t.indexOf('. ');
+      if (period > 12 && period < 110) split = period + 1;
+    }
+    if (split < 0) {
+      // No natural split — bold the whole thing
+      return '<span class="detalle-lead">' + esc(t) + '</span>';
+    }
+    return '<span class="detalle-lead">' + esc(t.slice(0, split)) + '</span>' + esc(t.slice(split));
+  }
+
   // ── Populate floating overlays for the active event ──
   function renderMapaDetail(container, ev) {
     var detalleEl = container.querySelector('#tl-mapa-detalle');
@@ -11749,11 +11773,11 @@ body {
     if (!detalleEl || !citasLayerEl) return;
 
     if (ev.detalle && detalleBody) {
-      detalleBody.textContent = ev.detalle;
+      detalleBody.innerHTML = formatDetalleHTML(ev.detalle);
       detalleEl.classList.add('show');
       detalleEl.classList.toggle('mundo', ev.scope === 'mundo');
     } else {
-      if (detalleBody) detalleBody.textContent = '';
+      if (detalleBody) detalleBody.innerHTML = '';
       detalleEl.classList.remove('show');
     }
 
@@ -11925,9 +11949,8 @@ body {
       positionFloatingCitas(visible ? {x: anchorX, y: anchorY} : null);
     }
 
-    // Position cita cards around the pin in screen coordinates.
-    // Slot 0 → top-right of anchor, Slot 1 → bottom-left. Both nudged away
-    // from the anchor enough to leave the pin/label visible.
+    // Position cita cards around the pin, avoiding the detalle overlay
+    // and the cards' own previously-placed footprints.
     function positionFloatingCitas(anchor) {
       var layer = container.querySelector('#tl-mapa-citas-layer');
       if (!layer) return;
@@ -11941,28 +11964,68 @@ body {
       var globeEl = container.querySelector('#tl-mapa-globe');
       var globeW = globeEl ? globeEl.clientWidth : W;
       var globeH = globeEl ? globeEl.clientHeight : H;
-      var CARD_W = 220;
-      // Two slots: top-right and bottom-left of anchor
-      var slots = [
-        { dx:  60, dy: -110 },  // top-right
-        { dx: -60 - CARD_W, dy:  40 }   // bottom-left
+      var CARD_W = 320, CARD_H = 130;
+      var PAD = 14;
+
+      // Build the avoidance list: detalle overlay (if visible) + previously placed cards
+      var avoid = [];
+      var detalleEl = container.querySelector('#tl-mapa-detalle.show');
+      if (detalleEl && globeEl) {
+        var gRect = globeEl.getBoundingClientRect();
+        var dRect = detalleEl.getBoundingClientRect();
+        avoid.push({
+          left: dRect.left - gRect.left - PAD,
+          top: dRect.top - gRect.top - PAD,
+          right: dRect.right - gRect.left + PAD,
+          bottom: dRect.bottom - gRect.top + PAD
+        });
+      }
+
+      // Compass slots around the pin, ordered by preference per card index
+      var slotsByCard = [
+        [ {dx: 70, dy: -135}, {dx: 70, dy: 40}, {dx: -70-CARD_W, dy: -135}, {dx: -70-CARD_W, dy: 40} ], // card 0
+        [ {dx: -70-CARD_W, dy: -135}, {dx: -70-CARD_W, dy: 40}, {dx: 70, dy: 40}, {dx: 70, dy: -135} ]  // card 1
       ];
+
+      function fitsAt(x, y) {
+        for (var a = 0; a < avoid.length; a++) {
+          var r = avoid[a];
+          if (x + CARD_W > r.left && x < r.right && y + CARD_H > r.top && y < r.bottom) return false;
+        }
+        return true;
+      }
+
       cards.forEach(function(card, i) {
-        if (i >= slots.length) { card.classList.remove('show'); return; }
-        var slot = slots[i];
-        var x = anchor.x + slot.dx;
-        var y = anchor.y + slot.dy;
-        // Clamp inside the globe wrap
-        x = Math.max(8, Math.min(globeW - CARD_W - 8, x));
-        y = Math.max(8, Math.min(globeH - 110, y));
-        card.style.left = x + 'px';
-        card.style.top = y + 'px';
-        card.classList.add('show');
+        var slots = slotsByCard[i] || slotsByCard[0];
+        var placed = false;
+        for (var s = 0; s < slots.length; s++) {
+          var slot = slots[s];
+          var x = anchor.x + slot.dx;
+          var y = anchor.y + slot.dy;
+          x = Math.max(8, Math.min(globeW - CARD_W - 8, x));
+          y = Math.max(8, Math.min(globeH - CARD_H - 8, y));
+          if (fitsAt(x, y)) {
+            card.style.left = x + 'px';
+            card.style.top = y + 'px';
+            card.classList.add('show');
+            avoid.push({left: x - PAD, top: y - PAD, right: x + CARD_W + PAD, bottom: y + CARD_H + PAD});
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          // No clear slot — keep the first slot anyway (rare; pin near edge with detalle big)
+          var s0 = slots[0];
+          var fx = Math.max(8, Math.min(globeW - CARD_W - 8, anchor.x + s0.dx));
+          var fy = Math.max(8, Math.min(globeH - CARD_H - 8, anchor.y + s0.dy));
+          card.style.left = fx + 'px';
+          card.style.top = fy + 'px';
+          card.classList.add('show');
+        }
       });
       if (more) {
-        // Tuck the "+N" badge near the pin, between the two slots
         more.style.left = (anchor.x - 25) + 'px';
-        more.style.top = (anchor.y + 8) + 'px';
+        more.style.top = (anchor.y + 12) + 'px';
         more.classList.add('show');
       }
     }
