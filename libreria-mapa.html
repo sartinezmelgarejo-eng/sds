@@ -2393,24 +2393,19 @@ body {
   letter-spacing: 0.3px;
   opacity: 0.75;
 }
-.tl-mapa-event.active {
+/* Active mapa event: same lista row but with a gold glow + slight scale */
+.tl-mapa-evt--active {
   background: linear-gradient(to right, rgba(200,169,96,0.14), rgba(200,169,96,0.02));
-  border-left: 3px solid var(--gold);
-  padding: 22px 22px 20px;
-  margin: 6px 0;
-  transform: translateX(2px);
-  box-shadow: 0 0 32px rgba(200,169,96,0.18);
+  border-radius: 6px;
+  box-shadow: 0 0 28px rgba(200,169,96,0.18);
+  scroll-margin-top: 80px;
 }
-.tl-mapa-event--mundo.active {
+.tl-mapa-evt--active[data-scope="mundo"],
+.tl-mapa-evt--active.tl-event--world {
   background: linear-gradient(to right, rgba(127,174,216,0.14), rgba(127,174,216,0.02));
-  border-left-color: #7faed8;
-  box-shadow: 0 0 32px rgba(127,174,216,0.18);
+  box-shadow: 0 0 28px rgba(127,174,216,0.18);
 }
-.tl-mapa-event.active .tl-mapa-event-yr { font-size: 30px; margin-bottom: 8px; }
-.tl-mapa-event.active .tl-mapa-event-tx { color: #fff; font-size: 17px; margin-bottom: 10px; line-height: 1.4; }
-.tl-mapa-event.active .tl-mapa-event-det { font-size: 14px; line-height: 1.65; margin-bottom: 12px; }
-.tl-mapa-event.active .tl-mapa-event-cita-text { font-size: 13.5px; line-height: 1.55; }
-.tl-mapa-event.active .tl-mapa-event-cita-attr { font-size: 11px; }
+.tl-mapa-evt--active .tl-event-text { color: #fff; font-weight: 500; }
 
 .tl-mapa-globe-wrap {
   position: sticky;
@@ -11191,48 +11186,31 @@ body {
     return __tlMapaDepsPromise;
   }
 
-  // ── Render rich event card for mapa view ──
-  function renderMapaEventCard(ev) {
-    var cls = 'tl-mapa-event' + (ev.scope === 'mundo' ? ' tl-mapa-event--mundo' : '');
-    var nameLower = (ev.lugar.nombre || '').toLowerCase();
-    var paisNamesCard = { MX:/mexico|méxico/, ES:/espa/, PE:/peru|perú/, BO:/bolivia/,
-      GT:/guatemala/, NI:/nicaragua/, HN:/honduras/, SV:/salvador/, VE:/venezuela/,
-      CO:/colombia/, US:/estados unidos|united states/, FR:/francia/, DE:/alemania/ };
-    var nameHasCountry = paisNamesCard[ev.lugar.pais] && paisNamesCard[ev.lugar.pais].test(nameLower);
-    var lugarLabel = ev.lugar.nombre + (ev.lugar.tipo === 'punto' && ev.lugar.pais && !nameHasCountry ? ' · ' + ev.lugar.pais : '');
-    var detalleHTML = ev.detalle ? '<div class="tl-mapa-event-det">' + ev.detalle + '</div>' : '';
-    var citas = ev.citas || [];
-    var citasInner = citas.map(function(c) {
-      var bk = books.find(function(b){return b.id === c.libro;});
-      var bkTitle = bk ? bk.title : '';
-      var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
-      var pdfLink = '';
-      if (bk && bk.filePath && BOOKS_BASE_PATH && pageMatch) {
-        var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
-        if (pdfPage < 1) pdfPage = 1;
-        pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="booklink" onclick="event.stopPropagation();">PDF p.' + pdfPage + '</a>';
+  // ── Render mapa view event as a year-grouped column (same look as Lista) ──
+  function renderMapaColumn(events) {
+    if (!events.length) return '';
+    var yearGroups = [];
+    var cur = null;
+    events.forEach(function(ev) {
+      var y = ev._date && ev._date.year;
+      if (!cur || cur.year !== y) {
+        cur = { year: y, events: [] };
+        yearGroups.push(cur);
       }
-      return '<div class="tl-mapa-event-cita">' +
-        '<div class="tl-mapa-event-cita-text">“' + c.texto + '”</div>' +
-        '<div class="tl-mapa-event-cita-attr">' +
-          '— ' + c.autor +
-          (bkTitle ? ', <span class="booklink" data-book="' + c.libro + '">' + bkTitle + '</span>' : '') +
-          (c.pagina ? ', ' + c.pagina : '') +
-          pdfLink +
-        '</div>' +
+      cur.events.push(ev);
+    });
+    return '<div class="tl-events tl-mapa-events">' + yearGroups.map(function(grp) {
+      var yMark = formatYearMarker(grp.year);
+      var inner = grp.events.map(function(ev) {
+        // Use renderSingleEvent but inject data-idx for selection
+        var raw = renderSingleEvent(ev, ev._idx, 0);
+        return raw.replace('<div class="tl-event', '<div data-idx="' + ev._idx + '" class="tl-event tl-mapa-evt');
+      }).join('');
+      return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
+        '<div class="tl-year-marker">' + yMark + '</div>' +
+        '<div class="tl-year-events">' + inner + '</div>' +
       '</div>';
-    }).join('');
-    var citasBlock = citas.length
-      ? '<div class="tl-mapa-event-citas-toggle">' + citas.length + ' cita' + (citas.length>1?'s':'') + ' ↓</div>' +
-        '<div class="tl-mapa-event-citas">' + citasInner + '</div>'
-      : '';
-    return '<div class="' + cls + '" data-idx="' + ev._idx + '">' +
-      '<div class="tl-mapa-event-yr">' + ev.year + '</div>' +
-      '<div class="tl-mapa-event-tx">' + ev.text + '</div>' +
-      detalleHTML +
-      citasBlock +
-      '<div class="tl-mapa-event-loc">' + lugarLabel + '</div>' +
-    '</div>';
+    }).join('') + '</div>';
   }
 
   // ── Render mapa view ──
@@ -11274,9 +11252,9 @@ body {
     var totalAll = 0;
     eras.forEach(function(era) { era.events.forEach(function() { totalAll++; }); });
 
-    // Build column HTML
-    var mexHTML = mexicoEvents.map(renderMapaEventCard).join('');
-    var munHTML = mundoEvents.map(renderMapaEventCard).join('');
+    // Build column HTML (year-grouped, lista-style)
+    var mexHTML = renderMapaColumn(mexicoEvents);
+    var munHTML = renderMapaColumn(mundoEvents);
 
     var notice = totalAll > allEvents.length
       ? '<div class="tl-mapa-notice">Vista mapa: ' + allEvents.length + ' de ' + totalAll + ' eventos con ubicación. Las otras eras están en proceso de geocodificación.</div>'
@@ -11341,19 +11319,38 @@ body {
       renderTimelineView();
     });
 
-    // Wire citas toggles + book links on cards
-    container.querySelectorAll('.tl-mapa-event-citas-toggle').forEach(function(t) {
-      t.addEventListener('click', function(e) {
+    // Wire interactions on tl-event elements (lista-style)
+    container.addEventListener('click', function(e) {
+      // Tooltip close button
+      var closeBtn = e.target.closest('.tl-tooltip-close');
+      if (closeBtn) {
+        var tt = closeBtn.closest('.tl-event-tooltip');
+        if (tt) tt.classList.remove('active');
         e.stopPropagation();
-        var card = t.closest('.tl-mapa-event');
-        card.classList.toggle('expanded');
-      });
-    });
-    container.querySelectorAll('.booklink[data-book]').forEach(function(bl) {
-      bl.addEventListener('click', function(e) {
+        return;
+      }
+      // Book link inside tooltip
+      var bookLink = e.target.closest('.tl-tooltip-book-link');
+      if (bookLink) {
+        var attr = bookLink.closest('.tl-tooltip-cita-attr');
+        if (attr && attr.dataset.book) openBook(attr.dataset.book);
         e.stopPropagation();
-        openBook(bl.getAttribute('data-book'));
-      });
+        return;
+      }
+      // Click on an event in the mapa column → select on map + toggle tooltip
+      var ev = e.target.closest('.tl-mapa-evt');
+      if (ev) {
+        var idx = parseInt(ev.getAttribute('data-idx'));
+        if (!isNaN(idx)) selectIdx(idx);
+        // Toggle this event's tooltip; close all others first
+        var tt = ev.querySelector('.tl-event-tooltip');
+        if (tt) {
+          container.querySelectorAll('.tl-event-tooltip.active').forEach(function(other) {
+            if (other !== tt) other.classList.remove('active');
+          });
+          tt.classList.toggle('active');
+        }
+      }
     });
 
     // Initialize globe
@@ -11566,22 +11563,16 @@ body {
       if (l.coords) rotateTo(l.coords.lng, l.coords.lat);
 
       // Sync the event list (scroll active into view, mark active)
-      var listEvts = container.querySelectorAll('.tl-mapa-event');
+      var listEvts = container.querySelectorAll('.tl-mapa-evt');
       listEvts.forEach(function(el) {
         var i = parseInt(el.getAttribute('data-idx'));
-        el.classList.toggle('active', i === idx);
+        el.classList.toggle('tl-mapa-evt--active', i === idx);
       });
-      var activeEl = container.querySelector('.tl-mapa-event.active');
+      var activeEl = container.querySelector('.tl-mapa-evt--active');
       if (activeEl) activeEl.scrollIntoView({behavior:'smooth', block:'nearest'});
     }
 
-    // Wire list clicks
-    container.querySelectorAll('.tl-mapa-event').forEach(function(el) {
-      el.addEventListener('click', function() {
-        var i = parseInt(el.getAttribute('data-idx'));
-        selectIdx(i);
-      });
-    });
+    // (Event list click handler is wired in renderTimelineMapaView's delegated handler)
 
     // Prev/Next buttons
     var prevBtn = container.querySelector('#tl-mapa-prev');
