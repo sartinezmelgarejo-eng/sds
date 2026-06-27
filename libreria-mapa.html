@@ -11546,12 +11546,14 @@ body {
         if (!c) { labelEl.classed('hidden', true); return; }
         labelEl.attr('x', c[0]).attr('y', c[1] - 28);  // above the pin ball
       } else {
-        // centroid label for region/pais
+        // Below the country: horizontally centered on bounding box, just under the south edge
         var feat = countries.features.find(function(f) { return countryA2(f) === d.pais; });
         if (!feat) { labelEl.classed('hidden', true); return; }
-        var cc = path.centroid(feat);
-        if (!cc || isNaN(cc[0])) { labelEl.classed('hidden', true); return; }
-        labelEl.attr('x', cc[0]).attr('y', cc[1] + 4);
+        var bb = path.bounds(feat);
+        if (!bb || isNaN(bb[0][0]) || isNaN(bb[1][1])) { labelEl.classed('hidden', true); return; }
+        var x = (bb[0][0] + bb[1][0]) / 2;
+        var y = bb[1][1] + 20;
+        labelEl.attr('x', x).attr('y', y);
       }
       labelEl.text(d.text)
         .classed('mundo', d.scope === 'mundo')
