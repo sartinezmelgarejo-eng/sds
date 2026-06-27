@@ -2472,8 +2472,120 @@ body {
   border-top: 1px solid rgba(200,169,96,0.08);
 }
 
-/* Detail panel: detalle + citas, sits between the globe and the nav.
-   This is where the eye lives. Keeps user from looking back at the column. */
+/* Floating overlays inside the globe area — detalle bottom-left, citas near pin. */
+.tl-mapa-globe { position: relative; }
+
+.tl-mapa-floating-detalle {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  max-width: min(34%, 360px);
+  padding: 14px 16px 12px;
+  background: rgba(14, 11, 8, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(200,169,96,0.18);
+  border-radius: 8px;
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #f0e8d4;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s, transform 0.4s;
+  z-index: 5;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.tl-mapa-floating-detalle.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.tl-mapa-floating-detalle::before {
+  content: '';
+  display: block;
+  width: 24px;
+  height: 1px;
+  background: rgba(200,169,96,0.5);
+  margin-bottom: 8px;
+}
+
+/* Cita cards positioned near the pin */
+.tl-mapa-floating-cita {
+  position: absolute;
+  width: 220px;
+  padding: 11px 13px 9px;
+  background: rgba(14, 11, 8, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(200,169,96,0.22);
+  border-radius: 6px;
+  pointer-events: auto;
+  z-index: 4;
+  font-family: 'Cormorant Garamond', serif;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.4s, transform 0.4s;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.45);
+}
+.tl-mapa-floating-cita.show { opacity: 1; transform: translateY(0); }
+.tl-mapa-floating-cita-text {
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #f0e8d4;
+  margin-bottom: 5px;
+  /* Clamp long citas to keep the card readable */
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tl-mapa-floating-cita-attr {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.5px;
+  color: #b8a98a;
+  line-height: 1.4;
+}
+.tl-mapa-floating-cita-attr .booklink {
+  color: #d8b870;
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+.tl-mapa-floating-cita-attr .booklink:hover { color: #f0c860; }
+.tl-mapa-floating-cita-attr .quote-page-link {
+  color: #d8b870;
+  text-decoration: none;
+  margin-left: 4px;
+  letter-spacing: 0.8px;
+}
+.tl-mapa-floating-cita-attr .quote-page-link:hover { color: #f0c860; }
+
+/* "+N more" badge near pin when more citas exist */
+.tl-mapa-floating-more {
+  position: absolute;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #f0c860;
+  background: rgba(14, 11, 8, 0.85);
+  border: 1px solid rgba(200,169,96,0.4);
+  padding: 4px 9px;
+  border-radius: 12px;
+  cursor: pointer;
+  pointer-events: auto;
+  z-index: 4;
+  letter-spacing: 0.5px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.tl-mapa-floating-more.show { opacity: 1; }
+.tl-mapa-floating-more:hover { background: rgba(200,169,96,0.2); }
+
+/* Legacy detail panel hidden when floating overlay is active */
 .tl-mapa-detail {
   padding: 14px 22px 10px;
   border-top: 1px solid rgba(200,169,96,0.1);
@@ -11468,24 +11580,28 @@ body {
       container.removeEventListener('click', container._tlMapaClickHandler);
     }
     container._tlMapaClickHandler = function(e) {
-      // PDF link inside detail: let it through
+      // PDF link inside floating cita: let it through to the browser
       if (e.target.closest('.quote-page-link')) return;
-      // Detail panel: citas toggle
-      var togBtn = e.target.closest('#tl-mapa-detail-toggle');
-      if (togBtn) {
-        var panel = container.querySelector('#tl-mapa-detail');
-        if (panel) panel.classList.toggle('open');
-        e.stopPropagation();
-        return;
-      }
-      // Detail panel: book link
-      var bookLink = e.target.closest('.tl-mapa-detail .booklink[data-book]');
+      // Floating cita book link
+      var bookLink = e.target.closest('.tl-mapa-floating-cita .booklink[data-book]');
       if (bookLink) {
         openBook(bookLink.getAttribute('data-book'));
         e.stopPropagation();
         return;
       }
-      // Click on an event in the column → select on map (detail populates automatically)
+      // "+N citas" badge → open the book detail of the first hidden cita (simplest expansion)
+      var moreBadge = e.target.closest('#tl-mapa-cita-more');
+      if (moreBadge) {
+        var layer = container.querySelector('#tl-mapa-citas-layer');
+        var citas = (layer && layer._citas) || [];
+        // Cycle through the hidden citas in subsequent badge clicks: swap the visible pair
+        // (For now: simple — open the first hidden cita's book if available)
+        var firstHidden = citas[2];
+        if (firstHidden && firstHidden.libro) openBook(firstHidden.libro);
+        e.stopPropagation();
+        return;
+      }
+      // Click on an event in the column → select on map
       var evEl = e.target.closest('.tl-mapa-evt');
       if (evEl) {
         var idx = parseInt(evEl.getAttribute('data-idx'));
@@ -11514,11 +11630,8 @@ body {
       '</div>' +
       '<div class="tl-mapa-globe" id="tl-mapa-globe">' +
         '<div class="tl-mapa-loading"><div class="tl-mapa-spinner"></div><div>Cargando mapa...</div></div>' +
-      '</div>' +
-      '<div class="tl-mapa-detail" id="tl-mapa-detail">' +
-        '<div class="tl-mapa-detail-text" id="tl-mapa-detail-text"></div>' +
-        '<div class="tl-mapa-detail-citas-toggle" id="tl-mapa-detail-toggle" style="display:none"></div>' +
-        '<div class="tl-mapa-detail-citas" id="tl-mapa-detail-citas"></div>' +
+        '<div class="tl-mapa-floating-detalle" id="tl-mapa-detalle"></div>' +
+        '<div class="tl-mapa-floating-citas-layer" id="tl-mapa-citas-layer"></div>' +
       '</div>' +
       '<div class="tl-mapa-nav-bar">' +
         '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
@@ -11529,49 +11642,52 @@ body {
     '</div>';
   }
 
-  // ── Populate the on-map detail panel for the active event ──
+  // ── Populate floating overlays for the active event ──
+  // detalleEl: bottom-left detalle overlay
+  // citasLayerEl: positioned cita cards floating near the pin
   function renderMapaDetail(container, ev) {
-    var det = container.querySelector('#tl-mapa-detail-text');
-    var toggle = container.querySelector('#tl-mapa-detail-toggle');
-    var citasWrap = container.querySelector('#tl-mapa-detail-citas');
-    var panel = container.querySelector('#tl-mapa-detail');
-    if (!det) return;
-    det.textContent = ev.detalle || '';
+    var detalleEl = container.querySelector('#tl-mapa-detalle');
+    var citasLayerEl = container.querySelector('#tl-mapa-citas-layer');
+    if (!detalleEl || !citasLayerEl) return;
+
+    // Detalle overlay
+    if (ev.detalle) {
+      detalleEl.textContent = ev.detalle;
+      detalleEl.classList.add('show');
+    } else {
+      detalleEl.textContent = '';
+      detalleEl.classList.remove('show');
+    }
+
+    // Cita cards — up to 2 visible, rest under "+N" badge
     var citas = ev.citas || [];
-    if (toggle) {
-      if (citas.length) {
-        toggle.textContent = citas.length + ' cita' + (citas.length > 1 ? 's' : '');
-        toggle.style.display = '';
-      } else {
-        toggle.style.display = 'none';
+    var SHOW = 2;
+    var cards = citas.slice(0, SHOW).map(function(c, idx) {
+      var bk = books.find(function(b) { return b.id === c.libro; });
+      var bkTitle = bk ? bk.title : '';
+      var pdfLink = '';
+      var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
+      if (bk && bk.filePath && BOOKS_BASE_PATH && pageMatch) {
+        var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
+        if (pdfPage < 1) pdfPage = 1;
+        pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">p.' + pdfPage + '</a>';
       }
-    }
-    if (citasWrap) {
-      citasWrap.innerHTML = citas.map(function(c) {
-        var bk = books.find(function(b) { return b.id === c.libro; });
-        var bkTitle = bk ? bk.title : '';
-        var pdfLink = '';
-        var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
-        if (bk && bk.filePath && BOOKS_BASE_PATH && pageMatch) {
-          var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
-          if (pdfPage < 1) pdfPage = 1;
-          pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">PDF p.' + pdfPage + '</a>';
-        }
-        return '<div class="tl-mapa-detail-cita">' +
-          '<div class="tl-mapa-detail-cita-text">“' + c.texto + '”</div>' +
-          '<div class="tl-mapa-detail-cita-attr">' +
-            '— ' + c.autor +
-            (bkTitle ? ', <span class="booklink" data-book="' + c.libro + '">' + bkTitle + '</span>' : '') +
-            (c.pagina ? ', ' + c.pagina : '') +
-            pdfLink +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-    // Reset to collapsed state when switching events; user opens on demand
-    if (panel) panel.classList.remove('open');
-    // Scroll the panel back to top
-    if (panel) panel.scrollTop = 0;
+      return '<div class="tl-mapa-floating-cita" data-cita-idx="' + idx + '">' +
+        '<div class="tl-mapa-floating-cita-text">“' + c.texto + '”</div>' +
+        '<div class="tl-mapa-floating-cita-attr">' +
+          '— ' + c.autor +
+          (bkTitle ? ', <span class="booklink" data-book="' + c.libro + '">' + bkTitle + '</span>' : '') +
+          pdfLink +
+        '</div>' +
+      '</div>';
+    }).join('');
+    var moreBadge = citas.length > SHOW
+      ? '<div class="tl-mapa-floating-more" id="tl-mapa-cita-more">+' + (citas.length - SHOW) + ' citas</div>'
+      : '';
+    citasLayerEl.innerHTML = cards + moreBadge;
+
+    // Stash citas on the layer for later access (e.g., positioning, expansion)
+    citasLayerEl._citas = citas;
   }
 
   function initMapaGlobe(container, events, world) {
@@ -11664,25 +11780,72 @@ body {
     var currentLabelData = null; // { lng, lat, type: 'point' | 'centroid', text, scope }
 
     function updateLabel() {
-      if (!currentLabelData) { labelEl.classed('hidden', true); return; }
+      if (!currentLabelData) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
       var d = currentLabelData;
+      var anchorX, anchorY;
       if (d.type === 'point') {
         var c = projection([d.lng, d.lat]);
-        if (!c) { labelEl.classed('hidden', true); return; }
+        if (!c) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
         labelEl.attr('x', c[0]).attr('y', c[1] - 28);  // above the pin ball
+        anchorX = c[0]; anchorY = c[1];
       } else {
         // Below the country: horizontally centered on bounding box, just under the south edge
         var feat = countries.features.find(function(f) { return countryA2(f) === d.pais; });
-        if (!feat) { labelEl.classed('hidden', true); return; }
+        if (!feat) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
         var bb = path.bounds(feat);
-        if (!bb || isNaN(bb[0][0]) || isNaN(bb[1][1])) { labelEl.classed('hidden', true); return; }
+        if (!bb || isNaN(bb[0][0]) || isNaN(bb[1][1])) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
         var x = (bb[0][0] + bb[1][0]) / 2;
         var y = bb[1][1] + 20;
         labelEl.attr('x', x).attr('y', y);
+        anchorX = x; anchorY = (bb[0][1] + bb[1][1]) / 2;
       }
+      var visible = isVisible(d.lng, d.lat);
       labelEl.text(d.text)
         .classed('mundo', d.scope === 'mundo')
-        .classed('hidden', !isVisible(d.lng, d.lat));
+        .classed('hidden', !visible);
+      positionFloatingCitas(visible ? {x: anchorX, y: anchorY} : null);
+    }
+
+    // Position cita cards around the pin in screen coordinates.
+    // Slot 0 → top-right of anchor, Slot 1 → bottom-left. Both nudged away
+    // from the anchor enough to leave the pin/label visible.
+    function positionFloatingCitas(anchor) {
+      var layer = container.querySelector('#tl-mapa-citas-layer');
+      if (!layer) return;
+      var cards = layer.querySelectorAll('.tl-mapa-floating-cita');
+      var more = layer.querySelector('#tl-mapa-cita-more');
+      if (!anchor) {
+        cards.forEach(function(c) { c.classList.remove('show'); });
+        if (more) more.classList.remove('show');
+        return;
+      }
+      var globeEl = container.querySelector('#tl-mapa-globe');
+      var globeW = globeEl ? globeEl.clientWidth : W;
+      var globeH = globeEl ? globeEl.clientHeight : H;
+      var CARD_W = 220;
+      // Two slots: top-right and bottom-left of anchor
+      var slots = [
+        { dx:  60, dy: -110 },  // top-right
+        { dx: -60 - CARD_W, dy:  40 }   // bottom-left
+      ];
+      cards.forEach(function(card, i) {
+        if (i >= slots.length) { card.classList.remove('show'); return; }
+        var slot = slots[i];
+        var x = anchor.x + slot.dx;
+        var y = anchor.y + slot.dy;
+        // Clamp inside the globe wrap
+        x = Math.max(8, Math.min(globeW - CARD_W - 8, x));
+        y = Math.max(8, Math.min(globeH - 110, y));
+        card.style.left = x + 'px';
+        card.style.top = y + 'px';
+        card.classList.add('show');
+      });
+      if (more) {
+        // Tuck the "+N" badge near the pin, between the two slots
+        more.style.left = (anchor.x - 25) + 'px';
+        more.style.top = (anchor.y + 8) + 'px';
+        more.classList.add('show');
+      }
     }
 
     function redraw() {
