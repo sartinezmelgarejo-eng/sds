@@ -11173,7 +11173,12 @@ body {
   // ── Render rich event card for mapa view ──
   function renderMapaEventCard(ev) {
     var cls = 'tl-mapa-event' + (ev.scope === 'mundo' ? ' tl-mapa-event--mundo' : '');
-    var lugarLabel = ev.lugar.nombre + ' · ' + ev.lugar.pais + (ev.lugar.tipo !== 'punto' ? ' · ' + ev.lugar.tipo : '');
+    var nameLower = (ev.lugar.nombre || '').toLowerCase();
+    var paisNamesCard = { MX:/mexico|méxico/, ES:/espa/, PE:/peru|perú/, BO:/bolivia/,
+      GT:/guatemala/, NI:/nicaragua/, HN:/honduras/, SV:/salvador/, VE:/venezuela/,
+      CO:/colombia/, US:/estados unidos|united states/, FR:/francia/, DE:/alemania/ };
+    var nameHasCountry = paisNamesCard[ev.lugar.pais] && paisNamesCard[ev.lugar.pais].test(nameLower);
+    var lugarLabel = ev.lugar.nombre + (ev.lugar.tipo === 'punto' && ev.lugar.pais && !nameHasCountry ? ' · ' + ev.lugar.pais : '');
     var detalleHTML = ev.detalle ? '<div class="tl-mapa-event-det">' + ev.detalle + '</div>' : '';
     var citas = ev.citas || [];
     var citasInner = citas.map(function(c) {
@@ -11493,7 +11498,21 @@ body {
         hdr2.textContent = l.nombre;
         hdr2.classList.toggle('mundo', ev.scope === 'mundo');
       }
-      if (hdr3) hdr3.textContent = l.tipo + ' · ' + l.pais;
+      if (hdr3) {
+        // Only show country code if name doesn't already contain it
+        // and the tipo is 'punto' (cities can be ambiguous: Trujillo PE vs MX vs HN)
+        var nameLower = (l.nombre || '').toLowerCase();
+        var paisNames = { MX:'mexico|méxico', ES:'espa', PE:'peru|perú', BO:'bolivia',
+          GT:'guatemala', NI:'nicaragua', HN:'honduras', SV:'salvador', VE:'venezuela',
+          CO:'colombia', US:'estados unidos|united states', FR:'francia', DE:'alemania' };
+        var alreadyHasCountry = paisNames[l.pais] && new RegExp(paisNames[l.pais]).test(nameLower);
+        if (l.tipo === 'punto' && l.pais && !alreadyHasCountry) {
+          hdr3.textContent = l.pais;
+          hdr3.style.display = '';
+        } else {
+          hdr3.style.display = 'none';
+        }
+      }
       if (ctr) ctr.textContent = (idx + 1) + ' / ' + events.length;
       var pBtn = container.querySelector('#tl-mapa-prev');
       var nBtn = container.querySelector('#tl-mapa-next');
