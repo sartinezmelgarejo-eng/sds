@@ -2447,40 +2447,21 @@ body {
 :root.light .tl-mapa-globe-wrap {
   background: rgba(244, 237, 224, 0.65);
 }
-/* Globe header: just the place + year. The story sits in the column. */
+/* Globe header: just the year, big. Lugar lives on the map itself. */
 .tl-mapa-loc {
-  padding: 12px 18px 10px;
+  padding: 6px 18px 2px;
   text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  align-items: center;
-  border-bottom: 1px solid rgba(200,169,96,0.06);
 }
 .tl-mapa-loc-year {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  opacity: 0.85;
-}
-.tl-mapa-loc-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 26px;
-  font-weight: 400;
+  font-size: 38px;
+  font-weight: 300;
+  letter-spacing: 1px;
   color: var(--gold);
-  line-height: 1.15;
-  letter-spacing: -0.3px;
-  max-width: 100%;
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.05;
 }
-.tl-mapa-loc-name.mundo { color: #7faed8; }
-.tl-mapa-loc-where, .tl-mapa-loc-detalle, .tl-mapa-loc-meta { display: none; }
+.tl-mapa-loc-year.mundo { color: #7faed8; }
+.tl-mapa-loc-name, .tl-mapa-loc-where, .tl-mapa-loc-detalle, .tl-mapa-loc-meta { display: none; }
 
 /* Nav bar at the bottom of the globe area, where the thumb reaches */
 .tl-mapa-nav-bar {
@@ -2570,17 +2551,18 @@ body {
   isolation: isolate;
 }
 .tl-mapa-floating-cita.mundo { border-color: rgba(44,77,110,0.22); }
-/* Soft color wash from the book's shelf color, anchored under the cover */
+/* Soft color wash. Prefer the book cover itself (massively blurred → ambient
+   color) so each cita carries the actual book identity; fall back to the
+   shelf color if no cover image is available. */
 .tl-mapa-floating-cita::before {
   content: '';
   position: absolute;
-  left: -10%;
-  top: -10%;
-  width: 80%;
-  height: 130%;
-  background: radial-gradient(ellipse at 25% 50%, var(--book-color, transparent) 0%, transparent 65%);
-  opacity: 0.28;
-  filter: blur(14px);
+  inset: -20%;
+  background: var(--book-cover-bg, var(--book-color, transparent));
+  background-size: cover;
+  background-position: center;
+  filter: blur(38px) saturate(1.25);
+  opacity: 0.32;
   pointer-events: none;
   z-index: -1;
 }
@@ -11846,7 +11828,11 @@ body {
         var est = estantes.find(function(e) { return e.id === bk.estante; });
         if (est) bookColor = est.color;
       }
-      var styleAttr = bookColor ? ' style="--book-color: ' + bookColor + '"' : '';
+      var coverSrc = bk && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]));
+      var styleParts = [];
+      if (coverSrc) styleParts.push("--book-cover-bg: url('" + coverSrc.replace(/'/g, "\\'") + "') center/cover no-repeat");
+      if (bookColor) styleParts.push('--book-color: ' + bookColor);
+      var styleAttr = styleParts.length ? ' style="' + styleParts.join('; ') + '"' : '';
       return '<div class="tl-mapa-floating-cita ' + (ev.scope === 'mundo' ? 'mundo' : '') + '" data-cita-idx="' + idx + '"' + styleAttr + '>' +
         coverHTML(bk, c.autor) +
         '<div class="cita-body">' +
@@ -12152,11 +12138,11 @@ body {
       var hdrD = container.querySelector('#tl-mapa-current-detalle');
       var hdr3 = container.querySelector('#tl-mapa-current-meta');
       var ctr = container.querySelector('#tl-mapa-counter');
-      if (hdr1) hdr1.textContent = ev.year;
-      if (hdr2) {
-        hdr2.textContent = l.nombre;
-        hdr2.classList.toggle('mundo', ev.scope === 'mundo');
+      if (hdr1) {
+        hdr1.textContent = ev.year;
+        hdr1.classList.toggle('mundo', ev.scope === 'mundo');
       }
+      if (hdr2) hdr2.textContent = '';
       if (hdr3) {
         // Only show country code if name doesn't already contain it
         // and the tipo is 'punto' (cities can be ambiguous: Trujillo PE vs MX vs HN)
@@ -12230,11 +12216,28 @@ body {
         el.classList.toggle('tl-mapa-evt--active', i === idx);
       });
       var activeEl = container.querySelector('.tl-mapa-evt--active');
-      if (activeEl) activeEl.scrollIntoView({behavior:'smooth', block:'nearest'});
+      if (activeEl) {
+        // Scroll the column so the active event sits ~22% from the top,
+        // unless we're near the end (then it stays at the natural position).
+        var col = activeEl.closest('.tl-mapa-column');
+        if (col) {
+          var colRect = col.getBoundingClientRect();
+          var evRect = activeEl.getBoundingClientRect();
+          var targetOffset = colRect.height * 0.22;
+          var delta = (evRect.top - colRect.top) - targetOffset;
+          var newTop = col.scrollTop + delta;
+          var maxTop = col.scrollHeight - col.clientHeight;
+          col.scrollTo({ top: Math.max(0, Math.min(maxTop, newTop)), behavior: 'smooth' });
+        } else {
+          activeEl.scrollIntoView({behavior:'smooth', block:'start'});
+        }
+      }
 
       // Populate the on-map detail panel
       renderMapaDetail(container, ev);
     }
+    // Expose selectIdx so the click handler wired in renderTimelineMapaView can call it
+    container._tlMapaSelect = selectIdx;
 
     // (Event list click handler is wired in renderTimelineMapaView's delegated handler)
 
