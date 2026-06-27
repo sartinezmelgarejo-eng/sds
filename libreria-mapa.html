@@ -2520,6 +2520,12 @@ body {
 .tl-mapa-nav:active { transform: scale(0.92); }
 .tl-mapa-nav:disabled { opacity: 0.3; cursor: not-allowed; }
 .tl-mapa-nav--world { font-size: 14px; margin-left: 8px; }
+.tl-mapa-nav--world.active {
+  background: var(--gold);
+  color: #0d0d1a;
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(200,169,96,0.4);
+}
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -11584,8 +11590,20 @@ body {
       requestAnimationFrame(tick);
     }
     var hasUserSelected = false;
-    function rotateTo(lng, lat) {
-      animateTo(lng, lat, hasUserSelected ? ZOOM_SCALE : BASE_SCALE);
+    var zoomLocked = false;             // toggled by the world button
+    var PUNTO_SCALE = radius * 2.5;
+    var REGION_SCALE = radius * 1.5;
+    var PAIS_SCALE   = radius * 1.25;
+    function scaleForLugar(l) {
+      if (zoomLocked) return BASE_SCALE;
+      if (!hasUserSelected) return BASE_SCALE;
+      if (!l) return BASE_SCALE;
+      if (l.tipo === 'pais')   return PAIS_SCALE;
+      if (l.tipo === 'region') return REGION_SCALE;
+      return PUNTO_SCALE;
+    }
+    function rotateTo(lng, lat, lugar) {
+      animateTo(lng, lat, scaleForLugar(lugar));
     }
     function selectIdx(idx) {
       if (idx < 0 || idx >= events.length) return;
@@ -11658,7 +11676,7 @@ body {
         countryPaths.attr('class', 'land');
       }
 
-      if (l.coords) rotateTo(l.coords.lng, l.coords.lat);
+      if (l.coords) rotateTo(l.coords.lng, l.coords.lat, l);
       // Any selection after the initial render counts as a user-driven nav, so subsequent
       // selectIdx calls will zoom in. The very first call (auto-fires on init) stays at base scale.
       hasUserSelected = true;
@@ -11682,13 +11700,19 @@ body {
     if (prevBtn) prevBtn.addEventListener('click', function() { selectIdx(currentIdx - 1); });
     if (nextBtn) nextBtn.addEventListener('click', function() { selectIdx(currentIdx + 1); });
     if (worldBtn) worldBtn.addEventListener('click', function() {
-      // Zoom out to base scale, keep current rotation
+      // Toggle "fixed at base scale" mode.
+      // First click: lock zoom to base, button stays active.
+      // Second click: unlock, restore tipo-based zoom (re-zooms to current pin).
+      zoomLocked = !zoomLocked;
+      worldBtn.classList.toggle('active', zoomLocked);
       var startScale = projection.scale();
+      var ev = events[currentIdx], l = ev && ev.lugar;
+      var targetScale = zoomLocked ? BASE_SCALE : (l ? scaleForLugar(l) : BASE_SCALE);
       var t0 = performance.now(), DUR = 500;
       function tick(now) {
         var t = Math.min(1, (now - t0) / DUR);
         var e = d3.easeCubicInOut(t);
-        projection.scale(startScale + (BASE_SCALE - startScale) * e);
+        projection.scale(startScale + (targetScale - startScale) * e);
         redraw();
         if (t < 1) requestAnimationFrame(tick);
       }
