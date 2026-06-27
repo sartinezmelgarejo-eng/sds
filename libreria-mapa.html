@@ -11693,8 +11693,14 @@ body {
   function initMapaGlobe(container, events, world) {
     var globeEl = container.querySelector('#tl-mapa-globe');
     if (!globeEl) return;
-    globeEl.innerHTML = '<svg></svg>';
-    var svg = d3.select(globeEl).select('svg');
+    // Remove only the loading splash, keep the floating overlay nodes intact
+    var loading = globeEl.querySelector('.tl-mapa-loading');
+    if (loading) loading.remove();
+    var existingSvg = globeEl.querySelector('svg');
+    if (existingSvg) existingSvg.remove();
+    var svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    globeEl.insertBefore(svgNode, globeEl.firstChild);
+    var svg = d3.select(svgNode);
     var W = globeEl.clientWidth, H = globeEl.clientHeight;
     svg.attr('viewBox', '0 0 ' + W + ' ' + H);
 
