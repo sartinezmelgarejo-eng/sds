@@ -2771,9 +2771,10 @@ body {
 :root.light .tl-mapa-cita-thumb { box-shadow: 0 4px 10px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(0,0,0,0.18); }
 :root.light .tl-mapa-cita-thumb:hover { box-shadow: 0 8px 18px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(0,0,0,0.18); }
 
-/* Hide-citas toggle: when off, citas + thumbs disappear */
-.tl-mapa-globe.no-citas .tl-mapa-floating-cita,
-.tl-mapa-globe.no-citas .tl-mapa-cita-thumb { display: none !important; }
+/* Citas-toggle OFF: hide expanded cards but KEEP the covers visible on the right.
+   Clicking a cover then pops just that cita as a single card. */
+.tl-mapa-globe.no-citas .tl-mapa-floating-cita { display: none !important; }
+.tl-mapa-globe.no-citas .tl-mapa-floating-cita.tl-mapa-cita-popup { display: flex !important; }
 
 .tl-mapa-citas-toggle {
   position: absolute;
@@ -12279,11 +12280,11 @@ body {
       var CARD_W = 380, CARD_H = 130;
       var PAD = 14;
 
-      // Build the avoidance list: detalle overlay (if visible) + previously placed cards
+      // Build the avoidance list: detalle overlay + label + right-side thumb stack
       var avoid = [];
       var detalleEl = container.querySelector('#tl-mapa-detalle.show');
-      if (detalleEl && globeEl) {
-        var gRect = globeEl.getBoundingClientRect();
+      var gRect = globeEl ? globeEl.getBoundingClientRect() : null;
+      if (detalleEl && gRect) {
         var dRect = detalleEl.getBoundingClientRect();
         avoid.push({
           left: dRect.left - gRect.left - PAD,
@@ -12291,6 +12292,28 @@ body {
           right: dRect.right - gRect.left + PAD,
           bottom: dRect.bottom - gRect.top + PAD
         });
+      }
+      // Reserve the right-side thumb column if there are any thumbs to position
+      if (thumbs.length > 0) {
+        avoid.push({
+          left: globeW - 64,
+          top: 0,
+          right: globeW,
+          bottom: globeH
+        });
+      }
+      // Reserve the label area below the country/state (rough estimate)
+      var labelEl = container.querySelector('.tl-mapa-label:not(.hidden)');
+      if (labelEl && gRect) {
+        try {
+          var lBox = labelEl.getBoundingClientRect();
+          avoid.push({
+            left: lBox.left - gRect.left - PAD,
+            top: lBox.top - gRect.top - PAD,
+            right: lBox.right - gRect.left + PAD,
+            bottom: lBox.bottom - gRect.top + PAD
+          });
+        } catch(e) {}
       }
 
       // Compass slots around the pin, ordered by preference per card index
@@ -12335,18 +12358,20 @@ body {
           card.classList.add('show');
         }
       });
-      // Place cover thumbs in a row directly below the pin
-      var THUMB_W = 44, THUMB_H = 66, THUMB_GAP = 5;
+      // Stack cover thumbs vertically on the right edge of the globe area.
+      // Avoids the detalle (bottom-left), the lugar label (below country), and the
+      // visible cita cards (around the pin).
+      var THUMB_W = 44, THUMB_H = 66, THUMB_GAP = 6;
       var nThumbs = thumbs.length;
       if (nThumbs > 0) {
-        var totalW = nThumbs * THUMB_W + (nThumbs - 1) * THUMB_GAP;
-        var startX = anchor.x - totalW / 2;
-        // Clamp horizontally
-        startX = Math.max(8, Math.min(globeW - totalW - 8, startX));
-        var ty = Math.min(globeH - THUMB_H - 8, anchor.y + 30);
+        var rightEdge = globeW - THUMB_W - 12;
+        var totalH = nThumbs * THUMB_H + (nThumbs - 1) * THUMB_GAP;
+        var startY = Math.max(56, (globeH - totalH) / 2);
+        // If they would extend below the nav, push up
+        if (startY + totalH > globeH - 60) startY = Math.max(56, globeH - 60 - totalH);
         thumbs.forEach(function(t, k) {
-          t.style.left = (startX + k * (THUMB_W + THUMB_GAP)) + 'px';
-          t.style.top = ty + 'px';
+          t.style.left = rightEdge + 'px';
+          t.style.top = (startY + k * (THUMB_H + THUMB_GAP)) + 'px';
           t.classList.add('show');
         });
       }
