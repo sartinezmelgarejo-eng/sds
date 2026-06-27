@@ -11773,9 +11773,29 @@ body {
     };
     container.addEventListener('click', container._tlMapaClickHandler);
 
-    // Initialize globe
+    // Initialize globe — but only after the container has real dimensions.
+    // During the page's initial render the timeline-view tab can still be
+    // display:none, so globeEl.clientWidth would be 0 and the sphere ends
+    // up drawn at 0x0. Wait for the wrap to be measurable.
     loadMapaDeps().then(function(world) {
-      initMapaGlobe(container, allEvents, world);
+      var globeWrap = container.querySelector('.tl-mapa-globe-wrap');
+      function tryInit() {
+        if (!globeWrap || globeWrap.clientWidth > 0) {
+          initMapaGlobe(container, allEvents, world);
+          return true;
+        }
+        return false;
+      }
+      if (tryInit()) return;
+      // Defer to when the tab becomes visible.
+      var ro;
+      try { ro = new ResizeObserver(function() { if (tryInit() && ro) ro.disconnect(); }); } catch(e) {}
+      if (ro) ro.observe(globeWrap);
+      // Fallback poll in case ResizeObserver is unavailable
+      var attempts = 0;
+      var poll = setInterval(function() {
+        if (tryInit() || ++attempts > 40) clearInterval(poll);
+      }, 120);
     }).catch(function(err) {
       var loading = container.querySelector('.tl-mapa-loading');
       if (loading) loading.innerHTML = '<div style="color:#c44">Error cargando mapa: ' + err.message + '</div>';
