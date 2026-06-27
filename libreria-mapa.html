@@ -2410,47 +2410,44 @@ body {
 .tl-mapa-globe-wrap {
   position: sticky;
   top: 0;
-  /* Soft radial fade: page bg solid behind globe, transparent at corners.
-     Hides text scrolling behind without re-introducing a hard rectangle frame. */
-  background: radial-gradient(
-    ellipse 75% 65% at 50% 55%,
-    var(--bg) 0%,
-    var(--bg) 55%,
-    transparent 100%
-  );
+  /* Frosted glass — uniform blur of whatever scrolls behind, no gradient flicker. */
+  background: color-mix(in srgb, var(--bg) 45%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
   border: none;
   border-radius: 0;
   overflow: visible;
   height: 100%;
   display: flex;
   flex-direction: column;
+  /* Soft mask edges to hide hard rectangle without depending on bg gradient */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 94%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 6%, #000 94%, transparent 100%);
 }
-/* Active event label sits centered above the globe — the protagonist */
+/* Active event header: the anchor, always visible above the globe */
 .tl-mapa-loc {
-  padding: 10px 16px 14px;
+  padding: 14px 18px 12px;
   text-align: center;
-  background: linear-gradient(to bottom, var(--bg) 75%, transparent);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
   display: flex;
   flex-direction: column;
   gap: 4px;
   align-items: center;
+  border-bottom: 1px solid rgba(200,169,96,0.08);
 }
 .tl-mapa-loc-year {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  letter-spacing: 1.8px;
+  letter-spacing: 2px;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 .tl-mapa-loc-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px;
+  font-size: 23px;
   font-weight: 400;
   color: var(--text);
   line-height: 1.2;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.3px;
   max-width: 100%;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -2460,29 +2457,39 @@ body {
 .tl-mapa-loc-where {
   font-family: 'Cormorant Garamond', serif;
   font-style: italic;
-  font-size: 13.5px;
+  font-size: 14px;
   color: var(--gold);
   margin-top: 1px;
 }
 .tl-mapa-loc-where.mundo { color: #7faed8; }
+.tl-mapa-loc-detalle {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  margin-top: 6px;
+  max-width: 92%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-style: italic;
+}
 .tl-mapa-loc-meta {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9.5px;
   letter-spacing: 0.5px;
   color: var(--text-dim);
-  margin-top: 1px;
+  margin-top: 4px;
 }
 
 /* Nav bar at the bottom of the globe area, where the thumb reaches */
 .tl-mapa-nav-bar {
-  padding: 8px 12px 6px;
+  padding: 10px 12px 8px;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: 14px;
-  background: linear-gradient(to top, var(--bg) 70%, transparent);
-  backdrop-filter: blur(3px);
-  -webkit-backdrop-filter: blur(3px);
+  border-top: 1px solid rgba(200,169,96,0.08);
 }
 .tl-mapa-nav-group {
   display: flex;
@@ -2605,15 +2612,16 @@ body {
   .tl-mapa-globe-wrap {
     order: -1;            /* globe always first */
     position: sticky;
-    top: 6px;
-    height: 46vh;
-    min-height: 280px;
-    max-height: 440px;
+    top: 0;
+    height: 56vh;
+    min-height: 360px;
+    max-height: 520px;
     width: 100%;
     max-width: 100%;
     margin: 0 0 8px;
     z-index: 5;
-    border-radius: 10px;
+    border-radius: 0;
+    will-change: transform;
   }
   .tl-mapa-column {
     max-height: none;
@@ -11368,6 +11376,7 @@ body {
         '<div class="tl-mapa-loc-year" id="tl-mapa-current-yr">—</div>' +
         '<div class="tl-mapa-loc-name" id="tl-mapa-current-loc">—</div>' +
         '<div class="tl-mapa-loc-where" id="tl-mapa-current-where">—</div>' +
+        '<div class="tl-mapa-loc-detalle" id="tl-mapa-current-detalle"></div>' +
         '<div class="tl-mapa-loc-meta" id="tl-mapa-current-meta"></div>' +
       '</div>' +
       '<div class="tl-mapa-globe" id="tl-mapa-globe">' +
@@ -11509,6 +11518,7 @@ body {
       var hdr1 = container.querySelector('#tl-mapa-current-yr');
       var hdr2 = container.querySelector('#tl-mapa-current-loc');
       var hdrW = container.querySelector('#tl-mapa-current-where');
+      var hdrD = container.querySelector('#tl-mapa-current-detalle');
       var hdr3 = container.querySelector('#tl-mapa-current-meta');
       var ctr = container.querySelector('#tl-mapa-counter');
       if (hdr1) hdr1.textContent = ev.year;
@@ -11518,6 +11528,17 @@ body {
       if (hdrW) {
         hdrW.textContent = 'en ' + l.nombre;
         hdrW.classList.toggle('mundo', ev.scope === 'mundo');
+      }
+      if (hdrD) {
+        // Show first chunk of detalle as a snippet anchor
+        var det = (ev.detalle || '').trim();
+        // Strip up to repeating "Caída de México-Tenochtitlan:" type prefix matching ev.text
+        if (det && ev.text && det.toLowerCase().startsWith(ev.text.toLowerCase().slice(0, 25))) {
+          var afterColon = det.indexOf(':');
+          if (afterColon > 0 && afterColon < 80) det = det.slice(afterColon + 1).trim();
+        }
+        hdrD.textContent = det;
+        hdrD.style.display = det ? '' : 'none';
       }
       if (hdr3) {
         // Only show country code if name doesn't already contain it
