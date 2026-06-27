@@ -2345,11 +2345,13 @@ body {
 .tl-mapa-event-citas {
   font-size: 11px;
   border-top: 1px dashed rgba(200,169,96,0.12);
-  padding-top: 6px;
-  margin-top: 4px;
+  padding-top: 8px;
+  margin-top: 6px;
   display: none;
 }
-.tl-mapa-event.expanded .tl-mapa-event-citas { display: block; }
+.tl-mapa-event.expanded .tl-mapa-event-citas,
+.tl-mapa-event.active .tl-mapa-event-citas { display: block; }
+.tl-mapa-event.active .tl-mapa-event-citas-toggle { display: none; }
 .tl-mapa-event-cita {
   padding: 5px 0;
   border-left: 1px solid rgba(200,169,96,0.18);
@@ -2396,15 +2398,21 @@ body {
 .tl-mapa-event.active {
   background: linear-gradient(to right, rgba(200,169,96,0.14), rgba(200,169,96,0.02));
   border-left: 3px solid var(--gold);
+  padding: 22px 22px 20px;
+  margin: 6px 0;
   transform: translateX(2px);
-  box-shadow: 0 0 28px rgba(200,169,96,0.18);
+  box-shadow: 0 0 32px rgba(200,169,96,0.18);
 }
 .tl-mapa-event--mundo.active {
   background: linear-gradient(to right, rgba(127,174,216,0.14), rgba(127,174,216,0.02));
   border-left-color: #7faed8;
-  box-shadow: 0 0 28px rgba(127,174,216,0.18);
+  box-shadow: 0 0 32px rgba(127,174,216,0.18);
 }
-.tl-mapa-event.active .tl-mapa-event-tx { color: #fff; }
+.tl-mapa-event.active .tl-mapa-event-yr { font-size: 30px; margin-bottom: 8px; }
+.tl-mapa-event.active .tl-mapa-event-tx { color: #fff; font-size: 17px; margin-bottom: 10px; line-height: 1.4; }
+.tl-mapa-event.active .tl-mapa-event-det { font-size: 14px; line-height: 1.65; margin-bottom: 12px; }
+.tl-mapa-event.active .tl-mapa-event-cita-text { font-size: 13.5px; line-height: 1.55; }
+.tl-mapa-event.active .tl-mapa-event-cita-attr { font-size: 11px; }
 
 .tl-mapa-globe-wrap {
   position: sticky;
@@ -2424,44 +2432,52 @@ body {
   display: flex;
   flex-direction: column;
 }
-/* Location label sits centered just above the globe */
+/* Active event label sits centered above the globe — the protagonist */
 .tl-mapa-loc {
-  padding: 6px 12px 10px;
+  padding: 10px 16px 14px;
   text-align: center;
-  background: linear-gradient(to bottom, var(--bg) 70%, transparent);
+  background: linear-gradient(to bottom, var(--bg) 75%, transparent);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 4px;
   align-items: center;
 }
 .tl-mapa-loc-year {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 10.5px;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 .tl-mapa-loc-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 400;
-  color: var(--gold);
-  line-height: 1.15;
-  letter-spacing: -0.3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--text);
+  line-height: 1.2;
+  letter-spacing: -0.2px;
   max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.tl-mapa-loc-name.mundo { color: #7faed8; }
+.tl-mapa-loc-where {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--gold);
+  margin-top: 1px;
+}
+.tl-mapa-loc-where.mundo { color: #7faed8; }
 .tl-mapa-loc-meta {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9.5px;
   letter-spacing: 0.5px;
   color: var(--text-dim);
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 /* Nav bar at the bottom of the globe area, where the thumb reaches */
@@ -11356,6 +11372,7 @@ body {
       '<div class="tl-mapa-loc">' +
         '<div class="tl-mapa-loc-year" id="tl-mapa-current-yr">—</div>' +
         '<div class="tl-mapa-loc-name" id="tl-mapa-current-loc">—</div>' +
+        '<div class="tl-mapa-loc-where" id="tl-mapa-current-where">—</div>' +
         '<div class="tl-mapa-loc-meta" id="tl-mapa-current-meta"></div>' +
       '</div>' +
       '<div class="tl-mapa-globe" id="tl-mapa-globe">' +
@@ -11496,12 +11513,16 @@ body {
       var l = ev.lugar;
       var hdr1 = container.querySelector('#tl-mapa-current-yr');
       var hdr2 = container.querySelector('#tl-mapa-current-loc');
+      var hdrW = container.querySelector('#tl-mapa-current-where');
       var hdr3 = container.querySelector('#tl-mapa-current-meta');
       var ctr = container.querySelector('#tl-mapa-counter');
       if (hdr1) hdr1.textContent = ev.year;
       if (hdr2) {
-        hdr2.textContent = l.nombre;
-        hdr2.classList.toggle('mundo', ev.scope === 'mundo');
+        hdr2.textContent = ev.text;
+      }
+      if (hdrW) {
+        hdrW.textContent = 'en ' + l.nombre;
+        hdrW.classList.toggle('mundo', ev.scope === 'mundo');
       }
       if (hdr3) {
         // Only show country code if name doesn't already contain it
