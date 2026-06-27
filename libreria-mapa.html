@@ -12557,10 +12557,17 @@ body {
     var tlVista = 'lista';
     try { tlVista = localStorage.getItem('tlVista') || 'lista'; } catch(e) {}
 
-    // Dispatch to mapa view if selected
+    // Dispatch to mapa view if selected — guarded so a render failure
+    // doesn't take down the whole page init.
     if (tlVista === 'mapa') {
-      renderTimelineMapaView(container, eras, tlScope);
-      return;
+      try {
+        renderTimelineMapaView(container, eras, tlScope);
+        return;
+      } catch (err) {
+        console.error('[mapa] render failed, falling back to lista:', err);
+        try { localStorage.setItem('tlVista', 'lista'); } catch(e) {}
+        // fall through to lista render below
+      }
     }
 
     container.innerHTML = '<div class="view-transition">' +
@@ -12959,9 +12966,9 @@ body {
   renderEstantesGrid();
   renderBooksGrid();
   renderMegaLibrary();
-  renderTimelineView();
-  renderRutasView();
-  showRandomBook();
+  try { renderTimelineView(); } catch(e) { console.error('[timeline init]', e); }
+  try { renderRutasView(); } catch(e) { console.error('[rutas init]', e); }
+  try { showRandomBook(); } catch(e) { console.error('[showRandomBook]', e); }
 
   // Default to librería view (mega-library) — hide landing, show shelves
   document.getElementById('landing').style.display = 'none';
