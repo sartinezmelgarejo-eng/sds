@@ -11298,37 +11298,18 @@ body {
       .attr('class', 'land')
       .attr('d', path);
 
-    // Jitter: group events by location
-    var locKey = function(ev) { return ev.lugar.coords
-      ? ev.lugar.coords.lat.toFixed(2) + ',' + ev.lugar.coords.lng.toFixed(2)
-      : null; };
-    var locGroups = {};
-    events.forEach(function(ev) {
-      var k = locKey(ev);
-      if (!k) return;
-      if (!locGroups[k]) locGroups[k] = [];
-      locGroups[k].push(ev);
-    });
+    // No jitter — pins stack exactly at coords. Selected pin is on top.
     var pinData = [];
     events.forEach(function(ev) {
       if (ev.lugar.tipo !== 'punto') return;
       if (!ev.lugar.coords) return;
-      var grp = locGroups[locKey(ev)];
-      var idx = grp.indexOf(ev);
-      var dx = 0, dy = 0;
-      if (grp.length > 1) {
-        var angle = (idx / grp.length) * Math.PI * 2 - Math.PI/2;
-        var r = Math.min(10, 4 + grp.length * 0.5);
-        dx = r * Math.cos(angle);
-        dy = r * Math.sin(angle) * 0.5;
-      }
-      pinData.push({ev: ev, dx: dx, dy: dy});
+      pinData.push({ev: ev});
     });
 
     function pinTransform(d) {
       var c = projection([d.ev.lugar.coords.lng, d.ev.lugar.coords.lat]);
       if (!c) return 'translate(-9999,-9999)';
-      return 'translate(' + (c[0] + d.dx) + ',' + (c[1] + d.dy) + ')';
+      return 'translate(' + c[0] + ',' + c[1] + ')';
     }
     function isVisible(lng, lat) {
       var r = projection.rotate();
@@ -11400,11 +11381,15 @@ body {
       if (hdr2) hdr2.textContent = l.nombre + ' (' + l.tipo + ', ' + l.pais + ')';
       if (ctr) ctr.textContent = (idx + 1) + ' / ' + events.length;
 
+      var selectedPinNode = null;
       pins.each(function(d) {
         var isSel = d.ev._idx === idx;
         d3.select(this).classed('selected', isSel).classed('ghost', !isSel);
         d3.select(this).select('.pin-halo').classed('active', isSel);
+        if (isSel) selectedPinNode = this;
       });
+      // Raise selected pin to top of pin layer
+      if (selectedPinNode) selectedPinNode.parentNode.appendChild(selectedPinNode);
 
       if (l.tipo !== 'punto' && l.pais) {
         countryPaths.attr('class', function(d) {
