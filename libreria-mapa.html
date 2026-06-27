@@ -2929,6 +2929,16 @@ body {
 }
 .tl-mapa-globe .land.lit-mexico { fill: #d4a84a; filter: drop-shadow(0 0 6px #f0c860); }
 .tl-mapa-globe .land.lit-mundo  { fill: #7faed8; filter: drop-shadow(0 0 6px #a8cae8); }
+/* Mexico states overlay — invisible by default, lit when selected */
+.tl-mapa-globe .mx-state {
+  fill: transparent;
+  stroke: rgba(117, 102, 74, 0.45);
+  stroke-width: 0.35;
+  pointer-events: none;
+  transition: fill 0.5s, filter 0.5s;
+}
+.tl-mapa-globe .mx-state.lit-mexico { fill: #d4a84a; filter: drop-shadow(0 0 6px #f0c860); stroke: #b88a30; stroke-width: 0.5; }
+.tl-mapa-globe .mx-state.lit-mundo  { fill: #7faed8; filter: drop-shadow(0 0 6px #a8cae8); stroke: #4a78a8; stroke-width: 0.5; }
 .tl-mapa-globe .pin { cursor: pointer; transition: opacity 0.35s; }
 .tl-mapa-globe .pin .needle { stroke: rgba(15,12,8,0.95); stroke-width: 1.1; stroke-linecap: round; fill: none; }
 .tl-mapa-globe .pin .ball { stroke: rgba(15,12,8,0.85); stroke-width: 0.6; }
@@ -11590,7 +11600,14 @@ body {
       if (typeof topojson === 'undefined') await loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3');
       var resp = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
       if (!resp.ok) throw new Error('Failed to fetch world atlas');
-      return await resp.json();
+      var world = await resp.json();
+      // Mexico states for region-level highlighting (best effort: failures don't break the globe)
+      var mxStates = null;
+      try {
+        var mxResp = await fetch('https://cdn.jsdelivr.net/gh/strotgen/mexico-leaflet/states.geojson');
+        if (mxResp.ok) mxStates = await mxResp.json();
+      } catch(e) { mxStates = null; }
+      return { world: world, mxStates: mxStates };
     })();
     return __tlMapaDepsPromise;
   }
@@ -11848,11 +11865,11 @@ body {
     // During the page's initial render the timeline-view tab can still be
     // display:none, so globeEl.clientWidth would be 0 and the sphere ends
     // up drawn at 0x0. Wait for the wrap to be measurable.
-    loadMapaDeps().then(function(world) {
+    loadMapaDeps().then(function(deps) {
       var globeWrap = container.querySelector('.tl-mapa-globe-wrap');
       function tryInit() {
         if (!globeWrap || globeWrap.clientWidth > 0) {
-          initMapaGlobe(container, allEvents, world);
+          initMapaGlobe(container, allEvents, deps.world, deps.mxStates);
           return true;
         }
         return false;
@@ -11991,7 +12008,7 @@ body {
     citasLayerEl._citas = citas;
   }
 
-  function initMapaGlobe(container, events, world) {
+  function initMapaGlobe(container, events, world, mxStates) {
     var globeEl = container.querySelector('#tl-mapa-globe');
     if (!globeEl) return;
     // Remove only the loading splash, keep the floating overlay nodes intact
@@ -12046,6 +12063,32 @@ body {
       .attr('class', 'land')
       .attr('d', path);
 
+    // Mexico states layer — drawn ON TOP of land so a single state can be
+    // highlighted in region/pais events with region_codigo 'MX-XXX'.
+    // INEGI numeric state code → ISO 3166-2 alpha-3 suffix.
+    var INEGI_TO_ISO = {
+      1:'AGU', 2:'BCN', 3:'BCS', 4:'CAM', 5:'COA', 6:'COL', 7:'CHP', 8:'CHH',
+      9:'CMX', 10:'DUR', 11:'GUA', 12:'GRO', 13:'HID', 14:'JAL', 15:'MEX', 16:'MIC',
+      17:'MOR', 18:'NAY', 19:'NLE', 20:'OAX', 21:'PUE', 22:'QUE', 23:'ROO', 24:'SLP',
+      25:'SIN', 26:'SON', 27:'TAB', 28:'TAM', 29:'TLA', 30:'VER', 31:'YUC', 32:'ZAC'
+    };
+    var stateByCode = {};
+    var statePaths = null;
+    if (mxStates && mxStates.features) {
+      mxStates.features.forEach(function(f) {
+        var iso = INEGI_TO_ISO[f.properties.state_code];
+        if (iso) {
+          f.__iso = iso;
+          stateByCode[iso] = f;
+        }
+      });
+      statePaths = g.selectAll('path.mx-state')
+        .data(mxStates.features)
+        .enter().append('path')
+        .attr('class', 'mx-state')
+        .attr('d', path);
+    }
+
     // No jitter — pins stack exactly at coords. Selected pin is on top.
     var pinData = [];
     events.forEach(function(ev) {
@@ -12095,6 +12138,13 @@ body {
         if (!c) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
         labelEl.attr('x', c[0]).attr('y', c[1] - 28);  // above the pin ball
         anchorX = c[0]; anchorY = c[1];
+      } else if (d.type === 'state' && d.stateFeat) {
+        var bbS = path.bounds(d.stateFeat);
+        if (!bbS || isNaN(bbS[0][0]) || isNaN(bbS[1][1])) { labelEl.classed('hidden', true); positionFloatingCitas(null); return; }
+        var xS = (bbS[0][0] + bbS[1][0]) / 2;
+        var yS = bbS[1][1] + 14;
+        labelEl.attr('x', xS).attr('y', yS);
+        anchorX = xS; anchorY = (bbS[0][1] + bbS[1][1]) / 2;
       } else {
         // Below the country: horizontally centered on bounding box, just under the south edge
         var feat = countries.features.find(function(f) { return countryA2(f) === d.pais; });
@@ -12196,6 +12246,7 @@ body {
 
     function redraw() {
       g.selectAll('path.land').attr('d', path);
+      g.selectAll('path.mx-state').attr('d', path);
       g.select('path.sphere').attr('d', path);
       g.select('path.graticule').attr('d', path);
       pins.attr('transform', pinTransform)
@@ -12314,19 +12365,37 @@ body {
       // Raise selected pin to top of pin layer
       if (selectedPinNode) selectedPinNode.parentNode.appendChild(selectedPinNode);
 
-      if (l.tipo !== 'punto' && l.pais) {
+      // Reset all shapes
+      countryPaths.attr('class', 'land');
+      if (statePaths) statePaths.attr('class', 'mx-state');
+
+      // Determine which state code (if any) to highlight
+      var stateIso = null;
+      if (l.region_codigo && l.region_codigo.indexOf('MX-') === 0) {
+        stateIso = l.region_codigo.slice(3);
+      }
+      var stateFeat = stateIso && stateByCode[stateIso];
+
+      if (l.tipo !== 'punto' && stateFeat) {
+        // Highlight the specific Mexican state only — finer granularity
+        statePaths.attr('class', function(d) {
+          return d === stateFeat ? 'mx-state lit-' + ev.scope : 'mx-state';
+        });
+      } else if (l.tipo !== 'punto' && l.pais) {
         countryPaths.attr('class', function(d) {
           var a2 = countryA2(d);
           if (a2 !== l.pais) return 'land';
           return 'land lit-' + ev.scope;
         });
-      } else {
-        countryPaths.attr('class', 'land');
       }
 
       // Compute label position data for this lugar (rendered in redraw)
       if (l.tipo === 'punto' && l.coords) {
         currentLabelData = { type: 'point', lng: l.coords.lng, lat: l.coords.lat, text: l.nombre, scope: ev.scope };
+      } else if (stateFeat) {
+        // Position label below the state's bounding box
+        var cc0 = d3.geoCentroid(stateFeat);
+        currentLabelData = { type: 'state', stateFeat: stateFeat, lng: cc0[0], lat: cc0[1], text: l.nombre, scope: ev.scope };
       } else if ((l.tipo === 'region' || l.tipo === 'pais') && l.pais) {
         // Use the country centroid; lng/lat fields used only for backside visibility
         var feat0 = countries.features.find(function(f){ return countryA2(f) === l.pais; });
