@@ -2555,6 +2555,19 @@ body {
   0%, 100% { stroke-width: 1.2; opacity: 0.7; r: 6; }
   50%      { stroke-width: 0.6; opacity: 0.15; r: 12; }
 }
+.tl-mapa-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  fill: #f5e8c8;
+  stroke: rgba(15, 12, 8, 0.92);
+  stroke-width: 4px;
+  paint-order: stroke fill;
+  pointer-events: none;
+}
+.tl-mapa-label.mundo { fill: #d8eaf8; }
+.tl-mapa-label.hidden { opacity: 0; }
 .tl-mapa-loading {
   position: absolute;
   inset: 0;
@@ -11518,19 +11531,50 @@ body {
     pins.append('line').attr('class','needle').attr('x1',0).attr('y1',0).attr('x2',0).attr('y2', NEEDLE_TOP);
     pins.append('circle').attr('class','ball').attr('cx',0).attr('cy', BALL_CY).attr('r', BALL_R);
 
+    // ── Active-event label that lives on the map ──
+    var labelLayer = g.append('g').attr('class','label-layer');
+    var labelEl = labelLayer.append('text')
+      .attr('class', 'tl-mapa-label hidden')
+      .attr('text-anchor', 'middle');
+    var currentLabelData = null; // { lng, lat, type: 'point' | 'centroid', text, scope }
+
+    function updateLabel() {
+      if (!currentLabelData) { labelEl.classed('hidden', true); return; }
+      var d = currentLabelData;
+      if (d.type === 'point') {
+        var c = projection([d.lng, d.lat]);
+        if (!c) { labelEl.classed('hidden', true); return; }
+        labelEl.attr('x', c[0]).attr('y', c[1] - 28);  // above the pin ball
+      } else {
+        // centroid label for region/pais
+        var feat = countries.features.find(function(f) { return countryA2(f) === d.pais; });
+        if (!feat) { labelEl.classed('hidden', true); return; }
+        var cc = path.centroid(feat);
+        if (!cc || isNaN(cc[0])) { labelEl.classed('hidden', true); return; }
+        labelEl.attr('x', cc[0]).attr('y', cc[1] + 4);
+      }
+      labelEl.text(d.text)
+        .classed('mundo', d.scope === 'mundo')
+        .classed('hidden', !isVisible(d.lng, d.lat));
+    }
+
     function redraw() {
       g.selectAll('path.land').attr('d', path);
       g.select('path.sphere').attr('d', path);
       g.select('path.graticule').attr('d', path);
       pins.attr('transform', pinTransform)
           .style('display', function(d) { return isVisible(d.ev.lugar.coords.lng, d.ev.lugar.coords.lat) ? '' : 'none'; });
+      updateLabel();
     }
     redraw();
 
-    // Drag
+    // Drag (cancels any animation in flight)
     var rot0, p0;
     svg.call(d3.drag()
-      .on('start', function(e) { rot0 = projection.rotate(); p0 = [e.x, e.y]; })
+      .on('start', function(e) {
+        if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
+        rot0 = projection.rotate(); p0 = [e.x, e.y];
+      })
       .on('drag', function(e) {
         var s = 0.4;
         var r = [rot0[0] + (e.x - p0[0]) * s, rot0[1] - (e.y - p0[1]) * s, rot0[2]];
@@ -11544,11 +11588,17 @@ body {
     var currentIdx = 0;
     var BASE_SCALE = radius;
     var ZOOM_SCALE = radius * 2.5;
+    var _animFrame = null;
     function animateTo(lng, lat, targetScale) {
+      // Cancel any in-flight animation so we don't get jitter from overlap
+      if (_animFrame) { cancelAnimationFrame(_animFrame); _animFrame = null; }
       var startRot = projection.rotate();
       var startScale = projection.scale();
       var endRot = [-lng, -lat, 0];
-      // Avoid taking the long way around the globe
+      // Normalise current rotation to [-180, 180) before computing shortest-path
+      // so cumulative wrap doesn't keep growing.
+      startRot[0] = ((startRot[0] + 180) % 360 + 360) % 360 - 180;
+      projection.rotate(startRot);
       var dLon = endRot[0] - startRot[0];
       if (dLon > 180) endRot[0] -= 360;
       else if (dLon < -180) endRot[0] += 360;
@@ -11560,9 +11610,10 @@ body {
         projection.rotate(interpRot(e));
         projection.scale(startScale + (targetScale - startScale) * e);
         redraw();
-        if (t < 1) requestAnimationFrame(tick);
+        if (t < 1) _animFrame = requestAnimationFrame(tick);
+        else _animFrame = null;
       }
-      requestAnimationFrame(tick);
+      _animFrame = requestAnimationFrame(tick);
     }
     var hasUserSelected = false;
     var zoomLocked = false;             // toggled by the world button
@@ -11637,7 +11688,27 @@ body {
         countryPaths.attr('class', 'land');
       }
 
+      // Compute label position data for this lugar (rendered in redraw)
+      if (l.tipo === 'punto' && l.coords) {
+        currentLabelData = { type: 'point', lng: l.coords.lng, lat: l.coords.lat, text: l.nombre, scope: ev.scope };
+      } else if ((l.tipo === 'region' || l.tipo === 'pais') && l.pais) {
+        // Use the country centroid; lng/lat fields used only for backside visibility
+        var feat0 = countries.features.find(function(f){ return countryA2(f) === l.pais; });
+        if (feat0) {
+          var cc0 = d3.geoCentroid(feat0);
+          currentLabelData = { type: 'centroid', pais: l.pais, lng: cc0[0], lat: cc0[1], text: l.nombre, scope: ev.scope };
+        } else {
+          currentLabelData = null;
+        }
+      } else {
+        currentLabelData = null;
+      }
+
       if (l.coords) rotateTo(l.coords.lng, l.coords.lat, l);
+      else if (currentLabelData) {
+        // For region/pais without coords, rotate to the centroid
+        animateTo(currentLabelData.lng, currentLabelData.lat, scaleForLugar(l));
+      }
       // Any selection after the initial render counts as a user-driven nav, so subsequent
       // selectIdx calls will zoom in. The very first call (auto-fires on init) stays at base scale.
       hasUserSelected = true;
