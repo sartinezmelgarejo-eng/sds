@@ -3165,6 +3165,20 @@ body {
   pointer-events: none;
   transition: opacity 0.35s ease;
 }
+/* Hit-area: invisible but catches taps. Bigger radius than the visible ball. */
+.tl-mapa-globe .pin-hit {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+  cursor: pointer;
+}
+.tl-mapa-globe .pin.near,
+.tl-mapa-globe .pin.selected { cursor: pointer; }
+.tl-mapa-globe .pin.near:hover .ball,
+.tl-mapa-globe .pin.near:hover .pin-halo {
+  filter: drop-shadow(0 0 6px #f0c860) brightness(1.15);
+}
+.tl-mapa-globe .pin.near:hover { opacity: 1 !important; }
 .tl-mapa-globe .pin.near {
   opacity: 0.35;
   pointer-events: auto;
@@ -12454,13 +12468,15 @@ body {
     }
 
     var pinsLayer = g.append('g').attr('class','pins-layer');
-    var NEEDLE_TOP = -13, BALL_CY = -15, BALL_R = 4.2;
+    var NEEDLE_TOP = -13, BALL_CY = -15, BALL_R = 4.2, HIT_R = 14;
     var pins = pinsLayer.selectAll('g.pin')
       .data(pinData)
       .enter().append('g')
       .attr('class', function(d){ return 'pin ' + d.ev.scope; })
       .attr('transform', pinTransform)
       .on('click', function(_, d) { selectIdx(d.ev._idx); });
+    // Invisible hit area — generous radius so taps/clicks land easily.
+    pins.append('circle').attr('class','pin-hit').attr('cx',0).attr('cy', BALL_CY).attr('r', HIT_R);
     pins.append('circle').attr('class','pin-halo').attr('cx',0).attr('cy', BALL_CY).attr('r', 6);
     pins.append('line').attr('class','needle').attr('x1',0).attr('y1',0).attr('x2',0).attr('y2', NEEDLE_TOP);
     pins.append('circle').attr('class','ball').attr('cx',0).attr('cy', BALL_CY).attr('r', BALL_R);
