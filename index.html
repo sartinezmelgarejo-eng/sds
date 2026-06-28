@@ -1262,6 +1262,33 @@ body.sidebar-fullscreen .sidebar .m-view-btn.m-view-btn-apps:hover{
   transform:scale(1.06);
 }
 body.sidebar-fullscreen .sidebar .m-expand-btn{display:none}
+/* Manual zoom control — mimics browser zoom (uses CSS `zoom` which
+   Chromium respects at the layout level). Useful on TVs / large monitors
+   where 100% browser zoom leaves the feed over-magnified. Three pieces:
+   − / display / +. Steps of 10%, range 40-150. Persisted in localStorage.
+   Same visual language as .m-view-btn / .m-expand-btn so it reads as a
+   sibling control in the sidebar header. Hidden on mobile (TVs/desktops
+   only — touch zoom handles the need there natively). */
+.sidebar .m-zoom-ctrl{
+  display:inline-flex;align-items:center;gap:0;flex-shrink:0;
+  background:rgba(159,34,65,.22);border:1px solid rgba(221,201,163,.25);
+  border-radius:7px;overflow:hidden;height:28px;
+}
+.sidebar .m-zoom-ctrl button{
+  background:transparent;border:0;color:#DDC9A3;cursor:pointer;
+  width:26px;height:100%;font-size:15px;line-height:1;font-weight:700;
+  display:flex;align-items:center;justify-content:center;padding:0;
+  font-family:inherit;transition:background .15s;
+}
+.sidebar .m-zoom-ctrl button:hover{background:rgba(159,34,65,.4)}
+.sidebar .m-zoom-ctrl button:disabled{opacity:.35;cursor:default}
+.sidebar .m-zoom-ctrl .m-zoom-val{
+  color:#DDC9A3;font-size:10.5px;font-weight:700;letter-spacing:.5px;
+  min-width:38px;text-align:center;cursor:pointer;user-select:none;
+  padding:0 2px;
+}
+.sidebar .m-zoom-ctrl .m-zoom-val:hover{color:#fff}
+@media (max-width:680px){ .sidebar .m-zoom-ctrl{display:none} }
 .d-feed-link{
   font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   color:#DDC9A3;text-decoration:none;
@@ -2215,6 +2242,11 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
     <span style="flex:1"></span>
     <a class="d-feed-link" href="https://t.me/resisres" target="_blank">@resisres ↗</a>
     <button class="m-expand-btn" id="d-expand-btn" aria-label="Expandir a pantalla completa" title="Expandir a pantalla completa">⛶</button>
+    <div class="m-zoom-ctrl" id="d-zoom-ctrl" aria-label="Zoom">
+      <button id="d-zoom-out" aria-label="Alejar">−</button>
+      <span class="m-zoom-val" id="d-zoom-val" title="Restablecer zoom">100%</span>
+      <button id="d-zoom-in" aria-label="Acercar">+</button>
+    </div>
   </div>
   <div class="m-tg-chips d-feed-chips"></div>
   <div class="m-tg-list d-feed-list">
@@ -3577,6 +3609,31 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       }
       try { localStorage.setItem('sidebar-width', newW); } catch {}
     });
+  })();
+  // Manual zoom control — applies document.body.style.zoom which Chromium
+  // treats as a layout-level magnification (same as Ctrl+/- browser zoom).
+  // Steps of 10%, range 40-150. Persisted in localStorage key 'sds-zoom'.
+  // Double-click the % display to reset to 100%.
+  (function(){
+    const ZOOM_MIN = 0.4, ZOOM_MAX = 1.5, ZOOM_STEP = 0.1;
+    const valEl = document.getElementById('d-zoom-val');
+    const outBtn = document.getElementById('d-zoom-out');
+    const inBtn = document.getElementById('d-zoom-in');
+    if(!valEl || !outBtn || !inBtn) return;
+    let zoom = 1;
+    try { const s = parseFloat(localStorage.getItem('sds-zoom')); if(!isNaN(s)) zoom = s; } catch {}
+    const clamp = v => Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, v));
+    function apply(){
+      zoom = clamp(zoom);
+      document.body.style.zoom = zoom;
+      valEl.textContent = Math.round(zoom*100) + '%';
+      outBtn.disabled = zoom <= ZOOM_MIN;
+      inBtn.disabled  = zoom >= ZOOM_MAX;
+    }
+    outBtn.addEventListener('click', () => { zoom -= ZOOM_STEP; apply(); try{localStorage.setItem('sds-zoom', zoom)}catch{} });
+    inBtn .addEventListener('click', () => { zoom += ZOOM_STEP; apply(); try{localStorage.setItem('sds-zoom', zoom)}catch{} });
+    valEl.addEventListener('dblclick', () => { zoom = 1; apply(); try{localStorage.setItem('sds-zoom', zoom)}catch{} });
+    apply();
   })();
   // Focus body on load so ← / → arrow keys work immediately without
   // requiring a click. tabindex="-1" on <body> makes it programmatically
