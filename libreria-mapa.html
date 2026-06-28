@@ -13019,10 +13019,24 @@ body {
     var playBtn = container.querySelector('#tl-mapa-play');
     var worldBtn = container.querySelector('#tl-mapa-world');
 
-    // ── Auto-play: advance to the next event every PLAY_INTERVAL_MS ──
-    var PLAY_INTERVAL_MS = 4000;
+    // ── Auto-play: advance after a reading-time-based delay ──
+    // Base 2.5s + 15ms per char of (text + detalle + citas), capped at 9s.
+    // Approx Spanish reading speed (~65 chars/s) with a sane upper limit.
+    var PLAY_BASE_MS = 2500;
+    var PLAY_PER_CHAR_MS = 15;
+    var PLAY_MAX_MS = 9000;
     var playTimer = null;
     var isPlaying = false;
+    function readingTimeForEvent(ev) {
+      if (!ev) return PLAY_BASE_MS;
+      var chars = (ev.text || '').length + (ev.detalle || '').length;
+      if (ev.citas && ev.citas.length) {
+        for (var i = 0; i < ev.citas.length; i++) {
+          chars += (ev.citas[i].texto || '').length;
+        }
+      }
+      return Math.min(PLAY_MAX_MS, PLAY_BASE_MS + chars * PLAY_PER_CHAR_MS);
+    }
     function stopPlay(reason) {
       if (!isPlaying) return;
       isPlaying = false;
@@ -13036,12 +13050,14 @@ body {
     }
     function scheduleNext() {
       if (playTimer) clearTimeout(playTimer);
+      var ev = events[currentIdx];
+      var ms = readingTimeForEvent(ev);
       playTimer = setTimeout(function() {
         if (!isPlaying) return;
         if (currentIdx >= events.length - 1) { stopPlay('end'); return; }
         selectIdx(currentIdx + 1);
         scheduleNext();
-      }, PLAY_INTERVAL_MS);
+      }, ms);
     }
     function startPlay() {
       if (isPlaying) return;
