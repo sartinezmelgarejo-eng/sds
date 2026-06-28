@@ -3121,6 +3121,18 @@ body {
   border-color: var(--gold);
   box-shadow: 0 0 12px rgba(200,169,96,0.4);
 }
+.tl-mapa-nav--play { font-size: 14px; }
+.tl-mapa-nav--play.playing {
+  background: #6FC9A3;
+  color: #0d0d1a;
+  border-color: #6FC9A3;
+  box-shadow: 0 0 14px rgba(111,201,163,0.55);
+  animation: tl-mapa-play-pulse 2s ease-in-out infinite;
+}
+@keyframes tl-mapa-play-pulse {
+  0%, 100% { box-shadow: 0 0 14px rgba(111,201,163,0.55); }
+  50% { box-shadow: 0 0 22px rgba(111,201,163,0.85); }
+}
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -12214,6 +12226,7 @@ body {
         '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
         '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir línea de tiempo">▶</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
       '</div>' +
     '</div>';
@@ -12474,7 +12487,10 @@ body {
       .enter().append('g')
       .attr('class', function(d){ return 'pin ' + d.ev.scope; })
       .attr('transform', pinTransform)
-      .on('click', function(_, d) { selectIdx(d.ev._idx); });
+      .on('click', function(_, d) {
+        if (container._tlMapaStopPlay) container._tlMapaStopPlay('pin');
+        selectIdx(d.ev._idx);
+      });
     // Invisible hit area — generous radius so taps/clicks land easily.
     pins.append('circle').attr('class','pin-hit').attr('cx',0).attr('cy', BALL_CY).attr('r', HIT_R);
     pins.append('circle').attr('class','pin-halo').attr('cx',0).attr('cy', BALL_CY).attr('r', 6);
@@ -12966,9 +12982,54 @@ body {
     // Prev/Next + world buttons
     var prevBtn = container.querySelector('#tl-mapa-prev');
     var nextBtn = container.querySelector('#tl-mapa-next');
+    var playBtn = container.querySelector('#tl-mapa-play');
     var worldBtn = container.querySelector('#tl-mapa-world');
-    if (prevBtn) prevBtn.addEventListener('click', function() { selectIdx(currentIdx - 1); });
-    if (nextBtn) nextBtn.addEventListener('click', function() { selectIdx(currentIdx + 1); });
+
+    // ── Auto-play: advance to the next event every PLAY_INTERVAL_MS ──
+    var PLAY_INTERVAL_MS = 4000;
+    var playTimer = null;
+    var isPlaying = false;
+    function stopPlay(reason) {
+      if (!isPlaying) return;
+      isPlaying = false;
+      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+      if (playBtn) {
+        playBtn.textContent = '▶';
+        playBtn.classList.remove('playing');
+        playBtn.setAttribute('aria-label', 'Reproducir');
+        playBtn.title = 'Reproducir línea de tiempo';
+      }
+    }
+    function scheduleNext() {
+      if (playTimer) clearTimeout(playTimer);
+      playTimer = setTimeout(function() {
+        if (!isPlaying) return;
+        if (currentIdx >= events.length - 1) { stopPlay('end'); return; }
+        selectIdx(currentIdx + 1);
+        scheduleNext();
+      }, PLAY_INTERVAL_MS);
+    }
+    function startPlay() {
+      if (isPlaying) return;
+      isPlaying = true;
+      if (playBtn) {
+        playBtn.textContent = '⏸';
+        playBtn.classList.add('playing');
+        playBtn.setAttribute('aria-label', 'Pausar');
+        playBtn.title = 'Pausar';
+      }
+      // If at end, restart from beginning
+      if (currentIdx >= events.length - 1) selectIdx(0);
+      scheduleNext();
+    }
+    if (playBtn) playBtn.addEventListener('click', function() {
+      if (isPlaying) stopPlay('user'); else startPlay();
+    });
+    // Expose stop so any external interaction can pause autoplay
+    container._tlMapaStopPlay = stopPlay;
+
+    if (prevBtn) prevBtn.addEventListener('click', function() { stopPlay('nav'); selectIdx(currentIdx - 1); });
+    if (nextBtn) nextBtn.addEventListener('click', function() { stopPlay('nav'); selectIdx(currentIdx + 1); });
     if (worldBtn) worldBtn.addEventListener('click', function() {
       // Toggle "fixed at base scale" mode.
       // First click: lock zoom to base, button stays active.
@@ -12992,8 +13053,9 @@ body {
     // Keyboard nav
     function keyHandler(e) {
       if (container.offsetParent === null) return; // hidden
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); selectIdx(currentIdx + 1); }
-      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); selectIdx(currentIdx - 1); }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); stopPlay('key'); selectIdx(currentIdx + 1); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); stopPlay('key'); selectIdx(currentIdx - 1); }
+      else if (e.key === ' ' || e.key === 'Spacebar') { e.preventDefault(); if (isPlaying) stopPlay('key'); else startPlay(); }
     }
     if (container._tlMapaKeyHandler) document.removeEventListener('keydown', container._tlMapaKeyHandler);
     container._tlMapaKeyHandler = keyHandler;
