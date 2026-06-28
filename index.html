@@ -1245,6 +1245,23 @@ body.sidebar-fullscreen .sidebar .m-view-btn.m-view-btn-apps:hover{
   transform:scale(1.06);
   box-shadow:0 4px 14px rgba(159,34,65,.32);
 }
+/* Expand-to-fullscreen button — opens the magazine reader with one click
+   instead of dragging the resize handle past 70%. The drag is hostile on
+   touchscreens and impossible on some trackpads / tablets. Same visual
+   language as .m-view-btn so the two read as siblings. Hidden once we're
+   already in fullscreen (the m-view-btn morphs to "exit" then). */
+.sidebar .m-expand-btn{
+  background:rgba(159,34,65,.22);border:1px solid rgba(221,201,163,.25);
+  color:#DDC9A3;width:28px;height:28px;border-radius:7px;
+  font-size:13px;line-height:1;cursor:pointer;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-family:inherit;padding:0;
+  transition:background .2s,border-color .2s,transform .15s;
+}
+.sidebar .m-expand-btn:hover{
+  background:rgba(159,34,65,.4);border-color:rgba(221,201,163,.5);
+  transform:scale(1.06);
+}
+body.sidebar-fullscreen .sidebar .m-expand-btn{display:none}
 .d-feed-link{
   font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
   color:#DDC9A3;text-decoration:none;
@@ -2166,6 +2183,11 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
 <div class="card-accent"></div>
 </a>
 
+<a href="libreria-mapa.html" class="card" style="--c:#9F2241;--glow:rgba(159,34,65,.25)" title="Librería β — Tiempo + Mapa">
+<div class="card-bg" style="background-image:url('pwa/thumb-libreria.jpg')"></div>
+<div class="card-accent"></div>
+</a>
+
 <a href="sacred-texts.html" class="card" style="--c:#c9a84c;--glow:rgba(201,168,76,.2)" title="Sacred Texts">
 <div class="card-bg" style="background-image:url('pwa/thumb-sacred.jpg')"></div>
 <div class="card-accent"></div>
@@ -2192,6 +2214,7 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
     </div>
     <span style="flex:1"></span>
     <a class="d-feed-link" href="https://t.me/resisres" target="_blank">@resisres ↗</a>
+    <button class="m-expand-btn" id="d-expand-btn" aria-label="Expandir a pantalla completa" title="Expandir a pantalla completa">⛶</button>
   </div>
   <div class="m-tg-chips d-feed-chips"></div>
   <div class="m-tg-list d-feed-list">
@@ -2228,6 +2251,7 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
       <a class="apps-peek-item" href="monitoring.html"><img src="pwa/thumb-monitoring.jpg" alt=""></a>
       <a class="apps-peek-item" href="BUSCADOR-MANANERAS.html"><img src="pwa/thumb-mananeras.jpg" alt=""></a>
       <a class="apps-peek-item" href="libreria.html"><img src="pwa/thumb-libreria.jpg" alt=""></a>
+      <a class="apps-peek-item" href="libreria-mapa.html"><img src="pwa/thumb-libreria.jpg" alt="Librería β"></a>
       <a class="apps-peek-item" href="sacred-texts.html"><img src="pwa/thumb-sacred.jpg" alt=""></a>
       <a class="apps-peek-item" href="schedules.html"><img src="pwa/thumb-schedules.jpg" alt=""></a>
       <a class="apps-peek-item" href="guitar.html"><img src="pwa/thumb-guitar.svg" alt=""></a>
@@ -2248,6 +2272,7 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
       <a href="monitoring.html" class="m-app"><img src="pwa/thumb-monitoring.jpg" alt=""><span>Monitor</span></a>
       <a href="BUSCADOR-MANANERAS.html" class="m-app"><img src="pwa/thumb-mananeras.jpg" alt=""><span>Mañaneras</span></a>
       <a href="libreria.html" class="m-app"><img src="pwa/thumb-libreria.jpg" alt=""><span>Librería</span></a>
+      <a href="libreria-mapa.html" class="m-app"><img src="pwa/thumb-libreria.jpg" alt=""><span>Tiempo β</span></a>
       <a href="sacred-texts.html" class="m-app"><img src="pwa/thumb-sacred.jpg" alt=""><span>Sacred</span></a>
       <a href="schedules.html" class="m-app"><img src="pwa/thumb-schedules.jpg" alt=""><span>Schedules</span></a>
       <a href="guitar.html" class="m-app"><img src="pwa/thumb-guitar.svg" alt=""><span>Guitarra</span></a>
@@ -3528,6 +3553,31 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     });
   });
   applyView();
+  // Expand-to-fullscreen button — single-click entry into the magazine
+  // reader. Equivalent to dragging the sidebar resize handle past 70%,
+  // but works on touch devices and trackpads where the drag is hostile.
+  // Mirrors the same state-action pair used by the drag handler (apply
+  // the body class + re-render + sync the view-toggle button icon).
+  (function(){
+    const btn = document.getElementById('d-expand-btn');
+    if(!btn) return;
+    btn.addEventListener('click', () => {
+      const main = document.querySelector('.main');
+      if(!main) return;
+      // Total sidebar = main width minus the 16px grid gap. Apps column
+      // goes to 0 (CSS already hides .main > .grid in fullscreen).
+      const mainWidth = main.getBoundingClientRect().width;
+      const newW = Math.max(240, Math.floor(mainWidth - 16));
+      main.style.gridTemplateColumns = '0 ' + newW + 'px';
+      const was = document.body.classList.contains('sidebar-fullscreen');
+      document.body.classList.add('sidebar-fullscreen');
+      if(!was){
+        if(typeof renderMobile === 'function') renderMobile();
+        if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
+      }
+      try { localStorage.setItem('sidebar-width', newW); } catch {}
+    });
+  })();
   // Focus body on load so ← / → arrow keys work immediately without
   // requiring a click. tabindex="-1" on <body> makes it programmatically
   // focusable (not in the tab order). Skip if the URL bar grabbed focus
