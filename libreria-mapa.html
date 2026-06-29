@@ -2424,7 +2424,8 @@ body {
   margin-left: 6px;
   opacity: 0.7;
 }
-.tl-mapa-clear {
+.tl-mapa-clear,
+.tl-mapa-preset {
   background: transparent;
   border: 1px solid rgba(200,169,96,0.22);
   border-radius: 14px;
@@ -2437,8 +2438,14 @@ body {
   cursor: pointer;
   transition: all 0.15s;
 }
-.tl-mapa-clear:hover { color: var(--text); border-color: var(--gold); background: rgba(200,169,96,0.08); }
+.tl-mapa-clear:hover,
+.tl-mapa-preset:hover { color: var(--text); border-color: var(--gold); background: rgba(200,169,96,0.08); }
 .tl-mapa-clear:disabled { opacity: 0.4; cursor: default; }
+.tl-mapa-preset.active {
+  background: #9F2241;
+  border-color: #9F2241;
+  color: #fdfcf3;
+}
 
 /* ── Mapa view ── */
 .tl-mapa-view {
@@ -12198,8 +12205,20 @@ body {
 
   // ── Render mapa view ──
   // ── Filter state (synced with URL) ──
+  // Default = México only (most users land on the Mexican-history side).
+  // If the URL carries explicit filter params, those win. Once the user
+  // touches the filter once, we remember that so they don't get re-snapped
+  // to MX on next reload with empty URL.
   function readFilterFromURL() {
     var u = new URLSearchParams(window.location.search);
+    var hasUrl = u.has('q') || u.has('libros') || u.has('paises');
+    if (!hasUrl) {
+      var touched = false;
+      try { touched = localStorage.getItem('tlFilterTouched') === '1'; } catch(e){}
+      if (!touched) {
+        return { q: '', libros: new Set(), paises: new Set(['MX']) };
+      }
+    }
     return {
       q: u.get('q') || '',
       libros: new Set((u.get('libros') || '').split(',').filter(Boolean)),
@@ -12207,6 +12226,7 @@ body {
     };
   }
   function writeFilterToURL(f) {
+    try { localStorage.setItem('tlFilterTouched', '1'); } catch(e){}
     var u = new URLSearchParams(window.location.search);
     if (f.q) u.set('q', f.q); else u.delete('q');
     if (f.libros.size) u.set('libros', Array.from(f.libros).join(',')); else u.delete('libros');
@@ -12334,24 +12354,15 @@ body {
     mexicoEvents.forEach(function(ev) { ev._date = ev._sortKey._date; });
     mundoEvents.forEach(function(ev) { ev._date = ev._sortKey._date; });
 
-    // Build the unified list (for globe). idx is assigned across both lists in scope order.
-    var allEvents = [];
-    if (tlScope === 'mundo') {
-      allEvents = mundoEvents;
-    } else if (tlScope === 'mexico') {
-      allEvents = mexicoEvents;
-    } else {
-      // ambos: globe shows both, indexed in chrono order
-      allEvents = mexicoEvents.concat(mundoEvents).slice().sort(sortByDate);
-    }
+    // Unified single-column list (filter is the only knob now — the old
+    // México/Mundo/Ambos toggle was redundant with the país filter).
+    var allEvents = mexicoEvents.concat(mundoEvents).slice().sort(sortByDate);
     allEvents.forEach(function(ev, i) { ev._idx = i; });
-    // Make sure the column events also have their _idx (point to same objects)
 
     var totalAll = 0;
     eras.forEach(function(era) { era.events.forEach(function() { totalAll++; }); });
 
     // Era pills: one pill per era with at least one event in the visible set.
-    // firstIdx = the first _idx in allEvents whose _era is this era.
     var eraPills = eras.map(function(era) {
       var first = null;
       for (var i = 0; i < allEvents.length; i++) {
@@ -12361,43 +12372,18 @@ body {
       return { label: era.label, years: era.years, color: era.color || 'var(--gold)', firstIdx: first };
     }).filter(Boolean);
 
-    // Build column HTML (year-grouped, lista-style)
-    var mexHTML = renderMapaColumn(mexicoEvents);
-    var munHTML = renderMapaColumn(mundoEvents);
-
+    var columnHTML = renderMapaColumn(allEvents);
+    var railHTML = buildEraRail(eraPills);
     var notice = '';
 
-    var railHTML = buildEraRail(eraPills);
-
-    var bodyHTML;
-    if (tlScope === 'ambos') {
-      bodyHTML =
-        '<div class="tl-mapa-view ambos">' +
-          railHTML +
-          '<div class="tl-mapa-column">' +
-            '<div class="tl-mapa-column-header mexico"><span>México</span><span>' + mexicoEvents.length + '</span></div>' +
-            '<div class="tl-mapa-events">' + mexHTML + '</div>' +
-          '</div>' +
-          buildGlobeBlock(allEvents.length) +
-          '<div class="tl-mapa-column">' +
-            '<div class="tl-mapa-column-header mundo"><span>Mundo</span><span>' + mundoEvents.length + '</span></div>' +
-            '<div class="tl-mapa-events">' + munHTML + '</div>' +
-          '</div>' +
-        '</div>' + notice;
-    } else {
-      var singleHTML = (tlScope === 'mundo') ? munHTML : mexHTML;
-      var label = (tlScope === 'mundo') ? 'Mundo' : 'México';
-      var n = (tlScope === 'mundo') ? mundoEvents.length : mexicoEvents.length;
-      bodyHTML =
-        '<div class="tl-mapa-view">' +
-          railHTML +
-          '<div class="tl-mapa-column">' +
-            '<div class="tl-mapa-column-header ' + tlScope + '"><span>' + label + '</span><span>' + n + '</span></div>' +
-            '<div class="tl-mapa-events">' + singleHTML + '</div>' +
-          '</div>' +
-          buildGlobeBlock(allEvents.length) +
-        '</div>' + notice;
-    }
+    var bodyHTML =
+      '<div class="tl-mapa-view">' +
+        railHTML +
+        '<div class="tl-mapa-column">' +
+          '<div class="tl-mapa-events">' + columnHTML + '</div>' +
+        '</div>' +
+        buildGlobeBlock(allEvents.length) +
+      '</div>' + notice;
 
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
     function tagLabel(v, kind) { return kind === 'paises' ? tlPaisLabel(v) : tlBookLabel(v); }
@@ -12408,8 +12394,13 @@ body {
       }).join('');
     }
     var filterEmpty = filterIsEmpty(tlFilter);
+    // "México" preset is the chip the user can re-apply to snap back to
+    // Mexico-only with one click (same as the original default).
+    var mxPresetActive = tlFilter.paises.size === 1 && tlFilter.paises.has('MX') && !tlFilter.q && !tlFilter.libros.size;
     var filterBarHTML =
       '<div class="tl-mapa-filter-bar">' +
+        '<button class="tl-mapa-preset' + (mxPresetActive ? ' active' : '') + '" ' +
+          'id="tl-mapa-preset-mx" title="Volver al modo México (default)">📍 México</button>' +
         '<input class="tl-mapa-search" type="search" id="tl-mapa-q" ' +
           'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
         '<div class="tl-mapa-tag-picker" data-kind="libros">' +
@@ -12433,22 +12424,12 @@ body {
           '<button data-vista="lista">Lista</button>' +
           '<button data-vista="mapa" class="active">Mapa</button>' +
         '</div>' +
-        '<div class="tl-scope-toggle" data-scope="' + tlScope + '">' +
-          '<button data-scope="mexico" class="' + (tlScope==='mexico'?'active':'') + '">México</button>' +
-          '<button data-scope="mundo" class="' + (tlScope==='mundo'?'active':'') + '">Mundo</button>' +
-          '<button data-scope="ambos" class="' + (tlScope==='ambos'?'active':'') + '">Ambos</button>' +
-        '</div>' +
       '</div>' +
       filterBarHTML +
       bodyHTML +
     '</div>';
 
     // Wire toggles
-    container.querySelector('.tl-scope-toggle').addEventListener('click', function(e) {
-      var btn = e.target.closest('button'); if (!btn) return;
-      try { localStorage.setItem('tlScope', btn.getAttribute('data-scope')); } catch(err){}
-      renderTimelineView();
-    });
     container.querySelector('.tl-vista-toggle').addEventListener('click', function(e) {
       var btn = e.target.closest('button'); if (!btn) return;
       try { localStorage.setItem('tlVista', btn.getAttribute('data-vista')); } catch(err){}
@@ -12475,6 +12456,11 @@ body {
     var clearBtn = container.querySelector('#tl-mapa-clear');
     if (clearBtn) clearBtn.addEventListener('click', function() {
       tlFilter = { q: '', libros: new Set(), paises: new Set() };
+      rerenderFromFilter();
+    });
+    var presetMx = container.querySelector('#tl-mapa-preset-mx');
+    if (presetMx) presetMx.addEventListener('click', function() {
+      tlFilter = { q: '', libros: new Set(), paises: new Set(['MX']) };
       rerenderFromFilter();
     });
 
