@@ -25737,6 +25737,36 @@ window._tuner = (function setupTuner() {
   return { start, stop, isRunning };
 })();
 
+// Wake Lock — keeps the screen awake on mobile so playback isn't interrupted
+// by idle auto-sleep. Re-acquired on visibilitychange since the browser
+// releases the lock when the tab is hidden.
+(function () {
+  if (!('wakeLock' in navigator)) return;
+  var lock = null;
+  function acquire() {
+    if (document.visibilityState !== 'visible' || lock) return;
+    navigator.wakeLock.request('screen').then(function (l) {
+      lock = l;
+      if (l && l.addEventListener) l.addEventListener('release', function () { lock = null; });
+    }).catch(function () { lock = null; });
+  }
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') acquire();
+  });
+  var armed = false;
+  function arm() {
+    if (armed) return;
+    armed = true;
+    acquire();
+    document.removeEventListener('pointerdown', arm);
+    document.removeEventListener('keydown', arm);
+  }
+  document.addEventListener('pointerdown', arm);
+  document.addEventListener('keydown', arm);
+  // PWA relaunch / bfcache restore: also try on focus.
+  window.addEventListener('pageshow', acquire);
+})();
+
 // Register the shared service worker so this app installs / works offline
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('pwa/sw.js').catch(() => {});
