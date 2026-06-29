@@ -3427,7 +3427,7 @@ body {
   border-radius: 4px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900px) and (min-width: 769px) {
   .tl-mapa-view, .tl-mapa-view.ambos {
     display: flex;
     flex-direction: column;
@@ -3461,6 +3461,433 @@ body {
     background: var(--bg, #0e0b08);
     backdrop-filter: blur(6px);
   }
+}
+
+/* ════════════════════════════════════════════════════════
+   MOBILE GAMEBOY — phone-only redesign (≤768px)
+   LCD-screen globe at top + pokemon-card event below + d-pad
+   ════════════════════════════════════════════════════════ */
+.tlm-shell { display: none; }
+@media (max-width: 768px) {
+  /* Desktop mapa layout off, mobile shell on */
+  .tl-mapa-view { display: none !important; }
+  .tl-mapa-controls { display: none !important; }
+  /* Hide the filter bar while it lives in its desktop slot; show it when
+     re-parented into the bottom sheet. */
+  .tl-mapa-filter-bar { display: none !important; }
+  .tlm-sheet .tl-mapa-filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+  .tlm-sheet .tl-mapa-search { width: 100% !important; }
+  .tlm-shell { display: block; }
+  /* On-globe overlays don't fit the LCD frame */
+  .tlm-shell #tl-mapa-detalle,
+  .tlm-shell #tl-mapa-citas-layer,
+  .tlm-shell #tl-mapa-citas-toggle { display: none !important; }
+  .tlm-shell .tl-mapa-loc { display: none !important; }
+  .tlm-shell .tl-mapa-nav-bar { display: none !important; }
+  /* The globe lives inside our LCD — fill the screen completely */
+  .tlm-shell .tl-mapa-globe-wrap {
+    position: absolute; inset: 0;
+    height: auto; min-height: 0; max-height: none;
+    width: auto; max-width: none;
+    margin: 0; padding: 0; border: 0;
+    background: transparent; box-shadow: none;
+    display: block;
+  }
+  .tlm-shell #tl-mapa-globe {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    border-radius: 0; background: transparent;
+  }
+  .tlm-shell #tl-mapa-globe svg {
+    width: 100%; height: 100%;
+    display: block;
+  }
+}
+
+.tlm-search-wrap {
+  padding: 8px 12px 4px;
+  position: relative;
+}
+.tlm-search {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  padding: 9px 36px 9px 12px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.tlm-search:focus { outline: none; border-color: var(--gold); }
+.tlm-filter-fab {
+  position: absolute;
+  right: 18px; top: 50%;
+  transform: translateY(-50%);
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+}
+.tlm-filter-fab.has-filter { color: var(--gold); border-color: var(--gold); }
+.tlm-filter-fab.has-filter::after {
+  content: '';
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  border: 1px solid var(--bg);
+}
+
+/* ── LCD sticky frame ── */
+.tlm-lcd-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  padding: 6px 12px 0;
+  background: linear-gradient(180deg, var(--bg, #0e0b08) 0%, var(--bg, #0e0b08) 88%, transparent 100%);
+}
+.tlm-lcd {
+  position: relative;
+  border-radius: 14px;
+  padding: 10px 10px 8px;
+  background: linear-gradient(145deg, #8a7e6c 0%, #4d4439 100%);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.18), inset 0 -1px 0 rgba(0,0,0,0.4);
+}
+.tlm-lcd::before {
+  /* tiny power LED */
+  content: '';
+  position: absolute;
+  top: 6px; left: 14px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #d63;
+  box-shadow: 0 0 4px #f63;
+  opacity: 0.65;
+}
+.tlm-lcd-brand {
+  position: absolute;
+  bottom: 2px; right: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: rgba(0,0,0,0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+}
+.tlm-screen {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 50vh;
+  border-radius: 8px;
+  background: #0a1822;
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.55), inset 0 2px 8px rgba(0,0,0,0.45);
+}
+.tlm-screen-overlay {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 8px;
+}
+.tlm-screen-overlay .row {
+  display: flex; justify-content: space-between; gap: 8px;
+}
+.tlm-chip {
+  background: rgba(8,8,16,0.72);
+  border: 1px solid rgba(200,169,96,0.3);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--gold, #c8a960);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.tlm-chip.era {
+  color: var(--era-color-current, var(--gold));
+  border-color: color-mix(in srgb, var(--era-color-current, var(--gold)) 50%, transparent);
+}
+.tlm-chip.place {
+  color: #e3d4a8;
+  background: rgba(8,8,16,0.55);
+}
+
+/* ── Deck (d-pad + counter + A/B) ── */
+.tlm-deck {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px 4px;
+}
+.tlm-dpad {
+  position: relative;
+  width: 84px; height: 84px;
+}
+.tlm-dpad-btn {
+  position: absolute;
+  background: linear-gradient(145deg, #2a2620, #15120e);
+  border: 1px solid rgba(200,169,96,0.18);
+  color: var(--text, #f0e2bc);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  font-family: 'JetBrains Mono', monospace;
+}
+.tlm-dpad-btn:active,
+.tlm-dpad-btn.flash { background: var(--gold); color: #000; }
+.tlm-dpad-up    { top: 0; left: 28px; width: 28px; height: 30px; border-radius: 6px 6px 2px 2px; }
+.tlm-dpad-down  { bottom: 0; left: 28px; width: 28px; height: 30px; border-radius: 2px 2px 6px 6px; }
+.tlm-dpad-left  { top: 28px; left: 0; width: 30px; height: 28px; border-radius: 6px 2px 2px 6px; }
+.tlm-dpad-right { top: 28px; right: 0; width: 30px; height: 28px; border-radius: 2px 6px 6px 2px; }
+.tlm-dpad-center {
+  position: absolute;
+  top: 28px; left: 28px; width: 28px; height: 28px;
+  background: #15120e;
+  border: 1px solid rgba(200,169,96,0.12);
+  pointer-events: none;
+}
+.tlm-counter {
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.tlm-counter .num {
+  display: block;
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 0.06em;
+}
+.tlm-counter .era-name {
+  display: block;
+  font-size: 9.5px;
+  color: var(--era-color-current, var(--text-dim));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+  opacity: 0.85;
+  max-width: 110px;
+  margin-left: auto; margin-right: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tlm-abuttons {
+  display: flex; gap: 10px; align-items: center;
+}
+.tlm-btn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(200,169,96,0.25);
+  background: linear-gradient(145deg, #5a2a22, #2a1010);
+  color: var(--text, #f0e2bc);
+  font-size: 15px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.tlm-btn-b { background: linear-gradient(145deg, #2a4a32, #102018); }
+.tlm-btn.playing { background: linear-gradient(145deg, #c8a960, #8a7430); color: #000; }
+.tlm-btn.active { background: linear-gradient(145deg, #c8a960, #8a7430); color: #000; }
+
+/* ── Pokemon-style event card ── */
+.tlm-card {
+  margin: 12px 12px 28px;
+  background: linear-gradient(160deg, rgba(200,169,96,0.05), rgba(200,169,96,0.02));
+  border: 1px solid var(--era-color-current, rgba(200,169,96,0.25));
+  border-radius: 10px;
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+}
+.tlm-card-header {
+  padding: 10px 14px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--era-color-current, #c8a960) 18%, transparent), transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--era-color-current, #c8a960) 25%, transparent);
+}
+.tlm-card-year {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--era-color-current, var(--gold));
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+.tlm-card-era {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--era-color-current, var(--gold));
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: right;
+  opacity: 0.95;
+  max-width: 60%;
+}
+.tlm-card-body { padding: 12px 16px 16px; }
+.tlm-card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  line-height: 1.25;
+  color: var(--text);
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+.tlm-card-place {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin: 0 0 10px;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tlm-card-detalle {
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+.tlm-card-detalle .detalle-lead { font-weight: 600; color: var(--text); }
+.tlm-citas {
+  margin-top: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.tlm-cita {
+  border-left: 2px solid var(--era-color-current, var(--gold));
+  background: rgba(200,169,96,0.045);
+  padding: 8px 12px;
+  border-radius: 0 6px 6px 0;
+}
+.tlm-cita-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+  font-style: italic;
+}
+.tlm-cita-meta {
+  display: block;
+  margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.tlm-cita-meta a { color: var(--gold); text-decoration: none; }
+
+/* Filter sheet (slide-up) — for mobile filter access */
+.tlm-sheet-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 29; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.tlm-sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+.tlm-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--bg, #0e0b08);
+  border-top: 1px solid var(--border);
+  border-radius: 14px 14px 0 0;
+  padding: 12px 16px 24px;
+  z-index: 30;
+  transform: translateY(100%);
+  transition: transform 0.25s ease;
+  box-shadow: 0 -8px 24px rgba(0,0,0,0.6);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+.tlm-sheet.open { transform: translateY(0); }
+.tlm-sheet-handle {
+  width: 40px; height: 4px;
+  background: rgba(200,169,96,0.3);
+  border-radius: 2px;
+  margin: 0 auto 12px;
+}
+.tlm-sheet-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+.tlm-sheet .tl-mapa-tag-picker {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  margin-bottom: 10px;
+  min-height: 36px;
+  position: relative;
+}
+.tlm-sheet .tl-mapa-tag-picker .tag-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  align-self: center;
+  margin-right: 4px;
+}
+.tlm-sheet .tl-mapa-tag-picker input {
+  flex: 1 1 80px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 13px;
+  padding: 4px;
+  min-width: 60px;
+}
+.tlm-sheet .tl-mapa-tag-picker input:focus { outline: none; }
+.tlm-sheet-actions {
+  display: flex; gap: 8px; margin-top: 8px;
+}
+.tlm-sheet-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+}
+.tlm-sheet-actions .tlm-sheet-apply {
+  background: var(--gold);
+  color: #000;
+  border-color: var(--gold);
+  font-weight: 600;
 }
 
 .tl-timeline {
@@ -10445,6 +10872,30 @@ body {
     if (dd && dd.parentElement !== document.body) {
       document.body.appendChild(dd);
     }
+    // Scroll-direction auto-hide for #nav-modes on mobile.
+    // Scrolling down past a threshold hides; scrolling up reveals it.
+    var nav = document.getElementById('nav-modes');
+    if (nav) {
+      var lastY = window.scrollY;
+      var ticking = false;
+      window.addEventListener('scroll', function() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function() {
+          var y = window.scrollY;
+          var delta = y - lastY;
+          // Only auto-hide when meaningful and only on mobile.
+          var isMobile = window.matchMedia('(max-width: 768px)').matches;
+          if (isMobile && y > 80 && delta > 4) {
+            nav.classList.add('nav-hidden');
+          } else if (delta < -4 || y < 80) {
+            nav.classList.remove('nav-hidden');
+          }
+          lastY = y;
+          ticking = false;
+        });
+      }, {passive: true});
+    }
   });
 
   function closeSearch() {
@@ -12421,6 +12872,62 @@ body {
         '<button class="tl-mapa-clear" id="tl-mapa-clear" ' + (filterEmpty?'disabled':'') + '>Limpiar</button>' +
       '</div>';
 
+    // Mobile Gameboy shell — gets the globe placed inside its LCD frame
+    // after render. Stays hidden on >768px. Includes its own d-pad/A-B deck
+    // and a card slot the renderTlmCard fills on each selectIdx.
+    var mobileShellHTML =
+      '<div class="tlm-shell">' +
+        '<div class="tlm-search-wrap">' +
+          '<input class="tlm-search" type="search" id="tlm-search" ' +
+            'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
+          '<button class="tlm-filter-fab' + (filterEmpty ? '' : ' has-filter') + '" ' +
+            'id="tlm-filter-btn" title="Filtros" type="button">⚙</button>' +
+        '</div>' +
+        '<div class="tlm-lcd-wrap">' +
+          '<div class="tlm-lcd">' +
+            '<div class="tlm-screen" id="tlm-screen">' +
+              '<div class="tlm-screen-overlay">' +
+                '<div class="row">' +
+                  '<span class="tlm-chip year" id="tlm-chip-year">—</span>' +
+                  '<span class="tlm-chip era" id="tlm-chip-era">—</span>' +
+                '</div>' +
+                '<div class="row">' +
+                  '<span class="tlm-chip place" id="tlm-chip-place">—</span>' +
+                  '<span></span>' +
+                '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="tlm-lcd-brand">tiempo · color</div>' +
+          '</div>' +
+          '<div class="tlm-deck">' +
+            '<div class="tlm-dpad" role="group" aria-label="Navegación">' +
+              '<button class="tlm-dpad-btn tlm-dpad-up" data-act="prev" aria-label="Anterior">▲</button>' +
+              '<button class="tlm-dpad-btn tlm-dpad-down" data-act="next" aria-label="Siguiente">▼</button>' +
+              '<button class="tlm-dpad-btn tlm-dpad-left" data-act="prev-era" aria-label="Era anterior">◀</button>' +
+              '<button class="tlm-dpad-btn tlm-dpad-right" data-act="next-era" aria-label="Era siguiente">▶</button>' +
+              '<div class="tlm-dpad-center"></div>' +
+            '</div>' +
+            '<div class="tlm-counter">' +
+              '<span class="num" id="tlm-counter-num">0 / ' + allEvents.length + '</span>' +
+              '<span class="era-name" id="tlm-counter-era">—</span>' +
+            '</div>' +
+            '<div class="tlm-abuttons">' +
+              '<button class="tlm-btn tlm-btn-b" id="tlm-btn-b" title="Globo entero" aria-label="Vista global">◯</button>' +
+              '<button class="tlm-btn tlm-btn-a" id="tlm-btn-a" title="Reproducir" aria-label="Reproducir">▶</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="tlm-card" id="tlm-card">' +
+          '<div class="tlm-card-header">' +
+            '<span class="tlm-card-year">—</span>' +
+            '<span class="tlm-card-era">—</span>' +
+          '</div>' +
+          '<div class="tlm-card-body">' +
+            '<h3 class="tlm-card-title">Cargando…</h3>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
     container.innerHTML = '<div class="view-transition">' +
       '<div class="tl-mapa-controls">' +
         '<div class="tl-vista-toggle" data-vista="mapa">' +
@@ -12430,7 +12937,32 @@ body {
       '</div>' +
       filterBarHTML +
       bodyHTML +
+      mobileShellHTML +
     '</div>';
+
+    // Move the globe-wrap from the desktop layout INTO the mobile LCD screen
+    // when we're under 768px. The globe is initialized once; it just lives in
+    // a different DOM parent depending on breakpoint. Reparenting it preserves
+    // the SVG and event handlers.
+    var mqMobile = window.matchMedia('(max-width: 768px)');
+    var globeWrap = container.querySelector('.tl-mapa-globe-wrap');
+    var tlmScreen = container.querySelector('#tlm-screen');
+    var desktopGlobeSlot = globeWrap ? globeWrap.parentNode : null;
+    function placeGlobeForBreakpoint() {
+      if (!globeWrap || !tlmScreen || !desktopGlobeSlot) return;
+      if (mqMobile.matches) {
+        if (globeWrap.parentNode !== tlmScreen) tlmScreen.appendChild(globeWrap);
+      } else {
+        if (globeWrap.parentNode !== desktopGlobeSlot) desktopGlobeSlot.appendChild(globeWrap);
+      }
+    }
+    placeGlobeForBreakpoint();
+    // React to rotation / window resize across breakpoint
+    if (mqMobile.addEventListener) {
+      mqMobile.addEventListener('change', placeGlobeForBreakpoint);
+    } else if (mqMobile.addListener) {
+      mqMobile.addListener(placeGlobeForBreakpoint);
+    }
 
     // Wire toggles
     container.querySelector('.tl-vista-toggle').addEventListener('click', function(e) {
@@ -12608,6 +13140,7 @@ body {
       function tryInit() {
         if (!globeWrap || globeWrap.clientWidth > 0) {
           initMapaGlobe(container, allEvents, deps.world, deps.mxStates);
+          wireMobileShell(container, allEvents, eras);
           return true;
         }
         return false;
@@ -12626,6 +13159,239 @@ body {
       var loading = container.querySelector('.tl-mapa-loading');
       if (loading) loading.innerHTML = '<div style="color:#c44">Error cargando mapa: ' + err.message + '</div>';
     });
+  }
+
+  // ── Mobile Gameboy shell wiring ──
+  // Wraps container._tlMapaSelect with a hook that updates the LCD chips,
+  // counter, and pokemon-card whenever an event becomes active. Also wires
+  // the d-pad / A-B buttons to navigation actions.
+  function wireMobileShell(container, events, eras) {
+    var shell = container.querySelector('.tlm-shell');
+    if (!shell) return;
+    var card = container.querySelector('#tlm-card');
+    var chipYear = container.querySelector('#tlm-chip-year');
+    var chipEra = container.querySelector('#tlm-chip-era');
+    var chipPlace = container.querySelector('#tlm-chip-place');
+    var counterNum = container.querySelector('#tlm-counter-num');
+    var counterEra = container.querySelector('#tlm-counter-era');
+
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    function renderTlmCard(ev, idx) {
+      if (!ev) return;
+      var era = ev._era || {};
+      var eraColor = era.color || 'var(--gold)';
+      // Update the era-color custom prop so card border + chip use it
+      shell.style.setProperty('--era-color-current', eraColor);
+      // Year chip on the LCD
+      if (chipYear) chipYear.textContent = String(ev.year || '—');
+      // Era chip
+      if (chipEra) chipEra.textContent = era.label ? era.label.toUpperCase() : '—';
+      // Place chip
+      var placeText = (ev.lugar && ev.lugar.nombre) ? ev.lugar.nombre : '';
+      if (chipPlace) {
+        if (placeText) { chipPlace.textContent = placeText; chipPlace.style.display = ''; }
+        else { chipPlace.style.display = 'none'; }
+      }
+      // Counter
+      if (counterNum) counterNum.textContent = (idx + 1) + ' / ' + events.length;
+      if (counterEra) counterEra.textContent = era.label || '';
+
+      // Build the card body
+      var titleHTML = '<h3 class="tlm-card-title">' + esc(ev.text || '') + '</h3>';
+      var placeHTML = placeText ? '<div class="tlm-card-place">' + esc(placeText) + '</div>' : '';
+      var detalleHTML = ev.detalle
+        ? '<div class="tlm-card-detalle">' + formatDetalleHTML(ev.detalle) + '</div>'
+        : '';
+      var citasHTML = '';
+      if (ev.citas && ev.citas.length) {
+        var citaItems = ev.citas.map(function(c) {
+          var bookLabel = c.libro ? (typeof tlBookLabel === 'function' ? tlBookLabel(c.libro) : c.libro) : '';
+          var pageLink = '';
+          if (c.libro && c.pagina && typeof getQuotePageLink === 'function') {
+            try { pageLink = getQuotePageLink(c.libro, c.pagina); } catch(e) {}
+          }
+          var metaParts = [];
+          if (bookLabel) {
+            metaParts.push(c.libro
+              ? '<a href="#" data-book="' + esc(c.libro) + '" class="tlm-book-link">' + esc(bookLabel) + '</a>'
+              : esc(bookLabel));
+          }
+          if (c.pagina) {
+            if (pageLink) metaParts.push('<a href="' + esc(pageLink) + '" target="_blank" rel="noopener">p. ' + esc(c.pagina) + '</a>');
+            else metaParts.push('p. ' + esc(c.pagina));
+          }
+          return '<div class="tlm-cita">' +
+            '<div class="tlm-cita-text">' + esc(c.texto || '') + '</div>' +
+            (metaParts.length ? '<span class="tlm-cita-meta">' + metaParts.join(' · ') + '</span>' : '') +
+          '</div>';
+        }).join('');
+        citasHTML = '<div class="tlm-citas">' + citaItems + '</div>';
+      }
+      var headerHTML =
+        '<div class="tlm-card-header">' +
+          '<span class="tlm-card-year">' + esc(String(ev.year || '—')) + '</span>' +
+          '<span class="tlm-card-era">' + esc(era.label || '') + '</span>' +
+        '</div>';
+      var bodyHTML = '<div class="tlm-card-body">' + titleHTML + placeHTML + detalleHTML + citasHTML + '</div>';
+      card.innerHTML = headerHTML + bodyHTML;
+    }
+
+    // Wrap the existing select so each call updates the mobile shell.
+    var origSelect = container._tlMapaSelect;
+    if (origSelect && !origSelect.__tlmWrapped) {
+      var wrapped = function(idx) {
+        origSelect(idx);
+        if (events[idx]) renderTlmCard(events[idx], idx);
+      };
+      wrapped.__tlmWrapped = true;
+      container._tlMapaSelect = wrapped;
+      // Render the initial event into the card too
+      if (events[0]) renderTlmCard(events[0], 0);
+    }
+
+    // ── D-pad wiring ──
+    var dpad = shell.querySelector('.tlm-dpad');
+    if (dpad && !dpad.__wired) {
+      dpad.__wired = true;
+      // Find the era boundaries (first event idx per era).
+      function eraFirstIdx() {
+        var seen = {}, boundaries = [];
+        for (var i = 0; i < events.length; i++) {
+          var key = events[i]._era ? events[i]._era.label : '__none';
+          if (!seen[key]) { seen[key] = true; boundaries.push(i); }
+        }
+        return boundaries;
+      }
+      function curIdx() {
+        // Derive current index from the active list item OR from chipYear text.
+        // The wrapped select is the only writer, so scan for active node.
+        var active = container.querySelector('.tl-mapa-evt--active');
+        if (active) {
+          var i = parseInt(active.getAttribute('data-idx'));
+          if (!isNaN(i)) return i;
+        }
+        return 0;
+      }
+      dpad.addEventListener('click', function(e) {
+        var btn = e.target.closest('.tlm-dpad-btn');
+        if (!btn) return;
+        if (container._tlMapaStopPlay) container._tlMapaStopPlay('dpad');
+        var act = btn.getAttribute('data-act');
+        var ci = curIdx();
+        var sel = container._tlMapaSelect;
+        if (!sel) return;
+        if (act === 'next') sel(Math.min(events.length - 1, ci + 1));
+        else if (act === 'prev') sel(Math.max(0, ci - 1));
+        else if (act === 'next-era') {
+          var bounds = eraFirstIdx();
+          var nxt = bounds.find(function(b) { return b > ci; });
+          if (nxt != null) sel(nxt);
+        } else if (act === 'prev-era') {
+          var bounds2 = eraFirstIdx();
+          // Find the era containing ci, then jump to the era before that
+          var curEraStart = 0;
+          for (var i = 0; i < bounds2.length; i++) {
+            if (bounds2[i] <= ci) curEraStart = bounds2[i]; else break;
+          }
+          // If we're already at the start of the era, jump back one era
+          var target = (ci === curEraStart && curEraStart > 0)
+            ? bounds2[bounds2.indexOf(curEraStart) - 1]
+            : curEraStart;
+          sel(target);
+        }
+        btn.classList.add('flash');
+        setTimeout(function() { btn.classList.remove('flash'); }, 140);
+      });
+    }
+
+    // ── A button = play; B button = world view ──
+    // Both proxy to the existing #tl-mapa-play / #tl-mapa-world buttons.
+    var btnA = container.querySelector('#tlm-btn-a');
+    var btnB = container.querySelector('#tlm-btn-b');
+    var playBtn = container.querySelector('#tl-mapa-play');
+    var worldBtn = container.querySelector('#tl-mapa-world');
+    if (btnA && playBtn && !btnA.__wired) {
+      btnA.__wired = true;
+      btnA.addEventListener('click', function() {
+        playBtn.click();
+        // Mirror playing state visually
+        setTimeout(function() {
+          btnA.classList.toggle('playing', playBtn.classList.contains('playing'));
+          btnA.textContent = playBtn.classList.contains('playing') ? '⏸' : '▶';
+        }, 30);
+      });
+    }
+    if (btnB && worldBtn && !btnB.__wired) {
+      btnB.__wired = true;
+      btnB.addEventListener('click', function() {
+        worldBtn.click();
+        setTimeout(function() {
+          btnB.classList.toggle('active', worldBtn.classList.contains('active'));
+        }, 30);
+      });
+    }
+
+    // ── Search input: mirror the desktop #tl-mapa-q (just push value + dispatch) ──
+    var search = container.querySelector('#tlm-search');
+    var desktopSearch = container.querySelector('#tl-mapa-q');
+    if (search && desktopSearch && !search.__wired) {
+      search.__wired = true;
+      search.addEventListener('input', function(e) {
+        desktopSearch.value = e.target.value;
+        desktopSearch.dispatchEvent(new Event('input', {bubbles: true}));
+      });
+    }
+
+    // ── Filter FAB → bottom sheet wrapping the existing filter bar ──
+    var fab = container.querySelector('#tlm-filter-btn');
+    if (fab && !fab.__wired) {
+      fab.__wired = true;
+      var sheet = document.getElementById('tlm-filter-sheet');
+      var backdrop = document.getElementById('tlm-sheet-backdrop');
+      if (!sheet) {
+        sheet = document.createElement('div');
+        sheet.className = 'tlm-sheet';
+        sheet.id = 'tlm-filter-sheet';
+        sheet.innerHTML =
+          '<div class="tlm-sheet-handle"></div>' +
+          '<div class="tlm-sheet-title">Filtros</div>' +
+          '<div class="tlm-sheet-slot"></div>' +
+          '<div class="tlm-sheet-actions">' +
+            '<button class="tlm-sheet-clear">Limpiar</button>' +
+            '<button class="tlm-sheet-apply">Cerrar</button>' +
+          '</div>';
+        document.body.appendChild(sheet);
+        backdrop = document.createElement('div');
+        backdrop.className = 'tlm-sheet-backdrop';
+        backdrop.id = 'tlm-sheet-backdrop';
+        document.body.appendChild(backdrop);
+        backdrop.addEventListener('click', closeSheet);
+        sheet.querySelector('.tlm-sheet-apply').addEventListener('click', closeSheet);
+        sheet.querySelector('.tlm-sheet-clear').addEventListener('click', function() {
+          var clearBtn = container.querySelector('#tl-mapa-clear');
+          if (clearBtn) clearBtn.click();
+        });
+      }
+      function openSheet() {
+        var bar = container.querySelector('.tl-mapa-filter-bar');
+        var slot = sheet.querySelector('.tlm-sheet-slot');
+        if (bar && slot && bar.parentNode !== slot) slot.appendChild(bar);
+        sheet.classList.add('open');
+        backdrop.classList.add('open');
+      }
+      function closeSheet() {
+        sheet.classList.remove('open');
+        backdrop.classList.remove('open');
+        var slot = sheet.querySelector('.tlm-sheet-slot');
+        var bar = slot ? slot.querySelector('.tl-mapa-filter-bar') : null;
+        if (bar) {
+          var viewT = container.querySelector('.view-transition');
+          if (viewT) viewT.insertBefore(bar, viewT.firstChild.nextSibling);
+        }
+      }
+      fab.addEventListener('click', openSheet);
+    }
   }
 
   function buildGlobeBlock(total) {
@@ -16308,6 +17074,12 @@ body {
     try { tlScope = localStorage.getItem('tlScope') || 'ambos'; } catch(e) {}
     var tlVista = 'lista';
     try { tlVista = localStorage.getItem('tlVista') || 'lista'; } catch(e) {}
+    // On phones the lista layout is cramped. The gameboy mobile shell
+    // (rendered inside the mapa view) is the phone experience — always
+    // force it. Desktop honors the user's toggle.
+    try {
+      if (window.matchMedia('(max-width: 768px)').matches) tlVista = 'mapa';
+    } catch(e) {}
 
     // Dispatch to mapa view if selected — guarded so a render failure
     // doesn't take down the whole page init.
