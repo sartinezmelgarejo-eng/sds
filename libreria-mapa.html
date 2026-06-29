@@ -12280,8 +12280,11 @@ body {
       if (a._sortKey.m !== b._sortKey.m) return a._sortKey.m - b._sortKey.m;
       return a._sortKey.d - b._sortKey.d;
     }
-    mexicoEvents.forEach(function(ev) { ev._sortKey = null; ev._date = null; });
-    mundoEvents.forEach(function(ev) { ev._sortKey = null; ev._date = null; });
+    // Pre-compute sort keys for ALL events (sort() skips the comparator on
+    // 0-1 element arrays, which would leave _sortKey null when filter shrinks
+    // the dataset, crashing the later _date assignment).
+    mexicoEvents.forEach(function(ev) { ev._sortKey = computeSortKey(ev); });
+    mundoEvents.forEach(function(ev) { ev._sortKey = computeSortKey(ev); });
     mexicoEvents.sort(sortByDate);
     mundoEvents.sort(sortByDate);
     mexicoEvents.forEach(function(ev) { ev._date = ev._sortKey._date; });
