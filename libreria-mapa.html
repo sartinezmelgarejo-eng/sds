@@ -13303,8 +13303,11 @@ body {
           e.preventDefault();
           var pick = kbSel >= 0 ? items[kbSel] : items[0];
           if (pick) {
-            tlFilter[kind].add(pick.getAttribute('data-val'));
+            var pv = pick.getAttribute('data-val');
+            if (tlFilter[kind].has(pv)) { close(); return; }
+            tlFilter[kind].add(pv);
             input.value = '';
+            close();
             rerenderFromFilter();
           }
         } else if (e.key === 'Escape') {
@@ -13319,8 +13322,15 @@ body {
         var d = e.target.closest('div[data-val]');
         if (!d) return;
         e.preventDefault();
-        tlFilter[kind].add(d.getAttribute('data-val'));
+        var val = d.getAttribute('data-val');
+        // Skip if already selected. The dropdown open() filters them out,
+        // but a stale click between selection and re-render could land on
+        // a now-duplicate row. Set.add is idempotent — this just avoids
+        // the wasted re-render.
+        if (tlFilter[kind].has(val)) { close(); return; }
+        tlFilter[kind].add(val);
         input.value = '';
+        close();             // hide dropdown immediately so no second click can land
         rerenderFromFilter();
       });
       input.addEventListener('blur', function() { setTimeout(close, 200); });
