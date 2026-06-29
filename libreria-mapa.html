@@ -2424,6 +2424,58 @@ body {
   margin-left: 6px;
   opacity: 0.7;
 }
+/* Picker rows for libros — mini library card with cover + title + author */
+.tl-mapa-tag-dropdown .tlm-pick-book {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+.tl-mapa-tag-dropdown .tlm-pick-book:hover,
+.tl-mapa-tag-dropdown .tlm-pick-book.kbsel {
+  background: rgba(200,169,96,0.12);
+}
+.tl-mapa-tag-dropdown .tlm-pick-cover {
+  flex: 0 0 28px;
+  width: 28px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+}
+.tl-mapa-tag-dropdown .tlm-pick-cover img {
+  width: 28px !important; height: 38px !important; object-fit: cover;
+  border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.tl-mapa-tag-dropdown .tlm-pick-cover .cita-cover.placeholder,
+.tl-mapa-tag-dropdown .tlm-pick-cover .cover-placeholder {
+  width: 28px; height: 38px;
+  border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-size: 13px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #3a3225, #1a1610);
+  color: var(--gold);
+}
+.tl-mapa-tag-dropdown .tlm-pick-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.25;
+}
+.tl-mapa-tag-dropdown .tlm-pick-title {
+  font-size: 12.5px;
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tl-mapa-tag-dropdown .tlm-pick-author {
+  font-size: 10.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tl-mapa-clear {
   background: transparent;
   border: 1px solid rgba(200,169,96,0.22);
@@ -3590,8 +3642,8 @@ body {
 .tlm-screen {
   position: relative;
   width: 100%;
-  aspect-ratio: 4 / 3;
-  max-height: 42vh;
+  aspect-ratio: 5 / 4;
+  max-height: 34vh;
   border-radius: 8px;
   background: #0a1822;
   overflow: hidden;
@@ -3739,6 +3791,17 @@ body {
 }
 .tlm-act-play.playing { background: linear-gradient(145deg, #c8a960, #8a7430); color: #000; border-color: var(--gold); }
 .tlm-act-world.active { background: linear-gradient(145deg, #c8a960, #8a7430); color: #000; border-color: var(--gold); }
+
+/* ── On-LCD chips: hide. Year lives in the card, era in the deck, place
+   is drawn on the globe itself (D3 label). One label per piece of info. ── */
+.tlm-shell .tlm-screen-overlay { display: none; }
+/* Remove the card place-line (place already shown on the LCD label) and the
+   redundant era from the card header (era already in the deck). */
+.tlm-shell .tlm-card-place { display: none; }
+.tlm-shell .tlm-card-era { display: none; }
+.tlm-shell .tlm-card-header {
+  justify-content: flex-start;
+}
 
 /* ── Pokemon-style event card ── */
 .tlm-card {
@@ -9186,6 +9249,69 @@ body {
     },
   ];
 
+  // ──────────────────────────────────────────────
+  // Backfill: books referenced by citas/timeline events that don't yet have
+  // a full library entry. These show up in the picker filter, as floating
+  // citas on the map, and in the mobile pokemon-card with proper title +
+  // author attribution. Covers fall back to the placeholder (initial of
+  // author surname) until a proper coverId/coverUrl is added.
+  // ──────────────────────────────────────────────
+  var TL_BOOK_FALLBACKS = [
+    { id:'amlomitad',       title:'A la mitad del camino',                       author:'Andrés Manuel López Obrador', year:2021, estante:'mexico_profundo' },
+    { id:'bonfilprofundo',  title:'México profundo: una civilización negada',    author:'Guillermo Bonfil Batalla',     year:1987, estante:'mexico_profundo' },
+    { id:'camposperez',     title:'Memorias y desafíos',                          author:'Campos Pérez',                 year:2010, estante:'mexico_profundo' },
+    { id:'chavezazul',      title:'El libro azul',                                author:'Hugo Chávez',                  year:2013, estante:'revoluciones' },
+    { id:'deamericaeuropa', title:'De América a Europa: el descubrimiento',       author:'Edmundo O\'Gorman',            year:1958, estante:'mexico_profundo' },
+    { id:'dubois',          title:'Black Reconstruction in America',              author:'W.E.B. Du Bois',               year:1935, estante:'revoluciones' },
+    { id:'dussel1492',      title:'1492: El encubrimiento del Otro',              author:'Enrique Dussel',               year:1992, estante:'filosofia' },
+    { id:'dusselcarta',     title:'Carta a los indignados',                       author:'Enrique Dussel',               year:2011, estante:'filosofia' },
+    { id:'dusselpolitica',  title:'Política de la liberación',                    author:'Enrique Dussel',               year:2007, estante:'filosofia' },
+    { id:'engelsantiduhring', title:'Anti-Dühring',                               author:'Friedrich Engels',             year:1878, estante:'fundamentos' },
+    { id:'engelsfamily',    title:'El origen de la familia, la propiedad privada y el Estado', author:'Friedrich Engels', year:1884, estante:'fundamentos' },
+    { id:'fidel-historia',  title:'La historia me absolverá',                     author:'Fidel Castro',                 year:1953, estante:'revoluciones' },
+    { id:'fidelsegunda',    title:'Segunda Declaración de La Habana',             author:'Fidel Castro',                 year:1962, estante:'revoluciones' },
+    { id:'galeanovenas',    title:'Las venas abiertas de América Latina',         author:'Eduardo Galeano',              year:1971, estante:'economia_poder' },
+    { id:'grandeza',        title:'Grandeza mexicana',                            author:'Bernardo de Balbuena',         year:1604, estante:'mexico_profundo' },
+    { id:'hudson-ancient',  title:'Labor in the Ancient World',                   author:'Michael Hudson',               year:2015, estante:'economia_poder' },
+    { id:'hudsondebts',     title:'…and Forgive Them Their Debts',                author:'Michael Hudson',               year:2018, estante:'economia_poder' },
+    { id:'hudsonkillinghost', title:'Killing the Host',                           author:'Michael Hudson',               year:2015, estante:'economia_poder' },
+    { id:'hudsonsuperimp',  title:'Super Imperialism',                            author:'Michael Hudson',               year:1972, estante:'economia_poder' },
+    { id:'juarezapuntes',   title:'Apuntes para mis hijos',                       author:'Benito Juárez',                year:1872, estante:'mexico_profundo' },
+    { id:'kimilsung',       title:'Obras escogidas',                              author:'Kim Il-sung',                  year:1970, estante:'revoluciones' },
+    { id:'lenin-imp',       title:'El imperialismo, fase superior del capitalismo', author:'V. I. Lenin',                year:1917, estante:'fundamentos' },
+    { id:'leninleft',       title:'La enfermedad infantil del izquierdismo en el comunismo', author:'V. I. Lenin',       year:1920, estante:'fundamentos' },
+    { id:'leninmat',        title:'Materialismo y empiriocriticismo',             author:'V. I. Lenin',                  year:1909, estante:'filosofia' },
+    { id:'leninonestep',    title:'Un paso adelante, dos pasos atrás',            author:'V. I. Lenin',                  year:1904, estante:'fundamentos' },
+    { id:'lenintwotactics', title:'Dos tácticas de la socialdemocracia',          author:'V. I. Lenin',                  year:1905, estante:'fundamentos' },
+    { id:'leninwhat',       title:'¿Qué hacer?',                                  author:'V. I. Lenin',                  year:1902, estante:'fundamentos' },
+    { id:'marx-civilwar',   title:'La guerra civil en Francia',                   author:'Karl Marx',                    year:1871, estante:'fundamentos' },
+    { id:'molinaenriquez',  title:'Los grandes problemas nacionales',             author:'Andrés Molina Enríquez',       year:1909, estante:'mexico_profundo' },
+    { id:'palenquexix',     title:'El Templo XIX de Palenque (siglo XIX)',        author:'David Stuart',                 year:2005, estante:'mexico_profundo' },
+    { id:'reedinsurgente',  title:'México insurgente',                            author:'John Reed',                    year:1914, estante:'mexico_profundo' }
+  ];
+  (function backfillBooks() {
+    var have = {};
+    books.forEach(function(b) { have[b.id] = true; });
+    TL_BOOK_FALLBACKS.forEach(function(stub) {
+      if (have[stub.id]) return;
+      // Synthetic entry with the minimal shape readers expect.
+      books.push({
+        id: stub.id,
+        estante: stub.estante,
+        coverId: null,           // no embedded cover yet — placeholder will render
+        title: stub.title,
+        author: stub.author,
+        year: stub.year,
+        desc: '',
+        ideas: [],
+        tags: [],
+        quotes: [],
+        conexiones: [],
+        __stub: true             // marker so render code can flag these later if useful
+      });
+    });
+  })();
+
   // ══════════════════════════════════════════════
   // DATA: THEMES (Constellations)
   // ══════════════════════════════════════════════
@@ -13045,17 +13171,41 @@ body {
         pool.sort(function(a, b) { return a.label.localeCompare(b.label, 'es'); });
         pool = pool.slice(0, 80);
         if (!pool.length) { close(); return; }
-        dropdown.innerHTML = pool.map(function(o) {
-          var metaPart = o.id !== o.label ? '<span class="meta">' + esc(o.id) + '</span>' : '';
-          return '<div data-val="' + esc(o.id) + '">' + esc(o.label) + metaPart + '</div>';
-        }).join('');
+        if (kind === 'libros') {
+          // Library-card style: tiny cover + title + author per row
+          dropdown.innerHTML = pool.map(function(o) {
+            var bk = (typeof books !== 'undefined') ? books.find(function(b) { return b.id === o.id; }) : null;
+            var coverHTML;
+            if (bk && typeof getCoverHTML === 'function') {
+              coverHTML = getCoverHTML(bk, 'tiny');
+            } else {
+              var initial = (o.label || '?').charAt(0).toUpperCase();
+              coverHTML = '<div class="cita-cover placeholder" data-letter="' + esc(initial) + '" style="width:28px;height:38px;font-size:14px;"></div>';
+            }
+            var title = bk ? bk.title : o.label;
+            var author = bk ? (bk.author || '') : '';
+            return '<div class="tlm-pick-book" data-val="' + esc(o.id) + '">' +
+              '<div class="tlm-pick-cover">' + coverHTML + '</div>' +
+              '<div class="tlm-pick-meta">' +
+                '<div class="tlm-pick-title">' + esc(title) + '</div>' +
+                (author ? '<div class="tlm-pick-author">' + esc(author) + '</div>' : '') +
+              '</div>' +
+            '</div>';
+          }).join('');
+        } else {
+          dropdown.innerHTML = pool.map(function(o) {
+            var metaPart = o.id !== o.label ? '<span class="meta">' + esc(o.id) + '</span>' : '';
+            return '<div data-val="' + esc(o.id) + '">' + esc(o.label) + metaPart + '</div>';
+          }).join('');
+        }
         dropdown.classList.add('show');
         kbSel = -1;
       }
       input.addEventListener('focus', function() { open(input.value); });
       input.addEventListener('input', function() { open(input.value); });
       input.addEventListener('keydown', function(e) {
-        var items = dropdown.querySelectorAll('div');
+        // Top-level rows only — book cards have nested divs that would mess up nav
+        var items = dropdown.querySelectorAll(':scope > div[data-val]');
         if (e.key === 'ArrowDown') {
           e.preventDefault();
           kbSel = Math.min(items.length - 1, kbSel + 1);
@@ -13598,6 +13748,14 @@ body {
       var pages = g.citas.map(function(c) { return pdfLinkFor(c, bk); }).filter(Boolean).join('');
       var pagesBlock = pages ? '<span class="cita-page-list">' + pages + '</span>' : '';
       var fallbackAuthor = g.citas[0].autor;
+      // Attribution: always show title (or libro slug as last resort) AND author when we have one
+      var attrTitle = bkTitle || (g.libro || '');
+      var attrAuthor = (bk && bk.author) || fallbackAuthor || '';
+      var titleSpan = attrTitle
+        ? '<span class="booklink" data-book="' + (g.libro || '') + '">' + attrTitle + '</span>'
+        : '';
+      var authorSpan = attrAuthor ? '<span class="cita-attr-author">' + attrAuthor + '</span>' : '';
+      var attrParts = [titleSpan, authorSpan].filter(Boolean).join(' · ');
       return '<div class="tl-mapa-floating-cita ' + (ev.scope === 'mundo' ? 'mundo' : '') +
         (g.citas.length > 1 ? ' cita-multi' : '') +
         '" data-group-idx="' + g.gIdx + '"' + styleAttr + '>' +
@@ -13605,7 +13763,7 @@ body {
         '<div class="cita-card-rect">' +
           quotesHTML +
           '<div class="tl-mapa-floating-cita-attr">' +
-            (bkTitle ? '<span class="booklink" data-book="' + g.libro + '">' + bkTitle + '</span>' : (fallbackAuthor || '')) +
+            attrParts +
             (pagesBlock ? ' ' + pagesBlock : '') +
           '</div>' +
         '</div>' +
