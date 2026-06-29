@@ -12875,6 +12875,11 @@ body {
     history.replaceState(null, '', qs ? ('?' + qs) : window.location.pathname);
   }
   function filterIsEmpty(f) { return !f.q && !f.libros.size && !f.paises.size; }
+  // Strip diacritics + lowercase so "mexico" matches "México", "Tlapacoya"
+  // matches "tlapacoya", "Calderon" matches "Calderón", etc.
+  function tlNormalize(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  }
   function eventMatchesFilter(ev, f) {
     if (filterIsEmpty(f)) return true;
     if (f.paises.size) {
@@ -12891,12 +12896,12 @@ body {
       if (!has) return false;
     }
     if (f.q) {
-      var q = f.q.toLowerCase();
-      var hay = ((ev.text||'') + ' ' + (ev.detalle||'')).toLowerCase();
+      var q = tlNormalize(f.q);
+      var hay = tlNormalize((ev.text||'') + ' ' + (ev.detalle||''));
       if (hay.indexOf(q) !== -1) return true;
       if (ev.citas) {
         for (var j = 0; j < ev.citas.length; j++) {
-          if ((ev.citas[j].texto||'').toLowerCase().indexOf(q) !== -1) return true;
+          if (tlNormalize(ev.citas[j].texto || '').indexOf(q) !== -1) return true;
         }
       }
       return false;
@@ -13189,7 +13194,7 @@ body {
       var kbSel = -1;
       function close() { dropdown.classList.remove('show'); kbSel = -1; }
       function open(q) {
-        q = (q || '').toLowerCase().trim();
+        q = tlNormalize((q || '').trim());
         var existing = tlFilter[kind];
         // Build a sortable index: option id + display label, so user can type either
         var pool = options.map(function(o) {
@@ -13197,7 +13202,7 @@ body {
         }).filter(function(o) {
           if (existing.has(o.id)) return false;
           if (!q) return true;
-          return o.id.toLowerCase().indexOf(q) !== -1 || o.label.toLowerCase().indexOf(q) !== -1;
+          return tlNormalize(o.id).indexOf(q) !== -1 || tlNormalize(o.label).indexOf(q) !== -1;
         });
         // Sort by label
         pool.sort(function(a, b) { return a.label.localeCompare(b.label, 'es'); });
