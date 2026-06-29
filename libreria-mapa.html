@@ -2424,8 +2424,7 @@ body {
   margin-left: 6px;
   opacity: 0.7;
 }
-.tl-mapa-clear,
-.tl-mapa-preset {
+.tl-mapa-clear {
   background: transparent;
   border: 1px solid rgba(200,169,96,0.22);
   border-radius: 14px;
@@ -2438,14 +2437,20 @@ body {
   cursor: pointer;
   transition: all 0.15s;
 }
-.tl-mapa-clear:hover,
-.tl-mapa-preset:hover { color: var(--text); border-color: var(--gold); background: rgba(200,169,96,0.08); }
+.tl-mapa-clear:hover { color: var(--text); border-color: var(--gold); background: rgba(200,169,96,0.08); }
 .tl-mapa-clear:disabled { opacity: 0.4; cursor: default; }
-.tl-mapa-preset.active {
-  background: #9F2241;
-  border-color: #9F2241;
-  color: #fdfcf3;
+.tag-quick-add {
+  background: transparent;
+  border: 1px dashed rgba(200,169,96,0.35);
+  border-radius: 11px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s, background 0.15s;
 }
+.tag-quick-add:hover { opacity: 1; background: rgba(200,169,96,0.10); }
 
 /* ── Mapa view ── */
 .tl-mapa-view {
@@ -12394,13 +12399,9 @@ body {
       }).join('');
     }
     var filterEmpty = filterIsEmpty(tlFilter);
-    // "México" preset is the chip the user can re-apply to snap back to
-    // Mexico-only with one click (same as the original default).
-    var mxPresetActive = tlFilter.paises.size === 1 && tlFilter.paises.has('MX') && !tlFilter.q && !tlFilter.libros.size;
+    var hasMX = tlFilter.paises.has('MX');
     var filterBarHTML =
       '<div class="tl-mapa-filter-bar">' +
-        '<button class="tl-mapa-preset' + (mxPresetActive ? ' active' : '') + '" ' +
-          'id="tl-mapa-preset-mx" title="Volver al modo México (default)">📍 México</button>' +
         '<input class="tl-mapa-search" type="search" id="tl-mapa-q" ' +
           'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
         '<div class="tl-mapa-tag-picker" data-kind="libros">' +
@@ -12412,6 +12413,8 @@ body {
         '<div class="tl-mapa-tag-picker" data-kind="paises">' +
           '<span class="tag-label">Países</span>' +
           renderChips(tlFilter.paises, 'paises') +
+          (!hasMX ? '<button class="tag-quick-add" id="tl-mapa-quick-mx" ' +
+            'title="Agregar México al filtro" type="button">🇲🇽</button>' : '') +
           '<input type="text" placeholder="+ país" autocomplete="off">' +
           '<div class="tl-mapa-tag-dropdown"></div>' +
         '</div>' +
@@ -12458,9 +12461,9 @@ body {
       tlFilter = { q: '', libros: new Set(), paises: new Set() };
       rerenderFromFilter();
     });
-    var presetMx = container.querySelector('#tl-mapa-preset-mx');
-    if (presetMx) presetMx.addEventListener('click', function() {
-      tlFilter = { q: '', libros: new Set(), paises: new Set(['MX']) };
+    var quickMx = container.querySelector('#tl-mapa-quick-mx');
+    if (quickMx) quickMx.addEventListener('click', function() {
+      tlFilter.paises.add('MX');
       rerenderFromFilter();
     });
 
