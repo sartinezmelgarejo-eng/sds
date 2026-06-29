@@ -12241,6 +12241,46 @@ body {
   }
   var tlFilter = readFilterFromURL();
 
+  // ISO 2-letter → display name (full list of countries that appear in events)
+  var TL_PAIS_NAMES = {
+    AF:'Afganistán', AO:'Angola', AR:'Argentina', AT:'Austria', AU:'Australia',
+    BE:'Bélgica', BF:'Burkina Faso', BO:'Bolivia', BR:'Brasil', BS:'Bahamas', BY:'Bielorrusia',
+    CA:'Canadá', CD:'Congo (RDC)', CG:'Congo', CH:'Suiza', CL:'Chile', CN:'China', CO:'Colombia',
+    CR:'Costa Rica', CU:'Cuba', CZ:'República Checa',
+    DE:'Alemania', DK:'Dinamarca', DO:'República Dominicana', DZ:'Argelia',
+    EC:'Ecuador', EG:'Egipto', ES:'España',
+    FI:'Finlandia', FR:'Francia',
+    GB:'Reino Unido', GH:'Ghana', GR:'Grecia', GT:'Guatemala',
+    HK:'Hong Kong', HN:'Honduras', HT:'Haití', HU:'Hungría',
+    ID:'Indonesia', IE:'Irlanda', IL:'Israel', IN:'India', IQ:'Irak', IR:'Irán', IT:'Italia',
+    JM:'Jamaica', JP:'Japón',
+    KP:'Corea del Norte', KR:'Corea del Sur',
+    LB:'Líbano', LK:'Sri Lanka',
+    MA:'Marruecos', MX:'México', MZ:'Mozambique',
+    NI:'Nicaragua', NL:'Países Bajos', NO:'Noruega',
+    PA:'Panamá', PE:'Perú', PH:'Filipinas', PK:'Pakistán', PL:'Polonia', PR:'Puerto Rico', PT:'Portugal', PY:'Paraguay',
+    RO:'Rumania', RU:'Rusia',
+    SE:'Suecia', SV:'El Salvador', SY:'Siria',
+    TH:'Tailandia', TN:'Túnez', TR:'Turquía',
+    UA:'Ucrania', US:'Estados Unidos', UY:'Uruguay',
+    VE:'Venezuela', VN:'Vietnam',
+    ZA:'Sudáfrica'
+  };
+  function tlPaisLabel(code) { return TL_PAIS_NAMES[code] || code; }
+  // Book title lookup. Falls back to id if not found in books[].
+  var TL_BOOK_LABEL = {};
+  try {
+    if (typeof books !== 'undefined' && books && books.length) {
+      books.forEach(function(b) {
+        if (!b || !b.id) return;
+        var title = b.title || b.id;
+        var auth = b.author ? (' — ' + b.author.split(' ').slice(-2).join(' ')) : '';
+        TL_BOOK_LABEL[b.id] = title + auth;
+      });
+    }
+  } catch(e) {}
+  function tlBookLabel(id) { return TL_BOOK_LABEL[id] || id; }
+
   function renderTimelineMapaView(container, eras, tlScope) {
     // Collect events with lugar. The México/Mundo split is GEOGRAPHIC when
     // we have a lugar.pais (events that happened in MX go to México, events
@@ -12356,10 +12396,11 @@ body {
     }
 
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+    function tagLabel(v, kind) { return kind === 'paises' ? tlPaisLabel(v) : tlBookLabel(v); }
     function renderChips(set, kind) {
       return Array.from(set).map(function(v) {
-        return '<span class="tag-chip" data-kind="' + kind + '" data-val="' + esc(v) + '">' +
-          esc(v) + '<button type="button" aria-label="quitar">×</button></span>';
+        return '<span class="tag-chip" data-kind="' + kind + '" data-val="' + esc(v) + '" title="' + esc(v) + '">' +
+          esc(tagLabel(v, kind)) + '<button type="button" aria-label="quitar">×</button></span>';
       }).join('');
     }
     var filterEmpty = filterIsEmpty(tlFilter);
@@ -12442,14 +12483,21 @@ body {
       function open(q) {
         q = (q || '').toLowerCase().trim();
         var existing = tlFilter[kind];
-        var pool = options.filter(function(o) {
-          if (existing.has(o)) return false;
+        // Build a sortable index: option id + display label, so user can type either
+        var pool = options.map(function(o) {
+          return { id: o, label: tagLabel(o, kind) };
+        }).filter(function(o) {
+          if (existing.has(o.id)) return false;
           if (!q) return true;
-          return o.toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 50);
+          return o.id.toLowerCase().indexOf(q) !== -1 || o.label.toLowerCase().indexOf(q) !== -1;
+        });
+        // Sort by label
+        pool.sort(function(a, b) { return a.label.localeCompare(b.label, 'es'); });
+        pool = pool.slice(0, 80);
         if (!pool.length) { close(); return; }
         dropdown.innerHTML = pool.map(function(o) {
-          return '<div data-val="' + esc(o) + '">' + esc(o) + '</div>';
+          var metaPart = o.id !== o.label ? '<span class="meta">' + esc(o.id) + '</span>' : '';
+          return '<div data-val="' + esc(o.id) + '">' + esc(o.label) + metaPart + '</div>';
         }).join('');
         dropdown.classList.add('show');
         kbSel = -1;
