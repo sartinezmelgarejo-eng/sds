@@ -3656,8 +3656,8 @@ body {
 .tlm-screen {
   position: relative;
   width: 100%;
-  aspect-ratio: 5 / 4;
-  max-height: 34vh;
+  aspect-ratio: 3 / 2;
+  max-height: 28vh;
   border-radius: 8px;
   background: #0a1822;
   overflow: hidden;
@@ -13458,6 +13458,20 @@ body {
       container._tlMapaSelect = wrapped;
       // Render the initial event into the card too
       if (events[0]) renderTlmCard(events[0], 0);
+    }
+
+    // Tap a book title inside a cita → open the book detail panel.
+    // PDF page links keep their default browser behavior (target=_blank).
+    if (card && !card.__bookWired) {
+      card.__bookWired = true;
+      card.addEventListener('click', function(e) {
+        if (e.target.closest('a[target="_blank"]')) return; // let pdf link through
+        var link = e.target.closest('.tlm-book-link[data-book]');
+        if (!link) return;
+        e.preventDefault();
+        var bid = link.getAttribute('data-book');
+        if (bid && typeof openBook === 'function') openBook(bid);
+      });
     }
 
     // ── Era tape + step chevrons ──
