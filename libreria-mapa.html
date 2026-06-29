@@ -2424,57 +2424,71 @@ body {
   margin-left: 6px;
   opacity: 0.7;
 }
-/* Picker rows for libros — mini library card with cover + title + author */
+/* Picker rows for libros — mini library card with cover + title + author.
+   Titles wrap to 2 lines so they read fully; only truncate when really long. */
 .tl-mapa-tag-dropdown .tlm-pick-book {
   display: flex; align-items: center; gap: 10px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid rgba(255,255,255,0.05);
   cursor: pointer;
   font-family: 'Inter', sans-serif;
+  line-height: 1.3;
 }
 .tl-mapa-tag-dropdown .tlm-pick-book:hover,
 .tl-mapa-tag-dropdown .tlm-pick-book.kbsel {
   background: rgba(200,169,96,0.12);
 }
 .tl-mapa-tag-dropdown .tlm-pick-cover {
-  flex: 0 0 28px;
-  width: 28px; height: 38px;
+  flex: 0 0 32px;
+  width: 32px; height: 44px;
   display: flex; align-items: center; justify-content: center;
 }
 .tl-mapa-tag-dropdown .tlm-pick-cover img {
-  width: 28px !important; height: 38px !important; object-fit: cover;
+  width: 32px !important; height: 44px !important; object-fit: cover;
   border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
 }
 .tl-mapa-tag-dropdown .tlm-pick-cover .cita-cover.placeholder,
 .tl-mapa-tag-dropdown .tlm-pick-cover .cover-placeholder {
-  width: 28px; height: 38px;
+  width: 32px !important; height: 44px !important;
   border-radius: 3px;
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Cormorant Garamond', serif; font-size: 13px;
-  font-weight: 600;
   background: linear-gradient(135deg, #3a3225, #1a1610);
   color: var(--gold);
+  position: relative;
+  overflow: hidden;
+}
+.tl-mapa-tag-dropdown .tlm-pick-cover .cita-cover.placeholder::before {
+  content: attr(data-letter);
+  font-family: 'Bodoni Moda', Didot, Georgia, serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1;
 }
 .tl-mapa-tag-dropdown .tlm-pick-meta {
   flex: 1 1 auto;
   min-width: 0;
-  line-height: 1.25;
 }
 .tl-mapa-tag-dropdown .tlm-pick-title {
-  font-size: 12.5px;
+  font-family: 'Cormorant Garamond', 'Inter', serif;
+  font-size: 14px;
   color: var(--text);
   font-weight: 500;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: 1.2;
 }
 .tl-mapa-tag-dropdown .tlm-pick-author {
-  font-size: 10.5px;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
   color: var(--text-dim);
-  margin-top: 2px;
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: 0.01em;
 }
 .tl-mapa-clear {
   background: transparent;
@@ -13172,18 +13186,27 @@ body {
         pool = pool.slice(0, 80);
         if (!pool.length) { close(); return; }
         if (kind === 'libros') {
-          // Library-card style: tiny cover + title + author per row
+          // Library-card style: tiny cover + title + author per row.
+          // For placeholders, derive initial from the first ALPHA char of the
+          // author surname, falling back to first alpha of title — skip
+          // ellipsis/quotes/digits at the start.
+          function firstAlpha(s) {
+            var m = String(s || '').match(/[\p{L}]/u);
+            return m ? m[0].toUpperCase() : '?';
+          }
           dropdown.innerHTML = pool.map(function(o) {
             var bk = (typeof books !== 'undefined') ? books.find(function(b) { return b.id === o.id; }) : null;
-            var coverHTML;
-            if (bk && typeof getCoverHTML === 'function') {
-              coverHTML = getCoverHTML(bk, 'tiny');
-            } else {
-              var initial = (o.label || '?').charAt(0).toUpperCase();
-              coverHTML = '<div class="cita-cover placeholder" data-letter="' + esc(initial) + '" style="width:28px;height:38px;font-size:14px;"></div>';
-            }
             var title = bk ? bk.title : o.label;
             var author = bk ? (bk.author || '') : '';
+            var coverHTML;
+            if (bk && typeof getCoverHTML === 'function' && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]))) {
+              coverHTML = getCoverHTML(bk, 'tiny');
+            } else {
+              // No real cover — render a placeholder with a sensible initial.
+              var initial = firstAlpha(author.split(' ').pop()) ;
+              if (initial === '?') initial = firstAlpha(title);
+              coverHTML = '<div class="cita-cover placeholder" data-letter="' + esc(initial) + '" data-author="' + esc(author) + '"></div>';
+            }
             return '<div class="tlm-pick-book" data-val="' + esc(o.id) + '">' +
               '<div class="tlm-pick-cover">' + coverHTML + '</div>' +
               '<div class="tlm-pick-meta">' +
