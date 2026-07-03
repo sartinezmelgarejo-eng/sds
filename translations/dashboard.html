@@ -102,6 +102,46 @@ body::before{
 .btn-top.wp .arrow, .btn-top.media .arrow{position:absolute;top:50%;right:12px;transform:translateY(-50%)}
 .btn-top.wp:hover .arrow, .btn-top.media:hover .arrow{transform:translateY(-50%) translateX(3px)}
 
+/* ── Image search strip: Google Images con filtro de resolución ───────── */
+.img-search{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;margin-bottom:22px;
+  background:rgba(255,255,255,.55);
+  border:1px solid rgba(159,34,65,.14);
+  border-radius:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.04);
+  flex-wrap:wrap;
+}
+.img-search .label{
+  font-family:'Alfa Slab One',serif;
+  font-size:11px;letter-spacing:.5px;text-transform:uppercase;
+  color:var(--guinda);white-space:nowrap;
+}
+.img-search input[type=text]{
+  flex:1;min-width:180px;
+  padding:8px 12px;font-family:'Bodoni Moda',serif;font-size:14px;
+  border:1px solid rgba(0,0,0,.14);border-radius:4px;background:white;
+  outline:none;color:var(--ink);
+}
+.img-search input[type=text]:focus{border-color:var(--guinda);box-shadow:0 0 0 2px rgba(159,34,65,.10)}
+.img-search select{
+  padding:8px 10px;font-family:'Bodoni Moda',serif;font-size:12px;
+  border:1px solid rgba(0,0,0,.14);border-radius:4px;background:white;
+  color:var(--ink);cursor:pointer;
+}
+.img-search select:focus{border-color:var(--guinda);outline:none}
+.img-search .go{
+  padding:9px 18px;background:linear-gradient(90deg, var(--guinda) 0%, #7a1a32 100%);
+  color:var(--cream);border:none;border-radius:4px;cursor:pointer;
+  font-family:'Alfa Slab One',serif;font-size:11px;letter-spacing:.6px;text-transform:uppercase;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.img-search .go:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(159,34,65,.25)}
+@media (max-width:640px){
+  .img-search .label{width:100%}
+  .img-search input[type=text]{width:100%;flex-basis:100%}
+}
+
 /* ── Section header (compact) ─────────────────────────── */
 .section{margin-bottom:36px}
 .section-head{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
@@ -392,6 +432,48 @@ details[open] .sources-grid{margin-top:14px}
       <span class="arrow">↗</span>
     </a>
   </div>
+
+  <!-- ── Google Images search con filtro de resolución ─────────────────── -->
+  <form class="img-search" onsubmit="return goImgSearch(event)">
+    <span class="label">Buscar imagen</span>
+    <input type="text" id="img-q" placeholder="sheinbaum ebrard usmca..." autocomplete="off">
+    <select id="img-size" title="Tamaño mínimo">
+      <option value="isz:lt,islt:2mp">2 MP+ (~1600w)</option>
+      <option value="isz:lt,islt:4mp" selected>4 MP+ (~2000w)</option>
+      <option value="isz:lt,islt:6mp">6 MP+ (~2500w)</option>
+      <option value="isz:lt,islt:8mp">8 MP+ (~3000w)</option>
+      <option value="isz:lt,islt:12mp">12 MP+ (~4000w)</option>
+    </select>
+    <select id="img-usage" title="Derechos de uso">
+      <option value="">Cualquier uso</option>
+      <option value="il:cl">Creative Commons</option>
+      <option value="sur:fc">Reutilización</option>
+      <option value="sur:fmc">Reutilización comercial</option>
+    </select>
+    <select id="img-type" title="Tipo">
+      <option value="">Todo tipo</option>
+      <option value="itp:photo" selected>Foto</option>
+      <option value="itp:face">Rostro</option>
+      <option value="itp:news">Noticia</option>
+    </select>
+    <button type="submit" class="go">Buscar en Google</button>
+  </form>
+  <script>
+    function goImgSearch(e){
+      e.preventDefault();
+      var q = document.getElementById('img-q').value.trim();
+      if(!q) return false;
+      var tbs = [
+        document.getElementById('img-size').value,
+        document.getElementById('img-type').value,
+        document.getElementById('img-usage').value
+      ].filter(Boolean).join(',');
+      var url = 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q) +
+                (tbs ? '&tbs=' + encodeURIComponent(tbs) : '');
+      window.open(url, '_blank', 'noopener');
+      return false;
+    }
+  </script>
 
   <!-- ── ABOVE THE FOLD: 3 posts arriba + 2 posts + primarias slot abajo ─ -->
   <div class="above-fold">
