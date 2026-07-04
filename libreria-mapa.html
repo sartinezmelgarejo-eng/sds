@@ -4385,6 +4385,42 @@ body {
   margin-right: 4px;
 }
 .cita-attr-nested::after { content: ' · '; opacity: 0.5; }
+
+/* Era references fallback: shown when an event has no direct cita but its
+   era has associated books. Rendered as a soft dashed block in the tooltip
+   and as a dimmer, dashed-border card in the floating cita layer. */
+.tl-tooltip-era-refs {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(200,169,96,0.15);
+  font-size: 11px;
+  color: var(--text-dim);
+  font-style: italic;
+}
+.tl-tooltip-era-refs-label {
+  font-style: normal;
+  color: var(--gold-dim);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  font-size: 9.5px;
+  margin-right: 6px;
+}
+.tl-mapa-era-ref-card {
+  opacity: 0.82;
+  border-style: dashed !important;
+}
+.tl-mapa-era-ref-card .tl-mapa-era-ref-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--gold-dim);
+  margin-bottom: 6px;
+}
+.tl-mapa-cita-thumb[data-era-ref="1"] {
+  opacity: 0.6;
+  border-style: dashed;
+}
 .tl-tooltip-close {
   position: absolute;
   top: 6px;
@@ -13083,7 +13119,13 @@ body {
 
   // ── Render single timeline event (shared between Lista and Mapa) ──
   function renderSingleEvent(ev, ci, eraIdx) {
-    var hasDetail = ev.detalle || (ev.citas && ev.citas.length > 0);
+    var hasCitas = ev.citas && ev.citas.length > 0;
+    // Fallback for events without citas: surface the era's bookIds as
+    // "Referencias del período" so the reader can trace which books
+    // cover this window even when no verbatim quote is attached.
+    var eraBookIds = (ev._era && ev._era.bookIds) || [];
+    var showEraRefs = !hasCitas && eraBookIds.length > 0;
+    var hasDetail = ev.detalle || hasCitas || showEraRefs;
     var richClass = hasDetail ? ' tl-event--rich' : '';
     var tooltipHTML = '';
     if (hasDetail) {
@@ -13134,10 +13176,26 @@ body {
           '</div>' +
         '</div>';
       }).join('');
+      // Era-refs fallback: no direct cita for this event, but the era it
+      // belongs to has associated books — surface them as a soft reference.
+      var eraRefsPart = '';
+      if (showEraRefs) {
+        var refItems = eraBookIds.map(function(bid) {
+          var bk = books.find(function(b) { return b.id === bid; });
+          var title = bk ? bk.title : bid;
+          var author = bk ? bk.author : '';
+          return '<span class="tl-tooltip-book-link" onclick="event.stopPropagation(); openBook(\'' + bid + '\');">' + escHTML(title) + '</span>' +
+                 (author ? ' — ' + escHTML(author) : '');
+        }).join(' · ');
+        eraRefsPart = '<div class="tl-tooltip-era-refs">' +
+          '<span class="tl-tooltip-era-refs-label">Referencias del período:</span> ' + refItems +
+        '</div>';
+      }
       tooltipHTML = '<div class="tl-event-tooltip">' +
         '<button class="tl-tooltip-close">×</button>' +
         detailPart +
         (citasPart ? '<div class="tl-tooltip-citas">' + citasPart + '</div>' : '') +
+        eraRefsPart +
       '</div>';
     }
     var scopeAttr = ev.scope ? ' data-scope="' + ev.scope + '"' : ' data-scope="mexico"';
@@ -14128,6 +14186,15 @@ body {
       }
       byLibro[key].citas.push(c);
     });
+    // Era-refs fallback: when the event has NO citas but its era does have
+    // associated books, surface those as soft "referencia del período"
+    // cards so the reader can still trace the bibliographic context.
+    if (citas.length === 0) {
+      var eraBookIdsMapa = (ev._era && ev._era.bookIds) || [];
+      eraBookIdsMapa.forEach(function(bid) {
+        groups.push({ libro: bid, citas: [], gIdx: groups.length, _isEraRef: true });
+      });
+    }
 
     function coverHTML(bk, fallbackAuthor) {
       if (!bk) {
@@ -14164,6 +14231,22 @@ body {
       if (coverSrc) styleParts.push("--book-cover-bg: url('" + coverSrc.replace(/'/g, "\\'") + "') center/cover no-repeat");
       if (bookColor) styleParts.push('--book-color: ' + bookColor);
       var styleAttr = styleParts.length ? ' style="' + styleParts.join('; ') + '"' : '';
+      // Era-ref card: no direct verbatim quote, just the book cover + title
+      // + author with a soft "Referencia del período" label.
+      if (g._isEraRef) {
+        return '<div class="tl-mapa-floating-cita tl-mapa-era-ref-card" data-group-idx="' + g.gIdx + '"' + styleAttr + '>' +
+          coverHTML(bk, '') +
+          '<div class="cita-card-rect">' +
+            '<div class="tl-mapa-era-ref-label">Referencia del período</div>' +
+            '<div class="tl-mapa-floating-cita-attr">' +
+              (bkTitle
+                ? '<span class="booklink" data-book="' + g.libro + '">' + escHTML(bkTitle) + '</span>'
+                : escHTML(g.libro || '')) +
+              (bk && bk.author ? ' · <span class="cita-attr-author">' + escHTML(bk.author) + '</span>' : '') +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
       var quotesHTML;
       if (g.citas.length === 1) {
         quotesHTML = '<div class="tl-mapa-floating-cita-text">“' + escHTML(g.citas[0].texto) + '”</div>';
@@ -14220,12 +14303,15 @@ body {
       var bk = g.libro ? books.find(function(b) { return b.id === g.libro; }) : null;
       var src = bk && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]));
       var multiBadge = g.citas.length > 1 ? '<span class="cita-thumb-badge">' + g.citas.length + '</span>' : '';
-      var title = bk ? bk.title : (g.citas[0].autor || '');
+      // Era-ref groups have an empty citas[] array — fall back to the book's
+      // title/author so g.citas[0].autor doesn't blow up.
+      var title = bk ? bk.title : ((g.citas[0] && g.citas[0].autor) || g.libro || '');
+      var refBadge = g._isEraRef ? ' data-era-ref="1"' : '';
       if (src) {
-        return '<div class="tl-mapa-cita-thumb" data-group-idx="' + g.gIdx + '" style="background-image:url(\'' + src.replace(/'/g, "\\'") + '\')" title="' + title.replace(/"/g, '&quot;') + '">' + multiBadge + '</div>';
+        return '<div class="tl-mapa-cita-thumb" data-group-idx="' + g.gIdx + '"' + refBadge + ' style="background-image:url(\'' + src.replace(/'/g, "\\'") + '\')" title="' + title.replace(/"/g, '&quot;') + '">' + multiBadge + '</div>';
       }
       var letter = (title || '?').charAt(0).toUpperCase();
-      return '<div class="tl-mapa-cita-thumb placeholder" data-group-idx="' + g.gIdx + '" title="' + title.replace(/"/g, '&quot;') + '">' + letter + multiBadge + '</div>';
+      return '<div class="tl-mapa-cita-thumb placeholder" data-group-idx="' + g.gIdx + '"' + refBadge + ' title="' + title.replace(/"/g, '&quot;') + '">' + letter + multiBadge + '</div>';
     }).join('');
     citasLayerEl.innerHTML = cards + thumbs;
     citasLayerEl._citas = citas;
