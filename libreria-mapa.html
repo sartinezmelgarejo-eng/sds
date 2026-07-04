@@ -19980,49 +19980,31 @@ body {
     // give up before the user opens the Tiempo tab. If the globe SVG never
     // got its sphere path, retry until it does — iPad Safari can take several
     // frames after display:block before the container has real dimensions.
+    // Timeline: ALWAYS re-render when the tab is activated. The tab is
+    // display:none during boot, so the initial render at page load can't
+    // produce a healthy globe (clientWidth=0 → no SVG created). Rather than
+    // rely on retries and heuristics, we just re-render from scratch every
+    // time the tab is opened, now that #timeline-view has real dimensions.
+    // This is what "filter change" already did implicitly, which is why the
+    // globe would appear after applying a filter but not before.
     if (view === 'timeline') {
-      (function ensureGlobe() {
-        var attempts = 0;
-        function isGlobeHealthy(globe) {
-          if (!globe) return false;
-          var svg = globe.querySelector('svg');
-          if (!svg) return false;
-          // The sphere path exists even if init ran at 0×0 (invalid d attr).
-          // Trust the viewBox — if the initial init used clientWidth=0 the
-          // viewBox will be "0 0 0 0" and the globe is invisible.
-          var vb = svg.getAttribute('viewBox') || '';
-          var parts = vb.trim().split(/\s+/);
-          var w = parseFloat(parts[2]);
-          var h = parseFloat(parts[3]);
-          return w > 10 && h > 10;
-        }
-        function step() {
-          var tv = document.getElementById('timeline-view');
-          var globe = document.getElementById('tl-mapa-globe');
-          // Case A: boot render never ran (Huawei/older browsers where the
-          // early try{renderTimelineView()} at init errored out) — the whole
-          // container is empty. Force a re-render.
-          if (tv && (!tv.firstElementChild || !globe)) {
-            try { renderTimelineView(); } catch(e) {
+      // Give the display:block one frame to compute layout before we render.
+      requestAnimationFrame(function() {
+        setTimeout(function() {
+          try {
+            renderTimelineView();
+          } catch (e) {
+            var tv = document.getElementById('timeline-view');
+            if (tv) {
               tv.innerHTML = '<div style="padding:40px; text-align:center; color:#c44; font-family:monospace; font-size:12px;">' +
-                '<div style="margin-bottom:12px; font-weight:bold;">La línea del tiempo falló al cargar en este navegador.</div>' +
+                '<div style="margin-bottom:12px; font-weight:bold;">La línea del tiempo falló al cargar.</div>' +
                 '<div style="color:#888; word-break:break-word; max-width:600px; margin:0 auto;">' + (e && e.message ? e.message : String(e)) + '</div>' +
-                '<div style="margin-top:16px; color:#888;">Si estás en el navegador de Huawei, prueba abrir en Chrome o Firefox.</div>' +
               '</div>';
-              return;
             }
-            if (++attempts < 60) return setTimeout(step, 100);
-            return;
+            console.error('[timeline render]', e);
           }
-          if (isGlobeHealthy(globe)) return;
-          if (globe && globe.clientWidth > 0) {
-            try { renderTimelineView(); } catch(e) { console.error('[timeline retry]', e); }
-            return;
-          }
-          if (++attempts < 60) setTimeout(step, 100); // up to 6s of retries
-        }
-        setTimeout(step, 50);
-      })();
+        }, 30);
+      });
     }
   }
 
