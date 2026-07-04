@@ -19944,17 +19944,23 @@ body {
     // while #timeline-view is still display:none, so the globe wrap has 0×0
     // dimensions and initMapaGlobe's ResizeObserver + poll (4.8s cap) may
     // give up before the user opens the Tiempo tab. If the globe SVG never
-    // got its sphere path, re-run renderTimelineView now that the container
-    // is visible so loadMapaDeps().then(...) re-fires against a real box.
+    // got its sphere path, retry until it does — iPad Safari can take several
+    // frames after display:block before the container has real dimensions.
     if (view === 'timeline') {
-      requestAnimationFrame(function() {
-        var globe = document.getElementById('tl-mapa-globe');
-        if (!globe || globe.clientWidth === 0) return;
-        var hasSphere = !!globe.querySelector('svg path.sphere');
-        if (!hasSphere) {
-          try { renderTimelineView(); } catch(e) { console.error('[timeline retry]', e); }
+      (function ensureGlobe() {
+        var attempts = 0;
+        function step() {
+          var globe = document.getElementById('tl-mapa-globe');
+          if (!globe) return;
+          if (globe.clientWidth > 0 && !globe.querySelector('svg path.sphere')) {
+            try { renderTimelineView(); } catch(e) { console.error('[timeline retry]', e); }
+            return;
+          }
+          if (globe.querySelector('svg path.sphere')) return; // already OK
+          if (++attempts < 60) setTimeout(step, 100); // up to 6s of retries
         }
-      });
+        setTimeout(step, 50);
+      })();
     }
   }
 
