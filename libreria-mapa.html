@@ -12978,6 +12978,10 @@ body {
   }
 
   // ── Lazy loader for D3 + topojson + world atlas ──
+  //
+  // Fetches try a chain of CDNs in order. jsdelivr is preferred but is often
+  // blocked or slow in the Huawei/China ecosystem, so we fall back to unpkg
+  // and then cdnjs. Both scripts and JSON go through the same chain.
   var __tlMapaDepsPromise = null;
   function loadMapaDeps() {
     if (__tlMapaDepsPromise) return __tlMapaDepsPromise;
@@ -12985,22 +12989,47 @@ body {
       return new Promise(function(resolve, reject) {
         var s = document.createElement('script');
         s.src = url; s.async = true;
-        s.onload = resolve; s.onerror = function() { reject(new Error('Failed to load ' + url)); };
+        s.onload = resolve;
+        s.onerror = function() { reject(new Error('Failed to load ' + url)); };
         document.head.appendChild(s);
       });
     }
+    function tryChain(urls, kind) {
+      // kind: 'script' or 'json'
+      return urls.reduce(function(prev, url) {
+        return prev.catch(function() {
+          if (kind === 'script') return loadScript(url);
+          return fetch(url).then(function(r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status + ' from ' + url);
+            return r.json();
+          });
+        });
+      }, Promise.reject(new Error('start')));
+    }
+    var D3_URLS = [
+      'https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js',
+      'https://unpkg.com/d3@7/dist/d3.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js'
+    ];
+    var TOPO_URLS = [
+      'https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js',
+      'https://unpkg.com/topojson-client@3/dist/topojson-client.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/topojson-client/3.1.0/topojson-client.min.js'
+    ];
+    var WORLD_URLS = [
+      'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json',
+      'https://unpkg.com/world-atlas@2/countries-110m.json'
+    ];
+    var MX_URLS = [
+      'https://cdn.jsdelivr.net/gh/strotgen/mexico-leaflet/states.geojson',
+      'https://raw.githubusercontent.com/strotgen/mexico-leaflet/master/states.geojson'
+    ];
     __tlMapaDepsPromise = (async function() {
-      if (typeof d3 === 'undefined') await loadScript('https://cdn.jsdelivr.net/npm/d3@7');
-      if (typeof topojson === 'undefined') await loadScript('https://cdn.jsdelivr.net/npm/topojson-client@3');
-      var resp = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
-      if (!resp.ok) throw new Error('Failed to fetch world atlas');
-      var world = await resp.json();
-      // Mexico states for region-level highlighting (best effort: failures don't break the globe)
+      if (typeof d3 === 'undefined') await tryChain(D3_URLS, 'script');
+      if (typeof topojson === 'undefined') await tryChain(TOPO_URLS, 'script');
+      var world = await tryChain(WORLD_URLS, 'json');
       var mxStates = null;
-      try {
-        var mxResp = await fetch('https://cdn.jsdelivr.net/gh/strotgen/mexico-leaflet/states.geojson');
-        if (mxResp.ok) mxStates = await mxResp.json();
-      } catch(e) { mxStates = null; }
+      try { mxStates = await tryChain(MX_URLS, 'json'); } catch(e) { mxStates = null; }
       return { world: world, mxStates: mxStates };
     })();
     return __tlMapaDepsPromise;
@@ -19968,10 +19997,25 @@ body {
           return w > 10 && h > 10;
         }
         function step() {
+          var tv = document.getElementById('timeline-view');
           var globe = document.getElementById('tl-mapa-globe');
-          if (!globe) return;
+          // Case A: boot render never ran (Huawei/older browsers where the
+          // early try{renderTimelineView()} at init errored out) — the whole
+          // container is empty. Force a re-render.
+          if (tv && (!tv.firstElementChild || !globe)) {
+            try { renderTimelineView(); } catch(e) {
+              tv.innerHTML = '<div style="padding:40px; text-align:center; color:#c44; font-family:monospace; font-size:12px;">' +
+                '<div style="margin-bottom:12px; font-weight:bold;">La línea del tiempo falló al cargar en este navegador.</div>' +
+                '<div style="color:#888; word-break:break-word; max-width:600px; margin:0 auto;">' + (e && e.message ? e.message : String(e)) + '</div>' +
+                '<div style="margin-top:16px; color:#888;">Si estás en el navegador de Huawei, prueba abrir en Chrome o Firefox.</div>' +
+              '</div>';
+              return;
+            }
+            if (++attempts < 60) return setTimeout(step, 100);
+            return;
+          }
           if (isGlobeHealthy(globe)) return;
-          if (globe.clientWidth > 0) {
+          if (globe && globe.clientWidth > 0) {
             try { renderTimelineView(); } catch(e) { console.error('[timeline retry]', e); }
             return;
           }
