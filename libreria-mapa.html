@@ -4371,6 +4371,20 @@ body {
   transition: color 0.2s;
 }
 .tl-tooltip-book-link:hover { color: var(--gold); }
+
+/* Nested-quote hint: when a cita's author differs from the book's own
+   author, mark the relation so the reader knows it's a secondary quote. */
+.tl-cita-citedin {
+  font-style: italic;
+  opacity: 0.75;
+  padding: 0 2px;
+}
+.cita-attr-nested {
+  font-style: italic;
+  opacity: 0.75;
+  margin-right: 4px;
+}
+.cita-attr-nested::after { content: ' · '; opacity: 0.5; }
 .tl-tooltip-close {
   position: absolute;
   top: 6px;
@@ -13044,6 +13058,29 @@ body {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // Compare two author strings loosely: same person if one contains the other's
+  // significant surname after normalising diacritics/case/punct.
+  // Used to decide "cita del propio autor del libro" vs "cita de OTRO autor
+  // referenciado dentro del libro" — so we can render "X citado en Y por Z"
+  // when they diverge, and just the book+author otherwise.
+  function _normAuthor(s) {
+    return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toLowerCase().replace(/[.,()\[\]"'“”]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  function isSameAuthor(citaAuthor, bookAuthor) {
+    var a = _normAuthor(citaAuthor);
+    var b = _normAuthor(bookAuthor);
+    if (!a || !b) return true;              // if one is missing, treat as same (no divergence to flag)
+    if (a === b) return true;
+    if (a.length >= 4 && b.indexOf(a) !== -1) return true;   // "López Obrador" ⊂ "Andrés Manuel López Obrador"
+    if (b.length >= 4 && a.indexOf(b) !== -1) return true;
+    // Compare last word (usually surname) when both have ≥ 2 words
+    var la = a.split(' ').filter(Boolean).slice(-1)[0] || '';
+    var lb = b.split(' ').filter(Boolean).slice(-1)[0] || '';
+    if (la && lb && la === lb) return true;
+    return false;
+  }
+
   // ── Render single timeline event (shared between Lista and Mapa) ──
   function renderSingleEvent(ev, ci, eraIdx) {
     var hasDetail = ev.detalle || (ev.citas && ev.citas.length > 0);
@@ -13069,11 +13106,29 @@ body {
             pdfPageLink = ' <a href="' + pdfUrl + '" class="quote-page-link" target="_blank" onclick="event.stopPropagation();">📄 Ver en PDF</a>';
           }
         }
+        // Attribution: show the cita's own author (if provided) and the
+        // containing book. When they differ, mark the quote as "citado en"
+        // the book so the reader knows it's a secondary quote inside another
+        // author's work (e.g. Aguirre Molina quoting Soustelle).
+        var bookAuthor = (bk && bk.author) || '';
+        var citaAuthor = c.autor || '';
+        var bookLink = bkTitle
+          ? '<span class="tl-tooltip-book-link" onclick="event.stopPropagation(); openBook(\'' + c.libro + '\');">' + escHTML(bkTitle) + '</span>'
+          : '';
+        var attrInner;
+        if (citaAuthor && bookAuthor && !isSameAuthor(citaAuthor, bookAuthor)) {
+          // Nested quote: cita author differs from book author
+          attrInner = escHTML(citaAuthor) +
+            (bookLink ? ' <span class="tl-cita-citedin">citado en</span> ' + bookLink + ', ' + escHTML(bookAuthor) : '');
+        } else {
+          // Direct quote from the book's own author (or missing cita author)
+          attrInner = escHTML(citaAuthor || bookAuthor) +
+            (bookLink ? ', ' + bookLink : '');
+        }
         return '<div class="tl-tooltip-cita" data-cita-id="' + citaId + '">' +
           '<div class="tl-tooltip-cita-text">“' + escHTML(c.texto) + '”</div>' +
           '<div class="tl-tooltip-cita-attr" data-book="' + c.libro + '">' +
-            '— ' + escHTML(c.autor || (books.find(function(b){return b.id===c.libro})||{}).author || '') +
-            (bkTitle ? ', <span class="tl-tooltip-book-link" onclick="event.stopPropagation(); openBook(\'' + c.libro + '\');">' + escHTML(bkTitle) + '</span>' : '') +
+            '— ' + attrInner +
             (c.pagina ? ', ' + escHTML(c.pagina) : '') +
             pdfPageLink +
           '</div>' +
@@ -14122,14 +14177,31 @@ body {
       var pages = g.citas.map(function(c) { return pdfLinkFor(c, bk); }).filter(Boolean).join('');
       var pagesBlock = pages ? '<span class="cita-page-list">' + pages + '</span>' : '';
       var fallbackAuthor = g.citas[0].autor;
-      // Attribution: always show title (or libro slug as last resort) AND author when we have one
+      // Attribution: title + author of the book, PLUS "cita de {other}" whenever
+      // any cita in the group has an autor different from the book's own
+      // author (nested quote — book's author is quoting a third party).
       var attrTitle = bkTitle || (g.libro || '');
-      var attrAuthor = (bk && bk.author) || fallbackAuthor || '';
+      var bookAuthorMapa = (bk && bk.author) || '';
+      var attrAuthor = bookAuthorMapa || fallbackAuthor || '';
       var titleSpan = attrTitle
-        ? '<span class="booklink" data-book="' + (g.libro || '') + '">' + attrTitle + '</span>'
+        ? '<span class="booklink" data-book="' + (g.libro || '') + '">' + escHTML(attrTitle) + '</span>'
         : '';
-      var authorSpan = attrAuthor ? '<span class="cita-attr-author">' + attrAuthor + '</span>' : '';
+      var authorSpan = attrAuthor ? '<span class="cita-attr-author">' + escHTML(attrAuthor) + '</span>' : '';
       var attrParts = [titleSpan, authorSpan].filter(Boolean).join(' · ');
+      // Nested-quote hint: collect distinct citaAuthors that differ from bookAuthor
+      var nestedAuthors = [];
+      if (bookAuthorMapa) {
+        var seenNested = {};
+        g.citas.forEach(function(c) {
+          if (c.autor && !isSameAuthor(c.autor, bookAuthorMapa) && !seenNested[c.autor]) {
+            seenNested[c.autor] = 1;
+            nestedAuthors.push(c.autor);
+          }
+        });
+      }
+      var nestedHint = nestedAuthors.length
+        ? '<span class="cita-attr-nested">cita de ' + escHTML(nestedAuthors.join(', ')) + '</span> '
+        : '';
       return '<div class="tl-mapa-floating-cita ' + (ev.scope === 'mundo' ? 'mundo' : '') +
         (g.citas.length > 1 ? ' cita-multi' : '') +
         '" data-group-idx="' + g.gIdx + '"' + styleAttr + '>' +
@@ -14137,6 +14209,7 @@ body {
         '<div class="cita-card-rect">' +
           quotesHTML +
           '<div class="tl-mapa-floating-cita-attr">' +
+            nestedHint +
             attrParts +
             (pagesBlock ? ' ' + pagesBlock : '') +
           '</div>' +
