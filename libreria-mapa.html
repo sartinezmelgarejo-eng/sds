@@ -19939,6 +19939,23 @@ body {
     // Toggle quicknav visibility
     const qn = document.getElementById('tl-quicknav');
     if (qn) qn.style.display = (view === 'timeline') ? 'flex' : 'none';
+
+    // Timeline lazy-init recovery: at page boot we call renderTimelineView()
+    // while #timeline-view is still display:none, so the globe wrap has 0×0
+    // dimensions and initMapaGlobe's ResizeObserver + poll (4.8s cap) may
+    // give up before the user opens the Tiempo tab. If the globe SVG never
+    // got its sphere path, re-run renderTimelineView now that the container
+    // is visible so loadMapaDeps().then(...) re-fires against a real box.
+    if (view === 'timeline') {
+      requestAnimationFrame(function() {
+        var globe = document.getElementById('tl-mapa-globe');
+        if (!globe || globe.clientWidth === 0) return;
+        var hasSphere = !!globe.querySelector('svg path.sphere');
+        if (!hasSphere) {
+          try { renderTimelineView(); } catch(e) { console.error('[timeline retry]', e); }
+        }
+      });
+    }
   }
 
   // ══════════════════════════════════════════════
