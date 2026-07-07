@@ -3172,17 +3172,27 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(!strip) return;
     if(!batch || batch.length < 2){ strip.innerHTML=''; strip.classList.remove('show'); return; }
     strip.classList.add('show');
+    // Strip <a>, <b>, <i>, <u> tags and collapse whitespace so the preview
+    // reads as clean text. Also drop URL fragments and leading empty lines.
+    const stripTags = s => String(s||'')
+      .replace(/<[^>]+>/g, ' ')       // drop all HTML tags
+      .replace(/https?:\/\/\S+/g, ' ') // drop bare URLs
+      .replace(/\s+/g, ' ')
+      .trim();
     // Skip the currently-active one; render others in batch order.
     const items = batch.map((post,i)=>{
       if(i === idx) return '';
       const img = post.img || (post.source && post.source.img) || '';
-      const raw = (post.text||'').replace(/\s+/g,' ').trim();
-      // First 60 chars as a preview line (safeTxt already stripped markup earlier).
-      const preview = raw.length > 60 ? raw.slice(0,58).replace(/[^A-Za-zÁÉÍÓÚÑñáéíóú]+$/,'') + '…' : raw;
+      const raw = stripTags(post.text);
+      // Take the first meaningful line — the headline usually — capped at 70 chars.
+      const firstLine = raw.split(/[.!?—–]/)[0].trim();
+      const preview = firstLine.length > 70
+        ? firstLine.slice(0,68).replace(/[^A-Za-zÁÉÍÓÚÑñáéíóú0-9]+$/,'') + '…'
+        : firstLine;
       const imgHtml = img
         ? `<span class="mag-preview-img" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span>`
         : `<span class="mag-preview-img mag-preview-img--none"></span>`;
-      return `<button class="mag-preview-item" data-slide-idx="${i}" aria-label="Ver historia ${i+1}">${imgHtml}<span class="mag-preview-txt">${preview.replace(/</g,'&lt;')}</span></button>`;
+      return `<button class="mag-preview-item" data-slide-idx="${i}" aria-label="Ver historia ${i+1}">${imgHtml}<span class="mag-preview-txt">${esc(preview)}</span></button>`;
     }).join('');
     // Only rebuild if the underlying set actually changed to preserve scroll
     if(strip.dataset.built !== `${group}::${batch.length}::${idx}`){
