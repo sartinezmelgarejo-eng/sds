@@ -1118,10 +1118,73 @@ body.sidebar-fullscreen .sidebar .mag-dot{
   background:color-mix(in srgb, var(--ct) 28%, #d4cdb8);
   border:none;cursor:pointer;padding:0;
   transition:background .25s,width .25s,border-radius .25s;
+  /* Invisible tap target 32px tall for finger-friendly hits */
+  position:relative;
+}
+body.sidebar-fullscreen .sidebar .mag-dot::before{
+  content:'';position:absolute;left:50%;top:50%;
+  transform:translate(-50%,-50%);
+  width:32px;height:32px;
 }
 body.sidebar-fullscreen .sidebar .mag-dot:hover{background:color-mix(in srgb, var(--ct) 55%, #d4cdb8)}
 body.sidebar-fullscreen .sidebar .mag-dot.active{
   background:var(--ct);width:18px;border-radius:3px;
+}
+
+/* Preview strip: horizontal rail of small cards for the OTHER stories in
+   the batch. Sits above the footer. Tap a card → jump to that slide.
+   Hidden when a batch has ≤1 post; also hidden on desktop-narrow to save
+   vertical space. */
+body.sidebar-fullscreen .sidebar .mag-preview-strip{
+  display:none;
+  margin-top:12px;padding-top:12px;
+  border-top:1px dashed color-mix(in srgb, var(--ct) 22%, #d4cdb8);
+  overflow-x:auto;overflow-y:hidden;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:thin;
+  gap:10px;
+  scroll-snap-type:x proximity;
+}
+body.sidebar-fullscreen .sidebar .mag-preview-strip.show{display:flex}
+body.sidebar-fullscreen .sidebar .mag-preview-strip::-webkit-scrollbar{height:5px}
+body.sidebar-fullscreen .sidebar .mag-preview-strip::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb, var(--ct) 30%, transparent);border-radius:3px;
+}
+body.sidebar-fullscreen .sidebar .mag-preview-item{
+  flex:0 0 auto;
+  display:flex;flex-direction:column;
+  width:120px;
+  background:transparent;border:none;padding:0;
+  cursor:pointer;text-align:left;
+  scroll-snap-align:start;
+  transition:transform .18s;
+}
+body.sidebar-fullscreen .sidebar .mag-preview-item:hover{transform:translateY(-2px)}
+body.sidebar-fullscreen .sidebar .mag-preview-item:focus-visible{
+  outline:2px solid var(--ct);outline-offset:2px;border-radius:6px;
+}
+body.sidebar-fullscreen .sidebar .mag-preview-img{
+  width:100%;height:68px;
+  background:#d4cdb8 center/cover no-repeat;
+  border-radius:5px;
+  border:1px solid color-mix(in srgb, var(--ct) 15%, #a8a08c);
+}
+body.sidebar-fullscreen .sidebar .mag-preview-img--none{
+  background:color-mix(in srgb, var(--ct) 8%, #e8e2ce);
+}
+body.sidebar-fullscreen .sidebar .mag-preview-txt{
+  margin-top:5px;
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:10.5px;line-height:1.32;
+  color:#4b4234;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;
+  overflow:hidden;
+}
+/* On tablet+ give the strip a taller image so it reads as a real preview */
+@media (min-width:820px){
+  body.sidebar-fullscreen .sidebar .mag-preview-item{width:140px}
+  body.sidebar-fullscreen .sidebar .mag-preview-img{height:82px}
+  body.sidebar-fullscreen .sidebar .mag-preview-txt{font-size:11.5px}
 }
 body.sidebar-fullscreen .sidebar .mag-counter{
   font-family:'SF Mono',monospace;
@@ -1160,6 +1223,36 @@ body.sidebar-fullscreen .sidebar .mag-empty{
 /* On phones fullscreen isn't reachable (mobile uses 2-page swipe) — guard anyway */
 @media (max-width:800px){
   body.sidebar-fullscreen .sidebar .mag-front{display:none}
+}
+
+/* ── Tablet magazine mode ──
+   iPad landscape (Pro 1194, Air 1180) falls in the ">1100" band and gets
+   the desktop layout but the desktop font sizes are too big for the
+   physical screen — mañanera kickers get cut off, body text doesn't fit.
+   Scale down typography and paddings in the 801-1280 range so the layout
+   stays desktop-shaped but readable.
+   Portrait iPad (< 1100) already flips to stacked via the block above,
+   so this only re-tunes the side-by-side variant. */
+@media (min-width:801px) and (max-width:1280px){
+  body.sidebar-fullscreen .sidebar{
+    padding:14px 16px;
+    font-size:14px;
+  }
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:17px}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:11px}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:22px;line-height:1.15}
+  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:24px}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{font-size:15px;line-height:1.2}
+  body.sidebar-fullscreen .sidebar .mag-body-text{font-size:13px;line-height:1.42}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{font-size:12px}
+  body.sidebar-fullscreen .sidebar .mag-day-label{font-size:9px}
+  body.sidebar-fullscreen .sidebar .mag-time{font-size:9.5px}
+  body.sidebar-fullscreen .sidebar .mag-counter{font-size:9px}
+  body.sidebar-fullscreen .sidebar .mag-drill{font-size:11px}
+  /* Preview strip: shorter thumbs since vertical space is tighter */
+  body.sidebar-fullscreen .sidebar .mag-preview-item{width:112px}
+  body.sidebar-fullscreen .sidebar .mag-preview-img{height:64px}
+  body.sidebar-fullscreen .sidebar .mag-preview-txt{font-size:10.5px;-webkit-line-clamp:2}
 }
 
 .more-overlay.open{opacity:1;pointer-events:auto}
@@ -2558,6 +2651,11 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // compact thumbs.
       return `${head}<div class="mag-active-pin"></div><div class="mag-others-grid"></div>${foot}`;
     }
+    // Stage preview strip: thumbnails of the OTHER stories in this batch,
+    // rendered as a horizontal scrollable rail above the footer so the
+    // reader can see what's next / previous without hunting the tiny dots.
+    // Painted by paintStage.
+    const preview = '<div class="mag-preview-strip" aria-label="Otras historias en esta categoría"></div>';
     // stage — hero image OR thumb navigator (when no image), then headline + body.
     return `${head}
       <div class="mag-body-grid">
@@ -2573,6 +2671,7 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
           <p class="mag-body-text"></p>
         </div>
       </div>
+      ${preview}
       ${foot}`;
   }
 
@@ -2972,6 +3071,34 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     el.style.setProperty('--body-scale', scale.toFixed(3));
 
     paintFoot(el, group, batch, idx, 'stage');
+    paintPreviewStrip(el, group, batch, idx);
+  }
+
+  // Preview strip: horizontal rail of thumbnails for the OTHER stories in
+  // this batch — image + short headline, tap to jump. Shown below the body
+  // and above the footer. Only renders when the batch has 2+ posts.
+  function paintPreviewStrip(el, group, batch, idx){
+    const strip = el.querySelector('.mag-preview-strip');
+    if(!strip) return;
+    if(!batch || batch.length < 2){ strip.innerHTML=''; strip.classList.remove('show'); return; }
+    strip.classList.add('show');
+    // Skip the currently-active one; render others in batch order.
+    const items = batch.map((post,i)=>{
+      if(i === idx) return '';
+      const img = post.img || (post.source && post.source.img) || '';
+      const raw = (post.text||'').replace(/\s+/g,' ').trim();
+      // First 60 chars as a preview line (safeTxt already stripped markup earlier).
+      const preview = raw.length > 60 ? raw.slice(0,58).replace(/[^A-Za-zÁÉÍÓÚÑñáéíóú]+$/,'') + '…' : raw;
+      const imgHtml = img
+        ? `<span class="mag-preview-img" style="background-image:url('${img.replace(/'/g, "\\'")}')"></span>`
+        : `<span class="mag-preview-img mag-preview-img--none"></span>`;
+      return `<button class="mag-preview-item" data-slide-idx="${i}" aria-label="Ver historia ${i+1}">${imgHtml}<span class="mag-preview-txt">${preview.replace(/</g,'&lt;')}</span></button>`;
+    }).join('');
+    // Only rebuild if the underlying set actually changed to preserve scroll
+    if(strip.dataset.built !== `${group}::${batch.length}::${idx}`){
+      strip.innerHTML = items;
+      strip.dataset.built = `${group}::${batch.length}::${idx}`;
+    }
   }
 
   // Satellite uses .mag-row instead of .mag-tile. Each row has the same DOM
@@ -3307,6 +3434,53 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     updateCell(g);
     bumpCellTimer(g);
   });
+  // Click a preview strip item → jump to that story in the stage.
+  document.addEventListener('click',e=>{
+    const item=e.target.closest('.mag-preview-item');
+    if(!item) return;
+    e.stopPropagation();
+    const cell=item.closest('[data-group]');
+    if(!cell) return;
+    const g=cell.dataset.group;
+    const target=parseInt(item.dataset.slideIdx);
+    if(isNaN(target)) return;
+    magState.slideIdx[g]=target;
+    updateCell(g);
+    bumpCellTimer(g);
+  });
+  // Swipe left/right on the stage → next/prev slide within the same batch.
+  // Touch-only: mouse click still uses dots + preview strip.
+  (function wireStageSwipe(){
+    let startX=0, startY=0, startT=0, active=false;
+    // Delegate at document level so it works across re-renders.
+    document.addEventListener('touchstart', e=>{
+      const stage = e.target.closest('.mag-stage');
+      if(!stage) return;
+      // Ignore swipes that begin on interactive elements — they own their gesture.
+      if(e.target.closest('.mag-dot, .mag-preview-strip, .mag-drill, .mag-hero-thumbs, a, button')) return;
+      const t=e.changedTouches[0];
+      startX=t.clientX; startY=t.clientY; startT=Date.now(); active=true;
+    }, {passive:true});
+    document.addEventListener('touchend', e=>{
+      if(!active) return; active=false;
+      const stage = e.target.closest('.mag-stage');
+      if(!stage) return;
+      const t=e.changedTouches[0];
+      const dx=t.clientX-startX, dy=t.clientY-startY, dt=Date.now()-startT;
+      // Must be mostly horizontal, ≥ 40 px, < 700 ms
+      if(Math.abs(dx) < 40) return;
+      if(Math.abs(dx) < Math.abs(dy) * 1.4) return;
+      if(dt > 700) return;
+      const g=stage.dataset.group;
+      const batch=magBatchFor(g);
+      if(!batch || batch.length < 2) return;
+      const cur=magClampSlideIdx(g);
+      // Left-swipe (dx<0) → next; right-swipe → prev
+      magState.slideIdx[g] = (cur + (dx<0 ? 1 : -1) + batch.length) % batch.length;
+      updateCell(g);
+      bumpCellTimer(g);
+    }, {passive:true});
+  })();
   // Click a satellite tile / active pin row → set that slide as the section's
   // current AND promote the section to the stage so the clicked post opens
   // in the big spread. Click on a stage no-image thumb → just navigate within
