@@ -1225,19 +1225,54 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   body.sidebar-fullscreen .sidebar .mag-front{display:none}
 }
 
-/* ── Tablet magazine mode ──
-   iPad landscape (Pro 1194, Air 1180) falls in the ">1100" band and gets
-   the desktop layout but the desktop font sizes are too big for the
-   physical screen — mañanera kickers get cut off, body text doesn't fit.
-   Scale down typography and paddings in the 801-1280 range so the layout
-   stays desktop-shaped but readable.
-   Portrait iPad (< 1100) already flips to stacked via the block above,
-   so this only re-tunes the side-by-side variant. */
-@media (min-width:801px) and (max-width:1280px){
-  body.sidebar-fullscreen .sidebar{
-    padding:14px 16px;
-    font-size:14px;
+/* ── Portrait tablet magazine mode ──
+   In portrait (e.g. Xiaomi Pad, iPad, Samsung Tab in vertical hold), the
+   default 1.7fr / 1fr split makes the stage headline crowd the banner and
+   crams the two satellites into a narrow right column. Stack the rail
+   BELOW the stage in one horizontal strip so both satellites read as
+   siblings side-by-side under the highlighted story, mirroring the
+   editorial flow: main story on top, related sections below.
+   Applies to portrait tablets in the 720-1440 wide range. */
+@media (orientation:portrait) and (min-width:801px) and (max-width:1440px){
+  body.sidebar-fullscreen .sidebar .mag-front{
+    grid-template-columns:1fr;
+    grid-template-rows:minmax(0, 1.35fr) minmax(0, 1fr);
   }
+  body.sidebar-fullscreen .sidebar .mag-stage{
+    border-right:none;border-bottom:1px solid #e6dfc8;
+    padding:24px 26px 20px;
+  }
+  /* Rail becomes a horizontal 2-col strip under the stage */
+  body.sidebar-fullscreen .sidebar .mag-rail{
+    flex-direction:row;
+  }
+  body.sidebar-fullscreen .sidebar .mag-satellite{
+    flex:1 1 0;padding:18px 20px 14px;
+  }
+  body.sidebar-fullscreen .sidebar .mag-satellite:first-of-type{
+    border-bottom:none;
+    border-right:1px solid #e6dfc8;
+  }
+  /* Tighter typography for portrait — headlines must fit their banner */
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:15px}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:10px}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:19px;line-height:1.18}
+  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:20px}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{font-size:13.5px;line-height:1.22}
+  body.sidebar-fullscreen .sidebar .mag-body-text{font-size:12.5px;line-height:1.4}
+  body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{font-size:11.5px;line-height:1.35}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{max-height:22vh}
+  /* Preview strip: compact enough to not eat vertical breathing room */
+  body.sidebar-fullscreen .sidebar .mag-preview-item{width:104px}
+  body.sidebar-fullscreen .sidebar .mag-preview-img{height:58px}
+  body.sidebar-fullscreen .sidebar .mag-preview-txt{font-size:10px;-webkit-line-clamp:2}
+}
+
+/* ── Landscape tablet magazine mode ──
+   iPad Pro 1194, Air 1180, Xiaomi Pad landscape all fall here. Kickers +
+   headlines shrink but keep 2-column stage/rail. */
+@media (orientation:landscape) and (min-width:801px) and (max-width:1280px){
+  body.sidebar-fullscreen .sidebar{padding:14px 16px;font-size:14px}
   body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:17px}
   body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:11px}
   body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:22px;line-height:1.15}
@@ -1249,11 +1284,15 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   body.sidebar-fullscreen .sidebar .mag-time{font-size:9.5px}
   body.sidebar-fullscreen .sidebar .mag-counter{font-size:9px}
   body.sidebar-fullscreen .sidebar .mag-drill{font-size:11px}
-  /* Preview strip: shorter thumbs since vertical space is tighter */
   body.sidebar-fullscreen .sidebar .mag-preview-item{width:112px}
   body.sidebar-fullscreen .sidebar .mag-preview-img{height:64px}
   body.sidebar-fullscreen .sidebar .mag-preview-txt{font-size:10.5px;-webkit-line-clamp:2}
 }
+
+/* (Older generic tablet tier removed — replaced by orientation-aware
+   portrait/landscape pair above that also stacks the rail below the
+   stage in portrait so the two satellite categories aren't crammed
+   into a narrow right column.) */
 
 .more-overlay.open{opacity:1;pointer-events:auto}
 .more-panel{
