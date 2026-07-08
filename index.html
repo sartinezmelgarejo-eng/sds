@@ -1273,6 +1273,8 @@ body.sidebar-fullscreen .sidebar .mag-empty{
    drop internal padding so the .mag-front grid fills the viewport. */
 @media (min-width:761px) and (max-width:1440px){
   body.sidebar-fullscreen .search-stack{display:none}
+  /* Kill the outer frame so the magazine bleeds to every edge */
+  body.sidebar-fullscreen{padding:0}
   body.sidebar-fullscreen .sidebar{padding:0}
   body.sidebar-fullscreen .sidebar .d-feed-head{
     padding:6px 12px;min-height:34px;
@@ -3893,25 +3895,45 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // but works on touch devices and trackpads where the drag is hostile.
   // Mirrors the same state-action pair used by the drag handler (apply
   // the body class + re-render + sync the view-toggle button icon).
+  // Shared "enter magazine fullscreen" action, used by the expand button
+  // AND the tablet auto-enter on load. persist=false skips writing the
+  // width to localStorage so an auto-entry doesn't pin the user into
+  // fullscreen forever (they can still shrink out and that choice sticks).
+  window.__enterMagFullscreen = function(persist){
+    const main = document.querySelector('.main');
+    if(!main) return;
+    const mainWidth = main.getBoundingClientRect().width;
+    const newW = Math.max(240, Math.floor(mainWidth - 16));
+    main.style.gridTemplateColumns = '0 ' + newW + 'px';
+    const was = document.body.classList.contains('sidebar-fullscreen');
+    document.body.classList.add('sidebar-fullscreen');
+    if(!was){
+      if(typeof renderMobile === 'function') renderMobile();
+      if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
+    }
+    if(persist){ try { localStorage.setItem('sidebar-width', newW); } catch {} }
+  };
   (function(){
     const btn = document.getElementById('d-expand-btn');
     if(!btn) return;
-    btn.addEventListener('click', () => {
-      const main = document.querySelector('.main');
-      if(!main) return;
-      // Total sidebar = main width minus the 16px grid gap. Apps column
-      // goes to 0 (CSS already hides .main > .grid in fullscreen).
-      const mainWidth = main.getBoundingClientRect().width;
-      const newW = Math.max(240, Math.floor(mainWidth - 16));
-      main.style.gridTemplateColumns = '0 ' + newW + 'px';
-      const was = document.body.classList.contains('sidebar-fullscreen');
-      document.body.classList.add('sidebar-fullscreen');
-      if(!was){
-        if(typeof renderMobile === 'function') renderMobile();
-        if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
-      }
-      try { localStorage.setItem('sidebar-width', newW); } catch {}
-    });
+    btn.addEventListener('click', () => window.__enterMagFullscreen(true));
+  })();
+  // Auto-enter magazine fullscreen on tablets. Touch device (coarse pointer)
+  // in the tablet width band, and only when the user hasn't already saved a
+  // sidebar-width preference (so a deliberate "shrink out" on a prior visit
+  // is respected). Phones (<761) use the 2-page mobile layout; big desktops
+  // keep the two-column apps+feed view unless the user expands manually.
+  (function(){
+    let hasPref = false;
+    try { hasPref = !!parseInt(localStorage.getItem('sidebar-width')||'', 10); } catch {}
+    if(hasPref) return;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
+    const w = window.innerWidth;
+    const isTablet = coarse && w >= 761;
+    if(isTablet && typeof window.__enterMagFullscreen === 'function'){
+      // Defer one tick so the initial renderMobile / data hooks are wired.
+      setTimeout(() => window.__enterMagFullscreen(false), 0);
+    }
   })();
   // Focus body on load so ← / → arrow keys work immediately without
   // requiring a click. tabindex="-1" on <body> makes it programmatically
