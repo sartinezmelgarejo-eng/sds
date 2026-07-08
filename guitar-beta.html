@@ -24543,14 +24543,17 @@ function _midiCollectComposed() {
   return events;
 }
 
-function _midiCollectSong() {
+function _midiCollectSong(onlySection) {
   const ticksPerBeat = 480;
   const events = [];
   let tick = 0;
   if (!player.song || !player.song.length) return events;
   const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
   let prevShape = null;
-  for (const section of player.song) {
+  for (const [si, section] of player.song.entries()) {
+    // Single-section export (per-section drag rows). Skipped sections
+    // never advance tick, so the section's events start at 0.
+    if (onlySection != null && si !== onlySection) continue;
     const secKey = section.keyPc ?? homeKey.keyPc;
     const secTon = section.tonality ?? homeKey.tonality;
     const vType  = section.voicingType || 'drop2';
@@ -24920,13 +24923,14 @@ function _midiCollectBassComposed() {
   return events;
 }
 
-function _midiCollectBassSong() {
+function _midiCollectBassSong(onlySection) {
   const ticksPerBeat = 480;
   const events = [];
   let tick = 0;
   if (!player.song || !player.song.length) return events;
   const homeKey = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
-  for (const section of player.song) {
+  for (const [si, section] of player.song.entries()) {
+    if (onlySection != null && si !== onlySection) continue;
     const secKey = section.keyPc ?? homeKey.keyPc;
     const secTon = section.tonality ?? homeKey.tonality;
     const prog = section.progression;
@@ -25202,10 +25206,45 @@ const _midiMenu = document.getElementById('midi-menu');
 
 function _closeMidiMenu() { _midiMenu.hidden = true; }
 
-function _midiMenuBtn(label, fn) {
+function _midiMenuBtn(label, fn, dragSpec) {
   const b = document.createElement('button');
   b.textContent = label;
   b.onclick = () => { _closeMidiMenu(); fn(); };
+  if (dragSpec) {
+    // Chromium-only DownloadURL drag: the row can be dragged straight into
+    // a DAW arrange window (Logic) or Finder. Click-to-download unchanged;
+    // browsers without DownloadURL support simply ignore the drag payload.
+    b.draggable = true;
+    b.title = 'Click to download · drag into Logic/Finder';
+    const hint = document.createElement('span');
+    hint.textContent = ' ≡';
+    hint.style.opacity = '0.45';
+    hint.style.fontSize = '10px';
+    b.appendChild(hint);
+    let dragUrl = null;
+    b.addEventListener('dragstart', (e) => {
+      const bytes = _buildMidiBytes(dragSpec.collect(), dragSpec.label);
+      if (!bytes) { e.preventDefault(); return; }
+      dragUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+      const keyStr = ROOTS[state.keyPc].name.replace('#', 's').replace('b', 'f');
+      const bpm = Math.round(metronome.bpm || 120);
+      const name = `guitarra-${keyStr}-${state.tonality}-${bpm}bpm-${dragSpec.label}.mid`;
+      e.dataTransfer.setData('DownloadURL', 'audio/midi:' + name + ':' + dragUrl);
+      e.dataTransfer.effectAllowed = 'copy';
+      // Keep the menu open during the drag — removing the row mid-drag
+      // would abort it. Closed on dragend instead.
+    });
+    b.addEventListener('dragend', () => {
+      _closeMidiMenu();
+      if (dragUrl) {
+        const u = dragUrl;
+        dragUrl = null;
+        // The drop target reads the blob async (same rationale as the
+        // deferred revoke in _buildMidiFile); give Logic ample time.
+        setTimeout(() => URL.revokeObjectURL(u), 60000);
+      }
+    });
+  }
   return b;
 }
 
@@ -25221,16 +25260,34 @@ document.getElementById('midi-export').addEventListener('click', (e) => {
   // Always show menu now (bass option means ≥2 choices)
   _midiMenu.innerHTML = '';
   if (hasComposed) {
-    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — chords', () => _buildMidiFile(_midiCollectComposed(), 'composed')));
-    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — bass only', () => _buildMidiFile(_midiCollectBassComposed(), 'composed-bass')));
+    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — chords', () => _buildMidiFile(_midiCollectComposed(), 'composed'),
+      { collect: _midiCollectComposed, label: 'composed' }));
+    _midiMenu.appendChild(_midiMenuBtn('◇ Composed — bass only', () => _buildMidiFile(_midiCollectBassComposed(), 'composed-bass'),
+      { collect: _midiCollectBassComposed, label: 'composed-bass' }));
     _midiMenu.appendChild(_midiMenuBtn('◇ Composed — all (zip)',
       () => _buildMidiBundle(_midiCollectComposed(), _midiCollectBassComposed(), 'composed')));
   }
   if (hasSong) {
-    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — chords', () => _buildMidiFile(_midiCollectSong(), 'song')));
-    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — bass only', () => _buildMidiFile(_midiCollectBassSong(), 'song-bass')));
+    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — chords', () => _buildMidiFile(_midiCollectSong(), 'song'),
+      { collect: () => _midiCollectSong(), label: 'song' }));
+    _midiMenu.appendChild(_midiMenuBtn('♫ Full song — bass only', () => _buildMidiFile(_midiCollectBassSong(), 'song-bass'),
+      { collect: () => _midiCollectBassSong(), label: 'song-bass' }));
     _midiMenu.appendChild(_midiMenuBtn('♫ Full song — all (zip)',
       () => _buildMidiBundle(_midiCollectSong(), _midiCollectBassSong(), 'song')));
+    // Per-section rows (dedupe repeated letters — AABA offers A and B once;
+    // a modulated repeat like A' has a distinct modName so it stays).
+    const seenSecs = new Set();
+    player.song.forEach((sec, si) => {
+      if (!sec.label) return;
+      const key = sec.label + (sec.modName || '');
+      if (seenSecs.has(key)) return;
+      seenSecs.add(key);
+      const lab = sec.label + (sec.modName ? ' · ' + sec.modName : '');
+      const fileLabel = 'section-' + sec.label + (sec.modName ? '-mod' : '');
+      _midiMenu.appendChild(_midiMenuBtn('♫ Section ' + lab + ' — chords',
+        () => _buildMidiFile(_midiCollectSong(si), fileLabel),
+        { collect: () => _midiCollectSong(si), label: fileLabel }));
+    });
   }
   // Position the menu via viewport coords because it's position:fixed.
   // Desktop: button sits on the right of the meta strip, so right-aligning
