@@ -1668,19 +1668,10 @@
     font-weight: 400;
   }
   .song-struct-menu .ssm-item.selected .ssm-rare { color: rgba(250,243,227,0.7); }
-  /* Refine the modulation / travel badges — finer, greener */
-  #player-info .pi-badge {
-    font-style: italic;
-    font-size: 10.5px;
-    padding: 1px 7px;
-    border-radius: 2px;
-    border: 1px solid;
-    animation: piBadgeIn 0.4s ease-out;
-    letter-spacing: 0.3px;
-  }
-  #player-info .pi-badge.mod    { color: var(--accent); border-color: rgba(160,120,32,0.6); background: rgba(160,120,32,0.06); }
-  #player-info .pi-badge.travel { color: var(--tag-tonic); border-color: rgba(5,150,105,0.55); background: rgba(5,150,105,0.06); }
-  /* Modulation / travel pill — slightly more prominent, animates in */
+  /* Modulation / travel pill — slightly more prominent, animates in.
+     (A duplicate "refined" .pi-badge block used to sit above this one
+     but the cascade made THIS block win, so the refinement was never
+     live — removed as dead code, keeping the visible style as-is.) */
   @keyframes piBadgeIn {
     from { opacity: 0; transform: translateY(-3px); }
     to   { opacity: 0.92; transform: translateY(0); }
@@ -7833,9 +7824,9 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
   // is null (defensive — shouldn't happen in practice) fall back to the
   // parent shape/rootPc/quality so the staff still has geometry.
   const baseSlot = slotChords ? (slotChords.find(sl => sl) || null) : null;
-  const baseShape   = baseSlot ? baseSlot.shape   : (slotChords ? shape   : shape);
-  const baseRoot    = baseSlot ? baseSlot.root    : (slotChords ? rootPc  : rootPc);
-  const baseQuality = baseSlot ? baseSlot.quality : (slotChords ? quality : quality);
+  const baseShape   = baseSlot ? baseSlot.shape   : shape;
+  const baseRoot    = baseSlot ? baseSlot.root    : rootPc;
+  const baseQuality = baseSlot ? baseSlot.quality : quality;
   // Pro voicings: if sizing.pianoShape (or per-slot pianoShape) is
   // present, use it directly — pro voicings span multiple octaves
   // (Mehldau 10th, McCoy spread) that the 6-element shape can't carry,
@@ -14189,8 +14180,12 @@ const PROGRESSION_FRAGMENTS = {
     {name:'ii-V cell', len:2, role:'middle', genre:'jazz',
       steps:[{chord:'ii',bars:1},{chord:'V',bars:1}],
       follows:['opening','middle'], leads:['cadence','middle']},
+    // Chord ID must be 'bVImaj7' — major chordDefs has no bare 'bVI'
+    // (that ID only exists in the minor map). The old 'bVI' made
+    // isChordInScope return false forever, so this fragment was dead
+    // data from day one — never once eligible for assembly.
     {name:'Modal interchange', len:2, role:'middle', genre:'rock',
-      steps:[{chord:'bVI',bars:1},{chord:'bVII',bars:1}],
+      steps:[{chord:'bVImaj7',bars:1},{chord:'bVII',bars:1}],
       follows:['opening','middle'], leads:['cadence']},
     {name:'Bass step down', len:2, role:'middle', genre:'pop',
       steps:[{chord:'iii',bars:1},{chord:'vi',bars:1}],
@@ -15572,9 +15567,11 @@ class Player {
     // should usually fit). Better to overrun the section than under-fill.
     if (usedBars < targetBars) {
       const padBars = targetBars - usedBars;
+      // Tonality-aware tonic — in minor the chord ID is 'i'; a hard-coded
+      // 'I' resolved to nothing there and left the pad bars unrenderable.
       fragments.push({
         name: '_pad', len: padBars,
-        steps: [{ chord: 'I', bars: padBars }],
+        steps: [{ chord: state.tonality === 'minor' ? 'i' : 'I', bars: padBars }],
       });
       usedBars += padBars;
     }
@@ -18371,18 +18368,12 @@ document.addEventListener('click', e => {
 // Toggles the bass channel between 0 and the last non-zero level.
 let _bassLastVol = channelVols.bass || 0.7;
 document.getElementById('bass-toggle').addEventListener('click', e => {
-  // Helper: keep the .sc-val span's text in sync with state. The
-  // brutalist panel reads ON / OFF here; inversion via .active conveys
-  // the same info visually.
-  const setVal = (txt) => {
-    const v = e.currentTarget.querySelector('.sc-val');
-    if (v) v.textContent = txt;
-  };
+  // On/off is conveyed via the .active class inversion — the button's
+  // markup carries only the BASS glyph (.bass-glow), no text value span.
   if (channelVols.bass > 0.001) {
     _bassLastVol = channelVols.bass;
     channelVols.bass = 0;
     e.currentTarget.classList.remove('active');
-    setVal('OFF');
     if (player.playing) {
       player.bassOscillators.forEach(o => { try { o.stop(); } catch(e) {} });
       player.bassOscillators = [];
@@ -18390,7 +18381,6 @@ document.getElementById('bass-toggle').addEventListener('click', e => {
   } else {
     channelVols.bass = _bassLastVol || 0.7;
     e.currentTarget.classList.add('active');
-    setVal('ON');
   }
   // Keep the mixer popover in sync if it's open
   if (!mixerMenu.hidden) renderMixerMenu();
@@ -24634,8 +24624,13 @@ function _midiCollectSong() {
               events.push({ tick: slotEnd, type: 'off', note: n, vel: 0 });
             }
           }
-          tick += dur;
         }
+        // Advance time UNCONDITIONALLY. This used to live inside the
+        // `if (notes...)` guard — a step whose voicing resolution failed
+        // emitted nothing AND didn't advance the clock, silently shifting
+        // every later MIDI event earlier by one step's duration. The
+        // composed collector always did this correctly.
+        tick += dur;
       }
     }
   }
