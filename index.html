@@ -952,34 +952,42 @@ body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{
    .mag-others-grid — 3-col grid of compact .mag-tile thumbs for the rest
    of the batch (excluding the active). Click any tile → it becomes the
    active and moves up to the pin. */
+/* Shrink priority flipped: the PIN absorbs vertical squeeze (its body
+   excerpt is already hidden; the photo can crop), while the others-grid
+   is guaranteed at least one full readable row. Before, the pin was
+   flex:0 0 auto and the grid flex:1 1 0 — on short satellites the grid
+   collapsed to unreadable slivers. */
 body.sidebar-fullscreen .sidebar .mag-active-pin{
-  flex:0 0 auto;
+  flex:1 1 auto;
+  min-height:0;overflow:hidden;
   margin:10px 0 8px;
   display:flex;flex-direction:column;
 }
 body.sidebar-fullscreen .sidebar .mag-others-grid{
-  flex:1 1 0;min-height:0;
+  flex:0 0 auto;
+  min-height:clamp(60px, 8.5vh, 80px);            /* ≥ 1 full row always */
+  max-height:calc(2 * clamp(56px, 7.5vh, 72px) + 8px);  /* ≤ 2 rows shown, rest scrolls */
   display:grid !important;
-  grid-template-columns:repeat(3, minmax(0,1fr)) !important;
+  grid-template-columns:repeat(2, minmax(0,1fr)) !important;
   gap:8px;
   overflow-y:auto;scrollbar-width:none;
 }
 body.sidebar-fullscreen .sidebar .mag-others-grid::-webkit-scrollbar{display:none}
-/* Tiles in the satellite grid — sizes use clamp(vh) so the 3-col 2-row grid
-   fits whatever vertical space remains after head + active pin + footer. */
+/* Tiles in the satellite grid — 2-col so each gets a real image and a
+   title you can scan without leaning in. */
 body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile{
   flex-direction:row;align-items:stretch;
-  height:clamp(48px, 6.5vh, 64px);
+  height:clamp(56px, 7.5vh, 72px);
 }
 body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-img{
-  width:clamp(48px, 6.5vh, 64px);
-  height:clamp(48px, 6.5vh, 64px);
+  width:clamp(56px, 7.5vh, 72px);
+  height:clamp(56px, 7.5vh, 72px);
   aspect-ratio:1;flex-shrink:0;
 }
 body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-title{
-  font-size:clamp(9px, 1.05vh, 10.5px);
-  line-height:1.22;font-weight:600;
-  padding:5px 7px 5px 9px;
+  font-size:clamp(11px, 1.25vh, 12.5px);
+  line-height:1.25;font-weight:600;
+  padding:6px 8px 6px 10px;
   -webkit-line-clamp:3;
   align-self:center;
   display:-webkit-box;-webkit-box-orient:vertical;overflow:hidden;
