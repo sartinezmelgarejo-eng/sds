@@ -3001,25 +3001,20 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // the wrapper matches the image (no letterbox bands), then max-height
       // CSS caps the vertical so it doesn't dominate the cell.
       el.style.setProperty('--hero-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
-      // For Mañanera (dailyt): headline-over-photo only makes sense on
-      // horizontal images. Portraits use the 2-col layout (image left,
-      // text right) so we put the headline back in the text column.
+      // For Mañanera (dailyt): show the full conference photo, quote BELOW
+      // it in the text column (not overlaid). The old cream-strip-over-photo
+      // look covered the bottom third of the photo and, combined with the
+      // hero max-height cap, read as "the image is cut off". Keeping the
+      // headline in the text column for both orientations shows the whole
+      // photo, like the Noticias / Internacional stages.
       if(group==='dailyt'){
         const hl = el.querySelector('.mag-headline');
         const wrap = el.querySelector('.mag-hero-wrap');
         const txt = el.querySelector('.mag-text');
-        if(hl && wrap && txt){
-          if(isPortrait){
-            if(!txt.contains(hl)) txt.insertBefore(hl, txt.firstChild);
-            el.style.removeProperty('--headline-color');  // not overlay anymore
-          } else {
-            if(!wrap.contains(hl)) wrap.appendChild(hl);
-            // No color-picking logic anymore: the headline now sits on a
-            // solid cream label-strip (CSS), so guinda always reads sharp.
-            // img_lum / img_dist fields in sends.ndjson are kept (might be
-            // useful for future treatments) but the JS doesn't consume them.
-          }
+        if(hl && wrap && txt && !txt.contains(hl)){
+          txt.insertBefore(hl, txt.firstChild);
         }
+        el.style.removeProperty('--headline-color');
       }
     };
     if(heroImg){
