@@ -402,22 +402,24 @@ body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{
   align-self:flex-start;  /* peg image LEFT, no centering — wrap shrinks to image */
   width:auto;height:auto;margin:0;
   min-width:clamp(280px, 32vw, 480px);   /* low-res images stay readable */
-  /* Hero was 52vh which left almost no vertical room for title + body +
-     preview strip + footer once you added them all up. 38vh + the rest
-     lets the stage actually read as an editorial layout instead of a
-     hero-only banner. */
-  max-width:100%;max-height:38vh;
+  /* --hero-cap is the single source of truth for the hero's vertical cap.
+     BOTH the wrap max-height and the img max-height read it, so they can
+     never disagree. Earlier the wrap was capped (22vh on tablet) while the
+     img kept 38vh → the taller img overflowed the shorter wrap and
+     overflow:hidden clipped the BOTTOM of the photo. Responsive tiers now
+     override --hero-cap alone and both stay in sync. */
+  --hero-cap:38vh;
+  max-width:100%;max-height:var(--hero-cap);
   overflow:hidden;position:relative;
   background:linear-gradient(135deg, color-mix(in srgb, var(--ct) 22%, #e6dfc8), color-mix(in srgb, var(--ct) 10%, #f0e8d0));
 }
-/* Image rendered at native aspect with caps. No letterbox: width and height
-   are auto with max-* limits, so the image dictates wrap size — no bands
-   appear because the wrap is the image's actual size. Min-width on the
-   wrap above forces low-res images to scale up; img fills the wrap via
-   width:100% and object-fit:contain so it doesn't get cropped. */
+/* Image respects the SAME cap as its wrap (via the inherited --hero-cap
+   var), so it never overflows and gets clipped. object-fit:contain shows
+   the whole photo; when the photo is wider than the capped box it letter-
+   boxes onto the wrap's cream gradient instead of losing the bottom. */
 body.sidebar-fullscreen .sidebar .mag-hero-img{
   width:100%;height:auto;
-  max-width:100%;max-height:38vh;
+  max-width:100%;max-height:var(--hero-cap);
   object-fit:contain;
   display:block;opacity:0;transition:opacity .35s ease;
 }
@@ -1247,7 +1249,7 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   body.sidebar-fullscreen .sidebar .mag-stage{
     border-right:none;border-bottom:1px solid #e6dfc8;
   }
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{max-height:28vh}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{--hero-cap:30vh}
   body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:28px}
   body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:32px}
 }
@@ -1365,7 +1367,7 @@ body.mag-immersive .mag-exit-btn:active{transform:scale(.96)}
   body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{font-size:13.5px;line-height:1.22}
   body.sidebar-fullscreen .sidebar .mag-body-text{font-size:12.5px;line-height:1.4}
   body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{font-size:11.5px;line-height:1.35}
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{max-height:22vh}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{--hero-cap:26vh}
   /* Preview strip: compact enough to not eat vertical breathing room */
   body.sidebar-fullscreen .sidebar .mag-preview-item{width:104px}
   body.sidebar-fullscreen .sidebar .mag-preview-img{height:58px}
@@ -3001,20 +3003,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       // the wrapper matches the image (no letterbox bands), then max-height
       // CSS caps the vertical so it doesn't dominate the cell.
       el.style.setProperty('--hero-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
-      // For Mañanera (dailyt): show the full conference photo, quote BELOW
-      // it in the text column (not overlaid). The old cream-strip-over-photo
-      // look covered the bottom third of the photo and, combined with the
-      // hero max-height cap, read as "the image is cut off". Keeping the
-      // headline in the text column for both orientations shows the whole
-      // photo, like the Noticias / Internacional stages.
+      // For Mañanera (dailyt): headline-over-photo (cream banner) on
+      // horizontal images. Portraits use the 2-col layout (image left,
+      // text right) so we put the headline back in the text column.
       if(group==='dailyt'){
         const hl = el.querySelector('.mag-headline');
         const wrap = el.querySelector('.mag-hero-wrap');
         const txt = el.querySelector('.mag-text');
-        if(hl && wrap && txt && !txt.contains(hl)){
-          txt.insertBefore(hl, txt.firstChild);
+        if(hl && wrap && txt){
+          if(isPortrait){
+            if(!txt.contains(hl)) txt.insertBefore(hl, txt.firstChild);
+            el.style.removeProperty('--headline-color');
+          } else {
+            if(!wrap.contains(hl)) wrap.appendChild(hl);
+          }
         }
-        el.style.removeProperty('--headline-color');
       }
     };
     if(heroImg){
