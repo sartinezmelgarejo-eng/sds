@@ -1291,6 +1291,50 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   }
 }
 
+/* ══ IMMERSIVE MAGAZINE — true edge-to-edge fullscreen ══
+   Removes ALL chrome (search rail, header strip, tab chips, outer frame,
+   footer) and lets the 3-section magazine fill the entire viewport. A
+   single floating pill in the top-right corner exits back to normal.
+   Works in any orientation / width — used by tablet auto-entry and the
+   expand button. The satellites themselves are the section navigation, so
+   the tab chips aren't needed here. */
+body.mag-immersive{padding:0 !important;overflow:hidden !important}
+body.mag-immersive .search-stack{display:none !important}
+body.mag-immersive .main{
+  grid-template-columns:1fr !important;
+  height:100vh !important;height:100dvh !important;gap:0 !important;
+}
+body.mag-immersive .main > .grid{display:none !important}
+body.mag-immersive .sidebar{
+  padding:0 !important;height:100vh !important;height:100dvh !important;
+  max-height:100vh !important;max-height:100dvh !important;
+  border:none !important;border-radius:0 !important;
+}
+body.mag-immersive .sidebar .d-feed-head{display:none !important}
+body.mag-immersive .sidebar .d-feed-chips{display:none !important}
+body.mag-immersive .sidebar .sidebar-resize{display:none !important}
+body.mag-immersive .sidebar .m-tg-list{
+  height:100vh !important;height:100dvh !important;
+  max-height:100vh !important;max-height:100dvh !important;
+  padding:0 !important;border-radius:0 !important;
+}
+/* Floating exit pill — only visible in immersive mode */
+.mag-exit-btn{display:none}
+body.mag-immersive .mag-exit-btn{
+  display:flex;align-items:center;justify-content:center;
+  position:fixed;top:10px;right:10px;z-index:99999;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(20,10,14,.42);color:#fff;
+  border:1px solid rgba(255,255,255,.25);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  font-size:17px;line-height:1;cursor:pointer;
+  box-shadow:0 2px 10px rgba(0,0,0,.28);
+  transition:background .2s,transform .2s;
+  padding:0;
+}
+body.mag-immersive .mag-exit-btn:hover{background:rgba(20,10,14,.62);transform:scale(1.06)}
+body.mag-immersive .mag-exit-btn:active{transform:scale(.96)}
+
 @media (orientation:portrait) and (min-width:761px) and (max-width:1440px){
   body.sidebar-fullscreen .sidebar .mag-front{
     grid-template-columns:1fr;
@@ -3895,44 +3939,70 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // but works on touch devices and trackpads where the drag is hostile.
   // Mirrors the same state-action pair used by the drag handler (apply
   // the body class + re-render + sync the view-toggle button icon).
-  // Shared "enter magazine fullscreen" action, used by the expand button
-  // AND the tablet auto-enter on load. persist=false skips writing the
-  // width to localStorage so an auto-entry doesn't pin the user into
-  // fullscreen forever (they can still shrink out and that choice sticks).
-  window.__enterMagFullscreen = function(persist){
+  // Floating exit pill for immersive mode (created once, appended to body).
+  (function(){
+    if(document.querySelector('.mag-exit-btn')) return;
+    const b = document.createElement('button');
+    b.className = 'mag-exit-btn';
+    b.setAttribute('aria-label', 'Salir de pantalla completa');
+    b.title = 'Salir de pantalla completa';
+    b.textContent = '✕';
+    b.addEventListener('click', () => window.__exitMagImmersive());
+    document.body.appendChild(b);
+  })();
+
+  // Enter immersive magazine: fullscreen sidebar + hide ALL chrome + frame.
+  // persist=false so an auto-entry doesn't lock the user in permanently.
+  window.__enterMagImmersive = function(persist){
     const main = document.querySelector('.main');
     if(!main) return;
     const mainWidth = main.getBoundingClientRect().width;
     const newW = Math.max(240, Math.floor(mainWidth - 16));
     main.style.gridTemplateColumns = '0 ' + newW + 'px';
     const was = document.body.classList.contains('sidebar-fullscreen');
-    document.body.classList.add('sidebar-fullscreen');
+    document.body.classList.add('sidebar-fullscreen', 'mag-immersive');
     if(!was){
       if(typeof renderMobile === 'function') renderMobile();
       if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
     }
-    if(persist){ try { localStorage.setItem('sidebar-width', newW); } catch {} }
+    if(persist){ try { localStorage.setItem('mag-immersive', '1'); } catch {} }
   };
+  // Exit immersive → back to the normal two-column apps + feed view.
+  window.__exitMagImmersive = function(){
+    const main = document.querySelector('.main');
+    document.body.classList.remove('mag-immersive', 'sidebar-fullscreen');
+    if(main){
+      const newW = Math.min(420, Math.floor(window.innerWidth*0.42));
+      main.style.gridTemplateColumns = '1fr ' + newW + 'px';
+    }
+    try { localStorage.removeItem('mag-immersive'); localStorage.removeItem('sidebar-width'); } catch {}
+    if(typeof renderMobile === 'function') renderMobile();
+    if(typeof window.__applyMagViewBtn === 'function') window.__applyMagViewBtn();
+  };
+  // Keep the old name working (drag handler / other callers) as an alias.
+  window.__enterMagFullscreen = window.__enterMagImmersive;
+
   (function(){
     const btn = document.getElementById('d-expand-btn');
     if(!btn) return;
-    btn.addEventListener('click', () => window.__enterMagFullscreen(true));
+    btn.addEventListener('click', () => window.__enterMagImmersive(true));
   })();
-  // Auto-enter magazine fullscreen on tablets. Touch device (coarse pointer)
-  // in the tablet width band, and only when the user hasn't already saved a
-  // sidebar-width preference (so a deliberate "shrink out" on a prior visit
-  // is respected). Phones (<761) use the 2-page mobile layout; big desktops
-  // keep the two-column apps+feed view unless the user expands manually.
+  // Auto-enter immersive magazine on tablets. Touch device (coarse pointer)
+  // in the tablet width band, unless the user explicitly exited before
+  // (we drop the 'mag-immersive' flag on exit and also honor a saved
+  // narrow sidebar-width). Phones (<761) use the 2-page mobile layout;
+  // desktops keep the two-column view unless the expand button is used.
   (function(){
-    let hasPref = false;
-    try { hasPref = !!parseInt(localStorage.getItem('sidebar-width')||'', 10); } catch {}
-    if(hasPref) return;
+    let optedOut = false;
+    try {
+      const savedW = parseInt(localStorage.getItem('sidebar-width')||'', 10);
+      // A small saved width means the user deliberately shrank out.
+      optedOut = !!(savedW && savedW < Math.floor(window.innerWidth*0.6));
+    } catch {}
+    if(optedOut) return;
     const coarse = window.matchMedia('(pointer: coarse)').matches;
-    const w = window.innerWidth;
-    const isTablet = coarse && w >= 761;
-    if(isTablet && typeof window.__enterMagFullscreen === 'function'){
-      // Defer one tick so the initial renderMobile / data hooks are wired.
-      setTimeout(() => window.__enterMagFullscreen(false), 0);
+    if(coarse && window.innerWidth >= 761){
+      setTimeout(() => window.__enterMagImmersive(false), 0);
     }
   })();
   // Focus body on load so ← / → arrow keys work immediately without
