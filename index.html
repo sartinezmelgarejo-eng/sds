@@ -247,6 +247,9 @@ body.sidebar-fullscreen .sidebar .mag-stage{
   padding:20px 28px 16px;
   border-right:1px solid #e6dfc8;
   min-width:0;min-height:0;overflow:hidden;
+  /* Type in this cell scales to the cell's own width via cqi (see the
+     magazine type scale below). Named container so satellites don't inherit. */
+  container:magstage / inline-size;
 }
 body.sidebar-fullscreen .sidebar .mag-rail{
   display:flex;flex-direction:column;
@@ -261,6 +264,8 @@ body.sidebar-fullscreen .sidebar .mag-satellite{
   transition:background .2s;
   flex:1 1 0;  /* split the rail height equally between the 2 satellites so
                  the inner mini-feed has space to flex:1 into */
+  /* Each satellite sizes its own text to its own width (cqi). */
+  container:magsat / inline-size;
 }
 body.sidebar-fullscreen .sidebar .mag-satellite:focus-visible{outline:2px solid var(--ct);outline-offset:-4px}
 body.sidebar-fullscreen .sidebar .mag-satellite:first-of-type{border-bottom:1px solid #e6dfc8}
@@ -330,8 +335,12 @@ body.sidebar-fullscreen .sidebar .mag-kicker{
   font-weight:800;color:var(--ct);
   text-transform:uppercase;letter-spacing:1.6px;line-height:1;
 }
-body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:22px}
-body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:13px}
+/* ── Magazine type scale (fluid, container-relative) ──────────────────────
+   Every role below sizes to its OWN cell's width via cqi, with a clamp()
+   min (legibility floor) and max. No per-breakpoint px overrides — one scale
+   handles desktop, tablet portrait/landscape, and every width in between. */
+body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:clamp(13px, 2.3cqi, 22px)}
+body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:clamp(9.5px, 3.2cqi, 13px)}
 body.sidebar-fullscreen .sidebar .mag-day-label{
   font-family:'SF Mono','Fira Code',monospace;
   font-weight:700;color:#8a8a8a;
@@ -685,9 +694,10 @@ body.sidebar-fullscreen .sidebar .mag-body-text a:hover{
 }
 body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{
   font-family:'Alfa Slab One','Bodoni Moda',Didot,Georgia,serif;
-  /* Reduced from clamp(28px, 3.9vh, 42px) which produced a 42px banner in
-     desktop 1080p that ate most of the stage's vertical budget. */
-  font-size:clamp(20px, 2.6vh, 28px);line-height:1.1;
+  /* Fluid to the stage cell's own width (cqi), floored at 23px so the hero
+     headline is always a clear headline; capped at 40px so it never eats the
+     stage on ultra-wide. Replaces the old vh clamp + per-breakpoint px. */
+  font-size:clamp(23px, 3.7cqi, 40px);line-height:1.08;
   font-weight:400; /* Alfa Slab One is single-weight; the cut is already heavy */
   text-transform:uppercase;letter-spacing:.5px;
   transition:transform .25s ease;
@@ -896,7 +906,7 @@ body.sidebar-fullscreen .sidebar .mag-body-text{
    multiplied by --body-scale (set by paintStage based on text length),
    so long posts auto-shrink and short posts auto-grow within ~0.78–1.10. */
 body.sidebar-fullscreen .sidebar .mag-stage .mag-body-text{
-  font-size:calc(clamp(15px, 2.15vh, 21px) * var(--body-scale, 1));
+  font-size:calc(clamp(14.5px, 2.5cqi, 20px) * var(--body-scale, 1));
   line-height:1.5;
   overflow-wrap:break-word;
 }
@@ -987,7 +997,7 @@ body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-img{
   aspect-ratio:1;flex-shrink:0;
 }
 body.sidebar-fullscreen .sidebar .mag-others-grid .mag-tile-title{
-  font-size:clamp(11px, 1.25vh, 12.5px);
+  font-size:clamp(11.5px, 3.3cqi, 13.5px);
   line-height:1.25;font-weight:600;
   padding:6px 8px 6px 10px;
   -webkit-line-clamp:3;
@@ -1047,7 +1057,7 @@ body.sidebar-fullscreen .sidebar .mag-row .row-text{
 }
 body.sidebar-fullscreen .sidebar .mag-row .row-headline{
   font-family:'Playfair Display',Georgia,serif;
-  font-size:11.5px;line-height:1.25;font-weight:600;
+  font-size:clamp(11.5px, 3.4cqi, 14px);line-height:1.25;font-weight:600;
   color:#1a1a1a;margin:0;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
 }
@@ -1083,7 +1093,8 @@ body.sidebar-fullscreen .sidebar .mag-row.active .row-text{
 }
 body.sidebar-fullscreen .sidebar .mag-row.active .row-headline{
   font-family:'Bodoni Moda',Didot,Georgia,serif;
-  font-size:clamp(14px, 1.8vh, 17px);
+  /* Satellite "small hero" — floored at 15px, sized to the satellite width. */
+  font-size:clamp(15px, 5cqi, 20px);
   line-height:1.18;font-weight:700;
   letter-spacing:-.2px;
   -webkit-line-clamp:3;
@@ -1096,8 +1107,8 @@ body.sidebar-fullscreen .sidebar .mag-row.active .row-body{
   display:-webkit-box;
   -webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden;
   font-family:'Playfair Display',Georgia,serif;
-  font-size:clamp(14.5px, 1.85vh, 17.5px);
-  line-height:1.55;color:#2e2e2e;
+  font-size:clamp(13.5px, 4.4cqi, 17px);
+  line-height:1.5;color:#2e2e2e;
   margin:0;overflow-wrap:break-word;
 }
 /* (dailyt satellite body keeps the same roman Playfair as the rest — no
@@ -1250,8 +1261,7 @@ body.sidebar-fullscreen .sidebar .mag-empty{
     border-right:none;border-bottom:1px solid #e6dfc8;
   }
   body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{--hero-cap:30vh}
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:28px}
-  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:32px}
+  /* Headline/kicker/body sizes now come from the fluid cqi scale — no px override. */
 }
 /* On phones fullscreen isn't reachable (mobile uses 2-page swipe) — guard anyway.
    Threshold pulled down from 800→760 so an 800-CSS-px tablet (Xiaomi Pad
@@ -1379,14 +1389,7 @@ body.mag-immersive .mag-mode-btn:active{transform:scale(.96)}
     border-bottom:none;
     border-right:1px solid #e6dfc8;
   }
-  /* Tighter typography for portrait — headlines must fit their banner */
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:15px}
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:10px}
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:19px;line-height:1.18}
-  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{font-size:20px}
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{font-size:13.5px;line-height:1.22}
-  body.sidebar-fullscreen .sidebar .mag-body-text{font-size:12.5px;line-height:1.4}
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{font-size:11.5px;line-height:1.35}
+  /* Typography comes from the fluid cqi scale — no px overrides here. */
   body.sidebar-fullscreen .sidebar .mag-stage .mag-hero-wrap{--hero-cap:26vh}
   /* Preview strip: compact enough to not eat vertical breathing room */
   body.sidebar-fullscreen .sidebar .mag-preview-item{width:104px}
@@ -1416,19 +1419,15 @@ body.mag-immersive .mag-mode-btn:active{transform:scale(.96)}
     -webkit-line-clamp:2;
     padding:6px 10px;
   }
-  /* Satellite "small hero" (active pin) is the star of each satellite —
-     make it dominate. The list below is capped to one row, so the pin gets
-     the height for a large photo AND a big, genuinely readable headline. */
+  /* Satellite "small hero" (active pin) is the star of each satellite — the
+     list below is capped to one row so the pin keeps the height for a large
+     photo; the headline size comes from the fluid cqi scale (no px override). */
   body.sidebar-fullscreen .sidebar .mag-row.active .row-photo{
     max-height:clamp(90px, 13vh, 140px);
     margin-bottom:clamp(6px, 1vh, 10px);
   }
   body.sidebar-fullscreen .sidebar .mag-row.active .row-headline{
-    font-size:clamp(18px, 2.6vh, 22px);
     line-height:1.2;-webkit-line-clamp:3;
-  }
-  body.sidebar-fullscreen .sidebar .mag-satellite[data-group="dailyt"] .mag-row.active .row-headline{
-    font-size:clamp(19px, 2.7vh, 23px);
   }
 }
 
@@ -1440,20 +1439,7 @@ body.mag-immersive .mag-mode-btn:active{transform:scale(.96)}
   /* Stage padding tightened so the mañanera banner headline doesn't spill */
   body.sidebar-fullscreen .sidebar .mag-stage{padding:16px 22px 14px}
   body.sidebar-fullscreen .sidebar .mag-satellite{padding:14px 18px 10px}
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-kicker{font-size:15px;line-height:1.15}
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-kicker{font-size:10.5px}
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:19px;line-height:1.15}
-  body.sidebar-fullscreen .sidebar .mag-stage[data-group="dailyt"] .mag-headline{
-    font-size:20px;line-height:1.12;
-  }
-  /* Satellite headline gets a tighter line-clamp so the compact card
-     stays visually clean */
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-headline{
-    font-size:13px;line-height:1.18;
-    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  body.sidebar-fullscreen .sidebar .mag-body-text{font-size:12px;line-height:1.38}
-  body.sidebar-fullscreen .sidebar .mag-satellite .mag-body-text{font-size:11px}
+  /* Kicker/headline/body sizes come from the fluid cqi scale — no px override. */
   body.sidebar-fullscreen .sidebar .mag-day-label{font-size:8.5px}
   body.sidebar-fullscreen .sidebar .mag-time{font-size:9px}
   body.sidebar-fullscreen .sidebar .mag-counter{font-size:8.5px}
