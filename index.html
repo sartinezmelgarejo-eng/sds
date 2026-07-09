@@ -3475,6 +3475,13 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // Falls back to tg-feed.json if sends.ndjson unavailable.
   // Also loads translations/manifest.json for the Translations filter.
   let mobileItems=[], translationItems=[], activeFilter=null;
+  // Capture the requested entry view ONCE, before anything (e.g. the manifest/
+  // URL sync in __syncModeBtn) can strip it from the address bar.
+  const __startView = (function(){
+    try{ const v=(new URLSearchParams(location.search).get('view')||'').toLowerCase();
+         return v || (location.hash||'').replace(/^#/,'').toLowerCase(); }
+    catch(_){ return ''; }
+  })();
   // Outlet logo mapping (same as desktop tl-widget)
   const OUTLET_LOGO={
     'La Jornada':'translations/logos/la-jornada.png',
@@ -4000,6 +4007,21 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
       const label = isTl ? 'Ver la revista' : 'Ver traducciones';
       btn.setAttribute('aria-label', label);
       btn.title = label;
+      // Keep the installed-app anchor in sync with the current view, so
+      // "Add to Home Screen" (whether iOS uses the current URL or the
+      // manifest start_url) always re-opens the SAME view. In translations
+      // mode point at the translations manifest + tag the URL ?view=traducciones;
+      // in magazine mode revert both.
+      try{
+        const ml = document.querySelector('link[rel="manifest"]');
+        if(ml){
+          const want = isTl ? 'pwa/manifest-traducciones.json' : 'pwa/manifest-index.json';
+          if(ml.getAttribute('href') !== want) ml.setAttribute('href', want);
+        }
+        const u = new URL(location.href);
+        if(isTl) u.searchParams.set('view','traducciones'); else u.searchParams.delete('view');
+        if(u.href !== location.href) history.replaceState(null, '', u.href);
+      }catch(_){}
     };
     window.__syncModeBtn();
   })();
@@ -4090,10 +4112,9 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
   // Translations dashboard in fullscreen "magazine" mode. The 🗞️/📖 toggle
   // and the ✕ exit pill still return to the normal index.
   (function(){
-    let v='';
-    try{ v=(new URLSearchParams(location.search).get('view')||'').toLowerCase(); }catch(_){}
-    if(!v){ v=(location.hash||'').replace(/^#/,'').toLowerCase(); }
-    if(['traducciones','translations','tl'].indexOf(v)===-1) return;
+    // Use the view captured at startup (__syncModeBtn may have since cleared
+    // the ?view param from the URL).
+    if(['traducciones','translations','tl'].indexOf(__startView)===-1) return;
     activeFilter='__tl';
     __routedOnce=true;                 // block smart-route from overriding
     const go=()=>{ try{ window.__enterMagImmersive(false); }catch(_){}
