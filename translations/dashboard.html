@@ -162,6 +162,12 @@ body::before{
 .work-grid{display:contents}  /* let cards flow into parent grid directly */
 .work-card{min-width:0}
 
+/* Mañaneras row — published mañaneras pulled live from WP (category 157). */
+.mananeras-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:760px){.mananeras-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.mananeras-grid{grid-template-columns:1fr}}
+.mananeras-grid .work-outlet{color:var(--guinda)}
+
 /* Primarias block — fits in 1 col x 1 row (same size as a work card).
    Layout: 2 fixed-height banners (Jornada, Contralínea) + a mini-sources
    grid that fills the remaining space below with all 47 secondaries as
@@ -504,6 +510,18 @@ details[open] .sources-grid{margin-top:14px}
     </div>
 
   </div>
+
+  <!-- ── Mañaneras (published, live from WP category 157) ─── -->
+  <section class="section" id="mananeras-section">
+    <div class="section-head">
+      <h2>Mañaneras</h2>
+      <span class="rule"></span>
+      <span class="count" id="mananera-count"></span>
+    </div>
+    <div class="mananeras-grid" id="mananeras-grid">
+      <div style="grid-column:1/-1;opacity:.5;font-family:'Playfair Display',serif;font-style:italic;padding:6px 0">Cargando mañaneras…</div>
+    </div>
+  </section>
 
   <!-- ── BELOW THE FOLD: tiers de fuentes secundarias ─── -->
   <section class="section">
@@ -978,6 +996,51 @@ details[open] .sources-grid{margin-top:14px}
   } catch(err) {
     console.warn('Translations dashboard: manifest load failed', err);
   }
+
+  /* Mañaneras: pull the most recent PUBLISHED mañaneras straight from WP
+     (category 157) via the public REST API — no manifest, no auth. Drafts
+     (usually just today's) appear here once published. */
+  (async function loadMananeras(){
+    const grid    = document.getElementById('mananeras-grid');
+    const countEl = document.getElementById('mananera-count');
+    const sec     = document.getElementById('mananeras-section');
+    if(!grid) return;
+    const WP = 'https://mexicosolidarity.com';  // WP_SITE above is scoped to the try block
+    const fmtD = (s)=>{ const d = new Date(s); return isNaN(d) ? '' :
+      d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase(); };
+    try{
+      const res = await fetch(`${WP}/wp-json/wp/v2/posts?categories=157&per_page=6&_embed`, {cache:'no-store'});
+      if(!res.ok) throw new Error('mananeras HTTP '+res.status);
+      const total = res.headers.get('X-WP-Total');
+      if(countEl && total) countEl.textContent = total;
+      const posts = await res.json();
+      if(!posts.length){ if(sec) sec.style.display='none'; return; }
+      grid.innerHTML = '';
+      for(const p of posts){
+        let img = '';
+        try{
+          const fm = p._embedded['wp:featuredmedia'][0];
+          img = (fm.media_details && fm.media_details.sizes && fm.media_details.sizes.medium
+                 && fm.media_details.sizes.medium.source_url) || fm.source_url || '';
+        }catch(e){}
+        const title = (p.title && p.title.rendered) || '';   // WP-rendered (our own site)
+        const a = document.createElement('a');
+        a.className = 'work-card';
+        a.href = p.link; a.target = '_blank'; a.rel = 'noopener';
+        a.innerHTML = `
+          <div class="work-thumb">${img?`<img class="work-thumb-img" src="${img}" alt="" loading="lazy" onerror="this.remove()">`:''}</div>
+          <div class="work-body">
+            <div class="work-topline"><span class="work-outlet">Mañanera</span></div>
+            <div class="work-headline">${title}</div>
+            <div class="work-foot"><span class="work-meta">${fmtD(p.date)}</span></div>
+          </div>`;
+        grid.appendChild(a);
+      }
+    }catch(err){
+      console.warn('Mañaneras load failed', err);
+      if(sec) sec.style.display = 'none';   // hide the section rather than show an error
+    }
+  })();
 })();
 </script>
 
