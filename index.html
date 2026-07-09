@@ -1337,28 +1337,25 @@ body.mag-immersive .mag-exit-btn{
 body.mag-immersive .mag-exit-btn:hover{background:rgba(20,10,14,.62);transform:scale(1.06)}
 body.mag-immersive .mag-exit-btn:active{transform:scale(.96)}
 
-/* Floating Revista/Traducciones switch — the header toggle lives in
-   .d-feed-head, which is hidden in immersive mode, so surface a pill (mirrors
-   the exit ✕) to jump between the magazine and the Translations dashboard
-   WITHOUT leaving fullscreen. Hidden outside immersive. */
-.mag-immersive-switch{display:none}
-body.mag-immersive .mag-immersive-switch{
-  display:flex;gap:2px;position:fixed;top:10px;left:10px;z-index:99999;
-  padding:3px;border-radius:999px;
-  background:rgba(20,10,14,.42);
+/* Floating single-chip mode toggle — the header toggle lives in .d-feed-head,
+   which is hidden in immersive mode, so surface one small round button (mirrors
+   the exit ✕) that flips between the magazine and the Translations dashboard
+   WITHOUT leaving fullscreen. Icon-only; shows the mode you'll switch TO.
+   Hidden outside immersive. */
+.mag-mode-btn{display:none}
+body.mag-immersive .mag-mode-btn{
+  display:flex;align-items:center;justify-content:center;
+  position:fixed;top:10px;left:10px;z-index:99999;
+  width:36px;height:36px;border-radius:50%;
+  background:rgba(20,10,14,.42);color:#fff;
   border:1px solid rgba(255,255,255,.25);
   backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  font-size:17px;line-height:1;cursor:pointer;
   box-shadow:0 2px 10px rgba(0,0,0,.28);
+  transition:background .2s,transform .2s;padding:0;
 }
-body.mag-immersive .mag-immersive-switch .m-mode-seg{
-  display:flex;align-items:center;gap:5px;
-  border:0;background:transparent;color:rgba(255,255,255,.74);
-  font:600 12.5px/1 inherit;cursor:pointer;white-space:nowrap;
-  padding:6px 11px;border-radius:999px;transition:background .2s,color .2s;
-}
-body.mag-immersive .mag-immersive-switch .m-mode-seg.active{
-  background:rgba(255,255,255,.92);color:#1a1a1a;
-}
+body.mag-immersive .mag-mode-btn:hover{background:rgba(20,10,14,.62);transform:scale(1.06)}
+body.mag-immersive .mag-mode-btn:active{transform:scale(.96)}
 
 @media (orientation:portrait) and (min-width:761px) and (max-width:1440px){
   body.sidebar-fullscreen .sidebar .mag-front{
@@ -3540,6 +3537,8 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
         });
       });
     }
+    // Keep the floating immersive mode button's icon in sync with the mode.
+    if(window.__syncModeBtn) window.__syncModeBtn();
     // Translations mode: embed the editorial dashboard (translations/dashboard.html)
     // via iframe in two contexts — desktop sidebar fullscreen AND mobile pages.
     // Compact desktop sidebar keeps the inline list of translation cards.
@@ -3993,23 +3992,30 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     document.body.appendChild(b);
   })();
 
-  // Floating Revista/Traducciones switch for immersive mode (the header toggle
-  // is hidden there). Given class .m-mode-toggle so renderMobile's existing
-  // update loop keeps its active segment in sync; click is wired explicitly
-  // here (the load-time .m-mode-toggle handler ran before this element existed).
+  // Floating single-chip mode toggle for immersive mode (the header toggle is
+  // hidden there). Icon-only, no text; shows the mode you'll switch TO (📖 while
+  // in the magazine, 🗞️ while in translations). One tap flips modes without
+  // leaving fullscreen. renderMobile calls window.__syncModeBtn to keep the icon
+  // current even when the mode changes from elsewhere (direct link, etc.).
   (function(){
-    if(document.querySelector('.mag-immersive-switch')) return;
-    const sw = document.createElement('div');
-    sw.className = 'm-mode-toggle mag-immersive-switch';
-    sw.innerHTML = '<button class="m-mode-seg" data-mode="tg">🗞️ Revista</button>'
-                 + '<button class="m-mode-seg" data-mode="tl">📖 Traducciones</button>';
-    sw.addEventListener('click', e => {
-      const seg = e.target.closest('.m-mode-seg');
-      if(!seg) return;
-      activeFilter = seg.dataset.mode==='tl' ? '__tl' : null;
+    if(document.querySelector('.mag-mode-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'mag-mode-btn';
+    btn.addEventListener('click', () => {
+      activeFilter = (activeFilter==='__tl') ? null : '__tl';
       renderMobile();
     });
-    document.body.appendChild(sw);
+    document.body.appendChild(btn);
+    window.__syncModeBtn = function(){
+      const isTl = activeFilter==='__tl';
+      // Show the destination: in translations → 🗞️ (back to magazine);
+      // in magazine → 📖 (go to translations).
+      btn.textContent = isTl ? '🗞️' : '📖';
+      const label = isTl ? 'Ver la revista' : 'Ver traducciones';
+      btn.setAttribute('aria-label', label);
+      btn.title = label;
+    };
+    window.__syncModeBtn();
   })();
 
   // Enter immersive magazine: fullscreen sidebar + hide ALL chrome + frame.
