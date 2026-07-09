@@ -4051,6 +4051,24 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     if(tlMax > feedMax) activeFilter = '__tl';
   }
 
+  // Direct-entry link: index.html?view=traducciones (also ?view=tl /
+  // ?view=translations, or the #traducciones hash) boots straight into the
+  // Translations dashboard in fullscreen "magazine" mode. The 🗞️/📖 toggle
+  // and the ✕ exit pill still return to the normal index.
+  (function(){
+    let v='';
+    try{ v=(new URLSearchParams(location.search).get('view')||'').toLowerCase(); }catch(_){}
+    if(!v){ v=(location.hash||'').replace(/^#/,'').toLowerCase(); }
+    if(['traducciones','translations','tl'].indexOf(v)===-1) return;
+    activeFilter='__tl';
+    __routedOnce=true;                 // block smart-route from overriding
+    const go=()=>{ try{ window.__enterMagImmersive(false); }catch(_){}
+                   if(typeof renderMobile==='function') renderMobile(); };
+    go();
+    // Re-assert after full load in case layout wasn't ready at first paint.
+    window.addEventListener('load', go, {once:true});
+  })();
+
   // Fetch translations manifest in parallel (so the chip can appear once data lands)
   fetch('translations/manifest.json?v='+Date.now()).then(r=>r.ok?r.json():[]).then(data=>{
     translationItems=(data||[]).slice().sort((a,b)=>(b.translated_date||'').localeCompare(a.translated_date||''));
