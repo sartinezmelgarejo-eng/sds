@@ -14479,7 +14479,7 @@ body {
         '<label>Evento<select data-role="evento"></select></label>' +
         '<label>Descripción<select data-role="descripcion"></select></label>' +
         '<label>Cita<select data-role="cita"></select></label>' +
-        '<div class="tlvp-hint">Las citas en inglés siempre usan una voz en inglés.</div>' +
+        '<div class="tlvp-hint">Solo aparecen las voces instaladas. Para más (ej. Carlos de Colombia o versiones Mejoradas/Premium), descárgalas en Ajustes del sistema → Contenido hablado → Gestionar voces.</div>' +
         '<button class="tlvp-close" id="tl-mapa-voices-close">Cerrar</button>' +
       '</div>' +
     '</div>';
@@ -15610,17 +15610,49 @@ body {
     var voicesPanel = container.querySelector('#tl-mapa-voices-panel');
     var voicesClose = container.querySelector('#tl-mapa-voices-close');
     var ROLE_TEST = { fecha: 'Año 1521.', evento: 'Caída de Tenochtitlan.', descripcion: 'Ejemplo de descripción.', cita: 'Ejemplo de cita.' };
+    var LANG_ES = {
+      'es-mx':'Español (México)','es-es':'Español (España)','es-us':'Español (EE.UU.)',
+      'es-419':'Español (Latinoamérica)','es-co':'Español (Colombia)','es-ar':'Español (Argentina)',
+      'es-cl':'Español (Chile)','es-pe':'Español (Perú)','es-ve':'Español (Venezuela)',
+      'es-bo':'Español (Bolivia)','es-cr':'Español (Costa Rica)','es-do':'Español (Rep. Dominicana)',
+      'es-ec':'Español (Ecuador)','es-gt':'Español (Guatemala)','es-hn':'Español (Honduras)',
+      'es-ni':'Español (Nicaragua)','es-pa':'Español (Panamá)','es-py':'Español (Paraguay)',
+      'es-pr':'Español (Puerto Rico)','es-sv':'Español (El Salvador)','es-uy':'Español (Uruguay)',
+      'en-us':'Inglés (EE.UU.)','en-gb':'Inglés (Reino Unido)','en-au':'Inglés (Australia)',
+      'en-ie':'Inglés (Irlanda)','en-in':'Inglés (India)','en-za':'Inglés (Sudáfrica)'
+    };
+    function langLabel(l) {
+      var c = (l || '').toLowerCase().replace('_', '-');
+      if (LANG_ES[c]) return LANG_ES[c];
+      if (/^es/.test(c)) return 'Español';
+      if (/^en/.test(c)) return 'Inglés';
+      return l || '';
+    }
+    function voiceOptions(list) {
+      return list.map(function(v) {
+        var lbl = v.name + ' — ' + langLabel(v.lang);
+        return '<option value="' + v.name.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
+      }).join('');
+    }
     function populateVoicePanel() {
       if (!voicesPanel) return;
-      var vs = allVoices().filter(function(v) { return /^(es|en)/i.test(v.lang || ''); });
+      var vs = allVoices();
+      var es = vs.filter(function(v) { return /^es/i.test(v.lang || ''); })
+        .sort(function(a, b) { return langLabel(a.lang).localeCompare(langLabel(b.lang)) || a.name.localeCompare(b.name); });
+      var en = vs.filter(function(v) { return /^en/i.test(v.lang || ''); })
+        .sort(function(a, b) { return a.name.localeCompare(b.name); });
       voicesPanel.querySelectorAll('select[data-role]').forEach(function(sel) {
         var role = sel.getAttribute('data-role');
         var cur = roleVoices[role] || '';
-        sel.innerHTML = '<option value="">Automático (es-MX)</option>' +
-          vs.map(function(v) {
-            var lbl = v.name + ' — ' + v.lang;
-            return '<option value="' + v.name.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
-          }).join('');
+        var html = '<option value="">Automático (es-MX)</option>';
+        if (role === 'cita') {
+          // Las citas pueden estar en inglés, así que ofrece ambos idiomas.
+          html += '<optgroup label="Español">' + voiceOptions(es) + '</optgroup>';
+          if (en.length) html += '<optgroup label="Inglés (para citas en inglés)">' + voiceOptions(en) + '</optgroup>';
+        } else {
+          html += voiceOptions(es);   // año/evento/descripción: solo español
+        }
+        sel.innerHTML = html;
         sel.value = cur;
       });
     }
