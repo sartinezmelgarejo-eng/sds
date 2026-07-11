@@ -15487,16 +15487,21 @@ body {
     function byId(id) { return allVoices().find(function(x) { return voiceId(x) === id; }); }
     // macOS "Eloquence" + novelty voices son las que suenan robóticas/alienígena.
     function isNovelty(v) {
-      var id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
-      if (/eloquence/.test(id)) return true;
-      return /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|bells|boing|bubbles|cellos|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|bad news|good news|bahh|deranged)\b/.test(id);
+      var uri = (v.voiceURI || '').toLowerCase();
+      if (/eloquence/.test(uri)) return true;
+      var n = (v.name || '').toLowerCase();
+      // Voces novelty/legacy de macOS (suenan robóticas/alienígena).
+      return /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|sara|bells|boing|bubbles|cellos|jester|organ|pipe organ|superstar|trinoids|whisper|wobble|zarvox|albert|bad news|good news|bahh|deranged|hysterical|junior|kathy|princess|ralph|fred|agnes|bruce|vicki|victoria)\b/.test(n);
     }
     // Premium/Enhanced se detecta por voiceURI (compact vs enhanced/premium);
     // el nombre a veces es idéntico entre las dos variantes.
     function isPremium(v) {
       var uri = (v.voiceURI || '').toLowerCase();
-      if (/compact/.test(uri)) return false;
-      return /premium|enhanced/.test(uri) || /enhanced|premium|neural|natural/i.test(v.name || '');
+      var n = (v.name || '').toLowerCase();
+      if (/siri/.test(uri) || /siri/.test(n)) return true;       // Siri = mejor calidad
+      if (/premium|enhanced/.test(uri)) return true;             // descargadas de alta calidad
+      if (/compact/.test(uri)) return false;                     // compactas = básicas
+      return /enhanced|premium|neural|natural/i.test(n);
     }
     function findQualityByName(sub, langPrefix) {
       var re = new RegExp('^' + langPrefix, 'i'), s = sub.toLowerCase();
