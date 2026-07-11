@@ -13637,6 +13637,23 @@ body {
     if (d.isBC && y != null && y > 0) y = -y;
     return y;
   }
+  // Eras del LENTE GLOBAL = modos de producción (las mismas etapas que dan el
+  // material del header). Se usan como riel cuando NO hay país-lente México.
+  // Cada objeto es estable (identidad ===) para que el agrupado por era funcione.
+  var GLOBAL_STAGES = [
+    { key:'cosmos',    label:'Cosmos y geología',          years:'antes de 10 000 a.C.', color:'#4a6bb0', _max:-10000 },
+    { key:'primitiva', label:'Comunidad primitiva',        years:'10 000 – 1500 a.C.',   color:'#a08b5e', _max:-1500 },
+    { key:'piedra',    label:'Sociedades tributarias',     years:'1500 a.C. – 1521',     color:'#6b7280', _max:1521 },
+    { key:'plata',     label:'Acumulación originaria colonial', years:'1521 – 1810',     color:'#a9b0b6', _max:1810 },
+    { key:'madera',    label:'Formación del capitalismo',  years:'1810 – 1910',          color:'#8a5a30', _max:1910 },
+    { key:'acero',     label:'Capitalismo industrial',     years:'1910 – 1982',          color:'#667079', _max:1982 },
+    { key:'digital',   label:'Capitalismo neoliberal',     years:'1982 – hoy',           color:'#3f8fd8', _max:Infinity }
+  ];
+  function globalStageEra(y) {
+    if (y == null || isNaN(y)) y = 0;
+    for (var i = 0; i < GLOBAL_STAGES.length; i++) { if (y < GLOBAL_STAGES[i]._max) return GLOBAL_STAGES[i]; }
+    return GLOBAL_STAGES[GLOBAL_STAGES.length - 1];
+  }
 
   function renderTimelineMapaView(container, eras, tlScope) {
     normalizeLugarCoords(eras);
@@ -13649,6 +13666,11 @@ body {
       if (ev.lugar && ev.lugar.pais) return ev.lugar.pais === 'MX';
       return ev.scope !== 'mundo';
     }
+    // LENTE: el sistema de eras depende del país seleccionado.
+    //   país-lente = México (solo MX)  → eras mexicanas (1T–4T + prehispánico).
+    //   Todo (sin país) / otro país     → etapas globales (modos de producción).
+    // (Cuando curemos eras propias de otro país, aquí se elige su tabla.)
+    var lensMX = tlFilter.paises.size === 1 && tlFilter.paises.has('MX');
     // Collect ALL libros + paises in the dataset for the picker dropdowns.
     var allLibrosSet = new Set(), allPaisesSet = new Set();
     eras.forEach(function(era) {
@@ -13658,7 +13680,7 @@ body {
         if (ev.citas) ev.citas.forEach(function(c) { if (c.libro) allLibrosSet.add(c.libro); });
         if (!eventMatchesFilter(ev, tlFilter, era)) return;
         var copy = Object.assign({}, ev);
-        copy._era = era;
+        copy._era = lensMX ? era : globalStageEra(evYearNum(ev.year));
         if (isMexicoEvent(ev)) mexicoEvents.push(copy);
         else mundoEvents.push(copy);
       });
@@ -13696,8 +13718,9 @@ body {
     var totalAll = 0;
     eras.forEach(function(era) { era.events.forEach(function() { totalAll++; }); });
 
-    // Era pills: one pill per era with at least one event in the visible set.
-    var eraPills = eras.map(function(era) {
+    // Era pills: one pill per era present in the visible set. La fuente de eras
+    // depende del lente: eras mexicanas (país=MX) o etapas globales (Todo/otro).
+    var eraPills = (lensMX ? eras : GLOBAL_STAGES).map(function(era) {
       var first = null;
       for (var i = 0; i < allEvents.length; i++) {
         if (allEvents[i]._era === era) { first = i; break; }
