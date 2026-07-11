@@ -3116,11 +3116,17 @@ body {
 .tl-mapa-floating-cita.tl-cita-speaking .tl-mapa-floating-cita-text,
 .tl-mapa-floating-cita-text.tl-cita-speaking-q {
   color: #fff5d8;
-  font-size: 17px !important;
-  line-height: 1.5 !important;
-  -webkit-line-clamp: unset !important;   /* muestra la cita completa mientras se lee */
-  overflow: visible;
+  font-size: 15px !important;
+  line-height: 1.46 !important;
+  -webkit-line-clamp: 7 !important;   /* un poco más grande, pero hasta 7 líneas (no crece infinito) */
 }
+/* Modo luz: el texto resaltado debe ser oscuro (antes quedaba blanco ilegible) */
+:root.light .tl-mapa-floating-cita.tl-cita-speaking .tl-mapa-floating-cita-text,
+:root.light .tl-mapa-floating-cita-text.tl-cita-speaking-q { color: #1a1410 !important; }
+/* Karaoke: la palabra que se va diciendo se colorea (como letra de canción) */
+.tl-cita-speaking .tlw { transition: color 0.1s ease, text-shadow 0.1s ease; }
+.tl-cita-speaking .tlw.tlw-said { color: #ffcf5c; text-shadow: 0 0 7px rgba(255,200,80,0.45); }
+:root.light .tl-cita-speaking .tlw.tlw-said { color: #9a5b00; text-shadow: none; }
 .tl-mapa-floating-cita .cita-cover {
   flex-shrink: 0;
   width: 68px;
@@ -15417,6 +15423,24 @@ body {
         playTimer = setTimeout(advance, readingTimeForEvent(events[currentIdx]));
       }
     }
+    // Wake Lock: evita que la pantalla se apague mientras está reproduciendo.
+    var wakeLock = null;
+    function acquireWakeLock() {
+      if (!navigator.wakeLock || wakeLock) return;
+      try {
+        navigator.wakeLock.request('screen').then(function(wl) {
+          wakeLock = wl;
+          wl.addEventListener('release', function() { wakeLock = null; });
+        }).catch(function() {});
+      } catch(e) {}
+    }
+    function releaseWakeLock() {
+      if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+    }
+    // El wake lock se libera solo si la pestaña se oculta; re-tómalo al volver si sigue en play.
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible' && isPlaying) acquireWakeLock();
+    });
     function stopPlay(reason) {
       if (!isPlaying) return;
       isPlaying = false;
@@ -15425,12 +15449,14 @@ body {
       if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
       if ('speechSynthesis' in window) speechSynthesis.cancel();
       if (typeof highlightCita === 'function') highlightCita(null);
+      releaseWakeLock();
       updatePlayBtn();
     }
     function startPlay() {
       if (isPlaying) return;
       isPlaying = true;
       updatePlayBtn();
+      acquireWakeLock();
       if (currentIdx >= events.length - 1) selectIdx(0); // restart from the top
       playStep();
     }
@@ -15622,12 +15648,28 @@ body {
       if (!layer) return;
       layer.querySelectorAll('.tl-cita-speaking').forEach(function(el) { el.classList.remove('tl-cita-speaking'); });
       layer.querySelectorAll('.tl-cita-speaking-q').forEach(function(el) { el.classList.remove('tl-cita-speaking-q'); });
+      layer.querySelectorAll('.tlw.tlw-said').forEach(function(el) { el.classList.remove('tlw-said'); });
       if (idx == null) return;
       var q = layer.querySelector('.tl-mapa-floating-cita-text[data-cita-idx="' + idx + '"]');
       if (!q) return;
       q.classList.add('tl-cita-speaking-q');
       var card = q.closest('.tl-mapa-floating-cita');
       if (card) card.classList.add('tl-cita-speaking');
+    }
+    // Karaoke: envuelve cada palabra en un span para poder colorearla al leerla.
+    function karaokeWrap(el) {
+      if (!el || el.querySelector('.tlw')) return;
+      var parts = (el.textContent || '').split(/(\s+)/), html = '';
+      parts.forEach(function(p) {
+        if (p === '' || /^\s+$/.test(p)) html += p;
+        else html += '<span class="tlw">' + p.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
+      });
+      el.innerHTML = html;
+    }
+    function wordStartOffsets(s) {
+      var starts = [], re = /\S+/g, m;
+      while ((m = re.exec(s))) starts.push(m.index);
+      return starts;
     }
     function speakSegments(segs, onDone) {
       if (muted || !('speechSynthesis' in window) || !segs || !segs.length) { if (onDone) onDone(); return; }
@@ -15640,12 +15682,36 @@ body {
         var seg = segs[si++];
         if (seg.role === 'cita' && seg.citaIdx != null) highlightCita(seg.citaIdx);
         else highlightCita(null);
+        // Karaoke setup para el segmento de texto de cita.
+        var karaokeEl = null, wStarts = null, wSpans = null;
+        if (seg.isQuote && seg.citaIdx != null) {
+          karaokeEl = container.querySelector('#tl-mapa-citas-layer .tl-mapa-floating-cita-text[data-cita-idx="' + seg.citaIdx + '"]');
+          if (karaokeEl) { karaokeWrap(karaokeEl); wSpans = karaokeEl.querySelectorAll('.tlw'); wStarts = wordStartOffsets(seg.text); }
+        }
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
         u.rate = 0.97; u.pitch = 1;
         var v = voiceForSegment(seg, vcache);
-        if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
-        u.onend = function() { if (mySeq === narrationSeq) step(); };
+        if (v) u.voice = v;
+        // Señala el idioma explícitamente (fuerza es/en aunque la voz tenga un
+        // lang raro) para que el motor no auto-detecte inglés en frases españolas.
+        u.lang = seg.lang === 'en'
+          ? (v && /^en/i.test(v.lang || '') ? v.lang : 'en-US')
+          : (v && /^es/i.test(v.lang || '') ? v.lang : 'es-MX');
+        if (wSpans && wStarts) {
+          u.onboundary = function(e) {
+            if (mySeq !== narrationSeq || (e.name && e.name !== 'word')) return;
+            var ci = e.charIndex || 0, wi = 0;
+            while (wi < wStarts.length && wStarts[wi] <= ci) wi++;
+            var upto = Math.min(wi, wSpans.length);
+            for (var k = 0; k < upto; k++) wSpans[k].classList.add('tlw-said');
+          };
+        }
+        u.onend = function() {
+          if (mySeq !== narrationSeq) return;
+          if (wSpans) for (var k = 0; k < wSpans.length; k++) wSpans[k].classList.add('tlw-said'); // completa el karaoke
+          step();
+        };
         u.onerror = function() {
           if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) step(); }, 250);
         };
@@ -15687,11 +15753,13 @@ body {
       picked.forEach(function(p) {
         var c = p.c, speaker = speakerFor(c), qLang = detectLang(c.texto);
         if (speaker && speaker !== prevSpeaker) {
-          segs.push({ text: speakNumbers(speaker + (qLang === 'en' ? ' dice, en inglés:' : ' dice:')), lang: 'es', role: 'cita', citaIdx: p.idx });
+          // Arranca con "Según" (claramente español) para que el motor no
+          // detecte inglés por el nombre y lea "dice" como "dies".
+          segs.push({ text: speakNumbers('Según ' + speaker + (qLang === 'en' ? ', en inglés:' : ':')), lang: 'es', role: 'cita', citaIdx: p.idx });
         } else if (!speaker && prevSpeaker === null) {
           segs.push({ text: 'Cita:', lang: 'es', role: 'cita', citaIdx: p.idx });
         }
-        segs.push({ text: speakNumbers(c.texto), lang: qLang, role: 'cita', citaIdx: p.idx });
+        segs.push({ text: speakNumbers(c.texto), lang: qLang, role: 'cita', citaIdx: p.idx, isQuote: true });
         prevSpeaker = speaker;
       });
       return segs;
@@ -15732,7 +15800,7 @@ body {
           var t = el.textContent.replace(/[“”"]/g, '').trim();
           if (!t) return;
           var ci = parseInt(el.getAttribute('data-cita-idx'));
-          segs.push({ text: speakNumbers(t), lang: detectLang(t), role: 'cita', citaIdx: isNaN(ci) ? null : ci });
+          segs.push({ text: speakNumbers(t), lang: detectLang(t), role: 'cita', citaIdx: isNaN(ci) ? null : ci, isQuote: true });
         });
         if (segs.length) readClicked(segs);
         return !!segs.length;
