@@ -15447,7 +15447,9 @@ body {
     // Built-in defaults per part (matched by name substring; enhanced/premium
     // variant preferred). Citas default to a RANDOM enhanced/premium voice.
     var DEFAULT_ROLE = { fecha: 'carlos', evento: 'carlos', descripcion: 'soledad' };
-    function byName(n) { return allVoices().find(function(x) { return x.name === n; }); }
+    // Identify voices by voiceURI (unique) — compact & premium share the name.
+    function voiceId(v) { return v.voiceURI || v.name; }
+    function byId(id) { return allVoices().find(function(x) { return voiceId(x) === id; }); }
     // macOS "Eloquence" + novelty voices son las que suenan robóticas/alienígena.
     function isNovelty(v) {
       var id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
@@ -15486,14 +15488,14 @@ body {
       if (seg.role === 'cita') {
         var lang = seg.lang === 'en' ? 'en' : 'es';
         var chosen = roleVoices.cita;
-        if (lang === 'es' && chosen && chosen !== '__random__') { var vc = byName(chosen); if (vc) return vc; }
+        if (lang === 'es' && chosen && chosen !== '__random__') { var vc = byId(chosen); if (vc) return vc; }
         var key = 'rand_' + lang;
         if (!cache[key]) cache[key] = randomQualityVoice(lang) || voiceFor(lang);
         return cache[key];
       }
       if (seg.lang === 'en') return voiceFor('en');
       var wanted = roleVoices[seg.role];
-      if (wanted) { var vw = byName(wanted); if (vw) return vw; }
+      if (wanted) { var vw = byId(wanted); if (vw) return vw; }
       var def = DEFAULT_ROLE[seg.role];
       if (def) { var vd = findQualityByName(def, 'es'); if (vd) return vd; }
       return voiceFor('es');
@@ -15677,8 +15679,8 @@ body {
     }
     function voiceOptions(list) {
       return list.map(function(v) {
-        var lbl = v.name + ' — ' + langLabel(v.lang);
-        return '<option value="' + v.name.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
+        var lbl = v.name + ' — ' + langLabel(v.lang) + (isPremium(v) ? ' ★' : '');
+        return '<option value="' + voiceId(v).replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
       }).join('');
     }
     function populateVoicePanel() {
