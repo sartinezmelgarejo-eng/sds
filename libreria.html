@@ -14024,18 +14024,16 @@ body {
       card.innerHTML = headerHTML + bodyHTML;
     }
 
-    // Wrap the existing select so each call updates the mobile shell.
-    var origSelect = container._tlMapaSelect;
-    if (origSelect && !origSelect.__tlmWrapped) {
-      var wrapped = function(idx) {
-        origSelect(idx);
-        if (events[idx]) renderTlmCard(events[idx], idx);
-      };
-      wrapped.__tlmWrapped = true;
-      container._tlMapaSelect = wrapped;
-      // Render the initial event into the card too
-      if (events[0]) renderTlmCard(events[0], 0);
-    }
+    // Register the mobile-card updater on the core select hook (fired inside
+    // selectIdx). This covers autoplay + marker taps too, which the old wrapper
+    // missed. tapeHeadUpdater is filled in once the tape is built (below).
+    var tapeHeadUpdater = null;
+    container._tlmOnSelect = function(idx) {
+      if (events[idx]) renderTlmCard(events[idx], idx);
+      if (tapeHeadUpdater) { try { tapeHeadUpdater(idx); } catch(e) {} }
+    };
+    // Render the initial event into the card.
+    if (events[0]) renderTlmCard(events[0], 0);
 
     // Tap a book title inside a cita → open the book detail panel.
     // PDF page links keep their default browser behavior (target=_blank).
@@ -14114,17 +14112,9 @@ body {
         if (!isNaN(first) && container._tlMapaSelect) container._tlMapaSelect(first);
       });
 
-      // Wrap select once more to also move the playhead
-      var prevSelect = container._tlMapaSelect;
-      if (prevSelect && !prevSelect.__tlmTapeWrapped) {
-        var wrapped2 = function(idx) {
-          prevSelect(idx);
-          updateTapeHead(idx);
-        };
-        wrapped2.__tlmWrapped = true;
-        wrapped2.__tlmTapeWrapped = true;
-        container._tlMapaSelect = wrapped2;
-      }
+      // Feed the tape playhead updater into the select hook so autoplay, marker
+      // taps and chevrons move the playhead too (not just container._tlMapaSelect).
+      tapeHeadUpdater = updateTapeHead;
     }
 
     // Step chevrons
@@ -15009,6 +14999,12 @@ body {
           p.classList.toggle('active', p.getAttribute('data-label') === activeLabel);
         });
       }
+
+      // Mobile shell hook — fires on EVERY selection path (autoplay, marker tap,
+      // chevrons, tape, event-list). Without this the pin moved but the LCD card
+      // (text/detalle/citas) stayed stale, because autoplay/marker call selectIdx
+      // directly, bypassing the old container._tlMapaSelect wrappers.
+      if (container._tlmOnSelect) { try { container._tlmOnSelect(idx); } catch(e) {} }
     }
     // Expose selectIdx so the click handler wired in renderTimelineMapaView can call it
     container._tlMapaSelect = selectIdx;
