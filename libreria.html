@@ -15521,6 +15521,12 @@ body {
       var pool = qualityPool(langPrefix);
       return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
     }
+    // Mejor voz DETERMINISTA para un idioma (para el narrador, no las citas):
+    // prefiere premium/enhanced/Siri, si no cae a la elección automática.
+    function bestVoice(langPrefix) {
+      var prem = qualityPool(langPrefix).filter(isPremium);
+      return prem[0] || voiceFor(langPrefix);
+    }
     // Resolve the voice for a segment. `cache` keeps the random cita pick stable
     // within one narration call so a cita's attribution + text share a voice.
     function voiceForSegment(seg, cache) {
@@ -15535,7 +15541,7 @@ body {
         if (!cache[key]) cache[key] = randomQualityVoice(lang) || voiceFor(lang);
         return cache[key];
       }
-      if (seg.lang === 'en') return voiceFor('en');
+      if (seg.lang === 'en') return bestVoice('en');   // evento/descripción en inglés → voz inglesa
       var wanted = roleVoices[seg.role];
       if (wanted) { var vw = byId(wanted); if (vw) return vw; }
       var def = DEFAULT_ROLE[seg.role];
@@ -15652,8 +15658,10 @@ body {
     }
     function eventSegments(ev) {
       var segs = [{ text: speakNumbers(speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
-      if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: 'es', role: 'evento' });
-      if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: 'es', role: 'descripcion' });
+      // El evento y la descripción casi siempre son español, pero algunos vienen
+      // en inglés — se detecta para que no los lea una voz en español.
+      if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: detectLang(ev.text), role: 'evento' });
+      if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: detectLang(ev.detalle), role: 'descripcion' });
       var picked = pickCitas(ev.citas || []);
       var prevSpeaker = null;
       picked.forEach(function(p) {
