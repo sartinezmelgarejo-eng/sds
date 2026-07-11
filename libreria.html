@@ -13543,12 +13543,10 @@ body {
     if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
     return REGION_COORDS[n] || REGION_COORDS[n.toLowerCase()] || null;
   }
-  var __lugarNormalized = false;
-  function normalizeLugarCoords() {
-    if (__lugarNormalized) return;
-    __lugarNormalized = true;
+  function normalizeLugarCoords(eras) {
+    var list = eras || (typeof timelineEras !== 'undefined' ? timelineEras : []);
     var fixed = 0;
-    (typeof timelineEras !== 'undefined' ? timelineEras : []).forEach(function(e) {
+    list.forEach(function(e) {
       (e.events || []).forEach(function(x) {
         if (x.lugar && (!x.lugar.coords || typeof x.lugar.coords.lat !== 'number')) {
           var c = resolveLugarCoords(x.lugar);
@@ -13556,11 +13554,11 @@ body {
         }
       });
     });
-    if (typeof console !== 'undefined' && console.log) console.log('[timeline] lugar coords resueltas:', fixed);
+    return fixed;
   }
 
   function renderTimelineMapaView(container, eras, tlScope) {
-    normalizeLugarCoords();
+    normalizeLugarCoords(eras);
     // Collect events with lugar. The México/Mundo split is GEOGRAPHIC when
     // we have a lugar.pais (events that happened in MX go to México, events
     // that happened elsewhere go to Mundo). Falls back to the original
@@ -14191,26 +14189,6 @@ body {
       });
     }
 
-    // Keyboard arrows on mobile: capture them and route through the hooked select
-    // (container._tlMapaSelect → selectIdx → LCD card). The global map/list key
-    // handlers moved the pin via scroll-sync but bypassed the card; capture phase
-    // + stopPropagation makes the shell the single owner of arrow nav here.
-    if (shell && !shell.__tlmKeyWired) {
-      shell.__tlmKeyWired = true;
-      document.addEventListener('keydown', function(e) {
-        if (container.offsetParent === null) return;            // shell not visible
-        var t = e.target;
-        if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
-        var d = (e.key === 'ArrowRight' || e.key === 'ArrowDown') ? 1
-              : (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   ? -1 : 0;
-        if (!d) return;
-        e.preventDefault(); e.stopPropagation();
-        if (container._tlMapaStopPlay) container._tlMapaStopPlay('key');
-        if (container._tlMapaSelect) {
-          container._tlMapaSelect(Math.max(0, Math.min(events.length - 1, curIdx() + d)));
-        }
-      }, true); // capture phase → runs before (and blocks) the bubble-phase handlers
-    }
 
     // ── A button = play; B button = world view ──
     // Both proxy to the existing #tl-mapa-play / #tl-mapa-world buttons.
