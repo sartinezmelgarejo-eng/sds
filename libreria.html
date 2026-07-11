@@ -15444,13 +15444,43 @@ body {
     var roleVoices = {};
     try { roleVoices = JSON.parse(localStorage.getItem('tlMapaRoleVoices') || '{}') || {}; } catch(e) { roleVoices = {}; }
     function allVoices() { return (window.speechSynthesis && speechSynthesis.getVoices()) || []; }
-    function voiceForSegment(seg) {
-      if (seg.lang === 'en') return voiceFor('en');   // English quotes always use an English voice
-      var wanted = seg.role && roleVoices[seg.role];
-      if (wanted) {
-        var v = allVoices().find(function(x) { return x.name === wanted; });
-        if (v) return v;
+    // Built-in defaults per part (matched by name substring; enhanced/premium
+    // variant preferred). Citas default to a RANDOM enhanced/premium voice.
+    var DEFAULT_ROLE = { fecha: 'carlos', evento: 'carlos', descripcion: 'soledad' };
+    function byName(n) { return allVoices().find(function(x) { return x.name === n; }); }
+    function findQualityByName(sub, langPrefix) {
+      var re = new RegExp('^' + langPrefix, 'i'), s = sub.toLowerCase();
+      var vs = allVoices().filter(function(v) { return re.test(v.lang || '') && (v.name || '').toLowerCase().indexOf(s) >= 0; });
+      if (!vs.length) return null;
+      return vs.find(function(v) { return /enhanced|premium|neural|natural/i.test(v.name); }) || vs[0];
+    }
+    function qualityPool(langPrefix) {
+      var re = new RegExp('^' + langPrefix, 'i');
+      var all = allVoices().filter(function(v) { return re.test(v.lang || ''); });
+      var pool = all.filter(function(v) { return /enhanced|premium|neural|natural/i.test(v.name); });
+      return pool.length ? pool : all;
+    }
+    function randomQualityVoice(langPrefix) {
+      var pool = qualityPool(langPrefix);
+      return pool.length ? pool[Math.floor(Math.random() * pool.length)] : null;
+    }
+    // Resolve the voice for a segment. `cache` keeps the random cita pick stable
+    // within one narration call so a cita's attribution + text share a voice.
+    function voiceForSegment(seg, cache) {
+      cache = cache || {};
+      if (seg.role === 'cita') {
+        var lang = seg.lang === 'en' ? 'en' : 'es';
+        var chosen = roleVoices.cita;
+        if (lang === 'es' && chosen && chosen !== '__random__') { var vc = byName(chosen); if (vc) return vc; }
+        var key = 'rand_' + lang;
+        if (!cache[key]) cache[key] = randomQualityVoice(lang) || voiceFor(lang);
+        return cache[key];
       }
+      if (seg.lang === 'en') return voiceFor('en');
+      var wanted = roleVoices[seg.role];
+      if (wanted) { var vw = byName(wanted); if (vw) return vw; }
+      var def = DEFAULT_ROLE[seg.role];
+      if (def) { var vd = findQualityByName(def, 'es'); if (vd) return vd; }
       return voiceFor('es');
     }
     // Guess whether a snippet is English or Spanish so English quotes get an
@@ -15492,7 +15522,7 @@ body {
       if (muted || !('speechSynthesis' in window) || !segs || !segs.length) { if (onDone) onDone(); return; }
       var mySeq = ++narrationSeq;
       try { speechSynthesis.cancel(); } catch(e) {}
-      var si = 0;
+      var si = 0, vcache = {};
       function step() {
         if (mySeq !== narrationSeq) return; // superseded/cancelled → stop
         if (si >= segs.length) { if (onDone) onDone(); return; }
@@ -15500,7 +15530,7 @@ body {
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
         u.rate = 0.97; u.pitch = 1;
-        var v = voiceForSegment(seg);
+        var v = voiceForSegment(seg, vcache);
         if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
         u.onend = function() { if (mySeq === narrationSeq) step(); };
         u.onerror = function() {
@@ -15657,16 +15687,18 @@ body {
           ? ('Voces en español en este equipo: ' + es.length + ' — ' + regions.join(', '))
           : 'Este equipo no tiene voces en español instaladas.';
       }
+      function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
       voicesPanel.querySelectorAll('select[data-role]').forEach(function(sel) {
         var role = sel.getAttribute('data-role');
-        var cur = roleVoices[role] || '';
-        var html = '<option value="">Automático (es-MX)</option>';
+        var html, cur;
         if (role === 'cita') {
-          // Las citas pueden estar en inglés, así que ofrece ambos idiomas.
-          html += '<optgroup label="Español">' + voiceOptions(es) + '</optgroup>';
+          html = '<option value="__random__">Aleatorio (Mejoradas/Premium)</option>' +
+                 '<optgroup label="Español">' + voiceOptions(es) + '</optgroup>';
           if (en.length) html += '<optgroup label="Inglés (para citas en inglés)">' + voiceOptions(en) + '</optgroup>';
+          cur = roleVoices.cita || '__random__';
         } else {
-          html += voiceOptions(es);   // año/evento/descripción: solo español
+          html = '<option value="">Predeterminado (' + cap(DEFAULT_ROLE[role] || '') + ')</option>' + voiceOptions(es);
+          cur = roleVoices[role] || '';
         }
         sel.innerHTML = html;
         sel.value = cur;
@@ -15684,8 +15716,10 @@ body {
       });
       voicesPanel.addEventListener('change', function(e) {
         var sel = e.target.closest('select[data-role]'); if (!sel) return;
-        var role = sel.getAttribute('data-role');
-        if (sel.value) roleVoices[role] = sel.value; else delete roleVoices[role];
+        var role = sel.getAttribute('data-role'), val = sel.value;
+        // Sentinel = default: cita '__random__', otros '' → borra la clave.
+        var isDefault = role === 'cita' ? (val === '__random__') : (val === '');
+        if (isDefault) delete roleVoices[role]; else roleVoices[role] = val;
         try { localStorage.setItem('tlMapaRoleVoices', JSON.stringify(roleVoices)); } catch(err) {}
         // Muestra de la voz elegida para esa parte.
         if (!muted) speakSegments([{ text: ROLE_TEST[role] || 'Prueba.', lang: 'es', role: role }]);
