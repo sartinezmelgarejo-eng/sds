@@ -1362,9 +1362,36 @@ body {
 #deck-lightbox .lb-slide{
   position:absolute;inset:0;width:100%;height:100%;
   object-fit:contain;background:#000;
-  opacity:0;transition:opacity .5s ease;
+  opacity:0;transition:opacity 1.2s ease;
 }
 #deck-lightbox .lb-slide.active{opacity:1}
+/* Galería ambiental: barra inferior con el libro actual (aparece al mover el
+   mouse o al cambiar de libro) + aviso "A continuación" en el último slide. */
+#deck-lightbox .lb-caption{
+  position:absolute;left:22px;bottom:22px;z-index:6;
+  display:flex;align-items:center;gap:12px;
+  background:rgba(10,8,6,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(212,178,94,.4);border-radius:7px;
+  padding:8px 16px 8px 8px;max-width:min(60vw,540px);
+  opacity:0;transform:translateY(10px);pointer-events:none;
+  transition:opacity .55s ease, transform .55s ease;
+}
+#deck-lightbox .lb-caption.show{opacity:1;transform:none}
+#deck-lightbox .lb-cap-cover{width:46px;height:66px;object-fit:cover;border-radius:3px;flex:0 0 auto;background:#222}
+#deck-lightbox .lb-cap-cover[hidden]{display:none}
+#deck-lightbox .lb-cap-title{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;font-weight:700;color:#f2e8d0;line-height:1.15}
+#deck-lightbox .lb-cap-author{font-family:'SF Mono',monospace;font-size:11px;color:#d4b25e;letter-spacing:.6px;margin-top:3px;text-transform:uppercase}
+#deck-lightbox .lb-nextup{
+  position:absolute;right:22px;bottom:26px;z-index:6;
+  font-family:'Cormorant Garamond',Georgia,serif;font-size:16px;color:#f2e8d0;
+  background:rgba(10,8,6,.72);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  border:1px solid rgba(212,178,94,.4);border-radius:7px;padding:9px 16px;
+  max-width:min(48vw,440px);text-align:right;
+  opacity:0;transform:translateY(10px);pointer-events:none;
+  transition:opacity .7s ease, transform .7s ease;
+}
+#deck-lightbox .lb-nextup.show{opacity:1;transform:none}
+#deck-lightbox .lb-nextup-label{display:block;color:#d4b25e;font-family:'SF Mono',monospace;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;margin-bottom:3px}
 #deck-lightbox .lb-close{
   position:absolute;top:-44px;right:-4px;
   background:rgba(200,169,96,.15);border:1px solid #d4b25e;color:#e0d5b8;
@@ -6097,6 +6124,17 @@ body {
     <button class="lb-nav lb-prev" type="button" title="Anterior" onclick="lightboxPrev()">‹</button>
     <button class="lb-nav lb-next" type="button" title="Siguiente" onclick="lightboxNext()">›</button>
     <div class="lb-counter" id="lb-counter">1 / 1</div>
+    <div class="lb-caption" id="lb-caption">
+      <img class="lb-cap-cover" id="lb-cap-cover" alt="">
+      <div class="lb-cap-txt">
+        <div class="lb-cap-title" id="lb-cap-title"></div>
+        <div class="lb-cap-author" id="lb-cap-author"></div>
+      </div>
+    </div>
+    <div class="lb-nextup" id="lb-nextup">
+      <span class="lb-nextup-label">A continuación</span>
+      <span id="lb-nextup-text"></span>
+    </div>
   </div>
 </div>
 
@@ -11340,11 +11378,21 @@ body {
   }
 
   /* ─── Deck lightbox: expand button (⤢) opens this fullscreen view ─── */
-  let __lbIdx = 0, __lbCount = 0, __lbBookId = '', __lbTimer = null;
-  const LB_SLIDE_MS = 10000;
+  let __lbIdx = 0, __lbCount = 0, __lbBookId = '', __lbTimer = null, __lbPos = 0;
+  const LB_SLIDE_MS = 15000;   // dwell por slide (galería ambiental, más lento)
 
-  window.openDeckLightbox = function(bookId, count, label){
-    __lbBookId = bookId; __lbCount = count; __lbIdx = 0;
+  /* Todos los libros con deck, en orden de biblioteca → la galería cicla TODA
+     la librería: al terminar un libro salta al siguiente y al final reinicia. */
+  function deckBooksList(){
+    return (typeof books !== 'undefined' ? books : []).filter(function(b){ return b.deck && b.deck.slides > 0; });
+  }
+  function deckCoverSrc(b){
+    if (!b) return '';
+    if (b.coverUrl) return b.coverUrl;
+    if (b.coverId && typeof coverImages !== 'undefined' && coverImages[b.coverId]) return coverImages[b.coverId];
+    return '';
+  }
+  function buildLbStack(bookId, count, onFirstError){
     const stack = document.getElementById('lb-stack');
     stack.innerHTML = '';
     for (let i = 1; i <= count; i++){
@@ -11354,12 +11402,36 @@ body {
       img.src = `decks/${bookId}/slide-${num}.jpg`;
       img.alt = `Slide ${i}`;
       img.loading = i <= 2 ? 'eager' : 'lazy';
+      if (i === 1 && onFirstError) img.onerror = onFirstError;
       stack.appendChild(img);
     }
-    updateLightboxCounter();
+  }
+  /* Carga el libro en la posición pos. Si su primera diapositiva no existe
+     (deck declarado pero no desplegado), salta solo al siguiente en la
+     dirección dir (+1 adelante, -1 atrás), con tope para no ciclar infinito. */
+  function loadLbBook(pos, dir, tries){
+    const list = deckBooksList();
+    if (!list.length) return;
+    dir = dir || 1; tries = tries || 0;
+    if (tries > list.length) return;   // todos rotos → evita bucle infinito
+    __lbPos = ((pos % list.length) + list.length) % list.length;
+    const b = list[__lbPos]; const myPos = __lbPos;
+    __lbBookId = b.id; __lbCount = b.deck.slides; __lbIdx = 0;
+    buildLbStack(b.id, b.deck.slides, function(){
+      if (__lbPos === myPos) loadLbBook(myPos + dir, dir, tries + 1);  // salta deck ausente
+    });
+    showLightboxSlide();
+    flashLbCaption();   // muestra breve el libro al entrar en él
+  }
+
+  window.openDeckLightbox = function(bookId, count, label){
+    const list = deckBooksList();
+    let pos = list.findIndex(function(b){ return b.id === bookId; });
+    if (pos < 0) pos = 0;   // fallback: arranca la galería desde el principio
     const lb = document.getElementById('deck-lightbox');
     lb.classList.add('active');
     document.body.style.overflow = 'hidden';
+    loadLbBook(pos);
     startLightboxTimer();
     /* Request real fullscreen — fills the device screen on mobile,
        hides the browser chrome. Falls back silently if unavailable. */
@@ -11370,6 +11442,7 @@ body {
     document.getElementById('deck-lightbox').classList.remove('active');
     document.body.style.overflow = '';
     stopLightboxTimer();
+    hideLbCaption(); hideLbNextup();
     /* Exit fullscreen if we entered it */
     if (document.fullscreenElement || document.webkitFullscreenElement) {
       const exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
@@ -11386,18 +11459,22 @@ body {
     }
   });
   window.lightboxPrev = function(){
-    __lbIdx = (__lbIdx - 1 + __lbCount) % __lbCount;
-    showLightboxSlide(); restartLightboxTimer();
+    if (__lbIdx > 0){ __lbIdx--; showLightboxSlide(); }
+    else { loadLbBook(__lbPos - 1, -1); }   // inicio del libro → libro anterior
+    restartLightboxTimer();
   };
   window.lightboxNext = function(){
-    __lbIdx = (__lbIdx + 1) % __lbCount;
-    showLightboxSlide(); restartLightboxTimer();
+    if (__lbIdx < __lbCount - 1){ __lbIdx++; showLightboxSlide(); }
+    else { loadLbBook(__lbPos + 1); }   // fin del libro → siguiente libro
+    restartLightboxTimer();
   };
   function showLightboxSlide(){
     const slides = document.querySelectorAll('#lb-stack .lb-slide');
     slides.forEach(s => s.classList.remove('active'));
     if (slides[__lbIdx]) slides[__lbIdx].classList.add('active');
     updateLightboxCounter();
+    // En el último slide, anuncia el próximo libro (y precarga su 1a imagen).
+    if (__lbCount && __lbIdx === __lbCount - 1) showLbNextup(); else hideLbNextup();
   }
   function updateLightboxCounter(){
     document.getElementById('lb-counter').textContent = (__lbIdx+1)+' / '+__lbCount;
@@ -11410,6 +11487,51 @@ body {
     if (__lbTimer){ clearInterval(__lbTimer); __lbTimer = null; }
   }
   function restartLightboxTimer(){ stopLightboxTimer(); startLightboxTimer(); }
+
+  // ── Barra inferior con el libro actual (portada + título + autor) ──
+  let __lbCapTimer = null;
+  function fillLbCaption(b){
+    if (!b) return;
+    const cov = document.getElementById('lb-cap-cover');
+    const src = deckCoverSrc(b);
+    if (cov){ if (src){ cov.src = src; cov.hidden = false; } else { cov.hidden = true; } }
+    const t = document.getElementById('lb-cap-title'); if (t) t.textContent = b.title || '';
+    const a = document.getElementById('lb-cap-author'); if (a) a.textContent = b.author || '';
+  }
+  function showLbCaption(){
+    fillLbCaption(deckBooksList()[__lbPos]);
+    const el = document.getElementById('lb-caption'); if (el) el.classList.add('show');
+  }
+  function hideLbCaption(){
+    const el = document.getElementById('lb-caption'); if (el) el.classList.remove('show');
+  }
+  function flashLbCaption(){         // muestra y auto-oculta a los 3.8s
+    showLbCaption();
+    if (__lbCapTimer) clearTimeout(__lbCapTimer);
+    __lbCapTimer = setTimeout(hideLbCaption, 3800);
+  }
+  function showLbNextup(){
+    const list = deckBooksList();
+    if (list.length < 2) { hideLbNextup(); return; }
+    const nb = list[(__lbPos + 1) % list.length];
+    const el = document.getElementById('lb-nextup');
+    const txt = document.getElementById('lb-nextup-text');
+    if (!el || !nb || !txt) return;
+    txt.textContent = nb.title + (nb.author ? ' — ' + nb.author : '');
+    el.classList.add('show');
+    const pre = new Image(); pre.src = `decks/${nb.id}/slide-01.jpg`;  // precarga suave
+  }
+  function hideLbNextup(){
+    const el = document.getElementById('lb-nextup'); if (el) el.classList.remove('show');
+  }
+  // Mover el mouse revela brevemente la info del libro actual (y se desvanece).
+  (function(){
+    const lb = document.getElementById('deck-lightbox');
+    if (!lb) return;
+    lb.addEventListener('mousemove', function(){
+      if (lb.classList.contains('active')) flashLbCaption();
+    });
+  })();
 
   // Esc closes + arrow keys navigate when lightbox is open
   document.addEventListener('keydown', function(e){
