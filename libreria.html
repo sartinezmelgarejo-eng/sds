@@ -14743,6 +14743,7 @@ body {
         '<label>Cita<select data-role="cita"></select></label>' +
         '<div class="tlvp-detected" id="tl-mapa-voices-detected"></div>' +
         '<div class="tlvp-hint">Solo aparecen las voces instaladas en este equipo. Para más países (ej. Carlos de Colombia) o versiones Mejoradas/Premium, descárgalas en Ajustes del sistema → Accesibilidad → Contenido hablado → Gestionar voces, y recarga.</div>' +
+        '<button class="tlvp-close" id="tl-mapa-voices-reset" style="background:transparent;border:1px solid rgba(212,178,94,.5);margin-bottom:8px;">Restablecer (Año/Título hombre · Descripción Mónica)</button>' +
         '<button class="tlvp-close" id="tl-mapa-voices-close">Cerrar</button>' +
       '</div>' +
     '</div>';
@@ -15766,16 +15767,46 @@ body {
       evento:      ['juan', 'carlos', 'jorge', 'diego'],          // Título: buen hombre
       descripcion: ['monica', 'paulina', 'soledad', 'marisol']    // Descripción: mujer clara
     };
+    // Cada parte tiene un GÉNERO obligado: aunque no esté la voz exacta de la
+    // lista, se elige la MEJOR voz de ese género (no una cualquiera).
+    var ROLE_GENDER = { fecha: 'm', evento: 'm', descripcion: 'f' };
     var DEFAULT_LABEL = { fecha: 'hombre grave', evento: 'hombre', descripcion: 'Mónica' };
     // El Año se lee con tono más grave para dar peso de "narrador".
     var ROLE_PITCH = { fecha: 0.82 };
-    // Resuelve el default de una parte recorriendo su lista de nombres.
-    function resolveDefaultVoice(role) {
-      var list = DEFAULT_ROLE[role];
-      if (!list) return null;
-      if (typeof list === 'string') list = [list];
-      for (var i = 0; i < list.length; i++) { var v = findQualityByName(list[i], 'es'); if (v) return v; }
+    // Diccionario nombre→género para clasificar las voces en español (Apple,
+    // Microsoft, etc.). Google en Android usa nombres genéricos → género null.
+    var MALE_VOICES = ['diego','jorge','carlos','juan','pablo','alvaro','álvaro','enrique','miguel','marcos','javier','gonzalo','felipe','ricardo','lucas','raul','raúl','andres','andrés'];
+    var FEMALE_VOICES = ['monica','mónica','paulina','soledad','marisol','angelica','angélica','esperanza','isabela','montse','helena','laura','elvira','dalia','sabina','ximena','elena','lucia','lucía','catalina','carmela','rosa','francisca','paloma','pilar'];
+    function voiceGender(v) {
+      var n = (v.name || '').toLowerCase();
+      for (var i = 0; i < MALE_VOICES.length; i++) if (n.indexOf(MALE_VOICES[i]) >= 0) return 'm';
+      for (var j = 0; j < FEMALE_VOICES.length; j++) if (n.indexOf(FEMALE_VOICES[j]) >= 0) return 'f';
       return null;
+    }
+    // Mejor voz de un género: filtra por género (si se conoce alguna del pedido),
+    // luego respeta el orden de nombres preferidos, y por último prefiere
+    // premium/enhanced y es-MX. Si no hay ninguna del género, cae al auto es.
+    function bestByGender(gender, pref) {
+      var vs = allVoices().filter(function(v) { return /^es/i.test(v.lang || '') && !isNovelty(v); });
+      if (!vs.length) return voiceFor('es');
+      if (gender) {
+        var g = vs.filter(function(v) { return voiceGender(v) === gender; });
+        if (g.length) vs = g;   // solo del género pedido cuando hay alguna
+      }
+      pref = pref || [];
+      for (var i = 0; i < pref.length; i++) {
+        var name = pref[i];
+        var hits = vs.filter(function(v) { return (v.name || '').toLowerCase().indexOf(name) >= 0; });
+        if (hits.length) return hits.find(isPremium) || hits[0];
+      }
+      var prem = vs.filter(isPremium);
+      var pool = prem.length ? prem : vs;
+      var mx = pool.filter(function(v) { return /es[-_]mx/i.test(v.lang || ''); });
+      return mx[0] || pool[0];
+    }
+    // Resuelve el default de una parte: mejor voz del género con nombres preferidos.
+    function resolveDefaultVoice(role) {
+      return bestByGender(ROLE_GENDER[role], DEFAULT_ROLE[role]);
     }
     // Identify voices by voiceURI (unique) — compact & premium share the name.
     function voiceId(v) { return v.voiceURI || v.name; }
@@ -16221,6 +16252,16 @@ body {
       });
       if (voicesClose) voicesClose.addEventListener('click', function() {
         voicesPanel.setAttribute('hidden', ''); voicesBtn.classList.remove('active');
+      });
+      var voicesReset = container.querySelector('#tl-mapa-voices-reset');
+      if (voicesReset) voicesReset.addEventListener('click', function() {
+        // Borra las selecciones manuales → vuelven los defaults por género
+        // (Año/Título hombre, Descripción Mónica, Cita aleatoria mejorada).
+        roleVoices = {};
+        try { localStorage.removeItem('tlMapaRoleVoices'); } catch(e) {}
+        populateVoicePanel();
+        voicesReset.textContent = '✓ Restablecido';
+        setTimeout(function() { voicesReset.textContent = 'Restablecer (Año/Título hombre · Descripción Mónica)'; }, 1600);
       });
       voicesPanel.addEventListener('change', function(e) {
         var sel = e.target.closest('select[data-role]'); if (!sel) return;
