@@ -3100,6 +3100,20 @@ body {
 :root.light .tl-mapa-citas-toggle:hover { background: #ce1126; color: #fdfcf3; border-color: #ce1126; }
 :root.light .tl-mapa-citas-toggle.off { color: #6a5a44; border-color: rgba(106,90,68,0.4); }
 .tl-mapa-floating-cita.show { opacity: 1; transform: translateY(0); }
+/* Cita que se está leyendo: se agranda y brilla */
+.tl-mapa-floating-cita.tl-cita-speaking {
+  transform: translateY(0) scale(1.07); z-index: 14 !important;
+  transition: transform 0.32s cubic-bezier(.2,.8,.2,1), box-shadow 0.32s ease;
+}
+.tl-mapa-floating-cita.tl-cita-speaking .cita-card-rect {
+  box-shadow: 0 0 0 2px var(--gold, #c8a960), 0 18px 46px rgba(0,0,0,0.55);
+  animation: tlCitaPulse 1.8s ease-in-out infinite;
+}
+@keyframes tlCitaPulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--gold, #c8a960), 0 18px 46px rgba(0,0,0,0.55); }
+  50% { box-shadow: 0 0 0 2px #ffe6a3, 0 20px 54px rgba(0,0,0,0.6); }
+}
+.tl-mapa-floating-cita-text.tl-cita-speaking-q { color: #fff5d8; }
 .tl-mapa-floating-cita .cita-cover {
   flex-shrink: 0;
   width: 68px;
@@ -14547,7 +14561,8 @@ body {
         byLibro[key] = { libro: c.libro || null, citas: [], gIdx: groups.length };
         groups.push(byLibro[key]);
       }
-      byLibro[key].citas.push(c);
+      var cc = {}; for (var k in c) cc[k] = c[k]; cc._i = idx;   // keep original index for highlight
+      byLibro[key].citas.push(cc);
     });
 
     function coverHTML(bk, fallbackAuthor) {
@@ -14587,11 +14602,11 @@ body {
       var styleAttr = styleParts.length ? ' style="' + styleParts.join('; ') + '"' : '';
       var quotesHTML;
       if (g.citas.length === 1) {
-        quotesHTML = '<div class="tl-mapa-floating-cita-text">“' + escHTML(g.citas[0].texto) + '”</div>';
+        quotesHTML = '<div class="tl-mapa-floating-cita-text" data-cita-idx="' + g.citas[0]._i + '">“' + escHTML(g.citas[0].texto) + '”</div>';
       } else {
         quotesHTML = '<div class="cita-quote-stack">' + g.citas.map(function(c, i) {
           return (i ? '<div class="tl-cita-divider"></div>' : '') +
-            '<div class="tl-mapa-floating-cita-text">“' + escHTML(c.texto) + '”</div>';
+            '<div class="tl-mapa-floating-cita-text" data-cita-idx="' + c._i + '">“' + escHTML(c.texto) + '”</div>';
         }).join('') + '</div>';
       }
       // Attribution: book title once, then page links (one per cita that has a page)
@@ -14835,14 +14850,29 @@ body {
       if (!layer) return;
       var cards = layer.querySelectorAll('.tl-mapa-floating-cita');
       var thumbs = layer.querySelectorAll('.tl-mapa-cita-thumb');
-      if (!anchor) {
-        cards.forEach(function(c) { c.classList.remove('show'); });
-        thumbs.forEach(function(t) { t.classList.remove('show'); });
-        return;
-      }
       var globeEl = container.querySelector('#tl-mapa-globe');
       var globeW = globeEl ? globeEl.clientWidth : W;
       var globeH = globeEl ? globeEl.clientHeight : H;
+      if (!anchor) {
+        // Evento sin ubicación (ej. Big Bang): no hay pin, pero igual mostramos
+        // las citas en una rejilla centrada a la derecha del panel de detalle.
+        thumbs.forEach(function(t) { t.classList.remove('show'); });
+        if (!cards.length) return;
+        var fCW = layer.classList.contains('tl-citas-pair') ? 360 : (layer.classList.contains('tl-citas-many') ? 280 : 320);
+        var fCH = layer.classList.contains('tl-citas-pair') ? 170 : (layer.classList.contains('tl-citas-many') ? 140 : 150);
+        var fgap = 16, fx0 = Math.round(globeW * 0.40);
+        var favail = globeW - fx0 - 16;
+        var fcols = Math.max(1, Math.min(cards.length, Math.floor((favail + fgap) / (fCW + fgap))));
+        var frows = Math.ceil(cards.length / fcols);
+        var fstartY = Math.max(16, (globeH - (frows * fCH + (frows - 1) * fgap)) / 2);
+        cards.forEach(function(card, i) {
+          var rr = Math.floor(i / fcols), cc = i % fcols;
+          card.style.left = Math.round(fx0 + cc * (fCW + fgap)) + 'px';
+          card.style.top = Math.round(Math.min(fstartY + rr * (fCH + fgap), globeH - fCH - 8)) + 'px';
+          card.classList.add('show');
+        });
+        return;
+      }
       var citasOff = globeEl && globeEl.classList.contains('no-citas');
       // Card width depends on the count tier set on the layer
       var CARD_W = 320, CARD_H = 150;
@@ -15385,6 +15415,7 @@ body {
       if (playTimer) { clearTimeout(playTimer); playTimer = null; }
       if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
       if ('speechSynthesis' in window) speechSynthesis.cancel();
+      if (typeof highlightCita === 'function') highlightCita(null);
       updatePlayBtn();
     }
     function startPlay() {
@@ -15493,7 +15524,9 @@ body {
         var lang = seg.lang === 'en' ? 'en' : 'es';
         var chosen = roleVoices.cita;
         if (lang === 'es' && chosen && chosen !== '__random__') { var vc = byId(chosen); if (vc) return vc; }
-        var key = 'rand_' + lang;
+        // Cache por índice de cita: cada cita mantiene su voz, pero distintas
+        // citas del mismo evento pueden sonar con voces diferentes.
+        var key = 'rand_' + (seg.citaIdx != null ? seg.citaIdx : 0) + '_' + lang;
         if (!cache[key]) cache[key] = randomQualityVoice(lang) || voiceFor(lang);
         return cache[key];
       }
@@ -15552,6 +15585,19 @@ body {
     // bumps narrationSeq, invalidating in-flight callbacks — that's what stops
     // the "cancel → onend → advance again" cascade that glitched the voice.
     var _speakUtter = null;   // keep a live ref so desktop Chrome/Safari don't GC mid-utterance
+    // Resalta (agranda + brilla) la cita que se está leyendo; idx null limpia.
+    function highlightCita(idx) {
+      var layer = container.querySelector('#tl-mapa-citas-layer');
+      if (!layer) return;
+      layer.querySelectorAll('.tl-cita-speaking').forEach(function(el) { el.classList.remove('tl-cita-speaking'); });
+      layer.querySelectorAll('.tl-cita-speaking-q').forEach(function(el) { el.classList.remove('tl-cita-speaking-q'); });
+      if (idx == null) return;
+      var q = layer.querySelector('.tl-mapa-floating-cita-text[data-cita-idx="' + idx + '"]');
+      if (!q) return;
+      q.classList.add('tl-cita-speaking-q');
+      var card = q.closest('.tl-mapa-floating-cita');
+      if (card) card.classList.add('tl-cita-speaking');
+    }
     function speakSegments(segs, onDone) {
       if (muted || !('speechSynthesis' in window) || !segs || !segs.length) { if (onDone) onDone(); return; }
       var mySeq = ++narrationSeq;
@@ -15559,8 +15605,10 @@ body {
       var si = 0, vcache = {};
       function step() {
         if (mySeq !== narrationSeq) return; // superseded/cancelled → stop
-        if (si >= segs.length) { if (onDone) onDone(); return; }
+        if (si >= segs.length) { highlightCita(null); if (onDone) onDone(); return; }
         var seg = segs[si++];
+        if (seg.role === 'cita' && seg.citaIdx != null) highlightCita(seg.citaIdx);
+        else highlightCita(null);
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
         u.rate = 0.97; u.pitch = 1;
@@ -15579,22 +15627,40 @@ body {
     // Segments for a full event, each tagged with its ROLE so it can use its
     // own voice: fecha (año), evento (texto), descripcion (detalle), cita
     // (atribución + texto, la cita en su idioma detectado).
+    function speakerFor(c) {
+      var s = c.autor;
+      if (!s && c.libro && typeof books !== 'undefined') { var b = books.find(function(x) { return x.id === c.libro; }); if (b) s = b.author; }
+      return s || '';
+    }
+    // Lee TODAS las citas (hasta 4). Si hay más de 4, elige 4 al azar y las
+    // mantiene en orden. Devuelve {c, idx} para poder resaltar la que se lee.
+    function pickCitas(list) {
+      var out = [];
+      if (list.length <= 4) {
+        list.forEach(function(c, i) { if (c && c.texto) out.push({ c: c, idx: i }); });
+        return out;
+      }
+      var idxs = list.map(function(_, i) { return i; });
+      for (var i = idxs.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = idxs[i]; idxs[i] = idxs[j]; idxs[j] = t; }
+      idxs.slice(0, 4).sort(function(a, b) { return a - b; }).forEach(function(i) { if (list[i] && list[i].texto) out.push({ c: list[i], idx: i }); });
+      return out;
+    }
     function eventSegments(ev) {
       var segs = [{ text: speakNumbers(speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
       if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: 'es', role: 'evento' });
       if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: 'es', role: 'descripcion' });
-      var c = ev.citas && ev.citas[0];
-      if (c && c.texto) {
-        var speaker = c.autor;
-        if (!speaker && c.libro && typeof books !== 'undefined') {
-          var bkS = books.find(function(b) { return b.id === c.libro; });
-          if (bkS) speaker = bkS.author;
+      var picked = pickCitas(ev.citas || []);
+      var prevSpeaker = null;
+      picked.forEach(function(p) {
+        var c = p.c, speaker = speakerFor(c), qLang = detectLang(c.texto);
+        if (speaker && speaker !== prevSpeaker) {
+          segs.push({ text: speakNumbers(speaker + (qLang === 'en' ? ' dice, en inglés:' : ' dice:')), lang: 'es', role: 'cita', citaIdx: p.idx });
+        } else if (!speaker && prevSpeaker === null) {
+          segs.push({ text: 'Cita:', lang: 'es', role: 'cita', citaIdx: p.idx });
         }
-        var quoteLang = detectLang(c.texto);
-        var verbo = quoteLang === 'en' ? ' dice, en inglés:' : ' dice:';
-        segs.push({ text: speakNumbers(speaker ? (speaker + verbo) : 'Cita:'), lang: 'es', role: 'cita' });
-        segs.push({ text: speakNumbers(c.texto), lang: quoteLang, role: 'cita' });
-      }
+        segs.push({ text: speakNumbers(c.texto), lang: qLang, role: 'cita', citaIdx: p.idx });
+        prevSpeaker = speaker;
+      });
       return segs;
     }
     function narrateCurrent(onDone) {
@@ -15628,11 +15694,13 @@ body {
       }
       var card = targetEl.closest('.tl-mapa-floating-cita');
       if (card) {
-        var texts = Array.prototype.map.call(
-          card.querySelectorAll('.tl-mapa-floating-cita-text'),
-          function(el) { return el.textContent.replace(/[“”"]/g, '').trim(); }
-        ).filter(Boolean);
-        var segs = texts.map(function(t) { return { text: speakNumbers(t), lang: detectLang(t), role: 'cita' }; });
+        var segs = [];
+        Array.prototype.forEach.call(card.querySelectorAll('.tl-mapa-floating-cita-text'), function(el) {
+          var t = el.textContent.replace(/[“”"]/g, '').trim();
+          if (!t) return;
+          var ci = parseInt(el.getAttribute('data-cita-idx'));
+          segs.push({ text: speakNumbers(t), lang: detectLang(t), role: 'cita', citaIdx: isNaN(ci) ? null : ci });
+        });
         if (segs.length) readClicked(segs);
         return !!segs.length;
       }
