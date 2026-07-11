@@ -3433,13 +3433,64 @@ body {
   background: var(--gold); color: #0d0d1a; border-color: var(--gold);
   box-shadow: 0 0 14px rgba(200,169,96,0.55);
 }
-/* ── Modo presentación: oculta la lista, expande el globo (pantalla completa) ── */
+/* ── Modo presentación: pantalla completa. La lista de eventos (izquierda) se
+   libera y ese espacio se usa como columna de lectura (descripción + citas),
+   con el globo a la derecha para que la ubicación NUNCA quede tapada. ── */
 .tl-mapa-view.presenta { background: #05070f; }
 .tl-mapa-view.presenta .tl-mapa-column { display: none !important; }
-.tl-mapa-view.presenta .tl-mapa-globe-wrap { flex: 1 1 auto; min-width: 0; }
-.tl-mapa-view.presenta .tl-mapa-loc { padding: 20px 34px !important; min-height: 84px; }
+.tl-mapa-view.presenta .tl-mapa-globe-wrap {
+  flex: 1 1 auto; min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(320px, 40%) 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "hdr   hdr"
+    "panel globe"
+    "nav   nav";
+}
+.tl-mapa-view.presenta .tl-mapa-loc      { grid-area: hdr;  padding: 20px 34px !important; min-height: 84px; }
+.tl-mapa-view.presenta .tl-mapa-globe    { grid-area: globe; }
+.tl-mapa-view.presenta .tl-mapa-nav-bar  { grid-area: nav; }
 .tl-mapa-view.presenta .tl-mapa-loc-year { font-size: 40px; }
 .tl-mapa-view.presenta .tl-mapa-loc-name { font-size: 30px; letter-spacing: 2px; }
+/* En presentación las citas viven en la columna izquierda, no flotan sobre el globo */
+.tl-mapa-view.presenta #tl-mapa-detalle,
+.tl-mapa-view.presenta #tl-mapa-citas-layer,
+.tl-mapa-view.presenta .tl-mapa-citas-toggle { display: none !important; }
+
+/* Columna de lectura (solo presentación) */
+.tl-mapa-present-panel { display: none; }
+.tl-mapa-view.presenta .tl-mapa-present-panel {
+  grid-area: panel;
+  display: block;
+  overflow-y: auto;
+  padding: 26px 30px 40px;
+  background: linear-gradient(180deg, rgba(20,15,10,0.96) 0%, rgba(12,9,6,0.98) 100%);
+  border-right: 1px solid rgba(200,169,96,0.16);
+}
+.tl-mapa-present-panel .tl-mapa-present-detalle {
+  font-family: 'Bodoni Moda', Didot, Georgia, serif;
+  font-size: 19px;
+  line-height: 1.55;
+  color: #f0e8d4;
+  font-weight: 400;
+  margin-bottom: 26px;
+}
+.tl-mapa-present-panel .tl-mapa-present-detalle .detalle-lead { font-weight: 700; color: #fdfcf3; }
+.tl-mapa-present-panel .tl-mapa-present-detalle::first-letter {
+  font-family: 'Bodoni Moda', serif; font-weight: 700; font-size: 2.6em;
+  float: left; line-height: 0.82; margin: 6px 8px -2px 0; color: #fdfcf3;
+}
+.tl-mapa-present-panel .tl-mapa-present-citas-head {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.18em;
+  text-transform: uppercase; color: #c8a960; opacity: 0.85;
+  margin: 4px 0 16px; padding-top: 18px; border-top: 1px solid rgba(200,169,96,0.16);
+}
+/* Reusa la tarjeta flotante de cita pero apilada verticalmente y estática */
+.tl-mapa-present-citas .tl-mapa-floating-cita {
+  position: static; opacity: 1; transform: none;
+  width: auto; max-width: 520px; margin: 0 0 18px;
+}
 .tl-mapa-view.presenta .tl-mapa-floating-detalle { font-size: 1.08em; }
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
@@ -14421,6 +14472,9 @@ body {
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--present" id="tl-mapa-present" aria-label="Modo presentación" title="Modo presentación (pantalla completa + narración)">⛶</button>' +
       '</div>' +
+      // Presentation-only reading column (left side). Populated by renderMapaDetail
+      // when container._tlmPresenting; hidden (display:none) in normal view.
+      '<div class="tl-mapa-present-panel" id="tl-mapa-present-panel"></div>' +
     '</div>';
   }
 
@@ -14594,6 +14648,26 @@ body {
     if (nG <= 2) citasLayerEl.classList.add('tl-citas-pair');
     else if (nG <= 4) citasLayerEl.classList.add('tl-citas-mid');
     else citasLayerEl.classList.add('tl-citas-many');
+
+    // Presentation mode: mirror the description + citas into the left reading
+    // column so the globe (right) is never covered. Reuses the exact card
+    // markup, so booklinks/PDF links keep working via the delegated handler.
+    var panelEl = container.querySelector('#tl-mapa-present-panel');
+    if (panelEl) {
+      if (container._tlmPresenting) {
+        var descHTML = ev.detalle
+          ? '<div class="tl-mapa-present-detalle">' + formatDetalleHTML(ev.detalle) + '</div>'
+          : '';
+        var citasHTML = cards
+          ? '<div class="tl-mapa-present-citas-head">Citas</div>' +
+            '<div class="tl-mapa-present-citas">' + cards + '</div>'
+          : '';
+        panelEl.innerHTML = descHTML + citasHTML;
+        panelEl.scrollTop = 0;
+      } else {
+        panelEl.innerHTML = '';
+      }
+    }
   }
 
   function initMapaGlobe(container, events, world, mxStates) {
@@ -15329,22 +15403,28 @@ body {
       if (presenting) return;
       stopPlay('present');
       presenting = true;
+      container._tlmPresenting = true;
       var view = container.querySelector('.tl-mapa-view');
       if (view) {
         view.classList.add('presenta');
         if (view.requestFullscreen) { try { view.requestFullscreen(); } catch(e) {} }
       }
       if (presentBtn) presentBtn.classList.add('active');
+      // Populate the left reading column for the current event.
+      renderMapaDetail(container, events[currentIdx]);
       narrateCurrent();
     }
     function stopPresent() {
       if (!presenting) return;
       presenting = false;
+      container._tlmPresenting = false;
       if ('speechSynthesis' in window) speechSynthesis.cancel();
       var view = container.querySelector('.tl-mapa-view');
       if (view) view.classList.remove('presenta');
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch(e) {} }
       if (presentBtn) presentBtn.classList.remove('active');
+      // Restore floating overlays (clears the left reading column).
+      renderMapaDetail(container, events[currentIdx]);
     }
     // Expose so selectIdx can narrate on every change while presenting.
     container._tlmNarrateIfPresenting = function() { if (presenting) narrateCurrent(); };
