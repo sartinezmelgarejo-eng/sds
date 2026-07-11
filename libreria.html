@@ -3428,6 +3428,19 @@ body {
   0%, 100% { box-shadow: 0 0 14px rgba(111,201,163,0.55); }
   50% { box-shadow: 0 0 22px rgba(111,201,163,0.85); }
 }
+.tl-mapa-nav--present { font-size: 15px; margin-left: 8px; }
+.tl-mapa-nav--present.active {
+  background: var(--gold); color: #0d0d1a; border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(200,169,96,0.55);
+}
+/* ── Modo presentación: oculta la lista, expande el globo (pantalla completa) ── */
+.tl-mapa-view.presenta { background: #05070f; }
+.tl-mapa-view.presenta .tl-mapa-column { display: none !important; }
+.tl-mapa-view.presenta .tl-mapa-globe-wrap { flex: 1 1 auto; min-width: 0; }
+.tl-mapa-view.presenta .tl-mapa-loc { padding: 20px 34px !important; min-height: 84px; }
+.tl-mapa-view.presenta .tl-mapa-loc-year { font-size: 40px; }
+.tl-mapa-view.presenta .tl-mapa-loc-name { font-size: 30px; letter-spacing: 2px; }
+.tl-mapa-view.presenta .tl-mapa-floating-detalle { font-size: 1.08em; }
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -14406,6 +14419,7 @@ body {
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir línea de tiempo">▶</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--present" id="tl-mapa-present" aria-label="Modo presentación" title="Modo presentación (pantalla completa + narración)">⛶</button>' +
       '</div>' +
     '</div>';
   }
@@ -15172,6 +15186,8 @@ body {
       // (text/detalle/citas) stayed stale, because autoplay/marker call selectIdx
       // directly, bypassing the old container._tlMapaSelect wrappers.
       if (container._tlmOnSelect) { try { container._tlmOnSelect(idx); } catch(e) {} }
+      // Narración en modo presentación (voz del navegador).
+      if (container._tlmNarrateIfPresenting) { try { container._tlmNarrateIfPresenting(); } catch(e) {} }
     }
     // Expose selectIdx so the click handler wired in renderTimelineMapaView can call it
     container._tlMapaSelect = selectIdx;
@@ -15209,6 +15225,7 @@ body {
     var nextBtn = container.querySelector('#tl-mapa-next');
     var playBtn = container.querySelector('#tl-mapa-play');
     var worldBtn = container.querySelector('#tl-mapa-world');
+    var presentBtn = container.querySelector('#tl-mapa-present');
 
     // ── Auto-play: advance after a reading-time-based delay ──
     // Base 2.5s + 15ms per char of (text + detalle + citas), capped at 9s.
@@ -15268,6 +15285,73 @@ body {
     });
     // Expose stop so any external interaction can pause autoplay
     container._tlMapaStopPlay = stopPlay;
+
+    // ── Modo presentación: pantalla completa + narración (voz del navegador) ──
+    var presenting = false;
+    function pickVoice() {
+      var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+      var es = vs.filter(function(v) { return /^es/i.test(v.lang || ''); });
+      if (!es.length) return null;
+      var pref = ['mónica','monica','paulina','siri','enhanced','premium','neural','google español'];
+      for (var p = 0; p < pref.length; p++) {
+        var m = es.find(function(v) { return v.name.toLowerCase().indexOf(pref[p]) >= 0; });
+        if (m) return m;
+      }
+      var mx = es.find(function(v) { return /mx|mex/i.test(v.lang); });
+      return mx || es[0];
+    }
+    function speakYear(yr) {
+      var s = String(yr || '');
+      if (/^-\d/.test(s)) return s.replace('-', '') + ' antes de Cristo';
+      return s.replace(/\ba\.?\s*c\.?/i, 'antes de Cristo');
+    }
+    function narrateCurrent() {
+      if (!presenting || !('speechSynthesis' in window)) return;
+      var ev = events[currentIdx]; if (!ev) return;
+      speechSynthesis.cancel();
+      var parts = ['Año ' + speakYear(ev.year) + '.'];
+      if (ev.text) parts.push(ev.text + '.');
+      if (ev.detalle) parts.push(ev.detalle);
+      var c = ev.citas && ev.citas[0];
+      if (c && c.texto) parts.push('Cita: ' + c.texto);
+      var u = new SpeechSynthesisUtterance(parts.join(' '));
+      u.rate = 0.97; u.pitch = 1; u.lang = 'es-MX';
+      var v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
+      u.onend = function() {
+        if (!presenting) return;
+        if (currentIdx < events.length - 1) selectIdx(currentIdx + 1); // dispara narrateCurrent otra vez
+        else stopPresent();
+      };
+      u.onerror = function() { if (presenting && currentIdx < events.length - 1) setTimeout(function() { if (presenting) selectIdx(currentIdx + 1); }, 500); };
+      speechSynthesis.speak(u);
+    }
+    function startPresent() {
+      if (presenting) return;
+      stopPlay('present');
+      presenting = true;
+      var view = container.querySelector('.tl-mapa-view');
+      if (view) {
+        view.classList.add('presenta');
+        if (view.requestFullscreen) { try { view.requestFullscreen(); } catch(e) {} }
+      }
+      if (presentBtn) presentBtn.classList.add('active');
+      narrateCurrent();
+    }
+    function stopPresent() {
+      if (!presenting) return;
+      presenting = false;
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      var view = container.querySelector('.tl-mapa-view');
+      if (view) view.classList.remove('presenta');
+      if (document.fullscreenElement) { try { document.exitFullscreen(); } catch(e) {} }
+      if (presentBtn) presentBtn.classList.remove('active');
+    }
+    // Expose so selectIdx can narrate on every change while presenting.
+    container._tlmNarrateIfPresenting = function() { if (presenting) narrateCurrent(); };
+    if (presentBtn) presentBtn.addEventListener('click', function() { if (presenting) stopPresent(); else startPresent(); });
+    document.addEventListener('fullscreenchange', function() { if (!document.fullscreenElement && presenting) stopPresent(); });
+    // Prime la lista de voces (carga async en algunos navegadores).
+    if ('speechSynthesis' in window) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = function(){}; } catch(e) {} }
 
     if (prevBtn) prevBtn.addEventListener('click', function() { stopPlay('nav'); selectIdx(currentIdx - 1); });
     if (nextBtn) nextBtn.addEventListener('click', function() { stopPlay('nav'); selectIdx(currentIdx + 1); });
