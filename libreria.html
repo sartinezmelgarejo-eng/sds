@@ -3428,6 +3428,8 @@ body {
   0%, 100% { box-shadow: 0 0 14px rgba(111,201,163,0.55); }
   50% { box-shadow: 0 0 22px rgba(111,201,163,0.85); }
 }
+.tl-mapa-nav--mute { font-size: 13px; }
+.tl-mapa-nav--mute.muted { opacity: 0.55; }
 .tl-mapa-nav--present { font-size: 15px; margin-left: 8px; }
 .tl-mapa-nav--present.active {
   background: var(--gold); color: #0d0d1a; border-color: var(--gold);
@@ -14423,7 +14425,8 @@ body {
         '<button class="tl-mapa-nav" id="tl-mapa-prev" aria-label="Anterior">‹</button>' +
         '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
-        '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir línea de tiempo">▶</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir con voz (narra y avanza)">▶</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--mute" id="tl-mapa-mute" aria-label="Silenciar voz" title="Silenciar la voz">🔊</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--present" id="tl-mapa-present" aria-label="Modo presentación" title="Modo presentación (pantalla completa + narración)">⛶</button>' +
       '</div>' +
@@ -15192,8 +15195,6 @@ body {
       // (text/detalle/citas) stayed stale, because autoplay/marker call selectIdx
       // directly, bypassing the old container._tlMapaSelect wrappers.
       if (container._tlmOnSelect) { try { container._tlmOnSelect(idx); } catch(e) {} }
-      // Narración en modo presentación (voz del navegador).
-      if (container._tlmNarrateIfPresenting) { try { container._tlmNarrateIfPresenting(); } catch(e) {} }
     }
     // Expose selectIdx so the click handler wired in renderTimelineMapaView can call it
     container._tlMapaSelect = selectIdx;
@@ -15264,14 +15265,21 @@ body {
     var worldBtn = container.querySelector('#tl-mapa-world');
     var presentBtn = container.querySelector('#tl-mapa-present');
 
-    // ── Auto-play: advance after a reading-time-based delay ──
-    // Base 2.5s + 15ms per char of (text + detalle + citas), capped at 9s.
-    // Approx Spanish reading speed (~65 chars/s) with a sane upper limit.
+    // ── Play = narración con voz (o, si está en mute, avance por tiempo) ──
+    // Play y voz son la MISMA función: al reproducir se narra cada evento y se
+    // avanza cuando la voz termina; en mute se avanza por tiempo de lectura.
+    // Base 2.5s + 15ms por char (text+detalle+citas), tope 9s, para el modo mute.
     var PLAY_BASE_MS = 2500;
     var PLAY_PER_CHAR_MS = 15;
     var PLAY_MAX_MS = 9000;
     var playTimer = null;
     var isPlaying = false;
+    var muted = false;
+    var narrationSeq = 0;     // bumped on every (re)narration; stale utterance callbacks ignored
+    var narrateTimer = null;
+    try { muted = localStorage.getItem('tlMapaMuted') === 'on'; } catch(e) {}
+    var muteBtn = container.querySelector('#tl-mapa-mute');
+    function voiceAvailable() { return !muted && ('speechSynthesis' in window); }
     function readingTimeForEvent(ev) {
       if (!ev) return PLAY_BASE_MS;
       var chars = (ev.text || '').length + (ev.detalle || '').length;
@@ -15282,51 +15290,75 @@ body {
       }
       return Math.min(PLAY_MAX_MS, PLAY_BASE_MS + chars * PLAY_PER_CHAR_MS);
     }
-    function stopPlay(reason) {
-      if (!isPlaying) return;
-      isPlaying = false;
-      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
-      if (playBtn) {
-        playBtn.textContent = '▶';
-        playBtn.classList.remove('playing');
-        playBtn.setAttribute('aria-label', 'Reproducir');
-        playBtn.title = 'Reproducir línea de tiempo';
-      }
+    function updatePlayBtn() {
+      if (!playBtn) return;
+      playBtn.textContent = isPlaying ? '⏸' : '▶';
+      playBtn.classList.toggle('playing', isPlaying);
+      playBtn.setAttribute('aria-label', isPlaying ? 'Pausar' : 'Reproducir');
+      playBtn.title = isPlaying ? 'Pausar' : 'Reproducir con voz (narra y avanza)';
     }
-    function scheduleNext() {
-      if (playTimer) clearTimeout(playTimer);
-      var ev = events[currentIdx];
-      var ms = readingTimeForEvent(ev);
-      playTimer = setTimeout(function() {
+    function updateMuteBtn() {
+      if (!muteBtn) return;
+      muteBtn.textContent = muted ? '🔇' : '🔊';
+      muteBtn.classList.toggle('muted', muted);
+      muteBtn.setAttribute('aria-label', muted ? 'Activar voz' : 'Silenciar voz');
+      muteBtn.title = muted ? 'Activar la voz' : 'Silenciar la voz';
+    }
+    // Narrate/time the CURRENT event, then advance to the next while playing.
+    function playStep() {
+      if (!isPlaying) return;
+      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+      function advance() {
         if (!isPlaying) return;
         if (currentIdx >= events.length - 1) { stopPlay('end'); return; }
         selectIdx(currentIdx + 1);
-        scheduleNext();
-      }, ms);
+        playStep();
+      }
+      if (voiceAvailable()) {
+        narrateCurrent(advance);          // advances when the voice finishes
+      } else {
+        playTimer = setTimeout(advance, readingTimeForEvent(events[currentIdx]));
+      }
+    }
+    function stopPlay(reason) {
+      if (!isPlaying) return;
+      isPlaying = false;
+      narrationSeq++;   // invalidate any in-flight utterance callback
+      if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+      if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
+      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      updatePlayBtn();
     }
     function startPlay() {
       if (isPlaying) return;
       isPlaying = true;
-      if (playBtn) {
-        playBtn.textContent = '⏸';
-        playBtn.classList.add('playing');
-        playBtn.setAttribute('aria-label', 'Pausar');
-        playBtn.title = 'Pausar';
-      }
-      // If at end, restart from beginning
-      if (currentIdx >= events.length - 1) selectIdx(0);
-      scheduleNext();
+      updatePlayBtn();
+      if (currentIdx >= events.length - 1) selectIdx(0); // restart from the top
+      playStep();
     }
     if (playBtn) playBtn.addEventListener('click', function() {
       if (isPlaying) stopPlay('user'); else startPlay();
     });
+    updateMuteBtn();
+    if (muteBtn) muteBtn.addEventListener('click', function() {
+      muted = !muted;
+      try { localStorage.setItem('tlMapaMuted', muted ? 'on' : 'off'); } catch(e) {}
+      updateMuteBtn();
+      // If playing, restart the step loop from the current event under the new
+      // mode (voice ↔ silent timer) without moving position.
+      if (isPlaying) {
+        narrationSeq++;
+        if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+        if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
+        if ('speechSynthesis' in window) speechSynthesis.cancel();
+        playStep();
+      }
+    });
     // Expose stop so any external interaction can pause autoplay
     container._tlMapaStopPlay = stopPlay;
 
-    // ── Modo presentación: pantalla completa + narración (voz del navegador) ──
+    // ── Modo pantalla completa (solo visual; la voz la controla el Play) ──
     var presenting = false;
-    var narrationSeq = 0;     // bumped on every (re)narration; stale utterance callbacks are ignored
-    var narrateTimer = null;  // debounce so rapid arrow presses don't churn the speech engine
     function voiceFor(langPrefix) {
       var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
       var re = new RegExp('^' + langPrefix, 'i');
@@ -15370,13 +15402,13 @@ body {
         // space/nbsp thousands: 4 000 / 13 800 → 4000 / 13800
         .replace(/\d{1,3}(?:[  ]\d{3})+(?!\d)/g, function(m) { return m.replace(/[  ]/g, ''); });
     }
-    function narrateCurrent() {
-      if (!presenting || !('speechSynthesis' in window)) return;
-      var ev = events[currentIdx]; if (!ev) return;
-      // Bump the token FIRST, then cancel. The cancelled (older) utterance
-      // fires its onend/onerror, but those callbacks captured an older mySeq,
-      // so the guard below makes them no-ops — this is what stops the
-      // "cancel → onend → advance again" cascade that trabás + glitched the voice.
+    // Narrate the current event. Calls onDone() once the last segment ends
+    // (used by the play loop to advance). A newer narration (or stopPlay/mute)
+    // bumps narrationSeq, invalidating this one's callbacks — that's what stops
+    // the "cancel → onend → advance again" cascade that glitched the voice.
+    function narrateCurrent(onDone) {
+      if (!('speechSynthesis' in window)) { if (onDone) onDone(); return; }
+      var ev = events[currentIdx]; if (!ev) { if (onDone) onDone(); return; }
       var mySeq = ++narrationSeq;
       speechSynthesis.cancel();
 
@@ -15405,34 +15437,28 @@ body {
 
       var si = 0;
       function speakSeg() {
-        if (!presenting || mySeq !== narrationSeq) return; // stale/cancelled → stop
-        if (si >= segs.length) {
-          // Finished all segments for this event → advance the show.
-          if (currentIdx < events.length - 1) selectIdx(currentIdx + 1);
-          else stopPresent();
-          return;
-        }
+        if (mySeq !== narrationSeq) return; // superseded/cancelled → stop
+        if (si >= segs.length) { if (onDone) onDone(); return; } // done → advance
         var seg = segs[si++];
         var u = new SpeechSynthesisUtterance(seg.text);
         u.rate = 0.97; u.pitch = 1;
         var v = voiceFor(seg.lang);
         if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
-        u.onend = function() { if (presenting && mySeq === narrationSeq) speakSeg(); };
+        u.onend = function() { if (mySeq === narrationSeq) speakSeg(); };
         u.onerror = function() {
           // Ignore stale interruptions; on a genuine failure keep going.
-          if (presenting && mySeq === narrationSeq) setTimeout(function() {
-            if (presenting && mySeq === narrationSeq) speakSeg();
+          if (mySeq === narrationSeq) setTimeout(function() {
+            if (mySeq === narrationSeq) speakSeg();
           }, 300);
         };
         speechSynthesis.speak(u);
       }
       // Some engines choke if speak() lands in the same tick as cancel().
-      setTimeout(function() { if (presenting && mySeq === narrationSeq) speakSeg(); }, 60);
+      setTimeout(function() { if (mySeq === narrationSeq) speakSeg(); }, 60);
     }
     function startPresent() {
       if (presenting) return;
-      stopPlay('present');
-      presenting = true;
+      presenting = true;   // solo visual: NO detiene el play ni la voz
       var view = container.querySelector('.tl-mapa-view');
       if (view) {
         view.classList.add('presenta');
@@ -15446,14 +15472,10 @@ body {
         requestAnimationFrame(function(){ container._tlMapaResize(); });
         setTimeout(function(){ if (container._tlMapaResize) container._tlMapaResize(); }, 250);
       }
-      narrateCurrent();
     }
     function stopPresent() {
       if (!presenting) return;
-      presenting = false;
-      narrationSeq++;  // invalidate any pending utterance callbacks
-      if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
-      if ('speechSynthesis' in window) speechSynthesis.cancel();
+      presenting = false;   // solo sale de pantalla completa; el play/voz sigue
       var view = container.querySelector('.tl-mapa-view');
       if (view) view.classList.remove('presenta');
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch(e) {} }
@@ -15464,15 +15486,6 @@ body {
         setTimeout(function(){ if (container._tlMapaResize) container._tlMapaResize(); }, 250);
       }
     }
-    // Expose so selectIdx can narrate on every change while presenting.
-    // Debounced: when the user spams arrows, only the event they land on gets
-    // narrated, instead of firing (and cancelling) a full utterance per press.
-    container._tlmNarrateIfPresenting = function() {
-      if (!presenting) return;
-      narrationSeq++;  // invalidate any in-flight utterance immediately (stops its onend advance)
-      if (narrateTimer) clearTimeout(narrateTimer);
-      narrateTimer = setTimeout(function() { narrateTimer = null; narrateCurrent(); }, 220);
-    };
     if (presentBtn) presentBtn.addEventListener('click', function() { if (presenting) stopPresent(); else startPresent(); });
     document.addEventListener('fullscreenchange', function() { if (!document.fullscreenElement && presenting) stopPresent(); });
     // Prime la lista de voces (carga async en algunos navegadores).
