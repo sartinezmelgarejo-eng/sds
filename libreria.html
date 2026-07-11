@@ -15627,9 +15627,31 @@ body {
     // Collapse thousands separators so the voice reads "3,000" as "tres mil"
     // instead of digit-by-digit ("tres cero cero cero"). Matches groups of 3
     // digits joined by , or . — leaves decimals like 3.14 and "p. 246" alone.
-    function speakNumbers(s) {
+    function romanToInt(r) {
+      var map = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 }, n = 0, prev = 0;
+      for (var i = r.length - 1; i >= 0; i--) {
+        var v = map[r.charAt(i)]; if (!v) return null;
+        if (v < prev) n -= v; else { n += v; prev = v; }
+      }
+      return n;
+    }
+    // "siglo XVI" → "siglo 16" (el motor lo lee 'dieciséis' en vez de deletrear
+    // X-V-I). Solo tras "siglo(s)" y con romanos en MAYÚSCULA, para no tocar
+    // letras sueltas (ej. "hepatitis C"). Cubre rangos "siglos XVI a XVIII".
+    function speakRomans(s) {
       if (!s) return s;
       return String(s)
+        .replace(/\b([Ss]iglos?)\s+([IVXLCDM]+)\s*([–\-]|al?|y)\s*([IVXLCDM]+)\b/g, function(m, w, r1, sep, r2) {
+          var a = romanToInt(r1), b = romanToInt(r2);
+          return (a && b) ? (w + ' ' + a + ' ' + (/[–\-]/.test(sep) ? 'al' : sep) + ' ' + b) : m;
+        })
+        .replace(/\b([Ss]iglos?)\s+([IVXLCDM]+)\b/g, function(m, w, r) {
+          var n = romanToInt(r); return n ? (w + ' ' + n) : m;
+        });
+    }
+    function speakNumbers(s) {
+      if (!s) return s;
+      return speakRomans(String(s))
         // "AMLO" en mayúsculas el motor lo deletrea (A-M-L-O); como "Amlo" lo lee palabra.
         .replace(/\bAMLO\b/g, 'Amlo')
         // comma/period thousands: 3,000 / 1.234.567 → 3000 / 1234567
