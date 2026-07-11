@@ -3456,6 +3456,7 @@ body {
   border: 1px solid rgba(200,169,96,0.3); border-radius: 6px;
   padding: 5px 7px; font-size: 12px; font-family: inherit;
 }
+.tl-mapa-voices-panel .tlvp-detected { font-size: 11px; color: #c8a960; margin: 2px 0 8px; line-height: 1.35; }
 .tl-mapa-voices-panel .tlvp-hint { font-size: 11px; color: #93856a; margin: 4px 0 12px; line-height: 1.35; }
 .tl-mapa-voices-panel .tlvp-close {
   width: 100%; padding: 7px; border-radius: 6px; cursor: pointer;
@@ -14479,7 +14480,8 @@ body {
         '<label>Evento<select data-role="evento"></select></label>' +
         '<label>Descripción<select data-role="descripcion"></select></label>' +
         '<label>Cita<select data-role="cita"></select></label>' +
-        '<div class="tlvp-hint">Solo aparecen las voces instaladas. Para más (ej. Carlos de Colombia o versiones Mejoradas/Premium), descárgalas en Ajustes del sistema → Contenido hablado → Gestionar voces.</div>' +
+        '<div class="tlvp-detected" id="tl-mapa-voices-detected"></div>' +
+        '<div class="tlvp-hint">Solo aparecen las voces instaladas en este equipo. Para más países (ej. Carlos de Colombia) o versiones Mejoradas/Premium, descárgalas en Ajustes del sistema → Accesibilidad → Contenido hablado → Gestionar voces, y recarga.</div>' +
         '<button class="tlvp-close" id="tl-mapa-voices-close">Cerrar</button>' +
       '</div>' +
     '</div>';
@@ -15641,6 +15643,20 @@ body {
         .sort(function(a, b) { return langLabel(a.lang).localeCompare(langLabel(b.lang)) || a.name.localeCompare(b.name); });
       var en = vs.filter(function(v) { return /^en/i.test(v.lang || ''); })
         .sort(function(a, b) { return a.name.localeCompare(b.name); });
+      // Show which Spanish variants this device actually exposes (answers
+      // "why don't more show up?" — the browser only lists installed voices).
+      var det = container.querySelector('#tl-mapa-voices-detected');
+      if (det) {
+        var regions = [];
+        es.forEach(function(v) {
+          var l = langLabel(v.lang), m = l.match(/\(([^)]+)\)/);
+          var r = m ? m[1] : l;
+          if (regions.indexOf(r) < 0) regions.push(r);
+        });
+        det.textContent = es.length
+          ? ('Voces en español en este equipo: ' + es.length + ' — ' + regions.join(', '))
+          : 'Este equipo no tiene voces en español instaladas.';
+      }
       voicesPanel.querySelectorAll('select[data-role]').forEach(function(sel) {
         var role = sel.getAttribute('data-role');
         var cur = roleVoices[role] || '';
