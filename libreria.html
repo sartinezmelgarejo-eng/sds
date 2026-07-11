@@ -14774,8 +14774,9 @@ body {
       .attr('class', function(d){ return 'pin ' + d.ev.scope; })
       .attr('transform', pinTransform)
       .on('click', function(_, d) {
-        if (container._tlMapaStopPlay) container._tlMapaStopPlay('pin');
-        selectIdx(d.ev._idx);
+        // Clicking a pin jumps to that event; if playing, keep playing and move
+        // the voice there (same as clicking an event in the timeline list).
+        navTo(d.ev._idx);
       });
     // Invisible hit area — generous radius so taps/clicks land easily.
     pins.append('circle').attr('class','pin-hit').attr('cx',0).attr('cy', BALL_CY).attr('r', HIT_R);
@@ -15250,8 +15251,11 @@ body {
       // directly, bypassing the old container._tlMapaSelect wrappers.
       if (container._tlmOnSelect) { try { container._tlmOnSelect(idx); } catch(e) {} }
     }
-    // Expose selectIdx so the click handler wired in renderTimelineMapaView can call it
-    container._tlMapaSelect = selectIdx;
+    // Expose navTo (not raw selectIdx) so clicking an event in the timeline
+    // list / era pills KEEPS the play walkthrough going and jumps the voice to
+    // the clicked event (pausing the previous event's audio). navTo is a hoisted
+    // function declaration, so it's available here.
+    container._tlMapaSelect = navTo;
 
     // ── Re-fit the globe to its container whenever the size changes ──
     // (entering/leaving fullscreen presentation, window resize, tablet
@@ -15512,10 +15516,23 @@ body {
       var es = (low.match(/ (de|la|el|que|los|las|un|una|por|con|para|del|se|su|como|pero|no|es|en|lo|al|una|son) /g) || []).length;
       return en > es ? 'en' : 'es';
     }
+    var MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+    // Devuelve la fecha ya hablada, con prefijo. Fechas ISO se leen naturales:
+    // "1915-01-22" → "El 22 de enero de 1915"; "1915-01" → "Enero de 1915".
     function speakYear(yr) {
-      var s = String(yr || '');
-      if (/^-\d/.test(s)) return s.replace('-', '') + ' antes de Cristo';
-      return s.replace(/\ba\.?\s*c\.?/i, 'antes de Cristo');
+      var s = String(yr || '').trim();
+      var md = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (md) {
+        var d = parseInt(md[3], 10);
+        return 'El ' + (d === 1 ? 'primero' : d) + ' de ' + (MESES[parseInt(md[2], 10) - 1] || '') + ' de ' + md[1];
+      }
+      var ym = s.match(/^(\d{4})-(\d{2})$/);
+      if (ym) {
+        var mn = MESES[parseInt(ym[2], 10) - 1] || '';
+        return (mn ? mn.charAt(0).toUpperCase() + mn.slice(1) : '') + ' de ' + ym[1];
+      }
+      if (/^-\d/.test(s)) return 'Año ' + s.replace('-', '') + ' antes de Cristo';
+      return 'Año ' + s.replace(/\ba\.?\s*c\.?/i, 'antes de Cristo');
     }
     // Collapse thousands separators so the voice reads "3,000" as "tres mil"
     // instead of digit-by-digit ("tres cero cero cero"). Matches groups of 3
@@ -15563,7 +15580,7 @@ body {
     // own voice: fecha (año), evento (texto), descripcion (detalle), cita
     // (atribución + texto, la cita en su idioma detectado).
     function eventSegments(ev) {
-      var segs = [{ text: speakNumbers('Año ' + speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
+      var segs = [{ text: speakNumbers(speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
       if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: 'es', role: 'evento' });
       if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: 'es', role: 'descripcion' });
       var c = ev.citas && ev.citas[0];
