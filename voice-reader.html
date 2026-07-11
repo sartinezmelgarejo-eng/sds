@@ -3,191 +3,163 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Voice Reader — pick a system voice</title>
+<title>Reader — Centro Fox</title>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:#0a0a0f; color:#d4d4d4; line-height:1.6; padding:28px 18px; }
-  .wrap { max-width:820px; margin:0 auto; }
-  h1 { font-family:'Cormorant Garamond',Georgia,serif; color:#c8a960; font-size:28px; font-weight:400; margin-bottom:4px; }
-  .sub { color:#888; font-size:13px; margin-bottom:22px; border-bottom:1px solid #222; padding-bottom:16px; }
-  label { display:block; color:#e0d5b8; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin:16px 0 6px; }
-  select, textarea, input[type=text] { width:100%; background:#111118; border:1px solid #2a2a36; color:#e8e0cc; border-radius:8px; padding:11px 12px; font-size:14px; font-family:inherit; }
-  select:focus, textarea:focus { outline:none; border-color:#c8a960; }
-  select { height:auto; }
-  optgroup { color:#c8a960; font-style:normal; font-weight:700; }
-  option { color:#d4d4d4; padding:4px; }
-  .row { display:flex; gap:16px; flex-wrap:wrap; }
-  .row > div { flex:1; min-width:180px; }
-  .sliders { display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; }
-  .sliders > div { flex:1; min-width:150px; }
-  input[type=range] { width:100%; accent-color:#c8a960; }
-  .valbadge { color:#c8a960; font-weight:700; font-size:13px; }
-  .btns { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
-  button { background:#c8a960; color:#0a0a0f; border:none; border-radius:8px; padding:12px 18px; font-size:14px; font-weight:700; cursor:pointer; transition:.15s; }
-  button:hover { background:#e0c987; }
-  button.ghost { background:#181820; color:#e0d5b8; border:1px solid #333; }
-  button.ghost:hover { background:#222; }
-  button:disabled { opacity:.4; cursor:not-allowed; }
-  .meta { color:#666; font-size:12px; margin-top:6px; }
-  .article { margin-top:26px; background:#0d0d14; border:1px solid #1a1a24; border-radius:10px; padding:20px; max-height:46vh; overflow-y:auto; }
-  .article h2 { color:#c8a960; font-size:16px; font-weight:600; margin-bottom:12px; font-family:'Cormorant Garamond',Georgia,serif; }
-  .article p { font-size:14.5px; margin-bottom:12px; color:#bbb; transition:.2s; padding:4px 8px; border-radius:6px; }
-  .article p.reading { background:rgba(200,169,96,.14); color:#f2e8cf; }
-  .tip { background:rgba(200,169,96,.06); border:1px solid rgba(200,169,96,.2); border-radius:8px; padding:12px 15px; font-size:12.5px; color:#bbb; margin-top:16px; }
-  .tip b { color:#e0d5b8; }
-  .count { color:#c8a960; font-weight:700; }
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--gold:#c8a960;--bg:#0a0a0f;--panel:#0d0d14;--line:#1e1e28;--en:#eae3d0;--es:#b9c2cc}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:#d4d4d4;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  /* top bar */
+  .bar{display:flex;align-items:center;gap:14px;padding:10px 16px;background:#0d0d14;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .bar h1{font-family:'Cormorant Garamond',Georgia,serif;color:var(--gold);font-size:17px;font-weight:500;margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38vw}
+  .ctl{display:flex;align-items:center;gap:6px}
+  .ctl label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#7a7a86;font-weight:700}
+  select{background:#12121a;border:1px solid #2a2a36;color:#e8e0cc;border-radius:7px;padding:7px 9px;font-size:13px;font-family:inherit;max-width:190px}
+  select:focus{outline:none;border-color:var(--gold)}
+  input[type=range]{width:96px;accent-color:var(--gold);vertical-align:middle}
+  .rateval{color:var(--gold);font-weight:700;font-size:12px;min-width:30px;display:inline-block}
+  button{background:var(--gold);color:#0a0a0f;border:none;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+  button:hover{background:#e0c987}
+  button.ghost{background:#16161e;color:#e0d5b8;border:1px solid #333}
+  button.ghost:hover{background:#22222c}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .seg{display:flex;border:1px solid #2a2a36;border-radius:7px;overflow:hidden}
+  .seg button{background:#12121a;color:#9a9aa6;border:none;border-radius:0;padding:8px 12px;font-size:12px;font-weight:600}
+  .seg button.on{background:var(--gold);color:#0a0a0f}
+  /* columns */
+  .cols{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;overflow:hidden}
+  .col{overflow-y:auto;padding:22px 26px 40vh}
+  .col.en{border-right:1px solid var(--line)}
+  .col.es{background:#0b0b11}
+  .chead{position:sticky;top:0;background:linear-gradient(#0a0a0f,#0a0a0fdd 70%,#0a0a0f00);padding-bottom:10px;margin-bottom:8px;z-index:2}
+  .col.es .chead{background:linear-gradient(#0b0b11,#0b0b11dd 70%,#0b0b1100)}
+  .flag{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#6a6a76}
+  .ttl{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;line-height:1.25;margin-top:3px}
+  .col.en .ttl{color:var(--gold)}
+  .col.es .ttl{color:#9db0c2}
+  .byl{font-size:11px;color:#666;margin-top:5px}
+  p.para{font-size:15.5px;line-height:1.68;margin:0 0 4px;padding:9px 12px;border-radius:8px;transition:background .25s,color .25s;cursor:pointer}
+  .col.en p.para{color:var(--en)}
+  .col.es p.para{color:var(--es);font-size:15px}
+  p.para.on{background:rgba(200,169,96,.15)}
+  .col.en p.para.on{color:#fff}
+  .col.es p.para.on{background:rgba(120,160,200,.16);color:#e6eef7}
+  p.para.empty{min-height:8px;padding:0;margin:0}
+  /* single-column (es hidden) */
+  body.solo .cols{grid-template-columns:1fr}
+  body.solo .col.es{display:none}
+  @media(max-width:640px){
+    .bar h1{max-width:100%;order:-1;width:100%}
+    .cols{grid-template-columns:1fr}
+    .col.es{display:none}
+    body.split .cols{grid-template-columns:1fr}
+  }
 </style>
 </head>
-<body>
-<div class="wrap">
-  <h1>Voice Reader</h1>
-  <p class="sub">Reads the article using <b>your device's own voices</b> — including Premium/Enhanced ones the terminal can't reach. Works best in Safari on your Mac.</p>
-
-  <label>Voice <span class="count" id="vcount"></span></label>
-  <select id="voice"></select>
-  <div class="meta" id="vmeta"></div>
-
-  <div class="sliders">
-    <div>
-      <label>Rate <span class="valbadge" id="rateVal">1.0</span></label>
-      <input type="range" id="rate" min="0.5" max="1.6" step="0.05" value="1">
-    </div>
-    <div>
-      <label>Pitch <span class="valbadge" id="pitchVal">1.0</span></label>
-      <input type="range" id="pitch" min="0.5" max="1.6" step="0.05" value="1">
-    </div>
+<body class="split">
+<div class="bar">
+  <h1 id="doctitle"></h1>
+  <div class="ctl"><label>EN&nbsp;voice</label><select id="envoice"></select></div>
+  <div class="ctl"><label>ES&nbsp;voice</label><select id="esvoice"></select></div>
+  <div class="ctl"><label>Speed</label><input type="range" id="rate" min="0.6" max="1.5" step="0.05" value="1"><span class="rateval" id="rateval">1.0</span></div>
+  <div class="seg" id="mode">
+    <button data-m="en" class="on">English only</button>
+    <button data-m="bi">EN → ES</button>
   </div>
-
-  <div class="btns">
-    <button id="preview" class="ghost">▶ Preview voice</button>
-    <button id="play">▶ Read article</button>
-    <button id="pause" class="ghost" disabled>⏸ Pause</button>
-    <button id="stop" class="ghost" disabled>⏹ Stop</button>
+  <div class="seg" id="view">
+    <button data-v="split" class="on">Side by side</button>
+    <button data-v="solo">English only view</button>
   </div>
-
-  <label style="margin-top:22px">Text to read (edit or paste your own)</label>
-  <textarea id="text" rows="4"></textarea>
-
-  <div class="article" id="article"></div>
-
-  <div class="tip"><b>Want the most realistic voices?</b> System Settings → Accessibility → Spoken Content → System Voice → <b>Manage Voices</b> → download e.g. <b>Ava (Premium)</b> or <b>Evan (Enhanced)</b>. They'll appear in the list above after downloading. Voices marked <b>(local)</b> run offline; others may need internet.</div>
+  <button id="play">▶ Play</button>
+  <button id="pause" class="ghost" disabled>⏸</button>
+  <button id="stop" class="ghost" disabled>⏹</button>
+</div>
+<div class="cols">
+  <div class="col en" id="colEn"></div>
+  <div class="col es" id="colEs"></div>
 </div>
 
 <script>
-const DATA = {"title": "Centro Fox, a Little Gift from the Elites Thanks to Tax Favors, Will Become a Catholic School", "paragraphs": ["This article by the SinEmbargo editorial staff originally appeared in the July 10, 2026 edition of SinEmbargo, a Mexican digital news outlet.", "Former President Vicente Fox Quesada has partnered, for the next hundred years, with the Catholic congregation Sisters of Charity of the Incarnate Word to venture into the education business and replace the Centro Fox—a complex built on his ranch with money from Mexico's magnates that used to host parties—with the University of the Incarnate Word, which will offer continuing-education programs with a business vision and even spiritual retreats.", "The University of the Incarnate Word, whose Spanish translation is Universidad de Verbo Encarnado—precisely because it belongs to the Catholic congregation Sisters of Charity of the Incarnate Word—reported that this Thursday, July 9, it inaugurated its new campus at the San Cristóbal ranch in San Francisco del Rincón, Guanajuato, owned by Fox Quesada and where he lives with his wife Marta Sahagún.", "Through a 100-year comodato contract (a free-of-charge loan-for-use agreement), the new León Metropolitan Zone campus of the Universidad de Verbo Encarnado will carry out its activities in what were the facilities of the Centro Fox, to offer its services in accordance with its mission, the institution reported.", "Fox and his wife took part in the inauguration ceremony, as well as educational authorities from Guanajuato and from this private, Catholic, and non-profit university that, it claims, promotes projects with an exclusively academic, educational, and training purpose.", "\"From this new campus, continuing-education programs, executive training, and senior-management development projects will be offered, aimed at individuals, companies, and institutions in the region. It will also be a space for international exchange, innovation, business networking, camps, professional and spiritual retreats, as well as for the development of academic projects with international reach,\" the university reported in a statement.", "Taking part in the inauguration were Sister Leticia de Jesús Ramírez Rodríguez, superior general of the Sisters of Charity of the Incarnate Word; Thomas M. Evans, president of the University of the Incarnate Word; Luis Ignacio Sánchez Gómez, Secretary of Education of the State of Guanajuato; Alejandro Antonio Marún González, municipal president of San Francisco del Rincón; PAN Senator Miguel Márquez Márquez, former governor of Guanajuato, among others.", "\"With the opening of our new campus in León, we are beginning a new stage for the University of the Incarnate Word. This space will play a very important role within our growing university system and represents a new expression of our mission. Through this campus we welcome a new community, with which we will share our values of education, truth, faith, service, and innovation,\" Evans stated.", "This institution reported that in the future it plans to open higher-education and graduate projects, taking advantage of the facilities of what was the Centro Fox, built as a civil association, among whose members and financiers were the heads of the Carso group, Carlos Slim Helú; Televisa, Emilio Azcárraga Jean; Grupo Salinas, Ricardo Salinas Pliego; and Grupo Ángeles, Olegario Vázquez Raña; as well as the banker Roberto Hernández, a patron of Fox.", "Also contributing to the construction of the Centro Fox were Federico Sada González, Liliana Margarita Melo de Sada, Arturo Sánchez de la Peña, Juan Diego Gutiérrez Cortina, María Isabel Sainz de Gutiérrez, Ma. Dolores Mirna Revilla de Sánchez, María de los Ángeles Aldir de Vázquez, Lorenzo H. Zambrano Treviño, Carlos Bremer Gutiérrez, Adriana Ibarra de Bremer, Roberto Hernández Ramírez, and Claudia Madrazo de Hernández.", "In addition: Arturo Elías Ayub, Johanna Slim de Ayub, Bernardo Gómez Martínez, Gabriel Ortiz Gómez, Eduardo Tricio Haro, María del Pilar Gómez Sotres, Horacio Jaime McCoy Martínez, Marlene Worth McDonald Tapia de McCoy, José Juan Francisco Serrano Cacho, Laura Eneta Torres de Plascencia, Sergio Díaz Torres, Martha Guadalupe Gómez de Díaz, Eduardo Alberto Henkel Pérez Castro, Rosaura Longoria de Henkel, Amparo Espinosa Rugarcía, José Francisco Enrique Pintado Rivero, Beatriz Sánchez Navarro de Pintado, Adriana Margarita Ibarra de la Garza, Flavio Díaz Mirón, Paulina Rodríguez de Díaz, and Jorge Mendoza Garza.", "The Centro Fox, as the Vicente Fox Quesada Center for Studies, Library and Museum is known, is a building on 300 hectares located in San Cristóbal, Guanajuato, with rooms that are replicas of the UN and of the former official residence of Los Pinos. On its official platforms, the institution, founded in 2007, states that it is committed to \"training compassionate leaders for the creation of a new, better world.\"", "In December 2019, SinEmbargo reported that, from 2007 to 2018, the Centro Fox received 452,063,582 pesos in donations. In the same period, the Vamos México Foundation—run by Martha Sahagún Jiménez, wife of Vicente Fox, whose operations began in 2001—took in 131,813,240 pesos.", "In other words, the couple once called \"the presidential couple\" at Fox's request received, in a little over a decade, 583,876,822 pesos, at a rate of 37,671,965 pesos per year at the Centro Fox and 10,984,436 pesos at Vamos México.", "Vicente Fox is a founding partner of the Vicente Fox Quesada Center for Studies, Library and Museum, A.C., a project initially created for altruistic purposes and registered as a civil organization that, nevertheless, has partnered with companies that move millions of dollars, as is the case with UST Global, dedicated to software development.", "Fox also profits from the Hacienda San Cristóbal, a tourist complex located inside the Centro Fox itself; while the foundations he runs with his wife Martha Sahagún Jiménez allow him to maintain a glamorous lifestyle with the gala events they organize to raise funds, of which they also share photographs on social media.", "Neither the Centro Fox nor the Vamos México foundation run by his wife offers open public data on transparency regarding the donations they receive.", "But the millions in donations are not the only scandal surrounding the Centro Fox and the assets of the former presidential family, since, in Guanajuato, the Fox family has been accused of exploiting the state's land, water, and other natural resources at will for the benefit of their businesses and their fortunes, according to complaints made by organizations and activists online.", "The Foxes extend long roots in Guanajuato, where their businesses are centered not only on the charitable foundations but also on a thriving agricultural export industry that develops in the state at the cost of exploiting the water of the Lerma-Santiago hydrological region.", "Between 1995 and 1999, the period in which Vicente Fox served as Governor of Guanajuato, he and his brothers obtained 13 concession titles for the exploitation of aquifers located within the boundaries of the San Cristóbal Ranch, owned by the former president. To these are added others that Conagua granted them in the name of companies founded by the Foxes in partnership with Usabiaga: Xtra Congelados Naturales, S.A. and Apex Congelados, S.A. de C.V.", "By the time the Fox administration in Guanajuato ended, these companies were bankrupt. Their debt was on the Fobaproa list and reached 12,398,000 pesos at that time. In 2007 the debt was bought by Organización Altex, S.A. de C.V., a corporate arm of the Bimbo company that to date holds the Xtra Congelados and Next Vegetales trademark registrations, which produces hydroponic vegetables a few meters from the Centro Fox.", "The sum of the extraction permits the Foxes kept in force between 2000 and 2006 reached 2,814,000 cubic meters per year, and between 1994 and 1999 it had a permitted discharge volume of 205,020 cubic meters per year, according to concession title 08GUA101247/12FMDL14, which reveals the high water levels this company required for its operation.", "Once out of Los Pinos, Vicente Fox Quesada sought a business in promoting the legalization of the cultivation and recreational-medicinal use of marijuana. Since 2018, through the Canadian company Khiron, he ventured into the cannabis industry on the basis of permits that the current government has placed under investigation, and later he partnered with the Nuevo León-based company Paradise.", "At the Centro Fox, on his ranch in Guanajuato, he heads the CannaMéxico event every year. The most recent edition of this event was sponsored by companies in the sector: US Pharmacopeia México (linked to the former commissioner), G4 Live, GPlant (CBD), ICAN, among others.", "Through that institution and other foundations, the former federal head of state looked into cannabis derivatives and began traveling the world to promote the legalization of marijuana.", "\"The start, what the original studies there at the Centro Fox showed us, was that the plant could be rescued, turned into medical use and, above all, that the rug could be pulled out from under the criminal gangs, the cartels that had substantial resources from this,\" Fox said in an interview with Roberto Martínez's podcast \"Creativo,\" regarding the times before fentanyl."]};
-const $ = id => document.getElementById(id);
-let voices = [];
+const D = {"title_en": "Centro Fox, a Little Gift from the Elites Thanks to Tax Favors, Will Become a Catholic School", "title_es": "Centro Fox, regalito de las élites por los apapachos fiscales, será escuela católica", "outlet": "SinEmbargo", "author": "SinEmbargo editorial staff", "date": "2026-07-10", "rows": [{"en": "This article by the SinEmbargo editorial staff originally appeared in the July 10, 2026 edition of SinEmbargo, a Mexican digital news outlet.", "es": ""}, {"en": "Former President Vicente Fox Quesada has partnered, for the next hundred years, with the Catholic congregation Sisters of Charity of the Incarnate Word to venture into the education business and replace the Centro Fox—a complex built on his ranch with money from Mexico's magnates that used to host parties—with the University of the Incarnate Word, which will offer continuing-education programs with a business vision and even spiritual retreats.", "es": "El expresidente Vicente Fox Quesada se asoció, para los próximos cien años, con la congregación católica Hermanas de la Caridad del Verbo Encarnado para incursionar en el negocio de la educación y sustituir el Centro Fox –un complejo construido en su rancho con dinero de los magnates de México y que solía organizar fiestas– por la University of the Incarnate Word, que impartirá programas de educación continua con visión empresarial y hasta retiros espirituales."}, {"en": "The University of the Incarnate Word, whose Spanish translation is Universidad de Verbo Encarnado—precisely because it belongs to the Catholic congregation Sisters of Charity of the Incarnate Word—reported that this Thursday, July 9, it inaugurated its new campus at the San Cristóbal ranch in San Francisco del Rincón, Guanajuato, owned by Fox Quesada and where he lives with his wife Marta Sahagún.", "es": "University of the Incarnate Word, cuya traducción al español es Universidad de Verbo Encarnado, precisamente porque pertenece a la congregación católica Hermanas de la Caridad del Verbo Encarnado, informó que este jueves 9 de julio inauguró su nueva sede en el rancho San Cristóbal de San Francisco del Rincón, Guanajuato, propiedad de Fox Quesada y donde vive con su esposa Marta Sahagún."}, {"en": "Through a 100-year comodato contract (a free-of-charge loan-for-use agreement), the new León Metropolitan Zone campus of the Universidad de Verbo Encarnado will carry out its activities in what were the facilities of the Centro Fox, to offer its services in accordance with its mission, the institution reported.", "es": "Mediante un contrato de comodato por 100 años, la nueva sede Zona Metropolitana León de la Universidad de Verbo Encarnado llevará a cabo sus actividades en las que fueron las instalaciones del Centro Fox, para ofrecer sus servicios de acuerdo con su misión, informó la institución."}, {"en": "Fox and his wife took part in the inauguration ceremony, as well as educational authorities from Guanajuato and from this private, Catholic, and non-profit university that, it claims, promotes projects with an exclusively academic, educational, and training purpose.", "es": "En la ceremonia de inauguración participaron Fox y su esposa, así como autoridades educativas de Guanajuato y de esta universidad privada, católica y sin fines de lucro que, asegura, impulsa proyectos con un propósito exclusivamente académico, educativo y formativo."}, {"en": "\"From this new campus, continuing-education programs, executive training, and senior-management development projects will be offered, aimed at individuals, companies, and institutions in the region. It will also be a space for international exchange, innovation, business networking, camps, professional and spiritual retreats, as well as for the development of academic projects with international reach,\" the university reported in a statement.", "es": "“Desde esta nueva sede se ofrecerán programas de educación continua, formación ejecutiva y proyectos de desarrollo de alta dirección dirigidos a personas, empresas e instituciones de la región. Asimismo, será un espacio para el intercambio internacional, la innovación, la vinculación empresarial, campamentos, retiros profesionales y espirituales, así como para el desarrollo de proyectos académicos con proyección internacional”, informó la universidad en un comunicado."}, {"en": "Taking part in the inauguration were Sister Leticia de Jesús Ramírez Rodríguez, superior general of the Sisters of Charity of the Incarnate Word; Thomas M. Evans, president of the University of the Incarnate Word; Luis Ignacio Sánchez Gómez, Secretary of Education of the State of Guanajuato; Alejandro Antonio Marún González, municipal president of San Francisco del Rincón; PAN Senator Miguel Márquez Márquez, former governor of Guanajuato, among others.", "es": "En la inauguración participaron sor Leticia de Jesús Ramírez Rodríguez, superiora general de las Hermanas de la Caridad del Verbo Encarnado; Thomas M. Evans, presidente de University of the Incarnate Word; Luis Ignacio Sánchez Gómez, secretario de Educación del Estado de Guanajuato; Alejandro Antonio Marún González, presidente municipal de San Francisco del Rincón; el Senador panista Miguel Márquez Márquez, exgobernador de Guanajuato, entre otros."}, {"en": "\"With the opening of our new campus in León, we are beginning a new stage for the University of the Incarnate Word. This space will play a very important role within our growing university system and represents a new expression of our mission. Through this campus we welcome a new community, with which we will share our values of education, truth, faith, service, and innovation,\" Evans stated.", "es": "“Con la apertura de nuestra nueva sede en León, iniciamos una nueva etapa para University of the Incarnate Word. Este espacio desempeñará un papel muy importante dentro de nuestro creciente sistema universitario y representa una nueva expresión de nuestra misión. A través de esta sede damos la bienvenida a una nueva comunidad, con la que compartiremos nuestros valores de educación, verdad, fe, servicio e innovación”, expresó Evans."}, {"en": "This institution reported that in the future it plans to open higher-education and graduate projects, taking advantage of the facilities of what was the Centro Fox, built as a civil association, among whose members and financiers were the heads of the Carso group, Carlos Slim Helú; Televisa, Emilio Azcárraga Jean; Grupo Salinas, Ricardo Salinas Pliego; and Grupo Ángeles, Olegario Vázquez Raña; as well as the banker Roberto Hernández, a patron of Fox.", "es": "Esta institución informó que se prevé a futuro la apertura de proyectos de educación superior y posgrados aprovechando las instalaciones de lo que fue el Centro Fox, construido como asociación civil, entre cuyos asociados y financieros estaban los presidentes de los grupos Carso, Carlos Slim Helú; Televisa, Emilio Azcárraga Jean; Salinas, Ricardo Salinas Pliego, y Angeles, Olegario Vázquez Raña, así como el banquero Roberto Hernández, mecenas de Fox."}, {"en": "Also contributing to the construction of the Centro Fox were Federico Sada González, Liliana Margarita Melo de Sada, Arturo Sánchez de la Peña, Juan Diego Gutiérrez Cortina, María Isabel Sainz de Gutiérrez, Ma. Dolores Mirna Revilla de Sánchez, María de los Ángeles Aldir de Vázquez, Lorenzo H. Zambrano Treviño, Carlos Bremer Gutiérrez, Adriana Ibarra de Bremer, Roberto Hernández Ramírez, and Claudia Madrazo de Hernández.", "es": "También contribuyeron a la construcción del Centro Fox Federico Sada González, Liliana Margarita Melo de Sada, Arturo Sánchez de la Peña, Juan Diego Gutiérrez Cortina, María Isabel Sainz de Gutiérrez, Ma. Dolores Mirna Revilla de Sánchez, María de los Angeles Aldir de Vázquez, Lorenzo H. Zambrano Treviño, Carlos Bremer Gutiérrez, Adriana Ibarra de Bremer, Roberto Hernández Ramírez y Claudia Madrazo de Hernández."}, {"en": "In addition: Arturo Elías Ayub, Johanna Slim de Ayub, Bernardo Gómez Martínez, Gabriel Ortiz Gómez, Eduardo Tricio Haro, María del Pilar Gómez Sotres, Horacio Jaime McCoy Martínez, Marlene Worth McDonald Tapia de McCoy, José Juan Francisco Serrano Cacho, Laura Eneta Torres de Plascencia, Sergio Díaz Torres, Martha Guadalupe Gómez de Díaz, Eduardo Alberto Henkel Pérez Castro, Rosaura Longoria de Henkel, Amparo Espinosa Rugarcía, José Francisco Enrique Pintado Rivero, Beatriz Sánchez Navarro de Pintado, Adriana Margarita Ibarra de la Garza, Flavio Díaz Mirón, Paulina Rodríguez de Díaz, and Jorge Mendoza Garza.", "es": "Además, Arturo Elías Ayub, Johanna Slim de Ayub, Bernardo Gómez Martínez, Gabriel Ortiz Gómez, Eduardo Tricio Haro, María del Pilar Gómez Sotres, Horacio Jaime McCoy Martínez, Marlene Worth McDonald Tapia de McCoy, José Juan Francisco Serrano Cacho, Laura Eneta Torres de Plascencia, Sergio Díaz Torres, Martha Guadalupe Gómez de Díaz, Eduardo Alberto Henkel Pérez Castro, Rosaura Longoria de Henkel, Amparo Espinosa Rugarcía, José Francisco Enrique Pintado Rivero, Beatriz Sánchez Navarro de Pintado, Adriana Margarita Ibarra de la Garza, Flavio Díaz Mirón, Paulina Rodríguez de Díaz y Jorge Mendoza Garza."}, {"en": "The Centro Fox, as the Vicente Fox Quesada Center for Studies, Library and Museum is known, is a building on 300 hectares located in San Cristóbal, Guanajuato, with rooms that are replicas of the UN and of the former official residence of Los Pinos. On its official platforms, the institution, founded in 2007, states that it is committed to \"training compassionate leaders for the creation of a new, better world.\"", "es": "El Centro Fox, como se le conoce al Centro de Estudios, Biblioteca y Museo Vicente Fox Quesada, es una edificación en 300 hectáreas ubicado en San Cristóbal, Guanajuato, con salones réplicas de la ONU y la exresidencia oficial de Los Pinos. En sus plataformas oficiales, la institución fundada en 2007 indica que apuesta por “la formación de líderes compasivos para la creación de un nuevo mundo mejor”."}, {"en": "In December 2019, SinEmbargo reported that, from 2007 to 2018, the Centro Fox received 452,063,582 pesos in donations. In the same period, the Vamos México Foundation—run by Martha Sahagún Jiménez, wife of Vicente Fox, whose operations began in 2001—took in 131,813,240 pesos.", "es": "En diciembre de 2019, SinEmbargo reportó que, de 2007 a 2018, el Centro Fox recibió en donativos 452 millones 63 mil 582 pesos. En el mismo periodo, la Fundación Vamos México, de Martha Sahagún Jiménez, esposa de Vicente Fox, cuyas operaciones se iniciaron en 2001, tuvo 131 millones 813 mil 240 pesos."}, {"en": "In other words, the couple once called \"the presidential couple\" at Fox's request received, in a little over a decade, 583,876,822 pesos, at a rate of 37,671,965 pesos per year at the Centro Fox and 10,984,436 pesos at Vamos México.", "es": "Es decir, el matrimonio que alguna vez fue llamado “la pareja presidencial” a petición de Fox recibió en poco más de una década 583 millones 876 mil 822, a un ritmo de 37 millones 671 mil 965 pesos por año en el Centro Fox y 10 millones 984 mil 436 pesos en Vamos México."}, {"en": "Vicente Fox is a founding partner of the Vicente Fox Quesada Center for Studies, Library and Museum, A.C., a project initially created for altruistic purposes and registered as a civil organization that, nevertheless, has partnered with companies that move millions of dollars, as is the case with UST Global, dedicated to software development.", "es": "Vicente Fox es socio fundador del Centro de Estudios, Biblioteca y Museo Vicente Fox Quesada A.C., un proyecto creado inicialmente con fines altruistas y registrado como una organización civil que, sin embargo, se ha asociado con empresas que mueven millones de dólares, como es el caso de UST Global, dedicada al desarrollo de software."}, {"en": "Fox also profits from the Hacienda San Cristóbal, a tourist complex located inside the Centro Fox itself; while the foundations he runs with his wife Martha Sahagún Jiménez allow him to maintain a glamorous lifestyle with the gala events they organize to raise funds, of which they also share photographs on social media.", "es": "Fox también se beneficia con la Hacienda San Cristóbal, un complejo turístico que se encuentra en el interior del mismo Centro Fox; en tanto que las fundaciones que dirige con su esposa Martha Sahagún Jiménez le permiten mantener un estilo de vida glamuroso con los eventos de gala que organizan para recaudar fondos y de los que también comparten fotografías en las redes sociales."}, {"en": "Neither the Centro Fox nor the Vamos México foundation run by his wife offers open public data on transparency regarding the donations they receive.", "es": "Ni el Centro Fox ni la fundación Vamos México que dirige su esposa, ofrecen datos abiertos al público en materia de transparencia sobre los donativos que reciben."}, {"en": "But the millions in donations are not the only scandal surrounding the Centro Fox and the assets of the former presidential family, since, in Guanajuato, the Fox family has been accused of exploiting the state's land, water, and other natural resources at will for the benefit of their businesses and their fortunes, according to complaints made by organizations and activists online.", "es": "Pero los millonarios donativos no son el único escándalo que envuelve al Centro Fox y los bienes de la exfamilia presidencial, ya que, en Guanajuato, la familia Fox ha sido señalada de explotar a voluntad la tierra, el agua y demás recursos naturales del estado para beneficio de sus negocios y de sus fortunas, de acuerdo con denuncias hechas por organizaciones y activistas en redes."}, {"en": "The Foxes extend long roots in Guanajuato, where their businesses are centered not only on the charitable foundations but also on a thriving agricultural export industry that develops in the state at the cost of exploiting the water of the Lerma-Santiago hydrological region.", "es": "Los Fox extienden largas raíces en Guanajuato, donde sus negocios no solo se centran en las fundaciones caritativas, sino también en una pujante industria agrícola de exportación que se desarrolla en el estado a costa de la explotación del agua de la región hidrológica Lerma-Santiago."}, {"en": "Between 1995 and 1999, the period in which Vicente Fox served as Governor of Guanajuato, he and his brothers obtained 13 concession titles for the exploitation of aquifers located within the boundaries of the San Cristóbal Ranch, owned by the former president. To these are added others that Conagua granted them in the name of companies founded by the Foxes in partnership with Usabiaga: Xtra Congelados Naturales, S.A. and Apex Congelados, S.A. de C.V.", "es": "Entre los años 1995 y 1999, periodo en que Vicente Fox se desempeñó como Gobernador de Guanajuato, él y sus hermanos, obtuvieron 13 títulos de concesión para la explotación de acuíferos ubicados al interior de los límites del Rancho San Cristóbal, propiedad del expresidente. A estas se suman otras más que la Conagua les concedió a nombre de empresas fundadas por los Fox en sociedad con Usabiaga, Xtra congelados naturales, S.A. y Apex Congelados, S.A. de C.V."}, {"en": "By the time the Fox administration in Guanajuato ended, these companies were bankrupt. Their debt was on the Fobaproa list and reached 12,398,000 pesos at that time. In 2007 the debt was bought by Organización Altex, S.A. de C.V., a corporate arm of the Bimbo company that to date holds the Xtra Congelados and Next Vegetales trademark registrations, which produces hydroponic vegetables a few meters from the Centro Fox.", "es": "Para cuando terminó la administración foxista en Guanajuato, estas empresas estaban en quiebra. Su deuda se encontraba dentro de la lista del Fobaproa y alcanzó los 12 millones 398 mil pesos en aquella época. En 2007 la deuda fue comprada por Organización Altex, S.A.de C.V. un corporativo de la empresa Bimbo que hasta la fecha posee los registros de marca Xtra Congelados y Next Vegetales, que produce vegetales hidropónicos a unos metros del Centro Fox."}, {"en": "The sum of the extraction permits the Foxes kept in force between 2000 and 2006 reached 2,814,000 cubic meters per year, and between 1994 and 1999 it had a permitted discharge volume of 205,020 cubic meters per year, according to concession title 08GUA101247/12FMDL14, which reveals the high water levels this company required for its operation.", "es": "La suma de los permisos de extracción que los Fox mantuvieron vigentes entre el 2000 al 2006 alcanzó los dos millones 814 mil metros cúbicos anuales y entre los años 1994 y 1999, tuvo un volumen de descarga permitido por 205 mil 020 metros cúbicos anuales según el título de concesión 08GUA101247/12FMDL14, lo que deja ver los altos niveles de agua que esta empresa requería para su operación."}, {"en": "Once out of Los Pinos, Vicente Fox Quesada sought a business in promoting the legalization of the cultivation and recreational-medicinal use of marijuana. Since 2018, through the Canadian company Khiron, he ventured into the cannabis industry on the basis of permits that the current government has placed under investigation, and later he partnered with the Nuevo León-based company Paradise.", "es": "Una vez fuera de Los Pinos, Vicente Fox Quesada buscó un negocio en la promoción de la legalización del cultivo y uso lúdico-medicinal de la mariguana. Desde 2018, a través de la canadiense Khiron, emprendió en la industria cannábica a partir de permisos que el actual Gobierno ha puesto bajo investigación, y luego se asoció con la neolonesa Paradise."}, {"en": "At the Centro Fox, on his ranch in Guanajuato, he heads the CannaMéxico event every year. The most recent edition of this event was sponsored by companies in the sector: US Pharmacopeia México (linked to the former commissioner), G4 Live, GPlant (CBD), ICAN, among others.", "es": "En el Centro Fox, en su rancho en Guanajuato, cada año encabeza el evento CannaMéxico. La última celebración de este evento contó con el patrocinio de empresas del ramo US Pharmacopeia México (relacionada con el excomisionado), G4 Live, GPlant (CBD), ICAN, entre otras."}, {"en": "Through that institution and other foundations, the former federal head of state looked into cannabis derivatives and began traveling the world to promote the legalization of marijuana.", "es": "A través de dicha institución y otras fundaciones, el exmandatario federal indagó sobre los derivados de la cannabis, y comenzó a viajar por el mundo para promocionar la legalización de la mariguana."}, {"en": "\"The start, what the original studies there at the Centro Fox showed us, was that the plant could be rescued, turned into medical use and, above all, that the rug could be pulled out from under the criminal gangs, the cartels that had substantial resources from this,\" Fox said in an interview with Roberto Martínez's podcast \"Creativo,\" regarding the times before fentanyl.", "es": "\"El arranque, lo que nos demostraron los estudios originales allá en Centro Fox fue que se podía rescatar la planta, convertirla en uso médico y, sobre todo, se podía quitar el tapete a las bandas criminales, a los cárteles que tenían cuantiosos recursos a partir de esto\", dijo Fox en entrevista con el podcast \"Creativo\" de Roberto Martínez respecto a los tiempos antes del fentanilo."}]};
+const $=id=>document.getElementById(id);
+let voices=[], mode='en', paused=false, playing=false, queue=[], qi=0;
 
-function fullText(){ return DATA.title + '. \n\n' + DATA.paragraphs.join('\n\n'); }
-
-// render article with paragraph spans
-function renderArticle(){
-  const a = $('article');
-  a.innerHTML = '<h2>'+DATA.title+'</h2>' + DATA.paragraphs.map((p,i)=>'<p data-i="'+i+'">'+p+'</p>').join('');
-}
-
-function populateVoices(){
-  voices = window.speechSynthesis.getVoices();
-  const sel = $('voice');
-  sel.innerHTML = '';
-  if(!voices.length){ sel.innerHTML='<option>Loading voices…</option>'; return; }
-  // group by language
-  const groups = {};
-  voices.forEach((v,idx)=>{ (groups[v.lang] ||= []).push({v,idx}); });
-  const langs = Object.keys(groups).sort((a,b)=>{
-    // English first
-    const ae=a.startsWith('en')?0:1, be=b.startsWith('en')?0:1;
-    return ae-be || a.localeCompare(b);
+function render(){
+  $('doctitle').textContent = D.title_en;
+  const en=$('colEn'), es=$('colEs');
+  en.innerHTML = '<div class="chead"><div class="flag">English — translation</div><div class="ttl">'+esc(D.title_en)+'</div><div class="byl">'+esc(D.author)+' · '+esc(D.outlet)+' · '+esc(D.date)+'</div></div>';
+  es.innerHTML = '<div class="chead"><div class="flag">Español — original</div><div class="ttl">'+esc(D.title_es)+'</div><div class="byl">'+esc(D.outlet)+'</div></div>';
+  D.rows.forEach((r,i)=>{
+    en.insertAdjacentHTML('beforeend','<p class="para" data-i="'+i+'">'+esc(r.en)+'</p>');
+    es.insertAdjacentHTML('beforeend', r.es ? '<p class="para" data-i="'+i+'">'+esc(r.es)+'</p>' : '<p class="para empty" data-i="'+i+'"></p>');
   });
-  langs.forEach(lang=>{
-    const og = document.createElement('optgroup'); og.label = lang;
-    groups[lang].forEach(({v,idx})=>{
-      const o = document.createElement('option');
-      o.value = idx;
-      o.textContent = v.name + (v.localService ? '  (local)' : '  (network)') + (v.default ? '  ★' : '');
-      og.appendChild(o);
-    });
-    sel.appendChild(og);
+}
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function fillVoices(){
+  voices = speechSynthesis.getVoices();
+  const enSel=$('envoice'), esSel=$('esvoice');
+  const enV=voices.map((v,i)=>({v,i})).filter(o=>o.v.lang.toLowerCase().startsWith('en'));
+  const esV=voices.map((v,i)=>({v,i})).filter(o=>o.v.lang.toLowerCase().startsWith('es'));
+  const opt=o=>'<option value="'+o.i+'">'+esc(o.v.name)+' · '+o.v.lang+(o.v.localService?'':' ·net')+'</option>';
+  enSel.innerHTML = enV.length?enV.map(opt).join(''):'<option>No English voices</option>';
+  esSel.innerHTML = esV.length?esV.map(opt).join(''):'<option value="">No Spanish voices</option>';
+  // defaults: en-US preferred; es-MX preferred
+  const pick=(arr,pref)=>{let x=arr.find(o=>o.v.lang.toLowerCase()===pref);if(!x)x=arr.find(o=>o.v.default);return x?x.i:(arr[0]&&arr[0].i);};
+  if(enV.length) enSel.value = pick(enV,'en-us');
+  if(esV.length) esSel.value = pick(esV,'es-mx') ?? pick(esV,'es-es');
+}
+
+function buildQueue(){
+  const q=[{text:D.title_en,lang:'en',i:-1}];
+  D.rows.forEach((r,i)=>{
+    q.push({text:r.en,lang:'en',i});
+    if(mode==='bi' && r.es) q.push({text:r.es,lang:'es',i});
   });
-  $('vcount').textContent = '('+voices.length+' available)';
-  // default: first en-US, else system default, else 0
-  let def = voices.findIndex(v=>v.lang==='en-US' && v.default);
-  if(def<0) def = voices.findIndex(v=>v.lang==='en-US');
-  if(def<0) def = voices.findIndex(v=>v.default);
-  if(def<0) def = 0;
-  sel.value = def;
-  updateMeta();
+  return q;
 }
-
-function updateMeta(){
-  const v = voices[+$('voice').value];
-  $('vmeta').textContent = v ? (v.name+' · '+v.lang+' · '+(v.localService?'offline':'network')) : '';
+function voiceFor(lang){ const id=lang==='es'?$('esvoice').value:$('envoice').value; return voices[+id]; }
+function hi(i){
+  document.querySelectorAll('p.para.on').forEach(p=>p.classList.remove('on'));
+  if(i<0) return;
+  document.querySelectorAll('p.para[data-i="'+i+'"]').forEach(p=>{
+    p.classList.add('on');
+    p.scrollIntoView({block:'center',behavior:'smooth'});
+  });
 }
-
-let queue=[], qi=0, playing=false;
-function speakChunks(chunks, highlight){
-  window.speechSynthesis.cancel();
-  queue = chunks; qi = 0; playing = true;
-  $('play').disabled=true; $('pause').disabled=false; $('stop').disabled=false;
-  next(highlight);
-}
-function next(highlight){
+function step(){
   if(qi>=queue.length){ finish(); return; }
-  const u = new SpeechSynthesisUtterance(queue[qi].text);
-  const v = voices[+$('voice').value];
-  if(v) u.voice = v;
-  u.rate = parseFloat($('rate').value);
-  u.pitch = parseFloat($('pitch').value);
-  u.onstart = ()=>{ if(highlight) mark(queue[qi].i); };
-  u.onend = ()=>{ qi++; next(highlight); };
-  u.onerror = ()=>{ qi++; next(highlight); };
-  window.speechSynthesis.speak(u);
+  const item=queue[qi];
+  const u=new SpeechSynthesisUtterance(item.text);
+  const v=voiceFor(item.lang); if(v)u.voice=v;
+  u.lang = item.lang==='es' ? (v?v.lang:'es-MX') : (v?v.lang:'en-US');
+  u.rate=parseFloat($('rate').value);
+  u.onstart=()=>hi(item.i);
+  u.onend=()=>{qi++;step();};
+  u.onerror=()=>{qi++;step();};
+  speechSynthesis.speak(u);
 }
-function mark(i){
-  document.querySelectorAll('.article p').forEach(p=>p.classList.remove('reading'));
-  if(i==null) return;
-  const el = document.querySelector('.article p[data-i="'+i+'"]');
-  if(el){ el.classList.add('reading'); el.scrollIntoView({block:'center',behavior:'smooth'}); }
+function play(){
+  speechSynthesis.cancel();
+  queue=buildQueue(); qi=0; playing=true; paused=false;
+  $('play').disabled=true;$('pause').disabled=false;$('stop').disabled=false;$('pause').textContent='⏸';
+  step();
 }
 function finish(){
-  playing=false; $('play').disabled=false; $('pause').disabled=true; $('stop').disabled=true;
-  $('pause').textContent='⏸ Pause'; mark(null);
+  playing=false;paused=false;$('play').disabled=false;$('pause').disabled=true;$('stop').disabled=true;hi(-1);
 }
+$('play').onclick=play;
+$('pause').onclick=()=>{ if(speechSynthesis.paused){speechSynthesis.resume();$('pause').textContent='⏸';} else {speechSynthesis.pause();$('pause').textContent='▶';} };
+$('stop').onclick=()=>{speechSynthesis.cancel();finish();};
+$('rate').oninput=e=>$('rateval').textContent=parseFloat(e.target.value).toFixed(2);
+$('mode').onclick=e=>{const b=e.target.closest('button');if(!b)return;mode=b.dataset.m;[...$('mode').children].forEach(x=>x.classList.toggle('on',x===b));if(playing)play();};
+$('view').onclick=e=>{const b=e.target.closest('button');if(!b)return;document.body.classList.toggle('solo',b.dataset.v==='solo');document.body.classList.toggle('split',b.dataset.v==='split');[...$('view').children].forEach(x=>x.classList.toggle('on',x===b));};
+// click a paragraph to read from there
+document.addEventListener('click',e=>{const p=e.target.closest('p.para');if(!p||!p.textContent.trim())return;const i=+p.dataset.i;queue=buildQueue();qi=queue.findIndex(q=>q.i===i&&q.lang==='en');if(qi<0)qi=0;speechSynthesis.cancel();playing=true;$('play').disabled=true;$('pause').disabled=false;$('stop').disabled=false;step();});
 
-$('play').onclick = ()=>{
-  // build chunks from the textarea if user edited, else from paragraphs (with highlight)
-  const custom = $('text').value.trim();
-  const base = fullText().trim();
-  if(custom && custom !== base){
-    const parts = custom.split(/\n\n+/).map((t,idx)=>({text:t, i:null}));
-    speakChunks(parts, false);
-  } else {
-    const chunks = [{text:DATA.title, i:null}].concat(DATA.paragraphs.map((p,i)=>({text:p,i})));
-    speakChunks(chunks, true);
-  }
-};
-$('preview').onclick = ()=>{
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance('This is a preview of the selected voice, reading a sample sentence so you can compare.');
-  const v = voices[+$('voice').value]; if(v) u.voice=v;
-  u.rate=parseFloat($('rate').value); u.pitch=parseFloat($('pitch').value);
-  window.speechSynthesis.speak(u);
-};
-$('pause').onclick = ()=>{
-  const sp = window.speechSynthesis;
-  if(sp.paused){ sp.resume(); $('pause').textContent='⏸ Pause'; }
-  else { sp.pause(); $('pause').textContent='▶ Resume'; }
-};
-$('stop').onclick = ()=>{ window.speechSynthesis.cancel(); finish(); };
-$('voice').onchange = updateMeta;
-$('rate').oninput = e=>$('rateVal').textContent = parseFloat(e.target.value).toFixed(2);
-$('pitch').oninput = e=>$('pitchVal').textContent = parseFloat(e.target.value).toFixed(2);
-
-renderArticle();
-$('text').value = fullText();
-populateVoices();
-if(typeof speechSynthesis!=='undefined') speechSynthesis.onvoiceschanged = populateVoices;
-window.addEventListener('beforeunload', ()=>window.speechSynthesis.cancel());
+render();
+fillVoices();
+if(typeof speechSynthesis!=='undefined') speechSynthesis.onvoiceschanged=fillVoices;
+window.addEventListener('beforeunload',()=>speechSynthesis.cancel());
 </script>
 </body>
 </html>
