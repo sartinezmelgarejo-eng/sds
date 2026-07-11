@@ -2939,33 +2939,6 @@ body {
   font-weight: 700;
   color: #fdfcf3;
 }
-/* Cita(s) inline en el panel de descripción del mapa — siempre visibles,
-   jerarquía título → descripción → cita (como en móvil). */
-.tl-mapa-floating-detalle .tl-mapa-dc-wrap {
-  margin-top: 13px; padding-top: 12px; clear: both;
-  border-top: 1px solid rgba(240,232,212,0.18);
-}
-.tl-mapa-floating-detalle .tl-mapa-dc { margin-bottom: 11px; }
-.tl-mapa-floating-detalle .tl-mapa-dc:last-child { margin-bottom: 0; }
-.tl-mapa-floating-detalle .tl-mapa-dc-q {
-  font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic;
-  font-size: 14.5px; line-height: 1.42; color: #e9dfc6;
-  padding-left: 11px; border-left: 2px solid var(--gold, #c9a24a); margin-bottom: 5px;
-}
-.tl-mapa-floating-detalle .tl-mapa-dc-q .quote-page-link { font-style: normal; }
-.tl-mapa-floating-detalle .tl-mapa-dc-src {
-  font-family: 'Oswald', system-ui, sans-serif; font-size: 10.5px;
-  letter-spacing: 0.04em; text-transform: uppercase;
-  color: rgba(240,232,212,0.6); padding-left: 11px;
-}
-.tl-mapa-floating-detalle .tl-mapa-dc-src .booklink {
-  color: var(--gold, #d9b877); cursor: pointer; border-bottom: 1px dotted rgba(217,184,119,0.5);
-}
-.tl-mapa-floating-detalle .tl-mapa-dc-nested { font-style: italic; text-transform: none; opacity: 0.9; }
-:root.light .tl-mapa-floating-detalle .tl-mapa-dc-wrap { border-top-color: rgba(0,0,0,0.14); }
-:root.light .tl-mapa-floating-detalle .tl-mapa-dc-q { color: #33291a; border-left-color: #b8862f; }
-:root.light .tl-mapa-floating-detalle .tl-mapa-dc-src { color: rgba(40,30,15,0.62); }
-:root.light .tl-mapa-floating-detalle .tl-mapa-dc-src .booklink { color: #9a6f1e; border-bottom-color: rgba(154,111,30,0.5); }
 .tl-mapa-floating-detalle .tl-mapa-detalle-body::first-letter {
   font-family: 'Bodoni Moda', serif;
   font-weight: 700;
@@ -13533,7 +13506,61 @@ body {
   } catch(e) {}
   function tlBookLabel(id) { return TL_BOOK_LABEL[id] || id; }
 
+  // Centroides para lugares que quedaron con solo `nombre` (slug/región) y sin
+  // `coords`. Sin coords el mapa no ubica el pin ni la cita y el globo no gira,
+  // así que la cita quedaba invisible (p.ej. Göbekli Tepe → 'medio-oriente').
+  var REGION_COORDS = {
+    'mexico':{lat:23.6,lng:-102.5},'mx':{lat:23.6,lng:-102.5},'europa':{lat:50,lng:10},
+    'china':{lat:35,lng:104},'eeuu':{lat:39.5,lng:-98.5},'eeuu-sur':{lat:33,lng:-88},
+    'urss':{lat:55.75,lng:37.62},'rusia':{lat:55.75,lng:37.62},'america-latina':{lat:-14,lng:-63},
+    'latin-america':{lat:-14,lng:-63},'sudamerica':{lat:-15,lng:-60},'medio-oriente':{lat:33,lng:42},
+    'alemania':{lat:51.1,lng:10.4},'francia':{lat:46.6,lng:2.2},'canada':{lat:57,lng:-95},
+    'guatemala':{lat:15.5,lng:-90.4},'inglaterra':{lat:52.5,lng:-1.5},'africa':{lat:5,lng:20},
+    'áfrica':{lat:5,lng:20},'áfrica central':{lat:5,lng:20},'roma':{lat:41.9,lng:12.5},
+    'nuevo-mexico':{lat:34.5,lng:-106},'asia':{lat:40,lng:90},'india':{lat:22,lng:78},
+    'bajio':{lat:20.9,lng:-101},'bajío':{lat:20.9,lng:-101},'japon':{lat:36,lng:138},
+    'argentina':{lat:-34,lng:-64},'guanajuato':{lat:21.0,lng:-101.0},'peru':{lat:-10,lng:-75},
+    'norte-mexico':{lat:27,lng:-105},'grecia':{lat:39,lng:22},'mesoamerica-sur':{lat:15,lng:-91},
+    'queretaro':{lat:20.6,lng:-100.4},'texas':{lat:31,lng:-99},'cuba':{lat:21.5,lng:-79},
+    'byzantium':{lat:41.0,lng:28.98},'chile':{lat:-35,lng:-71},'caribe':{lat:15,lng:-75},
+    'yucatan':{lat:20.7,lng:-89},'florida':{lat:28,lng:-81.5},'sudafrica':{lat:-29,lng:24},
+    'hungría':{lat:47,lng:19},'quintana roo':{lat:19.6,lng:-88.3},'monte de las cruces':{lat:19.3,lng:-99.3},
+    'mx-cmx':{lat:19.43,lng:-99.13},'mx-son':{lat:29.3,lng:-110.9},'mx-chh':{lat:28.6,lng:-106.0},
+    'mx-mx':{lat:19.3,lng:-99.6},'mx-zac':{lat:22.77,lng:-102.58},'mx-dur':{lat:24.02,lng:-104.65},
+    'mx-coa':{lat:27.3,lng:-101.7},
+    'washington dc us':{lat:38.9,lng:-77.04},'moscú ru':{lat:55.75,lng:37.62},
+    'mexico city mx-cmx':{lat:19.43,lng:-99.13},'teherán ir':{lat:35.69,lng:51.39},
+    'nueva york us':{lat:40.71,lng:-74.0},'beijing cn':{lat:39.9,lng:116.4},
+    'trípoli ly':{lat:32.89,lng:13.19},'houston us':{lat:29.76,lng:-95.37},
+    'las coloradas, oriente, cu':{lat:20.4,lng:-77.4},'bahía de cochinos, cu':{lat:22.1,lng:-81.1},
+    'luanda, angola':{lat:-8.83,lng:13.23},'mariel, cu':{lat:23.0,lng:-82.75}
+  };
+  function resolveLugarCoords(l) {
+    if (!l) return null;
+    if (l.coords && typeof l.coords.lat === 'number') return l.coords;
+    var n = (l.nombre || '').trim();
+    var m = n.match(/(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/); // coords embebidas "lat,lng"
+    if (m) return { lat: parseFloat(m[1]), lng: parseFloat(m[2]) };
+    return REGION_COORDS[n] || REGION_COORDS[n.toLowerCase()] || null;
+  }
+  var __lugarNormalized = false;
+  function normalizeLugarCoords() {
+    if (__lugarNormalized) return;
+    __lugarNormalized = true;
+    var fixed = 0;
+    (typeof timelineEras !== 'undefined' ? timelineEras : []).forEach(function(e) {
+      (e.events || []).forEach(function(x) {
+        if (x.lugar && (!x.lugar.coords || typeof x.lugar.coords.lat !== 'number')) {
+          var c = resolveLugarCoords(x.lugar);
+          if (c) { x.lugar.coords = c; fixed++; }
+        }
+      });
+    });
+    if (typeof console !== 'undefined' && console.log) console.log('[timeline] lugar coords resueltas:', fixed);
+  }
+
   function renderTimelineMapaView(container, eras, tlScope) {
+    normalizeLugarCoords();
     // Collect events with lugar. The México/Mundo split is GEOGRAPHIC when
     // we have a lugar.pais (events that happened in MX go to México, events
     // that happened elsewhere go to Mundo). Falls back to the original
@@ -13901,8 +13928,8 @@ body {
     container._tlMapaClickHandler = function(e) {
       // PDF link inside floating cita: let it through to the browser
       if (e.target.closest('.quote-page-link')) return;
-      // Cita book link — floating card OR the inline copy in the description panel
-      var bookLink = e.target.closest('.tl-mapa-floating-cita .booklink[data-book], #tl-mapa-detalle .booklink[data-book]');
+      // Floating cita book link
+      var bookLink = e.target.closest('.tl-mapa-floating-cita .booklink[data-book]');
       if (bookLink) {
         openBook(bookLink.getAttribute('data-book'));
         e.stopPropagation();
@@ -14471,39 +14498,6 @@ body {
     if (nG <= 2) citasLayerEl.classList.add('tl-citas-pair');
     else if (nG <= 4) citasLayerEl.classList.add('tl-citas-mid');
     else citasLayerEl.classList.add('tl-citas-many');
-
-    // Also render the cita(s) INLINE in the description panel, stacked below the
-    // detalle. The floating map cards get occluded whenever the event's location
-    // is on the far side of the globe (e.g. a Middle-East event while the globe
-    // shows the Americas), so the quote could vanish entirely. In the panel it is
-    // always visible and reads with a clear título → descripción → cita hierarchy,
-    // like the mobile card.
-    if (detalleBody && citas.length) {
-      var panelCitas = groups.map(function(g) {
-        var bk = g.libro ? books.find(function(b) { return b.id === g.libro; }) : null;
-        var title = bk ? bk.title : (g.libro || '');
-        var author = (bk && bk.author) || g.citas[0].autor || '';
-        var nested = [];
-        if (bk && bk.author) {
-          g.citas.forEach(function(c) {
-            if (c.autor && !isSameAuthor(c.autor, bk.author) && nested.indexOf(c.autor) < 0) nested.push(c.autor);
-          });
-        }
-        var quotes = g.citas.map(function(c) {
-          var pl = pdfLinkFor(c, bk);
-          return '<div class="tl-mapa-dc-q">“' + escHTML(c.texto) + '”' + (pl ? ' ' + pl : '') + '</div>';
-        }).join('');
-        var srcParts = [];
-        if (title) srcParts.push('<span class="booklink" data-book="' + (g.libro || '') + '">' + escHTML(title) + '</span>');
-        if (author) srcParts.push('<span class="tl-mapa-dc-au">' + escHTML(author) + '</span>');
-        var nestedHint = nested.length ? '<span class="tl-mapa-dc-nested">cita de ' + escHTML(nested.join(', ')) + '</span> ' : '';
-        return '<div class="tl-mapa-dc">' + quotes +
-          '<div class="tl-mapa-dc-src">' + nestedHint + srcParts.join(' · ') + '</div></div>';
-      }).join('');
-      detalleBody.insertAdjacentHTML('beforeend', '<div class="tl-mapa-dc-wrap">' + panelCitas + '</div>');
-      detalleEl.classList.add('show');
-      detalleEl.classList.toggle('mundo', ev.scope === 'mundo');
-    }
   }
 
   function initMapaGlobe(container, events, world, mxStates) {
