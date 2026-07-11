@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Reader — pick a system voice</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:#0a0a0f; color:#d4d4d4; line-height:1.6; padding:28px 18px; }
+  .wrap { max-width:820px; margin:0 auto; }
+  h1 { font-family:'Cormorant Garamond',Georgia,serif; color:#c8a960; font-size:28px; font-weight:400; margin-bottom:4px; }
+  .sub { color:#888; font-size:13px; margin-bottom:22px; border-bottom:1px solid #222; padding-bottom:16px; }
+  label { display:block; color:#e0d5b8; font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin:16px 0 6px; }
+  select, textarea, input[type=text] { width:100%; background:#111118; border:1px solid #2a2a36; color:#e8e0cc; border-radius:8px; padding:11px 12px; font-size:14px; font-family:inherit; }
+  select:focus, textarea:focus { outline:none; border-color:#c8a960; }
+  select { height:auto; }
+  optgroup { color:#c8a960; font-style:normal; font-weight:700; }
+  option { color:#d4d4d4; padding:4px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; }
+  .row > div { flex:1; min-width:180px; }
+  .sliders { display:flex; gap:20px; flex-wrap:wrap; margin-top:6px; }
+  .sliders > div { flex:1; min-width:150px; }
+  input[type=range] { width:100%; accent-color:#c8a960; }
+  .valbadge { color:#c8a960; font-weight:700; font-size:13px; }
+  .btns { display:flex; gap:10px; flex-wrap:wrap; margin-top:20px; }
+  button { background:#c8a960; color:#0a0a0f; border:none; border-radius:8px; padding:12px 18px; font-size:14px; font-weight:700; cursor:pointer; transition:.15s; }
+  button:hover { background:#e0c987; }
+  button.ghost { background:#181820; color:#e0d5b8; border:1px solid #333; }
+  button.ghost:hover { background:#222; }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  .meta { color:#666; font-size:12px; margin-top:6px; }
+  .article { margin-top:26px; background:#0d0d14; border:1px solid #1a1a24; border-radius:10px; padding:20px; max-height:46vh; overflow-y:auto; }
+  .article h2 { color:#c8a960; font-size:16px; font-weight:600; margin-bottom:12px; font-family:'Cormorant Garamond',Georgia,serif; }
+  .article p { font-size:14.5px; margin-bottom:12px; color:#bbb; transition:.2s; padding:4px 8px; border-radius:6px; }
+  .article p.reading { background:rgba(200,169,96,.14); color:#f2e8cf; }
+  .tip { background:rgba(200,169,96,.06); border:1px solid rgba(200,169,96,.2); border-radius:8px; padding:12px 15px; font-size:12.5px; color:#bbb; margin-top:16px; }
+  .tip b { color:#e0d5b8; }
+  .count { color:#c8a960; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Voice Reader</h1>
+  <p class="sub">Reads the article using <b>your device's own voices</b> — including Premium/Enhanced ones the terminal can't reach. Works best in Safari on your Mac.</p>
+
+  <label>Voice <span class="count" id="vcount"></span></label>
+  <select id="voice"></select>
+  <div class="meta" id="vmeta"></div>
+
+  <div class="sliders">
+    <div>
+      <label>Rate <span class="valbadge" id="rateVal">1.0</span></label>
+      <input type="range" id="rate" min="0.5" max="1.6" step="0.05" value="1">
+    </div>
+    <div>
+      <label>Pitch <span class="valbadge" id="pitchVal">1.0</span></label>
+      <input type="range" id="pitch" min="0.5" max="1.6" step="0.05" value="1">
+    </div>
+  </div>
+
+  <div class="btns">
+    <button id="preview" class="ghost">▶ Preview voice</button>
+    <button id="play">▶ Read article</button>
+    <button id="pause" class="ghost" disabled>⏸ Pause</button>
+    <button id="stop" class="ghost" disabled>⏹ Stop</button>
+  </div>
+
+  <label style="margin-top:22px">Text to read (edit or paste your own)</label>
+  <textarea id="text" rows="4"></textarea>
+
+  <div class="article" id="article"></div>
+
+  <div class="tip"><b>Want the most realistic voices?</b> System Settings → Accessibility → Spoken Content → System Voice → <b>Manage Voices</b> → download e.g. <b>Ava (Premium)</b> or <b>Evan (Enhanced)</b>. They'll appear in the list above after downloading. Voices marked <b>(local)</b> run offline; others may need internet.</div>
+</div>
+
+<script>
+const DATA = {"title": "Centro Fox, a Little Gift from the Elites Thanks to Tax Favors, Will Become a Catholic School", "paragraphs": ["This article by the SinEmbargo editorial staff originally appeared in the July 10, 2026 edition of SinEmbargo, a Mexican digital news outlet.", "Former President Vicente Fox Quesada has partnered, for the next hundred years, with the Catholic congregation Sisters of Charity of the Incarnate Word to venture into the education business and replace the Centro Fox—a complex built on his ranch with money from Mexico's magnates that used to host parties—with the University of the Incarnate Word, which will offer continuing-education programs with a business vision and even spiritual retreats.", "The University of the Incarnate Word, whose Spanish translation is Universidad de Verbo Encarnado—precisely because it belongs to the Catholic congregation Sisters of Charity of the Incarnate Word—reported that this Thursday, July 9, it inaugurated its new campus at the San Cristóbal ranch in San Francisco del Rincón, Guanajuato, owned by Fox Quesada and where he lives with his wife Marta Sahagún.", "Through a 100-year comodato contract (a free-of-charge loan-for-use agreement), the new León Metropolitan Zone campus of the Universidad de Verbo Encarnado will carry out its activities in what were the facilities of the Centro Fox, to offer its services in accordance with its mission, the institution reported.", "Fox and his wife took part in the inauguration ceremony, as well as educational authorities from Guanajuato and from this private, Catholic, and non-profit university that, it claims, promotes projects with an exclusively academic, educational, and training purpose.", "\"From this new campus, continuing-education programs, executive training, and senior-management development projects will be offered, aimed at individuals, companies, and institutions in the region. It will also be a space for international exchange, innovation, business networking, camps, professional and spiritual retreats, as well as for the development of academic projects with international reach,\" the university reported in a statement.", "Taking part in the inauguration were Sister Leticia de Jesús Ramírez Rodríguez, superior general of the Sisters of Charity of the Incarnate Word; Thomas M. Evans, president of the University of the Incarnate Word; Luis Ignacio Sánchez Gómez, Secretary of Education of the State of Guanajuato; Alejandro Antonio Marún González, municipal president of San Francisco del Rincón; PAN Senator Miguel Márquez Márquez, former governor of Guanajuato, among others.", "\"With the opening of our new campus in León, we are beginning a new stage for the University of the Incarnate Word. This space will play a very important role within our growing university system and represents a new expression of our mission. Through this campus we welcome a new community, with which we will share our values of education, truth, faith, service, and innovation,\" Evans stated.", "This institution reported that in the future it plans to open higher-education and graduate projects, taking advantage of the facilities of what was the Centro Fox, built as a civil association, among whose members and financiers were the heads of the Carso group, Carlos Slim Helú; Televisa, Emilio Azcárraga Jean; Grupo Salinas, Ricardo Salinas Pliego; and Grupo Ángeles, Olegario Vázquez Raña; as well as the banker Roberto Hernández, a patron of Fox.", "Also contributing to the construction of the Centro Fox were Federico Sada González, Liliana Margarita Melo de Sada, Arturo Sánchez de la Peña, Juan Diego Gutiérrez Cortina, María Isabel Sainz de Gutiérrez, Ma. Dolores Mirna Revilla de Sánchez, María de los Ángeles Aldir de Vázquez, Lorenzo H. Zambrano Treviño, Carlos Bremer Gutiérrez, Adriana Ibarra de Bremer, Roberto Hernández Ramírez, and Claudia Madrazo de Hernández.", "In addition: Arturo Elías Ayub, Johanna Slim de Ayub, Bernardo Gómez Martínez, Gabriel Ortiz Gómez, Eduardo Tricio Haro, María del Pilar Gómez Sotres, Horacio Jaime McCoy Martínez, Marlene Worth McDonald Tapia de McCoy, José Juan Francisco Serrano Cacho, Laura Eneta Torres de Plascencia, Sergio Díaz Torres, Martha Guadalupe Gómez de Díaz, Eduardo Alberto Henkel Pérez Castro, Rosaura Longoria de Henkel, Amparo Espinosa Rugarcía, José Francisco Enrique Pintado Rivero, Beatriz Sánchez Navarro de Pintado, Adriana Margarita Ibarra de la Garza, Flavio Díaz Mirón, Paulina Rodríguez de Díaz, and Jorge Mendoza Garza.", "The Centro Fox, as the Vicente Fox Quesada Center for Studies, Library and Museum is known, is a building on 300 hectares located in San Cristóbal, Guanajuato, with rooms that are replicas of the UN and of the former official residence of Los Pinos. On its official platforms, the institution, founded in 2007, states that it is committed to \"training compassionate leaders for the creation of a new, better world.\"", "In December 2019, SinEmbargo reported that, from 2007 to 2018, the Centro Fox received 452,063,582 pesos in donations. In the same period, the Vamos México Foundation—run by Martha Sahagún Jiménez, wife of Vicente Fox, whose operations began in 2001—took in 131,813,240 pesos.", "In other words, the couple once called \"the presidential couple\" at Fox's request received, in a little over a decade, 583,876,822 pesos, at a rate of 37,671,965 pesos per year at the Centro Fox and 10,984,436 pesos at Vamos México.", "Vicente Fox is a founding partner of the Vicente Fox Quesada Center for Studies, Library and Museum, A.C., a project initially created for altruistic purposes and registered as a civil organization that, nevertheless, has partnered with companies that move millions of dollars, as is the case with UST Global, dedicated to software development.", "Fox also profits from the Hacienda San Cristóbal, a tourist complex located inside the Centro Fox itself; while the foundations he runs with his wife Martha Sahagún Jiménez allow him to maintain a glamorous lifestyle with the gala events they organize to raise funds, of which they also share photographs on social media.", "Neither the Centro Fox nor the Vamos México foundation run by his wife offers open public data on transparency regarding the donations they receive.", "But the millions in donations are not the only scandal surrounding the Centro Fox and the assets of the former presidential family, since, in Guanajuato, the Fox family has been accused of exploiting the state's land, water, and other natural resources at will for the benefit of their businesses and their fortunes, according to complaints made by organizations and activists online.", "The Foxes extend long roots in Guanajuato, where their businesses are centered not only on the charitable foundations but also on a thriving agricultural export industry that develops in the state at the cost of exploiting the water of the Lerma-Santiago hydrological region.", "Between 1995 and 1999, the period in which Vicente Fox served as Governor of Guanajuato, he and his brothers obtained 13 concession titles for the exploitation of aquifers located within the boundaries of the San Cristóbal Ranch, owned by the former president. To these are added others that Conagua granted them in the name of companies founded by the Foxes in partnership with Usabiaga: Xtra Congelados Naturales, S.A. and Apex Congelados, S.A. de C.V.", "By the time the Fox administration in Guanajuato ended, these companies were bankrupt. Their debt was on the Fobaproa list and reached 12,398,000 pesos at that time. In 2007 the debt was bought by Organización Altex, S.A. de C.V., a corporate arm of the Bimbo company that to date holds the Xtra Congelados and Next Vegetales trademark registrations, which produces hydroponic vegetables a few meters from the Centro Fox.", "The sum of the extraction permits the Foxes kept in force between 2000 and 2006 reached 2,814,000 cubic meters per year, and between 1994 and 1999 it had a permitted discharge volume of 205,020 cubic meters per year, according to concession title 08GUA101247/12FMDL14, which reveals the high water levels this company required for its operation.", "Once out of Los Pinos, Vicente Fox Quesada sought a business in promoting the legalization of the cultivation and recreational-medicinal use of marijuana. Since 2018, through the Canadian company Khiron, he ventured into the cannabis industry on the basis of permits that the current government has placed under investigation, and later he partnered with the Nuevo León-based company Paradise.", "At the Centro Fox, on his ranch in Guanajuato, he heads the CannaMéxico event every year. The most recent edition of this event was sponsored by companies in the sector: US Pharmacopeia México (linked to the former commissioner), G4 Live, GPlant (CBD), ICAN, among others.", "Through that institution and other foundations, the former federal head of state looked into cannabis derivatives and began traveling the world to promote the legalization of marijuana.", "\"The start, what the original studies there at the Centro Fox showed us, was that the plant could be rescued, turned into medical use and, above all, that the rug could be pulled out from under the criminal gangs, the cartels that had substantial resources from this,\" Fox said in an interview with Roberto Martínez's podcast \"Creativo,\" regarding the times before fentanyl."]};
+const $ = id => document.getElementById(id);
+let voices = [];
+
+function fullText(){ return DATA.title + '. \n\n' + DATA.paragraphs.join('\n\n'); }
+
+// render article with paragraph spans
+function renderArticle(){
+  const a = $('article');
+  a.innerHTML = '<h2>'+DATA.title+'</h2>' + DATA.paragraphs.map((p,i)=>'<p data-i="'+i+'">'+p+'</p>').join('');
+}
+
+function populateVoices(){
+  voices = window.speechSynthesis.getVoices();
+  const sel = $('voice');
+  sel.innerHTML = '';
+  if(!voices.length){ sel.innerHTML='<option>Loading voices…</option>'; return; }
+  // group by language
+  const groups = {};
+  voices.forEach((v,idx)=>{ (groups[v.lang] ||= []).push({v,idx}); });
+  const langs = Object.keys(groups).sort((a,b)=>{
+    // English first
+    const ae=a.startsWith('en')?0:1, be=b.startsWith('en')?0:1;
+    return ae-be || a.localeCompare(b);
+  });
+  langs.forEach(lang=>{
+    const og = document.createElement('optgroup'); og.label = lang;
+    groups[lang].forEach(({v,idx})=>{
+      const o = document.createElement('option');
+      o.value = idx;
+      o.textContent = v.name + (v.localService ? '  (local)' : '  (network)') + (v.default ? '  ★' : '');
+      og.appendChild(o);
+    });
+    sel.appendChild(og);
+  });
+  $('vcount').textContent = '('+voices.length+' available)';
+  // default: first en-US, else system default, else 0
+  let def = voices.findIndex(v=>v.lang==='en-US' && v.default);
+  if(def<0) def = voices.findIndex(v=>v.lang==='en-US');
+  if(def<0) def = voices.findIndex(v=>v.default);
+  if(def<0) def = 0;
+  sel.value = def;
+  updateMeta();
+}
+
+function updateMeta(){
+  const v = voices[+$('voice').value];
+  $('vmeta').textContent = v ? (v.name+' · '+v.lang+' · '+(v.localService?'offline':'network')) : '';
+}
+
+let queue=[], qi=0, playing=false;
+function speakChunks(chunks, highlight){
+  window.speechSynthesis.cancel();
+  queue = chunks; qi = 0; playing = true;
+  $('play').disabled=true; $('pause').disabled=false; $('stop').disabled=false;
+  next(highlight);
+}
+function next(highlight){
+  if(qi>=queue.length){ finish(); return; }
+  const u = new SpeechSynthesisUtterance(queue[qi].text);
+  const v = voices[+$('voice').value];
+  if(v) u.voice = v;
+  u.rate = parseFloat($('rate').value);
+  u.pitch = parseFloat($('pitch').value);
+  u.onstart = ()=>{ if(highlight) mark(queue[qi].i); };
+  u.onend = ()=>{ qi++; next(highlight); };
+  u.onerror = ()=>{ qi++; next(highlight); };
+  window.speechSynthesis.speak(u);
+}
+function mark(i){
+  document.querySelectorAll('.article p').forEach(p=>p.classList.remove('reading'));
+  if(i==null) return;
+  const el = document.querySelector('.article p[data-i="'+i+'"]');
+  if(el){ el.classList.add('reading'); el.scrollIntoView({block:'center',behavior:'smooth'}); }
+}
+function finish(){
+  playing=false; $('play').disabled=false; $('pause').disabled=true; $('stop').disabled=true;
+  $('pause').textContent='⏸ Pause'; mark(null);
+}
+
+$('play').onclick = ()=>{
+  // build chunks from the textarea if user edited, else from paragraphs (with highlight)
+  const custom = $('text').value.trim();
+  const base = fullText().trim();
+  if(custom && custom !== base){
+    const parts = custom.split(/\n\n+/).map((t,idx)=>({text:t, i:null}));
+    speakChunks(parts, false);
+  } else {
+    const chunks = [{text:DATA.title, i:null}].concat(DATA.paragraphs.map((p,i)=>({text:p,i})));
+    speakChunks(chunks, true);
+  }
+};
+$('preview').onclick = ()=>{
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance('This is a preview of the selected voice, reading a sample sentence so you can compare.');
+  const v = voices[+$('voice').value]; if(v) u.voice=v;
+  u.rate=parseFloat($('rate').value); u.pitch=parseFloat($('pitch').value);
+  window.speechSynthesis.speak(u);
+};
+$('pause').onclick = ()=>{
+  const sp = window.speechSynthesis;
+  if(sp.paused){ sp.resume(); $('pause').textContent='⏸ Pause'; }
+  else { sp.pause(); $('pause').textContent='▶ Resume'; }
+};
+$('stop').onclick = ()=>{ window.speechSynthesis.cancel(); finish(); };
+$('voice').onchange = updateMeta;
+$('rate').oninput = e=>$('rateVal').textContent = parseFloat(e.target.value).toFixed(2);
+$('pitch').oninput = e=>$('pitchVal').textContent = parseFloat(e.target.value).toFixed(2);
+
+renderArticle();
+$('text').value = fullText();
+populateVoices();
+if(typeof speechSynthesis!=='undefined') speechSynthesis.onvoiceschanged = populateVoices;
+window.addEventListener('beforeunload', ()=>window.speechSynthesis.cancel());
+</script>
+</body>
+</html>
