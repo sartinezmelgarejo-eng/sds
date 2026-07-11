@@ -10932,6 +10932,8 @@ body {
   function openBook(bookId) {
     const book = books.find(b => b.id === bookId);
     if (!book) return;
+    // Abrir un libro (p. ej. desde una cita) sale del timeline → calla la voz.
+    if (window.__tlStopNarration) { try { window.__tlStopNarration(); } catch(e) {} }
 
     const coverHTML = getCoverHTML(book, 'large');
 
@@ -15445,6 +15447,17 @@ body {
     });
     // Expose stop so any external interaction can pause autoplay
     container._tlMapaStopPlay = stopPlay;
+    // Corta TODA la voz (play y también una cita/descripción que se esté leyendo
+    // por clic). Se llama al salir del timeline (showView) para que no siga
+    // hablando en otra sección sin forma de callarlo.
+    function stopAllNarration() {
+      stopPlay('leave');
+      narrationSeq++;   // invalida cualquier lectura por clic en curso
+      if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch(e) {} }
+      if (typeof highlightCita === 'function') highlightCita(null);
+    }
+    container._tlMapaStopAll = stopAllNarration;
+    window.__tlStopNarration = stopAllNarration;
 
     // ── Modo pantalla completa (solo visual; la voz la controla el Play) ──
     var presenting = false;
@@ -20977,6 +20990,9 @@ body {
   // ══════════════════════════════════════════════
 
   function showView(view, skipScroll) {
+    // Al salir del timeline, corta la narración (si no, sigue hablando en otra
+    // sección sin forma de callarla).
+    if (view !== 'timeline' && window.__tlStopNarration) { try { window.__tlStopNarration(); } catch(e) {} }
     currentView = view;
     // Always hide the landing page when switching views
     const landing = document.getElementById('landing');
