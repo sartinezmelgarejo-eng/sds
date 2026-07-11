@@ -2723,8 +2723,9 @@ body {
   padding: 6px 18px 2px;
   text-align: center;
 }
-/* Header del mapa: placa de madera (nogal Tono 2) con grano sutil y letras en
-   oro blanco (Cinzel) — año + filete divisor + título. Diseño aprobado. */
+/* Header del mapa: placa cuyo MATERIAL cambia por etapa (modo de producción)
+   según el año del evento. cosmos → piedra → plata → madera → acero → digital.
+   El material lo cuenta el avance de las fuerzas productivas. */
 .tl-mapa-loc {
   padding: 13px 24px !important;
   display: flex !important;
@@ -2734,66 +2735,112 @@ body {
   text-align: left !important;
   position: relative;
   overflow: hidden;
-  border-bottom: 1px solid #1e120a;
-  background:
-    radial-gradient(150% 130% at 18% -10%, rgba(170,120,70,0.34) 0%, rgba(0,0,0,0) 48%),
-    radial-gradient(130% 140% at 88% 110%, rgba(38,22,11,0.42) 0%, rgba(0,0,0,0) 54%),
-    linear-gradient(178deg, #6d4a2a 0%, #5a3c20 48%, #4a301a 80%, #3d2714 100%);
-  box-shadow: inset 0 1px 0 rgba(224,180,120,0.36), inset 0 0 12px rgba(30,16,6,0.16);
-  transition: none;
+  isolation: isolate;
+  border-bottom: 1px solid rgba(0,0,0,0.45);
+  background: linear-gradient(178deg,#4a301a,#3d2714); /* fallback (madera) */
 }
-/* grano orgánico de madera (fibra horizontal), muy tenue */
-.tl-mapa-loc::before {
-  content: ''; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  opacity: 0.30; mix-blend-mode: multiply; background-repeat: no-repeat; background-size: cover;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='90'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.5' numOctaves='5' seed='11' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='90' filter='url(%23w)'/></svg>");
+.tl-mapa-loc::before, .tl-mapa-loc::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background-repeat: no-repeat; background-size: cover;
 }
-.tl-mapa-loc-year, .tl-mapa-loc-name { position: relative; z-index: 2; }
+.tl-mapa-loc-year, .tl-mapa-loc-name { position: relative; z-index: 3; }
 .tl-mapa-loc-year {
   font-family: 'Cinzel', 'Bodoni Moda', Georgia, serif;
-  font-size: 30px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  color: #e9e2cf;
-  background: none;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  line-height: 1;
-  flex-shrink: 0;
-  white-space: nowrap;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.55);
+  font-size: 30px; font-weight: 700; letter-spacing: 0.5px; line-height: 1;
+  background: none; padding: 0; border: none; border-radius: 0; box-shadow: none;
+  flex-shrink: 0; white-space: nowrap; color: #e9e2cf;
 }
 .tl-mapa-loc-name {
   display: -webkit-box !important;
   font-family: 'Cinzel', 'Cormorant Garamond', Georgia, serif;
-  font-size: 23px;
-  font-weight: 700;
-  font-style: normal;
-  text-transform: uppercase;
-  letter-spacing: 1.4px;
-  color: #e9e2cf;
-  line-height: 1.08;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  white-space: normal;
-  padding-left: 20px;
-  border-left: 1px solid rgba(233,226,207,0.32);
-  text-shadow: 0 1px 1px rgba(0,0,0,0.55);
-}
-/* el header es SIEMPRE madera oscura → oro blanco también en tema claro */
-:root.light .tl-mapa-loc-year,
-:root.light .tl-mapa-loc-name {
-  color: #e9e2cf;
-  text-shadow: 0 1px 1px rgba(0,0,0,0.55);
+  font-size: 23px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.4px;
+  line-height: 1.08; flex: 1; min-width: 0; text-align: left; overflow: hidden;
+  text-overflow: ellipsis; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  white-space: normal; padding-left: 20px; color: #e9e2cf;
+  border-left: 1px solid rgba(233,226,207,0.3);
 }
 .tl-mapa-loc-where, .tl-mapa-loc-detalle, .tl-mapa-loc-meta { display: none; }
+@keyframes tlMatFade { from { opacity: .3; } to { opacity: 1; } }
+.tl-mapa-loc.mat-fade { animation: tlMatFade .55s ease; }
+
+/* ── COSMOS ── */
+.tl-mapa-loc.mat-cosmos { background:
+  radial-gradient(60% 180% at 72% 130%, rgba(120,70,180,.30) 0%, rgba(0,0,0,0) 55%),
+  radial-gradient(50% 160% at 20% -40%, rgba(40,90,170,.35) 0%, rgba(0,0,0,0) 55%),
+  linear-gradient(160deg,#131a33 0%,#0a1024 55%,#05070f 100%); }
+.tl-mapa-loc.mat-cosmos::before { mix-blend-mode:screen; opacity:.9;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='700' height='90'><filter id='sc'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='9'/><feColorMatrix type='matrix' values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 12 -10.4'/></filter><rect width='700' height='90' filter='url(%23sc)'/></svg>"); }
+.tl-mapa-loc.mat-cosmos::after { mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='700' height='90'><g fill='%23fff'><circle cx='90' cy='22' r='1.4' opacity='.9'/><circle cx='240' cy='58' r='1.1' opacity='.7'/><circle cx='400' cy='30' r='1.6'/><circle cx='520' cy='66' r='1' opacity='.6'/><circle cx='610' cy='24' r='1.3' opacity='.85'/><circle cx='330' cy='72' r='.9' opacity='.6'/><circle cx='160' cy='44' r='1' opacity='.7'/></g></svg>"); }
+.tl-mapa-loc.mat-cosmos .tl-mapa-loc-year, .tl-mapa-loc.mat-cosmos .tl-mapa-loc-name { color:#e2e9fc; text-shadow:0 0 10px rgba(150,180,255,.55),0 1px 1px rgba(0,0,0,.7); }
+.tl-mapa-loc.mat-cosmos .tl-mapa-loc-name { border-left-color:rgba(190,205,245,.28); }
+
+/* ── PIEDRA CLARA (comunidad primitiva) ── */
+.tl-mapa-loc.mat-primitiva { background:
+  radial-gradient(120% 160% at 25% -30%, rgba(255,250,235,.16) 0%, rgba(0,0,0,0) 55%),
+  linear-gradient(178deg,#9a917f 0%,#7c7263 55%,#655c4e 100%); border-bottom-color:#463f34; }
+.tl-mapa-loc.mat-primitiva::before { mix-blend-mode:overlay; opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='90'><filter id='r1'><feTurbulence type='fractalNoise' baseFrequency='0.03 0.05' numOctaves='4' seed='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='520' height='90' filter='url(%23r1)'/></svg>"); }
+.tl-mapa-loc.mat-primitiva::after { mix-blend-mode:soft-light; opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='90'><filter id='p1'><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' seed='8'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='90' filter='url(%23p1)'/></svg>"); }
+.tl-mapa-loc.mat-primitiva .tl-mapa-loc-year, .tl-mapa-loc.mat-primitiva .tl-mapa-loc-name { color:#332d22; text-shadow:0 1px 0 rgba(255,250,235,.4); }
+.tl-mapa-loc.mat-primitiva .tl-mapa-loc-name { border-left-color:rgba(51,45,34,.3); }
+
+/* ── PIEDRA (sociedades tributarias / basalto) ── */
+.tl-mapa-loc.mat-piedra { background:
+  radial-gradient(120% 160% at 25% -30%, rgba(150,155,162,.18) 0%, rgba(0,0,0,0) 55%),
+  linear-gradient(178deg,#464951 0%,#2f3238 55%,#212429 100%); border-bottom-color:#17181b; }
+.tl-mapa-loc.mat-piedra::before { mix-blend-mode:overlay; opacity:.6;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='520' height='90'><filter id='r2'><feTurbulence type='fractalNoise' baseFrequency='0.03 0.05' numOctaves='4' seed='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='520' height='90' filter='url(%23r2)'/></svg>"); }
+.tl-mapa-loc.mat-piedra::after { mix-blend-mode:soft-light; opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='90'><filter id='p2'><feTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='3' seed='8'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='90' filter='url(%23p2)'/></svg>"); }
+.tl-mapa-loc.mat-piedra .tl-mapa-loc-year, .tl-mapa-loc.mat-piedra .tl-mapa-loc-name { color:#c6cad0; text-shadow:0 1px 0 rgba(255,255,255,.14),0 -1px 1px rgba(0,0,0,.75); }
+.tl-mapa-loc.mat-piedra .tl-mapa-loc-name { border-left-color:rgba(198,202,208,.26); }
+
+/* ── PLATA (colonial / acumulación originaria) ── */
+.tl-mapa-loc.mat-plata { background:
+  linear-gradient(105deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 60%),
+  linear-gradient(178deg,#e0e4e8 0%,#b3b9bf 42%,#c9ced3 60%,#949aa0 100%); border-bottom-color:#6f757b; }
+.tl-mapa-loc.mat-plata::before { mix-blend-mode:overlay; opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='90'><filter id='b1'><feTurbulence type='fractalNoise' baseFrequency='0.0022 0.95' numOctaves='2' seed='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1000' height='90' filter='url(%23b1)'/></svg>"); }
+.tl-mapa-loc.mat-plata .tl-mapa-loc-year, .tl-mapa-loc.mat-plata .tl-mapa-loc-name { color:#292e34; text-shadow:0 1px 0 rgba(255,255,255,.6); }
+.tl-mapa-loc.mat-plata .tl-mapa-loc-name { border-left-color:rgba(41,46,52,.3); }
+
+/* ── MADERA (formación del capitalismo / nación) ── */
+.tl-mapa-loc.mat-madera { background:
+  radial-gradient(150% 130% at 18% -10%, rgba(170,120,70,.34) 0, rgba(0,0,0,0) 48%),
+  radial-gradient(130% 140% at 88% 110%, rgba(38,22,11,.42) 0, rgba(0,0,0,0) 54%),
+  linear-gradient(178deg,#6d4a2a 0,#5a3c20 48%,#4a301a 80%,#3d2714 100%); border-bottom-color:#1e120a;
+  box-shadow: inset 0 1px 0 rgba(224,180,120,.36); }
+.tl-mapa-loc.mat-madera::before { opacity:.3; mix-blend-mode:multiply;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='90'><filter id='wd'><feTurbulence type='fractalNoise' baseFrequency='0.006 0.5' numOctaves='5' seed='11'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1200' height='90' filter='url(%23wd)'/></svg>"); }
+.tl-mapa-loc.mat-madera .tl-mapa-loc-year, .tl-mapa-loc.mat-madera .tl-mapa-loc-name { color:#e9e2cf; text-shadow:0 1px 1px rgba(0,0,0,.55); }
+.tl-mapa-loc.mat-madera .tl-mapa-loc-name { border-left-color:rgba(233,226,207,.32); }
+
+/* ── ACERO (capitalismo industrial y Estado) ── */
+.tl-mapa-loc.mat-acero { background:
+  linear-gradient(100deg, rgba(255,255,255,0) 34%, rgba(255,255,255,.28) 47%, rgba(255,255,255,0) 60%),
+  linear-gradient(178deg,#585d64 0%,#34383e 48%,#292c32 78%,#3d4147 100%); border-bottom-color:#17191c; }
+.tl-mapa-loc.mat-acero::before { mix-blend-mode:overlay; opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='90'><filter id='a1'><feTurbulence type='fractalNoise' baseFrequency='0.0025 0.9' numOctaves='2' seed='5'/><feColorMatrix type='saturate' values='0'/></filter><rect width='1000' height='90' filter='url(%23a1)'/></svg>"); }
+.tl-mapa-loc.mat-acero::after { opacity:.9; background-image:
+  radial-gradient(circle at 16px 16px, #7c828a 0 2px, #24272c 2.6px 3.6px, transparent 4px),
+  radial-gradient(circle at 16px calc(100% - 16px), #7c828a 0 2px, #24272c 2.6px 3.6px, transparent 4px),
+  radial-gradient(circle at calc(100% - 16px) 16px, #7c828a 0 2px, #24272c 2.6px 3.6px, transparent 4px),
+  radial-gradient(circle at calc(100% - 16px) calc(100% - 16px), #7c828a 0 2px, #24272c 2.6px 3.6px, transparent 4px); }
+.tl-mapa-loc.mat-acero .tl-mapa-loc-year, .tl-mapa-loc.mat-acero .tl-mapa-loc-name { color:#dee2e7; text-shadow:0 1px 1px rgba(0,0,0,.75); }
+.tl-mapa-loc.mat-acero .tl-mapa-loc-name { border-left-color:rgba(222,226,231,.26); }
+
+/* ── CROMO / DIGITAL (neoliberalismo / digital) ── */
+.tl-mapa-loc.mat-digital { background:
+  linear-gradient(115deg, rgba(120,190,255,0) 40%, rgba(120,190,255,.14) 50%, rgba(120,190,255,0) 62%),
+  linear-gradient(178deg,#141d31 0%,#0b1120 60%,#070a12 100%); border-bottom-color:#0c1a36;
+  box-shadow: inset 0 1px 0 rgba(90,150,230,.28), inset 0 -2px 10px rgba(20,80,180,.25); }
+.tl-mapa-loc.mat-digital::before { mix-blend-mode:overlay; opacity:.5;
+  background-image:repeating-linear-gradient(0deg, rgba(140,200,255,.10) 0 1px, transparent 1px 4px); }
+.tl-mapa-loc.mat-digital::after { opacity:.8; background:linear-gradient(0deg, rgba(70,170,255,.55) 0 2px, transparent 2px); }
+.tl-mapa-loc.mat-digital .tl-mapa-loc-year, .tl-mapa-loc.mat-digital .tl-mapa-loc-name { color:#e8f1ff; text-shadow:0 0 9px rgba(80,160,255,.6); }
+.tl-mapa-loc.mat-digital .tl-mapa-loc-name { border-left-color:rgba(120,180,255,.32); }
 
 /* Era inception header inside the flat chronological column */
 .tl-mapa-era-inception {
@@ -13571,6 +13618,26 @@ body {
     return fixed;
   }
 
+  // Etapa (modo de producción) según el año → material del header. El material
+  // narra el avance de las fuerzas productivas; corre por debajo de las eras
+  // mexicanas y sirve igual para eventos de México y del Mundo.
+  function stageMaterial(y) {
+    if (y == null || isNaN(y)) return 'madera';
+    if (y < -10000) return 'cosmos';       // cosmos / geológico
+    if (y < -1500)  return 'primitiva';    // comunidad primitiva (piedra clara)
+    if (y < 1521)   return 'piedra';       // sociedades tributarias (basalto)
+    if (y < 1810)   return 'plata';        // acumulación originaria colonial
+    if (y < 1910)   return 'madera';       // formación del capitalismo / nación
+    if (y < 1982)   return 'acero';        // capitalismo industrial y Estado
+    return 'digital';                       // capitalismo neoliberal / digital
+  }
+  function evYearNum(yr) {
+    var d = parseEventDate(yr);
+    var y = d.year;
+    if (d.isBC && y != null && y > 0) y = -y;
+    return y;
+  }
+
   function renderTimelineMapaView(container, eras, tlScope) {
     normalizeLugarCoords(eras);
     // Collect events with lugar. The México/Mundo split is GEOGRAPHIC when
@@ -14914,7 +14981,17 @@ body {
         hdr1.style.setProperty('--era-color-current', eraCol);
         // Also expose on the parent .tl-mapa-loc so the underline picks it up.
         var locParent = hdr1.closest('.tl-mapa-loc');
-        if (locParent) locParent.style.setProperty('--era-color-current', eraCol);
+        if (locParent) {
+          locParent.style.setProperty('--era-color-current', eraCol);
+          // Material del header por etapa/modo de producción (según el año)
+          var mat = stageMaterial(evYearNum(ev.year));
+          if (locParent.getAttribute('data-mat') !== mat) {
+            locParent.setAttribute('data-mat', mat);
+            locParent.classList.remove('mat-cosmos','mat-primitiva','mat-piedra','mat-plata','mat-madera','mat-acero','mat-digital');
+            locParent.classList.add('mat-' + mat);
+            locParent.classList.remove('mat-fade'); void locParent.offsetWidth; locParent.classList.add('mat-fade');
+          }
+        }
       }
       if (hdr2) hdr2.textContent = ev.text || '';
       if (hdr3) {
