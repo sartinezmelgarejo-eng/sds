@@ -2939,6 +2939,33 @@ body {
   font-weight: 700;
   color: #fdfcf3;
 }
+/* Cita(s) inline en el panel de descripción del mapa — siempre visibles,
+   jerarquía título → descripción → cita (como en móvil). */
+.tl-mapa-floating-detalle .tl-mapa-dc-wrap {
+  margin-top: 13px; padding-top: 12px; clear: both;
+  border-top: 1px solid rgba(240,232,212,0.18);
+}
+.tl-mapa-floating-detalle .tl-mapa-dc { margin-bottom: 11px; }
+.tl-mapa-floating-detalle .tl-mapa-dc:last-child { margin-bottom: 0; }
+.tl-mapa-floating-detalle .tl-mapa-dc-q {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic;
+  font-size: 14.5px; line-height: 1.42; color: #e9dfc6;
+  padding-left: 11px; border-left: 2px solid var(--gold, #c9a24a); margin-bottom: 5px;
+}
+.tl-mapa-floating-detalle .tl-mapa-dc-q .quote-page-link { font-style: normal; }
+.tl-mapa-floating-detalle .tl-mapa-dc-src {
+  font-family: 'Oswald', system-ui, sans-serif; font-size: 10.5px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: rgba(240,232,212,0.6); padding-left: 11px;
+}
+.tl-mapa-floating-detalle .tl-mapa-dc-src .booklink {
+  color: var(--gold, #d9b877); cursor: pointer; border-bottom: 1px dotted rgba(217,184,119,0.5);
+}
+.tl-mapa-floating-detalle .tl-mapa-dc-nested { font-style: italic; text-transform: none; opacity: 0.9; }
+:root.light .tl-mapa-floating-detalle .tl-mapa-dc-wrap { border-top-color: rgba(0,0,0,0.14); }
+:root.light .tl-mapa-floating-detalle .tl-mapa-dc-q { color: #33291a; border-left-color: #b8862f; }
+:root.light .tl-mapa-floating-detalle .tl-mapa-dc-src { color: rgba(40,30,15,0.62); }
+:root.light .tl-mapa-floating-detalle .tl-mapa-dc-src .booklink { color: #9a6f1e; border-bottom-color: rgba(154,111,30,0.5); }
 .tl-mapa-floating-detalle .tl-mapa-detalle-body::first-letter {
   font-family: 'Bodoni Moda', serif;
   font-weight: 700;
@@ -13874,8 +13901,8 @@ body {
     container._tlMapaClickHandler = function(e) {
       // PDF link inside floating cita: let it through to the browser
       if (e.target.closest('.quote-page-link')) return;
-      // Floating cita book link
-      var bookLink = e.target.closest('.tl-mapa-floating-cita .booklink[data-book]');
+      // Cita book link — floating card OR the inline copy in the description panel
+      var bookLink = e.target.closest('.tl-mapa-floating-cita .booklink[data-book], #tl-mapa-detalle .booklink[data-book]');
       if (bookLink) {
         openBook(bookLink.getAttribute('data-book'));
         e.stopPropagation();
@@ -14444,6 +14471,39 @@ body {
     if (nG <= 2) citasLayerEl.classList.add('tl-citas-pair');
     else if (nG <= 4) citasLayerEl.classList.add('tl-citas-mid');
     else citasLayerEl.classList.add('tl-citas-many');
+
+    // Also render the cita(s) INLINE in the description panel, stacked below the
+    // detalle. The floating map cards get occluded whenever the event's location
+    // is on the far side of the globe (e.g. a Middle-East event while the globe
+    // shows the Americas), so the quote could vanish entirely. In the panel it is
+    // always visible and reads with a clear título → descripción → cita hierarchy,
+    // like the mobile card.
+    if (detalleBody && citas.length) {
+      var panelCitas = groups.map(function(g) {
+        var bk = g.libro ? books.find(function(b) { return b.id === g.libro; }) : null;
+        var title = bk ? bk.title : (g.libro || '');
+        var author = (bk && bk.author) || g.citas[0].autor || '';
+        var nested = [];
+        if (bk && bk.author) {
+          g.citas.forEach(function(c) {
+            if (c.autor && !isSameAuthor(c.autor, bk.author) && nested.indexOf(c.autor) < 0) nested.push(c.autor);
+          });
+        }
+        var quotes = g.citas.map(function(c) {
+          var pl = pdfLinkFor(c, bk);
+          return '<div class="tl-mapa-dc-q">“' + escHTML(c.texto) + '”' + (pl ? ' ' + pl : '') + '</div>';
+        }).join('');
+        var srcParts = [];
+        if (title) srcParts.push('<span class="booklink" data-book="' + (g.libro || '') + '">' + escHTML(title) + '</span>');
+        if (author) srcParts.push('<span class="tl-mapa-dc-au">' + escHTML(author) + '</span>');
+        var nestedHint = nested.length ? '<span class="tl-mapa-dc-nested">cita de ' + escHTML(nested.join(', ')) + '</span> ' : '';
+        return '<div class="tl-mapa-dc">' + quotes +
+          '<div class="tl-mapa-dc-src">' + nestedHint + srcParts.join(' · ') + '</div></div>';
+      }).join('');
+      detalleBody.insertAdjacentHTML('beforeend', '<div class="tl-mapa-dc-wrap">' + panelCitas + '</div>');
+      detalleEl.classList.add('show');
+      detalleEl.classList.toggle('mundo', ev.scope === 'mundo');
+    }
   }
 
   function initMapaGlobe(container, events, world, mxStates) {
