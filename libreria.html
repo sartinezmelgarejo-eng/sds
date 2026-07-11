@@ -15767,6 +15767,17 @@ body {
       if (/^en/.test(c)) return 'Inglés';
       return l || '';
     }
+    // Cuando una voz existe en dos versiones (compacta + premium), deja solo la
+    // mejor (misma name+lang → prefiere la premium/enhanced/Siri).
+    function bestPerName(list) {
+      var byKey = {};
+      list.forEach(function(v) {
+        var k = (v.name || '') + '|' + (v.lang || '');
+        var cur = byKey[k];
+        if (!cur || (isPremium(v) && !isPremium(cur))) byKey[k] = v;
+      });
+      return Object.keys(byKey).map(function(k) { return byKey[k]; });
+    }
     function voiceOptions(list) {
       return list.map(function(v) {
         var lbl = v.name + ' — ' + langLabel(v.lang) + (isPremium(v) ? ' ★' : '');
@@ -15776,9 +15787,9 @@ body {
     function populateVoicePanel() {
       if (!voicesPanel) return;
       var vs = allVoices();
-      var es = vs.filter(function(v) { return /^es/i.test(v.lang || '') && !isNovelty(v); })
+      var es = bestPerName(vs.filter(function(v) { return /^es/i.test(v.lang || '') && !isNovelty(v); }))
         .sort(function(a, b) { return langLabel(a.lang).localeCompare(langLabel(b.lang)) || a.name.localeCompare(b.name); });
-      var en = vs.filter(function(v) { return /^en/i.test(v.lang || '') && !isNovelty(v); })
+      var en = bestPerName(vs.filter(function(v) { return /^en/i.test(v.lang || '') && !isNovelty(v); }))
         .sort(function(a, b) { return a.name.localeCompare(b.name); });
       // Show which Spanish variants this device actually exposes (answers
       // "why don't more show up?" — the browser only lists installed voices).
