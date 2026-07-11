@@ -3430,6 +3430,38 @@ body {
 }
 .tl-mapa-nav--mute { font-size: 13px; }
 .tl-mapa-nav--mute.muted { opacity: 0.55; }
+.tl-mapa-nav--voices { font-size: 13px; }
+.tl-mapa-nav--voices.active { background: var(--gold); color: #0d0d1a; border-color: var(--gold); }
+/* Panel de voces por parte */
+.tl-mapa-voices-panel {
+  position: absolute; bottom: 62px; right: 12px; z-index: 30;
+  width: 300px; max-width: calc(100vw - 24px);
+  background: #16110c; color: #f0e8d4;
+  border: 1px solid rgba(200,169,96,0.35); border-radius: 10px;
+  padding: 14px 16px 16px; box-shadow: 0 16px 40px rgba(0,0,0,0.55);
+  font-family: 'Oswald', system-ui, sans-serif;
+}
+.tl-mapa-voices-panel[hidden] { display: none; }
+.tl-mapa-voices-panel .tlvp-title {
+  font-family: 'Cinzel', serif; font-size: 14px; letter-spacing: 0.5px;
+  color: #e9dcc0; margin-bottom: 12px; text-transform: uppercase;
+}
+.tl-mapa-voices-panel label {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; color: #cdbfa3; margin-bottom: 9px;
+}
+.tl-mapa-voices-panel select {
+  flex: 1; min-width: 0; max-width: 190px;
+  background: #221a11; color: #f0e8d4;
+  border: 1px solid rgba(200,169,96,0.3); border-radius: 6px;
+  padding: 5px 7px; font-size: 12px; font-family: inherit;
+}
+.tl-mapa-voices-panel .tlvp-hint { font-size: 11px; color: #93856a; margin: 4px 0 12px; line-height: 1.35; }
+.tl-mapa-voices-panel .tlvp-close {
+  width: 100%; padding: 7px; border-radius: 6px; cursor: pointer;
+  background: var(--gold); color: #0d0d1a; border: none;
+  font-family: inherit; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase;
+}
 /* Descripción y citas: clic = leerlas en voz alta */
 .tl-mapa-floating-detalle.show { cursor: pointer; }
 .tl-mapa-floating-cita { cursor: pointer; }
@@ -14437,8 +14469,18 @@ body {
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir con voz (narra y avanza)">▶</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--mute" id="tl-mapa-mute" aria-label="Silenciar voz" title="Silenciar la voz">🔊</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--voices" id="tl-mapa-voices" aria-label="Voces por parte" title="Elegir una voz para cada parte">🎙</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--present" id="tl-mapa-present" aria-label="Modo presentación" title="Modo presentación (pantalla completa + narración)">⛶</button>' +
+      '</div>' +
+      '<div class="tl-mapa-voices-panel" id="tl-mapa-voices-panel" hidden>' +
+        '<div class="tlvp-title">Una voz por parte</div>' +
+        '<label>Año<select data-role="fecha"></select></label>' +
+        '<label>Evento<select data-role="evento"></select></label>' +
+        '<label>Descripción<select data-role="descripcion"></select></label>' +
+        '<label>Cita<select data-role="cita"></select></label>' +
+        '<div class="tlvp-hint">Las citas en inglés siempre usan una voz en inglés.</div>' +
+        '<button class="tlvp-close" id="tl-mapa-voices-close">Cerrar</button>' +
       '</div>' +
     '</div>';
   }
@@ -15395,6 +15437,20 @@ body {
       }
       return cand[0];
     }
+    // Per-part voice assignment (año / evento / descripción / cita). Persisted
+    // by voice NAME; falls back to the auto es-MX voice when unset/unavailable.
+    var roleVoices = {};
+    try { roleVoices = JSON.parse(localStorage.getItem('tlMapaRoleVoices') || '{}') || {}; } catch(e) { roleVoices = {}; }
+    function allVoices() { return (window.speechSynthesis && speechSynthesis.getVoices()) || []; }
+    function voiceForSegment(seg) {
+      if (seg.lang === 'en') return voiceFor('en');   // English quotes always use an English voice
+      var wanted = seg.role && roleVoices[seg.role];
+      if (wanted) {
+        var v = allVoices().find(function(x) { return x.name === wanted; });
+        if (v) return v;
+      }
+      return voiceFor('es');
+    }
     // Guess whether a snippet is English or Spanish so English quotes get an
     // English voice. Spanish accents/¿¡ are a dead giveaway; otherwise compare
     // common stopword counts.
@@ -15442,7 +15498,7 @@ body {
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
         u.rate = 0.97; u.pitch = 1;
-        var v = voiceFor(seg.lang);
+        var v = voiceForSegment(seg);
         if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
         u.onend = function() { if (mySeq === narrationSeq) step(); };
         u.onerror = function() {
@@ -15454,27 +15510,25 @@ body {
       // that isn't initiated directly inside the user-gesture call stack.
       step();
     }
-    // Segments for a full event: Spanish block (year+text+detalle+attribution),
-    // then the first quote in its own detected language.
+    // Segments for a full event, each tagged with its ROLE so it can use its
+    // own voice: fecha (año), evento (texto), descripcion (detalle), cita
+    // (atribución + texto, la cita en su idioma detectado).
     function eventSegments(ev) {
-      var esParts = ['Año ' + speakYear(ev.year) + '.'];
-      if (ev.text) esParts.push(ev.text + '.');
-      if (ev.detalle) esParts.push(ev.detalle);
+      var segs = [{ text: speakNumbers('Año ' + speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
+      if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: 'es', role: 'evento' });
+      if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: 'es', role: 'descripcion' });
       var c = ev.citas && ev.citas[0];
-      var quoteText = null, quoteLang = 'es';
       if (c && c.texto) {
         var speaker = c.autor;
         if (!speaker && c.libro && typeof books !== 'undefined') {
           var bkS = books.find(function(b) { return b.id === c.libro; });
           if (bkS) speaker = bkS.author;
         }
-        quoteLang = detectLang(c.texto);
+        var quoteLang = detectLang(c.texto);
         var verbo = quoteLang === 'en' ? ' dice, en inglés:' : ' dice:';
-        esParts.push(speaker ? (speaker + verbo) : 'Cita:');
-        quoteText = c.texto;
+        segs.push({ text: speakNumbers(speaker ? (speaker + verbo) : 'Cita:'), lang: 'es', role: 'cita' });
+        segs.push({ text: speakNumbers(c.texto), lang: quoteLang, role: 'cita' });
       }
-      var segs = [{ text: speakNumbers(esParts.join(' ')), lang: 'es' }];
-      if (quoteText) segs.push({ text: speakNumbers(quoteText), lang: quoteLang });
       return segs;
     }
     function narrateCurrent(onDone) {
@@ -15503,7 +15557,7 @@ body {
       if (det) {
         var body = container.querySelector('#tl-mapa-detalle-body');
         var t = body ? body.textContent.trim() : '';
-        if (t) readClicked([{ text: speakNumbers(t), lang: detectLang(t) }]);
+        if (t) readClicked([{ text: speakNumbers(t), lang: detectLang(t), role: 'descripcion' }]);
         return !!t;
       }
       var card = targetEl.closest('.tl-mapa-floating-cita');
@@ -15512,7 +15566,7 @@ body {
           card.querySelectorAll('.tl-mapa-floating-cita-text'),
           function(el) { return el.textContent.replace(/[“”"]/g, '').trim(); }
         ).filter(Boolean);
-        var segs = texts.map(function(t) { return { text: speakNumbers(t), lang: detectLang(t) }; });
+        var segs = texts.map(function(t) { return { text: speakNumbers(t), lang: detectLang(t), role: 'cita' }; });
         if (segs.length) readClicked(segs);
         return !!segs.length;
       }
@@ -15550,8 +15604,56 @@ body {
     }
     if (presentBtn) presentBtn.addEventListener('click', function() { if (presenting) stopPresent(); else startPresent(); });
     document.addEventListener('fullscreenchange', function() { if (!document.fullscreenElement && presenting) stopPresent(); });
-    // Prime la lista de voces (carga async en algunos navegadores).
-    if ('speechSynthesis' in window) { try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = function(){}; } catch(e) {} }
+
+    // ── Panel: una voz por parte (año / evento / descripción / cita) ──
+    var voicesBtn = container.querySelector('#tl-mapa-voices');
+    var voicesPanel = container.querySelector('#tl-mapa-voices-panel');
+    var voicesClose = container.querySelector('#tl-mapa-voices-close');
+    var ROLE_TEST = { fecha: 'Año 1521.', evento: 'Caída de Tenochtitlan.', descripcion: 'Ejemplo de descripción.', cita: 'Ejemplo de cita.' };
+    function populateVoicePanel() {
+      if (!voicesPanel) return;
+      var vs = allVoices().filter(function(v) { return /^(es|en)/i.test(v.lang || ''); });
+      voicesPanel.querySelectorAll('select[data-role]').forEach(function(sel) {
+        var role = sel.getAttribute('data-role');
+        var cur = roleVoices[role] || '';
+        sel.innerHTML = '<option value="">Automático (es-MX)</option>' +
+          vs.map(function(v) {
+            var lbl = v.name + ' — ' + v.lang;
+            return '<option value="' + v.name.replace(/"/g, '&quot;') + '">' + lbl.replace(/</g, '&lt;') + '</option>';
+          }).join('');
+        sel.value = cur;
+      });
+    }
+    if (voicesBtn && voicesPanel) {
+      voicesBtn.addEventListener('click', function() {
+        var show = voicesPanel.hasAttribute('hidden');
+        if (show) { populateVoicePanel(); voicesPanel.removeAttribute('hidden'); }
+        else voicesPanel.setAttribute('hidden', '');
+        voicesBtn.classList.toggle('active', show);
+      });
+      if (voicesClose) voicesClose.addEventListener('click', function() {
+        voicesPanel.setAttribute('hidden', ''); voicesBtn.classList.remove('active');
+      });
+      voicesPanel.addEventListener('change', function(e) {
+        var sel = e.target.closest('select[data-role]'); if (!sel) return;
+        var role = sel.getAttribute('data-role');
+        if (sel.value) roleVoices[role] = sel.value; else delete roleVoices[role];
+        try { localStorage.setItem('tlMapaRoleVoices', JSON.stringify(roleVoices)); } catch(err) {}
+        // Muestra de la voz elegida para esa parte.
+        if (!muted) speakSegments([{ text: ROLE_TEST[role] || 'Prueba.', lang: 'es', role: role }]);
+      });
+    }
+
+    // Prime la lista de voces (carga async en algunos navegadores) y repuebla
+    // el panel cuando lleguen.
+    if ('speechSynthesis' in window) {
+      try {
+        speechSynthesis.getVoices();
+        speechSynthesis.onvoiceschanged = function() {
+          if (voicesPanel && !voicesPanel.hasAttribute('hidden')) populateVoicePanel();
+        };
+      } catch(e) {}
+    }
 
     // Navigate one event. If a play walkthrough is running, KEEP it running and
     // jump the voice to the new event (don't pause on arrows).
