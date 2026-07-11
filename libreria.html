@@ -13602,11 +13602,14 @@ body {
     }
     if (f.q) {
       var q = tlNormalize(f.q);
-      var hay = tlNormalize((ev.text||'') + ' ' + (ev.detalle||''));
-      if (hay.indexOf(q) !== -1) return true;
+      // Coincidencia por PALABRA COMPLETA: "re" NO debe traer "revolución".
+      // Se delimita por caracteres no alfanuméricos (el texto ya viene sin
+      // acentos y en minúsculas por tlNormalize).
+      var qre = new RegExp('(^|[^a-z0-9])' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z0-9]|$)');
+      if (qre.test(tlNormalize((ev.text||'') + ' ' + (ev.detalle||'')))) return true;
       if (ev.citas) {
         for (var j = 0; j < ev.citas.length; j++) {
-          if (tlNormalize(ev.citas[j].texto || '').indexOf(q) !== -1) return true;
+          if (qre.test(tlNormalize(ev.citas[j].texto || ''))) return true;
         }
       }
       return false;
