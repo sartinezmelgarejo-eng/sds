@@ -15374,14 +15374,25 @@ body {
       var re = new RegExp('^' + langPrefix, 'i');
       var cand = vs.filter(function(v) { return re.test(v.lang || ''); });
       if (!cand.length) return null;
-      var pref = langPrefix === 'en'
-        ? ['samantha','google us english','aria','jenny','guy','daniel','enhanced','premium','neural','natural']
-        : ['mónica','monica','paulina','siri','enhanced','premium','neural','google español'];
+      if (langPrefix === 'es') {
+        // Prefer Mexican Spanish (es-MX) first, then Latin American, then the
+        // rest (Spain). Within a region, prefer higher-quality voices.
+        var QW = ['premium','enhanced','neural','natural','siri'];
+        function score(v) {
+          var l = (v.lang || '').toLowerCase().replace(/_/g, '-');
+          var n = (v.name || '').toLowerCase();
+          var region = (/es-mx/.test(l) || /\b(paulina|juan)\b/.test(n)) ? 0
+                     : (/es-(419|us|co|ar|cl|pe|ve|la|bo|ec|gt|hn|ni|pa|py|sv|uy)/.test(l) ? 1 : 2);
+          var q = QW.length; for (var i = 0; i < QW.length; i++) { if (n.indexOf(QW[i]) >= 0) { q = i; break; } }
+          return region * 10 + q;
+        }
+        return cand.slice().sort(function(a, b) { return score(a) - score(b); })[0];
+      }
+      var pref = ['samantha','google us english','aria','jenny','guy','daniel','enhanced','premium','neural','natural'];
       for (var p = 0; p < pref.length; p++) {
         var m = cand.find(function(v) { return v.name.toLowerCase().indexOf(pref[p]) >= 0; });
         if (m) return m;
       }
-      if (langPrefix === 'es') { var mx = cand.find(function(v) { return /mx|mex/i.test(v.lang); }); if (mx) return mx; }
       return cand[0];
     }
     // Guess whether a snippet is English or Spanish so English quotes get an
