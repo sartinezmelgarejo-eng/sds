@@ -15418,27 +15418,30 @@ body {
     // Calls onDone() once the last segment ends. A newer call (or stopPlay/mute)
     // bumps narrationSeq, invalidating in-flight callbacks — that's what stops
     // the "cancel → onend → advance again" cascade that glitched the voice.
+    var _speakUtter = null;   // keep a live ref so desktop Chrome/Safari don't GC mid-utterance
     function speakSegments(segs, onDone) {
       if (muted || !('speechSynthesis' in window) || !segs || !segs.length) { if (onDone) onDone(); return; }
       var mySeq = ++narrationSeq;
-      speechSynthesis.cancel();
+      try { speechSynthesis.cancel(); } catch(e) {}
       var si = 0;
       function step() {
         if (mySeq !== narrationSeq) return; // superseded/cancelled → stop
         if (si >= segs.length) { if (onDone) onDone(); return; }
         var seg = segs[si++];
         var u = new SpeechSynthesisUtterance(seg.text);
+        _speakUtter = u;
         u.rate = 0.97; u.pitch = 1;
         var v = voiceFor(seg.lang);
         if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
         u.onend = function() { if (mySeq === narrationSeq) step(); };
         u.onerror = function() {
-          if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) step(); }, 300);
+          if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) step(); }, 250);
         };
-        speechSynthesis.speak(u);
+        try { speechSynthesis.speak(u); speechSynthesis.resume(); } catch(e) {}
       }
-      // Some engines choke if speak() lands in the same tick as cancel().
-      setTimeout(function() { if (mySeq === narrationSeq) step(); }, 60);
+      // Speak SYNCHRONOUSLY (no setTimeout): desktop Chrome/Safari block speech
+      // that isn't initiated directly inside the user-gesture call stack.
+      step();
     }
     // Segments for a full event: Spanish block (year+text+detalle+attribution),
     // then the first quote in its own detected language.
