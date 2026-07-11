@@ -15817,21 +15817,44 @@ body {
         u.lang = seg.lang === 'en'
           ? (v && /^en/i.test(v.lang || '') ? v.lang : 'en-US')
           : (v && /^es/i.test(v.lang || '') ? v.lang : 'es-MX');
+        // Karaoke: muchas voces "mejoradas/premium/Siri" (voces de red) NO disparan
+        // onboundary, así que el resaltado palabra-por-palabra se quedaba muerto.
+        // Usamos onboundary cuando existe (preciso) y, si no, un estimador por
+        // tiempo como respaldo para que el karaoke SIEMPRE avance.
+        var boundaryFired = false, kTimer = null, kStart = 0;
+        function clearKTimer() { if (kTimer) { clearInterval(kTimer); kTimer = null; } }
+        function paintUpto(upto) {
+          upto = Math.max(0, Math.min(upto, wSpans.length));
+          for (var k = 0; k < upto; k++) wSpans[k].classList.add('tlw-said');
+        }
         if (wSpans && wStarts) {
           u.onboundary = function(e) {
             if (mySeq !== narrationSeq || (e.name && e.name !== 'word')) return;
+            boundaryFired = true; clearKTimer();  // onboundary es preciso → apaga el estimador
             var ci = e.charIndex || 0, wi = 0;
             while (wi < wStarts.length && wStarts[wi] <= ci) wi++;
-            var upto = Math.min(wi, wSpans.length);
-            for (var k = 0; k < upto; k++) wSpans[k].classList.add('tlw-said');
+            paintUpto(wi);
           };
+          // Estimador por tiempo (respaldo). ~13 chars/seg de voz; espera 400ms
+          // de gracia para dejar ganar a onboundary si la voz sí lo soporta.
+          var estMs = Math.max(700, (seg.text.length / 13) * 1000 / (u.rate || 1));
+          kStart = Date.now();
+          kTimer = setInterval(function() {
+            if (mySeq !== narrationSeq || boundaryFired) { clearKTimer(); return; }
+            var el = Date.now() - kStart;
+            if (el < 400) return;
+            var frac = el / estMs; if (frac > 1) frac = 1;
+            paintUpto(Math.round(frac * wSpans.length));
+          }, 100);
         }
         u.onend = function() {
-          if (mySeq !== narrationSeq) return;
-          if (wSpans) for (var k = 0; k < wSpans.length; k++) wSpans[k].classList.add('tlw-said'); // completa el karaoke
+          if (mySeq !== narrationSeq) { clearKTimer(); return; }
+          clearKTimer();
+          if (wSpans) paintUpto(wSpans.length); // completa el karaoke
           step();
         };
         u.onerror = function() {
+          clearKTimer();
           if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) step(); }, 250);
         };
         try { speechSynthesis.speak(u); speechSynthesis.resume(); } catch(e) {}
