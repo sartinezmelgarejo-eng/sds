@@ -13842,7 +13842,8 @@ body {
     var hasMX = tlFilter.paises.has('MX');
     var filterBarHTML =
       '<div class="tl-mapa-filter-bar">' +
-        '<input class="tl-mapa-search" type="search" id="tl-mapa-q" ' +
+        '<input class="tl-mapa-search" type="text" id="tl-mapa-q" ' +
+          'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
           'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
         '<div class="tl-mapa-tag-picker" data-kind="libros">' +
           '<span class="tag-label">Libros</span>' +
@@ -13867,7 +13868,8 @@ body {
     var mobileShellHTML =
       '<div class="tlm-shell">' +
         '<div class="tlm-search-wrap">' +
-          '<input class="tlm-search" type="search" id="tlm-search" ' +
+          '<input class="tlm-search" type="text" id="tlm-search" ' +
+            'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
             'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
           '<button class="tlm-filter-fab' + (filterEmpty ? '' : ' has-filter') + '" ' +
             'id="tlm-filter-btn" title="Filtros" type="button">⚙</button>' +
@@ -13961,8 +13963,23 @@ body {
 
     // ── Wire filter bar ──
     function rerenderFromFilter() {
+      // Recuerda si el buscador tenía el foco y dónde iba el cursor: el
+      // re-render recrea el input y si no, se pierde el foco (había que volver
+      // a hacer clic para seguir escribiendo).
+      var active = document.activeElement;
+      var focusedId = active && (active.id === 'tl-mapa-q' || active.id === 'tlm-search') ? active.id : null;
+      var caret = null;
+      if (focusedId) { try { caret = active.selectionStart; } catch(e) {} }
       writeFilterToURL(tlFilter);
       renderTimelineView();
+      if (focusedId) {
+        var ni = document.getElementById(focusedId);
+        if (ni) {
+          ni.focus();
+          var pos = caret != null ? caret : ni.value.length;
+          try { ni.setSelectionRange(pos, pos); } catch(e) {}
+        }
+      }
     }
     var qInput = container.querySelector('#tl-mapa-q');
     if (qInput) {
