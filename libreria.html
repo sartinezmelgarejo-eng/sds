@@ -6162,11 +6162,25 @@ body {
     var enc = function(s){ return s.split('/').map(encodeURIComponent).join('/'); };
     return 'file:///' + enc(base.replace(/^\//,'')) + '/' + enc(fp);
   }
+  // En el sitio online (gh-pages) los file:// no abren nada; si el libro tiene
+  // pdfUrl (PDF en línea) se usa ese. En local se usa tu carpeta Books.
+  var IS_ONLINE = (typeof location !== 'undefined' && location.protocol !== 'file:');
+  function bookPdfBase(book) {
+    if (!book) return null;
+    if (IS_ONLINE && book.pdfUrl) return book.pdfUrl;
+    if (book.filePath && BOOKS_BASE_PATH) return getFileURL(book.filePath);
+    if (book.pdfUrl) return book.pdfUrl;
+    return null;
+  }
   function getFileButtonHTML(book) {
     if (IS_MOBILE) return '';
-    if (!book.filePath) return '';
-    if (!BOOKS_BASE_PATH) return '<a class="open-file-btn" onclick="event.stopPropagation();promptBooksPath();">📂 Configurar carpeta</a>';
-    return '<a href="'+getFileURL(book.filePath)+'" class="open-file-btn" target="_blank" onclick="event.stopPropagation();" title="'+book.filePath+'">📂 Abrir archivo</a>';
+    var url = bookPdfBase(book);
+    if (!url) {
+      if (book.filePath && !BOOKS_BASE_PATH) return '<a class="open-file-btn" onclick="event.stopPropagation();promptBooksPath();">📂 Configurar carpeta</a>';
+      return '';
+    }
+    var online = IS_ONLINE && book.pdfUrl && url === book.pdfUrl;
+    return '<a href="'+url+'" class="open-file-btn" target="_blank" onclick="event.stopPropagation();" title="'+(book.filePath||book.pdfUrl||'')+'">📂 '+(online?'Abrir PDF en línea':'Abrir archivo')+'</a>';
   }
   // ╔══════════════════════════════════════════════════════════════════╗
   // ║  LÉEME: SISTEMA DE OFFSETS PDF                                 ║
@@ -6504,7 +6518,7 @@ body {
   var QUOTE_PAGES = {"dusselfilosofia::0": 12, "dusseletica2::0": 9, "dusselpolitica1::0": 11, "dusselpolitica2::0": 11, "kimjuchephilo::0": 6, "leninmaterialism::0": 114, "maoquotations::0": 10, "maoworks1::0": 5, "marxcontribution::0": 6, "marxideology::0": 9, "salmeroncatolicismo::0": 1, "stalineconomic::0": 5, "stalinnational::0": 9, "stalinmaterialism::0": 5, "weberobras::0": 12, "xijinping::0": 29, "sankara::0": 21, "marti::1": 13, "reedmexico::0": 5, "sentimientos::0": 59, "antiduhring::0": 14, "engelscondition::0": 31, "engelsdialectica::0": 13, "fidelantologia::0": 71, "fidelcienhoras::0": 11, "fidelreligion::0": 6, "fidelcontraofensiva::0": 8, "fidelhabana::0": 6, "hudsondestiny::0": 5, "chavez::0": 11, "marxwage::0": 10, "marxcomunidad::0": 6, "ciudadanfibia::0": 11, "bonfil::0": 9, "bonfil::1": 10, "bonfil::2": 10, "bonfil::3": 8, "galeano::0": 7, "galeano::1": 8, "galeano::3": 12, "dussel::1": 36, "lascasas::0": 43, "lascasas::1": 47, "juarez::3": 23, "amlo_mitad::0": 3, "historiapueblo::0": 12, "planayala::0": 3, "engelsfeuerbach::0": 14, "dussel14etica::0": 11, "dussel20politica::0": 15, "fideldiscursos::0": 7, "hudsonlabor::0": 7, "hudsonlost::0": 10, "hudsonserfdom::0": 8, "kimjucheidea::0": 6, "leninstate::0": 20, "leninstate::1": 21, "leninstate::2": 32, "maobooks::0": 3, "marxmanifesto::0": 14, "marxmanuscripts::0": 28, "marxbrumario::0": 13, "marxbrumario::1": 13, "marxgrundisse::0": 17, "marxpoverty::0": 1, "weberpoder::0": 2, "marti::0": 38, "bible::0": 5, "comanche::0": 7, "foster::0": 9, "groverfurr::0": 5, "hegel::0": 8, "katz::0": 6, "misericordia::0": 8, "madero::0": 14, "bonfilhambre::0": 8, "engelssocialism::0": 5, "dusselhipotesis::0": 5, "dusselintro::0": 5, "semocombates::0": 5, "fidelguerrillero::0": 7, "fidelvictoria::0": 5, "hochiminh::0": 5, "salmeronargumedo::0": 5, "salmeroncien::0": 5, "salmeronemiliano::0": 6, "salmerontriunfadores::0": 5, "salmeronhistoriadores::0": 9, "salmeronlucha::0": 5, "salmeronvillismo::0": 5, "salmeronsayula::0": 5, "stalincpsu::0": 5, "stalinbio1::0": 5, "stalinbio2::0": 11, "stalinbio3::0": 13, "taibo68::0": 6, "taiboarcangeles::0": 8, "taibosebastian::0": 5, "taibohidalgo::0": 6, "taibomundo::0": 7, "taiboproal::0": 5, "taiboinquilinos::0": 7, "taiboirapuato::0": 9, "taiboescudero::0": 5, "taiborivera::0": 5, "taibonada::0": 6, "taibonoolvida::0": 7, "taibovilla::0": 5, "taibopatria::0": 6, "taibofuego::0": 7, "taibolatinoamericana::0": 5, "taibovillazapata::0": 5, "womack::0": 5, "gilly::0": 7, "gramsci::0": 5, "duboisreconstruction::0": 65, "duboisreconstruction::1": 49, "duboisreconstruction::2": 229, "duboisreconstruction::3": 363, "duboisreconstruction::4": 363, "duboisreconstruction::5": 645, "hassler::0": 7, "hassler::1": 23, "hassler::2": 20, "marxcapital_en::0": 48, "marxcapital_en::1": 49, "marxcapital_en::2": 505, "marxengelscivilwar::0": 4, "marxengelscivilwar::1": 4, "mccullagh::0": 23, "mccullagh::1": 24, "villacanasfranco::0": 7, "villacanasfranco::1": 7, "villacanasfranco::2": 13, "camara3_templomayor::0": 26, "camara3_templomayor::1": 28, "camara3_templomayor::2": 27, "camara3_templomayor::3": 12, "camara3_templomayor::4": 35, "camara3_templomayor::5": 174, "camara3_templomayor::6": 167, "cocodrilos_templomayor::0": 18, "cocodrilos_templomayor::1": 18, "cocodrilos_templomayor::2": 18, "cocodrilos_templomayor::3": 19, "cocodrilos_templomayor::4": 22, "cocodrilos_templomayor::5": 275, "cocodrilos_templomayor::6": 276, "cocodrilos_templomayor::7": 277, "cocodrilos_templomayor::8": 267, "cocodrilos_templomayor::9": 270, "komkomvase::0": 6, "komkomvase::1": 6, "komkomvase::2": 17, "komkomvase::3": 29, "komkomvase::5": 82, "komkomvase::6": 85, "mayashamanism::0": 13, "mayashamanism::1": 14, "mayashamanism::2": 18, "mayashamanism::3": 42, "mayashamanism::4": 60, "mayashamanism::5": 77, "mayashamanism::6": 112, "mayashamanism::7": 112, "piedrasnegras_diary::0": 8, "piedrasnegras_diary::1": 8, "piedrasnegras_diary::2": 20, "piedrasnegras_diary::3": 20, "piedrasnegras_diary::4": 22, "piedrasnegras_diary::5": 22, "piedrasnegras_diary::6": 25, "piedrasnegras_diary::7": 26, "piedrasnegras_diary::8": 27, "piedrasnegras_diary::9": 46, "piedrasnegras_diary::10": 24, "realmbelow::0": 20, "realmbelow::1": 12, "realmbelow::2": 83, "realmbelow::3": 31, "realmbelow::4": 156, "taube_studies::0": 10, "taube_studies::1": 16, "taube_studies::2": 16, "taube_studies::3": 21, "taube_studies::4": 78, "taube_studies::5": 175, "taube_studies::6": 205, "taube_studies::7": 227, "taube_studies::8": 120, "templo19_palenque::0": 8, "templo19_palenque::1": 9, "templo19_palenque::2": 12, "templo19_palenque::3": 15, "templo19_palenque::4": 183, "templo19_palenque::5": 182, "templo19_palenque::6": 186, "templo19_palenque::7": 192, "templo19_palenque::8": 196, "templo19_palenque::9": 198, "rosalila::0": 7, "rosalila::1": 8, "rosalila::2": 8, "rosalila::3": 56, "rosalila::4": 69, "camara3_templomayor::7": 167, "cocodrilos_templomayor::10": 281, "komkomvase::4": 68, "mayashamanism::8": 145, "marxamlatina::0": 22, "marxamlatina::1": 89, "marxamlatina::2": 182, "marxamlatina::3": 182, "kamenempire::0": 27, "kamenempire::1": 25, "kamenempire::2": 125, "kamenempire::3": 535};
   function getQuotePageLink(book, quoteText, quoteIndex) {
     if (IS_MOBILE) return '';
-    if (!book.filePath || !BOOKS_BASE_PATH) return '';
+    if (!bookPdfBase(book)) return '';
     var idx;
     if (typeof quoteIndex === 'number') {
       idx = quoteIndex;
@@ -6519,7 +6533,7 @@ body {
     var key = book.id + '::' + idx;
     var pdfPage = QUOTE_PAGES[key];
     if (!pdfPage) return '';
-    var url = getFileURL(book.filePath) + '#page=' + pdfPage;
+    var url = bookPdfBase(book) + '#page=' + pdfPage;
     return ' <a href="' + url + '" class="quote-page-link" target="_blank" onclick="event.stopPropagation();">📄 Ver en PDF</a>';
   }
   function promptBooksPath() {
@@ -9085,8 +9099,15 @@ body {
       tags:["marxismo_fundamentos","filosofia_liberacion"],quotes:[]},
 
     // ── WALTER RODNEY ──
+    { id:"mandela", estante:"revoluciones", coverId:null,
+      title:"Long Walk to Freedom", author:"Nelson Mandela", year:1994,
+      filePath: "Nelson Mandela Long Walk to Freedom.pdf",
+      pdfUrl: "https://zelalemkibret.wordpress.com/wp-content/uploads/2012/01/the-autobiography-of-nelson-mandela.pdf",
+      coverUrl: "https://covers.openlibrary.org/b/id/12702407-L.jpg",
+      desc:"Autobiografía de Nelson Mandela: de la lucha contra el apartheid y 27 años en prisión a la presidencia de Sudáfrica en 1994." },
     {id:"rodney",estante:"economia_poder",coverId:null,title:"How Europe Underdeveloped Africa",author:"Walter Rodney",year:1972,desc:"El subdesarrollo africano no es atraso natural sino producto directo de siglos de explotación europea.",
-      filePath: "Rodney-How-Europe-Underdeveloped-Africa.pdf",
+      filePath: "How-Europe-Underdeveloped-Africa-by-Recorded-Books-Inc.Rodney-Walter-z-lib.org_.pdf",
+      pdfUrl: "https://arxiujosepserradell.cat/wp-content/uploads/2022/03/How-Europe-Underdeveloped-Africa-by-Recorded-Books-Inc.Rodney-Walter-z-lib.org_.pdf",
       coverUrl: "https://covers.openlibrary.org/b/id/14324926-L.jpg",
       tesis:"África no es pobre porque sea 'atrasada' — es pobre porque fue saqueada. Rodney demuestra con evidencia histórica y económica que el subdesarrollo africano es producto directo de la trata de esclavos, el colonialismo y el neocolonialismo europeo. Antes del contacto europeo, África tenía civilizaciones complejas, comercio interregional y desarrollo tecnológico propio. La trata esclavista desangró al continente durante cuatro siglos; el colonialismo destruyó las estructuras productivas locales y las reemplazó con monocultivos de exportación; el neocolonialismo perpetuó la dependencia. El 'subdesarrollo' no es un estadio previo al 'desarrollo' sino su producto: Europa se desarrolló subdesarrollando a África.",
       ideas:["El subdesarrollo no es un estadio previo al desarrollo sino su producto: Europa se desarrolló subdesarrollando a África.","La trata esclavista desangró a África durante cuatro siglos — no solo extrajo personas sino destruyó estructuras sociales.","El colonialismo reemplazó economías diversificadas con monocultivos de exportación — creando dependencia estructural.","Antes del contacto europeo, África tenía civilizaciones complejas, comercio y tecnología propia — no era 'primitiva'."],
@@ -13024,7 +13045,7 @@ body {
                 var off = PDF_PAGE_OFFSET[ct.libro] || 0;
                 var pp = bp + off;
                 if (pp < 1) pp = 1;
-                pdfLink = ' <a href="' + getFileURL(bk.filePath) + '#page=' + pp + '" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent,var(--gold));font-size:11px;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;">PDF</a>';
+                pdfLink = ' <a href="' + bookPdfBase(bk) + '#page=' + pp + '" target="_blank" onclick="event.stopPropagation();" style="color:var(--accent,var(--gold));font-size:11px;text-decoration:none;border-bottom:1px solid currentColor;padding-bottom:1px;">PDF</a>';
               }
             }
             citasHTML += '<div style="margin-bottom:8px;">' +
@@ -13439,7 +13460,7 @@ body {
             var offset = PDF_PAGE_OFFSET[c.libro] || 0;
             var pdfPage = bookPage + offset;
             if (pdfPage < 1) pdfPage = 1;
-            var pdfUrl = getFileURL(bk.filePath) + '#page=' + pdfPage;
+            var pdfUrl = bookPdfBase(bk) + '#page=' + pdfPage;
             pdfPageLink = ' <a href="' + pdfUrl + '" class="quote-page-link" target="_blank" onclick="event.stopPropagation();">📄 Ver en PDF</a>';
           }
         }
@@ -14616,10 +14637,10 @@ body {
     }
     function pdfLinkFor(c, bk) {
       var pageMatch = (c.pagina || '').match(/^p\.\s*(\d+)/);
-      if (!(bk && bk.filePath && BOOKS_BASE_PATH && pageMatch)) return '';
+      if (!(bk && bookPdfBase(bk) && pageMatch)) return '';
       var pdfPage = parseInt(pageMatch[1]) + (PDF_PAGE_OFFSET[c.libro] || 0);
       if (pdfPage < 1) pdfPage = 1;
-      return '<a href="' + getFileURL(bk.filePath) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">p.' + pdfPage + '</a>';
+      return '<a href="' + bookPdfBase(bk) + '#page=' + pdfPage + '" target="_blank" class="quote-page-link" onclick="event.stopPropagation();">p.' + pdfPage + '</a>';
     }
 
     var cards = groups.map(function(g) {
@@ -20720,7 +20741,7 @@ body {
               var offset = PDF_PAGE_OFFSET[c.libro] || 0;
               var pdfPage = bookPage + offset;
               if (pdfPage < 1) pdfPage = 1;
-              var pdfUrl = getFileURL(bk.filePath) + '#page=' + pdfPage;
+              var pdfUrl = bookPdfBase(bk) + '#page=' + pdfPage;
               pdfPageLink = ' <a href="' + pdfUrl + '" class="quote-page-link" target="_blank" onclick="event.stopPropagation();">\uD83D\uDCC4 Ver en PDF</a>';
             }
           }
