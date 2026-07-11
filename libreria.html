@@ -6016,6 +6016,53 @@ body {
   .estante-author-books { gap: 12px; }
   .estante-book-card { width: 80px; }
 }
+/* ── Mini línea de tiempo del libro (citas del timeline en la ficha) ── */
+.section-booktl .book-section-title { flex-wrap: wrap; }
+.section-booktl .btl-play {
+  margin-left: auto; background: rgba(212,178,94,.14); color: var(--gold, #d4b25e);
+  border: 1px solid rgba(212,178,94,.45); border-radius: 20px;
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; letter-spacing: .5px;
+  padding: 3px 12px; cursor: pointer; transition: background .15s;
+}
+.section-booktl .btl-play:hover { background: rgba(212,178,94,.28); }
+.section-booktl .btl-play.playing { background: var(--gold, #d4b25e); color: #1a1410; }
+.section-booktl .btl-openmap {
+  margin-left: 10px; font-family: 'SF Mono',monospace; font-size: 10.5px;
+  color: var(--gold-dim, #b89a5a); cursor: pointer; opacity: .85;
+}
+.section-booktl .btl-openmap:hover { opacity: 1; text-decoration: underline; }
+.btl-rail {
+  position: relative; margin: 6px 0 2px; padding-left: 4px;
+  max-height: 360px; overflow-y: auto; scrollbar-width: thin;
+}
+.btl-node {
+  position: relative; display: grid; grid-template-columns: 62px 1fr; gap: 10px;
+  padding: 9px 8px 9px 4px; border-left: 2px solid rgba(212,178,94,.22);
+  margin-left: 6px; cursor: pointer; transition: background .18s, border-color .18s;
+}
+.btl-node::before {
+  content: ''; position: absolute; left: -6px; top: 14px;
+  width: 9px; height: 9px; border-radius: 50%;
+  background: var(--nc, var(--gold, #d4b25e)); box-shadow: 0 0 0 3px rgba(20,17,13,.9);
+}
+.btl-node:hover { background: rgba(212,178,94,.07); border-left-color: var(--nc, #d4b25e); }
+.btl-node.btl-active {
+  background: rgba(212,178,94,.14); border-left-color: var(--nc, #d4b25e);
+  box-shadow: inset 3px 0 0 var(--nc, #d4b25e);
+}
+.btl-year {
+  font-family: 'Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
+  font-size: 15px; color: var(--nc, var(--gold, #d4b25e)); line-height: 1.2; padding-top: 2px;
+}
+.btl-ev { font-size: 12.5px; font-weight: 600; color: var(--text-bright, #e8dfc8); line-height: 1.25; margin-bottom: 3px; }
+.btl-quote {
+  font-family: 'Playfair Display',Georgia,serif; font-style: italic;
+  font-size: 12px; color: var(--text-dim, #b9ad92); line-height: 1.35;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.btl-pag { font-family: 'SF Mono',monospace; font-size: 9.5px; color: var(--gold-dim, #9a865a); margin-top: 3px; }
+:root.light .btl-ev { color: #221c12; }
+:root.light .btl-quote { color: #514732; }
 </style>
 </head>
 <body>
@@ -11068,11 +11115,96 @@ body {
     }).join('<span class="author-sep"> · </span>');
   }
 
+  // ── Mini línea de tiempo del libro: las citas del timeline embebidas en la
+  // ficha, cronológicas, con ▶ recorrer y salto al mapa filtrado por el libro. ──
+  function tlYearNum(y){
+    y=String(y);
+    var m=y.match(/^(-?\d{1,})(?:-(\d{2})-(\d{2}))?$/);
+    if(m){ var n=parseInt(m[1],10); if(m[2]) n+=(parseInt(m[2],10)-1)/12+(parseInt(m[3],10)-1)/372; return n; }
+    var ac=/a\.?\s?C/i.test(y); var mm=y.match(/([\d.,]+)\s*(M)?/);
+    if(mm){ var v=parseFloat(mm[1].replace(/[.,]/g,'')); if(mm[2]||/\bM\b/.test(y)) v*=1e6; return ac?-v:v; }
+    return 0;
+  }
+  function tlYearLabel(y){
+    y=String(y);
+    var m=y.match(/^(\d{3,4})-\d{2}-\d{2}$/); if(m) return m[1];
+    var n=y.match(/^-(\d+)$/); if(n) return n[1]+' a.C.';
+    return y;
+  }
+  function bhe(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function bookTimelineCitas(bookId){
+    var out=[];
+    if(typeof timelineEras==='undefined') return out;
+    timelineEras.forEach(function(era){
+      (era.events||[]).forEach(function(ev){
+        (ev.citas||[]).forEach(function(c){
+          if(c.libro===bookId) out.push({year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color});
+        });
+      });
+    });
+    out.sort(function(a,b){ return tlYearNum(a.year)-tlYearNum(b.year); });
+    return out;
+  }
+  function renderBookTimelineHTML(book){
+    var cs=bookTimelineCitas(book.id);
+    if(!cs.length) return '';
+    var nodes=cs.map(function(c){
+      var q=(typeof stripHtml==='function'?stripHtml(c.quote||''):(c.quote||''));
+      return '<div class="btl-node" style="--nc:'+(c.color||'var(--gold)')+'" onclick="openTimelineForBook(\''+book.id+'\')">'+
+        '<div class="btl-year">'+bhe(tlYearLabel(c.year))+'</div>'+
+        '<div class="btl-body"><div class="btl-ev">'+bhe(c.text)+'</div>'+
+        '<div class="btl-quote">«'+bhe(q)+'»</div>'+
+        (c.pagina?'<div class="btl-pag">'+bhe(c.pagina)+'</div>':'')+
+      '</div></div>';
+    }).join('');
+    return '<details class="book-section section-booktl" id="booktl-'+book.id+'">'+
+      '<summary class="book-section-title"><span class="section-icon">🗓️</span><span>Este libro en la línea del tiempo</span><span class="section-count">'+cs.length+'</span>'+
+      '<button class="btl-play" onclick="event.preventDefault();event.stopPropagation();bookTLTogglePlay(\''+book.id+'\')" title="Recorrer las citas una por una">▶ recorrer</button>'+
+      '<span class="btl-openmap" onclick="event.preventDefault();event.stopPropagation();openTimelineForBook(\''+book.id+'\')">ver en el mapa →</span>'+
+      '</summary><div class="btl-rail" id="btl-rail-'+book.id+'">'+nodes+'</div></details>';
+  }
+  var __btlTimer=null,__btlIdx=0,__btlBook=null;
+  function bookTLStop(){
+    if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
+    document.querySelectorAll('.btl-play.playing').forEach(function(b){b.textContent='▶ recorrer';b.classList.remove('playing');});
+    document.querySelectorAll('.btl-node.btl-active').forEach(function(n){n.classList.remove('btl-active');});
+    __btlBook=null;
+  }
+  function bookTLTogglePlay(bookId){
+    if(__btlTimer&&__btlBook===bookId){ bookTLStop(); return; }
+    bookTLStop(); __btlBook=bookId; __btlIdx=0;
+    var det=document.getElementById('booktl-'+bookId); if(det) det.open=true;
+    var rail=document.getElementById('btl-rail-'+bookId);
+    var btn=det&&det.querySelector('.btl-play'); if(btn){btn.textContent='⏸ pausar';btn.classList.add('playing');}
+    function step(){
+      if(__btlBook!==bookId) return;
+      var nodes=rail?rail.querySelectorAll('.btl-node'):[];
+      if(!nodes.length){bookTLStop();return;}
+      nodes.forEach(function(n){n.classList.remove('btl-active');});
+      var n=nodes[__btlIdx%nodes.length]; n.classList.add('btl-active');
+      n.scrollIntoView({block:'nearest',behavior:'smooth'});
+      __btlIdx++;
+      __btlTimer=setTimeout(step,2600);
+    }
+    step();
+  }
+  function openTimelineForBook(bookId){
+    bookTLStop();
+    try{ if(typeof closeBookDetail==='function') closeBookDetail(); }catch(e){}
+    if(typeof showView==='function') showView('timeline');
+    var tries=0;
+    (function apply(){
+      if(window.__tlApplyBookFilter){ try{window.__tlApplyBookFilter(bookId);}catch(e){} return; }
+      if(tries++<50) setTimeout(apply,120);
+    })();
+  }
+
   function openBook(bookId) {
     const book = books.find(b => b.id === bookId);
     if (!book) return;
     // Abrir un libro (p. ej. desde una cita) sale del timeline → calla la voz.
     if (window.__tlStopNarration) { try { window.__tlStopNarration(); } catch(e) {} }
+    bookTLStop();
 
     const coverHTML = getCoverHTML(book, 'large');
 
@@ -11107,6 +11239,9 @@ body {
       book.quotes.map(function(q, idx) {
         return '<div class="quote-block"><div class="quote-text">'+q.text+'</div><div class="quote-page">'+q.page+getQuotePageLink(book,q.text,idx)+'</div></div>';
       }).join('') + '</details>' : '';
+
+    // ── ESTE LIBRO EN LA LÍNEA DEL TIEMPO (citas del timeline) ──
+    const bookTLHTML = renderBookTimelineHTML(book);
 
     // ── MAPA MENTAL (NotebookLM) ──
     const mindmapHTML = book.mindmap ?
@@ -11204,6 +11339,7 @@ body {
           '<div class="book-col-left">' +
             tesisHTML +
             quotesHTML +
+            bookTLHTML +
             conexionesHTML +
           '</div>' +
           '<div class="book-col-right">' +
@@ -14194,6 +14330,11 @@ body {
         }
       }
     }
+    // Hook para abrir el timeline filtrado por un libro desde su ficha.
+    window.__tlApplyBookFilter = function(bid){
+      tlFilter = { q:'', libros:new Set([bid]), paises:new Set() };
+      rerenderFromFilter();
+    };
     var qInput = container.querySelector('#tl-mapa-q');
     if (qInput) {
       var qTimer = null;
