@@ -6017,20 +6017,52 @@ body {
   .estante-book-card { width: 80px; }
 }
 /* ── Mini línea de tiempo del libro (citas del timeline en la ficha) ── */
-.section-booktl .book-section-title { flex-wrap: wrap; }
-.section-booktl .btl-play {
+.section-booktl .btl-head { display: flex; align-items: center; }
+.section-booktl .btl-pause {
   margin-left: auto; background: rgba(212,178,94,.14); color: var(--gold, #d4b25e);
-  border: 1px solid rgba(212,178,94,.45); border-radius: 20px;
-  font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; letter-spacing: .5px;
-  padding: 3px 12px; cursor: pointer; transition: background .15s;
+  border: 1px solid rgba(212,178,94,.45); border-radius: 50%;
+  width: 24px; height: 24px; font-size: 11px; line-height: 1;
+  cursor: pointer; transition: background .15s; flex: 0 0 auto;
 }
-.section-booktl .btl-play:hover { background: rgba(212,178,94,.28); }
-.section-booktl .btl-play.playing { background: var(--gold, #d4b25e); color: #1a1410; }
+.section-booktl .btl-pause:hover { background: rgba(212,178,94,.28); }
 .section-booktl .btl-openmap {
-  margin-left: 10px; font-family: 'SF Mono',monospace; font-size: 10.5px;
-  color: var(--gold-dim, #b89a5a); cursor: pointer; opacity: .85;
+  margin-left: 12px; font-family: 'SF Mono',monospace; font-size: 10.5px;
+  color: var(--gold-dim, #b89a5a); cursor: pointer; opacity: .85; flex: 0 0 auto;
 }
 .section-booktl .btl-openmap:hover { opacity: 1; text-decoration: underline; }
+/* Cita destacada rotatoria (estado por defecto) */
+.booktl-showcase {
+  position: relative; cursor: pointer; margin: 8px 0 2px;
+  border: 1px solid rgba(212,178,94,.3); border-left: 3px solid var(--nc, var(--gold,#d4b25e));
+  border-radius: 9px; padding: 15px 18px 22px;
+  background: linear-gradient(135deg, rgba(212,178,94,.06), rgba(20,17,13,.35));
+  min-height: 132px; transition: border-color .2s, box-shadow .2s;
+}
+.booktl-showcase:hover { border-color: var(--nc, #d4b25e); box-shadow: 0 4px 18px rgba(0,0,0,.28); }
+.btlsc-inner { opacity: 0; }
+.btlsc-inner.btlsc-in { animation: btlfade .7s ease forwards; }
+@keyframes btlfade { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+.btlsc-inner { --nc: var(--gold,#d4b25e); }
+.btlsc-year {
+  font-family: 'Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
+  font-size: 27px; color: var(--nc, #d4b25e); line-height: 1;
+}
+.btlsc-ev { font-size: 14px; font-weight: 600; color: var(--text-bright,#e8dfc8); margin: 6px 0 9px; line-height: 1.25; }
+.btlsc-quote {
+  font-family: 'Playfair Display',Georgia,serif; font-style: italic;
+  font-size: 15px; line-height: 1.5; color: #ded2b6;
+}
+.btlsc-foot {
+  display: flex; justify-content: space-between; align-items: center; margin-top: 11px;
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; color: var(--gold-dim,#9a865a); letter-spacing: .5px;
+}
+.btlsc-hint {
+  position: absolute; bottom: 6px; right: 14px;
+  font-family: 'SF Mono',monospace; font-size: 9.5px; color: var(--gold-dim,#9a865a); opacity: .7;
+}
+:root.light .btlsc-quote { color: #4a4030; }
+:root.light .btlsc-ev { color: #221c12; }
+.section-booktl.expanded .booktl-showcase { border-radius: 9px 9px 0 0; margin-bottom: 0; }
 .btl-rail {
   position: relative; margin: 6px 0 2px; padding-left: 4px;
   max-height: 360px; overflow-y: auto; scrollbar-width: thin;
@@ -11148,45 +11180,87 @@ body {
   function renderBookTimelineHTML(book){
     var cs=bookTimelineCitas(book.id);
     if(!cs.length) return '';
-    var nodes=cs.map(function(c){
+    var nodes=cs.map(function(c,i){
       var q=(typeof stripHtml==='function'?stripHtml(c.quote||''):(c.quote||''));
-      return '<div class="btl-node" style="--nc:'+(c.color||'var(--gold)')+'" onclick="openTimelineForBook(\''+book.id+'\')">'+
+      return '<div class="btl-node" data-i="'+i+'" style="--nc:'+(c.color||'var(--gold)')+'" onclick="event.stopPropagation();openTimelineForBook(\''+book.id+'\')">'+
         '<div class="btl-year">'+bhe(tlYearLabel(c.year))+'</div>'+
         '<div class="btl-body"><div class="btl-ev">'+bhe(c.text)+'</div>'+
         '<div class="btl-quote">«'+bhe(q)+'»</div>'+
         (c.pagina?'<div class="btl-pag">'+bhe(c.pagina)+'</div>':'')+
       '</div></div>';
     }).join('');
-    return '<details class="book-section section-booktl" id="booktl-'+book.id+'">'+
-      '<summary class="book-section-title"><span class="section-icon">🗓️</span><span>Este libro en la línea del tiempo</span><span class="section-count">'+cs.length+'</span>'+
-      '<button class="btl-play" onclick="event.preventDefault();event.stopPropagation();bookTLTogglePlay(\''+book.id+'\')" title="Recorrer las citas una por una">▶ recorrer</button>'+
-      '<span class="btl-openmap" onclick="event.preventDefault();event.stopPropagation();openTimelineForBook(\''+book.id+'\')">ver en el mapa →</span>'+
-      '</summary><div class="btl-rail" id="btl-rail-'+book.id+'">'+nodes+'</div></details>';
+    // Por defecto: una cita destacada que rota sola y lento (empezando por la
+    // primera). Toca el showcase → expande a la línea completa. Botón al mapa.
+    return '<div class="book-section section-booktl" id="booktl-'+book.id+'">'+
+      '<div class="book-section-title btl-head">'+
+        '<span class="section-icon">🗓️</span><span>Este libro en la línea del tiempo</span><span class="section-count">'+cs.length+'</span>'+
+        '<button class="btl-pause" onclick="event.stopPropagation();bookTLTogglePause(\''+book.id+'\')" title="Pausar / continuar">⏸</button>'+
+        '<span class="btl-openmap" onclick="event.stopPropagation();openTimelineForBook(\''+book.id+'\')">ver en el mapa →</span>'+
+      '</div>'+
+      '<div class="booktl-showcase" onclick="bookTLExpand(\''+book.id+'\')" title="Toca para ver toda la línea">'+
+        '<div class="btlsc-inner"></div>'+
+        '<div class="btlsc-hint">toca para ver las '+cs.length+' ▾</div>'+
+      '</div>'+
+      '<div class="btl-rail" id="btl-rail-'+book.id+'" hidden>'+nodes+'</div>'+
+    '</div>';
   }
-  var __btlTimer=null,__btlIdx=0,__btlBook=null;
+  var __btlTimer=null,__btlIdx=0,__btlBook=null,__btlCitas=[],__btlPaused=false;
   function bookTLStop(){
     if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
-    document.querySelectorAll('.btl-play.playing').forEach(function(b){b.textContent='▶ recorrer';b.classList.remove('playing');});
-    document.querySelectorAll('.btl-node.btl-active').forEach(function(n){n.classList.remove('btl-active');});
-    __btlBook=null;
+    __btlBook=null; __btlCitas=[]; __btlIdx=0; __btlPaused=false;
   }
-  function bookTLTogglePlay(bookId){
-    if(__btlTimer&&__btlBook===bookId){ bookTLStop(); return; }
-    bookTLStop(); __btlBook=bookId; __btlIdx=0;
-    var det=document.getElementById('booktl-'+bookId); if(det) det.open=true;
+  function btlRenderShowcase(bookId){
+    var sc=document.querySelector('#booktl-'+bookId+' .btlsc-inner');
+    if(!sc||!__btlCitas.length) return;
+    var i=__btlIdx%__btlCitas.length, c=__btlCitas[i];
+    var q=(typeof stripHtml==='function'?stripHtml(c.quote||''):(c.quote||''));
+    sc.style.setProperty('--nc', c.color||'var(--gold)');
+    sc.innerHTML='<div class="btlsc-year">'+bhe(tlYearLabel(c.year))+'</div>'+
+      '<div class="btlsc-ev">'+bhe(c.text)+'</div>'+
+      '<div class="btlsc-quote">«'+bhe(q)+'»</div>'+
+      '<div class="btlsc-foot">'+(c.pagina?'<span class="btlsc-pag">'+bhe(c.pagina)+'</span>':'<span></span>')+'<span class="btlsc-prog">'+(i+1)+' / '+__btlCitas.length+'</span></div>';
+    sc.classList.remove('btlsc-in'); void sc.offsetWidth; sc.classList.add('btlsc-in');
+  }
+  function btlStep(bookId){
+    if(__btlBook!==bookId||__btlPaused) return;
+    btlRenderShowcase(bookId);
+    var c=__btlCitas[__btlIdx%__btlCitas.length];
+    var q=(c&&c.quote)||'';
+    // Ritmo de lectura: base 5s + ~52ms por carácter, tope 13s.
+    var dur=Math.min(13000, Math.max(5000, q.length*52));
+    __btlIdx++;
+    __btlTimer=setTimeout(function(){ btlStep(bookId); }, dur);
+  }
+  function bookTLShowcaseStart(bookId){
+    bookTLStop();
+    __btlCitas=bookTimelineCitas(bookId);
+    if(!__btlCitas.length) return;
+    __btlBook=bookId; __btlIdx=0; __btlPaused=false;
+    btlStep(bookId);
+  }
+  function bookTLTogglePause(bookId){
+    if(__btlBook!==bookId){ bookTLShowcaseStart(bookId); return; }
+    __btlPaused=!__btlPaused;
+    var btn=document.querySelector('#booktl-'+bookId+' .btl-pause');
+    if(btn){ btn.textContent=__btlPaused?'▶':'⏸'; }
+    if(!__btlPaused){ if(__btlTimer)clearTimeout(__btlTimer); btlStep(bookId); }
+    else if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
+  }
+  function bookTLExpand(bookId){
+    var sec=document.getElementById('booktl-'+bookId);
     var rail=document.getElementById('btl-rail-'+bookId);
-    var btn=det&&det.querySelector('.btl-play'); if(btn){btn.textContent='⏸ pausar';btn.classList.add('playing');}
-    function step(){
-      if(__btlBook!==bookId) return;
-      var nodes=rail?rail.querySelectorAll('.btl-node'):[];
-      if(!nodes.length){bookTLStop();return;}
-      nodes.forEach(function(n){n.classList.remove('btl-active');});
-      var n=nodes[__btlIdx%nodes.length]; n.classList.add('btl-active');
-      n.scrollIntoView({block:'nearest',behavior:'smooth'});
-      __btlIdx++;
-      __btlTimer=setTimeout(step,2600);
+    if(!rail||!sec) return;
+    var hint=sec.querySelector('.btlsc-hint'), pb=sec.querySelector('.btl-pause');
+    if(rail.hasAttribute('hidden')){
+      rail.removeAttribute('hidden'); sec.classList.add('expanded');
+      __btlPaused=true; if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
+      if(pb) pb.textContent='▶';
+      if(hint) hint.textContent='ocultar la línea ▴';
+    } else {
+      rail.setAttribute('hidden',''); sec.classList.remove('expanded');
+      __btlPaused=false; if(pb) pb.textContent='⏸'; btlStep(bookId);
+      if(hint) hint.textContent='toca para ver las '+(__btlCitas.length||'')+' ▾';
     }
-    step();
   }
   function openTimelineForBook(bookId){
     bookTLStop();
@@ -11371,6 +11445,9 @@ body {
     // Initialize hero deck cycling + 5s meta-reveal animation
     const heroDeck = detail.querySelector('.book-hero-deck');
     if (heroDeck) initHeroDeck(heroDeck);
+
+    // Arranca la cita destacada rotatoria de "este libro en la línea del tiempo"
+    if (typeof bookTLShowcaseStart === 'function') bookTLShowcaseStart(book.id);
 
     // Mind-map (NotebookLM): fetch JSON + render tree
     const mmEl = detail.querySelector('.mindmap-tree');
