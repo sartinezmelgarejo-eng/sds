@@ -15368,6 +15368,17 @@ body {
       if (/^-\d/.test(s)) return s.replace('-', '') + ' antes de Cristo';
       return s.replace(/\ba\.?\s*c\.?/i, 'antes de Cristo');
     }
+    // Collapse thousands separators so the voice reads "3,000" as "tres mil"
+    // instead of digit-by-digit ("tres cero cero cero"). Matches groups of 3
+    // digits joined by , or . — leaves decimals like 3.14 and "p. 246" alone.
+    function speakNumbers(s) {
+      if (!s) return s;
+      return String(s)
+        // comma/period thousands: 3,000 / 1.234.567 → 3000 / 1234567
+        .replace(/\d{1,3}(?:[.,]\d{3})+(?!\d)/g, function(m) { return m.replace(/[.,]/g, ''); })
+        // space/nbsp thousands: 4 000 / 13 800 → 4000 / 13800
+        .replace(/\d{1,3}(?:[  ]\d{3})+(?!\d)/g, function(m) { return m.replace(/[  ]/g, ''); });
+    }
     function narrateCurrent() {
       if (!presenting || !('speechSynthesis' in window)) return;
       var ev = events[currentIdx]; if (!ev) return;
@@ -15381,8 +15392,17 @@ body {
       if (ev.text) parts.push(ev.text + '.');
       if (ev.detalle) parts.push(ev.detalle);
       var c = ev.citas && ev.citas[0];
-      if (c && c.texto) parts.push('Cita: ' + c.texto);
-      var u = new SpeechSynthesisUtterance(parts.join(' '));
+      if (c && c.texto) {
+        // Attribute the quote by name: "Andrés Manuel López Obrador dice: …".
+        // Prefer the quote's own autor; fall back to the book's author.
+        var speaker = c.autor;
+        if (!speaker && c.libro && typeof books !== 'undefined') {
+          var bkS = books.find(function(b) { return b.id === c.libro; });
+          if (bkS) speaker = bkS.author;
+        }
+        parts.push((speaker ? speaker + ' dice: ' : 'Cita: ') + c.texto);
+      }
+      var u = new SpeechSynthesisUtterance(speakNumbers(parts.join(' ')));
       u.rate = 0.97; u.pitch = 1; u.lang = 'es-MX';
       var v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
       u.onend = function() {
