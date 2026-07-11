@@ -15448,17 +15448,32 @@ body {
     // variant preferred). Citas default to a RANDOM enhanced/premium voice.
     var DEFAULT_ROLE = { fecha: 'carlos', evento: 'carlos', descripcion: 'soledad' };
     function byName(n) { return allVoices().find(function(x) { return x.name === n; }); }
+    // macOS "Eloquence" + novelty voices son las que suenan robóticas/alienígena.
+    function isNovelty(v) {
+      var id = ((v.voiceURI || '') + ' ' + (v.name || '')).toLowerCase();
+      if (/eloquence/.test(id)) return true;
+      return /\b(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley|bells|boing|bubbles|cellos|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|bad news|good news|bahh|deranged)\b/.test(id);
+    }
+    // Premium/Enhanced se detecta por voiceURI (compact vs enhanced/premium);
+    // el nombre a veces es idéntico entre las dos variantes.
+    function isPremium(v) {
+      var uri = (v.voiceURI || '').toLowerCase();
+      if (/compact/.test(uri)) return false;
+      return /premium|enhanced/.test(uri) || /enhanced|premium|neural|natural/i.test(v.name || '');
+    }
     function findQualityByName(sub, langPrefix) {
       var re = new RegExp('^' + langPrefix, 'i'), s = sub.toLowerCase();
-      var vs = allVoices().filter(function(v) { return re.test(v.lang || '') && (v.name || '').toLowerCase().indexOf(s) >= 0; });
+      var vs = allVoices().filter(function(v) {
+        return re.test(v.lang || '') && (v.name || '').toLowerCase().indexOf(s) >= 0 && !isNovelty(v);
+      });
       if (!vs.length) return null;
-      return vs.find(function(v) { return /enhanced|premium|neural|natural/i.test(v.name); }) || vs[0];
+      return vs.find(isPremium) || vs[0];   // prefiere la variante enhanced
     }
     function qualityPool(langPrefix) {
       var re = new RegExp('^' + langPrefix, 'i');
-      var all = allVoices().filter(function(v) { return re.test(v.lang || ''); });
-      var pool = all.filter(function(v) { return /enhanced|premium|neural|natural/i.test(v.name); });
-      return pool.length ? pool : all;
+      var all = allVoices().filter(function(v) { return re.test(v.lang || '') && !isNovelty(v); });
+      var prem = all.filter(isPremium);
+      return prem.length ? prem : all;   // SOLO premium/enhanced; si no hay, no-novelty
     }
     function randomQualityVoice(langPrefix) {
       var pool = qualityPool(langPrefix);
@@ -15669,9 +15684,9 @@ body {
     function populateVoicePanel() {
       if (!voicesPanel) return;
       var vs = allVoices();
-      var es = vs.filter(function(v) { return /^es/i.test(v.lang || ''); })
+      var es = vs.filter(function(v) { return /^es/i.test(v.lang || '') && !isNovelty(v); })
         .sort(function(a, b) { return langLabel(a.lang).localeCompare(langLabel(b.lang)) || a.name.localeCompare(b.name); });
-      var en = vs.filter(function(v) { return /^en/i.test(v.lang || ''); })
+      var en = vs.filter(function(v) { return /^en/i.test(v.lang || '') && !isNovelty(v); })
         .sort(function(a, b) { return a.name.localeCompare(b.name); });
       // Show which Spanish variants this device actually exposes (answers
       // "why don't more show up?" — the browser only lists installed voices).
