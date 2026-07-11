@@ -3455,7 +3455,18 @@ body {
 .tl-mapa-view.presenta .tl-mapa-loc { padding: 22px 40px !important; min-height: 92px; }
 .tl-mapa-view.presenta .tl-mapa-loc-year { font-size: 44px; }
 .tl-mapa-view.presenta .tl-mapa-loc-name { font-size: 32px; letter-spacing: 2px; }
-.tl-mapa-view.presenta .tl-mapa-floating-detalle { font-size: 1.1em; width: clamp(420px, 34%, 600px); }
+/* Descripción bien encuadrada: panel más grande, con tope de altura y scroll
+   interno para que textos largos no se salgan de pantalla. */
+.tl-mapa-view.presenta .tl-mapa-floating-detalle {
+  left: 34px; bottom: 34px;
+  width: clamp(440px, 36%, 660px);
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+  padding: 26px 32px 24px;
+  box-shadow: 0 18px 48px rgba(0,0,0,0.55);
+}
+.tl-mapa-view.presenta .tl-mapa-floating-detalle .tl-mapa-detalle-body { font-size: 18px; line-height: 1.56; }
+.tl-mapa-view.presenta .tl-mapa-floating-detalle .tl-mapa-detalle-body::first-letter { font-size: 2.7em; }
 .tl-mapa-counter {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -15334,6 +15345,8 @@ body {
 
     // ── Modo presentación: pantalla completa + narración (voz del navegador) ──
     var presenting = false;
+    var narrationSeq = 0;     // bumped on every (re)narration; stale utterance callbacks are ignored
+    var narrateTimer = null;  // debounce so rapid arrow presses don't churn the speech engine
     function pickVoice() {
       var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
       var es = vs.filter(function(v) { return /^es/i.test(v.lang || ''); });
@@ -15354,6 +15367,11 @@ body {
     function narrateCurrent() {
       if (!presenting || !('speechSynthesis' in window)) return;
       var ev = events[currentIdx]; if (!ev) return;
+      // Bump the token FIRST, then cancel. The cancelled (older) utterance
+      // fires its onend/onerror, but those callbacks captured an older mySeq,
+      // so the guard below makes them no-ops — this is what stops the
+      // "cancel → onend → advance again" cascade that trabás + glitched the voice.
+      var mySeq = ++narrationSeq;
       speechSynthesis.cancel();
       var parts = ['Año ' + speakYear(ev.year) + '.'];
       if (ev.text) parts.push(ev.text + '.');
@@ -15364,12 +15382,20 @@ body {
       u.rate = 0.97; u.pitch = 1; u.lang = 'es-MX';
       var v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
       u.onend = function() {
-        if (!presenting) return;
-        if (currentIdx < events.length - 1) selectIdx(currentIdx + 1); // dispara narrateCurrent otra vez
+        if (!presenting || mySeq !== narrationSeq) return; // stale/cancelled → ignore
+        if (currentIdx < events.length - 1) selectIdx(currentIdx + 1); // dispara narración otra vez (debounced)
         else stopPresent();
       };
-      u.onerror = function() { if (presenting && currentIdx < events.length - 1) setTimeout(function() { if (presenting) selectIdx(currentIdx + 1); }, 500); };
-      speechSynthesis.speak(u);
+      u.onerror = function() {
+        // Only a genuine failure of the CURRENT utterance should keep the show
+        // moving; interruptions from our own cancel() are stale → ignored.
+        if (!presenting || mySeq !== narrationSeq) return;
+        if (currentIdx < events.length - 1) setTimeout(function() {
+          if (presenting && mySeq === narrationSeq) selectIdx(currentIdx + 1);
+        }, 400);
+      };
+      // Some engines choke if speak() lands in the same tick as cancel().
+      setTimeout(function() { if (presenting && mySeq === narrationSeq) speechSynthesis.speak(u); }, 60);
     }
     function startPresent() {
       if (presenting) return;
@@ -15393,6 +15419,8 @@ body {
     function stopPresent() {
       if (!presenting) return;
       presenting = false;
+      narrationSeq++;  // invalidate any pending utterance callbacks
+      if (narrateTimer) { clearTimeout(narrateTimer); narrateTimer = null; }
       if ('speechSynthesis' in window) speechSynthesis.cancel();
       var view = container.querySelector('.tl-mapa-view');
       if (view) view.classList.remove('presenta');
@@ -15405,7 +15433,14 @@ body {
       }
     }
     // Expose so selectIdx can narrate on every change while presenting.
-    container._tlmNarrateIfPresenting = function() { if (presenting) narrateCurrent(); };
+    // Debounced: when the user spams arrows, only the event they land on gets
+    // narrated, instead of firing (and cancelling) a full utterance per press.
+    container._tlmNarrateIfPresenting = function() {
+      if (!presenting) return;
+      narrationSeq++;  // invalidate any in-flight utterance immediately (stops its onend advance)
+      if (narrateTimer) clearTimeout(narrateTimer);
+      narrateTimer = setTimeout(function() { narrateTimer = null; narrateCurrent(); }, 220);
+    };
     if (presentBtn) presentBtn.addEventListener('click', function() { if (presenting) stopPresent(); else startPresent(); });
     document.addEventListener('fullscreenchange', function() { if (!document.fullscreenElement && presenting) stopPresent(); });
     // Prime la lista de voces (carga async en algunos navegadores).
