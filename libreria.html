@@ -15351,17 +15351,32 @@ body {
     var presenting = false;
     var narrationSeq = 0;     // bumped on every (re)narration; stale utterance callbacks are ignored
     var narrateTimer = null;  // debounce so rapid arrow presses don't churn the speech engine
-    function pickVoice() {
+    function voiceFor(langPrefix) {
       var vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
-      var es = vs.filter(function(v) { return /^es/i.test(v.lang || ''); });
-      if (!es.length) return null;
-      var pref = ['mónica','monica','paulina','siri','enhanced','premium','neural','google español'];
+      var re = new RegExp('^' + langPrefix, 'i');
+      var cand = vs.filter(function(v) { return re.test(v.lang || ''); });
+      if (!cand.length) return null;
+      var pref = langPrefix === 'en'
+        ? ['samantha','google us english','aria','jenny','guy','daniel','enhanced','premium','neural','natural']
+        : ['mónica','monica','paulina','siri','enhanced','premium','neural','google español'];
       for (var p = 0; p < pref.length; p++) {
-        var m = es.find(function(v) { return v.name.toLowerCase().indexOf(pref[p]) >= 0; });
+        var m = cand.find(function(v) { return v.name.toLowerCase().indexOf(pref[p]) >= 0; });
         if (m) return m;
       }
-      var mx = es.find(function(v) { return /mx|mex/i.test(v.lang); });
-      return mx || es[0];
+      if (langPrefix === 'es') { var mx = cand.find(function(v) { return /mx|mex/i.test(v.lang); }); if (mx) return mx; }
+      return cand[0];
+    }
+    // Guess whether a snippet is English or Spanish so English quotes get an
+    // English voice. Spanish accents/¿¡ are a dead giveaway; otherwise compare
+    // common stopword counts.
+    function detectLang(t) {
+      if (!t) return 'es';
+      var s = String(t);
+      if (/[áéíóúñ¿¡]/i.test(s)) return 'es';
+      var low = ' ' + s.toLowerCase().replace(/[^a-z\s]/g, ' ').replace(/\s+/g, ' ') + ' ';
+      var en = (low.match(/ (the|of|and|to|in|that|is|it|was|for|with|as|his|by|not|this|from|which|are|were|their|has) /g) || []).length;
+      var es = (low.match(/ (de|la|el|que|los|las|un|una|por|con|para|del|se|su|como|pero|no|es|en|lo|al|una|son) /g) || []).length;
+      return en > es ? 'en' : 'es';
     }
     function speakYear(yr) {
       var s = String(yr || '');
@@ -15388,38 +15403,55 @@ body {
       // "cancel → onend → advance again" cascade that trabás + glitched the voice.
       var mySeq = ++narrationSeq;
       speechSynthesis.cancel();
-      var parts = ['Año ' + speakYear(ev.year) + '.'];
-      if (ev.text) parts.push(ev.text + '.');
-      if (ev.detalle) parts.push(ev.detalle);
+
+      // Build ordered segments; each can use its own voice/lang. The Spanish
+      // block (year + text + detalle + attribution) is one segment; the quote
+      // is a second segment spoken in its detected language, so an English
+      // quote gets an English voice by itself.
+      var esParts = ['Año ' + speakYear(ev.year) + '.'];
+      if (ev.text) esParts.push(ev.text + '.');
+      if (ev.detalle) esParts.push(ev.detalle);
       var c = ev.citas && ev.citas[0];
+      var quoteText = null, quoteLang = 'es';
       if (c && c.texto) {
-        // Attribute the quote by name: "Andrés Manuel López Obrador dice: …".
-        // Prefer the quote's own autor; fall back to the book's author.
         var speaker = c.autor;
         if (!speaker && c.libro && typeof books !== 'undefined') {
           var bkS = books.find(function(b) { return b.id === c.libro; });
           if (bkS) speaker = bkS.author;
         }
-        parts.push((speaker ? speaker + ' dice: ' : 'Cita: ') + c.texto);
+        quoteLang = detectLang(c.texto);
+        var verbo = quoteLang === 'en' ? ' dice, en inglés:' : ' dice:';
+        esParts.push(speaker ? (speaker + verbo) : 'Cita:');
+        quoteText = c.texto;
       }
-      var u = new SpeechSynthesisUtterance(speakNumbers(parts.join(' ')));
-      u.rate = 0.97; u.pitch = 1; u.lang = 'es-MX';
-      var v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
-      u.onend = function() {
-        if (!presenting || mySeq !== narrationSeq) return; // stale/cancelled → ignore
-        if (currentIdx < events.length - 1) selectIdx(currentIdx + 1); // dispara narración otra vez (debounced)
-        else stopPresent();
-      };
-      u.onerror = function() {
-        // Only a genuine failure of the CURRENT utterance should keep the show
-        // moving; interruptions from our own cancel() are stale → ignored.
-        if (!presenting || mySeq !== narrationSeq) return;
-        if (currentIdx < events.length - 1) setTimeout(function() {
-          if (presenting && mySeq === narrationSeq) selectIdx(currentIdx + 1);
-        }, 400);
-      };
+      var segs = [{ text: speakNumbers(esParts.join(' ')), lang: 'es' }];
+      if (quoteText) segs.push({ text: speakNumbers(quoteText), lang: quoteLang });
+
+      var si = 0;
+      function speakSeg() {
+        if (!presenting || mySeq !== narrationSeq) return; // stale/cancelled → stop
+        if (si >= segs.length) {
+          // Finished all segments for this event → advance the show.
+          if (currentIdx < events.length - 1) selectIdx(currentIdx + 1);
+          else stopPresent();
+          return;
+        }
+        var seg = segs[si++];
+        var u = new SpeechSynthesisUtterance(seg.text);
+        u.rate = 0.97; u.pitch = 1;
+        var v = voiceFor(seg.lang);
+        if (v) { u.voice = v; u.lang = v.lang; } else { u.lang = seg.lang === 'en' ? 'en-US' : 'es-MX'; }
+        u.onend = function() { if (presenting && mySeq === narrationSeq) speakSeg(); };
+        u.onerror = function() {
+          // Ignore stale interruptions; on a genuine failure keep going.
+          if (presenting && mySeq === narrationSeq) setTimeout(function() {
+            if (presenting && mySeq === narrationSeq) speakSeg();
+          }, 300);
+        };
+        speechSynthesis.speak(u);
+      }
       // Some engines choke if speak() lands in the same tick as cancel().
-      setTimeout(function() { if (presenting && mySeq === narrationSeq) speechSynthesis.speak(u); }, 60);
+      setTimeout(function() { if (presenting && mySeq === narrationSeq) speakSeg(); }, 60);
     }
     function startPresent() {
       if (presenting) return;
