@@ -15757,9 +15757,26 @@ body {
     var roleVoices = {};
     try { roleVoices = JSON.parse(localStorage.getItem('tlMapaRoleVoices') || '{}') || {}; } catch(e) { roleVoices = {}; }
     function allVoices() { return (window.speechSynthesis && speechSynthesis.getVoices()) || []; }
-    // Built-in defaults per part (matched by name substring; enhanced/premium
-    // variant preferred). Citas default to a RANDOM enhanced/premium voice.
-    var DEFAULT_ROLE = { fecha: 'carlos', evento: 'carlos', descripcion: 'soledad' };
+    // Built-in defaults per part. Cada parte tiene una LISTA de nombres en orden
+    // de preferencia (se usa la primera voz instalada; enhanced/premium preferida).
+    // Año → hombre grave; Evento/Título → buen hombre; Descripción → Mónica (mujer
+    // clara). Las citas por defecto usan una voz aleatoria mejorada/premium.
+    var DEFAULT_ROLE = {
+      fecha:       ['diego', 'jorge', 'carlos', 'juan'],          // Año: hombre grave
+      evento:      ['juan', 'carlos', 'jorge', 'diego'],          // Título: buen hombre
+      descripcion: ['monica', 'paulina', 'soledad', 'marisol']    // Descripción: mujer clara
+    };
+    var DEFAULT_LABEL = { fecha: 'hombre grave', evento: 'hombre', descripcion: 'Mónica' };
+    // El Año se lee con tono más grave para dar peso de "narrador".
+    var ROLE_PITCH = { fecha: 0.82 };
+    // Resuelve el default de una parte recorriendo su lista de nombres.
+    function resolveDefaultVoice(role) {
+      var list = DEFAULT_ROLE[role];
+      if (!list) return null;
+      if (typeof list === 'string') list = [list];
+      for (var i = 0; i < list.length; i++) { var v = findQualityByName(list[i], 'es'); if (v) return v; }
+      return null;
+    }
     // Identify voices by voiceURI (unique) — compact & premium share the name.
     function voiceId(v) { return v.voiceURI || v.name; }
     function byId(id) { return allVoices().find(function(x) { return voiceId(x) === id; }); }
@@ -15822,8 +15839,8 @@ body {
       if (seg.lang === 'en') return bestVoice('en');   // evento/descripción en inglés → voz inglesa
       var wanted = roleVoices[seg.role];
       if (wanted) { var vw = byId(wanted); if (vw) return vw; }
-      var def = DEFAULT_ROLE[seg.role];
-      if (def) { var vd = findQualityByName(def, 'es'); if (vd) return vd; }
+      var vd = resolveDefaultVoice(seg.role);
+      if (vd) return vd;
       return voiceFor('es');
     }
     // Guess whether a snippet is English or Spanish so English quotes get an
@@ -15944,7 +15961,7 @@ body {
         }
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
-        u.rate = 0.97; u.pitch = 1;
+        u.rate = 0.97; u.pitch = ROLE_PITCH[seg.role] || 1;
         var v = voiceForSegment(seg, vcache);
         if (v) u.voice = v;
         // Señala el idioma explícitamente (fuerza es/en aunque la voz tenga un
@@ -16188,7 +16205,7 @@ body {
           if (en.length) html += '<optgroup label="Inglés (para citas en inglés)">' + voiceOptions(en) + '</optgroup>';
           cur = roleVoices.cita || '__random__';
         } else {
-          html = '<option value="">Predeterminado (' + cap(DEFAULT_ROLE[role] || '') + ')</option>' + voiceOptions(es);
+          html = '<option value="">Predeterminado (' + (DEFAULT_LABEL[role] || '') + ')</option>' + voiceOptions(es);
           cur = roleVoices[role] || '';
         }
         sel.innerHTML = html;
