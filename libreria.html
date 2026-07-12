@@ -6051,11 +6051,21 @@ body {
 @keyframes btlfade { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
 /* El año como placa temática cuyo MATERIAL cambia por etapa histórica
    (cosmos→piedra→plata→madera→acero→digital), igual que el header del mapa. */
+/* Encabezado de la cita: placa del año + nombre del evento a su derecha
+   (llena el hueco que quedaba junto a la placa). */
+.btlsc-head { display: flex; align-items: center; gap: 15px; margin-bottom: 13px; }
+.btlsc-head .btlsc-ev {
+  flex: 1; min-width: 0;
+  font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif;
+  font-size: 16.5px; font-weight: 600; line-height: 1.25; color: var(--text-bright,#e8dfc8);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+:root.light .btlsc-head .btlsc-ev { color: #221c12; }
 .btlsc-year {
-  position: relative; display: inline-block; overflow: hidden; isolation: isolate;
+  position: relative; display: inline-block; overflow: hidden; isolation: isolate; flex: 0 0 auto;
   font-family: 'Cinzel','Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
   font-size: 25px; line-height: 1; letter-spacing: .6px;
-  padding: 8px 16px 9px; margin-bottom: 12px; border-radius: 5px;
+  padding: 8px 16px 9px; border-radius: 5px;
   color: #e9e2cf; text-shadow: 0 1px 1px rgba(0,0,0,.5);
   box-shadow: 0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.3);
   background: linear-gradient(178deg,#6d4a2a,#4a301a);
@@ -11289,9 +11299,10 @@ body {
     var q=(typeof stripHtml==='function'?stripHtml(c.quote||''):(c.quote||''));
     host.style.setProperty('--nc', c.color||'var(--gold)');
     var mat=btlStageMaterial(tlYearNum(c.year));
-    sc.innerHTML='<span class="btlsc-year btlmat-'+mat+'">'+bhe(tlYearLabel(c.year))+'</span>'+
+    sc.innerHTML='<div class="btlsc-head"><span class="btlsc-year btlmat-'+mat+'">'+bhe(tlYearLabel(c.year))+'</span>'+
+      '<span class="btlsc-ev">'+bhe(c.text)+'</span></div>'+
       '<div class="btlsc-quote">«'+bhe(q)+'»</div>'+
-      '<div class="btlsc-meta"><span class="btlsc-ev">'+bhe(c.text)+'</span>'+(c.pagina?' · <span class="btlsc-pag">'+bhe(c.pagina)+'</span>':'')+'</div>';
+      (c.pagina?'<div class="btlsc-meta"><span class="btlsc-pag">'+bhe(c.pagina)+'</span></div>':'');
     host.setAttribute('data-mat', mat);
     sc.classList.remove('btlsc-in'); void sc.offsetWidth; sc.classList.add('btlsc-in');
     var prog=host.querySelector('.btlsc-prog'); if(prog) prog.textContent=(i+1)+' / '+__btlCitas.length;
