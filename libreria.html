@@ -6019,13 +6019,22 @@ body {
 /* ── Cita destacada de la línea del tiempo, integrada en el bloque de Citas ── */
 .booktl-premium { margin: 2px 0 16px; }
 .booktl-showcase {
-  position: relative; cursor: pointer;
+  position: relative; cursor: pointer; isolation: isolate;
   border: 1px solid rgba(212,178,94,.34); border-left: 3px solid var(--nc, var(--gold,#d4b25e));
   border-radius: 10px; padding: 30px 44px 24px;
   background: linear-gradient(135deg, rgba(212,178,94,.11), rgba(20,17,13,.28));
   min-height: 130px; transition: border-color .2s, box-shadow .2s;
+  box-shadow: inset 0 0 46px rgba(0,0,0,.14);
 }
-.booktl-showcase:hover { border-color: var(--nc, #d4b25e); box-shadow: 0 4px 20px rgba(0,0,0,.30); }
+/* Grano de pergamino: textura suave sobre la tarjeta, emparentada con la del
+   año pero más apagada (papel viejo vs. metal/piedra). */
+.booktl-showcase::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  opacity: .5; mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='pg'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='300' height='300' filter='url(%23pg)'/></svg>");
+  background-size: 170px 170px;
+}
+.booktl-showcase:hover { border-color: var(--nc, #d4b25e); box-shadow: 0 4px 20px rgba(0,0,0,.30), inset 0 0 46px rgba(0,0,0,.14); }
 .btl-badge {
   position: absolute; top: 10px; left: 16px;
   font-family: 'SF Mono',monospace; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
@@ -6040,10 +6049,53 @@ body {
 .btlsc-inner { opacity: 0; }
 .btlsc-inner.btlsc-in { animation: btlfade .7s ease forwards; }
 @keyframes btlfade { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+/* El año como placa temática cuyo MATERIAL cambia por etapa histórica
+   (cosmos→piedra→plata→madera→acero→digital), igual que el header del mapa. */
 .btlsc-year {
-  font-family: 'Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
-  font-size: 30px; line-height: 1; color: var(--nc, var(--gold,#d4b25e)); margin-bottom: 9px;
+  position: relative; display: inline-block; overflow: hidden; isolation: isolate;
+  font-family: 'Cinzel','Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
+  font-size: 25px; line-height: 1; letter-spacing: .6px;
+  padding: 8px 16px 9px; margin-bottom: 12px; border-radius: 5px;
+  color: #e9e2cf; text-shadow: 0 1px 1px rgba(0,0,0,.5);
+  box-shadow: 0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.3);
+  background: linear-gradient(178deg,#6d4a2a,#4a301a);
 }
+.btlsc-year::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background-repeat:no-repeat; background-size:cover; }
+.btlsc-year.btlmat-cosmos { background:
+  radial-gradient(60% 180% at 72% 130%, rgba(120,70,180,.30), rgba(0,0,0,0) 55%),
+  linear-gradient(160deg,#131a33,#0a1024 55%,#05070f); color:#e2e9fc; text-shadow:0 0 8px rgba(150,180,255,.5),0 1px 1px rgba(0,0,0,.7); }
+.btlsc-year.btlmat-cosmos::before { mix-blend-mode:screen; opacity:.8;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='60'><g fill='%23fff'><circle cx='40' cy='16' r='1.1'/><circle cx='120' cy='40' r='.9' opacity='.7'/><circle cx='210' cy='20' r='1.3'/><circle cx='260' cy='44' r='.9' opacity='.6'/></g></svg>"); }
+.btlsc-year.btlmat-primitiva { background:
+  radial-gradient(120% 160% at 25% -30%, rgba(255,250,235,.16), rgba(0,0,0,0) 55%),
+  linear-gradient(178deg,#9a917f,#7c7263 55%,#655c4e); color:#332d22; text-shadow:0 1px 0 rgba(255,250,235,.4); }
+.btlsc-year.btlmat-primitiva::before { mix-blend-mode:overlay; opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='60'><filter id='pr'><feTurbulence type='fractalNoise' baseFrequency='0.04 0.06' numOctaves='4' seed='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='260' height='60' filter='url(%23pr)'/></svg>"); }
+.btlsc-year.btlmat-piedra { background:
+  radial-gradient(120% 160% at 25% -30%, rgba(150,155,162,.18), rgba(0,0,0,0) 55%),
+  linear-gradient(178deg,#464951,#2f3238 55%,#212429); color:#c6cad0; text-shadow:0 1px 0 rgba(255,255,255,.14),0 -1px 1px rgba(0,0,0,.75); }
+.btlsc-year.btlmat-piedra::before { mix-blend-mode:overlay; opacity:.55;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='260' height='60'><filter id='st'><feTurbulence type='fractalNoise' baseFrequency='0.03 0.05' numOctaves='4' seed='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='260' height='60' filter='url(%23st)'/></svg>"); }
+.btlsc-year.btlmat-plata { background:
+  linear-gradient(105deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.55) 45%, rgba(255,255,255,0) 60%),
+  linear-gradient(178deg,#e0e4e8,#b3b9bf 42%,#c9ced3 60%,#949aa0); color:#292e34; text-shadow:0 1px 0 rgba(255,255,255,.6); }
+.btlsc-year.btlmat-plata::before { mix-blend-mode:overlay; opacity:.45;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='60'><filter id='sl'><feTurbulence type='fractalNoise' baseFrequency='0.003 0.9' numOctaves='2' seed='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='400' height='60' filter='url(%23sl)'/></svg>"); }
+.btlsc-year.btlmat-madera { background:
+  radial-gradient(150% 130% at 18% -10%, rgba(170,120,70,.34), rgba(0,0,0,0) 48%),
+  linear-gradient(178deg,#6d4a2a,#5a3c20 48%,#4a301a 80%,#3d2714); color:#e9e2cf; text-shadow:0 1px 1px rgba(0,0,0,.55); }
+.btlsc-year.btlmat-madera::before { mix-blend-mode:multiply; opacity:.32;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='60'><filter id='wd2'><feTurbulence type='fractalNoise' baseFrequency='0.008 0.5' numOctaves='5' seed='11'/><feColorMatrix type='saturate' values='0'/></filter><rect width='400' height='60' filter='url(%23wd2)'/></svg>"); }
+.btlsc-year.btlmat-acero { background:
+  linear-gradient(100deg, rgba(255,255,255,0) 34%, rgba(255,255,255,.28) 47%, rgba(255,255,255,0) 60%),
+  linear-gradient(178deg,#585d64,#34383e 48%,#292c32 78%,#3d4147); color:#dee2e7; text-shadow:0 1px 1px rgba(0,0,0,.75); }
+.btlsc-year.btlmat-acero::before { mix-blend-mode:overlay; opacity:.5;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='60'><filter id='ac'><feTurbulence type='fractalNoise' baseFrequency='0.004 0.9' numOctaves='2' seed='5'/><feColorMatrix type='saturate' values='0'/></filter><rect width='400' height='60' filter='url(%23ac)'/></svg>"); }
+.btlsc-year.btlmat-digital { background:
+  linear-gradient(115deg, rgba(120,190,255,0) 40%, rgba(120,190,255,.14) 50%, rgba(120,190,255,0) 62%),
+  linear-gradient(178deg,#141d31,#0b1120 60%,#070a12); color:#e8f1ff; text-shadow:0 0 8px rgba(80,160,255,.55); }
+.btlsc-year.btlmat-digital::before { mix-blend-mode:overlay; opacity:.5;
+  background-image:repeating-linear-gradient(0deg, rgba(140,200,255,.12) 0 1px, transparent 1px 4px); }
 .btlsc-quote {
   font-family: 'Playfair Display',Georgia,serif; font-style: italic;
   font-size: 17px; line-height: 1.5; color: #e6dbbe;
@@ -11173,6 +11225,19 @@ body {
     return y;
   }
   function bhe(t){ return String(t==null?'':t).replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  // Material del año por etapa/modo de producción (mismo lenguaje que el header
+  // del mapa: cosmos→piedra→plata→madera→acero→digital). Copia local para no
+  // depender del scope de initMapaGlobe.
+  function btlStageMaterial(y){
+    if(y==null||isNaN(y)) return 'madera';
+    if(y<-10000) return 'cosmos';
+    if(y<-1500)  return 'primitiva';
+    if(y<1521)   return 'piedra';
+    if(y<1810)   return 'plata';
+    if(y<1910)   return 'madera';
+    if(y<1982)   return 'acero';
+    return 'digital';
+  }
   function bookTimelineCitas(bookId){
     var out=[];
     if(typeof timelineEras==='undefined') return out;
@@ -11223,9 +11288,11 @@ body {
     var c=__btlCitas[i];
     var q=(typeof stripHtml==='function'?stripHtml(c.quote||''):(c.quote||''));
     host.style.setProperty('--nc', c.color||'var(--gold)');
-    sc.innerHTML='<div class="btlsc-year">'+bhe(tlYearLabel(c.year))+'</div>'+
+    var mat=btlStageMaterial(tlYearNum(c.year));
+    sc.innerHTML='<span class="btlsc-year btlmat-'+mat+'">'+bhe(tlYearLabel(c.year))+'</span>'+
       '<div class="btlsc-quote">«'+bhe(q)+'»</div>'+
       '<div class="btlsc-meta"><span class="btlsc-ev">'+bhe(c.text)+'</span>'+(c.pagina?' · <span class="btlsc-pag">'+bhe(c.pagina)+'</span>':'')+'</div>';
+    host.setAttribute('data-mat', mat);
     sc.classList.remove('btlsc-in'); void sc.offsetWidth; sc.classList.add('btlsc-in');
     var prog=host.querySelector('.btlsc-prog'); if(prog) prog.textContent=(i+1)+' / '+__btlCitas.length;
     var rail=document.getElementById('btl-rail-'+bookId);
