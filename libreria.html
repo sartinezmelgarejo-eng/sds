@@ -3484,6 +3484,12 @@ body {
 }
 .tl-mapa-nav--mute { font-size: 13px; }
 .tl-mapa-nav--mute.muted { opacity: 0.55; }
+.tl-mapa-nav--speed {
+  font-family: 'SF Mono','Fira Code',monospace; font-size: 11px; font-weight: 700;
+  width: auto; min-width: 34px; padding: 0 8px; letter-spacing: .3px;
+}
+.tl-mapa-nav--speed.rate-fast { color: #e6c86a; border-color: rgba(212,178,94,.6); }
+.tl-mapa-nav--speed.rate-slow { color: #8fb0d8; border-color: rgba(143,176,216,.5); }
 .tl-mapa-nav--voices { font-size: 13px; }
 .tl-mapa-nav--voices.active { background: var(--gold); color: #0d0d1a; border-color: var(--gold); }
 /* Panel de voces por parte */
@@ -15191,6 +15197,7 @@ body {
         '<span class="tl-mapa-counter" id="tl-mapa-counter">0 / ' + total + '</span>' +
         '<button class="tl-mapa-nav" id="tl-mapa-next" aria-label="Siguiente">›</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--play" id="tl-mapa-play" aria-label="Reproducir" title="Reproducir con voz (narra y avanza)">▶</button>' +
+        '<button class="tl-mapa-nav tl-mapa-nav--speed" id="tl-mapa-speed" aria-label="Velocidad de lectura" title="Velocidad de lectura">1×</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--mute" id="tl-mapa-mute" aria-label="Silenciar voz" title="Silenciar la voz">🔊</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--voices" id="tl-mapa-voices" aria-label="Voces por parte" title="Elegir una voz para cada parte">🎙</button>' +
         '<button class="tl-mapa-nav tl-mapa-nav--world" id="tl-mapa-world" aria-label="Ver globo completo" title="Ver globo completo">◯</button>' +
@@ -16072,6 +16079,9 @@ body {
     var playTimer = null;
     var isPlaying = false;
     var muted = false;
+    var playbackRate = 1;                        // multiplicador de velocidad de lectura
+    var SPEEDS = [1, 1.2, 1.5, 2, 3, 0.8];
+    try { var _pr = parseFloat(localStorage.getItem('tlMapaRate')); if (SPEEDS.indexOf(_pr) >= 0) playbackRate = _pr; } catch(e) {}
     var narrationSeq = 0;     // bumped on every (re)narration; stale utterance callbacks ignored
     var narrateTimer = null;
     try { muted = localStorage.getItem('tlMapaMuted') === 'on'; } catch(e) {}
@@ -16114,7 +16124,7 @@ body {
       if (voiceAvailable()) {
         narrateCurrent(advance);          // advances when the voice finishes
       } else {
-        playTimer = setTimeout(advance, readingTimeForEvent(events[currentIdx]));
+        playTimer = setTimeout(advance, readingTimeForEvent(events[currentIdx]) / playbackRate);
       }
     }
     // Wake Lock: evita que la pantalla se apague mientras está reproduciendo.
@@ -16156,6 +16166,28 @@ body {
     }
     if (playBtn) playBtn.addEventListener('click', function() {
       if (isPlaying) stopPlay('user'); else startPlay();
+    });
+    // Botón de velocidad: cicla 1× → 1.2× → 1.5× → 2× → 3× → 0.8× → 1×
+    var speedBtn = container.querySelector('#tl-mapa-speed');
+    function updateSpeedBtn() {
+      if (!speedBtn) return;
+      speedBtn.textContent = playbackRate + '×';
+      speedBtn.classList.toggle('rate-fast', playbackRate > 1);
+      speedBtn.classList.toggle('rate-slow', playbackRate < 1);
+      speedBtn.title = 'Velocidad de lectura: ' + playbackRate + '× (clic para cambiar)';
+    }
+    updateSpeedBtn();
+    if (speedBtn) speedBtn.addEventListener('click', function() {
+      var i = SPEEDS.indexOf(playbackRate); i = (i + 1) % SPEEDS.length; playbackRate = SPEEDS[i];
+      try { localStorage.setItem('tlMapaRate', String(playbackRate)); } catch(e) {}
+      updateSpeedBtn();
+      // Aplica de inmediato: re-narra el evento actual a la nueva velocidad.
+      if (isPlaying) {
+        narrationSeq++;
+        if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch(e) {} }
+        if (playTimer) { clearTimeout(playTimer); playTimer = null; }
+        playStep();
+      }
     });
     updateMuteBtn();
     if (muteBtn) muteBtn.addEventListener('click', function() {
@@ -16453,7 +16485,7 @@ body {
         }
         var u = new SpeechSynthesisUtterance(seg.text);
         _speakUtter = u;
-        u.rate = 0.97; u.pitch = ROLE_PITCH[seg.role] || 1;
+        u.rate = Math.min(4, 0.97 * playbackRate); u.pitch = ROLE_PITCH[seg.role] || 1;
         var v = voiceForSegment(seg, vcache);
         if (v) u.voice = v;
         // Señala el idioma explícitamente (fuerza es/en aunque la voz tenga un
