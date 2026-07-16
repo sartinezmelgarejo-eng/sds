@@ -77,23 +77,53 @@ body{background:#f4f1ea;color:#1e293b;font-family:'Playfair Display',Georgia,ser
 }
 .card:hover .card-bg{filter:brightness(1) saturate(1);transform:scale(1.03)}
 .card-overlay{display:none}
+/* Scrim unifica screenshots de brillo dispar y da fondo al nombre */
+.card-scrim{
+  position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(18,12,6,.06) 0%,rgba(18,12,6,0) 36%,rgba(18,12,6,.32) 66%,rgba(18,12,6,.76) 100%);
+  transition:background .3s ease;
+}
+.card:hover .card-scrim{
+  background:linear-gradient(180deg,rgba(18,12,6,.10) 0%,rgba(18,12,6,.06) 30%,rgba(18,12,6,.44) 62%,rgba(18,12,6,.88) 100%);
+}
 .card-accent{position:absolute;top:0;left:0;right:0;height:3px;background:var(--c);opacity:.7;transition:opacity .3s}
 .card:hover .card-accent{opacity:1}
 .card-info{display:none}
+.card-meta{
+  position:absolute;left:16px;right:14px;bottom:12px;z-index:2;
+  display:flex;flex-direction:column;gap:1px;pointer-events:none;
+  transition:transform .3s ease;
+}
+.card:hover .card-meta{transform:translateY(-2px)}
+.card-kicker{
+  font-size:9px;font-weight:700;letter-spacing:1.7px;text-transform:uppercase;
+  color:var(--c);text-shadow:0 1px 8px rgba(0,0,0,.55);
+}
+.card-name{
+  font-family:'Playfair Display',Georgia,serif;
+  font-size:19px;font-weight:600;line-height:1.12;color:#fdfcf3;
+  text-shadow:0 1px 10px rgba(0,0,0,.5);
+}
 
-/* ─── More card ─── */
+/* ─── More card (estilo papel, familia del search-stack) ─── */
 .card.more-card{
-  background:#f8f9fb;border:1px dashed #d0d5dd;
+  background:#fefcf8;border:1px solid #e8e0c8;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:none;
+  box-shadow:0 1px 3px rgba(60,40,20,.05);
 }
 .card.more-card:hover{
-  background:#f0f2f5;border-color:#94a3b8;
-  box-shadow:0 4px 16px rgba(0,0,0,.06);
+  background:#fbf7ec;border-color:#BC955C;
+  box-shadow:0 4px 16px rgba(188,149,92,.18);
 }
 .more-inner{text-align:center}
-.more-dots{font-size:20px;color:#94a3b8;letter-spacing:3px;line-height:1}
-.more-label{font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-top:6px}
+.more-dots{font-size:22px;color:#BC955C;letter-spacing:3px;line-height:1}
+.more-label{font-size:9px;font-weight:700;color:#a08a5a;text-transform:uppercase;letter-spacing:1.6px;margin-top:7px}
+
+@media (max-width:1100px){
+  .card-meta{left:12px;bottom:10px}
+  .card-name{font-size:15px}
+  .card-kicker{font-size:8px;letter-spacing:1.3px}
+}
 
 /* ─── Launchpad overlay ─── */
 .more-overlay{
@@ -1485,20 +1515,29 @@ body.mag-immersive .mag-mode-btn:active{transform:scale(.96)}
   justify-items:center;
 }
 .more-item{
-  display:flex;flex-direction:column;align-items:center;gap:10px;
+  display:flex;flex-direction:column;align-items:center;
   text-decoration:none;color:#fff;
   width:100%;max-width:220px;
   transition:transform .2s;
 }
 .more-item:hover{transform:translateY(-4px)}
 .more-item-thumb{
+  position:relative;overflow:hidden;
   width:100%;aspect-ratio:16/10;border-radius:14px;
   background-size:cover;background-position:center top;
   box-shadow:0 4px 20px rgba(0,0,0,.4);
   transition:box-shadow .2s;
 }
+.more-item-thumb::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(10,8,14,0) 42%,rgba(10,8,14,.74) 100%);
+}
 .more-item:hover .more-item-thumb{box-shadow:0 8px 30px rgba(0,0,0,.6)}
-.more-item-name{font-size:12px;font-weight:600;color:#d4d4d4;text-align:center}
+.more-item-name{
+  position:absolute;left:12px;bottom:9px;z-index:1;
+  font-size:12.5px;font-weight:600;color:#f4f1ea;text-align:left;
+  text-shadow:0 1px 8px rgba(0,0,0,.6);
+}
 .more-close{
   display:block;margin:30px auto 0;border:none;background:rgba(255,255,255,.08);
   font-family:inherit;font-size:11px;color:#94a3b8;cursor:pointer;
@@ -2385,9 +2424,6 @@ body.sidebar-fullscreen .sidebar .m-expand-btn{display:none}
   .search-form input{font-size:11px}
   .search-form button{padding:5px 8px;font-size:9px}
   .grid{gap:8px}
-  .card-info{padding:8px 10px}
-  .card-name{font-size:9px;letter-spacing:.5px}
-  .card-desc{font-size:8px}
   .more-grid{grid-template-columns:1fr 1fr;gap:14px}
   .more-panel{padding:24px}
 }
@@ -2496,22 +2532,30 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
 
 <a href="monitoring.html" class="card" style="--c:#14b8a6;--glow:rgba(20,184,166,.2)" title="Sala de Situacion">
 <div class="card-bg" style="background-image:url('pwa/thumb-monitoring.jpg')"></div>
+<div class="card-scrim"></div>
 <div class="card-accent"></div>
+<div class="card-meta"><span class="card-kicker">Dashboard</span><span class="card-name">Sala de Situación</span></div>
 </a>
 
 <a href="BUSCADOR-MANANERAS.html" class="card" style="--c:#f59e0b;--glow:rgba(245,158,11,.2)" title="Buscador Mananeras">
 <div class="card-bg" style="background-image:url('pwa/thumb-mananeras.jpg')"></div>
+<div class="card-scrim"></div>
 <div class="card-accent"></div>
+<div class="card-meta"><span class="card-kicker">Archivo</span><span class="card-name">Buscador de Mañaneras</span></div>
 </a>
 
 <a href="libreria.html" class="card" style="--c:#8b5cf6;--glow:rgba(139,92,246,.2)" title="Biblioteca Samuel">
 <div class="card-bg" style="background-image:url('pwa/thumb-libreria.jpg')"></div>
+<div class="card-scrim"></div>
 <div class="card-accent"></div>
+<div class="card-meta"><span class="card-kicker">Biblioteca · Atlas</span><span class="card-name">Librería</span></div>
 </a>
 
 <a href="sacred-texts.html" class="card" style="--c:#c9a84c;--glow:rgba(201,168,76,.2)" title="Sacred Texts">
 <div class="card-bg" style="background-image:url('pwa/thumb-sacred.jpg')"></div>
+<div class="card-scrim"></div>
 <div class="card-accent"></div>
+<div class="card-meta"><span class="card-kicker">Biblia · Corán</span><span class="card-name">Sacred Texts</span></div>
 </a>
 
 <div class="card more-card" onclick="document.getElementById('more-overlay').classList.add('open')">
@@ -2614,24 +2658,19 @@ body.sidebar-fullscreen .sidebar .mag-stage.gallery-hero .gallery-tile{cursor:zo
 <div class="more-panel">
 <div class="more-grid">
 <a class="more-item" href="Iglesia-contra-Mexico.html">
-<div class="more-item-thumb" style="background-image:url('pwa/thumb-iglesia.jpg')"></div>
-<div class="more-item-name">Iglesia vs Mexico</div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-iglesia.jpg')"><span class="more-item-name">Iglesia vs Mexico</span></div>
 </a>
 <a class="more-item" href="china-trip-planner-enhanced.html">
-<div class="more-item-thumb" style="background-image:url('pwa/thumb-china.jpg')"></div>
-<div class="more-item-name">China Trip</div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-china.jpg')"><span class="more-item-name">China Trip</span></div>
 </a>
 <a class="more-item mobile-hide" href="schedules.html">
-<div class="more-item-thumb" style="background-image:url('pwa/thumb-schedules.jpg')"></div>
-<div class="more-item-name">Schedules</div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-schedules.jpg')"><span class="more-item-name">Schedules</span></div>
 </a>
 <a class="more-item mobile-hide" href="guitar.html">
-<div class="more-item-thumb" style="background-image:url('pwa/thumb-guitar.svg')"></div>
-<div class="more-item-name">Guitarra</div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-guitar.svg')"><span class="more-item-name">Guitarra</span></div>
 </a>
 <a class="more-item" href="guitar-beta.html">
-<div class="more-item-thumb" style="background-image:url('pwa/thumb-guitar.svg')"></div>
-<div class="more-item-name">Guitarra (beta)</div>
+<div class="more-item-thumb" style="background-image:url('pwa/thumb-guitar.svg')"><span class="more-item-name">Guitarra (beta)</span></div>
 </a>
 </div>
 <button class="more-close" onclick="document.getElementById('more-overlay').classList.remove('open')">Close</button>
