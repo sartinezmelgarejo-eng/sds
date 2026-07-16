@@ -3,6 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<script>
+// Tablets (touch + big screen) get the DESKTOP experience: lay the page out
+// at a fixed 1100 px viewport — past the 800 px mobile breakpoint in both
+// orientations — and let the browser scale it to the glass. Phones are
+// untouched (their short side is < 600 CSS px). The same flag excludes
+// tablets from the landscape phone overlay (lp-on) further down.
+// Escape hatch: ?mobile=1 keeps the phone layout for comparison.
+(function () {
+  try {
+    var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    var minDim = Math.min(screen.width, screen.height);
+    if (coarse && minDim >= 600 && !/[?&]mobile=1/.test(location.search)) {
+      window._tabletDesktop = true;
+      var vp = document.querySelector('meta[name="viewport"]');
+      if (vp) vp.setAttribute('content', 'width=1100, viewport-fit=cover');
+    }
+  } catch (e) {}
+})();
+</script>
 <!-- Disable HTTP caching so iterative development always shows the
      freshest deploy without manual hard-reloads on every device. -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -20451,25 +20470,28 @@ function lp_syncControls() {
 (function wireLandscapePlayToggle() {
   const mql = window.matchMedia('(orientation: landscape) and (pointer: coarse)');
   const apply = () => {
+    // Tablets run the desktop layout (see the viewport override in <head>),
+    // so the landscape phone overlay must not hijack them.
+    const on = mql.matches && !window._tabletDesktop;
     const wasOn = document.body.classList.contains('lp-on');
-    document.body.classList.toggle('lp-on', mql.matches);
-    if (mql.matches && typeof renderLandscapePlay === 'function') {
+    document.body.classList.toggle('lp-on', on);
+    if (on && typeof renderLandscapePlay === 'function') {
       renderLandscapePlay();
     }
-    if (mql.matches && typeof renderLandscapeStandby === 'function') {
+    if (on && typeof renderLandscapeStandby === 'function') {
       renderLandscapeStandby();
     }
     // Leaving landscape while the tuner was listening — release the mic.
     // Don't bounce the user out of tuner mode entirely; the mode persists
     // so rotating back lands them back in the tuner with a fresh start.
-    if (wasOn && !mql.matches && state.standbyMode === 'tuner'
+    if (wasOn && !on && state.standbyMode === 'tuner'
         && window._tuner && typeof window._tuner.stop === 'function') {
       window._tuner.stop();
     }
     // Entering landscape while standbyMode === 'tuner' (persisted from a
     // prior visit this session) — restart the mic so the user lands in
     // a working tuner instead of a frozen UI.
-    if (!wasOn && mql.matches && state.standbyMode === 'tuner'
+    if (!wasOn && on && state.standbyMode === 'tuner'
         && window._tuner && typeof window._tuner.start === 'function') {
       setTimeout(() => window._tuner.start(), 0);
     }
