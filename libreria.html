@@ -2545,6 +2545,145 @@ body {
 }
 .tag-quick-add:hover { opacity: 1; background: rgba(200,169,96,0.10); }
 
+/* ── Unified filter popover (Filtro ▾) ──
+   Un solo botón que abre un buscador agrupado: Libros (portadas),
+   Países (banderas), Autores. Multi-selección sin cerrar. */
+.tl-filter-pop { position: relative; flex-shrink: 0; }
+.tl-filter-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(200,169,96,0.3);
+  border-radius: 16px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  white-space: nowrap;
+}
+.tl-filter-btn:hover, .tl-filter-pop.open .tl-filter-btn {
+  border-color: var(--gold); background: rgba(200,169,96,0.10);
+}
+:root.light .tl-filter-btn { background: rgba(255,255,255,0.5); border-color: rgba(120,90,40,0.25); }
+.tl-filter-btn .tl-filter-count {
+  background: var(--gold); color: #0d0d1a; font-weight: 700;
+  border-radius: 10px; padding: 1px 7px; font-size: 10px;
+}
+.tl-filter-btn .tl-filter-count:empty { display: none; }
+.tl-filter-btn .tl-filter-caret { font-size: 9px; opacity: 0.6; }
+.tl-filter-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(380px, 86vw);
+  max-height: 62vh;
+  display: none;
+  flex-direction: column;
+  background: #1a1812;
+  border: 1px solid rgba(200,169,96,0.35);
+  border-radius: 12px;
+  box-shadow: 0 10px 34px rgba(0,0,0,0.55);
+  z-index: 60;
+  overflow: hidden;
+}
+:root.light .tl-filter-popover { background: #fdfcf3; border-color: rgba(120,90,40,0.35); box-shadow: 0 10px 28px rgba(0,0,0,0.22); }
+.tl-filter-pop.open .tl-filter-popover { display: flex; }
+.tl-filter-popover .tl-filter-q {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 11px 14px;
+  border: 0;
+  outline: 0;
+  background: rgba(255,255,255,0.04);
+  color: var(--text);
+  border-bottom: 1px solid rgba(200,169,96,0.22);
+}
+:root.light .tl-filter-popover .tl-filter-q { background: rgba(255,255,255,0.6); color: #14110d; }
+.tl-filter-popover .tl-filter-q::placeholder { color: var(--text-dim); opacity: 0.6; }
+.tl-filter-results {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  padding: 4px 0 8px;
+}
+.tl-filter-group-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 10px 14px 4px;
+  opacity: 0.75;
+}
+.tl-filter-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.tl-filter-row:hover, .tl-filter-row.kbsel { background: rgba(200,169,96,0.12); }
+.tl-filter-row.selected { opacity: 0.55; }
+.tl-filter-row .pick-flag { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; }
+.tl-filter-row .pick-cover { width: 26px; height: 36px; flex-shrink: 0; overflow: hidden; border-radius: 2px; }
+.tl-filter-row .pick-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tl-filter-row .pick-cover .ph {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--gold) 18%, #2a251c);
+  color: var(--gold); font-family: 'Cormorant Garamond', serif; font-size: 14px;
+}
+:root.light .tl-filter-row .pick-cover .ph { background: rgba(200,169,96,0.15); }
+.tl-filter-row .pick-author-ic {
+  width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--gold) 16%, #2a251c);
+  color: var(--gold); font-family: 'Cormorant Garamond', serif; font-size: 12px;
+}
+:root.light .tl-filter-row .pick-author-ic { background: rgba(200,169,96,0.16); }
+.tl-filter-row .pick-meta { flex: 1; min-width: 0; }
+.tl-filter-row .pick-title {
+  font-family: 'Cormorant Garamond', 'Inter', serif;
+  font-size: 14.5px; color: var(--text); line-height: 1.15;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+:root.light .tl-filter-row .pick-title { color: #14110d; }
+.tl-filter-row .pick-sub {
+  font-family: 'Inter', sans-serif;
+  font-size: 10.5px; color: var(--text-dim); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tl-filter-row .pick-check {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--gold); flex-shrink: 0;
+  width: 18px; text-align: center;
+}
+.tl-filter-empty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--text-dim);
+  padding: 18px 14px; text-align: center;
+}
+/* Chips de autores: mismo look que los de libros/países */
+.tl-filter-chips { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.tl-filter-chips .tag-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px;
+  background: var(--gold);
+  color: #0d0d1a;
+  padding: 3px 8px;
+  border-radius: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.tl-filter-chips .tag-chip button {
+  background: transparent; border: 0; color: #0d0d1a;
+  font-size: 13px; line-height: 1; cursor: pointer; padding: 0 2px; opacity: 0.7;
+}
+.tl-filter-chips .tag-chip button:hover { opacity: 1; }
+.tl-filter-chips .tag-chip .chip-flag { font-size: 12px; line-height: 1; }
+.tl-filter-chips .tag-chip.kind-autores { background: color-mix(in srgb, var(--gold) 78%, #5a4632); }
+
 /* ── Mapa view ── */
 .tl-mapa-view {
   display: grid;
@@ -15037,18 +15176,19 @@ body {
   // to MX on next reload with empty URL.
   function readFilterFromURL() {
     var u = new URLSearchParams(window.location.search);
-    var hasUrl = u.has('q') || u.has('libros') || u.has('paises');
+    var hasUrl = u.has('q') || u.has('libros') || u.has('paises') || u.has('autores');
     if (!hasUrl) {
       var touched = false;
       try { touched = localStorage.getItem('tlFilterTouched') === '1'; } catch(e){}
       if (!touched) {
-        return { q: '', libros: new Set(), paises: new Set(['MX']) };
+        return { q: '', libros: new Set(), paises: new Set(['MX']), autores: new Set() };
       }
     }
     return {
       q: u.get('q') || '',
       libros: new Set((u.get('libros') || '').split(',').filter(Boolean)),
-      paises: new Set((u.get('paises') || '').split(',').filter(Boolean))
+      paises: new Set((u.get('paises') || '').split(',').filter(Boolean)),
+      autores: new Set((u.get('autores') || '').split('|').filter(Boolean))
     };
   }
   function writeFilterToURL(f) {
@@ -15057,10 +15197,20 @@ body {
     if (f.q) u.set('q', f.q); else u.delete('q');
     if (f.libros.size) u.set('libros', Array.from(f.libros).join(',')); else u.delete('libros');
     if (f.paises.size) u.set('paises', Array.from(f.paises).join(',')); else u.delete('paises');
+    if (f.autores && f.autores.size) u.set('autores', Array.from(f.autores).join('|')); else u.delete('autores');
     var qs = u.toString();
     history.replaceState(null, '', qs ? ('?' + qs) : window.location.pathname);
   }
-  function filterIsEmpty(f) { return !f.q && !f.libros.size && !f.paises.size; }
+  function filterIsEmpty(f) { return !f.q && !f.libros.size && !f.paises.size && !(f.autores && f.autores.size); }
+  // Book IDs credited to an author name (splits multi-author strings).
+  function authorBookSet(name) {
+    var s = {};
+    books.forEach(function(b) {
+      var names = (typeof parseAuthors === 'function' ? parseAuthors(b.author || '') : []).map(function(a){ return a.name; });
+      if (names.indexOf(name) !== -1) s[b.id] = 1;
+    });
+    return s;
+  }
   // Strip diacritics + lowercase so "mexico" matches "México", "Tlapacoya"
   // matches "tlapacoya", "Calderon" matches "Calderón", etc.
   function tlNormalize(s) {
@@ -15089,6 +15239,26 @@ body {
         }
       }
       if (!has) return false;
+    }
+    if (f.autores && f.autores.size) {
+      // Autor → sus libros; el evento matchea si alguna cita (o el era) es de ellos
+      var hasA = false;
+      var seen = {};
+      outer: for (var ai = 0; ai < f.autores.size; ai++) {
+        var name = Array.from(f.autores)[ai];
+        var bs = seen[name] || (seen[name] = authorBookSet(name));
+        if (ev.citas) {
+          for (var ci = 0; ci < ev.citas.length; ci++) {
+            if (bs[ev.citas[ci].libro]) { hasA = true; break outer; }
+          }
+        }
+        if (era && era.bookIds) {
+          for (var bi = 0; bi < era.bookIds.length; bi++) {
+            if (bs[era.bookIds[bi]]) { hasA = true; break outer; }
+          }
+        }
+      }
+      if (!hasA) return false;
     }
     if (f.q) {
       var q = tlNormalize(f.q);
@@ -15324,33 +15494,47 @@ body {
       '</div>' + notice;
 
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
-    function tagLabel(v, kind) { return kind === 'paises' ? tlPaisLabel(v) : tlBookLabel(v); }
+    // Bandera emoji desde el código ISO-2 (MX→🇲🇽); fallback si no es par de letras
+    function paisFlag(cc) {
+      cc = String(cc || '').toUpperCase();
+      if (!/^[A-Z]{2}$/.test(cc)) return '🏳';
+      return String.fromCodePoint.apply(null, cc.split('').map(function(c){ return 0x1F1E6 + c.charCodeAt(0) - 65; }));
+    }
+    function tagLabel(v, kind) {
+      if (kind === 'paises') return tlPaisLabel(v);
+      if (kind === 'autores') return v;
+      return tlBookLabel(v);
+    }
     function renderChips(set, kind) {
       return Array.from(set).map(function(v) {
-        return '<span class="tag-chip" data-kind="' + kind + '" data-val="' + esc(v) + '" title="' + esc(v) + '">' +
-          esc(tagLabel(v, kind)) + '<button type="button" aria-label="quitar">×</button></span>';
+        var flag = kind === 'paises' ? '<span class="chip-flag">' + paisFlag(v) + '</span>' : '';
+        return '<span class="tag-chip kind-' + kind + '" data-kind="' + kind + '" data-val="' + esc(v) + '" title="' + esc(v) + '">' +
+          flag + esc(tagLabel(v, kind)) + '<button type="button" aria-label="quitar">×</button></span>';
       }).join('');
     }
     var filterEmpty = filterIsEmpty(tlFilter);
-    var hasMX = tlFilter.paises.has('MX');
+    var activeCount = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size;
     var filterBarHTML =
       '<div class="tl-mapa-filter-bar">' +
         '<input class="tl-mapa-search" type="text" id="tl-mapa-q" ' +
           'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
           'placeholder="Buscar eventos…" value="' + esc(tlFilter.q) + '">' +
-        '<div class="tl-mapa-tag-picker" data-kind="libros">' +
-          '<span class="tag-label">Libros</span>' +
-          renderChips(tlFilter.libros, 'libros') +
-          '<input type="text" placeholder="+ libro" autocomplete="off">' +
-          '<div class="tl-mapa-tag-dropdown"></div>' +
+        '<div class="tl-filter-pop" id="tl-filter-pop">' +
+          '<button class="tl-filter-btn" id="tl-filter-btn" type="button">Filtro' +
+            '<span class="tl-filter-count">' + (activeCount || '') + '</span>' +
+            '<span class="tl-filter-caret">▾</span>' +
+          '</button>' +
+          '<div class="tl-filter-popover" id="tl-filter-popover">' +
+            '<input class="tl-filter-q" type="text" id="tl-filter-q" ' +
+              'autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" ' +
+              'placeholder="Libro, país o autor…">' +
+            '<div class="tl-filter-results" id="tl-filter-results"></div>' +
+          '</div>' +
         '</div>' +
-        '<div class="tl-mapa-tag-picker" data-kind="paises">' +
-          '<span class="tag-label">Países</span>' +
+        '<div class="tl-filter-chips">' +
           renderChips(tlFilter.paises, 'paises') +
-          (!hasMX ? '<button class="tag-quick-add" id="tl-mapa-quick-mx" ' +
-            'title="Agregar México al filtro" type="button">🇲🇽</button>' : '') +
-          '<input type="text" placeholder="+ país" autocomplete="off">' +
-          '<div class="tl-mapa-tag-dropdown"></div>' +
+          renderChips(tlFilter.libros, 'libros') +
+          renderChips(tlFilter.autores, 'autores') +
         '</div>' +
         '<button class="tl-mapa-clear" id="tl-mapa-clear" ' + (filterEmpty?'disabled':'') + '>Limpiar</button>' +
       '</div>';
@@ -15476,11 +15660,11 @@ body {
     }
     // Hook para abrir el timeline filtrado por un libro desde su ficha.
     window.__tlApplyBookFilter = function(bid){
-      tlFilter = { q:'', libros:new Set([bid]), paises:new Set() };
+      tlFilter = { q:'', libros:new Set([bid]), paises:new Set(), autores:new Set() };
       rerenderFromFilter();
     };
     window.__tlApplyBooksFilter = function(ids){
-      tlFilter = { q:'', libros:new Set(ids||[]), paises:new Set() };
+      tlFilter = { q:'', libros:new Set(ids||[]), paises:new Set(), autores:new Set() };
       rerenderFromFilter();
     };
     var qInput = container.querySelector('#tl-mapa-q');
@@ -15497,137 +15681,171 @@ body {
     }
     var clearBtn = container.querySelector('#tl-mapa-clear');
     if (clearBtn) clearBtn.addEventListener('click', function() {
-      tlFilter = { q: '', libros: new Set(), paises: new Set() };
-      rerenderFromFilter();
-    });
-    var quickMx = container.querySelector('#tl-mapa-quick-mx');
-    if (quickMx) quickMx.addEventListener('click', function() {
-      tlFilter.paises.add('MX');
+      tlFilter = { q: '', libros: new Set(), paises: new Set(), autores: new Set() };
       rerenderFromFilter();
     });
 
-    function wirePicker(picker, options) {
-      var kind = picker.getAttribute('data-kind');
-      var input = picker.querySelector('input');
-      var dropdown = picker.querySelector('.tl-mapa-tag-dropdown');
-      var kbSel = -1;
-      function close() { dropdown.classList.remove('show'); kbSel = -1; }
-      function open(q) {
-        q = tlNormalize((q || '').trim());
-        var existing = tlFilter[kind];
-        // Build a sortable index: option id + display label, so user can type either
-        var pool = options.map(function(o) {
-          return { id: o, label: tagLabel(o, kind) };
-        }).filter(function(o) {
-          if (existing.has(o.id)) return false;
-          if (!q) return true;
-          return tlNormalize(o.id).indexOf(q) !== -1 || tlNormalize(o.label).indexOf(q) !== -1;
+    // ── Unified filter popover (Filtro ▾) ──
+    // Un solo buscador agrupado: Libros (portadas), Países (banderas), Autores.
+    // Click/Enter alterna selección SIN cerrar; el re-render pesado va con debounce.
+    var popWrap = container.querySelector('#tl-filter-pop');
+    var popBtn = container.querySelector('#tl-filter-btn');
+    var popInput = container.querySelector('#tl-filter-q');
+    var popResults = container.querySelector('#tl-filter-results');
+    var chipsWrap = container.querySelector('.tl-filter-chips');
+    var popKbSel = -1;
+    var popHeavyTimer = null;
+
+    function firstAlpha(s) { var m = String(s || '').match(/[\p{L}]/u); return m ? m[0].toUpperCase() : '?'; }
+
+    function buildPopPools() {
+      var paises = allPaises.map(function(c){ return {kind:'paises', id:c, label:tlPaisLabel(c)}; });
+      var libros = allLibros.map(function(id){
+        var bk = books.find(function(b){ return b.id === id; }) || null;
+        return {kind:'libros', id:id, label: bk ? bk.title : tlBookLabel(id), book: bk};
+      });
+      var auMap = {};
+      books.forEach(function(b){
+        if (!allLibrosSet.has(b.id)) return;
+        var names = (typeof parseAuthors === 'function' ? parseAuthors(b.author || '') : []);
+        names.forEach(function(a){
+          if (!a.name) return;
+          (auMap[a.name] = auMap[a.name] || {kind:'autores', id:a.name, label:a.name, n:0}).n++;
         });
-        // Sort by label
-        pool.sort(function(a, b) { return a.label.localeCompare(b.label, 'es'); });
-        pool = pool.slice(0, 80);
-        if (!pool.length) { close(); return; }
-        if (kind === 'libros') {
-          // Library-card style: tiny cover + title + author per row.
-          // For placeholders, derive initial from the first ALPHA char of the
-          // author surname, falling back to first alpha of title — skip
-          // ellipsis/quotes/digits at the start.
-          function firstAlpha(s) {
-            var m = String(s || '').match(/[\p{L}]/u);
-            return m ? m[0].toUpperCase() : '?';
-          }
-          dropdown.innerHTML = pool.map(function(o) {
-            var bk = (typeof books !== 'undefined') ? books.find(function(b) { return b.id === o.id; }) : null;
-            var title = bk ? bk.title : o.label;
-            var author = bk ? (bk.author || '') : '';
-            var coverHTML;
-            if (bk && typeof getCoverHTML === 'function' && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]))) {
-              coverHTML = getCoverHTML(bk, 'tiny');
-            } else {
-              // No real cover — render a placeholder with a sensible initial.
-              var initial = firstAlpha(author.split(' ').pop()) ;
-              if (initial === '?') initial = firstAlpha(title);
-              coverHTML = '<div class="cita-cover placeholder" data-letter="' + esc(initial) + '" data-author="' + esc(author) + '"></div>';
-            }
-            return '<div class="tlm-pick-book" data-val="' + esc(o.id) + '">' +
-              '<div class="tlm-pick-cover">' + coverHTML + '</div>' +
-              '<div class="tlm-pick-meta">' +
-                '<div class="tlm-pick-title">' + esc(title) + '</div>' +
-                (author ? '<div class="tlm-pick-author">' + esc(author) + '</div>' : '') +
-              '</div>' +
-            '</div>';
-          }).join('');
-        } else {
-          dropdown.innerHTML = pool.map(function(o) {
-            var metaPart = o.id !== o.label ? '<span class="meta">' + esc(o.id) + '</span>' : '';
-            return '<div data-val="' + esc(o.id) + '">' + esc(o.label) + metaPart + '</div>';
-          }).join('');
-        }
-        dropdown.classList.add('show');
-        kbSel = -1;
+      });
+      return {paises: paises, libros: libros, autores: Object.values(auMap)};
+    }
+
+    function popRowHTML(o, icon, sub) {
+      var sel = tlFilter[o.kind].has(o.id);
+      return '<div class="tl-filter-row' + (sel ? ' selected' : '') + '" data-kind="' + o.kind + '" data-val="' + esc(o.id) + '">' +
+        icon +
+        '<div class="pick-meta"><div class="pick-title">' + esc(o.label) + '</div>' +
+        (sub ? '<div class="pick-sub">' + esc(sub) + '</div>' : '') + '</div>' +
+        '<div class="pick-check">' + (sel ? '✓' : '') + '</div>' +
+      '</div>';
+    }
+
+    function renderPopResults() {
+      if (!popResults) return;
+      var q = tlNormalize((popInput.value || '').trim());
+      var pools = buildPopPools();
+      function match(o) {
+        return !q || tlNormalize(o.label).indexOf(q) !== -1 || tlNormalize(o.id).indexOf(q) !== -1;
       }
-      input.addEventListener('focus', function() { open(input.value); });
-      input.addEventListener('input', function() { open(input.value); });
-      input.addEventListener('keydown', function(e) {
-        // Top-level rows only — book cards have nested divs that would mess up nav
-        var items = dropdown.querySelectorAll(':scope > div[data-val]');
+      var paises = pools.paises.filter(match);
+      paises.sort(function(a, b){
+        if (!q) { if (a.id === 'MX') return -1; if (b.id === 'MX') return 1; }
+        return a.label.localeCompare(b.label, 'es');
+      });
+      var libros = pools.libros.filter(match).sort(function(a, b){ return a.label.localeCompare(b.label, 'es'); });
+      var autores = pools.autores.filter(match).sort(function(a, b){ return (b.n - a.n) || a.label.localeCompare(b.label, 'es'); });
+      var html = '';
+      if (paises.length) {
+        html += '<div class="tl-filter-group-label">Países</div>' + paises.slice(0, 40).map(function(o){
+          return popRowHTML(o, '<span class="pick-flag">' + paisFlag(o.id) + '</span>', '');
+        }).join('');
+      }
+      if (libros.length) {
+        html += '<div class="tl-filter-group-label">Libros</div>' + libros.slice(0, 40).map(function(o){
+          var bk = o.book, icon;
+          if (bk && typeof getCoverHTML === 'function' && (bk.coverUrl || (bk.coverId && typeof coverImages !== 'undefined' && coverImages[bk.coverId]))) {
+            icon = '<div class="pick-cover">' + getCoverHTML(bk, 'tiny') + '</div>';
+          } else {
+            var au = bk ? (bk.author || '') : '';
+            var initial = firstAlpha(au.split(' ').pop());
+            if (initial === '?') initial = firstAlpha(o.label);
+            icon = '<div class="pick-cover"><div class="ph">' + esc(initial) + '</div></div>';
+          }
+          return popRowHTML(o, icon, bk ? (bk.author || '') : '');
+        }).join('');
+      }
+      if (autores.length) {
+        html += '<div class="tl-filter-group-label">Autores</div>' + autores.slice(0, 40).map(function(o){
+          return popRowHTML(o, '<div class="pick-author-ic">' + esc(firstAlpha(o.label)) + '</div>',
+            o.n + (o.n === 1 ? ' libro' : ' libros'));
+        }).join('');
+      }
+      popResults.innerHTML = html || '<div class="tl-filter-empty">Sin resultados para "' + esc(popInput.value) + '"</div>';
+      popKbSel = -1;
+    }
+
+    function openPop() {
+      popWrap.classList.add('open');
+      renderPopResults();
+      setTimeout(function(){ if (popInput) popInput.focus(); }, 0);
+    }
+    function closePop() { popWrap.classList.remove('open'); popKbSel = -1; }
+    function refreshChips() {
+      var cnt = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size;
+      var cntEl = popBtn.querySelector('.tl-filter-count');
+      if (cntEl) cntEl.textContent = cnt || '';
+      if (chipsWrap) chipsWrap.innerHTML =
+        renderChips(tlFilter.paises, 'paises') +
+        renderChips(tlFilter.libros, 'libros') +
+        renderChips(tlFilter.autores, 'autores');
+      var cb = container.querySelector('#tl-mapa-clear');
+      if (cb) cb.disabled = filterIsEmpty(tlFilter);
+    }
+    function toggleSel(kind, val) {
+      if (tlFilter[kind].has(val)) tlFilter[kind].delete(val); else tlFilter[kind].add(val);
+      writeFilterToURL(tlFilter);
+      renderPopResults();
+      refreshChips();
+      clearTimeout(popHeavyTimer);
+      popHeavyTimer = setTimeout(rerenderFromFilter, 700);
+    }
+
+    if (popBtn) {
+      popBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (popWrap.classList.contains('open')) closePop(); else openPop();
+      });
+      // Click fuera cierra (el listener se autodestruye si el wrap se re-renderiza)
+      document.addEventListener('click', function onDocClick(e) {
+        if (!popWrap.isConnected) { document.removeEventListener('click', onDocClick); return; }
+        if (!popWrap.contains(e.target)) closePop();
+      });
+    }
+    if (popInput) {
+      popInput.addEventListener('input', renderPopResults);
+      popInput.addEventListener('keydown', function(e) {
+        var items = popResults.querySelectorAll('.tl-filter-row');
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          kbSel = Math.min(items.length - 1, kbSel + 1);
-          items.forEach(function(it, i) { it.classList.toggle('kbsel', i === kbSel); });
-          if (items[kbSel]) items[kbSel].scrollIntoView({block:'nearest'});
+          popKbSel = Math.min(items.length - 1, popKbSel + 1);
+          items.forEach(function(it, i){ it.classList.toggle('kbsel', i === popKbSel); });
+          if (items[popKbSel]) items[popKbSel].scrollIntoView({block:'nearest'});
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          kbSel = Math.max(0, kbSel - 1);
-          items.forEach(function(it, i) { it.classList.toggle('kbsel', i === kbSel); });
+          popKbSel = Math.max(0, popKbSel - 1);
+          items.forEach(function(it, i){ it.classList.toggle('kbsel', i === popKbSel); });
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          var pick = kbSel >= 0 ? items[kbSel] : items[0];
-          if (pick) {
-            var pv = pick.getAttribute('data-val');
-            if (tlFilter[kind].has(pv)) { close(); return; }
-            tlFilter[kind].add(pv);
-            input.value = '';
-            close();
-            rerenderFromFilter();
-          }
+          var pick = popKbSel >= 0 ? items[popKbSel] : items[0];
+          if (pick) toggleSel(pick.getAttribute('data-kind'), pick.getAttribute('data-val'));
         } else if (e.key === 'Escape') {
-          close();
-        } else if (e.key === 'Backspace' && !input.value && tlFilter[kind].size) {
-          var arr = Array.from(tlFilter[kind]);
-          tlFilter[kind].delete(arr[arr.length - 1]);
-          rerenderFromFilter();
+          closePop();
         }
       });
-      dropdown.addEventListener('mousedown', function(e) {
-        var d = e.target.closest('div[data-val]');
-        if (!d) return;
+    }
+    if (popResults) {
+      popResults.addEventListener('mousedown', function(e) {
+        var row = e.target.closest('.tl-filter-row');
+        if (!row) return;
         e.preventDefault();
-        var val = d.getAttribute('data-val');
-        // Skip if already selected. The dropdown open() filters them out,
-        // but a stale click between selection and re-render could land on
-        // a now-duplicate row. Set.add is idempotent — this just avoids
-        // the wasted re-render.
-        if (tlFilter[kind].has(val)) { close(); return; }
-        tlFilter[kind].add(val);
-        input.value = '';
-        close();             // hide dropdown immediately so no second click can land
-        rerenderFromFilter();
+        toggleSel(row.getAttribute('data-kind'), row.getAttribute('data-val'));
       });
-      input.addEventListener('blur', function() { setTimeout(close, 200); });
-      // Click on chip × to remove
-      picker.addEventListener('click', function(e) {
+    }
+    if (chipsWrap) {
+      chipsWrap.addEventListener('click', function(e) {
         var rm = e.target.closest('.tag-chip button');
         if (!rm) return;
         var chip = rm.closest('.tag-chip');
-        tlFilter[kind].delete(chip.getAttribute('data-val'));
+        tlFilter[chip.getAttribute('data-kind')].delete(chip.getAttribute('data-val'));
         rerenderFromFilter();
       });
     }
-    var pickerLibros = container.querySelector('.tl-mapa-tag-picker[data-kind="libros"]');
-    if (pickerLibros) wirePicker(pickerLibros, allLibros);
-    var pickerPaises = container.querySelector('.tl-mapa-tag-picker[data-kind="paises"]');
-    if (pickerPaises) wirePicker(pickerPaises, allPaises);
 
     // Wire interactions — single tracked handler. The detail panel lives on the map now,
     // so column clicks just select the event. Detail panel handles its own toggle + links.
