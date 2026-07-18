@@ -15184,19 +15184,20 @@ body {
   // to MX on next reload with empty URL.
   function readFilterFromURL() {
     var u = new URLSearchParams(window.location.search);
-    var hasUrl = u.has('q') || u.has('libros') || u.has('paises') || u.has('autores');
+    var hasUrl = u.has('q') || u.has('libros') || u.has('paises') || u.has('autores') || u.has('fuentes');
     if (!hasUrl) {
       var touched = false;
       try { touched = localStorage.getItem('tlFilterTouched') === '1'; } catch(e){}
       if (!touched) {
-        return { q: '', libros: new Set(), paises: new Set(['MX']), autores: new Set() };
+        return { q: '', libros: new Set(), paises: new Set(['MX']), autores: new Set(), fuentes: new Set() };
       }
     }
     return {
       q: u.get('q') || '',
       libros: new Set((u.get('libros') || '').split(',').filter(Boolean)),
       paises: new Set((u.get('paises') || '').split(',').filter(Boolean)),
-      autores: new Set((u.get('autores') || '').split('|').filter(Boolean))
+      autores: new Set((u.get('autores') || '').split('|').filter(Boolean)),
+      fuentes: new Set((u.get('fuentes') || '').split(',').filter(Boolean))
     };
   }
   function writeFilterToURL(f) {
@@ -15206,10 +15207,11 @@ body {
     if (f.libros.size) u.set('libros', Array.from(f.libros).join(',')); else u.delete('libros');
     if (f.paises.size) u.set('paises', Array.from(f.paises).join(',')); else u.delete('paises');
     if (f.autores && f.autores.size) u.set('autores', Array.from(f.autores).join('|')); else u.delete('autores');
+    if (f.fuentes && f.fuentes.size) u.set('fuentes', Array.from(f.fuentes).join(',')); else u.delete('fuentes');
     var qs = u.toString();
     history.replaceState(null, '', qs ? ('?' + qs) : window.location.pathname);
   }
-  function filterIsEmpty(f) { return !f.q && !f.libros.size && !f.paises.size && !(f.autores && f.autores.size); }
+  function filterIsEmpty(f) { return !f.q && !f.libros.size && !f.paises.size && !(f.autores && f.autores.size) && !(f.fuentes && f.fuentes.size); }
   // Book IDs credited to an author name (splits multi-author strings).
   function authorBookSet(name) {
     var s = {};
@@ -15224,8 +15226,22 @@ body {
   function tlNormalize(s) {
     return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   }
+  // IDs de libros del INEHRM (pdfUrl apunta a inehrm.gob.mx) — para el filtro "Fuentes → INEHRM".
+  var _inehrmIds = null;
+  function inehrmIds() {
+    if (!_inehrmIds) {
+      _inehrmIds = new Set();
+      books.forEach(function(b){ if (((b.pdfUrl || '') + '').toLowerCase().indexOf('inehrm') !== -1) _inehrmIds.add(b.id); });
+    }
+    return _inehrmIds;
+  }
   function eventMatchesFilter(ev, f, era) {
     if (filterIsEmpty(f)) return true;
+    if (f.fuentes && f.fuentes.size && f.fuentes.has('inehrm')) {
+      var ih = false, iids = inehrmIds();
+      if (ev.citas) { for (var fi = 0; fi < ev.citas.length; fi++) { if (iids.has(ev.citas[fi].libro)) { ih = true; break; } } }
+      if (!ih) return false;
+    }
     if (f.paises.size) {
       var p = ev.lugar && ev.lugar.pais;
       if (!p || !f.paises.has(p)) return false;
@@ -15511,6 +15527,7 @@ body {
     function tagLabel(v, kind) {
       if (kind === 'paises') return tlPaisLabel(v);
       if (kind === 'autores') return v;
+      if (kind === 'fuentes') return v === 'inehrm' ? 'INEHRM' : v;
       return tlBookLabel(v);
     }
     function renderChips(set, kind) {
@@ -15521,7 +15538,7 @@ body {
       }).join('');
     }
     var filterEmpty = filterIsEmpty(tlFilter);
-    var activeCount = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size;
+    var activeCount = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size + (tlFilter.fuentes ? tlFilter.fuentes.size : 0);
     var filterBarHTML =
       '<div class="tl-mapa-filter-bar">' +
         '<input class="tl-mapa-search" type="text" id="tl-mapa-q" ' +
@@ -15540,6 +15557,7 @@ body {
           '</div>' +
         '</div>' +
         '<div class="tl-filter-chips">' +
+          renderChips(tlFilter.fuentes || new Set(), 'fuentes') +
           renderChips(tlFilter.paises, 'paises') +
           renderChips(tlFilter.libros, 'libros') +
           renderChips(tlFilter.autores, 'autores') +
@@ -15668,11 +15686,11 @@ body {
     }
     // Hook para abrir el timeline filtrado por un libro desde su ficha.
     window.__tlApplyBookFilter = function(bid){
-      tlFilter = { q:'', libros:new Set([bid]), paises:new Set(), autores:new Set() };
+      tlFilter = { q:'', libros:new Set([bid]), paises:new Set(), autores:new Set(), fuentes:new Set() };
       rerenderFromFilter();
     };
     window.__tlApplyBooksFilter = function(ids){
-      tlFilter = { q:'', libros:new Set(ids||[]), paises:new Set(), autores:new Set() };
+      tlFilter = { q:'', libros:new Set(ids||[]), paises:new Set(), autores:new Set(), fuentes:new Set() };
       rerenderFromFilter();
     };
     var qInput = container.querySelector('#tl-mapa-q');
@@ -15689,7 +15707,7 @@ body {
     }
     var clearBtn = container.querySelector('#tl-mapa-clear');
     if (clearBtn) clearBtn.addEventListener('click', function() {
-      tlFilter = { q: '', libros: new Set(), paises: new Set(), autores: new Set() };
+      tlFilter = { q: '', libros: new Set(), paises: new Set(), autores: new Set(), fuentes: new Set() };
       rerenderFromFilter();
     });
 
@@ -15721,7 +15739,8 @@ body {
           (auMap[a.name] = auMap[a.name] || {kind:'autores', id:a.name, label:a.name, n:0}).n++;
         });
       });
-      return {paises: paises, libros: libros, autores: Object.values(auMap)};
+      var fuentes = inehrmIds().size ? [{kind:'fuentes', id:'inehrm', label:'INEHRM'}] : [];
+      return {paises: paises, libros: libros, autores: Object.values(auMap), fuentes: fuentes};
     }
 
     function popRowHTML(o, icon, sub) {
@@ -15748,7 +15767,13 @@ body {
       });
       var libros = pools.libros.filter(match).sort(function(a, b){ return a.label.localeCompare(b.label, 'es'); });
       var autores = pools.autores.filter(match).sort(function(a, b){ return (b.n - a.n) || a.label.localeCompare(b.label, 'es'); });
+      var fuentes = (pools.fuentes || []).filter(match);
       var html = '';
+      if (fuentes.length) {
+        html += '<div class="tl-filter-group-label">Fuentes</div>' + fuentes.map(function(o){
+          return popRowHTML(o, '<div class="pick-author-ic">📚</div>', 'solo eventos con cita del INEHRM');
+        }).join('');
+      }
       if (paises.length) {
         html += '<div class="tl-filter-group-label">Países</div>' + paises.slice(0, 40).map(function(o){
           return popRowHTML(o, '<span class="pick-flag">' + paisFlag(o.id) + '</span>', '');
@@ -15785,10 +15810,11 @@ body {
     }
     function closePop() { popWrap.classList.remove('open'); popKbSel = -1; }
     function refreshChips() {
-      var cnt = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size;
+      var cnt = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size + (tlFilter.fuentes ? tlFilter.fuentes.size : 0);
       var cntEl = popBtn.querySelector('.tl-filter-count');
       if (cntEl) cntEl.textContent = cnt || '';
       if (chipsWrap) chipsWrap.innerHTML =
+        renderChips(tlFilter.fuentes || new Set(), 'fuentes') +
         renderChips(tlFilter.paises, 'paises') +
         renderChips(tlFilter.libros, 'libros') +
         renderChips(tlFilter.autores, 'autores');
