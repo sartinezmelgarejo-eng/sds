@@ -923,6 +923,72 @@ body {
 }
 .shelf-tab:hover .shelf-tab-name { color: #1a0f04; }
 
+/* Shelf mode switcher — Ver por: Temas / Autor / Año */
+.shelf-mode-bar {
+  max-width: min(1700px, 94vw);
+  margin: 14px auto 2px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 4px;
+}
+.shelf-mode-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #9a7f57;
+  margin-right: 2px;
+}
+.shelf-mode-btn {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #d8c49a;
+  background: linear-gradient(180deg, #3a2a16, #241708);
+  border: 1px solid rgba(180,142,72,0.35);
+  border-radius: 2px;
+  padding: 6px 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.shelf-mode-btn:hover { color: #f0e2bc; border-color: rgba(220,180,110,0.6); }
+.shelf-mode-btn.active {
+  color: #2a1a08;
+  background: linear-gradient(180deg,
+    rgba(180,142,72,0.95) 0%,
+    rgba(150,112,52,0.95) 45%,
+    rgba(110,80,36,0.95) 100%);
+  border-color: rgba(60,40,18,0.7);
+  box-shadow:
+    inset 0 1px 0 rgba(255,225,160,0.35),
+    inset 0 -1px 0 rgba(0,0,0,0.45),
+    0 1px 3px rgba(0,0,0,0.6);
+}
+/* Engraved initial on brass plaque (author/year shelves have no SVG symbol) */
+.shelf-tab-initial {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 2px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #2a1a08;
+  text-shadow:
+    0 1px 0 rgba(255,225,160,0.55),
+    0 -0.5px 0 rgba(0,0,0,0.5);
+}
+/* Non-clickable plaque (year shelves have no detail view) */
+.shelf-tab.static { cursor: default; }
+.shelf-tab.static:hover { transform: none; }
+
 /* Books container — wraps into rectangular blocks */
 .bookcase-books {
   position: relative;
@@ -14238,18 +14304,146 @@ body {
   // RENDER: LIBRERÍA (categorías como estantes)
   // ══════════════════════════════════════════════
 
+  // Modo de agrupación de la librería: 'tema' (6 estantes), 'autor', 'año'.
+  var shelfMode = 'tema';
+  try { shelfMode = localStorage.getItem('libShelfMode') || 'tema'; } catch(e) {}
+
+  function setShelfMode(mode) {
+    shelfMode = mode;
+    try { localStorage.setItem('libShelfMode', mode); } catch(e) {}
+    renderMegaLibrary();
+  }
+
+  // Sort key for authors: surname (last token, skipping parentheticals and
+  // suffixes like II/III/Jr.)
+  function authorSortKey(name) {
+    var clean = name.replace(/\([^)]*\)/g, ' ').replace(/\.$/, '');
+    var parts = clean.split(/\s+/).filter(Boolean);
+    while (parts.length > 1 && /^(II|III|IV|Jr|Sr|Sra|Dr|Dra)\.?$/i.test(parts[parts.length-1])) parts.pop();
+    var last = parts.length ? parts[parts.length-1] : name;
+    return last.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  }
+
+  function romanToInt(r) {
+    var vals = { I:1, V:5, X:10, L:50, C:100 }, n = 0, prev = 0;
+    r = r.toUpperCase();
+    for (var i = r.length-1; i >= 0; i--) {
+      var v = vals[r.charAt(i)] || 0;
+      n += (v < prev ? -v : v);
+      prev = Math.max(prev, v);
+    }
+    return n;
+  }
+
+  // Groups books into shelf descriptors according to shelfMode.
+  // Each: { key, label, books, onclick, color?, sym?, initial? }
+  function getShelfGroups(mode) {
+    if (mode === 'autor') {
+      var amap = {};
+      books.forEach(function(b) {
+        var auths = parseAuthors(b.author);
+        if (!auths.length) auths = [{ name: 'Sin autor', collective: true }];
+        auths.forEach(function(a) {
+          if (!amap[a.name]) amap[a.name] = [];
+          amap[a.name].push(b);
+        });
+      });
+      // Authors with 2+ books get a named shelf; single-book authors share
+      // letter shelves (A, B, C...) so the bookcase stays compact.
+      var shelves = [], letters = {};
+      Object.keys(amap).forEach(function(name) {
+        var disp = name.replace(/(\s*\([^)]*\)\s*)+$/, '').trim() || name;
+        if (amap[name].length >= 2) {
+          var list = amap[name].slice().sort(function(a, b) {
+            return (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999);
+          });
+          shelves.push({ sortKey: authorSortKey(name), label: disp,
+                         initial: authorSortKey(name).charAt(0), books: list,
+                         onclick: "openAuthor('" + name.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "')" });
+        } else {
+          var L = authorSortKey(name).charAt(0);
+          if (!letters[L]) letters[L] = [];
+          letters[L].push({ name: name, book: amap[name][0] });
+        }
+      });
+      Object.keys(letters).forEach(function(L) {
+        var items = letters[L].slice().sort(function(x, y) {
+          var c = authorSortKey(x.name).localeCompare(authorSortKey(y.name), 'es');
+          if (c) return c;
+          return (parseInt(x.book.year) || 9999) - (parseInt(y.book.year) || 9999);
+        });
+        shelves.push({ sortKey: L, label: L, initial: L, onclick: null,
+                       books: items.map(function(it) { return it.book; }) });
+      });
+      return shelves.sort(function(a, b) {
+        return a.sortKey.localeCompare(b.sortKey, 'es');
+      }).map(function(g) {
+        return { key: g.label, label: g.label, initial: g.initial,
+                 books: g.books, onclick: g.onclick };
+      });
+    }
+    if (mode === 'año') {
+      var dmap = {};
+      books.forEach(function(b) {
+        var y = b.year, dec = null;
+        if (typeof y === 'number') {
+          dec = Math.floor(y / 10) * 10;
+        } else if (typeof y === 'string') {
+          var m = y.match(/(\d{4})/);
+          if (m) dec = Math.floor(parseInt(m[1]) / 10) * 10;
+          else { var r = y.match(/s\.\s*([IVX]+)/i); if (r) dec = (romanToInt(r[1]) - 1) * 100; }
+        }
+        var key = dec ? String(dec) : 'sinfecha';
+        if (!dmap[key]) dmap[key] = [];
+        dmap[key].push(b);
+      });
+      var keys = Object.keys(dmap).sort(function(a, b) {
+        if (a === 'sinfecha') return 1;
+        if (b === 'sinfecha') return -1;
+        return parseInt(a) - parseInt(b);
+      });
+      return keys.map(function(k) {
+        var list = dmap[k].slice().sort(function(a, b) {
+          return (parseInt(a.year) || 9999) - (parseInt(b.year) || 9999);
+        });
+        var neg = k.charAt(0) === '-';
+        return { key: k,
+                 label: (k === 'sinfecha' ? 'Sin fecha' : (neg ? Math.abs(parseInt(k)) + ' a.C.' : k + 's')),
+                 initial: (k === 'sinfecha' ? '?' : (neg ? 'a.C.' : "'" + k.slice(2))),
+                 books: list, onclick: null };
+      });
+    }
+    // default: los 6 estantes temáticos
+    return estantes.map(function(e) {
+      return { key: e.id, label: e.title, color: e.color, sym: e.id,
+               books: books.filter(function(b) { return b.estante === e.id; }),
+               onclick: "openEstante('" + e.id + "')" };
+    });
+  }
+
   function renderMegaLibrary() {
     const shelvesDiv = document.getElementById('mega-shelves');
 
     // Seed random for consistent heights per book
     function hashCode(s) { var h=0; for(var i=0;i<s.length;i++) h=((h<<5)-h)+s.charCodeAt(i)|0; return Math.abs(h); }
 
-    // Each estante = a realistic shelf with tiny book spines
-    const shelvesHTML = estantes.map(function(est) {
-      const estBooks = books.filter(function(b) { return b.estante === est.id; });
+    const groups = getShelfGroups(shelfMode);
+    const neutral = '#c8a75a';
+
+    const modeBar =
+      '<div class="shelf-mode-bar">' +
+        '<span class="shelf-mode-label">Ver por</span>' +
+        [['tema','Temas'],['autor','Autor'],['año','Año']].map(function(m) {
+          return '<button class="shelf-mode-btn'+(shelfMode===m[0]?' active':'')+'" onclick="setShelfMode(\''+m[0]+'\')">'+m[1]+'</button>';
+        }).join('') +
+      '</div>';
+
+    // Each group = a realistic shelf with tiny book spines
+    const shelvesHTML = groups.map(function(g) {
+      const accent = g.color || neutral;
 
       // Books as tiny spines with slight height variation
-      const booksHTML = estBooks.map(function(b) {
+      const booksHTML = g.books.map(function(b) {
         var h = 64 + (hashCode(b.id) % 20);
         var hasCover = b.coverUrl || (b.coverId && coverImages[b.coverId]);
         var inner;
@@ -14259,8 +14453,8 @@ body {
         // look complete during slow image loads. Cover image overlays on top
         // when it finishes loading; spine text peeks through if image is
         // missing or failing.
-        var bgStyle = 'background:linear-gradient(160deg,#1e1e32,#14142a);border-left:2px solid '+est.color+';';
-        var spineSpan = '<span class="micro-spine" style="color:'+est.color+';position:absolute;inset:0;">'+shortAuthor+'</span>';
+        var bgStyle = 'background:linear-gradient(160deg,#1e1e32,#14142a);border-left:2px solid '+accent+';';
+        var spineSpan = '<span class="micro-spine" style="color:'+accent+';position:absolute;inset:0;">'+shortAuthor+'</span>';
         if (hasCover) {
           var src = b.coverUrl || coverImages[b.coverId];
           inner = spineSpan +
@@ -14273,19 +14467,23 @@ body {
         '</div>';
       }).join('');
 
-      // Category tab label — engraved brass plaque with vintage symbol
+      // Shelf tab: engraved brass plaque (SVG symbol for temas, initial otherwise)
+      var tabIcon = g.sym
+        ? '<svg class="shelf-tab-engrav" viewBox="0 0 24 24" aria-hidden="true"><use href="#sym-'+g.sym+'"/></svg>'
+        : '<span class="shelf-tab-initial" aria-hidden="true">'+g.initial+'</span>';
+      var clickAttr = g.onclick ? ' onclick="'+g.onclick+'"' : '';
       return '<div class="bookcase-shelf">' +
         '<div class="bookcase-back"></div>' +
-        '<div class="shelf-tab" style="--tab-color:'+est.color+'" onclick="openEstante(\''+est.id+'\')">' +
-          '<svg class="shelf-tab-engrav" viewBox="0 0 24 24" aria-hidden="true"><use href="#sym-'+est.id+'"/></svg>' +
-          '<span class="shelf-tab-name">'+est.title+'</span>' +
+        '<div class="shelf-tab'+(g.onclick?'':' static')+'" style="--tab-color:'+accent+'"'+clickAttr+'>' +
+          tabIcon +
+          '<span class="shelf-tab-name">'+g.label+'</span>' +
         '</div>' +
         '<div class="bookcase-books">' + booksHTML + '</div>' +
         '<div class="bookcase-plank"></div>' +
       '</div>';
     }).join('');
 
-    shelvesDiv.innerHTML =
+    shelvesDiv.innerHTML = modeBar +
       '<div class="bookcase">' +
         '<div class="bookcase-grid">' + shelvesHTML + '</div>' +
       '</div>';
