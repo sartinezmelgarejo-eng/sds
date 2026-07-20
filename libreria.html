@@ -1024,6 +1024,93 @@ body {
 .az-index a:hover { background: rgba(180,142,72,0.18); color: #f0dfa8; }
 .az-index span { color: #5a4a30; cursor: default; }
 
+/* ═══ Riel vertical izquierdo (Autor A–Z / Año eras) — eco del era-rail del
+   timeline del Atlas: sticky, scrollspy, tooltips con la misma tipografía ═══ */
+.dir-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(1760px, 98vw);
+  margin: 0 auto;
+}
+.dir-main { flex: 1 1 auto; min-width: 0; }
+.shelf-rail {
+  position: sticky;
+  top: 76px;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 3px;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  scrollbar-width: none;
+  z-index: 5;
+}
+.shelf-rail::-webkit-scrollbar { display: none; }
+.shelf-rail-az { gap: 0; }
+.shelf-rail-az a, .shelf-rail-az span {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  color: #d8b96a;
+  text-decoration: none;
+  padding: 1px 7px;
+  border-radius: 2px;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+.shelf-rail-az a:hover { background: rgba(180,142,72,0.18); color: #f0dfa8; }
+.shelf-rail-az a.active {
+  background: rgba(180,142,72,0.30);
+  color: #f9eecb;
+  transform: scale(1.15);
+}
+.shelf-rail-az span { color: #4a3c26; cursor: default; }
+.shelf-rail-era { gap: 5px; }
+.shelf-rail-pill {
+  position: relative;
+  width: 6px;
+  height: 46px;
+  border: none;
+  border-radius: 1px;
+  background: var(--era-color, #6b6048);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity 0.15s, width 0.15s;
+  padding: 0;
+}
+.shelf-rail-pill:hover { opacity: 0.95; width: 10px; }
+.shelf-rail-pill.active {
+  opacity: 1;
+  width: 10px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18), 0 4px 10px rgba(0,0,0,0.45);
+}
+.shelf-rail-pill::after {
+  content: attr(data-label);
+  position: absolute;
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: #1a1410;
+  color: #f0e8d4;
+  font-family: 'Bodoni Moda', Didot, Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border: 1px solid rgba(216,184,112,0.3);
+  border-radius: 1px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+  z-index: 12;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.55);
+}
+.shelf-rail-pill:hover::after { opacity: 1; }
+@media (max-width: 720px) { .shelf-rail { display: none; } }
+
 /* Shelf header: engraved name band */
 .dir-head {
   position: relative;
@@ -15230,8 +15317,35 @@ body {
     });
   }
 
+  // Scrollspy del riel vertical (Autor A–Z / Año eras): ilumina el item
+  // cuya sección está visible. Se reconecta en cada render.
+  var shelfSpyObs = null;
+  function killShelfSpy() {
+    if (shelfSpyObs) { shelfSpyObs.disconnect(); shelfSpyObs = null; }
+  }
+  function initShelfSpy() {
+    killShelfSpy();
+    var items = document.querySelectorAll('.shelf-rail [data-spy-target]');
+    if (!items.length || !('IntersectionObserver' in window)) return;
+    var map = {};
+    items.forEach(function(it) { map[it.getAttribute('data-spy-target')] = it; });
+    shelfSpyObs = new IntersectionObserver(function(entries) {
+      entries.forEach(function(en) {
+        if (!en.isIntersecting) return;
+        items.forEach(function(i) { i.classList.remove('active'); });
+        var el = map[en.target.id];
+        if (el) el.classList.add('active');
+      });
+    }, { rootMargin: '-22% 0px -68% 0px' });
+    Object.keys(map).forEach(function(id) {
+      var t = document.getElementById(id);
+      if (t) shelfSpyObs.observe(t);
+    });
+  }
+
   function renderMegaLibrary() {
     const shelvesDiv = document.getElementById('mega-shelves');
+    killShelfSpy();
 
     // Cierra el menú del switcher al hacer click fuera (una sola vez).
     if (!window.__shelfSwitchWired) {
@@ -15313,21 +15427,96 @@ body {
     }
 
     // ── Autor / Año: directorio a ancho completo con bandas de nombre ──
-    var azIndex = '';
+    // Riel vertical a la izquierda (eco del era-rail del timeline del Atlas):
+    // Autor = abecedario A–Z; Año = eras por material. Ambos con scrollspy.
+    var railHTML = '';
     if (shelfMode === 'autor') {
       var present = {};
       groups.forEach(function(g) { if (g.letter) present[g.letter] = true; });
-      azIndex = '<div class="az-index">' +
+      railHTML = '<div class="shelf-rail shelf-rail-az">' +
         'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map(function(L) {
           return present[L]
-            ? '<a href="javascript:void(0)" onclick="document.getElementById(\'az-'+L+'\').scrollIntoView({behavior:\'smooth\', block:\'start\'})">'+L+'</a>'
+            ? '<a href="javascript:void(0)" data-spy-target="az-'+L+'" onclick="document.getElementById(\'az-'+L+'\').scrollIntoView({behavior:\'smooth\', block:\'start\'})">'+L+'</a>'
             : '<span>'+L+'</span>';
         }).join('') +
       '</div>';
     }
 
-    var lastCentury = null, anchored = {};
-    const dirHTML = groups.map(function(g) {
+    // Modo Año: empaqueta las décadas ralas en filas de mínimo MINB libros
+    // (una fila se cierra en cuanto llega al mínimo; si el cambio de era llega
+    // antes, la fila absorbe la siguiente década aunque cruce de era). Los
+    // restos finales (< MINB) se funden con la fila previa. Así nunca hay
+    // filas de un solo libro y las eras se integran con bandas + riel.
+    var ERA_INFO = {
+      antigua: { label: 'Antigüedad', tip: 'hasta 1521', mat: 'piedra' },
+      plata:   { label: 'Era de la plata', tip: '1521–1810', mat: 'plata' },
+      madera:  { label: 'Era industrial', tip: '1810–1910', mat: 'madera' },
+      acero:   { label: 'Era del acero', tip: '1910–1982', mat: 'acero' },
+      digital: { label: 'Era digital', tip: '1982–hoy', mat: 'digital' }
+    };
+    var dirRows = [];
+    if (shelfMode === 'año') {
+      var MINB = 6;
+      var eraKeyOf = function(g) {
+        if (g.century === 'Sin fecha') return 'sinfecha';
+        if (g.mat === 'cosmos' || g.mat === 'primitiva' || g.mat === 'piedra') return 'antigua';
+        return g.mat || 'antigua';
+      };
+      var packs = [], cur = null;
+      groups.forEach(function(g) {
+        var ek = eraKeyOf(g);
+        if (!cur) { cur = { era: ek, groups: [g], n: g.books.length }; }
+        else if (ek !== cur.era && cur.n >= MINB) { packs.push(cur); cur = { era: ek, groups: [g], n: g.books.length }; }
+        else { cur.groups.push(g); cur.n += g.books.length; }
+        if (cur.n >= MINB) { packs.push(cur); cur = null; }
+      });
+      if (cur) packs.push(cur);
+      var merged = [];
+      packs.forEach(function(p) {
+        if (p.n < MINB && merged.length) {
+          var m = merged[merged.length - 1];
+          m.groups = m.groups.concat(p.groups); m.n += p.n;
+        } else merged.push({ era: p.era, groups: p.groups, n: p.n });
+      });
+      dirRows = merged.map(function(p) {
+        var ns = p.groups.filter(function(g) { return g.century !== 'Sin fecha'; });
+        var sf = p.groups.length - ns.length;
+        var base;
+        if (!ns.length) base = 'Sin fecha';
+        else if (ns.length === 1) base = ns[0].label;
+        else {
+          var start = ns[0].label.replace(/s$/, '');
+          var m2 = ns[ns.length - 1].label.match(/^(\d{4})s$/);
+          base = start + ' – ' + (m2 ? String(parseInt(m2[1]) + 9) : ns[ns.length - 1].label);
+        }
+        return {
+          era: p.era,
+          label: base + (sf ? ' · Sin fecha' : ''),
+          sub: p.n + (p.n === 1 ? ' libro' : ' libros'),
+          initial: p.groups[0].initial,
+          mat: p.groups[0].mat,
+          books: p.groups.reduce(function(acc, g) { return acc.concat(g.books); }, []),
+          onclick: null, letter: null, color: null
+        };
+      });
+      // Riel de eras (solo las que tienen fila)
+      var seenEras = {}, eraOrder = [];
+      dirRows.forEach(function(r) {
+        var k = r.era === 'sinfecha' ? 'digital' : r.era;
+        if (!seenEras[k]) { seenEras[k] = true; eraOrder.push(k); }
+      });
+      railHTML = '<div class="shelf-rail shelf-rail-era">' +
+        eraOrder.map(function(k) {
+          var ei = ERA_INFO[k];
+          return '<button class="shelf-rail-pill" data-spy-target="era-'+k+'" style="--era-color:'+MAT_STYLE[ei.mat].hi+'" data-label="'+ei.label+' · '+ei.tip+'" title="'+ei.label+' · '+ei.tip+'" onclick="document.getElementById(\'era-'+k+'\').scrollIntoView({behavior:\'smooth\', block:\'start\'})"></button>';
+        }).join('') +
+      '</div>';
+    } else {
+      dirRows = groups;
+    }
+
+    var lastEra = null, anchored = {};
+    const dirHTML = dirRows.map(function(g) {
       const accent = g.color || neutral;
       const booksHTML = g.books.map(function(b) {
         var extra = shelfMode === 'autor'
@@ -15336,11 +15525,11 @@ body {
         return bookSpine(b, accent, extra);
       }).join('');
 
-      var centuryBand = '';
-      if (shelfMode === 'año' && g.century && g.century !== lastCentury) {
-        lastCentury = g.century;
-        var matCls = g.centuryMat ? ' mat-' + g.centuryMat : '';
-        centuryBand = '<div class="century-band'+matCls+'"><div class="c-line"></div><div class="c-label">'+g.century+'</div><div class="c-line"></div></div>';
+      var eraBand = '';
+      if (shelfMode === 'año' && g.era !== 'sinfecha' && g.era !== lastEra) {
+        lastEra = g.era;
+        var ei = ERA_INFO[g.era];
+        eraBand = '<div class="century-band mat-'+ei.mat+'" id="era-'+g.era+'"><div class="c-line"></div><div class="c-label">'+ei.label+' · '+ei.tip+'</div><div class="c-line"></div></div>';
       }
       var idAttr = '';
       if (shelfMode === 'autor' && g.letter && !anchored[g.letter]) {
@@ -15354,7 +15543,7 @@ body {
         initStyle = ' style="background:linear-gradient(180deg,'+ms.hi+','+ms.lo+');color:'+ms.fg+';text-shadow:none;border-color:rgba(0,0,0,0.45);border-top-color:rgba(255,255,255,0.22);"';
       }
       var clickAttr = g.onclick ? ' onclick="'+g.onclick+'"' : '';
-      return centuryBand +
+      return eraBand +
         '<div class="bookcase-shelf dir-shelf"'+idAttr+'>' +
           '<div class="bookcase-back"></div>' +
           '<div class="dir-head'+(g.onclick?' clickable':'')+'"'+clickAttr+'>' +
@@ -15370,10 +15559,15 @@ body {
         '</div>';
     }).join('');
 
-    shelvesDiv.innerHTML = azIndex +
-      '<div class="bookcase">' + switcher +
-        '<div class="bookcase-grid onecol">' + dirHTML + '</div>' +
+    shelvesDiv.innerHTML =
+      '<div class="dir-wrap">' + railHTML +
+        '<div class="dir-main">' +
+          '<div class="bookcase">' + switcher +
+            '<div class="bookcase-grid onecol">' + dirHTML + '</div>' +
+          '</div>' +
+        '</div>' +
       '</div>';
+    initShelfSpy();
   }
 
   // ══════════════════════════════════════════════
