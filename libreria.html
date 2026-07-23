@@ -1638,6 +1638,18 @@ body {
   opacity:0;transition:opacity .4s ease;
 }
 .book-hero-deck.expanded .hero-deck-counter{opacity:1}
+/* Botón de narración por voz de los slides (texto extraído con OCR local). */
+.hero-deck-voice{
+  position:absolute;top:12px;right:12px;z-index:6;
+  width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;
+  font-size:12px;line-height:1;color:rgba(255,255,255,.9);
+  background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.28);border-radius:50%;
+  cursor:pointer;backdrop-filter:blur(4px);opacity:0;transition:opacity .4s ease,background .15s,color .15s;
+}
+.book-hero-deck.expanded .hero-deck-voice{opacity:1}
+.hero-deck-voice:hover{background:rgba(212,178,94,.9);color:#1a1410;border-color:transparent}
+.hero-deck-voice.on{background:var(--gold,#d4b25e);color:#1a1410;animation:dvpulse 1.6s ease-in-out infinite}
+@keyframes dvpulse{0%,100%{box-shadow:0 0 6px rgba(212,178,94,.35)}50%{box-shadow:0 0 16px rgba(212,178,94,.75)}}
 .hero-deck-nav{
   position:absolute;inset:0;display:flex;justify-content:space-between;
   align-items:center;pointer-events:none;z-index:5;padding:0 14px;
@@ -6608,7 +6620,7 @@ body {
 .booktl-showcase {
   position: relative; cursor: pointer; isolation: isolate;
   border: 1px solid rgba(212,178,94,.3); border-left: 3px solid var(--nc, var(--gold,#d4b25e));
-  border-radius: 10px; padding: 26px 44px 40px;
+  border-radius: 10px; padding: 24px 28px 42px;
   background: linear-gradient(179deg, #3d2e1b 0%, #342715 55%, #2c2112 100%);
   transition: border-color .2s, box-shadow .2s;
   box-shadow: inset 0 1px 0 rgba(224,180,120,.16);
@@ -6625,17 +6637,41 @@ body {
   background-size: cover;
 }
 .booktl-showcase:hover { border-color: var(--nc, #d4b25e); box-shadow: 0 4px 18px rgba(0,0,0,.26), inset 0 1px 0 rgba(224,180,120,.2); }
+/* Comilla editorial gigante en la tinta de la era, detrás del texto. */
+.booktl-showcase::before {
+  content: '\201C'; position: absolute; top: 2px; left: 12px; z-index: -1;
+  font-family: 'Playfair Display',Georgia,serif; font-size: 150px; line-height: 1;
+  color: var(--btlev, #d4b25e); opacity: .09; pointer-events: none;
+}
+/* Barra de tiempo de la rotación: se llena al ritmo de lectura de la cita. */
+.btlsc-timer {
+  position: absolute; left: 0; bottom: 0; height: 2px; width: 0;
+  background: var(--nc, var(--gold,#d4b25e)); opacity: .5; z-index: 2;
+  pointer-events: none; border-radius: 0 2px 2px 0;
+}
+@keyframes btltick { from { width: 0; } to { width: 100%; } }
 .btl-badge {
   position: absolute; top: 10px; left: 16px;
   font-family: 'SF Mono',monospace; font-size: 9px; letter-spacing: 1.2px; text-transform: uppercase;
   color: var(--nc, var(--gold,#d4b25e)); opacity: .82;
 }
+/* Botón "verlo en la línea del tiempo + mapa": ícono de pin sobre un riel
+   temporal — se entiende sin texto y se ve claramente tappable. */
 .btl-map {
-  position: absolute; top: 6px; right: 9px;
-  background: none; border: none; color: var(--gold-dim,#9a865a);
-  font-size: 15px; line-height: 1; cursor: pointer; opacity: .5; transition: opacity .15s, color .15s;
+  position: absolute; top: 9px; right: 9px; z-index: 3;
+  width: 34px; height: 34px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 9px; cursor: pointer; color: var(--nc, var(--gold,#d4b25e));
+  background: rgba(16,12,8,.5); border: 1px solid rgba(212,178,94,.42);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 2px 7px rgba(0,0,0,.3);
+  transition: transform .16s, background .16s, box-shadow .16s, color .16s;
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
 }
-.btl-map:hover { opacity: 1; color: var(--gold,#d4b25e); }
+.btl-map svg { width: 19px; height: 19px; display: block; }
+.btl-map:hover { background: var(--nc, var(--gold,#d4b25e)); color: #1a1410;
+  transform: translateY(-1px) scale(1.06); box-shadow: 0 5px 13px rgba(0,0,0,.36); }
+.btl-map:active { transform: translateY(0) scale(.97); }
+.btl-map:focus-visible { outline: 2px solid var(--nc, var(--gold,#d4b25e)); outline-offset: 2px; }
 .btlsc-inner { opacity: 0; }
 .btlsc-inner.btlsc-in { animation: btlfade .7s ease forwards; }
 @keyframes btlfade { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
@@ -6643,7 +6679,7 @@ body {
    (cosmos→piedra→plata→madera→acero→digital), igual que el header del mapa. */
 /* Encabezado de la cita: placa del año + nombre del evento a su derecha
    (llena el hueco que quedaba junto a la placa). */
-.btlsc-head { display: flex; align-items: center; gap: 15px; margin-bottom: 13px; }
+.btlsc-head { display: flex; align-items: center; gap: 15px; margin-bottom: 13px; padding-right: 38px; }
 .btlsc-head .btlsc-ev {
   flex: 1; min-width: 0;
   font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif;
@@ -6653,20 +6689,47 @@ body {
 }
 /* El título del evento cambia de color con el material del año, pero siempre
    en tono claro para leerse sobre la madera de la tarjeta. */
-.booktl-premium[data-mat="cosmos"]    { --btlev:#c4d4ff; }
-.booktl-premium[data-mat="primitiva"] { --btlev:#e4d4a6; }
-.booktl-premium[data-mat="piedra"]    { --btlev:#cfd4da; }
-.booktl-premium[data-mat="plata"]     { --btlev:#e4e9ef; }
-.booktl-premium[data-mat="madera"]    { --btlev:#eed4a2; }
-.booktl-premium[data-mat="acero"]     { --btlev:#d4dae1; }
-.booktl-premium[data-mat="digital"]   { --btlev:#c2e4ff; }
+.booktl-premium[data-mat="cosmos"]    { --btlev:#c4d4ff; --btlq:#d7deff; }
+.booktl-premium[data-mat="primitiva"] { --btlev:#e4d4a6; --btlq:#e6dcc4; }
+.booktl-premium[data-mat="piedra"]    { --btlev:#cfd4da; --btlq:#d4d8de; }
+.booktl-premium[data-mat="plata"]     { --btlev:#e4e9ef; --btlq:#dde2e8; }
+.booktl-premium[data-mat="madera"]    { --btlev:#eed4a2; --btlq:#e6dbbe; }
+.booktl-premium[data-mat="acero"]     { --btlev:#d4dae1; --btlq:#dbe1e8; }
+.booktl-premium[data-mat="digital"]   { --btlev:#c2e4ff; --btlq:#d4e8ff; }
+/* ── La tarjeta ENTERA toma la materia de la era, no solo la placa del año.
+   Superficies oscuras y ricas para que la cita (texto claro) siempre se lea;
+   cada era con su tono + su textura. Madera es el default de .booktl-showcase. ── */
+.booktl-premium[data-mat="cosmos"] .booktl-showcase{
+  background:radial-gradient(120% 95% at 80% -12%,rgba(122,82,192,.28),rgba(0,0,0,0) 58%),radial-gradient(90% 80% at 8% 110%,rgba(52,120,164,.20),rgba(0,0,0,0) 55%),linear-gradient(179deg,#161d38 0%,#0d1327 55%,#070a17 100%); }
+.booktl-premium[data-mat="cosmos"] .booktl-showcase::after{ opacity:.55; mix-blend-mode:screen;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='300'><g fill='%23fff'><circle cx='60' cy='42' r='1.1'/><circle cx='182' cy='120' r='.8' opacity='.6'/><circle cx='320' cy='60' r='1.3'/><circle cx='430' cy='150' r='.9' opacity='.7'/><circle cx='520' cy='92' r='1'/><circle cx='250' cy='214' r='.8' opacity='.5'/><circle cx='92' cy='176' r='1' opacity='.7'/><circle cx='388' cy='250' r='.9' opacity='.6'/></g></svg>"); }
+.booktl-premium[data-mat="primitiva"] .booktl-showcase{
+  background:radial-gradient(130% 100% at 20% -20%,rgba(255,240,210,.10),rgba(0,0,0,0) 55%),linear-gradient(179deg,#4a423a 0%,#3b342d 55%,#2e2823 100%); }
+.booktl-premium[data-mat="primitiva"] .booktl-showcase::after{ opacity:.38; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='250'><filter id='pr2'><feTurbulence type='fractalNoise' baseFrequency='0.035 0.05' numOctaves='4' seed='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='500' height='250' filter='url(%23pr2)'/></svg>"); }
+.booktl-premium[data-mat="piedra"] .booktl-showcase{
+  background:radial-gradient(130% 110% at 25% -25%,rgba(162,168,176,.12),rgba(0,0,0,0) 55%),linear-gradient(179deg,#3e4147 0%,#2d3035 55%,#212429 100%); }
+.booktl-premium[data-mat="piedra"] .booktl-showcase::after{ opacity:.5; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='500' height='250'><filter id='st2'><feTurbulence type='fractalNoise' baseFrequency='0.025 0.045' numOctaves='4' seed='7'/><feColorMatrix type='saturate' values='0'/></filter><rect width='500' height='250' filter='url(%23st2)'/></svg>"); }
+.booktl-premium[data-mat="plata"] .booktl-showcase{
+  background:linear-gradient(100deg,rgba(255,255,255,0) 33%,rgba(255,255,255,.12) 48%,rgba(255,255,255,0) 63%),linear-gradient(179deg,#4c5158 0%,#3a3f47 52%,#2e333a 100%); }
+.booktl-premium[data-mat="plata"] .booktl-showcase::after{ opacity:.4; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='250'><filter id='sl2'><feTurbulence type='fractalNoise' baseFrequency='0.002 0.9' numOctaves='2' seed='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='600' height='250' filter='url(%23sl2)'/></svg>"); }
+.booktl-premium[data-mat="acero"] .booktl-showcase{
+  background:linear-gradient(100deg,rgba(255,255,255,0) 33%,rgba(255,255,255,.15) 47%,rgba(255,255,255,0) 60%),linear-gradient(179deg,#43484f 0%,#2f343a 55%,#24282e 100%); }
+.booktl-premium[data-mat="acero"] .booktl-showcase::after{ opacity:.45; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='250'><filter id='ac2'><feTurbulence type='fractalNoise' baseFrequency='0.003 0.9' numOctaves='2' seed='5'/><feColorMatrix type='saturate' values='0'/></filter><rect width='600' height='250' filter='url(%23ac2)'/></svg>"); }
+.booktl-premium[data-mat="digital"] .booktl-showcase{
+  background:radial-gradient(120% 90% at 82% -10%,rgba(62,152,255,.14),rgba(0,0,0,0) 60%),linear-gradient(179deg,#111b2f 0%,#0a1120 60%,#070b14 100%); }
+.booktl-premium[data-mat="digital"] .booktl-showcase::after{ opacity:.5; mix-blend-mode:overlay;
+  background-image:repeating-linear-gradient(0deg,rgba(120,190,255,.10) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(120,190,255,.05) 0 1px,transparent 1px 26px); }
 .btlsc-year {
   position: relative; display: inline-block; overflow: hidden; isolation: isolate; flex: 0 0 auto;
   font-family: 'Cinzel','Bodoni Moda',Didot,Georgia,serif; font-weight: 700;
   font-size: 25px; line-height: 1; letter-spacing: .6px;
   padding: 8px 16px 9px; border-radius: 5px;
   color: #e9e2cf; text-shadow: 0 1px 1px rgba(0,0,0,.5);
-  box-shadow: 0 1px 3px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.3);
+  box-shadow: 0 1px 3px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.06), inset 0 1px 0 rgba(255,255,255,.14), inset 0 -2px 6px rgba(0,0,0,.3);
   background: linear-gradient(178deg,#6d4a2a,#4a301a);
 }
 .btlsc-year::before { content:''; position:absolute; inset:0; z-index:-1; pointer-events:none; background-repeat:no-repeat; background-size:cover; }
@@ -6707,7 +6770,7 @@ body {
   background-image:repeating-linear-gradient(0deg, rgba(140,200,255,.12) 0 1px, transparent 1px 4px); }
 .btlsc-quote {
   font-family: 'Playfair Display',Georgia,serif; font-style: italic;
-  font-size: 17px; line-height: 1.5; color: #e6dbbe;
+  font-size: 17px; line-height: 1.5; color: var(--btlq,#e6dbbe);
   display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
 }
 .btlsc-meta {
@@ -6715,6 +6778,10 @@ body {
   color: var(--text-dim,#b9ad92); letter-spacing: .3px;
 }
 .btlsc-pag { color: var(--gold-dim,#9a865a); }
+/* Página clickeable → abre el PDF en esa página. */
+a.btlsc-paglink { color: var(--gold-dim,#9a865a); text-decoration: none;
+  border-bottom: 1px dotted rgba(212,178,94,.5); transition: color .15s, border-color .15s; }
+a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--gold,#d4b25e); }
 /* Menciones (autor como sujeto del evento, no como fuente): sin comillas, con
    un chip que las distingue de las citas. */
 .btlsc-quote.btlsc-mencion { font-style: normal; font-family: 'Cormorant Garamond','Playfair Display',Georgia,serif; }
@@ -6735,14 +6802,15 @@ body {
    confunda con las flechas del carrusel de slides del hero. */
 .btlsc-pager { display: inline-flex; align-items: center; gap: 7px; }
 .btlsc-nav {
-  width: 20px; height: 20px; border-radius: 50%; padding: 0;
+  width: 22px; height: 22px; border-radius: 7px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  background: rgba(20,17,13,.45); color: var(--gold,#d4b25e);
-  border: 1px solid rgba(212,178,94,.45); cursor: pointer; font-size: 12px; line-height: 1;
-  transition: background .15s, color .15s;
+  background: rgba(20,17,13,.4); color: var(--nc, var(--gold,#d4b25e));
+  border: 1px solid rgba(212,178,94,.32); cursor: pointer; font-size: 13px; line-height: 1;
+  transition: background .15s, color .15s, transform .15s;
 }
-.btlsc-nav:hover { background: var(--gold,#d4b25e); color: #1a1410; }
-.btlsc-plabel { text-transform: uppercase; letter-spacing: 1px; color: var(--gold-dim,#9a865a); }
+.btlsc-nav:hover { background: var(--nc, var(--gold,#d4b25e)); color: #1a1410; transform: scale(1.08); }
+.btlsc-nav:active { transform: scale(.94); }
+.btlsc-plabel { text-transform: uppercase; letter-spacing: 1.5px; font-size: 8.5px; color: var(--gold-dim,#9a865a); opacity: .85; }
 /* Ancho fijo del contador para que las flechas no se muevan al cambiar el
    número (así puedes picar rápido sin que el botón se corra). */
 .btlsc-foot2 .btlsc-prog { min-width: 60px; text-align: center; }
@@ -6753,7 +6821,14 @@ body {
   font-family: 'SF Mono',monospace; font-size: 9.5px; color: var(--gold-dim,#9a865a);
 }
 .btlsc-prog { color: var(--nc, var(--gold,#d4b25e)); letter-spacing: 1px; font-weight: 600; }
-.btlsc-hint { opacity: .7; }
+.btlsc-hint {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid rgba(212,178,94,.26); background: rgba(20,17,13,.32);
+  color: var(--gold-dim,#b89a5a); letter-spacing: .4px;
+  transition: background .15s, border-color .15s, color .15s, transform .15s;
+}
+.booktl-showcase:hover .btlsc-hint { border-color: var(--nc, rgba(212,178,94,.55)); color: var(--nc, var(--gold,#d4b25e)); transform: translateY(-1px); }
 .booktl-premium.expanded .booktl-showcase { border-radius: 10px 10px 0 0; }
 /* Riel expandido = navegación clásica (año + evento), sin repetir la cita */
 .btl-rail {
@@ -7381,9 +7456,9 @@ body {
 
   const books = [
       { id:"taibopatria2", estante:"mexico_profundo", coverId:null, coverUrl:"covers/taibopatria2.jpg", deck:{slides:13, label:"NotebookLM briefing"}, title:"Patria 2", author:"Paco Ignacio Taibo II", year:2018, filePath:"Taibo-II/Patria-2.pdf", desc:"Segundo tomo de la contrahistoria de Taibo sobre la Intervención francesa: de la victoria del 5 de mayo de 1862 al heroico sitio de Puebla de 1863 y la llegada del emperador Maximiliano en 1864.", tesis:"Taibo narra, casi día a día y con centenares de testimonios cruzados, el arco que va del triunfo de Zaragoza en Puebla (1862) al brutal sitio de 1863, la caída de la ciudad tras 62 días de resistencia, el abandono de la capital por Juárez y la instauración del imperio de Maximiliano. Su tesis es que la resistencia republicana no se midió por victorias sino por tenacidad: un ejército de milicias populares dirigido por oficiales ideológicamente sólidos enfrentó al 'mejor ejército del mundo'. Desmonta mitos oficiales (la gloria mal atribuida a Zacapoaxtla, las cifras infladas), denuncia a los conservadores que entregaron el país a bayonetas extranjeras y retrata a un Juárez peregrino que sostiene la legalidad republicana con terquedad y con el paso del tiempo como aliados.", ideas:["La batalla del 5 de mayo fue una reacción táctica correcta de Zaragoza frente a la prepotencia imperialista de Lorencez, no un milagro; la gloria de la contracarga fue de Tetela y las comunidades serranas, no de Zacapoaxtla.", "El sitio de Puebla de 1863 (16 de marzo a 17 de mayo), dirigido por González Ortega, fue una lucha casa por casa, cuarto por cuarto, que sólo la falta de víveres y municiones, no la derrota militar, terminó por rendir.", "La República sobrevivió por la guerra de guerrillas y la dispersión: los defensores presos de Puebla, tras fugarse masivamente, se volvieron la columna vertebral de la resistencia.", "El imperio nació de una alianza contra natura: conservadores clericales que ofrecen el trono a un liberal moderado sostenido por Napoleón III, cuyo verdadero interés era económico (deuda, plata, Sonora).", "Bazaine, no la Regencia ni Maximiliano, fue el poder real de México; su conflicto con Labastida sobre los bienes del clero revela que los conservadores cayeron en su propia trampa."], contexto:"Taibo cubre 1862-1864: Las Cumbres de Acultzingo, el 5 de mayo, Barranca Seca, Cerro del Borrego, la muerte de Zaragoza, el segundo sitio de Puebla, Camarón, San Lorenzo, la salida de Juárez de la capital, la contraguerrilla de Dupin, la ofensiva de Bazaine hacia el norte y la llegada de Maximiliano y Carlota. Su método es coral: cruza partes militares, cartas, crónicas francesas y mexicanas, sátira de Prieto y notas irónicas del narrador.", porqueLeer:"Porque reconstruye, con rigor documental y prosa apasionada, la epopeya menos recordada de la resistencia mexicana: los 62 días del sitio de Puebla y el largo peregrinar de Juárez. Desmitifica la historia oficial sin renunciar a la emoción del relato popular.", conexiones:[{"bookId": "taibopatria", "razon": "Es el primer tomo de la misma obra: cubre la Guerra de Reforma y el inicio de la Intervención hasta el 5 de mayo, del que este volumen es continuación directa."}, {"bookId": "juarez", "razon": "El eje moral del libro es Juárez peregrino sosteniendo la legalidad republicana; la obra de y sobre Juárez ilumina su correspondencia y su respuesta a Maximiliano citadas por Taibo."}, {"bookId": "gilly", "razon": "La lectura de Taibo sobre las milicias populares y la resistencia guerrillera como motor de la nación dialoga con la historia desde abajo de la revolución interrumpida."}], tags:["mexico_profundo", "imperialismo_contrahistoria", "independencia_1t"], quotes:[{"text": "Pelean bien los franceses, pero los nuestros matan bien", "page": "p. 18"}, {"text": "vosotros sois los primeros hijos de México", "page": "p. 31"}, {"text": "Se combatió cuerpo a cuerpo, manzana por", "page": "p. 142"}, {"text": "ultracatólico ni reaccionario; la influencia del clero es casi nula", "page": "p. 286"}, {"text": "Es necesario que en México seáis el amo sin aparentarlo", "page": "p. 98"}] },
-      { id:"taibopatria3", deck:{slides:16, label:"NotebookLM briefing"}, estante:"mexico_profundo", coverId:null, coverUrl:"covers/taibopatria3.jpg", title:"Patria 3", author:"Paco Ignacio Taibo II", year:2019, filePath:"Taibo-II/Patria-3.pdf", desc:"Tercer y último tomo de Patria: Taibo II narra el colapso del Imperio de Maximiliano entre 1864 y 1867, la resistencia de la chinaca, el sitio de Querétaro y el triunfo de la República juarista.", tesis:"Taibo reconstruye el desenlace de la Intervención francesa como una guerra popular ganada por la terquedad. Frente a un imperio sostenido por ejércitos francés, austriaco y belga, y por un Maximiliano vacilante, la república sobrevive fragmentada en cientos de guerrillas —la chinaca— coordinadas por la incansable correspondencia de un Juárez errante en Chihuahua y Paso del Norte. El autor desmonta mitos: minimiza el peso decisivo de las armas y diplomacia norteamericanas frente al desgaste guerrillero, documenta la brutalidad de ambos bandos (Dupin, Castagny, los decretos de exterminio) y sigue el arco final: la retirada de Bazaine, la locura de Carlota, el cerco de Escobedo, la traición de López y el fusilamiento del emperador con Miramón y Mejía en el Cerro de las Campanas. Cierra advirtiendo que los puros ganaron la guerra y perdieron la paz.", ideas:["La chinaca: guerra popular de cientos de partidas guerrilleras que, aislando y desgastando al invasor, resultó inmune a la derrota ('México perdiendo gana').", "Juárez como brújula errante: sin ejército ni ciudades, sostiene la resistencia mediante nombramientos y correspondencia desde Chihuahua y Paso del Norte, negándose a ceder territorio o salir del país.", "El imperio se hunde por sus contradicciones internas: choques con el clero, quiebra financiera (plan Langlais), desconfianza entre franceses, austriacos, belgas y mexicanos, y la indecisión crónica de Maximiliano.", "Taibo relativiza el apoyo estadounidense (armas y generales gringos) como menos decisivo que el desgaste guerrillero y la retirada francesa forzada por la derrota de Austria en Sadowa y la presión de Prusia.", "El juicio y fusilamiento de Querétaro como acto fundacional de la República restaurada, y su epílogo agridulce: el liberalismo envejece hacia el porfirismo."], contexto:"Cubre 1864-1867 (con epílogos hasta 1872): la ofensiva imperial sobre el norte y Oaxaca, la caída de Porfirio Díaz preso, la campaña de Sinaloa de Castagny y Corona, la guerra guerrillera en Michoacán, Tamaulipas y Veracruz, la retirada del ejército francés de Bazaine, la misión fracasada de Carlota en Europa, el sitio de Querétaro por Escobedo y la ejecución de Maximiliano, Miramón y Mejía.", porqueLeer:"Es la crónica más viva y documentada del fin del Segundo Imperio, contada desde abajo y sin heroísmos de bronce. Taibo da voz a los guerrilleros olvidados y desmonta los mitos conservadores sobre Maximiliano y la traición de Querétaro.", conexiones:[{"bookId": "juarez", "razon": "El libro es en buena medida una biografía de Juárez en su exilio interior; sus documentos, discursos y correspondencia son la fuente central de Taibo para el gobierno errante de la república."}, {"bookId": "taibopatria", "razon": "Es el volumen final de la trilogía Patria; continúa directamente la historia de la Reforma, la Intervención y los personajes (Riva Palacio, Escobedo, Prieto) de los tomos anteriores."}, {"bookId": "gilly", "razon": "Ambos comparten una lectura del proceso mexicano desde la resistencia popular armada como motor histórico, frente a las historiografías centradas en las élites y la diplomacia."}], tags:["mexico_profundo", "imperialismo_contrahistoria", "independencia_1t"], quotes:[{"text": "advirtió que no habría cuartel, ni civilización, ni", "page": "p. 9"}, {"text": "Es una guerra a muerte, una lucha a ultranza entre la", "page": "p. 125"}, {"text": "Los puros, los idealistas, ganan la guerra y", "page": "p. 425"}, {"text": "No me es permitido conceder lo que usted pide", "page": "p. 386"}, {"text": "El coronel López no hizo sino lo que se le mandó", "page": "p. 380"}] },
-      { id:"amlonewhope", deck:{slides:12, label:"NotebookLM briefing"}, estante:"transformaciones", coverId:null, coverUrl:"covers/amlonewhope.jpg", title:"A New Hope for Mexico", author:"Andrés Manuel López Obrador", year:2018, filePath:"AMLO/A-New-Hope-for-Mexico.pdf", desc:"Programa político de AMLO (edición inglesa de 2018: La Salida y Oye, Trump): diagnóstico de la corrupción neoliberal como problema central de México, defensa de los migrantes frente a Trump y proyecto de la Cuarta Transformación.", tesis:"López Obrador sostiene que la corrupción es el problema central de México y que el periodo neoliberal, que él llama \"neoporfirismo\" (1983 en adelante), convirtió al Estado en instrumento de una minoría rapaz mediante privatizaciones, saqueo energético y nepotismo. Rastrea la desigualdad hasta Salinas, \"padrino de la desigualdad moderna\", y denuncia el rescate bancario (Fobaproa), los contratos amañados de Peña Nieto y el fraude electoral de 2006. Frente a ello propone la regeneración de la vida pública mediante honestidad, austeridad republicana, rescate del Estado, salarios dignos, autosuficiencia alimentaria y energética, apoyo al campo y a los jóvenes, y un Estado de bienestar guiado por tres valores: honestidad, justicia y amor. Combina esto con una defensa de los migrantes mexicanos contra la retórica antiinmigrante de Trump.", ideas:["La corrupción, no la falta de fondos, es la causa de la desigualdad, la pobreza y la violencia en México; erradicarla financiaría el desarrollo sin subir impuestos ni deuda.", "El neoliberalismo es \"neoporfirismo\": privatizar es robar, y la transferencia de bienes públicos a Salinas, Zedillo, Fox, Calderón y Peña Nieto enriqueció a una minoría.", "La migración masiva es prueba del modelo excluyente: la gente huye del hambre y la violencia, no delinque; la persecución de Trump es demagogia ideológica, no economía.", "La austeridad republicana (recortar salarios de altos funcionarios, pensiones de expresidentes y despilfarro) libera recursos para el bienestar del pueblo.", "La transformación requiere una \"revolución de las conciencias\" pacífica y una república fraterna basada en honestidad, justicia y amor, con primero los pobres."], contexto:"Escrito en 2017 y publicado en inglés en 2018 (traducción de Natascha Uhlmann, OR Books), reúne dos libros: La Salida, plataforma política, y Oye, Trump, diez discursos pronunciados en ciudades estadounidenses entre enero y marzo de 2017 en defensa de los migrantes. Aparece como manifiesto de campaña rumbo a la elección presidencial de julio de 2018, que AMLO ganaría, y anticipa el Proyecto de Nación y la Cuarta Transformación.", porqueLeer:"Es el manifiesto en el que AMLO condensa su diagnóstico de la \"mafia del poder\" y el programa que ejecutaría como presidente, clave para entender la Cuarta Transformación desde su propia voz.", conexiones:[{"bookId": "amlo", "razon": "Continúa y sistematiza el proyecto político que AMLO desarrolla en su obra; ambos leen la historia de México como lucha contra la corrupción y el saqueo neoliberal."}, {"bookId": "hudsonsuper", "razon": "AMLO denuncia que el FMI y el Consenso de Washington impusieron el saqueo y el rescate bancario a costa del pueblo, tesis que Hudson desarrolla sobre las finanzas como instrumento imperial."}, {"bookId": "galeano", "razon": "La narrativa de AMLO sobre el despojo de recursos naturales de México (petróleo, minería, ferrocarriles) prolonga la denuncia galeana del saqueo histórico de América Latina; de hecho cita a Galeano sobre Rafael Barrett."}], tags:["cuarta_transformacion", "economia_politica", "mexico_mundo"], quotes:[{"text": "the astounding dishonesty of the neoliberal period (from 1983 to present) is wholly unprecedented.", "page": "p. 12"}, {"text": "rich and poor deepened like never before. Salinas is the godfather of modern inequality in Mexico.", "page": "p. 18"}, {"text": "In short, we are living through the greatest pillage of natural resources in", "page": "p. 19"}, {"text": "Only a traitor hands over his country to foreign nationals; we Mexicans can manage our affairs better than any", "page": "p. 46"}, {"text": "Migration is the clearest and most painful proof of the exclusionary nature of the neoliberal model.", "page": "p. 80"}] },
-      { id:"amlogracias", deck:{slides:12, label:"NotebookLM briefing"}, estante:"transformaciones", coverId:null, coverUrl:"covers/amlogracias.jpg", title:"Gracias", author:"Andrés Manuel López Obrador", year:2024, filePath:"AMLO/Gracias.pdf", desc:"Balance del sexenio de López Obrador (2018-2024): la Cuarta Transformación, el combate a la corrupción, la austeridad republicana, los Programas para el Bienestar y las grandes obras, narrado como su último libro político dirigido a los jóvenes.", tesis:"López Obrador presenta ¡Gracias! como despedida y rendición de cuentas de su mandato. Sostiene que la clave del éxito del gobierno fue no permitir la corrupción: combatir el huachicol, cancelar condonaciones fiscales a grandes contribuyentes, eliminar 187 fideicomisos y aplicar la austeridad republicana liberó recursos para financiar obras y Programas para el Bienestar sin endeudar al país ni subir impuestos. Defiende atender primero a los pobres para fortalecer el mercado interno, frente al sofisma neoliberal del goteo. Narra el rescate de Pemex, la CFE y la salud, la renegociación de contratos leoninos (gasoductos, cárceles privadas), las inauguraciones de diciembre de 2023 (Tren Maya, Megafarmacia, aeropuerto de Tulum), el caso Ayotzinapa y su relevo por Claudia Sheinbaum. Insiste en que la transformación es un cambio de mentalidad regido por no mentir, no robar y no traicionar al pueblo.", ideas:["El combate a la corrupción y la austeridad republicana como fuente de financiamiento del desarrollo, sin nuevos impuestos ni deuda.", "La política económica que atiende primero a los de abajo para fortalecer el mercado interno, contra el sofisma neoliberal del goteo.", "El rescate de la soberanía en energía y salud: Pemex, CFE, litio, medicamentos gratuitos y la Megafarmacia.", "Las grandes obras del sureste y del país (Tren Maya, Tren del Istmo, Tren Interurbano) como reparación de una región rica con pueblo pobre.", "La honestidad y el Humanismo Mexicano como ejes: no mentir, no robar, no traicionar al pueblo, y el relevo generacional con Sheinbaum."], contexto:"Publicado por Planeta en febrero de 2024, es el último libro político de López Obrador antes de dejar la Presidencia. Da continuidad a su texto anterior, A la mitad del camino, y cierra la narración de su mandato. Combina autobiografía (Tabasco, la UNAM, el PRD, los fraudes de 2006 y 2012) con un extenso balance del gobierno de la Cuarta Transformación y un diario de los últimos meses de 2023, cerrado en Palenque.", porqueLeer:"Es el testimonio de primera mano con que el propio López Obrador cuenta y justifica su sexenio, útil para conocer las cifras, obras y decisiones que su gobierno reivindica como logros. Permite contrastar el relato oficial de la Cuarta Transformación con sus fuentes.", conexiones:[{"bookId": "amlo_mitad", "razon": "¡Gracias! es la continuación explícita de A la mitad del camino: retoma el balance de los primeros tres años y narra el resto del mandato hasta el adiós."}, {"bookId": "juarez", "razon": "AMLO funda su austeridad republicana en el criterio juarista de la 'honrosa medianía' y cita a Juárez como referente moral y liberal a lo largo del libro."}, {"bookId": "bonfil", "razon": "El reconocimiento a los de abajo, al 'México profundo' olvidado y humillado, que AMLO coloca en el centro del Humanismo Mexicano, dialoga con la tesis de Bonfil Batalla."}], tags:["cuarta_transformacion", "economia_politica", "mexico_profundo"], quotes:[{"text": "siempre dijimos: no debe haber Gobierno rico con pueblo pobre. Esto es, en los", "page": "p. 384"}, {"text": "plan es acabar con la corrupción. En eso ha consistido fundamentalmente el éxito", "page": "p. 387"}, {"text": "no mentir, no robar y no traicionar la confianza de los mexicanos.", "page": "p. 370"}, {"text": "neutrales, sin condenar a nadie, buscando siempre evitar la guerra y apostar por la", "page": "p. 533"}] },
+      { id:"taibopatria3", estante:"mexico_profundo", coverId:null, coverUrl:"covers/taibopatria3.jpg", title:"Patria 3", author:"Paco Ignacio Taibo II", year:2019, filePath:"Taibo-II/Patria-3.pdf", desc:"Tercer y último tomo de Patria: Taibo II narra el colapso del Imperio de Maximiliano entre 1864 y 1867, la resistencia de la chinaca, el sitio de Querétaro y el triunfo de la República juarista.", tesis:"Taibo reconstruye el desenlace de la Intervención francesa como una guerra popular ganada por la terquedad. Frente a un imperio sostenido por ejércitos francés, austriaco y belga, y por un Maximiliano vacilante, la república sobrevive fragmentada en cientos de guerrillas —la chinaca— coordinadas por la incansable correspondencia de un Juárez errante en Chihuahua y Paso del Norte. El autor desmonta mitos: minimiza el peso decisivo de las armas y diplomacia norteamericanas frente al desgaste guerrillero, documenta la brutalidad de ambos bandos (Dupin, Castagny, los decretos de exterminio) y sigue el arco final: la retirada de Bazaine, la locura de Carlota, el cerco de Escobedo, la traición de López y el fusilamiento del emperador con Miramón y Mejía en el Cerro de las Campanas. Cierra advirtiendo que los puros ganaron la guerra y perdieron la paz.", ideas:["La chinaca: guerra popular de cientos de partidas guerrilleras que, aislando y desgastando al invasor, resultó inmune a la derrota ('México perdiendo gana').", "Juárez como brújula errante: sin ejército ni ciudades, sostiene la resistencia mediante nombramientos y correspondencia desde Chihuahua y Paso del Norte, negándose a ceder territorio o salir del país.", "El imperio se hunde por sus contradicciones internas: choques con el clero, quiebra financiera (plan Langlais), desconfianza entre franceses, austriacos, belgas y mexicanos, y la indecisión crónica de Maximiliano.", "Taibo relativiza el apoyo estadounidense (armas y generales gringos) como menos decisivo que el desgaste guerrillero y la retirada francesa forzada por la derrota de Austria en Sadowa y la presión de Prusia.", "El juicio y fusilamiento de Querétaro como acto fundacional de la República restaurada, y su epílogo agridulce: el liberalismo envejece hacia el porfirismo."], contexto:"Cubre 1864-1867 (con epílogos hasta 1872): la ofensiva imperial sobre el norte y Oaxaca, la caída de Porfirio Díaz preso, la campaña de Sinaloa de Castagny y Corona, la guerra guerrillera en Michoacán, Tamaulipas y Veracruz, la retirada del ejército francés de Bazaine, la misión fracasada de Carlota en Europa, el sitio de Querétaro por Escobedo y la ejecución de Maximiliano, Miramón y Mejía.", porqueLeer:"Es la crónica más viva y documentada del fin del Segundo Imperio, contada desde abajo y sin heroísmos de bronce. Taibo da voz a los guerrilleros olvidados y desmonta los mitos conservadores sobre Maximiliano y la traición de Querétaro.", conexiones:[{"bookId": "juarez", "razon": "El libro es en buena medida una biografía de Juárez en su exilio interior; sus documentos, discursos y correspondencia son la fuente central de Taibo para el gobierno errante de la república."}, {"bookId": "taibopatria", "razon": "Es el volumen final de la trilogía Patria; continúa directamente la historia de la Reforma, la Intervención y los personajes (Riva Palacio, Escobedo, Prieto) de los tomos anteriores."}, {"bookId": "gilly", "razon": "Ambos comparten una lectura del proceso mexicano desde la resistencia popular armada como motor histórico, frente a las historiografías centradas en las élites y la diplomacia."}], tags:["mexico_profundo", "imperialismo_contrahistoria", "independencia_1t"], quotes:[{"text": "advirtió que no habría cuartel, ni civilización, ni", "page": "p. 9"}, {"text": "Es una guerra a muerte, una lucha a ultranza entre la", "page": "p. 125"}, {"text": "Los puros, los idealistas, ganan la guerra y", "page": "p. 425"}, {"text": "No me es permitido conceder lo que usted pide", "page": "p. 386"}, {"text": "El coronel López no hizo sino lo que se le mandó", "page": "p. 380"}] },
+      { id:"amlonewhope", estante:"transformaciones", coverId:null, coverUrl:"covers/amlonewhope.jpg", title:"A New Hope for Mexico", author:"Andrés Manuel López Obrador", year:2018, filePath:"AMLO/A-New-Hope-for-Mexico.pdf", desc:"Programa político de AMLO (edición inglesa de 2018: La Salida y Oye, Trump): diagnóstico de la corrupción neoliberal como problema central de México, defensa de los migrantes frente a Trump y proyecto de la Cuarta Transformación.", tesis:"López Obrador sostiene que la corrupción es el problema central de México y que el periodo neoliberal, que él llama \"neoporfirismo\" (1983 en adelante), convirtió al Estado en instrumento de una minoría rapaz mediante privatizaciones, saqueo energético y nepotismo. Rastrea la desigualdad hasta Salinas, \"padrino de la desigualdad moderna\", y denuncia el rescate bancario (Fobaproa), los contratos amañados de Peña Nieto y el fraude electoral de 2006. Frente a ello propone la regeneración de la vida pública mediante honestidad, austeridad republicana, rescate del Estado, salarios dignos, autosuficiencia alimentaria y energética, apoyo al campo y a los jóvenes, y un Estado de bienestar guiado por tres valores: honestidad, justicia y amor. Combina esto con una defensa de los migrantes mexicanos contra la retórica antiinmigrante de Trump.", ideas:["La corrupción, no la falta de fondos, es la causa de la desigualdad, la pobreza y la violencia en México; erradicarla financiaría el desarrollo sin subir impuestos ni deuda.", "El neoliberalismo es \"neoporfirismo\": privatizar es robar, y la transferencia de bienes públicos a Salinas, Zedillo, Fox, Calderón y Peña Nieto enriqueció a una minoría.", "La migración masiva es prueba del modelo excluyente: la gente huye del hambre y la violencia, no delinque; la persecución de Trump es demagogia ideológica, no economía.", "La austeridad republicana (recortar salarios de altos funcionarios, pensiones de expresidentes y despilfarro) libera recursos para el bienestar del pueblo.", "La transformación requiere una \"revolución de las conciencias\" pacífica y una república fraterna basada en honestidad, justicia y amor, con primero los pobres."], contexto:"Escrito en 2017 y publicado en inglés en 2018 (traducción de Natascha Uhlmann, OR Books), reúne dos libros: La Salida, plataforma política, y Oye, Trump, diez discursos pronunciados en ciudades estadounidenses entre enero y marzo de 2017 en defensa de los migrantes. Aparece como manifiesto de campaña rumbo a la elección presidencial de julio de 2018, que AMLO ganaría, y anticipa el Proyecto de Nación y la Cuarta Transformación.", porqueLeer:"Es el manifiesto en el que AMLO condensa su diagnóstico de la \"mafia del poder\" y el programa que ejecutaría como presidente, clave para entender la Cuarta Transformación desde su propia voz.", conexiones:[{"bookId": "amlo", "razon": "Continúa y sistematiza el proyecto político que AMLO desarrolla en su obra; ambos leen la historia de México como lucha contra la corrupción y el saqueo neoliberal."}, {"bookId": "hudsonsuper", "razon": "AMLO denuncia que el FMI y el Consenso de Washington impusieron el saqueo y el rescate bancario a costa del pueblo, tesis que Hudson desarrolla sobre las finanzas como instrumento imperial."}, {"bookId": "galeano", "razon": "La narrativa de AMLO sobre el despojo de recursos naturales de México (petróleo, minería, ferrocarriles) prolonga la denuncia galeana del saqueo histórico de América Latina; de hecho cita a Galeano sobre Rafael Barrett."}], tags:["cuarta_transformacion", "economia_politica", "mexico_mundo"], quotes:[{"text": "the astounding dishonesty of the neoliberal period (from 1983 to present) is wholly unprecedented.", "page": "p. 12"}, {"text": "rich and poor deepened like never before. Salinas is the godfather of modern inequality in Mexico.", "page": "p. 18"}, {"text": "In short, we are living through the greatest pillage of natural resources in", "page": "p. 19"}, {"text": "Only a traitor hands over his country to foreign nationals; we Mexicans can manage our affairs better than any", "page": "p. 46"}, {"text": "Migration is the clearest and most painful proof of the exclusionary nature of the neoliberal model.", "page": "p. 80"}] },
+      { id:"amlogracias", estante:"transformaciones", coverId:null, coverUrl:"covers/amlogracias.jpg", title:"Gracias", author:"Andrés Manuel López Obrador", year:2024, filePath:"AMLO/Gracias.pdf", desc:"Balance del sexenio de López Obrador (2018-2024): la Cuarta Transformación, el combate a la corrupción, la austeridad republicana, los Programas para el Bienestar y las grandes obras, narrado como su último libro político dirigido a los jóvenes.", tesis:"López Obrador presenta ¡Gracias! como despedida y rendición de cuentas de su mandato. Sostiene que la clave del éxito del gobierno fue no permitir la corrupción: combatir el huachicol, cancelar condonaciones fiscales a grandes contribuyentes, eliminar 187 fideicomisos y aplicar la austeridad republicana liberó recursos para financiar obras y Programas para el Bienestar sin endeudar al país ni subir impuestos. Defiende atender primero a los pobres para fortalecer el mercado interno, frente al sofisma neoliberal del goteo. Narra el rescate de Pemex, la CFE y la salud, la renegociación de contratos leoninos (gasoductos, cárceles privadas), las inauguraciones de diciembre de 2023 (Tren Maya, Megafarmacia, aeropuerto de Tulum), el caso Ayotzinapa y su relevo por Claudia Sheinbaum. Insiste en que la transformación es un cambio de mentalidad regido por no mentir, no robar y no traicionar al pueblo.", ideas:["El combate a la corrupción y la austeridad republicana como fuente de financiamiento del desarrollo, sin nuevos impuestos ni deuda.", "La política económica que atiende primero a los de abajo para fortalecer el mercado interno, contra el sofisma neoliberal del goteo.", "El rescate de la soberanía en energía y salud: Pemex, CFE, litio, medicamentos gratuitos y la Megafarmacia.", "Las grandes obras del sureste y del país (Tren Maya, Tren del Istmo, Tren Interurbano) como reparación de una región rica con pueblo pobre.", "La honestidad y el Humanismo Mexicano como ejes: no mentir, no robar, no traicionar al pueblo, y el relevo generacional con Sheinbaum."], contexto:"Publicado por Planeta en febrero de 2024, es el último libro político de López Obrador antes de dejar la Presidencia. Da continuidad a su texto anterior, A la mitad del camino, y cierra la narración de su mandato. Combina autobiografía (Tabasco, la UNAM, el PRD, los fraudes de 2006 y 2012) con un extenso balance del gobierno de la Cuarta Transformación y un diario de los últimos meses de 2023, cerrado en Palenque.", porqueLeer:"Es el testimonio de primera mano con que el propio López Obrador cuenta y justifica su sexenio, útil para conocer las cifras, obras y decisiones que su gobierno reivindica como logros. Permite contrastar el relato oficial de la Cuarta Transformación con sus fuentes.", conexiones:[{"bookId": "amlo_mitad", "razon": "¡Gracias! es la continuación explícita de A la mitad del camino: retoma el balance de los primeros tres años y narra el resto del mandato hasta el adiós."}, {"bookId": "juarez", "razon": "AMLO funda su austeridad republicana en el criterio juarista de la 'honrosa medianía' y cita a Juárez como referente moral y liberal a lo largo del libro."}, {"bookId": "bonfil", "razon": "El reconocimiento a los de abajo, al 'México profundo' olvidado y humillado, que AMLO coloca en el centro del Humanismo Mexicano, dialoga con la tesis de Bonfil Batalla."}], tags:["cuarta_transformacion", "economia_politica", "mexico_profundo"], quotes:[{"text": "siempre dijimos: no debe haber Gobierno rico con pueblo pobre. Esto es, en los", "page": "p. 384"}, {"text": "plan es acabar con la corrupción. En eso ha consistido fundamentalmente el éxito", "page": "p. 387"}, {"text": "no mentir, no robar y no traicionar la confianza de los mexicanos.", "page": "p. 370"}, {"text": "neutrales, sin condenar a nadie, buscando siempre evitar la guerra y apostar por la", "page": "p. 533"}] },
       { id:"stalinamericancp", deck:{slides:15, label:"NotebookLM briefing"}, estante:"revoluciones", coverId:null, coverUrl:"covers/stalinamericancp.jpg", title:"Speeches on the American Communist Party", author:"Joseph Stalin", year:1929, filePath:"Stalin/Stalin-Speeches-American-Communist-Party.pdf", desc:"Recopilación de los discursos que Stalin pronunció en mayo de 1929 ante la Comisión Americana y el Presídium del Comité Ejecutivo de la Internacional Comunista, dedicados a la lucha faccional entre los grupos de Lovestone (mayoría) y Foster (minoría) dentro del Partido Comunista de los Estados Unidos.", tesis:"El pecado de fondo de ambas facciones norteamericanas es exagerar los rasgos específicos del capitalismo estadounidense (el llamado excepcionalismo) y, sobre esa base, un faccionalismo sin principios que subordina los intereses del partido y de la clase obrera a los intereses de camarilla; la salud del partido exige liquidar ese faccionalismo y someterse a la línea de la Comintern.", ideas:["El excepcionalismo americano como raíz oportunista: basar la actividad del partido en las particularidades del capitalismo yanqui, y no en los rasgos generales del capitalismo comunes a todos los países, socava el internacionalismo.", "El faccionalismo sin principios es la enfermedad fundamental del PC de EEUU: ambos grupos, y sobre todo la mayoría, ponen los intereses de su fracción por encima de los del partido y especulan con las diferencias internas del PCUS.", "Stalin desenmascara la 'diplomacia podrida': declararse 'stalinistas', jugar con la cuestión Bujarin o expulsar a Pepper son maniobras de rivalidad faccional, no política de principios; la Comintern no es una bolsa de valores.", "La crisis general del capitalismo mundial alcanzará a Norteamérica: los tres millones de desempleados son las 'primeras golondrinas', y una crisis revolucionaria en América sería el principio del fin del capitalismo mundial.", "Someterse a la mayoría no es cobardía sino valor bolchevique: quien defiende sus convicciones antes de la decisión pero se rebela después es un rompehuelgas; la disciplina de hierro y el liderazgo colectivo son condición de todo comunismo."], contexto:"Mayo de 1929, Moscú. Una delegación del PC de EEUU acude al Presídium de la Comintern para dirimir la disputa entre la mayoría dirigida por Jay Lovestone y Benjamin Gitlow y la minoría de William Z. Foster y Bittelman. Coincide con el giro del Sexto Congreso contra el 'peligro de derecha' y con la ruptura con Bujarin; Lovestone sería expulsado poco después. La edición es de Proletarian Publishers, San Francisco, 1975.", porqueLeer:"Es un documento breve y polémico donde Stalin fija la doctrina de la disciplina de partido, el internacionalismo frente al 'excepcionalismo' nacional y el diagnóstico del faccionalismo como enfermedad; permite ver en acto cómo la Comintern subordinaba las secciones nacionales a la línea central y anticipa la caída del lovestonismo.", conexiones:[{"bookId": "foster", "razon": "William Z. Foster es el dirigente de la minoría a quien Stalin critica y a la vez señala como futuro líder del partido unificado; leerlo desde su propia obra ilumina el otro lado del conflicto."}, {"bookId": "stalincpsu", "razon": "El ataque al faccionalismo y la exigencia de unidad monolítica del partido prolongan la concepción organizativa que Stalin desarrolla sobre el PCUS."}, {"bookId": "leninsplit", "razon": "Stalin invoca la práctica bolchevique del fraccionamiento contra el menchevismo y su superación posterior; el texto de Lenin sobre la escisión es su base doctrinal directa."}], tags:["leninismo_socialismo", "imperialismo_contrahistoria"], quotes:[{"text": "both groups are guilty of the fundamental error of exaggerating the specific features of American capitalism.", "page": "p. 5"}, {"text": "But, Comrades, the Comintern is not a stock market. The Comintern is the holy of holies of the working class.", "page": "p. 15"}, {"text": "The three million now unemployed in America are the first swallows indicating the ripening of the economic crisis in America.", "page": "p. 20"}, {"text": "when a revolutionary crisis develops in America, that will be the beginning of the end of world capitalism as a whole.", "page": "p. 20"}, {"text": "the American Communist Party will not perish. It will live and flourish to the dismay of the enemies of the working class.", "page": "p. 39"}] },
 
       { id:"engelsauthority", deck:{slides:13, label:"NotebookLM briefing"}, estante:"fundamentos", coverId:null,
@@ -7444,7 +7519,7 @@ body {
       deck:{slides:9, label:"NotebookLM briefing"},
       pdfUrl:"https://michael-hudson.com/2021/07/finance-capitalism-versus-industrial-capitalism-the-rentier-resurgence-and-takeover/",
       desc:"Ensayo que contrapone el capitalismo financiero al industrial, argumentando que el capitalismo posindustrial busca riqueza mediante la extracción de renta económica por parte del sector rentista (FIRE) y no mediante la formación de capital productivo." , tesis:"Hudson contrasta el capitalismo industrial con el capitalismo financiero postindustrial. Según el texto, Marx y reformadores contemporáneos veían el papel histórico del capitalismo industrial como el de barrer el legado del feudalismo: terratenientes, banqueros y monopolistas que extraían renta económica sin producir valor real. Pero ese movimiento reformista fracasó. Hoy el sector de finanzas, seguros y bienes raíces (FIRE) ha recuperado el control del gobierno, creando economías neo-rentistas. El objetivo de este capitalismo financiero es lo opuesto al industrial: busca riqueza principalmente mediante la extracción de renta económica, no mediante la formación de capital industrial productivo. El favoritismo fiscal, la privatización y los monopolios encarecen la vida y los negocios mientras la deuda exprime al trabajo.", ideas:["El movimiento reformista que buscaba que el capitalismo industrial eliminara el legado feudal de rentistas fracasó; el sector FIRE recuperó el control del gobierno y creó economías neo-rentistas.", "El favoritismo fiscal para bienes raíces, la privatización de la extracción de petróleo y minerales, y los monopolios bancarios y de infraestructura elevan el costo de vida y de hacer negocios.", "El trabajo es cada vez más explotado mediante deuda bancaria, deuda estudiantil y deuda de tarjetas de crédito, mientras la vivienda y otros precios se inflan a crédito.", "La nueva Guerra Fría busca internacionalizar el capitalismo rentista privatizando y financiarizando transporte, educación, salud, prisiones, correos y comunicaciones que antes pertenecían al dominio público."], contexto:"Artículo publicado el 6 de julio de 2021 en el sitio de Michael Hudson y en Sage Journals, dentro de su serie sobre finanzas, bienes raíces y neoliberalismo. Recoge la abstracción de un paper académico y se apoya explícitamente en el marco de Marx y en la categoría de rentista (rentier) para analizar el giro postindustrial de las economías occidentales hacia la extracción de renta.", porqueLeer:"Ofrece en pocas líneas el contraste central de Hudson entre capitalismo industrial y financiero, y explica cómo el sector FIRE convierte deuda y monopolios privatizados en instrumentos de extracción de renta. Es una puerta de entrada compacta a su crítica del neoliberalismo.", conexiones:[{"bookId": "hudsonsuper", "razon": "Ambos textos analizan cómo la estrategia financiera de Estados Unidos reemplaza la formación de capital industrial por la extracción de renta."}, {"bookId": "marxcapital", "razon": "El artículo parte del análisis de Marx sobre el papel histórico del capitalismo industrial frente a los rentistas feudales que extraían renta sin producir valor real."}, {"bookId": "hudsonkilling", "razon": "Coincide en mostrar cómo la deuda (bancaria, estudiantil, de tarjetas) exprime al trabajo y provoca deflación por deuda al servicio del sector rentista."}], tags:["economia_politica", "marxismo_fundamentos", "imperialismo_contrahistoria"], quotes:[{"text": "it seeks wealth primarily through the extraction of economic rent, not industrial capital formation.", "page": "p. 3"}, {"text": "Labor is increasingly exploited by bank debt, student debt, and credit card debt while housing and other prices are inflated on credit", "page": "p. 3"}, {"text": "the finance, insurance, and real estate (FIRE) sector has regained control of government, creating neo-rentier economies.", "page": "p. 3"}], tipo:"articulo"},
-      { id:"deng", deck:{slides:14, label:"NotebookLM briefing"}, estante:"revoluciones", coverId:null, coverUrl:"covers/deng.jpg",
+      { id:"deng", estante:"revoluciones", coverId:null, coverUrl:"covers/deng.jpg",
       title:"Selected Works, Vol. 3 (1982-1992)", author:"Deng Xiaoping", year:1994,
       filePath:"Deng-Xiaoping/DengXiaoping-SelectedWorks-V3.pdf",
       pdfUrl:"https://www.bannedthought.net/China/Individuals/DengXiaoping/DengXiaoping-SelectedWorks-V3.pdf",
@@ -7585,7 +7660,7 @@ body {
     {
       id: "diazcastillo", estante:"mexico_profundo", coverId: "diazcastillo",
       filePath: "Historia-Verdadera-Conquista-Diaz-del-Castillo.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — El Playbook de la Conquista" },
+      deck: { slides: 18, label: "NotebookLM briefing — El Playbook de la Conquista" },
       title: "Historia Verdadera de la Conquista de la Nueva España",
       author: "Bernal Díaz del Castillo",
       year: 1568,
@@ -7679,7 +7754,7 @@ body {
     {
       id: "wallerstein", estante:"economia_poder", coverId: "wallerstein",
       filePath: "Wallerstein-World-System-Vol-I.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — Global Capitalism Blueprint" },
+      deck: { slides: 18, label: "NotebookLM briefing — Global Capitalism Blueprint" },
       title: "The Modern World-System, Vol. I",
       author: "Immanuel Wallerstein",
       year: 1974,
@@ -7745,7 +7820,7 @@ body {
       id: "lopezaustin", estante:"mexico_profundo", coverId: "lopezaustin",
       filePath: "Lopez-Austin-El-Pasado-Indigena.pdf",
       coverUrl: "https://m.media-amazon.com/images/I/61zoQjd9aFL._SL1186_.jpg",
-      deck: { slides: 7, label: "NotebookLM briefing — Mesoamerican Stratigraphy" },
+      deck: { slides: 9, label: "NotebookLM briefing — Mesoamerican Stratigraphy" },
       title: "El Pasado Indígena",
       author: "Alfredo López Austin y Leonardo López Luján",
       year: 1996,
@@ -7795,7 +7870,7 @@ body {
       id: "semoconquista", estante:"mexico_profundo", coverId: "semoconquista",
       filePath: "Enrique-Semo/Enrique Semo. Conquista Tomo 1.pdf",
       coverUrl: "http://www.libros.unam.mx/Portadas/9786070309298.jpg",
-      deck: { slides: 20, label: "NotebookLM briefing — The Colonial Machine" },
+      deck: { slides: 21, label: "NotebookLM briefing — The Colonial Machine" },
       title: "La Conquista: Catástrofe de los Pueblos Originarios",
       author: "Enrique Semo",
       year: 2019,
@@ -7833,7 +7908,7 @@ body {
     {
       id: "humboldt", estante:"mexico_profundo", coverId: "humboldt",
       filePath: "Ensayo-Politico-Nueva-Espana-Humboldt.pdf",
-      deck: { slides: 7, label: "NotebookLM briefing — The Living Archive" },
+      deck: { slides: 11, label: "NotebookLM briefing — The Living Archive" },
       title: "Ensayo Político sobre el Reyno de la Nueva España",
       author: "Alexander von Humboldt",
       year: 1811,
@@ -7865,7 +7940,7 @@ body {
       id: "popolvuh", estante:"mexico_profundo", coverId: "popolvuh",
       filePath: "Popol-Vuh-FCE.pdf",
       coverUrl: "https://m.media-amazon.com/images/I/81Buw3UsXqL._SL1500_.jpg",
-      deck: { slides: 15, label: "NotebookLM briefing — The Architecture of Creation" },
+      deck: { slides: 20, label: "NotebookLM briefing — The Architecture of Creation" },
       title: "Popol Vuh",
       author: "Anónimo k'iche' (trad. Adrián Recinos)",
       year: "c.1554",
@@ -7904,7 +7979,7 @@ body {
       id: "rozat", estante:"mexico_profundo", coverId: "rozat",
       filePath: "Rozat-America-Imperio-del-Demonio.pdf",
       coverUrl: "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=9917288881667530",
-      deck: { slides: 18, label: "NotebookLM briefing — Dissecting the Devil's Empire" },
+      deck: { slides: 20, label: "NotebookLM briefing — Dissecting the Devil's Empire" },
       title: "América, Imperio del Demonio",
       author: "Guy Rozat",
       year: 2002,
@@ -7941,7 +8016,7 @@ body {
     {
       id: "grafe", estante:"mexico_profundo", coverId: "grafe",
       filePath: "Grafe-Irigoin-Spanish-Empire-Fiscal-Redistribution-2006.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — The Silver Web" },
+      deck: { slides: 16, label: "NotebookLM briefing — The Silver Web" },
       title: "The Spanish Empire and Its Legacy: Fiscal Redistribution",
       author: "Regina Grafe y Alejandra Irigoin",
       year: 2006,
@@ -7959,7 +8034,7 @@ body {
     {
       id: "newworldgold", estante:"mexico_profundo", coverId: "newworldgold",
       filePath: "New-World-of-Gold-and-Silver.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — The Assayer’s Ledger" },
+      deck: { slides: 16, label: "NotebookLM briefing — The Assayer’s Ledger" },
       title: "A New World of Gold and Silver",
       author: "John J. TePaske (ed. Kendall Brown)",
       year: 2010,
@@ -8043,7 +8118,7 @@ body {
     {
       id: "campos", estante:"mexico_profundo", coverId: "campos",
       filePath: "Campos-Perez-Intolerancia-Represion-Religiosa-Secuencia-1994.pdf",
-      deck: { slides: 11, label: "NotebookLM briefing — El Archivo Vivo de la Resistencia Colonial" },
+      deck: { slides: 16, label: "NotebookLM briefing — El Archivo Vivo de la Resistencia Colonial" },
       title: "Documentos sobre Intolerancia y Represión Religiosa",
       author: "Yólotl González Torres / Campos Pérez",
       year: 1994,
@@ -8102,7 +8177,7 @@ body {
     {
       id: "bonfilcontrol", estante:"filosofia", coverId: null,
       filePath: "Bonfil-Batalla/La-Teoria-del-Control-Cultural.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — Cultural Control Blueprint" },
+      deck: { slides: 21, label: "NotebookLM briefing — Cultural Control Blueprint" },
       coverUrl: "https://imgv2-2-f.scribdassets.com/img/document/419532888/original/a661cff219/1695648575?v=1",
       title: "La Teoría del Control Cultural",
       author: "Guillermo Bonfil Batalla",
@@ -8122,7 +8197,7 @@ body {
     {
       id: "bonfilpensar", estante:"filosofia", coverId: null,
       filePath: "Bonfil-Batalla/Pensar-Nuestra-Cultura.pdf",
-      deck: { slides: 14, label: "NotebookLM briefing — Rethinking Mexican Identity" },
+      deck: { slides: 16, label: "NotebookLM briefing — Rethinking Mexican Identity" },
       coverUrl: "https://covers.openlibrary.org/b/id/4013858-L.jpg",
       title: "Pensar Nuestra Cultura",
       author: "Guillermo Bonfil Batalla",
@@ -8141,7 +8216,7 @@ body {
     {
       id: "bonfilpropio", estante:"filosofia", coverId: null,
       filePath: "Bonfil-Batalla/Lo-Propio-y-lo-Ajeno.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — Cartografía del Control Cultural" },
+      deck: { slides: 18, label: "NotebookLM briefing — Cartografía del Control Cultural" },
       coverUrl: "https://cdn.shopify.com/s/files/1/0275/1568/2868/products/Lo-propio-y-lo-ajeno_1024x1024.jpg?v=1576247550",
       title: "Lo Propio y lo Ajeno",
       author: "Guillermo Bonfil Batalla",
@@ -8161,7 +8236,7 @@ body {
     {
       id: "preciousmetals", estante:"mexico_profundo", coverId: null,
       filePath: "Precious-Metals-Later-Medieval-Early-Modern-Worlds.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — Global Bullion Arteries" },
+      deck: { slides: 20, label: "NotebookLM briefing — Global Bullion Arteries" },
       title: "Precious Metals in the Later Medieval and Early Modern Worlds",
       author: "J.F. Richards (ed.)",
       year: 1983,
@@ -8200,7 +8275,7 @@ body {
     {
       id: "deamerica", estante:"mexico_profundo", coverId: null,
       filePath: "De-America-a-Europa-Indigenas-Viejo-Mundo.pdf",
-      deck: { slides: 21, label: "NotebookLM briefing — The Inverted Discovery" },
+      deck: { slides: 16, label: "NotebookLM briefing — The Inverted Discovery" },
       title: "De América a Europa: Cuando los Indígenas Descubrieron el Viejo Mundo",
       author: "Federico Ferretti (ed.)",
       year: 2019,
@@ -8219,7 +8294,7 @@ body {
     {
       id: "frontera", estante:"mexico_profundo", coverId: null,
       filePath: "Historias-de-la-Frontera-Cautiverio-America-Hispanica.pdf",
-      deck: { slides: 13, label: "NotebookLM briefing — Hilos del Cautiverio" },
+      deck: { slides: 10, label: "NotebookLM briefing — Hilos del Cautiverio" },
       coverUrl: "https://covers.openlibrary.org/b/id/3347942-L.jpg",
       title: "Historias de la Frontera: El Cautiverio en la América Hispánica",
       author: "Fernando Operé",
@@ -8260,7 +8335,7 @@ body {
     {
       id: "juarez", estante:"transformaciones", coverId: null,
       filePath: "Apuntes-para-mis-hijos-Juarez.pdf",
-      deck: { slides: 16, label: "NotebookLM briefing — Architect of Modern Mexico" },
+      deck: { slides: 17, label: "NotebookLM briefing — Architect of Modern Mexico" },
       coverUrl: "https://i2.wp.com/3.bp.blogspot.com/-shrWR7msElk/WQ3bC2M0BlI/AAAAAAAAcf4/yfBg21X5ShoPy-PVWOmrcaPhXhVEYzX1wCLcB/s1600/Apuntes%2BPara%2BMis%2BHijos-FREELIBROS.jpg?ssl=1",
       title: "Apuntes para mis Hijos",
       author: "Benito Juárez",
@@ -8281,7 +8356,7 @@ body {
     {
       id: "hudson1", estante:"economia_poder", coverId: null,
       filePath: "Hudson/And-Forgive-Them-Their-Debts.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — The Ledger and the Slate" },
+      deck: { slides: 21, label: "NotebookLM briefing — The Ledger and the Slate" },
       coverUrl: "https://covers.openlibrary.org/b/id/8398483-L.jpg",
       title: "…And Forgive Them Their Debts",
       author: "Michael Hudson",
@@ -8313,7 +8388,7 @@ body {
     {
       id: "hudson2", estante:"economia_poder", coverId: null,
       filePath: "Hudson/Collapse-of-Antiquity.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — The Ledger of Antiquity" },
+      deck: { slides: 20, label: "NotebookLM briefing — The Ledger of Antiquity" },
       coverUrl: "https://covers.openlibrary.org/b/id/13775456-L.jpg",
       title: "The Collapse of Antiquity",
       author: "Michael Hudson",
@@ -8352,7 +8427,7 @@ body {
     {
       id: "tutino5", estante:"mexico_profundo", coverId: null,
       filePath: "Tutino/The-Bajio-Revolution.pdf",
-      deck: { slides: 18, label: "NotebookLM briefing — Maize Against Silver" },
+      deck: { slides: 20, label: "NotebookLM briefing — Maize Against Silver" },
       title: "The Bajío and the Onset of Mexico's Revolution of Independence",
       author: "John Tutino",
       year: 2016,
@@ -8379,7 +8454,7 @@ body {
       tags:["religion_sincretismo"],quotes:[]},
     {id:"bonialian",estante:"mexico_profundo",coverId:null,title:"El Pacífico Hispanoamericano",author:"Mariano Bonialian",year:2012,desc:"Comercio transpacífico y circulación de plata entre América y Asia a través del Galeón de Manila.",
       filePath: "Bonialian-El-Pacifico-Hispanoamericano.pdf",
-      deck: { slides: 14, label: "NotebookLM briefing — The Indian Lake Mirage" },
+      deck: { slides: 16, label: "NotebookLM briefing — The Indian Lake Mirage" },
       coverUrl: "https://http2.mlstatic.com/D_NQ_NP_786890-MLU70844707153_082023-O.webp",
       tesis:"El Galeón de Manila conectó América con Asia durante 250 años: plata mexicana viajaba a China a cambio de seda, porcelana y especias. Bonialian demuestra que el comercio transpacífico fue tan importante como el transatlántico — el Pacífico hispanoamericano fue una de las rutas comerciales más lucrativas del mundo. México fue el puente entre dos continentes.",
       ideas:["El Galeón de Manila transportó miles de toneladas de plata mexicana a Asia durante 250 años.","México fue el centro de un sistema comercial global: conectó Europa con Asia a través de la plata.","El comercio transpacífico fue tan importante como el transatlántico — la historia eurocéntrica lo borró."],
@@ -8388,7 +8463,7 @@ body {
       tags:["plata_colonial","mexico_mundo"],quotes:[{text:"Esta será la hipótesis central que intentaremos argumentar a lo largo del libro.",page:"p. 15"}]},
     {id:"wobeser",estante:"mexico_profundo",coverId:null,title:"El crédito eclesiástico en la Nueva España. Siglo XVIII",author:"Gisela von Wobeser",year:2010,desc:"Cómo la Iglesia fue el banco de la Nueva España: el sistema crediticio que financió la economía colonial.",
       filePath:"Von-Wobeser-Credito-Eclesiastico-Nueva-Espana.pdf",
-      deck: { slides: 10, label: "NotebookLM briefing — Colonial Church Finance" },
+      deck: { slides: 9, label: "NotebookLM briefing — Colonial Church Finance" },
       coverUrl: "https://covers.openlibrary.org/b/id/3827723-L.jpg",
       tesis:"La Iglesia católica fue la institución financiera central de la <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a> en el siglo XVIII — operó de facto como el banco del virreinato cuando no existían bancos. A través de mecanismos jurídicos diseñados para sortear la prohibición canónica de la usura (censo consignativo, depósito irregular), la Iglesia acumuló y prestó capitales enormes a un interés regulado de 5% anual. No fue inversión productiva orientada al desarrollo: fue una política rentista profundamente conservadora, dirigida a preservar capital con mínimo riesgo. Las órdenes religiosas (jesuitas especialmente) operaban haciendas que estaban entre las más productivas del virreinato. Tan profundamente quedó atada la propiedad colonial al crédito eclesiástico que cuando las Reformas Liberales del siglo XIX intentaron desmantelarlo, sacudieron toda la estructura económica del México independiente.",
       ideas:["La Iglesia funcionó como el banco de facto de la <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a> colonial — no había otros bancos hasta el siglo XIX.","La prohibición canónica de la usura era real, pero se sorteaba con ficciones jurídicas: censos consignativos (gravamen sobre bienes raíces con renta anual) y depósito irregular.","La tasa de interés no la fijaba el mercado sino la doctrina moral: máximo 5% anual, regulado por Iglesia y Corona.","La política de inversión era extremadamente conservadora: preservar capital, evitar riesgo, no financiar industria, comercio ni minería.","Los jesuitas operaban algunas de las haciendas más productivas del virreinato, generando ingresos que sostenían sus afamados colegios.","Para el siglo XVIII las mismas propiedades acumulaban múltiples capas de censos, generando un severo endeudamiento estructural de la propiedad colonial."],
@@ -8399,7 +8474,7 @@ body {
       quotes:[{text:"Las inversiones de capital eclesiástico no buscaron fomentar la producción o contribuir al desarrollo de la economía, ya que su finalidad fue meramente rentista. Por ello adoptaron una política inversionista conservadora, encaminada a asegurar al máximo el capital con un mínimo de riesgo.",page:"p. 52"},{text:"Otro aspecto económico en el que influyó la doctrina eclesiástica fue el interés, que se fijó con base en consideraciones morales y no conforme a la relación entre la oferta y la demanda. La Iglesia sostenía que el interés no debía exceder de un monto determinado... durante los siglos xvii y xviii fijó en 5% anual el máximo interés posible, en la Nueva España.",page:"p. 54"},{text:"Una de las características más importantes de las inversiones que se efectuaron mediante censo consignativo fue su amplia temporalidad, pues los capitales se mantenían invertidos durante periodos muy largos, que en muchos casos abarcaron varias décadas y aun siglos.",page:"p. 64"}]},
     {id:"comanche",estante:"mexico_profundo",coverId:null,title:"The Comanche Empire",author:"Pekka Hämäläinen",year:2008,desc:"Los comanches construyeron un imperio indígena que rivalizó con España y México.",
       filePath: "Comanche-Empire.pdf",
-      deck: { slides: 10, label: "NotebookLM briefing — The Comanche Empire" },
+      deck: { slides: 13, label: "NotebookLM briefing — The Comanche Empire" },
       coverUrl: "https://covers.openlibrary.org/b/id/2355853-L.jpg",
       tesis:"Los comanches no fueron 'tribus salvajes' sino constructores de un imperio indígena que dominó las Grandes Llanuras durante más de un siglo, rivalizando militarmente con España, México y <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;imperio_eeuu&quot;);},80);'>Estados Unidos</a>. Hämäläinen demuestra que los comanches tenían una economía compleja, diplomacia sofisticada y capacidad militar que impidió la expansión colonial española hacia el norte. La historia indígena incluye imperios.",
       ideas:["Los comanches construyeron un imperio real — con territorio, economía, diplomacia y ejército — que rivalizó con potencias europeas.","La 'frontera&quot;); event.stopPropagation();'>frontera</a>' colonial no fue solo expansión europea: fue negociación y conflicto con poderes indígenas formidables.","La historia indígena de Norteamérica incluye imperios que la narrativa colonial borró."],
@@ -8408,7 +8483,7 @@ body {
       tags:["civilizaciones_originarias","mexico_mundo"],quotes:[]},
     {id:"foster",estante:"revoluciones",coverId:null,title:"Outline Political History of the Americas",author:"William Z. Foster",year:1951,desc:"Historia política de las Américas desde perspectiva marxista: imperialismo, luchas de clases y movimientos revolucionarios.",
       filePath: "Foster-Outline-Political-History-Americas-1951.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — The Materialist Collision" },
+      deck: { slides: 20, label: "NotebookLM briefing — The Materialist Collision" },
       coverUrl: "https://covers.openlibrary.org/b/id/7009588-L.jpg",
       tesis:"Historia política continental escrita por el líder del Partido Comunista de Estados Unidos: desde las civilizaciones prehispánicas hasta el siglo XX, toda la historia de las Américas vista como <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;lucha_clases&quot;);},80);'>lucha de clases</a>, imperialismo y resistencia popular. Foster es el Zinn marxista de las Américas completas — un intento de narrar la historia continental desde la izquierda.",
       ideas:["La historia de las Américas es historia de imperialismo y resistencia — desde la conquista española hasta la hegemonía estadounidense.","Foster es la perspectiva marxista estadounidense sobre todo el continente — raro y valioso.","Las luchas de clases en las Américas tienen una unidad continental que la historiografía nacional fragmenta."],
@@ -8417,7 +8492,7 @@ body {
       tags:["imperialismo_contrahistoria","revoluciones_tercermundo"],quotes:[]},
     {id:"groverfurr",estante:"revoluciones",coverId:null,title:"Khrushchev Lied",author:"Grover Furr",year:2011,desc:"Análisis documental que cuestiona las acusaciones del Informe Secreto de Jrushchov contra Stalin.",
       filePath: "Grover-Furr-Khrushchev-Lied.pdf",
-      deck: { slides: 21, label: "NotebookLM briefing — Khrushchev Lied" },
+      deck: { slides: 17, label: "NotebookLM briefing — Khrushchev Lied" },
       coverUrl: "https://covers.openlibrary.org/b/id/13234381-L.jpg",
       tesis:"Furr analiza las 61 acusaciones específicas del Informe Secreto de Jrushchov (1956) contra Stalin y argumenta, con documentación de archivos soviéticos desclasificados, que la mayoría son falsas o distorsionadas. No es una defensa de Stalin sino una deconstrucción documental del texto que creó la 'leyenda negra'. El Informe Secreto fue un acto político de Jrushchov para legitimar su propio poder, no un acto de verdad histórica.",
       ideas:["El Informe Secreto de Jrushchov fue un acto político para legitimar el nuevo liderazgo, no un ejercicio de verdad histórica.","Furr usa archivos soviéticos desclasificados para cuestionar las acusaciones específicas — es análisis documental, no propaganda.","La 'leyenda negra' de Stalin se construyó sobre un documento que nunca fue verificado críticamente."],
@@ -8425,7 +8500,7 @@ body {
       tags:["leninismo_socialismo"],quotes:[],contexto:"Obra revisionista basada en archivos soviéticos desclasificados. La metodología de Furr ha sido criticada por selectiva, pero su contribución es demostrar que el Informe Secreto de Jrushchov nunca fue verificado críticamente por la academia occidental."},
     {id:"gustavobueno",estante:"filosofia",coverId:null,title:"España Frente a Europa",author:"Gustavo Bueno",year:1999,desc:"Filosofía materialista de la historia de España. Teoría del Imperio Generador vs. Imperio Depredador.",
       filePath: "Gustavo-Bueno-Espana-Frente-a-Europa.pdf",
-      deck: { slides: 16, label: "NotebookLM briefing — Spain's Ontological Blueprint" },
+      deck: { slides: 15, label: "NotebookLM briefing — Spain's Ontological Blueprint" },
       coverUrl: "https://covers.openlibrary.org/b/id/8443207-L.jpg",
       tesis:"Gustavo Bueno, filósofo materialista español, distingue entre 'imperios generadores' (que crean civilización mestiza, como el español) e 'imperios depredadores' (que solo extraen, como el británico). La tesis es polémica: reivindica el <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;imperio_espanol&quot;);},80);'>Imperio Español</a> como creador de civilización frente a la 'leyenda negra'. Es un argumento conservador pero intelectualmente serio que hay que conocer para debatir.",
       ideas:["La distinción imperio generador/depredador ilumina diferencias reales entre colonizaciones (española, británica, francesa).","El <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;imperio_espanol&quot;);},80);'>imperio español</a> creó sociedades mestizas; el británico creó apartheid — la diferencia importa.","Bueno es un conservador brillante: su argumento hay que conocerlo para refutarlo."],
@@ -8443,7 +8518,7 @@ body {
       tags:["filosofia_liberacion","marxismo_fundamentos"],quotes:[]},
     {id:"historiapueblo",estante:"mexico_profundo",coverId:null,title:"Historia del Pueblo Mexicano",author:"Varios",year:1980,desc:"Historia general de México desde las civilizaciones prehispánicas hasta el siglo XX, desde la perspectiva del pueblo.",
       filePath: "Historia-del-Pueblo-Mexicano.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — El Hilo de la Resistencia" },
+      deck: { slides: 19, label: "NotebookLM briefing — El Hilo de la Resistencia" },
       coverUrl: "https://m.media-amazon.com/images/I/61k3HVhmLvL._SY445_SX342_.jpg",
       tesis:"Historia general de México narrada desde la perspectiva del pueblo — no de las élites, los generales o los presidentes. De las civilizaciones prehispánicas al siglo XX, recorre los grandes momentos de la historia mexicana privilegiando las voces populares: campesinos, obreros, comunidades indígenas, mujeres.",
       ideas:["La historia de México contada desde abajo revela un país diferente al de los libros de texto.","Los pueblos no son espectadores de la historia — son sus protagonistas, aunque la historia oficial los silencie.","Una historia del pueblo necesita fuentes diferentes: no solo archivos oficiales sino tradición oral, corridos, testimonios."],
@@ -8461,7 +8536,7 @@ body {
 
     {id:"misericordia",estante:"mexico_profundo",coverId:null,title:"Misericordia: Apaches en Nueva España",author:"Varios",year:2010,desc:"La frontera norte como zona de guerra entre los pueblos apaches y el imperio español.",
       filePath: "Misericordia-Apaches-Nueva-Espana.pdf",
-      deck: { slides: 18, label: "NotebookLM briefing — Apache Shadows in New Spain" },
+      deck: { slides: 17, label: "NotebookLM briefing — Apache Shadows in New Spain" },
       tesis:"La frontera norte de la Nueva España fue zona de guerra permanente entre los pueblos apaches y el <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;imperio_espanol&quot;);},80);'>imperio español</a>. 'Misericordia' no era caridad cristiana sino el nombre de las campañas militares contra los apaches — un eufemismo que revela la brutalidad colonial. Los apaches no fueron 'salvajes' sino guerreros que defendieron su territorio durante siglos.",
       ideas:["La frontera norte de <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a> fue zona de guerra, no de 'civilización' — los apaches resistieron la conquista durante siglos.","Los apaches tenían organización militar, social y territorial sofisticada — no eran 'salvajes' sino naciones guerreras.","El eufemismo 'misericordia' para las campañas de exterminio revela la hipocresía de la colonización cristiana."],
       contexto:"Publicado alrededor de 2010, obra colectiva sobre la guerra apache en la frontera norte de <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a>. Documenta las campañas militares españolas contra los pueblos apaches, eufemísticamente llamadas de 'misericordia', que se extendieron durante los siglos XVII y XVIII en los actuales estados de Chihuahua, Sonora, Nuevo México y Arizona.",
@@ -8469,7 +8544,7 @@ body {
       tags:["civilizaciones_originarias","conquista_catastrofe"],quotes:[]},
     {id:"planayala",estante:"transformaciones",coverId:null,title:"Plan de Ayala",author:"Emiliano Zapata",year:1911,desc:"Documento revolucionario que exige la restitución de tierras a los pueblos. Base del agrarismo mexicano.",
       filePath: "Plan-de-Ayala-Zapata-1911.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — Plan de Ayala Blueprint" },
+      deck: { slides: 12, label: "NotebookLM briefing — Plan de Ayala Blueprint" },
       coverUrl: "https://static.wixstatic.com/media/9a9cc3_7626f388b9d343949375d41bff3291b9~mv2.jpg/v1/fill/w_980,h_1470,al_c,q_85,usm_0.66_1.00_0.01,enc_auto/9a9cc3_7626f388b9d343949375d41bff3291b9~mv2.jpg",
       tesis:"El Plan de Ayala es el programa agrario más radical de la <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;revolucion_mx&quot;);},80);'>Revolución Mexicana</a>: exige la restitución de tierras usurpadas a los pueblos y la expropiación de un tercio de las haciendas. Zapata lo redactó cuando rompió con Madero — a quien acusó de traicionar la revolución al no cumplir sus promesas de reforma agraria. 'Tierra y Libertad' no fue un slogan sino un programa concreto con artículos específicos.",
       ideas:["El Plan de Ayala no era utopía abstracta sino programa concreto con artículos ejecutables sobre restitución de tierras.","Zapata rompió con Madero porque la democracia formal sin justicia agraria era revolución a medias.","'Tierra y Libertad' resume todo: sin tierra no hay libertad para los pueblos campesinos."],
@@ -8478,7 +8553,7 @@ body {
       tags:["revolucion_3t"],quotes:[{text:"Los terrenos, montes y aguas que hayan usurpado los hacendados, científicos o caciques a la sombra de la tiranía y de la justicia venal, entrarán en posesión de esos bienes inmuebles desde luego los pueblos o ciudadanos que tengan sus títulos correspondientes.",page:"Artículo 6"}]},
     {id:"pomeranz",estante:"mexico_profundo",coverId:null,title:"The Great Divergence",author:"Kenneth Pomeranz",year:2000,
       filePath: "Pomeranz-Great-Divergence.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — Rethinking the Great Divergence" },
+      deck: { slides: 21, label: "NotebookLM briefing — Rethinking the Great Divergence" },
       coverUrl: "https://covers.openlibrary.org/b/id/442605-L.jpg",
       desc:"Por qué Europa y no China lideró la industrialización. La plata americana y el carbón inglés como factores decisivos.",
       tesis:"La 'Gran Divergencia' entre Europa y China no se debe a ninguna superioridad cultural, institucional o racional europea — hasta 1750, las regiones más desarrolladas de China (delta del Yangtzé) eran comparables o superiores a las de Europa (Inglaterra) en productividad, nivel de vida, expectativa de vida y sofisticación comercial. La divergencia se explica por dos accidentes geográficos: carbón accesible cerca de las ciudades inglesas, y acceso a los recursos del Nuevo Mundo (plata, azúcar, algodón) obtenidos mediante conquista colonial y esclavitud. Sin la plata de Potosí y el algodón de las plantaciones esclavistas, la Revolución Industrial inglesa no habría ocurrido. Europa no se adelantó por ser mejor — tuvo suerte geográfica y fue más violenta.",
@@ -8507,7 +8582,7 @@ body {
       tags:["revolucion_3t","religion_sincretismo"],quotes:[]},
     {id:"reedmexico",estante:"transformaciones",coverId:null,title:"México Insurgente",author:"John Reed",year:1914,desc:"Reportaje de guerra del periodista socialista que acompañó a Pancho Villa. Testimonio directo de la revolución.",
       filePath: "Reed-Mexico-Insurgente.pdf",
-      deck: { slides: 15, label: "NotebookLM briefing — México Insurgente" },
+      deck: { slides: 21, label: "NotebookLM briefing — México Insurgente" },
       coverUrl: "https://covers.openlibrary.org/b/id/14496383-L.jpg",
       tesis:"John Reed, el periodista socialista que después narraría la Revolución Rusa (Diez Días que Estremecieron al Mundo), acompañó a Pancho Villa durante la <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;revolucion_mx&quot;);},80);'>Revolución Mexicana</a> y escribió uno de los testimonios más vivos del conflicto. Reed vio la revolución mexicana desde las trincheras villistas — con la inmediatez del corresponsal de guerra y la simpatía del socialista comprometido.",
       ideas:["Reed es testigo directo de la revolución villista: narra lo que vio con inmediatez periodística.","El socialista que después narró la revolución rusa primero narró la mexicana — México antes que Rusia.","México Insurgente devuelve humanidad a los combatientes: no son estadísticas sino personas."],
@@ -8516,7 +8591,7 @@ body {
       tags:["revolucion_3t"],quotes:[{text:"La guerra y los rumores de guerra mantenían a Presidio en agitación.",page:"p. 5"}]},
     {id:"sentimientos",estante:"transformaciones",coverId:null,title:"Sentimientos de la Nación",author:"José María Morelos",year:1813,desc:"Documento fundacional del independentismo mexicano. Abolición de la esclavitud, soberanía popular, igualdad racial.",
       filePath: "Sentimientos-de-la-Nacion-Morelos.pdf",
-      deck: { slides: 16, label: "NotebookLM briefing — Architecture of the Insurgent State" },
+      deck: { slides: 14, label: "NotebookLM briefing — Architecture of the Insurgent State" },
       coverUrl: "https://http2.mlstatic.com/D_NQ_NP_772032-MLU71264533798_082023-O.webp",
       tesis:"Los Sentimientos de la Nación son el documento más radical de la Independencia mexicana: soberanía popular, abolición de la esclavitud, igualdad racial, moderación de la opulencia y la indigencia. Morelos fue más lejos que Hidalgo: no solo quiso independencia de España sino un programa social concreto. La frase 'que se moderen la opulencia y la indigencia' sigue siendo el programa de la justicia social en México — de Morelos a la 4T.",
       ideas:["Los Sentimientos de la Nación van más allá de la independencia política: proponen justicia social, igualdad racial y soberanía popular.","'Moderar la opulencia y la indigencia' es el programa de justicia social más antiguo de México — vigente hoy.","Morelos abolió la esclavitud y las castas antes que la mayoría de las naciones americanas."],
@@ -8525,7 +8600,7 @@ body {
       tags:["independencia_1t"],quotes:[{text:"Que la América es libre e independiente de España y de toda otra Nación, Gobierno o Monarquía, y que así se sancione dando al mundo las razones.",page:"Artículo 1"}]},
     {id:"madero",estante:"transformaciones",coverId:null,title:"La Sucesión Presidencial en 1910",author:"Francisco I. Madero",year:1908,desc:"Libro que detonó la Revolución Mexicana. Argumento contra la reelección de Díaz y por la democracia efectiva.",
       filePath: "Sucesion-Presidencial-1910-Madero.pdf",
-      deck: { slides: 10, label: "NotebookLM briefing — Madero’s Manifesto" },
+      deck: { slides: 12, label: "NotebookLM briefing — Madero’s Manifesto" },
       coverUrl: "https://covers.openlibrary.org/b/id/3986133-L.jpg",
       tesis:"El libro que detonó la <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;revolucion_mx&quot;);},80);'>Revolución Mexicana</a>: Madero, hacendado coahuilense, argumenta que 30 años de dictadura de Porfirio Díaz han degradado a la nación y que solo la democracia efectiva — sufragio libre, no reelección — puede salvar a México. No es un texto radical (Madero era liberal moderado, no socialista) pero fue la chispa que encendió un incendio que él mismo no pudo controlar. AMLO lo compara con su propia lucha contra el fraude electoral.",
       ideas:["Madero no era revolucionario sino liberal moderado: quería democracia, no revolución social.","El libro detonó una revolución más radical de lo que Madero imaginó — <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;taibovillazapata&quot;);'>Villa y Zapata</a> fueron más allá de la democracia formal.","AMLO se ha comparado con Madero: ambos enfrentaron a un régimen que no quería soltar el poder."],
@@ -8534,7 +8609,7 @@ body {
       tags:["revolucion_3t"],quotes:[]},
     {id:"tremlett",estante:"economia_poder",coverId:null,title:"Franco: A Biography",author:"Giles Tremlett",year:2020,desc:"Biografía del dictador español. Fascismo ibérico y sus conexiones con el imperialismo.",
       filePath: "Tremlett-Franco-Biography.epub",
-      deck: { slides: 20, label: "NotebookLM briefing — Forging the Caudillo" },
+      deck: { slides: 17, label: "NotebookLM briefing — Forging the Caudillo" },
       tesis:"Biografía actualizada de Franco que usa archivos desclasificados para retratar al dictador español sin la indulgencia de la historiografía franquista ni la caricatura de la anti-franquista. Franco no fue genio militar ni monstruo — fue un oportunista brutal que gobernó España 36 años con la complicidad de la iglesia, el ejército y las potencias occidentales. Su conexión con América Latina fue directa: los exiliados republicanos que recibió México huyeron de su dictadura.",
       ideas:["Franco fue un oportunista brutal que usó la iglesia, el ejército y las potencias occidentales para mantenerse 36 años.","El franquismo fue fascismo ibérico: no copia de Hitler sino versión propia basada en catolicismo nacional.","Los exiliados republicanos españoles que transformaron la cultura mexicana huyeron de Franco."],
       conexiones:[{bookId:"parentiblackshirts",razon:"Parenti analiza la relación fascismo-capitalismo; Franco es el caso ibérico."},{bookId:"taibofuego",razon:"Los anarcosindicalistas barceloneses que Taibo narra fueron los que Franco aplastó."}],
@@ -8591,7 +8666,7 @@ body {
       tags:["mexico_mundo","conquista_catastrofe"],quotes:[{text:"Who is an American? And what is America? These questions go back a long way.",page:"p. 19"}]},
     {id:"espejohaitiano",estante:"mexico_profundo",coverId:null,title:"En el Espejo Haitiano",author:"Varios",year:2009,desc:"La revolución haitiana como espejo y temor para las élites novohispanas. Rebeliones del Bajío y el Caribe.",
       filePath: "En-el-Espejo-Haitiano-Indios-Bajio.pdf",
-      deck: { slides: 21, label: "NotebookLM briefing — The Fractured Mosaic" },
+      deck: { slides: 15, label: "NotebookLM briefing — The Fractured Mosaic" },
       tesis:"La revolución haitiana de 1791-1804 — la única revolución exitosa de esclavos en la historia — sacudió al mundo colonial entero. Para las élites novohispanas fue una pesadilla: si los esclavos de Saint-Domingue podían destruir la colonia más rica del Caribe, ¿qué impedía que los indígenas y castas de <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a> hicieran lo mismo? El 'espejo haitiano' explica el terror que motivó tanto la represión colonial como, paradójicamente, la propia independencia criolla — las élites prefirieron independizarse antes que arriesgarse a un Haití mexicano.",
       ideas:["La revolución haitiana fue la única revolución exitosa de esclavos en la historia mundial — y la historiografía occidental la ha borrado.","El terror a 'otro Haití' motivó tanto la represión de las rebeliones del Bajío como la independencia criolla de 1821.","Hidalgo y Morelos fueron vistos por las élites como 'el Haití mexicano' — la revolución de castas que tanto temían."],
       contexto:"La revolución haitiana de 1791-1804 fue la única revolución exitosa de esclavos en la historia y produjo el primer Estado independiente de América Latina. Las élites novohispanas la vieron con terror: si los esclavos de Saint-Domingue pudieron, los indígenas y castas de <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;nueva_espana&quot;);},80);'>Nueva España</a> también. Este miedo condicionó la política colonial tardía.",
@@ -8601,7 +8676,7 @@ body {
     // ── AMLO ──
     {id:"amlo_mitad",estante:"transformaciones",coverId:null,title:"A la Mitad del Camino",author:"Andrés Manuel López Obrador",year:2021,
       filePath: "AMLO/A-la-Mitad-del-Camino.pdf",
-      deck: { slides: 19, label: "NotebookLM briefing — The 4T Sovereign Dossier" },
+      deck: { slides: 21, label: "NotebookLM briefing — The 4T Sovereign Dossier" },
       desc:"Informe de mitad de sexenio y manifiesto político. AMLO recorre TODOS los temas: soberanía económica contra el neoliberalismo, relación con Trump y respeto mutuo, el golpe en Bolivia como ejemplo de intervencionismo, la experiencia maderista como espejo de la oposición conservadora actual (1911-1913 = 2019-2021), la Guía Ética para la Transformación de México con sus 10 principios, la autosuficiencia energética, el sur de México como prioridad, y la memoria histórica como arma política. Conecta las cuatro transformaciones como hilo conductor: Independencia → Reforma → Revolución → 4T.",
       tesis:"El libro más completo de AMLO como presidente en funciones. A mitad del sexenio traza un mapa total de su proyecto: la 4T no es solo un programa de gobierno sino la continuación de tres siglos de lucha popular por la soberanía (Independencia, Reforma, Revolución). Presenta la Guía Ética como fundamento moral — con raíces en el cristianismo social y la tradición juarista — y usa la experiencia de Madero (1911-1913) como espejo de la oposición conservadora actual. El sur de México como prioridad, la autosuficiencia energética como soberanía, y la política exterior de no intervención como doctrina.",
       ideas:["Las cuatro transformaciones de México comparten una constante: la lucha del pueblo contra la oligarquía.","La oposición conservadora actual repite el patrón de 1911-1913: la misma prensa, los mismos intereses que destruyeron a Madero.","La Guía Ética fusiona tradición juarista con cristianismo social: justicia, amor al prójimo, austeridad republicana.","La política exterior se resume en Juárez: 'El respeto al derecho ajeno es la paz' — soberanía sin sumisión.","El neoliberalismo no fue solo política económica: fue un proyecto de destrucción del Estado y saqueo del patrimonio nacional."],
@@ -8613,7 +8688,7 @@ body {
     // ── BONFIL BATALLA ──
     {id:"bonfilhambre",estante:"mexico_profundo",coverId:null,title:"Diagnóstico sobre el Hambre en Sudzal, Yucatán",author:"Guillermo Bonfil Batalla",year:1962,desc:"Estudio antropológico sobre la pobreza y el hambre en comunidades mayas de Yucatán.",
       filePath: "Bonfil-Batalla/Diagnostico-sobre-el-Hambre-en-Sudzal-Yucatan.pdf",
-      deck: { slides: 12, label: "NotebookLM briefing — Radiografía del Hambre Sudzal" },
+      deck: { slides: 13, label: "NotebookLM briefing — Radiografía del Hambre Sudzal" },
       coverUrl: "https://clasicosycontemporaneosenantropologia.ciesas.edu.mx/wp-content/uploads/2021/09/PortadaDiagnostioSobreElHambreEnSudzal_Yucatan_UnEnsayoDeLaAntropologiaAplicada.png",
       tesis:"Uno de los primeros trabajos de campo de Bonfil Batalla&quot;); event.stopPropagation();'>Bonfil Batalla</a>: un estudio antropológico sobre las condiciones de pobreza y hambre en una comunidad maya de Yucatán. Documenta cómo el hambre no es un fenómeno natural sino el resultado de estructuras coloniales que persisten: despojo de tierras, monocultivo del henequén al servicio de hacendados, y exclusión de las comunidades indígenas de los beneficios del desarrollo. El joven Bonfil ya muestra aquí las semillas de lo que será su gran tesis del <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;bonfil&quot;);'>México Profundo</a>.",
       ideas:["El hambre en comunidades indígenas no es pobreza natural sino resultado de siglos de despojo territorial y explotación.","El monocultivo henequenero enriqueció a hacendados yucatecos mientras los mayas padecían hambre en sus propias tierras.","Ya en 1962 Bonfil detecta el patrón que desarrollará en '<a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;bonfil&quot;);'>México Profundo</a>': el México Imaginario crece a costa del México Profundo."],
@@ -8625,7 +8700,7 @@ body {
     {id:"antiduhring",
       coverUrl: "https://covers.openlibrary.org/b/id/14946268-L.jpg",estante:"fundamentos",coverId:null,title:"Anti-Dühring",author:"Friedrich Engels",year:1878,desc:"Exposición sistemática del marxismo: filosofía, economía política y socialismo.",
       filePath: "Engels/Anti-Duhring.pdf",
-      deck: { slides: 19, label: "NotebookLM briefing — The Duel of Paradigms" },
+      deck: { slides: 20, label: "NotebookLM briefing — The Duel of Paradigms" },
       tesis:"La exposición más completa y accesible del marxismo en vida de Marx&quot;); event.stopPropagation();'>Marx</a> y Engels. Escrito como polémica contra el profesor Dühring, el libro termina siendo un recorrido sistemático por las tres partes del marxismo: filosofía (materialismo dialéctico), economía política (teoría del valor y plusvalía) y socialismo (de utópico a científico). Marx revisó y aprobó el manuscrito — es la presentación 'oficial' del marxismo como sistema de pensamiento.",
       ideas:["El Anti-Dühring es la exposición más sistemática del marxismo: filosofía, economía y socialismo en un solo libro.","La dialéctica no es un método arbitrario sino el reflejo del movimiento real de la naturaleza y la sociedad.","El socialismo científico se distingue del utópico en que no inventa sociedades ideales sino que descubre las tendencias reales del capitalismo."],
       contexto:"Publicado entre 1877 y 1878 como serie de artículos en el Vorwärts, órgano del SPD. Marx revisó el capítulo de economía política y escribió uno propio. Eugen Dühring era un profesor de Berlín que ganaba popularidad entre los socialistas alemanes con un sistema filosófico propio; Engels lo refutó punto por punto, produciendo involuntariamente la exposición más completa del marxismo.",
@@ -8642,7 +8717,7 @@ body {
       tags:["marxismo_fundamentos"],quotes:[{text:"The condition of the working-class is the real basis and point of departure of all social movements of the present because it is the highest and most unconcealed pinnacle of the social misery existing in our day.",page:"p. 5"}]},
     {id:"engelsdialectica",estante:"fundamentos",coverId:null,title:"Dialectics of Nature",author:"Friedrich Engels",year:1883,desc:"Aplicación de la dialéctica materialista a las ciencias naturales.",
       filePath: "Engels/Dialectics-of-Nature.pdf",
-      deck: { slides: 19, label: "NotebookLM briefing — Dialectics of Nature" },
+      deck: { slides: 17, label: "NotebookLM briefing — Dialectics of Nature" },
       coverUrl: "https://covers.openlibrary.org/b/id/10748193-L.jpg",
       tesis:"Engels intenta demostrar que las leyes de la dialéctica no son un método filosófico impuesto a la naturaleza sino el reflejo del movimiento real de la materia. Transformación de cantidad en calidad, interpenetración de opuestos, negación de la negación — Engels encuentra estos patrones en la física, la química y la biología de su tiempo. Obra inacabada y polémica, pero fundamental para entender el materialismo dialéctico como cosmovisión.",
       ideas:["La dialéctica no es un invento filosófico sino el movimiento real de la naturaleza — Engels busca demostrarlo con ciencias naturales.","Las tres leyes de la dialéctica (cantidad-calidad, opuestos, negación) se manifiestan tanto en la sociedad como en la naturaleza.","La ciencia moderna confirma lo que la filosofía dialéctica anticipó: todo está en movimiento, todo se transforma."],
@@ -8651,7 +8726,7 @@ body {
       tags:["marxismo_fundamentos","filosofia_liberacion"],quotes:[{text:"All rigidity was dissolved, all fixity dissipated, all particularity that had been regarded as eternal became transient, the whole of nature shown as moving in eternal flux and cyclical course.",page:"p. 13"}]},
     {id:"engelsfeuerbach",estante:"fundamentos",coverId:null,title:"Ludwig Feuerbach and the End of Classical German Philosophy",author:"Friedrich Engels",year:1886,desc:"La superación del idealismo alemán y el nacimiento del materialismo histórico.",
       filePath: "Engels/Ludwig-Feuerbach.pdf",
-      deck: { slides: 20, label: "NotebookLM briefing — The Blueprint of Reality" },
+      deck: { slides: 15, label: "NotebookLM briefing — The Blueprint of Reality" },
       coverUrl: "https://covers.openlibrary.org/b/id/5739879-L.jpg",
       tesis:"Engels explica cómo Marx y él superaron la filosofía alemana: Hegel descubrió la dialéctica pero la envolvió en idealismo; Feuerbach recuperó el materialismo pero perdió la dialéctica. Marx unió ambos: materialismo dialéctico. La pregunta fundamental de toda filosofía — ¿qué es primero, la materia o la idea? — determina todo lo demás. La respuesta materialista: el ser social determina la conciencia, no al revés.",
       ideas:["La filosofía alemana culminó en Hegel y fue superada por Marx: de la dialéctica idealista al materialismo dialéctico.","La pregunta fundamental de toda filosofía es: ¿qué es primero, la materia o el espíritu? El materialismo responde: la materia.","Feuerbach fue el puente entre Hegel y Marx: recuperó el materialismo pero perdió la dialéctica y la historia."],
@@ -8682,7 +8757,7 @@ body {
       tags:["marxismo_fundamentos"],quotes:[{text:"The state is by no means a power imposed on society from without. It is a product of society at a certain stage of development.",page:"p. 177"}]},
     {id:"engelssocialism",estante:"fundamentos",coverId:null,title:"Socialism: Utopian and Scientific",author:"Friedrich Engels",year:1880,desc:"Distinción entre socialismo utópico y socialismo científico. Texto introductorio al materialismo histórico.",
       filePath: "Engels/Socialism-Is-A-Science.pdf",
-      deck: { slides: 14, label: "NotebookLM briefing — The Architecture of Juche" },
+      deck: { slides: 21, label: "NotebookLM briefing — The Architecture of Juche" },
       tesis:"El socialismo antes de Marx era utópico: Saint-Simon, Fourier y Owen imaginaban sociedades perfectas pero no explicaban cómo llegar a ellas ni por qué el capitalismo debía acabar. Marx transformó el socialismo en ciencia: descubrió la ley del plusvalor y el materialismo histórico, demostrando que el capitalismo produce sus propios sepultureros. El extracto más leído del <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;antiduhring&quot;);'>Anti-Dühring</a> y probablemente el mejor texto introductorio al marxismo jamás escrito.",
       ideas:["Los socialistas utópicos (Saint-Simon, Fourier, Owen) denunciaron la injusticia pero no descubrieron sus causas ni el mecanismo de cambio.","Marx convirtió el socialismo en ciencia al descubrir dos leyes: la concepción materialista de la historia y la plusvalía.","El socialismo científico no 'inventa' una sociedad ideal sino que descubre las tendencias del capitalismo que hacen posible y necesaria su superación."],
       contexto:"Extracto de tres capítulos del <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;antiduhring&quot;);'>Anti-Dühring</a>, publicado como folleto separado en 1880 por sugerencia de Paul Lafargue. Se tradujo a más idiomas que cualquier otro texto de Marx o Engels. Marx lo consideró la mejor introducción a su sistema de pensamiento. En muchos países fue el primer texto marxista disponible en lengua local.",
@@ -8692,7 +8767,7 @@ body {
     // ── ENRIQUE DUSSEL ──
     {id:"dussel14etica",estante:"filosofia",coverId:null,title:"14 Tesis de Ética",author:"Enrique Dussel",year:2016,desc:"Sistema ético desde la periferia: la vida como criterio material, la comunidad como criterio formal.",
       filePath: "Enrique-Dussel/14-Tesis-de-Etica.pdf",
-      deck: { slides: 14, label: "NotebookLM briefing — Architectures of Liberation" },
+      deck: { slides: 21, label: "NotebookLM briefing — Architectures of Liberation" },
       coverUrl: "https://covers.openlibrary.org/b/id/13724460-L.jpg",
       tesis:"Dussel condensa su <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;dusseletica&quot;);'>ética de la liberación</a> en 14 tesis accesibles: la ética no parte de principios abstractos sino de la vida concreta de las víctimas. El criterio material es la reproducción y desarrollo de la vida humana; el criterio formal es el consenso de la comunidad de afectados; el criterio de factibilidad exige que las acciones sean realizables. Una acción es ética cuando sirve a la vida de las víctimas, no cuando cumple una norma abstracta.",
       ideas:["La vida humana es el criterio material último de toda ética — lo que destruye la vida es antiético, independientemente de qué ley o principio lo justifique.","La comunidad de víctimas es el sujeto ético privilegiado: quienes sufren las consecuencias del sistema son quienes pueden juzgarlo.","La <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;dusseletica&quot;);'>ética de la liberación</a> no es relativista: tiene criterios universales (vida, consenso, factibilidad) pero los piensa desde la periferia."],
@@ -8701,7 +8776,7 @@ body {
       tags:["filosofia_liberacion"],quotes:[{text:"El pensamiento y la ética crítica parten de la proximidad originaria del sujeto ante el sujeto; o, antes aún, de un ser humano ante otro ser humano.",page:"p. 11"}]},
     {id:"dussel16economia",estante:"fundamentos",coverId:null,title:"16 Tesis de Economía Política",author:"Enrique Dussel",year:2014,desc:"Reinterpretación de la economía desde Marx y la periferia.",
       filePath: "Enrique-Dussel/16-Tesis-de-Economia-Politica.pdf",
-      deck: { slides: 19, label: "NotebookLM briefing — El Códice Biopolítico" },
+      deck: { slides: 18, label: "NotebookLM briefing — El Códice Biopolítico" },
       coverUrl: "https://http2.mlstatic.com/D_NQ_NP_732705-MLB85219789151_052025-O.webp",
       tesis:"Dussel relee la economía política de Marx desde América Latina en 16 tesis pedagógicas. La economía no es una ciencia neutral sino un campo de poder donde se decide quién vive y quién muere. La producción capitalista no produce 'riqueza' en abstracto: produce plusvalor para el capital a costa de la vida del trabajador. Desde la periferia, esta explotación se ve multiplicada por el colonialismo y el imperialismo.",
       ideas:["La economía es una cuestión de vida o muerte — no una ciencia técnica neutral sino el campo donde se decide la reproducción de la vida.","Marx no escribió 'economía' sino 'crítica de la economía política': su objeto no es el mercado sino la explotación que el mercado oculta.","Desde la periferia, la explotación capitalista se duplica: explotación de clase + explotación colonial/imperial."],
@@ -8710,7 +8785,7 @@ body {
       tags:["filosofia_liberacion","economia_politica","marxismo_fundamentos"],quotes:[]},
     {id:"dussel20politica",estante:"filosofia",coverId:null,title:"20 Tesis de Política",author:"Enrique Dussel",year:2006,desc:"La política como servicio al pueblo. Poder obediencial vs. fetichización del poder.",
       filePath: "Enrique-Dussel/20-Tesis-de-Politica.pdf",
-      deck: { slides: 16, label: "NotebookLM briefing — Cartography of Power" },
+      deck: { slides: 18, label: "NotebookLM briefing — Cartography of Power" },
       tesis:"La política es el ejercicio delegado del poder del pueblo, no un privilegio de los políticos. Dussel&quot;); event.stopPropagation();'>Dussel</a> distingue entre poder obediencial (el político obedece al pueblo que lo eligió) y poder fetichizado (el político usa el poder para sí mismo). La corrupción no es un defecto moral individual sino la fetichización estructural del poder: cuando el representante olvida que es servidor. Las 20 tesis ofrecen una arquitectónica política desde la periferia.",
       ideas:["Todo poder político es delegado: el pueblo es la fuente originaria del poder y el político es su servidor, no su dueño.","La fetichización del poder es la raíz de toda corrupción política: cuando el representante se cree la fuente del poder en lugar de su delegado.","La democracia participativa es superior a la representativa porque mantiene el control del pueblo sobre sus representantes."],
       contexto:"Publicado en 2006, durante el auge de los gobiernos progresistas latinoamericanos (Chávez&quot;); event.stopPropagation();'>Chávez</a>, Morales, Correa). El concepto 'poder obediencial' lo tomó Dussel del zapatismo: 'mandar obedeciendo'.",
@@ -8718,7 +8793,7 @@ body {
       tags:["filosofia_liberacion"],quotes:[{text:"La corrupción originaria de lo político, que denominaremos el fetichismo del poder, consiste en que el actor político cree poder afirmar a su propia subjetividad o a la institución en la que cumple alguna función como la sede o la fuente del poder político.",page:"p. 14"}]},
     {id:"dusselindignados",estante:"filosofia",coverId:null,title:"Carta a los Indignados",author:"Enrique Dussel",year:2011,desc:"Reflexión filosófica sobre los movimientos de protesta globales.",
       filePath: "Enrique-Dussel/Carta-a-los-Indignados.pdf",
-      deck: { slides: 21, label: "NotebookLM briefing — The New Democratic Blueprint" },
+      deck: { slides: 17, label: "NotebookLM briefing — The New Democratic Blueprint" },
       coverUrl: "https://imgv2-2-f.scribdassets.com/img/document/779371557/original/a59b419446/1?v=1",
       tesis:"Los movimientos de indignados (15-M español, Occupy Wall Street, primavera árabe) expresan una crisis de legitimidad del sistema político global: los pueblos ya no se sienten representados. Dussel interpreta estos movimientos desde la <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;dusselfilosofia&quot;);'>filosofía de la liberación</a>: la indignación es el primer momento ético — el rechazo del sistema por sus víctimas. Pero la indignación sola no basta: necesita proyecto político, organización y pensamiento estratégico.",
       ideas:["La indignación es el primer momento ético de la liberación: el 'no' de las víctimas ante un sistema que las excluye.","Los movimientos horizontales sin liderazgo son expresión legítima pero insuficiente: necesitan programa y organización.","La crisis de representación política no se resuelve con más elecciones sino con democracia participativa real."],
@@ -8727,7 +8802,7 @@ body {
       tags:["filosofia_liberacion"],quotes:[{text:"El pueblo es el actor colectivo que despierta del sueño alienante con el que el sistema lo adormece por medio de la propaganda de la mediocracia.",page:"p. 15"}]},
     {id:"dusselultimomarx",estante:"fundamentos",coverId:null,title:"El Último Marx y la Liberación Latinoamericana",author:"Enrique Dussel",year:1990,
       filePath: "Enrique-Dussel/El-Ultimo-Marx-y-la-Liberacion-Latinoamericana.pdf",
-      deck: { slides: 17, label: "NotebookLM briefing — The Hidden Architecture of Capital" },
+      deck: { slides: 14, label: "NotebookLM briefing — The Hidden Architecture of Capital" },
       coverUrl: "https://covers.openlibrary.org/b/id/3985295-L.jpg",
       desc:"El Marx tardío descubre la periferia: escritos sobre Rusia, India y las comunidades ancestrales.",
       tesis:"El Marx de los últimos años (1875-1883) no es el Marx del Capital sino un pensador que descubre la periferia colonial. Dussel demuestra que Marx tardío estudió intensamente Rusia, India, Argelia, las comunidades agrícolas precapitalistas y los pueblos indígenas — y llegó a cuestionar su propio eurocentrismo. En su famosa carta a Vera Zasúlich (1881), Marx sugirió que la comuna rural rusa podría pasar directamente al socialismo sin atravesar el capitalismo. Este 'último Marx' abre la puerta a pensar la liberación desde la periferia, no como repetición del camino europeo sino como camino propio. Dussel lee a Marx desde América Latina y encuentra un aliado inesperado en el Marx tardío.",
@@ -8758,7 +8833,7 @@ body {
       tags:["filosofia_liberacion"],quotes:[{text:"No pretende la Ética de la Liberación ser una filosofía crítica para minorías, ni para épocas excepcionales de conflicto o revolución. Se trata de una ética cotidiana, desde y en favor de las inmensas mayorías de la humanidad excluidas de la globalización.",page:"p. 15"}]},
     {id:"dusselfilosofia",estante:"filosofia",coverId:null,title:"Filosofía de la Liberación",author:"Enrique Dussel",year:1977,desc:"Manifiesto fundacional de la filosofía de la liberación latinoamericana. Pensar desde la periferia.",
       filePath: "Enrique-Dussel/Filosofia-de-la-Liberacion.pdf",
-      deck: { slides: 16, label: "NotebookLM briefing — Geometries of Liberation" },
+      deck: { slides: 21, label: "NotebookLM briefing — Geometries of Liberation" },
       tesis:"Manifiesto fundacional del movimiento filosófico más importante de América Latina. La filosofía europea piensa desde el centro del <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;sistema_mundo&quot;);},80);'>sistema-mundo</a>; la filosofía de la liberación piensa desde la periferia, desde los excluidos, desde el Otro. No se trata de 'aplicar' a Hegel&quot;); event.stopPropagation();'>Hegel</a> o Heidegger a la realidad latinoamericana sino de crear pensamiento propio a partir de la experiencia de la dominación y la resistencia. Filosofar es un acto político: o se piensa desde los opresores o se piensa desde los oprimidos.",
       ideas:["La filosofía occidental piensa desde el centro del <a class='ref-concept' onclick='event.stopPropagation(); showView(&quot;conceptos&quot;); setTimeout(function(){openConcepto(&quot;sistema_mundo&quot;);},80);'>sistema-mundo</a>: su 'universalidad' es en realidad particularidad europea disfrazada.","Filosofar desde la periferia no es aplicar conceptos europeos sino crear categorías propias desde la experiencia de la dominación.","La filosofía de la liberación es necesariamente política: pensar es un acto que o legitima el sistema o lo cuestiona."],
       contexto:"Publicado en 1977, en plena dictadura militar en Argentina. Dussel había sido expulsado de la Universidad de Cuyo por una bomba de la Triple A en su casa (1973) y se exilió en México. El libro nació de la experiencia directa de la persecución política — filosofar desde la periferia no era ejercicio académico sino cuestión de supervivencia.",
@@ -8767,7 +8842,7 @@ body {
     {id:"dusselsur",
       coverUrl: "https://covers.openlibrary.org/b/id/8990127-L.jpg",estante:"filosofia",coverId:null,title:"Filosofías del Sur",author:"Enrique Dussel",year:2015,desc:"Descolonización del pensamiento filosófico. Las filosofías del Sur Global como alternativa al eurocentrismo.",
       filePath: "Enrique-Dussel/Filosofias-del-Sur.pdf",
-      deck: { slides: 18, label: "NotebookLM briefing — Southern Epistemic Cartography" },
+      deck: { slides: 19, label: "NotebookLM briefing — Southern Epistemic Cartography" },
       tesis:"No existe 'la' filosofía — existen filosofías en plural, y las del Sur Global (China, India, África, América Latina, mundo islámico) fueron borradas por el relato eurocéntrico que presenta a Grecia como 'cuna' única del pensamiento. Dussel propone un diálogo intercultural Sur-Sur que recupere tradiciones filosóficas milenarias negadas por la modernidad colonial. La descolonización del pensamiento es condición necesaria de cualquier liberación real.",
       ideas:["La historia de la filosofía que va de Grecia a Alemania es un mito eurocéntrico: hubo pensamiento filosófico en China, India, Mesoamérica y África milenios antes de los griegos.","La descolonización intelectual es previa a la liberación política: no se puede liberar un pueblo con las categorías de su opresor.","El diálogo Sur-Sur es más urgente que el diálogo Norte-Sur: los pueblos del Sur tienen más que aprenderse entre sí que del Norte."],
       contexto:"Publicado en 2015. Representa el giro tardío de Dussel hacia el diálogo Sur-Sur: China, India, África, mundo islámico. Ya no se trata solo de la periferia latinoamericana sino de recuperar tradiciones filosóficas milenarias que el eurocentrismo borró.",
@@ -8818,7 +8893,7 @@ body {
       tags:["filosofia_liberacion","marxismo_fundamentos"],quotes:[{text:"El propósito de estas páginas es mostrar la significación de las metáforas teológicas usadas por Marx en su discurso económico-filosófico.",page:"p. 9"}]},
     {id:"dussellecciones",estante:"filosofia",coverId:null,title:"Lecciones de Filosofía de la Liberación",author:"Enrique Dussel",year:2019,desc:"Curso completo de filosofía de la liberación impartido en la UNAM.",
       filePath: "Enrique-Dussel/Lecciones-de-Filosofia-de-la-Liberacion.pdf",
-      deck: { slides: 10, label: "NotebookLM briefing — Architecture of Rupture" },
+      deck: { slides: 14, label: "NotebookLM briefing — Architecture of Rupture" },
       coverUrl: "https://images.cdn1.buscalibre.com/fit-in/360x360/bc/91/bc9120b4c060622f06e6b3c74bb16dd2.jpg",
       tesis:"El testamento intelectual de Dussel: un curso completo impartido en la UNAM donde recorre toda su trayectoria filosófica, desde las hipótesis de 1966 hasta la transmodernidad. Es la síntesis final de medio siglo de pensamiento de liberación, presentada con la claridad de quien sabe que está transmitiendo un legado. Incluye reflexiones sobre el estado actual de América Latina y el Sur Global.",
       ideas:["Medio siglo de <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;dusselfilosofia&quot;);'>filosofía de la liberación</a> condensado en lecciones accesibles: del encubrimiento del Otro a la transmodernidad.","La transmodernidad no es posmodernidad: no niega la modernidad sino la supera incluyendo lo que la modernidad excluyó.","La <a class='ref-book' onclick='event.stopPropagation(); openBook(&quot;dusselfilosofia&quot;);'>filosofía de la liberación</a> sigue siendo necesaria porque la dominación — colonial, capitalista, patriarcal — sigue vigente."],
@@ -8878,7 +8953,7 @@ body {
       tags:["economia_politica","mexico_mundo"],quotes:[{text:"Concebimos la historia de México como una sucesión de formaciones socioeconómicas, cada una de las cuales surge en el seno de la anterior.",page:"p. 13"}]},
     {id:"semocombates",estante:"filosofia",coverId:null,title:"Los Combates por la Historia y el Socialismo",author:"Enrique Semo",year:1981,desc:"Historiografía marxista y la construcción del socialismo en contexto latinoamericano.",
       filePath: "Enrique-Semo/Los-Combates-por-la-Historia-y-el-Socialismo.pdf",
-      deck: { slides: 19, label: "NotebookLM briefing — The Archivist's Blueprint" },
+      deck: { slides: 18, label: "NotebookLM briefing — The Archivist's Blueprint" },
       coverUrl: "https://simehbucket.s3.amazonaws.com/images/a8111493ea1455b770c644b98d29cf25-medium.jpg",
       tesis:"La historia no es neutral: es un campo de batalla donde se disputan visiones del pasado, del presente y del futuro. Semo reflexiona sobre el oficio del historiador marxista en América Latina y sobre la relación entre historiografía y proyecto socialista. Escribir historia desde el materialismo histórico es un acto político: elegir contar la historia desde las clases explotadas.",
       ideas:["La historiografía es un campo de batalla: cada versión de la historia sirve a intereses de clase.","El historiador marxista no es 'objetivo' — elige conscientemente narrar desde los oprimidos.","La relación entre historia y socialismo es bidireccional: el socialismo necesita historia y la historia necesita proyecto."],
@@ -9995,7 +10070,7 @@ body {
       tags:["marxismo_fundamentos","filosofia_liberacion"],quotes:[]},
 
     // ── WALTER RODNEY ──
-    { id:"mandela", deck:{slides:12, label:"NotebookLM briefing"}, estante:"revoluciones", coverId:null,
+    { id:"mandela", estante:"revoluciones", coverId:null,
       title:"Long Walk to Freedom", author:"Nelson Mandela", year:1994,
       filePath: "Nelson Mandela Long Walk to Freedom.pdf",
       pdfUrl: "https://zelalemkibret.wordpress.com/wp-content/uploads/2012/01/the-autobiography-of-nelson-mandela.pdf",
@@ -10014,7 +10089,7 @@ body {
         { text:"For to be free is not merely to cast off one's chains, but to live in a way that respects and enhances the freedom of others.", page:"p. 385" },
         { text:"The brave man is not he who does not feel afraid, but he who conquers that fear.", page:"p. 384" }
       ] },
-    {id:"rodney", deck:{slides:15, label:"NotebookLM briefing"},estante:"economia_poder",coverId:null,title:"How Europe Underdeveloped Africa",author:"Walter Rodney",year:1972,desc:"El subdesarrollo africano no es atraso natural sino producto directo de siglos de explotación europea.",
+    {id:"rodney",estante:"economia_poder",coverId:null,title:"How Europe Underdeveloped Africa",author:"Walter Rodney",year:1972,desc:"El subdesarrollo africano no es atraso natural sino producto directo de siglos de explotación europea.",
       filePath: "How-Europe-Underdeveloped-Africa-by-Recorded-Books-Inc.Rodney-Walter-z-lib.org_.pdf",
       pdfUrl: "https://arxiujosepserradell.cat/wp-content/uploads/2022/03/How-Europe-Underdeveloped-Africa-by-Recorded-Books-Inc.Rodney-Walter-z-lib.org_.pdf",
       coverUrl: "https://covers.openlibrary.org/b/id/14324926-L.jpg",
@@ -16110,7 +16185,7 @@ body {
     timelineEras.forEach(function(era){
       (era.events||[]).forEach(function(ev){
         (ev.citas||[]).forEach(function(c){
-          if(c.libro===bookId) out.push({year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color});
+          if(c.libro===bookId) out.push({year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color,libro:c.libro});
         });
       });
     });
@@ -16144,7 +16219,7 @@ body {
       (era.events||[]).forEach(function(ev){
         var hadCita=false;
         (ev.citas||[]).forEach(function(c){
-          if(ids[c.libro]){ hadCita=true; out.push({kind:'cita',year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color}); }
+          if(ids[c.libro]){ hadCita=true; out.push({kind:'cita',year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color,libro:c.libro}); }
         });
         if(!hadCita && needles.length){
           var t=tlNorm(ev.text||'');
@@ -16171,7 +16246,9 @@ body {
         '<span class="btl-ev">'+bhe(c.text)+'</span>'+
       '</button>';
     }).join('');
-    var mapBtn=opts.map?'<button type="button" class="btl-map" onclick="event.stopPropagation();btlOpenMap(\''+key+'\')" title="Ver en el mapa">◎</button>':'';
+    var mapBtn=opts.map?'<button type="button" class="btl-map" onclick="event.stopPropagation();btlOpenMap(\''+key+'\')" title="Ver en la línea del tiempo y el mapa" aria-label="Ver en la línea del tiempo y el mapa">'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.2a4.4 4.4 0 0 1 4.4 4.4c0 3.1-4.4 6.9-4.4 6.9S7.6 10.7 7.6 7.6A4.4 4.4 0 0 1 12 3.2z"/><circle cx="12" cy="7.6" r="1.5"/><path d="M4 19.2h16"/><path d="M8 19.2v-1.4M12 19.2v-1.4M16 19.2v-1.4"/></svg>'+
+    '</button>':'';
     return '<div class="booktl-premium" id="booktl-'+key+'">'+
       '<div class="booktl-showcase" onclick="bookTLShowcaseClick(\''+key+'\')" title="Desliza o usa ‹ › para cambiar · toca para ver la línea">'+
         '<span class="btl-badge">'+bhe(badge)+'</span>'+mapBtn+
@@ -16183,8 +16260,9 @@ body {
             '<span class="btlsc-plabel">'+bhe(label)+'</span>'+
             '<button type="button" class="btlsc-nav btlsc-next" onclick="event.stopPropagation();bookTLNav(\''+key+'\',1)" title="Siguiente">›</button>'+
           '</span>'+
-          '<span class="btlsc-hint">toca para ver la línea ▾</span>'+
+          '<span class="btlsc-hint">ver todas ▾</span>'+
         '</div>'+
+        '<span class="btlsc-timer"></span>'+
       '</div>'+
       '<div class="btl-rail" id="btl-rail-'+key+'" hidden>'+nodes+'</div>'+
     '</div>';
@@ -16215,6 +16293,22 @@ body {
       if(tries++<50) setTimeout(apply,120);
     })();
   }
+  // Link "p. N" → PDF en esa página (usa PDF_PAGE_OFFSET como el timeline).
+  function btlPagHref(libro,pagina){
+    var m=String(pagina||'').match(/(\d+)/); if(!m||!libro) return '';
+    var book=books.find(function(b){return b.id===libro;}); if(!book) return '';
+    if(IS_MOBILE && !(IS_ONLINE && book.pdfUrl)) return '';
+    var base=bookPdfBase(book); if(!base) return '';
+    var off=(typeof PDF_PAGE_OFFSET!=='undefined'&&PDF_PAGE_OFFSET[libro])||0;
+    return base+'#page='+(parseInt(m[1],10)+off);
+  }
+  // Barra de tiempo: reinicia la animación al ritmo de la cita actual.
+  function btlTimerRun(bookId,dur){
+    var host=document.getElementById('booktl-'+bookId);
+    var t=host&&host.querySelector('.btlsc-timer'); if(!t) return;
+    t.style.animation='none'; void t.offsetWidth;
+    if(dur) t.style.animation='btltick '+dur+'ms linear forwards';
+  }
   var __btlTimer=null,__btlIdx=0,__btlBook=null,__btlCitas=[],__btlPaused=false;
   function bookTLStop(){
     if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
@@ -16232,8 +16326,14 @@ body {
     var isM=(c.kind==='mencion');
     var body=isM?('<div class="btlsc-quote btlsc-mencion">'+bhe(q)+'</div>')
                 :('<div class="btlsc-quote">«'+bhe(q)+'»</div>');
-    var meta=isM?'<div class="btlsc-meta"><span class="btlsc-tag">mención</span></div>'
-                :(c.pagina?'<div class="btlsc-meta"><span class="btlsc-pag">'+bhe(c.pagina)+'</span></div>':'');
+    var meta;
+    if(isM){ meta='<div class="btlsc-meta"><span class="btlsc-tag">mención</span></div>'; }
+    else if(c.pagina){
+      var phref=btlPagHref(c.libro,c.pagina);
+      meta='<div class="btlsc-meta">'+(phref
+        ?'<a class="btlsc-paglink" href="'+phref+'" target="_blank" onclick="event.stopPropagation();" title="Abrir el PDF en esta página">'+bhe(c.pagina)+' ↗</a>'
+        :'<span class="btlsc-pag">'+bhe(c.pagina)+'</span>')+'</div>';
+    } else { meta=''; }
     sc.innerHTML='<div class="btlsc-head"><span class="btlsc-year btlmat-'+mat+'">'+bhe(tlYearLabel(c.year))+'</span>'+
       '<span class="btlsc-ev">'+bhe(c.text)+'</span></div>'+ body + meta;
     host.setAttribute('data-mat', mat);
@@ -16245,6 +16345,7 @@ body {
   function btlSchedule(bookId){
     var c=__btlCitas[__btlIdx]; var q=(c&&c.quote)||'';
     var dur=Math.min(13000, Math.max(5000, q.length*52));  // ritmo de lectura
+    btlTimerRun(bookId,dur);
     __btlTimer=setTimeout(function(){
       if(__btlBook!==bookId||__btlPaused) return;
       __btlIdx=(__btlIdx+1)%__btlCitas.length; btlRenderShowcase(bookId); btlSchedule(bookId);
@@ -16280,7 +16381,7 @@ body {
   function btlManual(bookId){
     if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
     btlRenderShowcase(bookId);
-    if(!__btlPaused) btlSchedule(bookId);
+    if(!__btlPaused) btlSchedule(bookId); else btlTimerRun(bookId,null);
   }
   function bookTLNav(bookId,dir){
     if(__btlBook!==bookId){ bookTLShowcaseStart(bookId); }
@@ -16297,7 +16398,7 @@ body {
     __btlPaused=!__btlPaused;
     var btn=document.querySelector('#booktl-'+bookId+' .btl-pause'); if(btn) btn.textContent=__btlPaused?'▶':'⏸';
     if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
-    if(!__btlPaused) btlSchedule(bookId);
+    if(!__btlPaused) btlSchedule(bookId); else btlTimerRun(bookId,null);
   }
   function bookTLExpand(bookId){
     var sec=document.getElementById('booktl-'+bookId);
@@ -16307,12 +16408,13 @@ body {
     if(rail.hasAttribute('hidden')){
       // Al abrir la línea pausamos la rotación para poder leer/navegar con calma.
       __btlPaused=true; if(__btlTimer){clearTimeout(__btlTimer);__btlTimer=null;}
+      btlTimerRun(bookId,null);
       rail.removeAttribute('hidden'); sec.classList.add('expanded');
-      if(hint) hint.textContent='ocultar la línea ▴';
+      if(hint) hint.textContent='ocultar ▴';
       btlRenderShowcase(bookId);   // resalta y desplaza a la cita actual en el riel
     } else {
       rail.setAttribute('hidden',''); sec.classList.remove('expanded');
-      if(hint) hint.textContent='toca para ver la línea ▾';
+      if(hint) hint.textContent='ver todas ▾';
       __btlPaused=false; btlSchedule(bookId);   // reanuda la rotación
     }
   }
@@ -16439,6 +16541,7 @@ body {
           '<div class="hero-slide-stack">' + imgsHTML + '</div>' +
           '<div class="hero-meta-overlay">' + heroMetaHTML + '</div>' +
           '<div class="hero-deck-counter">1 / '+book.deck.slides+'</div>' +
+          '<button class="hero-deck-voice" title="Narrar los slides">▶</button>' +
           '<div class="hero-deck-nav">' +
             '<button class="hero-deck-arrow" data-act="prev" title="Anterior">‹</button>' +
             '<button class="hero-deck-arrow" data-act="next" title="Siguiente">›</button>' +
@@ -16521,6 +16624,37 @@ body {
     });
   }
 
+  /* ── Narración de slides: texto por-slide extraído con OCR (Apple Vision)
+     a decks/<id>/narration.js (formato JS para funcionar en file:// y https).
+     Dos voces como el timeline: título (hombre) + cuerpo (mujer, Mónica). ── */
+  function deckNarrLoad(bid){
+    return new Promise(function(res,rej){
+      window.__DECKNARR = window.__DECKNARR || {};
+      if (__DECKNARR[bid]) return res(__DECKNARR[bid]);
+      var s=document.createElement('script');
+      s.src='decks/'+bid+'/narration.js';
+      s.onload=function(){ __DECKNARR[bid] ? res(__DECKNARR[bid]) : rej(new Error('vacío')); };
+      s.onerror=function(){ rej(new Error('sin narración')); };
+      document.head.appendChild(s);
+    });
+  }
+  function deckNarrVoices(){
+    var vs=(window.speechSynthesis&&speechSynthesis.getVoices())||[];
+    var es=vs.filter(function(v){ return /^es/i.test(v.lang||''); });
+    function prem(v){ return /premium|enhanced|neural|natural|siri/i.test(v.name||''); }
+    function pick(names){
+      for(var i=0;i<names.length;i++){
+        var hits=es.filter(function(v){ return (v.name||'').toLowerCase().indexOf(names[i])>=0; });
+        if(hits.length) return hits.find(prem)||hits[0];
+      }
+      var pool=es.filter(prem); pool=pool.length?pool:es;
+      var mx=pool.filter(function(v){ return /es[-_]mx/i.test(v.lang||''); });
+      return mx[0]||pool[0]||null;
+    }
+    return { title: pick(['juan','diego','carlos','jorge']),
+             body:  pick(['monica','mónica','paulina','soledad','marisol']) };
+  }
+
   /* Hero-deck cycling: the NotebookLM slides become the hero (full-width).
      Cover + title + author start overlaid on the first slide for ~5s,
      then transition down to a permanent caption below the deck. Hover
@@ -16547,18 +16681,66 @@ body {
     function advance(){ i = (i+1) % slides.length; show(i); }
     function start(){ stop(); if (!hoverPaused) timer = setInterval(advance, SLIDE_MS); }
     function stop(){ if (timer){ clearInterval(timer); timer = null; } }
-    function prev(){ i = (i-1+slides.length) % slides.length; show(i); if(!hoverPaused){ stop(); start(); } }
-    function next(){ advance(); if(!hoverPaused){ stop(); start(); } }
+    function prev(){ i = (i-1+slides.length) % slides.length; show(i); if(narrating){ narrSpeakCurrent(); } else if(!hoverPaused){ stop(); start(); } }
+    function next(){ i = (i+1) % slides.length; show(i); if(narrating){ narrSpeakCurrent(); } else if(!hoverPaused){ stop(); start(); } }
+
+    /* ── Narración por voz del slide actual, con auto-avance al terminar. ── */
+    const btnVoice = deckEl.querySelector('.hero-deck-voice');
+    let narrating = false;
+    function narrSpeakCurrent(){
+      if(!narrating) return;
+      try{ speechSynthesis.cancel(); }catch(e){}
+      var texts=(window.__DECKNARR||{})[bookId]||[];
+      var t=(texts[i]||'').trim();
+      if(!t){ setTimeout(narrAdvance, 400); return; }
+      var lines=t.split('\n');
+      var title=(lines.shift()||'').trim();
+      var body=lines.join('. ').replace(/\.\s*\./g,'.').replace(/\s+/g,' ').trim();
+      var v=deckNarrVoices(), us=[];
+      if(title){ var u1=new SpeechSynthesisUtterance(title); if(v.title)u1.voice=v.title; u1.rate=.98; u1.pitch=.9; us.push(u1); }
+      if(body){ var u2=new SpeechSynthesisUtterance(body); if(v.body)u2.voice=v.body; u2.rate=1.02; us.push(u2); }
+      if(!us.length){ setTimeout(narrAdvance, 400); return; }
+      us[us.length-1].onend=function(){ if(narrating) setTimeout(narrAdvance, 800); };
+      us.forEach(function(u){ speechSynthesis.speak(u); });
+    }
+    function narrAdvance(){
+      if(!narrating) return;
+      if(i>=slides.length-1){ narrStop(); return; }   // fin del deck
+      i=(i+1)%slides.length; show(i); narrSpeakCurrent();
+    }
+    function narrStart(){
+      if(!('speechSynthesis' in window)) return;
+      deckNarrLoad(bookId).then(function(){
+        // Silencia la narración del timeline si estaba sonando.
+        if(window.__tlStopNarration){ try{ __tlStopNarration(); }catch(e){} }
+        narrating=true; stop();
+        deckEl.classList.add('expanded');
+        btnVoice.textContent='■'; btnVoice.classList.add('on'); btnVoice.title='Detener narración';
+        narrSpeakCurrent();
+      }).catch(function(){
+        btnVoice.textContent='…'; btnVoice.title='Narración aún no generada para este deck';
+        setTimeout(function(){ btnVoice.textContent='▶'; }, 1600);
+      });
+    }
+    function narrStop(){
+      narrating=false;
+      try{ speechSynthesis.cancel(); }catch(e){}
+      if(btnVoice){ btnVoice.textContent='▶'; btnVoice.classList.remove('on'); btnVoice.title='Narrar los slides'; }
+      if(!hoverPaused) start();
+    }
+    if(btnVoice) btnVoice.onclick=function(e){ e.stopPropagation(); narrating?narrStop():narrStart(); };
+    deckEl._deckNarrStop = narrStop;
 
     btnPrev.onclick = (e) => { e.stopPropagation(); prev(); };
     btnNext.onclick = (e) => { e.stopPropagation(); next(); };
     deckEl.addEventListener('mouseenter', () => { hoverPaused = true; stop(); });
-    deckEl.addEventListener('mouseleave', () => { hoverPaused = false; start(); });
+    deckEl.addEventListener('mouseleave', () => { hoverPaused = false; if(!narrating) start(); });
 
     /* Click anywhere on the slide → fullscreen lightbox.
-       Skip if click was on the arrows. */
+       Skip if click was on the arrows or the voice button. */
     deckEl.addEventListener('click', (e) => {
-      if (e.target.closest('.hero-deck-arrow')) return;
+      if (e.target.closest('.hero-deck-arrow') || e.target.closest('.hero-deck-voice')) return;
+      if (narrating) narrStop();
       openDeckLightbox(bookId, slideCount, deckLabel);
     });
 
@@ -16609,7 +16791,7 @@ body {
           deckEl.classList.add('expanded');
           /* Now that the slide is fully visible (un-blurred), start the
              cycling so slide 1 gets the full 9s of clear display time. */
-          start();
+          if (!narrating) start();
           cleanupScroll();
         }
       }, META_REVEAL_MS);
@@ -16893,6 +17075,7 @@ body {
     if (heroDeck) {
       if (heroDeck._heroDeckKeyHandler) document.removeEventListener('keydown', heroDeck._heroDeckKeyHandler);
       if (heroDeck._heroDeckScrollHandler) heroDeck._heroDeckScrollHandler();
+      if (heroDeck._deckNarrStop) heroDeck._deckNarrStop();
     }
     bd.classList.remove('active');
     bd.style.display = 'none';
