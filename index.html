@@ -737,7 +737,7 @@ body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{
   /* Fluid to the stage cell's own width (cqi), floored at 23px so the hero
      headline is always a clear headline; capped at 40px so it never eats the
      stage on ultra-wide. Replaces the old vh clamp + per-breakpoint px. */
-  font-size:clamp(20px, 3cqi, 30px);line-height:1.08;
+  font-size:calc(clamp(20px, 3cqi, 30px) * var(--hl-scale, 1));line-height:1.08;
   font-weight:400; /* Alfa Slab One is single-weight; the cut is already heavy */
   text-transform:uppercase;letter-spacing:.5px;
   transition:transform .25s ease;
@@ -1326,7 +1326,7 @@ body.sidebar-fullscreen .sidebar .mag-empty{
   }
   /* Headline más contenido en este layout: 2 líneas deben caber entre la
      foto (20vh) y el thumbs-strip, si no la segunda línea se clipea. */
-  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:clamp(18px, 3cqi, 26px)}
+  body.sidebar-fullscreen .sidebar .mag-stage .mag-headline{font-size:calc(clamp(18px, 3cqi, 26px) * var(--hl-scale, 1))}
   /* La preview-strip duplica la navegación que ya dan los dots; ocultarla
      aquí devuelve ~95px al titular y al cuerpo del post. */
   body.sidebar-fullscreen .sidebar .mag-stage .mag-preview-strip{display:none !important}
@@ -3234,6 +3234,12 @@ if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').ca
     el.querySelector('.mag-headline').innerHTML = (_srcUrl && group!=='dailyt')
       ? `<a href="${esc(_srcUrl)}" target="_blank" rel="noopener noreferrer">${_hlFinal}</a>`
       : _hlFinal;
+    // Escala por longitud del headline (2026-07-23): los titulares de Mañanera
+    // son citas completas muy largas — a tamaño completo comían el layout.
+    // --hl-scale multiplica el clamp() de .mag-headline (desktop y ≤1100):
+    // ≤60 chars = 100%, ≤110 = 85%, ≤170 = 72%, más = 62%.
+    const _hlLen = el.querySelector('.mag-headline').textContent.trim().length;
+    el.style.setProperty('--hl-scale', _hlLen<=60 ? '1' : _hlLen<=110 ? '0.85' : _hlLen<=170 ? '0.72' : '0.62');
 
     // For Mañanera (dailyt) only, move the headline DOM into the hero-wrap so
     // it sits as an overlay (cream label-strip) at the bottom-edge of the
