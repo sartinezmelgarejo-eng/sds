@@ -1291,6 +1291,41 @@ body {
 .shelf-tab-sub { font-family: 'SF Mono',monospace; font-size: 8.5px; color: rgba(200,167,90,.65); margin-left: auto; letter-spacing: .5px; }
 .wall-tab-initial { display: inline-flex; align-items: center; justify-content: center; font-family: 'Cinzel',Georgia,serif; font-weight: 700; font-size: 13px; color: inherit; }
 
+/* ── Secciones de era con su material (Año + Muro): cada repisa toma el TONO
+   y el borde de su época (visible, no solo wash); el librero sigue en madera. ── */
+.wall-shelf[class*="mat-"] { border-radius: 8px; padding: 12px 14px 16px; margin-bottom: 26px; border-width: 1px; border-style: solid; }
+.wall-shelf.mat-cosmos { background:
+  radial-gradient(130% 100% at 85% -10%, rgba(122,82,192,.34), transparent 58%),
+  linear-gradient(179deg, rgba(30,40,84,.72), rgba(13,19,39,.78));
+  border-color: rgba(140,160,235,.38); }
+.wall-shelf.mat-primitiva { background:
+  linear-gradient(179deg, rgba(122,110,92,.66), rgba(84,74,62,.74));
+  border-color: rgba(215,200,165,.34); }
+.wall-shelf.mat-piedra { background:
+  linear-gradient(179deg, rgba(70,73,81,.72), rgba(42,46,52,.78));
+  border-color: rgba(175,182,192,.36); }
+.wall-shelf.mat-plata { background:
+  linear-gradient(179deg, rgba(168,175,182,.62), rgba(122,129,136,.72));
+  border-color: rgba(230,236,242,.42); }
+.wall-shelf.mat-madera { background:
+  linear-gradient(179deg, rgba(109,74,42,.68), rgba(61,39,20,.76));
+  border-color: rgba(215,175,115,.34); }
+.wall-shelf.mat-acero { background:
+  linear-gradient(179deg, rgba(88,93,100,.7), rgba(45,50,56,.78));
+  border-color: rgba(195,205,214,.34); }
+.wall-shelf.mat-digital { background:
+  linear-gradient(179deg, rgba(26,38,66,.74), rgba(10,14,26,.8));
+  border-color: rgba(115,175,255,.32); }
+.wall-shelf[class*="mat-"] .shelf-tab { box-shadow: 0 2px 7px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.12); }
+/* las tarjetas dentro de cada era heredan un sutil borde del tono de la era */
+.wall-shelf.mat-cosmos .wall-card { --wacc:#8fa4ff; }
+.wall-shelf.mat-primitiva .wall-card { --wacc:#d8cba6; }
+.wall-shelf.mat-piedra .wall-card { --wacc:#aab2bc; }
+.wall-shelf.mat-plata .wall-card { --wacc:#3a4046; }
+.wall-shelf.mat-madera .wall-card { --wacc:#d8b074; }
+.wall-shelf.mat-acero .wall-card { --wacc:#c3cdd6; }
+.wall-shelf.mat-digital .wall-card { --wacc:#7db8ff; }
+
 /* ── Muro de portadas (modo Muro) ────────────────────────────────────────── */
 .wall-wrap { display: block; }
 .wall-shelf { margin-bottom: 34px; }
@@ -17057,9 +17092,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     if (wallMode) {
       const wallHTML = groups.map(function(g) {
         const accent = g.color || (g.mat && MAT_STYLE[g.mat] ? MAT_STYLE[g.mat].hi : neutral);
+        const eraCls = (shelfMode === 'año' && g.mat) ? ' mat-' + g.mat : '';
+        const eraMat = (shelfMode === 'año' && g.mat && MAT_STYLE[g.mat]) ? MAT_STYLE[g.mat] : null;
+        // Década una sola vez: en Año el glyph ya es la etiqueta (1550s); en Temas/Autor, el glifo/initial
         const tabGlyph = g.sym
           ? '<svg class="shelf-tab-engrav" viewBox="0 0 24 24" aria-hidden="true"><use href="#sym-'+g.sym+'"/></svg>'
-          : '<span class="shelf-tab-engrav wall-tab-initial">'+(g.initial || g.label.charAt(0))+'</span>';
+          : (shelfMode === 'año' ? '' : '<span class="shelf-tab-engrav wall-tab-initial">'+(g.initial || g.label.charAt(0))+'</span>');
         const tabClick = g.onclick || 'void(0)';
         const cards = g.books.map(function(b) {
           var src = b.coverUrl || (b.coverId && coverImages[b.coverId]);
@@ -17072,8 +17110,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           return '<div class="wall-card wall-nocover" style="--wacc:'+accent+'" data-tip="'+safeTitle+'" onclick="openBook(\''+b.id+'\')">' +
             '<span class="wall-fb-title">'+b.title+'</span><span class="wall-fb-author">'+b.author+'</span></div>';
         }).join('');
-        return '<div class="bookcase-shelf wall-shelf" id="'+(g.letter ? 'az-'+g.letter : (g.mat ? 'era-'+g.mat+'-'+g.label : ''))+'">' +
-          '<div class="shelf-tab" style="--tab-color:'+accent+'" onclick="'+tabClick+'">' +
+        const tabStyle = eraMat
+          ? '--tab-color:'+accent+';background:linear-gradient(178deg,'+eraMat.hi+','+eraMat.lo+');color:'+eraMat.fg+';'
+          : '--tab-color:'+accent+';';
+        return '<div class="bookcase-shelf wall-shelf'+eraCls+'" id="'+(g.letter ? 'az-'+g.letter : (g.mat ? 'era-'+g.mat+'-'+g.label : ''))+'">' +
+          '<div class="shelf-tab" style="'+tabStyle+'" onclick="'+tabClick+'">' +
             tabGlyph +
             '<span class="shelf-tab-name">'+g.label+'</span>' +
             (g.sub ? '<span class="shelf-tab-sub">'+g.sub+'</span>' : '') +
