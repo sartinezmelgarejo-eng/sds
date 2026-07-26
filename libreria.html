@@ -1287,6 +1287,10 @@ body {
 .century-band.mat-digital .c-label { color:#e8f1ff; text-shadow:0 0 9px rgba(80,160,255,.6); }
 .century-band.mat-digital .c-line { color:#7fb2f0; }
 
+.shelf-switch-sep { height: 1px; margin: 4px 6px; background: rgba(200,167,90,.22); }
+.shelf-tab-sub { font-family: 'SF Mono',monospace; font-size: 8.5px; color: rgba(200,167,90,.65); margin-left: auto; letter-spacing: .5px; }
+.wall-tab-initial { display: inline-flex; align-items: center; justify-content: center; font-family: 'Cinzel',Georgia,serif; font-weight: 700; font-size: 13px; color: inherit; }
+
 /* ── Muro de portadas (modo Muro) ────────────────────────────────────────── */
 .wall-wrap { display: block; }
 .wall-shelf { margin-bottom: 34px; }
@@ -16755,6 +16759,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // Modo de agrupación de la librería: 'tema' (6 estantes), 'autor', 'año'.
   var shelfMode = 'tema';
   try { shelfMode = localStorage.getItem('libShelfMode') || 'tema'; } catch(e) {}
+  var wallMode = false;
+  try { wallMode = localStorage.getItem('libWallMode') === '1'; } catch(e) {}
+  function setWallMode(on){ wallMode = !!on; try{ localStorage.setItem('libWallMode', wallMode?'1':'0'); }catch(e){} shelfMode && setShelfMode(shelfMode); }
 
   function setShelfMode(mode) {
     shelfMode = mode;
@@ -17005,21 +17012,23 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     const modeCounts = {
       tema: estantes.length,
       autor: getShelfGroups('autor').length,
-      'año': getShelfGroups('año').length,
-      muro: books.filter(function(b){ return b.coverUrl || (b.coverId && coverImages[b.coverId]); }).length
+      'año': getShelfGroups('año').length
     };
-    const modeLabels = { tema: 'Temas', autor: 'Autor', 'año': 'Año', muro: 'Muro' };
+    const modeLabels = { tema: 'Temas', autor: 'Autor', 'año': 'Año' };
 
     // Switcher: botón de latón dentro del librero (esquina superior derecha)
     const switcher =
       '<div class="shelf-switch">' +
         '<button class="shelf-switch-btn" onclick="event.stopPropagation(); this.parentNode.classList.toggle(\'open\')">' +
-          modeLabels[shelfMode] + ' ▾</button>' +
+          modeLabels[shelfMode] + (wallMode ? ' · Muro' : '') + ' ▾</button>' +
         '<div class="shelf-switch-menu">' +
-          ['tema','autor','año','muro'].map(function(m) {
+          ['tema','autor','año'].map(function(m) {
             return '<button class="'+(shelfMode===m?'active':'')+'" onclick="event.stopPropagation(); setShelfMode(\''+m+'\')">' +
               '<span>'+modeLabels[m]+'</span><span class="cnt">'+modeCounts[m]+'</span></button>';
           }).join('') +
+          '<div class="shelf-switch-sep"></div>' +
+          '<button class="'+(wallMode?'active':'')+'" onclick="event.stopPropagation(); setWallMode(!wallMode)">' +
+            '<span>Muro de portadas</span><span class="cnt">'+(wallMode?'✓':'')+'</span></button>' +
         '</div>' +
       '</div>';
 
@@ -17046,10 +17055,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       '</div>';
     }
 
-    // ── Muro: pared de portadas por estante (mismo agrupado que Temas) ──
-    if (shelfMode === 'muro') {
+    // ── Muro: pared de portadas como ESTILO sobre cualquier agrupación
+    // (Temas, Autor o Año — la agrupación la decide shelfMode, la pared wallMode) ──
+    if (wallMode) {
       const wallHTML = groups.map(function(g) {
-        const accent = g.color || neutral;
+        const accent = g.color || (g.mat && MAT_STYLE[g.mat] ? MAT_STYLE[g.mat].hi : neutral);
+        const tabGlyph = g.sym
+          ? '<svg class="shelf-tab-engrav" viewBox="0 0 24 24" aria-hidden="true"><use href="#sym-'+g.sym+'"/></svg>'
+          : '<span class="shelf-tab-engrav wall-tab-initial">'+(g.initial || g.label.charAt(0))+'</span>';
+        const tabClick = g.onclick || 'void(0)';
         const cards = g.books.map(function(b) {
           var src = b.coverUrl || (b.coverId && coverImages[b.coverId]);
           var safeTitle = b.title.replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -17058,14 +17072,14 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
               '<img src="'+src+'" loading="lazy" decoding="async" alt="" onerror="this.parentNode.classList.add(\'wall-nocover\');this.remove()">' +
               '<span class="wall-title">'+b.title+'</span></div>';
           }
-          // sin portada: placa tipográfica con el acento del estante
           return '<div class="wall-card wall-nocover" style="--wacc:'+accent+'" data-tip="'+safeTitle+'" onclick="openBook(\''+b.id+'\')">' +
             '<span class="wall-fb-title">'+b.title+'</span><span class="wall-fb-author">'+b.author+'</span></div>';
         }).join('');
-        return '<div class="bookcase-shelf wall-shelf">' +
-          '<div class="shelf-tab" style="--tab-color:'+accent+'" onclick="'+g.onclick+'">' +
-            '<svg class="shelf-tab-engrav" viewBox="0 0 24 24" aria-hidden="true"><use href="#sym-'+g.sym+'"/></svg>' +
+        return '<div class="bookcase-shelf wall-shelf" id="'+(g.letter ? 'az-'+g.letter : (g.mat ? 'era-'+g.mat+'-'+g.label : ''))+'">' +
+          '<div class="shelf-tab" style="--tab-color:'+accent+'" onclick="'+tabClick+'">' +
+            tabGlyph +
             '<span class="shelf-tab-name">'+g.label+'</span>' +
+            (g.sub ? '<span class="shelf-tab-sub">'+g.sub+'</span>' : '') +
           '</div>' +
           '<div class="wall-grid">' + cards + '</div>' +
         '</div>';
