@@ -7,10 +7,8 @@
 ## Libros SIN fuente (necesitan que subas el PDF/epub)
 
 - **tutino3** — New Countries: Capitalism, Revolutions, and Nations in the Americas · John Tutino  _(filePath: —)_
-- **richards** — La Matanza de los Aztecas · Michael Richards  _(filePath: —)_
 - **katzvilla** — The Life and Times of Pancho Villa · Friedrich Katz  _(filePath: —)_
 - **gilly** — La Revolución Interrumpida · Adolfo Gilly  _(filePath: Gilly-La-Revolucion-Interrumpida.pdf)_
-- **taiboaura** — El Aura del Libertador · Paco Ignacio Taibo II  _(filePath: —)_
 - **taibozopilotes** — Temporada de Zopilotes · Paco Ignacio Taibo II  _(filePath: —)_
 - **gramsci** — Cuadernos de la Cárcel (Selección) · Antonio Gramsci  _(filePath: Gramsci-Prison-Notebooks.pdf)_
 - **rodney** — How Europe Underdeveloped Africa · Walter Rodney  _(filePath: Rodney-How-Europe-Underdeveloped-Africa.pdf)_
@@ -101,7 +99,7 @@
 | engelsfamilia | The Origin of the Family, Private  | Friedrich Engels | ✓ | ✅ deck (21) |
 | engelsfeuerbach | Ludwig Feuerbach and the End of Cl | Friedrich Engels | ✓ | ✅ deck (15) |
 | engelssocialism | Socialism: Utopian and Scientific | Friedrich Engels | ✓ | ✅ deck (21) |
-| espejohaitiano | En el Espejo Haitiano | Varios | ✓ | ✅ deck (15) |
+| espejohaitiano | En el Espejo Haitiano | Luis Fernando Granados | ✓ | ✅ deck (15) |
 | fidelantologia | Antología Mínima | Fidel Castro | ✓ | ⏳ por generar |
 | fidelcienhoras | Cien Horas con Fidel | Ignacio Ramonet | ✓ | ✅ deck (15) |
 | fidelcontraofensiva | La Contraofensiva Estratégica | Fidel Castro | ✓ | ✅ deck (18) |
@@ -212,7 +210,6 @@
 | realmbelow | The Realm Below: Speleoarchaeologi | Christophe Helmke (ed. | ✓ | ⏳ por generar |
 | redmexico | Red Mexico: Reign of Terror | Francis McCullagh | ✓ | ⏳ por generar |
 | reedmexico | México Insurgente | John Reed | ✓ | ✅ deck (21) |
-| richards | La Matanza de los Aztecas | Michael Richards | ✗ | ❌ sin filePath |
 | rodney | How Europe Underdeveloped Africa | Walter Rodney | ✗ | ❌ filePath roto |
 | rosalila | Protecting Sacred Space: Rosalila' | Ricardo Agurcia Fasque | ✗ | ❌ filePath roto |
 | rozat | América, Imperio del Demonio | Guy Rozat | ✓ | ✅ deck (20) |
@@ -244,7 +241,6 @@
 | stalinnational | Marxism and the National Question | Iósif Stalin | ✓ | ✅ deck (18) |
 | taibo68 | 68 — Tlatelolco | Paco Ignacio Taibo II | ✓ | ✅ deck (20) |
 | taiboarcangeles | Arcángeles: Doce Revolucionarios H | Paco Ignacio Taibo II | ✓ | ✅ deck (19) |
-| taiboaura | El Aura del Libertador | Paco Ignacio Taibo II | ✗ | ❌ sin filePath |
 | taibobolcheviques | Bolcheviques: Comunismo en México  | Paco Ignacio Taibo II | ✓ | ✅ deck (18) |
 | taiboescudero | Las Dos Muertes de Juan Escudero | Paco Ignacio Taibo II | ✓ | ✅ deck (18) |
 | taibofuego | Que Sean Fuego las Estrellas | Paco Ignacio Taibo II | ✓ | ✅ deck (19) |
@@ -268,7 +264,7 @@
 | tutino1 | Creando un Nuevo Mundo: Capitalism | John Tutino | ✓ | ✅ deck (17) |
 | tutino2 | Mexico and Mexicans in the Making  | John Tutino (ed.) | ✓ | ✅ deck (15) |
 | tutino3 | New Countries: Capitalism, Revolut | John Tutino | ✗ | ❌ sin filePath |
-| tutino4 | El Corazón de la Plata | John Tutino | ✓ | ✅ deck (16) |
+| tutino4 | El corazón de México | John Tutino | ✓ | ✅ deck (16) |
 | tutino5 | The Bajío and the Onset of Mexico' | John Tutino | ✓ | ✅ deck (20) |
 | villacanasfranco | La revolución pasiva de Franco | José Luis Villacañas B | ✓ | ✅ deck (20) |
 | villoro | Los Grandes Momentos del Indigenis | Luis Villoro | ✓ | ✅ deck (17) |
