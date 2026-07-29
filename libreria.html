@@ -7101,6 +7101,25 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     .ruta2-card { flex-direction:column; }
     .ruta2-coverbox { width:76px; }
   }
+
+  /* ── Atlas: navegación de grupos + secciones plegables ── */
+  .atlas-gnav { position:sticky; top:8px; z-index:30; display:flex; flex-wrap:wrap; gap:8px;
+    justify-content:center; padding:10px 12px; margin:0 auto 30px; max-width:980px;
+    background:color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter:blur(10px);
+    border:1px solid var(--border); border-radius:999px; }
+  .atlas-gnav-chip { padding:6px 14px; border-radius:999px; background:transparent;
+    border:1px solid rgba(200,169,96,.25); color:var(--text); font-size:12.5px; cursor:pointer;
+    transition:border-color .25s, background .25s; white-space:nowrap; }
+  .atlas-gnav-chip:hover { border-color:var(--gold); background:rgba(200,169,96,.08); }
+  .atlas-gnav-chip .cnt { color:var(--gold-dim); font-size:11px; margin-left:3px; }
+  .conceptos-group { scroll-margin-top:86px; }
+  .cg-toggle { margin-left:12px; padding:3px 12px; border-radius:999px; font-size:11px;
+    background:transparent; border:1px solid rgba(200,169,96,.3); color:var(--gold-dim);
+    cursor:pointer; vertical-align:middle; transition:border-color .25s, color .25s; }
+  .cg-toggle:hover { border-color:var(--gold); color:var(--gold); }
+  .cg-plegado .conceptos-grid { max-height:340px; overflow:hidden; position:relative; }
+  .cg-plegado .conceptos-grid::after { content:''; position:absolute; left:0; right:0; bottom:0;
+    height:110px; background:linear-gradient(180deg, transparent, var(--bg)); pointer-events:none; }
 </style>
 </head>
 <body>
@@ -19750,10 +19769,18 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     });
 
     var html = '<div class="view-transition">' +
-      '<div style="text-align:center;margin-bottom:40px;">' +
+      '<div style="text-align:center;margin-bottom:26px;">' +
         '<h2 style="font-family:Cormorant Garamond,serif;font-size:32px;font-weight:300;color:var(--gold);margin-bottom:8px;">Atlas</h2>' +
         '<p style="font-size:13px;color:var(--text-dim);max-width:600px;margin:0 auto;">Civilizaciones, imperios, naciones, ideas: todo lo que tu biblioteca sabe sobre cada uno.</p>' +
       '</div>';
+    // Navegación de grupos: chips pegajosos que saltan a cada sección.
+    var __navOrder = ['América','Eurasia','África y Medio Oriente','Global','Sistemas','México','Recursos','Ideas'];
+    var __navIcons = { 'América':'🌎', 'Eurasia':'🏛️', 'África y Medio Oriente':'🌍', 'Global':'🦅', Sistemas:'⚙️', 'México':'🇲🇽', Recursos:'🌾', Ideas:'💡' };
+    html += '<div class="atlas-gnav">' + __navOrder.filter(function(g){ return groups[g]; }).map(function(g){
+      var anchor = 'cg-' + g.replace(/[^A-Za-z]/g, '');
+      return '<button class="atlas-gnav-chip" onclick="document.getElementById(\'' + anchor + '\').scrollIntoView({behavior:\'smooth\',block:\'start\'})">' +
+             __navIcons[g] + ' ' + g + ' <span class="cnt">' + groups[g].length + '</span></button>';
+    }).join('') + '</div>';
 
     var groupOrder = ['América','Eurasia','África y Medio Oriente','Global','Sistemas','México','Recursos','Ideas'];
     var groupIcons = { 'América':'🌎', 'Eurasia':'🏛️', 'África y Medio Oriente':'🌍', 'Global':'🦅', Sistemas:'⚙️', 'México':'🇲🇽', Recursos:'🌾', Ideas:'💡' };
@@ -19939,8 +19966,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     groupOrder.forEach(function(gName) {
       var items = groups[gName];
       if (!items) return;
-      html += '<div class="conceptos-group">' +
-        '<h3 class="conceptos-group-title">' + (groupIcons[gName]||'') + ' ' + gName + '</h3>' +
+      var anchor = 'cg-' + gName.replace(/[^A-Za-z]/g, '');
+      var plegable = items.length > 6;
+      html += '<div class="conceptos-group' + (plegable ? ' cg-plegado' : '') + '" id="' + anchor + '">' +
+        '<h3 class="conceptos-group-title">' + (groupIcons[gName]||'') + ' ' + gName +
+          (plegable ? ' <button class="cg-toggle" onclick="var g=this.closest(\'.conceptos-group\');g.classList.toggle(\'cg-plegado\');this.textContent=g.classList.contains(\'cg-plegado\')?\'ver los ' + items.length + '\':\'plegar\';">ver los ' + items.length + '</button>' : '') +
+        '</h3>' +
         '<div class="conceptos-grid">';
       items.forEach(function(c) {
         var r = getConceptResults(c.id);
