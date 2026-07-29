@@ -16146,6 +16146,13 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     "Xi Jinping": "covers/authors/xi-jinping.jpg"
   };
   const autores = {
+    "Alexander von Humboldt": { bio: "Naturalista y explorador prusiano (1769-1859). Su viaje americano de cinco años produjo el Ensayo político sobre el reino de la Nueva España, retrato estadístico de la colonia en vísperas de la Independencia que los propios insurgentes leyeron.", years: "1769–1859" },
+    "Benito Juárez": { bio: "Abogado y presidente de México (1806-1872). Zapoteco de Guelatao, llegó a la presidencia y encabezó la Reforma y la resistencia contra la intervención francesa. Sus Apuntes para mis hijos son el relato de sí mismo que dejó escrito.", years: "1806–1872" },
+    "Andrés Molina Enríquez": { bio: "Abogado y sociólogo mexicano (1868-1940). Los grandes problemas nacionales (1909) diagnosticó la concentración de la tierra como el mal de raíz del porfiriato; su influencia se lee en el artículo 27 de la Constitución de 1917.", years: "1868–1940" },
+    "Bolívar Echeverría": { bio: "Filósofo ecuatoriano-mexicano (1941-2010). Desde la UNAM desarrolló la idea del ethos barroco: una manera latinoamericana de habitar la modernidad capitalista sin identificarse del todo con ella.", years: "1941–2010" },
+    "Alfredo López Austin y Leonardo López Luján": { bio: "Historiador y arqueólogo mexicanos, padre e hijo. López Austin (1936-2021) reconstruyó la cosmovisión mesoamericana desde las fuentes; López Luján (1964) dirige el Proyecto Templo Mayor. Juntos escribieron obras de síntesis sobre el pasado indígena.", years: "1936–2021 · 1964–" },
+    "Pekka Hämäläinen": { bio: "Historiador finlandés, profesor en Oxford. Su Comanche Empire reinterpretó a los comanches no como víctimas de la expansión, sino como una potencia que dominó el sur de Norteamérica y frenó por décadas a españoles, mexicanos y estadunidenses.", years: "1967–" },
+    "Carlos Marichal": { bio: "Historiador económico argentino-mexicano (1948), profesor de El Colegio de México. Especialista en deuda pública, crisis financieras y la circulación de la plata americana en la economía mundial.", years: "1948–" },
     "Enrique Semo": { bio: "Historiador marxista mexicano nacido en Sofía, Bulgaria (1930). Llegó a México niño, huyendo del nazismo. Su Historia del capitalismo en México reinterpretó el periodo colonial como acumulación originaria. Fue secretario de Cultura de la Ciudad de México.", years: "1930–" },
     "John Tutino": { bio: "Historiador estadunidense, profesor en Georgetown. Especialista en la historia agraria y económica de México. Sostiene que el Bajío fue un motor temprano del capitalismo global, no una periferia pasiva.", years: "1947–" },
     "Lucas Alamán": { bio: "Político e historiador mexicano (1792-1853). La figura intelectual del conservadurismo del siglo XIX: ministro varias veces, impulsor de la industria y autor de la monumental Historia de México, escrita desde la posición contraria a la de Mora.", years: "1792–1853" },
@@ -16194,18 +16201,32 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // Búsqueda tolerante de la ficha biográfica: un libro que dice 'V. I. Lenin'
   // debe encontrar la entrada guardada como 'V.I. Lenin'. Sin esto, 12 libros
   // de Lenin aparecían sin biografía.
+  // Normaliza un nombre de autor para buscar su ficha: quita acentos, roles
+  // entre paréntesis ('(ed.)', '(comp.)', '(presentación)') y todo lo que no
+  // sea letra. Así 'John Tutino (ed.)' encuentra la ficha de 'John Tutino'.
+  function __autorKey(x){
+    return String(x || '')
+      .replace(/\([^)]*\)/g, ' ')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/[^a-z]/g, '');
+  }
   var __autoresIdx = (function(){
     var ix = {};
-    Object.keys(autores).forEach(function(k){
-      ix[String(k).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'')] = k;
-    });
+    Object.keys(autores).forEach(function(k){ ix[__autorKey(k)] = k; });
     return ix;
   })();
   function autorInfo(nombre){
     if (!nombre) return null;
     if (autores[nombre]) return autores[nombre];
-    var k = __autoresIdx[String(nombre).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z]/g,'')];
-    return k ? autores[k] : null;
+    var k = __autoresIdx[__autorKey(nombre)];
+    if (k) return autores[k];
+    // Autoría compartida: 'A y B' / 'A & B' -> intenta con el primero.
+    var primero = String(nombre).split(/\s+(?:y|and|&|\/)\s+/i)[0];
+    if (primero && primero !== nombre) {
+      k = __autoresIdx[__autorKey(primero)];
+      if (k) return autores[k];
+    }
+    return null;
   }
 
   // ══════════════════════════════════════════════
