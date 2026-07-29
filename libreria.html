@@ -16952,6 +16952,39 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // Tema: { label, color, sym, books, onclick }
   // Autor: { label (nombre común), sub, letter, initial, books, onclick }
   // Año: { label, sub, initial, century, books, onclick:null }
+  // Época que el libro TRATA (no cuándo se publicó): la era donde cae la mayoría
+  // de sus citas en la línea del tiempo. Mediana de concentración: 75%.
+  var __epocaIdx = null;
+  function bookEpoca(bookId) {
+    // Ojo: `timelineEras` se define MÁS ABAJO en el archivo que esta función.
+    // Si el librero se pinta antes, el índice saldría vacío; por eso se
+    // reconstruye mientras siga vacío en vez de memoizar el hueco.
+    if (!__epocaIdx || !Object.keys(__epocaIdx).length) {
+      __epocaIdx = {};
+      if (typeof timelineEras !== 'undefined') {
+        var acc = {};
+        timelineEras.forEach(function(era, ei) {
+          (era.events || []).forEach(function(ev) {
+            (ev.citas || []).forEach(function(c) {
+              if (!c.libro) return;
+              if (!acc[c.libro]) acc[c.libro] = {};
+              acc[c.libro][ei] = (acc[c.libro][ei] || 0) + 1;
+            });
+          });
+        });
+        Object.keys(acc).forEach(function(b) {
+          var best = null, bn = -1, tot = 0;
+          Object.keys(acc[b]).forEach(function(ei) {
+            tot += acc[b][ei];
+            if (acc[b][ei] > bn) { bn = acc[b][ei]; best = parseInt(ei); }
+          });
+          __epocaIdx[b] = { era: best, n: bn, tot: tot };
+        });
+      }
+    }
+    return __epocaIdx[bookId] || null;
+  }
+
   function getShelfGroups(mode) {
     if (mode === 'autor') {
       var amap = {};
@@ -17000,6 +17033,31 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         return { label: g.label, sub: g.sub, letter: g.letter, initial: g.initial,
                  books: g.books, onclick: g.onclick, aname: g.aname || null };
       });
+    }
+    if (mode === 'epoca') {
+      var emap = {}, sinUb = [];
+      books.forEach(function(b) {
+        var e = bookEpoca(b.id);
+        if (!e || e.era == null) { sinUb.push(b); return; }
+        if (!emap[e.era]) emap[e.era] = [];
+        emap[e.era].push(b);
+      });
+      var out = Object.keys(emap).map(function(k) { return parseInt(k); }).sort(function(a, b) { return a - b; })
+        .map(function(ei) {
+          var era = timelineEras[ei] || {};
+          var list = emap[ei].slice().sort(function(x, y) {
+            var ex = bookEpoca(x.id), ey = bookEpoca(y.id);
+            return (ey ? ey.n : 0) - (ex ? ex.n : 0);
+          });
+          var lab = String(era.label || '').split('—')[0].trim();
+          return { label: lab, sub: list.length + (list.length === 1 ? ' libro' : ' libros'),
+                   initial: lab.charAt(0), books: list, onclick: null, color: era.color || null };
+        });
+      if (sinUb.length) {
+        out.push({ label: 'Sin citas en la línea', sub: sinUb.length + ' libros',
+                   initial: '?', books: sinUb, onclick: null });
+      }
+      return out;
     }
     if (mode === 'año') {
       var dmap = {};
@@ -17096,9 +17154,10 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     const modeCounts = {
       tema: estantes.length,
       autor: getShelfGroups('autor').length,
+      epoca: getShelfGroups('epoca').length,
       'año': getShelfGroups('año').length
     };
-    const modeLabels = { tema: 'Temas', autor: 'Autor', 'año': 'Año' };
+    const modeLabels = { tema: 'Temas', autor: 'Autor', epoca: 'Época', 'año': 'Publicación' };
 
     // Switcher: botón de latón dentro del librero (esquina superior derecha)
     const switcher =
@@ -17106,7 +17165,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         '<button class="shelf-switch-btn" onclick="event.stopPropagation(); this.parentNode.classList.toggle(\'open\')">' +
           modeLabels[shelfMode] + (wallMode ? ' · Muro' : '') + ' ▾</button>' +
         '<div class="shelf-switch-menu">' +
-          ['tema','autor','año'].map(function(m) {
+          ['tema','autor','epoca','año'].map(function(m) {
             return '<button class="'+(shelfMode===m?'active':'')+'" onclick="event.stopPropagation(); setShelfMode(\''+m+'\')">' +
               '<span>'+modeLabels[m]+'</span><span class="cnt">'+modeCounts[m]+'</span></button>';
           }).join('') +
