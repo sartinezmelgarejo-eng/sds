@@ -7050,6 +7050,57 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 .btl-node.btl-active .btl-ev { color: var(--text-bright, #e8dfc8); font-weight: 600; }
 :root.light .btl-node .btl-ev { color: #4a4030; }
 :root.light .btl-node.btl-active .btl-ev { color: #221c12; }
+
+  /* ── Rutas v2: recorrido con épocas ── */
+  .ruta2-arc { display:flex; align-items:center; justify-content:center; margin-top:16px; }
+  .ruta2-arc-seg { display:flex; align-items:center; }
+  .ruta2-arc-dot { width:11px; height:11px; border-radius:50%; background:var(--ac,#c8a960);
+    box-shadow:0 0 8px color-mix(in srgb, var(--ac,#c8a960) 55%, transparent); }
+  .ruta2-arc-line { width:26px; height:2px; background:linear-gradient(90deg, rgba(200,169,96,.4), rgba(200,169,96,.12)); margin:0 3px; }
+  .ruta2-arc-span { text-align:center; margin-top:8px; font-family:'SF Mono','Fira Code',monospace;
+    font-size:11px; letter-spacing:.6px; color:var(--text-dim); text-transform:uppercase; }
+  .ruta2-path { max-width:880px; margin:0 auto; }
+  .ruta2-step { display:flex; gap:18px; animation:fadeIn .45s ease both; }
+  .ruta2-rail { display:flex; flex-direction:column; align-items:center; width:40px; flex:none; }
+  .ruta2-num { width:36px; height:36px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel',serif; font-weight:700; font-size:15px; color:#f4ecd8;
+    background:radial-gradient(circle at 32% 28%, color-mix(in srgb, var(--ac,#c8a960) 68%, #1a1a2e), #14141f 78%);
+    border:1px solid color-mix(in srgb, var(--ac,#c8a960) 55%, transparent);
+    box-shadow:0 0 12px color-mix(in srgb, var(--ac,#c8a960) 30%, transparent); }
+  .ruta2-railline { flex:1; width:2px; min-height:34px; margin:6px 0;
+    background:linear-gradient(180deg, rgba(200,169,96,.45), rgba(200,169,96,.08)); }
+  .ruta2-card { flex:1; display:flex; gap:18px; background:var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:18px 20px; margin-bottom:26px; cursor:pointer;
+    transition:transform .35s cubic-bezier(.16,1,.3,1), border-color .35s, box-shadow .35s; }
+  .ruta2-card:hover { transform:translateY(-3px); border-color:rgba(200,169,96,.4);
+    box-shadow:0 12px 34px rgba(0,0,0,.45); }
+  .ruta2-coverbox { flex:none; width:92px; }
+  .ruta2-coverbox img, .ruta2-coverbox .book-cover-mini { width:92px !important; height:auto; border-radius:6px; }
+  .ruta2-body { flex:1; min-width:0; }
+  .ruta2-toprow { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .ruta2-chip { display:inline-block; padding:2px 10px; border-radius:999px; font-size:10px; letter-spacing:.4px;
+    text-transform:uppercase; color:#f0e8d4; background:color-mix(in srgb, var(--ac,#c8a960) 26%, #14141f);
+    border:1px solid color-mix(in srgb, var(--ac,#c8a960) 45%, transparent); }
+  .ruta2-year { font-family:'SF Mono','Fira Code',monospace; font-size:11px; color:var(--text-dim); }
+  .ruta2-title { font-family:'Cormorant Garamond',serif; font-size:21px; font-weight:600; color:var(--text);
+    margin:0 0 2px; line-height:1.2; }
+  .ruta2-author { font-size:12px; color:var(--gold-dim); margin-bottom:8px; }
+  .ruta2-reason { font-size:13px; color:var(--text); font-style:italic; margin-bottom:8px;
+    padding-left:10px; border-left:2px solid color-mix(in srgb, var(--ac,#c8a960) 50%, transparent); }
+  .ruta2-tesis { font-size:12.5px; color:var(--text-dim); line-height:1.55; margin-bottom:8px; }
+  .ruta2-quote { font-family:'Cormorant Garamond',serif; font-size:14.5px; font-style:italic;
+    color:color-mix(in srgb, var(--gold) 70%, #d4d0c8); line-height:1.5; }
+  .ruta2-next { max-width:880px; margin:14px auto 40px; text-align:center; padding-top:22px;
+    border-top:1px solid var(--border); }
+  .ruta2-next-t { font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--text-dim); margin-bottom:12px; }
+  .ruta2-next-chip { display:inline-block; margin:0 6px 8px; padding:8px 16px; border-radius:999px;
+    background:var(--surface); border:1px solid rgba(200,169,96,.35); color:var(--text); font-size:13px;
+    cursor:pointer; transition:border-color .3s, transform .3s; }
+  .ruta2-next-chip:hover { border-color:var(--gold); transform:translateY(-2px); }
+  @media (max-width: 640px) {
+    .ruta2-card { flex-direction:column; }
+    .ruta2-coverbox { width:76px; }
+  }
 </style>
 </head>
 <body>
@@ -23751,45 +23802,90 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     `;
   }
 
+  function rutaEraChip(bookId){
+    var e = (typeof bookEpoca==='function') ? bookEpoca(bookId) : null;
+    if (!e || e.era==null || typeof timelineEras==='undefined') return null;
+    var era = timelineEras[e.era]; if (!era) return null;
+    return { label: String(era.label||'').split('—')[0].trim(), color: era.color || 'var(--gold)', idx: e.era };
+  }
   function openRuta(rutaId) {
     const ruta = rutas.find(r => r.id === rutaId);
     if (!ruta) return;
-
     const detail = document.getElementById('ruta-detail');
+
+    // Arco de épocas: un nodo por paso, coloreado por la era que trata el libro
+    var chips = ruta.steps.map(function(st){ return rutaEraChip(st.bookId); });
+    var arcHTML = '';
+    if (chips.some(function(c){ return c; })) {
+      arcHTML = '<div class="ruta2-arc" title="Épocas que recorre esta ruta">' +
+        chips.map(function(c, i){
+          var col = c ? c.color : 'rgba(200,169,96,.25)';
+          var tip = c ? c.label : 'sin época';
+          return '<span class="ruta2-arc-seg"><span class="ruta2-arc-dot" style="--ac:'+col+'" title="'+tip+'"></span>'+
+                 (i < chips.length-1 ? '<span class="ruta2-arc-line"></span>' : '')+'</span>';
+        }).join('') +
+      '</div>';
+      // Sin línea de resumen: los libros panorámicos (Grandeza) tienen época
+      // dominante engañosa y el texto afirmaba rangos raros. Los puntos de
+      // color ya muestran el arco; cada uno trae su época en el tooltip.
+    }
 
     const stepsHTML = ruta.steps.map((step, i) => {
       const book = books.find(b => b.id === step.bookId);
       if (!book) return '';
       const coverHTML = getCoverHTML(book, 'small');
-
-      return `
-        <div class="ruta-step" style="animation-delay:${i * 0.08}s">
-          <div class="ruta-step-number">${i + 1}</div>
-          <div class="ruta-step-book" onclick="openBook('${book.id}')">
-            ${coverHTML}
-          </div>
-          <div class="ruta-step-info">
-            <h4>${book.title}</h4>
-            <div class="step-author">${book.author} · ${book.year}</div>
-            <div class="step-reason">${step.reason}</div>
-          </div>
-        </div>
-        ${i < ruta.steps.length - 1 ? '<div class="ruta-step-connector">↓</div>' : ''}
-      `;
+      var chip = chips[i];
+      var chipHTML = chip ? '<span class="ruta2-chip" style="--ac:'+chip.color+'">'+bhe(chip.label)+'</span>' : '';
+      var tesis = '';
+      if (book.tesis) {
+        var t = (typeof book.tesis === 'string') ? book.tesis : (book.tesis[0] || '');
+        t = String(t);
+        if (t.length > 220) t = t.slice(0, 218).replace(/\s+\S*$/, '') + '…';
+        tesis = '<div class="ruta2-tesis">' + bhe(t) + '</div>';
+      }
+      var quote = '';
+      if (book.quotes && book.quotes.length && book.quotes[0].text) {
+        var qt = String(book.quotes[0].text);
+        if (qt.length > 190) qt = qt.slice(0, 188).replace(/\s+\S*$/, '') + '…';
+        quote = '<div class="ruta2-quote">«' + bhe(qt) + '»</div>';
+      }
+      return '<div class="ruta2-step" style="animation-delay:'+(i*0.07)+'s">' +
+        '<div class="ruta2-rail"><div class="ruta2-num" style="--ac:'+(chip?chip.color:'var(--gold)')+'">'+(i+1)+'</div>'+
+          (i < ruta.steps.length-1 ? '<div class="ruta2-railline"></div>' : '')+'</div>' +
+        '<div class="ruta2-card" onclick="openBook(\''+book.id+'\')">' +
+          '<div class="ruta2-coverbox">'+coverHTML+'</div>' +
+          '<div class="ruta2-body">' +
+            '<div class="ruta2-toprow">'+chipHTML+'<span class="ruta2-year">'+bhe(String(book.year||''))+'</span></div>' +
+            '<h4 class="ruta2-title">'+bhe(book.title)+'</h4>' +
+            '<div class="ruta2-author">'+bhe(book.author||'')+'</div>' +
+            '<div class="ruta2-reason">'+bhe(step.reason||'')+'</div>' +
+            tesis + quote +
+          '</div>' +
+        '</div>' +
+      '</div>';
     }).join('');
 
-    detail.innerHTML = `
-      <div class="view-transition">
-        <button class="back-btn" onclick="closeRuta()">← Volver a rutas</button>
-        <div class="ruta-header">
-          <h2>${ruta.icon} ${ruta.title}</h2>
-          <div class="ruta-desc-detail">${ruta.desc}</div>
-        </div>
-        <div class="ruta-path">
-          ${stepsHTML}
-        </div>
-      </div>
-    `;
+    // Rutas relacionadas: comparten al menos un libro
+    var ids = {}; ruta.steps.forEach(function(st){ ids[st.bookId] = 1; });
+    var rel = rutas.filter(function(r2){
+      return r2.id !== ruta.id && r2.steps.some(function(st){ return ids[st.bookId]; });
+    }).slice(0, 3);
+    var relHTML = rel.length ? ('<div class="ruta2-next"><div class="ruta2-next-t">Si esta ruta te atrapó, sigue por</div>' +
+      rel.map(function(r2){
+        return '<button class="ruta2-next-chip" onclick="closeRuta();openRuta(\''+r2.id+'\')">'+r2.icon+' '+bhe(r2.title)+'</button>';
+      }).join('') + '</div>') : '';
+
+    detail.innerHTML =
+      '<div class="view-transition">' +
+        '<button class="back-btn" onclick="closeRuta()">← Volver a rutas</button>' +
+        '<div class="ruta-header">' +
+          '<h2>'+ruta.icon+' '+bhe(ruta.title)+'</h2>' +
+          '<div class="ruta-desc-detail">'+bhe(ruta.desc)+'</div>' +
+          arcHTML +
+        '</div>' +
+        '<div class="ruta2-path">' + stepsHTML + '</div>' +
+        relHTML +
+      '</div>';
 
     document.getElementById('rutas-view').style.display = 'none';
     detail.style.display = 'block';
