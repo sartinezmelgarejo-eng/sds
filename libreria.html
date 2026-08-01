@@ -17808,6 +17808,28 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   }
   // Habla un slide (título con voz A, cuerpo con voz B, idioma detectado).
   // Devuelve false si el slide no tiene texto. onEnd corre al terminar.
+  // Chrome corta las utterances largas (~15s) a mitad: el cuerpo se parte
+  // en chunks por oración encadenados, así onEnd llega solo al final real.
+  function deckNarrChunk(s, maxLen){
+    var sentences = s.match(/[^.!?]+[.!?]+["'\)\]]*\s*|[^.!?]+$/g) || [s];
+    var chunks = [], cur = '';
+    sentences.forEach(function(sen){
+      if (sen.length > maxLen){
+        if (cur.trim()){ chunks.push(cur.trim()); cur = ''; }
+        var words = sen.split(' ');
+        words.forEach(function(w){
+          if (cur && (cur + ' ' + w).length > maxLen){ chunks.push(cur.trim()); cur = ''; }
+          cur = cur ? cur + ' ' + w : w;
+        });
+      } else if (cur && (cur + sen).length > maxLen){
+        chunks.push(cur.trim()); cur = sen;
+      } else {
+        cur = cur ? cur + sen : sen;
+      }
+    });
+    if (cur.trim()) chunks.push(cur.trim());
+    return chunks;
+  }
   function deckNarrSpeak(bid, idx, onEnd){
     var texts=(window.__DECKNARR||{})[bid]||[];
     var t=(texts[idx]||'').trim();
@@ -17818,7 +17840,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     var lang=deckNarrLang(bid);
     var v=deckNarrVoices(lang), us=[], ul=(lang==='en'?'en-US':'es-MX');
     if(title){ var u1=new SpeechSynthesisUtterance(title); u1.lang=ul; if(v.title)u1.voice=v.title; u1.rate=.98; u1.pitch=.9; us.push(u1); }
-    if(body){ var u2=new SpeechSynthesisUtterance(body); u2.lang=ul; if(v.body)u2.voice=v.body; u2.rate=1.02; us.push(u2); }
+    if(body){
+      deckNarrChunk(body, 180).forEach(function(part){
+        var u2=new SpeechSynthesisUtterance(part); u2.lang=ul; if(v.body)u2.voice=v.body; u2.rate=1.02; us.push(u2);
+      });
+    }
     if(!us.length) return false;
     us[us.length-1].onend=function(){ if(onEnd) onEnd(); };
     us.forEach(function(u){ speechSynthesis.speak(u); });
@@ -22850,57 +22876,72 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           karaokeEl = container.querySelector('#tl-mapa-citas-layer .tl-mapa-floating-cita-text[data-cita-idx="' + seg.citaIdx + '"]');
           if (karaokeEl) { karaokeWrap(karaokeEl); wSpans = karaokeEl.querySelectorAll('.tlw'); wStarts = wordStartOffsets(seg.text); }
         }
-        var u = new SpeechSynthesisUtterance(seg.text);
-        _speakUtter = u;
-        u.rate = Math.min(4, 0.97 * playbackRate); u.pitch = ROLE_PITCH[seg.role] || 1;
-        var v = voiceForSegment(seg, vcache);
-        if (v) u.voice = v;
-        // Señala el idioma explícitamente (fuerza es/en aunque la voz tenga un
-        // lang raro) para que el motor no auto-detecte inglés en frases españolas.
-        u.lang = seg.lang === 'en'
-          ? (v && /^en/i.test(v.lang || '') ? v.lang : 'en-US')
-          : (v && /^es/i.test(v.lang || '') ? v.lang : 'es-MX');
-        // Karaoke: muchas voces "mejoradas/premium/Siri" (voces de red) NO disparan
-        // onboundary, así que el resaltado palabra-por-palabra se quedaba muerto.
-        // Usamos onboundary cuando existe (preciso) y, si no, un estimador por
-        // tiempo como respaldo para que el karaoke SIEMPRE avance.
-        var boundaryFired = false, kTimer = null, kStart = 0;
-        function clearKTimer() { if (kTimer) { clearInterval(kTimer); kTimer = null; } }
-        function paintUpto(upto) {
-          upto = Math.max(0, Math.min(upto, wSpans.length));
-          for (var k = 0; k < upto; k++) wSpans[k].classList.add('tlw-said');
-        }
-        if (wSpans && wStarts) {
-          u.onboundary = function(e) {
-            if (mySeq !== narrationSeq || (e.name && e.name !== 'word')) return;
-            boundaryFired = true; clearKTimer();  // onboundary es preciso → apaga el estimador
-            var ci = e.charIndex || 0, wi = 0;
-            while (wi < wStarts.length && wStarts[wi] <= ci) wi++;
-            paintUpto(wi);
+        // Chrome corta las utterances largas (~15s): se parte el segmento en
+        // chunks por oración encadenados, con el karaoke offset por palabra.
+        var chunks = deckNarrChunk(seg.text, 180);
+        var chunkWordBase = 0;
+        function speakNextChunk() {
+          if (mySeq !== narrationSeq) return;
+          if (!chunks.length) { step(); return; }
+          var ctext = chunks.shift();
+          var cWords = (ctext.match(/\S+/g) || []).length;
+          var u = new SpeechSynthesisUtterance(ctext);
+          _speakUtter = u;
+          u.rate = Math.min(4, 0.97 * playbackRate); u.pitch = ROLE_PITCH[seg.role] || 1;
+          var v = voiceForSegment(seg, vcache);
+          if (v) u.voice = v;
+          // Señala el idioma explícitamente (fuerza es/en aunque la voz tenga un
+          // lang raro) para que el motor no auto-detecte inglés en frases españolas.
+          u.lang = seg.lang === 'en'
+            ? (v && /^en/i.test(v.lang || '') ? v.lang : 'en-US')
+            : (v && /^es/i.test(v.lang || '') ? v.lang : 'es-MX');
+          // Karaoke: muchas voces "mejoradas/premium/Siri" (voces de red) NO disparan
+          // onboundary, así que el resaltado palabra-por-palabra se quedaba muerto.
+          // Usamos onboundary cuando existe (preciso) y, si no, un estimador por
+          // tiempo como respaldo para que el karaoke SIEMPRE avance.
+          var boundaryFired = false, kTimer = null, kStart = 0;
+          function clearKTimer() { if (kTimer) { clearInterval(kTimer); kTimer = null; } }
+          function paintUpto(upto) {
+            upto = Math.max(0, Math.min(upto, wSpans.length));
+            for (var k = 0; k < upto; k++) wSpans[k].classList.add('tlw-said');
+          }
+          if (wSpans && wStarts) {
+            var base = chunkWordBase;
+            var localStarts = [];
+            (function(){ var re = /\S+/g, m; while ((m = re.exec(ctext))) localStarts.push(m.index); })();
+            u.onboundary = function(e) {
+              if (mySeq !== narrationSeq || (e.name && e.name !== 'word')) return;
+              boundaryFired = true; clearKTimer();  // onboundary es preciso → apaga el estimador
+              var ci = e.charIndex || 0, wi = 0;
+              while (wi < localStarts.length && localStarts[wi] <= ci) wi++;
+              paintUpto(base + wi);
+            };
+            // Estimador por tiempo (respaldo). ~13 chars/seg de voz; espera 400ms
+            // de gracia para dejar ganar a onboundary si la voz sí lo soporta.
+            var estMs = Math.max(700, (ctext.length / 13) * 1000 / (u.rate || 1));
+            kStart = Date.now();
+            kTimer = setInterval(function() {
+              if (mySeq !== narrationSeq || boundaryFired) { clearKTimer(); return; }
+              var el = Date.now() - kStart;
+              if (el < 400) return;
+              var frac = el / estMs; if (frac > 1) frac = 1;
+              paintUpto(base + Math.round(frac * cWords));
+            }, 100);
+          }
+          u.onend = function() {
+            if (mySeq !== narrationSeq) { clearKTimer(); return; }
+            clearKTimer();
+            chunkWordBase += cWords;
+            if (wSpans) paintUpto(chunkWordBase); // completa el karaoke del chunk
+            speakNextChunk();
           };
-          // Estimador por tiempo (respaldo). ~13 chars/seg de voz; espera 400ms
-          // de gracia para dejar ganar a onboundary si la voz sí lo soporta.
-          var estMs = Math.max(700, (seg.text.length / 13) * 1000 / (u.rate || 1));
-          kStart = Date.now();
-          kTimer = setInterval(function() {
-            if (mySeq !== narrationSeq || boundaryFired) { clearKTimer(); return; }
-            var el = Date.now() - kStart;
-            if (el < 400) return;
-            var frac = el / estMs; if (frac > 1) frac = 1;
-            paintUpto(Math.round(frac * wSpans.length));
-          }, 100);
+          u.onerror = function() {
+            clearKTimer();
+            if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) speakNextChunk(); }, 250);
+          };
+          try { speechSynthesis.speak(u); speechSynthesis.resume(); } catch(e) {}
         }
-        u.onend = function() {
-          if (mySeq !== narrationSeq) { clearKTimer(); return; }
-          clearKTimer();
-          if (wSpans) paintUpto(wSpans.length); // completa el karaoke
-          step();
-        };
-        u.onerror = function() {
-          clearKTimer();
-          if (mySeq === narrationSeq) setTimeout(function() { if (mySeq === narrationSeq) step(); }, 250);
-        };
-        try { speechSynthesis.speak(u); speechSynthesis.resume(); } catch(e) {}
+        speakNextChunk();
       }
       // Speak SYNCHRONOUSLY (no setTimeout): desktop Chrome/Safari block speech
       // that isn't initiated directly inside the user-gesture call stack.
