@@ -20218,6 +20218,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         ev.style.display = visible ? '' : 'none';
         if (visible) anyVisible = true;
       });
+      // Eras con eventos aún no montados (lazy): no ocultarlas — sus eventos
+      // se filtran al montarse (mountEraEvents re-aplica el scope activo).
+      if (era.querySelector('.tl-events--lazy')) anyVisible = true;
       // Hide year-groups that have no visible events
       era.querySelectorAll('.tl-year-group').forEach(function(yg) {
         var hasVisible = false;
@@ -23320,6 +23323,66 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       timelineEventsSorted = true;
     }
 
+    // ── Vista/scope primero: en modo mapa no se construye el HTML de la lista ──
+    // (antes se construían los 11k eventos y se tiraban al despachar al mapa)
+    var tlScope = 'ambos';
+    try { tlScope = localStorage.getItem('tlScope') || 'ambos'; } catch(e) {}
+    // Default 'mapa' — this file is libreria.html (was libreria-mapa.html); the globe IS the point.
+    var tlVista = 'mapa';
+    try { tlVista = localStorage.getItem('tlVista') || 'mapa'; } catch(e) {}
+    // On phones the lista layout is cramped. The gameboy mobile shell
+    // (rendered inside the mapa view) is the phone experience — always
+    // force it. Desktop honors the user's toggle.
+    try {
+      if (window.matchMedia('(max-width: 768px)').matches) tlVista = 'mapa';
+    } catch(e) {}
+
+    // Dispatch to mapa view if selected — guarded so a render failure
+    // doesn't take down the whole page init.
+    if (tlVista === 'mapa') {
+      try {
+        renderTimelineMapaView(container, eras, tlScope);
+        return;
+      } catch (err) {
+        console.error('[mapa] render failed:', err);
+        container.innerHTML = '<div style="padding:30px; text-align:center; font-family: monospace; font-size: 12px; color: var(--text);">' +
+          '<div style="color:#c44; margin-bottom:10px; font-weight:bold;">Vista mapa falló al cargar</div>' +
+          '<div style="color: var(--text-dim); margin-bottom: 20px; word-break: break-word; max-width: 600px; margin-left: auto; margin-right: auto;">' +
+            (err && err.message ? err.message : String(err)) +
+          '</div>' +
+          '<button onclick="localStorage.setItem(\'tlVista\',\'lista\'); location.reload();" style="padding: 10px 20px; background: var(--gold); color: #0d0d1a; border:none; border-radius: 20px; cursor:pointer;">Volver a vista Lista</button>' +
+        '</div>';
+        return;
+      }
+    }
+
+    // ── Eventos por era: HTML completo solo al montar (lazy) ──
+    function buildEraEventsHTML(era, eraIdx) {
+      var yearGroups = [];
+      var currentYearGroup = null;
+      era.events.forEach(function(ev, i) {
+        var y = ev._date.year;
+        if (!currentYearGroup || currentYearGroup.year !== y) {
+          currentYearGroup = { year: y, events: [], indices: [] };
+          yearGroups.push(currentYearGroup);
+        }
+        currentYearGroup.events.push(ev);
+        currentYearGroup.indices.push(i);
+      });
+      return '<div class="tl-events">' +
+        yearGroups.map(function(grp) {
+          var yMark = formatYearMarker(grp.year);
+          var inner = grp.events.map(function(ev, k) {
+            return renderSingleEvent(ev, grp.indices[k], eraIdx);
+          }).join('');
+          return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
+            '<div class="tl-year-marker">' + yMark + '</div>' +
+            '<div class="tl-year-events">' + inner + '</div>' +
+          '</div>';
+        }).join('') +
+      '</div>';
+    }
+
     // ── Render ──
     let currentGroup = null;
     const erasHTML = eras.map((era, eraIdx) => {
@@ -23355,31 +23418,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }).join('');
 
 
-      // Group by year
-      var yearGroups = [];
-      var currentYearGroup = null;
-      era.events.forEach(function(ev, i) {
-        var y = ev._date.year;
-        if (!currentYearGroup || currentYearGroup.year !== y) {
-          currentYearGroup = { year: y, events: [], indices: [] };
-          yearGroups.push(currentYearGroup);
-        }
-        currentYearGroup.events.push(ev);
-        currentYearGroup.indices.push(i);
-      });
-
-      const eventsBlock = '<div class="tl-events">' +
-        yearGroups.map(function(grp) {
-          var yMark = formatYearMarker(grp.year);
-          var inner = grp.events.map(function(ev, k) {
-            return renderSingleEvent(ev, grp.indices[k], eraIdx);
-          }).join('');
-          return '<div class="tl-year-group" data-year="' + (grp.year ?? '?') + '">' +
-            '<div class="tl-year-marker">' + yMark + '</div>' +
-            '<div class="tl-year-events">' + inner + '</div>' +
-          '</div>';
-        }).join('') +
-      '</div>';
+      // Eventos: shell lazy — el contenido se monta al acercarse al viewport
+      // (observer abajo). min-height estima la altura para no brincar el scroll.
+      const eventsBlock = '<div class="tl-events tl-events--lazy" data-era-idx="' + eraIdx + '" style="min-height:' + Math.round(era.events.length * 46) + 'px"></div>';
 
       return groupHeader + '<div class="tl-era" data-era-key="' + (era.key || '') + '" data-era-years="' + era.years + '" data-era-label="' + era.label.replace(/"/g,'&quot;') + '" style="--era-color:' + era.color + '">' +
         '<div class="tl-era-marker">' +
@@ -23398,37 +23439,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       '</div>';
     }).join('');
 
-    // Scope filter — read persisted choice, default 'ambos'
-    var tlScope = 'ambos';
-    try { tlScope = localStorage.getItem('tlScope') || 'ambos'; } catch(e) {}
-    // Default 'mapa' — this file is libreria.html (was libreria-mapa.html); the globe IS the point.
-    var tlVista = 'mapa';
-    try { tlVista = localStorage.getItem('tlVista') || 'mapa'; } catch(e) {}
-    // On phones the lista layout is cramped. The gameboy mobile shell
-    // (rendered inside the mapa view) is the phone experience — always
-    // force it. Desktop honors the user's toggle.
-    try {
-      if (window.matchMedia('(max-width: 768px)').matches) tlVista = 'mapa';
-    } catch(e) {}
-
-    // Dispatch to mapa view if selected — guarded so a render failure
-    // doesn't take down the whole page init.
-    if (tlVista === 'mapa') {
-      try {
-        renderTimelineMapaView(container, eras, tlScope);
-        return;
-      } catch (err) {
-        console.error('[mapa] render failed:', err);
-        container.innerHTML = '<div style="padding:30px; text-align:center; font-family: monospace; font-size: 12px; color: var(--text);">' +
-          '<div style="color:#c44; margin-bottom:10px; font-weight:bold;">Vista mapa falló al cargar</div>' +
-          '<div style="color: var(--text-dim); margin-bottom: 20px; word-break: break-word; max-width: 600px; margin-left: auto; margin-right: auto;">' +
-            (err && err.message ? err.message : String(err)) +
-          '</div>' +
-          '<button onclick="localStorage.setItem(\'tlVista\',\'lista\'); location.reload();" style="padding: 10px 20px; background: var(--gold); color: #0d0d1a; border:none; border-radius: 20px; cursor:pointer;">Volver a vista Lista</button>' +
-        '</div>';
-        return;
-      }
-    }
+    // (scope/vista se leen y el dispatch a mapa se hace ANTES del render, arriba)
 
     container.innerHTML = '<div class="view-transition">' +
       '<div style="text-align:center;margin-bottom:24px;">' +
@@ -23448,6 +23459,33 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       '</div>' +
       '<div class="tl-timeline" data-scope="' + tlScope + '">' + erasHTML + '</div>' +
     '</div>';
+
+    // ── Montaje lazy de eventos por era: se montan al acercarse, nunca se desmontan ──
+    function mountEraEvents(eraIdx) {
+      var el = container.querySelector('.tl-events--lazy[data-era-idx="' + eraIdx + '"]');
+      if (!el) return;
+      el.outerHTML = buildEraEventsHTML(eras[eraIdx], eraIdx);
+      // Re-aplicar el scope activo para que los eventos recién montados respeten el filtro
+      var tlEl = container.querySelector('.tl-timeline');
+      var sc = tlEl ? tlEl.getAttribute('data-scope') : 'ambos';
+      if (sc && sc !== 'ambos') applyTimelineScope(container, sc);
+    }
+    if ('IntersectionObserver' in window) {
+      var eraObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(en) {
+          if (en.isIntersecting) {
+            mountEraEvents(+en.target.getAttribute('data-era-idx'));
+            eraObserver.unobserve(en.target);
+          }
+        });
+      }, { rootMargin: '1500px 0px' });
+      container.querySelectorAll('.tl-events--lazy').forEach(function(el) { eraObserver.observe(el); });
+    } else {
+      // Sin observer: montar todo de una vez (comportamiento clásico)
+      container.querySelectorAll('.tl-events--lazy').forEach(function(el) {
+        mountEraEvents(+el.getAttribute('data-era-idx'));
+      });
+    }
 
     // Apply initial scope filter
     applyTimelineScope(container, tlScope);
