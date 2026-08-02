@@ -7206,9 +7206,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-shuffle:hover { color: var(--gold); }
   .tlp-shuffle:hover { border-color: var(--gold); }
 
-  /* Cuadrantes en órbita: una sola cosa por cuadrante */
-  .tlp-zone-per { left: 2.5%; top: 12%; width: 24%; height: 36%; }
-  .tlp-zone-aut2 { left: 2.5%; top: 52%; width: 24%; height: 32%; }
+  /* Órbita de esferas: overlay de todo el dash; cada burbuja centrada en su punto */
+  .tlp-orbits { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  .tlp-orbits .tlp-bubble { pointer-events: auto; transform: translate(-50%,-50%); }
+  .tlp-orbits .tlp-bubble:hover { z-index: 7; }
+  .tlp-orbits .tlp-bubble-n { position: absolute; right: calc(100% + 10px); top: 50%;
+    transform: translateY(-50%); width: 130px; text-align: right; margin-top: 0; }
   .tlp-bubble { position: absolute; width: var(--bs, 60px); background: none; border: 0;
     cursor: pointer; padding: 0; text-align: center;
     animation: tlpFloat 7s ease-in-out infinite; }
@@ -7265,7 +7268,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     text-overflow: ellipsis; white-space: nowrap; }
   .tlp-line-y { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
 
-  .tlp-zone-rutas { left: 50%; bottom: 13.5%; transform: translateX(-50%); width: min(640px, 44%);
+  .tlp-zone-rutas { left: 50%; bottom: 13.5%; transform: translateX(-50%); width: min(600px, 40%);
     display: flex; flex-direction: column; gap: 9px; z-index: 5; }
   .tlp-bar { position: relative; display: flex; align-items: center; overflow: hidden;
     min-height: 68px; text-align: left; cursor: pointer;
@@ -7338,10 +7341,14 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     .tl-portada-mode .tl-mapa-view.tlp-view { height: auto; min-height: 0; overflow: visible; }
     .tlp-dash { position: static; padding: 10px 14px 26px; }
     .tlp-stage { display: none; }
-    .tlp-top, .tlp-zone, .tlp-zone-per, .tlp-zone-aut2, .tlp-zone-lib,
+    .tlp-top, .tlp-zone, .tlp-zone-lib,
     .tlp-zone-rutas, .tlp-zone-terms { position: static; transform: none; width: 100%; height: auto; }
     .tlp-zone { margin-top: 18px; }
-    .tlp-zone-per, .tlp-zone-aut2, .tlp-zone-lib { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
+    .tlp-orbits { position: static; display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
+      margin-top: 18px; pointer-events: auto; }
+    .tlp-orbits .tlp-bubble { position: static; transform: none; }
+    .tlp-orbits .tlp-bubble-n { position: static; width: auto; text-align: center; transform: none; margin-top: 7px; }
+    .tlp-zone-lib { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
     .tlp-zone-terms { justify-content: center; }
     .tlp-bubble, .tlp-cover { position: static; }
     .tlp-cover { width: 84px; }
@@ -21735,31 +21742,33 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k], bk: auBook[k] || null }; })
         .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
       var auts = tlShufflePick(auPool, 3, rnd);
-      // Slots orgánicos por cuadrante: personajes arriba-izq, autores abajo-izq
-      var SLOTS_PER = [[6,2],[54,6],[8,50],[56,54]];
-      var SLOTS_AUT = [[10,14],[58,10],[34,58]];
-      var persHTML = '', autHTML = '';
-      pers.forEach(function(p, i){
+      // ÓRBITA izquierda: 6 esferas alternadas (personaje/autor) en arco alrededor
+      // del planeta, con perspectiva suave (arriba chicas, crecen al bajar).
+      // [left%, top%] de la vista — alineadas con el stage (50%, 47%).
+      var ORBIT_SLOTS = [[25,27],[21,35.5],[20,44],[21,52.5],[24,59],[25.8,65]];
+      var ORBIT_SIZES = [56, 62, 68, 74, 78, 80];
+      var orbsHTML = '';
+      pers.slice(0, 3).forEach(function(p, i){
         var inicial = (String(p.nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-        var size = 92;
+        var oi = i * 2; // posiciones pares de la órbita
+        var sl = ORBIT_SLOTS[oi], size = ORBIT_SIZES[oi];
         var inner = p.img
           ? '<span class="tlp-bubble-cover"><img loading="lazy" src="' + p.img + '" alt=""></span>'
           : '<span class="tlp-bubble-ic">' + inicial + '</span>';
-        var sl = SLOTS_PER[i % SLOTS_PER.length];
-        persHTML += '<button class="tlp-bubble tlp-bubble-per" type="button" data-door="q" data-q="' + esc(p.nombre) + '" ' +
-          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (i * 1.7).toFixed(1) + 's" ' +
+        orbsHTML += '<button class="tlp-bubble tlp-bubble-per" type="button" data-door="q" data-q="' + esc(p.nombre) + '" ' +
+          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (oi * 1.4).toFixed(1) + 's" ' +
           'title="' + esc(p.blurb || '') + ' — ' + p.menciones + ' menciones">' + inner +
           '<span class="tlp-bubble-n">' + esc(p.nombre) + '</span></button>';
       });
       auts.forEach(function(a, i){
         var inicial = (a.name.match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-        var size = 62;
+        var oi = i * 2 + 1; // posiciones nones de la órbita
+        var sl = ORBIT_SLOTS[oi], size = ORBIT_SIZES[oi];
         var inner = a.bk
           ? '<span class="tlp-bubble-cover">' + getCoverHTML(a.bk, 'small') + '</span>'
           : '<span class="tlp-bubble-ic">' + inicial + '</span>';
-        var sl = SLOTS_AUT[i % SLOTS_AUT.length];
-        autHTML += '<button class="tlp-bubble tlp-bubble-aut" type="button" data-door="autor" data-id="' + esc(a.name) + '" ' +
-          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (2.2 + i * 1.9).toFixed(1) + 's" ' +
+        orbsHTML += '<button class="tlp-bubble tlp-bubble-aut" type="button" data-door="autor" data-id="' + esc(a.name) + '" ' +
+          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (oi * 1.4).toFixed(1) + 's" ' +
           'title="' + esc(a.name) + ' — ' + a.n + ' citas">' + inner +
           '<span class="tlp-bubble-n">' + esc(a.name) + '</span></button>';
       });
@@ -21836,8 +21845,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           '<div class="tlp-counts">' + totalAll.toLocaleString('es-MX') + ' eventos · ' + eraPills.length + ' épocas · ' + rutas.length + ' recorridos · ' + Object.keys(citasPorLibro).length + ' libros</div>' +
         '</div>' +
         '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">↻</button>' +
-        (persHTML ? '<div class="tlp-zone tlp-zone-per">' + persHTML + '</div>' : '') +
-        (autHTML ? '<div class="tlp-zone tlp-zone-aut2">' + autHTML + '</div>' : '') +
+        (orbsHTML ? '<div class="tlp-orbits">' + orbsHTML + '</div>' : '') +
         (libHTML ? '<div class="tlp-zone tlp-zone-lib">' + libHTML + '</div>' : '') +
         (rutasHTML ? '<div class="tlp-zone tlp-zone-rutas">' + rutasHTML + '</div>' : '') +
         (termsHTML ? '<div class="tlp-zone tlp-zone-terms">' + termsHTML + '</div>' : '') +
