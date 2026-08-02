@@ -7127,81 +7127,165 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 :root.light .btl-node .btl-ev { color: #4a4030; }
 :root.light .btl-node.btl-active .btl-ev { color: #221c12; }
 
-  /* ── Portada viva de Tiempo + recorridos ── */
-  .tl-portada { padding: 16px 14px 30px; max-width: 620px; margin: 0 auto; }
-  .tlp-head { position: relative; text-align: center; margin-bottom: 12px; padding-right: 40px; }
-  .tlp-title { font-family:'Cormorant Garamond',serif; font-size: 29px; font-weight: 600; color: var(--gold); line-height: 1.15; }
-  .tlp-counts { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; letter-spacing: .3px; }
-  .tlp-shuffle { position: absolute; right: 0; top: 0; background: none; border: 1px solid var(--border);
-    border-radius: 8px; padding: 4px 8px; cursor: pointer; font-size: 15px; transition: border-color .25s; }
-  .tlp-shuffle:hover { border-color: var(--gold); }
-  .tlp-explore { display: block; width: 100%; margin: 4px 0 20px; padding: 13px 18px; border-radius: 12px;
-    background: linear-gradient(180deg, rgba(200,169,96,.20), rgba(200,169,96,.07));
-    border: 1px solid rgba(200,169,96,.45); color: var(--text);
-    font-family:'Cormorant Garamond',serif; font-size: 16px; font-weight: 600; letter-spacing: .4px;
-    cursor: pointer; transition: border-color .25s, background .25s; }
-  .tlp-explore:hover { border-color: var(--gold); background: rgba(200,169,96,.22); }
-  .tlp-sec { margin-bottom: 18px; }
-  .tlp-sec-t { font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px; color: var(--gold-dim);
-    margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-  .tlp-mini { background: none; border: 1px solid var(--border); border-radius: 999px; color: var(--text-dim);
-    font-size: 10px; padding: 2px 9px; cursor: pointer; text-transform: none; letter-spacing: .2px; }
-  .tlp-mini:hover { border-color: var(--gold); color: var(--gold); }
-  .tlp-hoy { display: flex; flex-direction: column; gap: 6px; }
-  .tlp-hoy-item { display: flex; gap: 10px; align-items: baseline; text-align: left; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; cursor: pointer;
-    color: var(--text); font-size: 13px; transition: border-color .25s; }
+  /* ── Portada DASHBOARD de Tiempo: planeta flotando + puertas en órbita ── */
+  .tl-portada-mode .tl-mapa-view.tlp-view { display: block !important; position: relative;
+    height: calc(100vh - 138px); min-height: 600px; overflow: hidden; }
+  .tlp-dash { position: absolute; inset: 0; }
+  .tlp-stars { position: absolute; top: 0; left: 0; width: 2px; height: 2px; border-radius: 50%;
+    background: transparent; pointer-events: none; z-index: 1; }
+  .tlp-arc { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 7; }
+  .tlp-bolt { fill: none; stroke: #d5ecff; stroke-width: 1.5; filter: drop-shadow(0 0 5px rgba(140,200,255,.95)); }
+  .tlp-bolt.echo { stroke: rgba(140,200,255,.30); stroke-width: 3.4; }
+  .tlp-arc.go .tlp-bolt { animation: tlpBolt .72s ease-out forwards; }
+  @keyframes tlpBolt { 0% { opacity: 0; } 14% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
+  .tlp-bolt-dot { fill: #e2f2ff; filter: drop-shadow(0 0 6px rgba(160,210,255,1)); opacity: 0; }
+  .tlp-arc.go .tlp-bolt-dot { animation: tlpDot .72s ease-out forwards; }
+  @keyframes tlpDot { 0%,55% { opacity: 0; } 72% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* El planeta flotando: sin caja, con halo */
+  .tlp-stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    width: min(56vh, 540px); height: min(56vh, 540px); z-index: 2; }
+  .tlp-stage::before { content: ''; position: absolute; inset: -14%;
+    background: radial-gradient(circle, rgba(120,160,230,.16) 0%, rgba(120,160,230,.05) 45%, transparent 68%);
+    pointer-events: none; }
+  .tlp-stage .tl-mapa-globe-wrap { position: absolute; inset: 0; width: 100%; height: 100%;
+    background: transparent !important; border: 0 !important; box-shadow: none !important;
+    border-radius: 0; margin: 0; min-height: 0; max-height: none; }
+  .tlp-stage .tl-mapa-globe { position: absolute; inset: 0; }
+  .tlp-stage .tl-mapa-globe svg { width: 100%; height: 100%; display: block; }
+  /* Globo limpio en portada: sin header, sin nav-bar, sin overlays */
+  .tl-portada-mode .tl-mapa-loc, .tl-portada-mode .tl-mapa-nav-bar,
+  .tl-portada-mode .tl-mapa-voices-panel, .tl-portada-mode .tl-mapa-citas-toggle { display: none !important; }
+  /* Pines todos visibles y tenues (el CSS base los oculta hasta selección) */
+  .tl-portada-mode .tl-mapa-globe .pin { opacity: .48; pointer-events: auto; }
+  .tl-portada-mode .tl-mapa-globe .pin:hover { opacity: 1; }
+  .tl-portada-mode .tl-mapa-globe .sphere { filter: drop-shadow(0 0 26px rgba(90,140,220,.35)); }
+
+  /* Zonas en órbita */
+  .tlp-zone { position: absolute; z-index: 5; }
+  .tlp-top { position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
+    width: min(560px, 46%); text-align: center; z-index: 5; }
+  .tlp-hoy-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--gold-dim); margin-bottom: 6px; }
+  .tlp-hoy-item { display: flex; gap: 9px; align-items: baseline; justify-content: center;
+    background: none; border: 0; border-bottom: 1px solid rgba(200,169,96,.16);
+    padding: 4px 2px 5px; width: 100%; cursor: pointer; color: var(--text); font-size: 12.5px;
+    transition: border-color .25s; }
   .tlp-hoy-item:hover { border-color: var(--gold); }
-  .tlp-hoy-y { flex: none; font-family:'SF Mono','Fira Code',monospace; font-size: 11px; color: var(--gold); }
-  .tlp-rutas { display: flex; flex-direction: column; gap: 8px; }
-  .tlp-rutas-all { display: none; flex-direction: column; gap: 8px; margin-top: 8px; }
-  .tlp-rutas-all.open { display: flex; }
-  .tlp-ruta { display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto auto; gap: 2px 10px;
-    text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 11px 13px; cursor: pointer; transition: border-color .25s, transform .25s; }
-  .tlp-ruta:hover { border-color: rgba(200,169,96,.5); transform: translateY(-1px); }
-  .tlp-ruta-ic { grid-row: 1 / 4; font-size: 24px; align-self: center; }
-  .tlp-ruta-t { font-family:'Cormorant Garamond',serif; font-size: 17px; font-weight: 600; color: var(--text); }
-  .tlp-ruta-d { font-size: 11.5px; color: var(--text-dim); line-height: 1.4;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .tlp-ruta-meta { display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--gold-dim); margin-top: 3px; }
+  .tlp-hoy-y { flex: none; font-family:'SF Mono','Fira Code',monospace; font-size: 10.5px; color: var(--gold); }
+  .tlp-hoy-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tlp-search-slot { margin-top: 8px; }
+  .tl-portada-mode .tl-mapa-filter-bar { max-width: 480px; margin: 0 auto;
+    background: rgba(10,14,26,.55); border: 1px solid rgba(140,170,230,.22); border-radius: 999px;
+    backdrop-filter: blur(10px); }
+  .tl-portada-mode .tl-mapa-search { background: transparent; border: 0; }
+  .tlp-counts { margin-top: 7px; font-size: 10px; letter-spacing: .6px; color: var(--text-dim); }
+  .tlp-shuffle { position: absolute; top: 10px; right: 12px; z-index: 6; background: none;
+    border: 1px solid rgba(140,170,230,.25); border-radius: 8px; padding: 4px 8px; cursor: pointer;
+    font-size: 14px; transition: border-color .25s; }
+  .tlp-shuffle:hover { border-color: var(--gold); }
+
+  .tlp-zone-pers { left: 3%; top: 14%; width: 24%; display: flex; flex-wrap: wrap;
+    gap: 18px; align-items: flex-start; }
+  .tlp-zone-aut { left: 5%; bottom: 16%; width: 22%; display: flex; flex-wrap: wrap; gap: 16px; }
+  .tlp-bubble { position: relative; width: var(--bs, 60px); background: none; border: 0;
+    cursor: pointer; padding: 0; text-align: center;
+    animation: tlpFloat 7s ease-in-out infinite; }
+  .tlp-bubble:nth-child(2n) { animation-delay: -2.3s; }
+  .tlp-bubble:nth-child(3n) { animation-delay: -4.7s; }
+  @keyframes tlpFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+  .tlp-bubble-ic, .tlp-bubble-cover { display: flex; align-items: center; justify-content: center;
+    width: var(--bs, 60px); height: var(--bs, 60px); border-radius: 50%; overflow: hidden;
+    font-family:'Cinzel',serif; font-weight: 700; font-size: calc(var(--bs, 60px) * .34); color: #f4ecd8;
+    background: radial-gradient(circle at 32% 28%, rgba(200,169,96,.5), #10101c 78%);
+    border: 1px solid rgba(200,169,96,.5);
+    box-shadow: 0 0 18px rgba(200,169,96,.18), inset 0 0 12px rgba(0,0,0,.4);
+    transition: box-shadow .3s, border-color .3s; }
+  .tlp-bubble-cover img, .tlp-bubble-cover .book-cover-mini { width: 100% !important; height: 100% !important;
+    object-fit: cover; border-radius: 50%; }
+  .tlp-bubble:hover .tlp-bubble-ic, .tlp-bubble:hover .tlp-bubble-cover {
+    border-color: var(--gold); box-shadow: 0 0 26px rgba(200,169,96,.45), inset 0 0 12px rgba(0,0,0,.4); }
+  .tlp-bubble-n { display: block; margin-top: 6px; font-size: 10.5px; color: var(--text);
+    letter-spacing: .3px; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+  .tlp-bubble-aut .tlp-bubble-ic { background: radial-gradient(circle at 32% 28%, rgba(150,110,80,.55), #12101a 78%);
+    border-color: rgba(216,160,110,.55); }
+  .tlp-bubble-aut:hover .tlp-bubble-ic, .tlp-bubble-aut:hover .tlp-bubble-cover { border-color: #d8a06e;
+    box-shadow: 0 0 26px rgba(216,160,110,.4), inset 0 0 12px rgba(0,0,0,.4); }
+
+  .tlp-zone-lib { right: 3.5%; top: 12%; width: 13%; display: flex; flex-direction: column;
+    gap: 20px; align-items: center; }
+  .tlp-cover { width: min(96px, 100%); background: none; border: 0; padding: 0; cursor: pointer;
+    transform: rotate(var(--rot, 0deg)); animation: tlpFloat 8s ease-in-out infinite;
+    animation-delay: var(--dly, 0s); transition: transform .3s; }
+  .tlp-cover:hover { transform: rotate(0deg) scale(1.06); z-index: 3; }
+  .tlp-cover img, .tlp-cover .book-cover-mini { width: 100% !important; height: auto; border-radius: 6px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
+
+  .tlp-zone-eras { right: 2.5%; top: 40%; width: 15.5%; display: flex; flex-direction: column; }
+  .tlp-line { display: flex; align-items: baseline; gap: 7px; background: none; border: 0;
+    border-bottom: 1px solid rgba(160,180,220,.10); padding: 5px 2px; cursor: pointer;
+    text-align: left; color: var(--text); transition: border-color .25s, padding-left .25s; }
+  .tlp-line:hover { border-color: var(--ac, var(--gold)); padding-left: 7px; }
+  .tlp-line-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ac, var(--gold));
+    align-self: center; box-shadow: 0 0 6px var(--ac, var(--gold)); }
+  .tlp-line-n { font-size: 10.5px; letter-spacing: .3px; flex: 1; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .tlp-line-y { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
+
+  .tlp-zone-rutas { left: 50%; bottom: 3%; transform: translateX(-50%); width: min(600px, 46%);
+    display: flex; flex-direction: column; gap: 9px; z-index: 5; }
+  .tlp-bar { display: grid; grid-template-columns: 40px 1fr; grid-template-rows: auto auto;
+    gap: 1px 12px; align-items: center; text-align: left; cursor: pointer;
+    background: linear-gradient(90deg, rgba(20,26,44,.72), rgba(20,26,44,.28));
+    border: 1px solid rgba(160,180,230,.20); border-left: 2px solid var(--gold);
+    border-radius: 12px; padding: 10px 16px; color: var(--text);
+    backdrop-filter: blur(8px); transition: border-color .25s, transform .25s; }
+  .tlp-bar:hover { border-color: var(--gold); transform: translateY(-2px); }
+  .tlp-bar-ic { grid-row: 1 / 3; font-size: 26px; text-align: center; }
+  .tlp-bar-t { font-family:'Cormorant Garamond',serif; font-size: 18px; font-weight: 600; }
+  .tlp-bar-meta { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--gold-dim); }
   .tlp-dots { display: inline-flex; gap: 3px; }
-  .tlp-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ac, #c8a960); }
-  .tlp-eras { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tlp-era { display: inline-flex; align-items: center; gap: 6px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: 999px; padding: 5px 11px; cursor: pointer;
-    color: var(--text); font-size: 11.5px; transition: border-color .25s; }
-  .tlp-era:hover { border-color: var(--ac, var(--gold)); }
-  .tlp-era-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ac, var(--gold)); flex: none; }
-  .tlp-era-y { color: var(--text-dim); font-size: 10px; }
-  .tlp-pers { display: flex; flex-direction: column; gap: 8px; }
-  .tlp-per { display: grid; grid-template-columns: 38px 1fr auto; grid-template-rows: auto auto; gap: 1px 11px;
-    text-align: left; background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 10px 13px; cursor: pointer; transition: border-color .25s; }
-  .tlp-per:hover { border-color: rgba(200,169,96,.5); }
-  .tlp-per-ic { grid-row: 1 / 3; width: 38px; height: 38px; border-radius: 50%; align-self: center;
-    display: flex; align-items: center; justify-content: center;
-    font-family:'Cinzel',serif; font-weight: 700; font-size: 16px; color: #f4ecd8;
-    background: radial-gradient(circle at 32% 28%, rgba(200,169,96,.55), #14141f 80%);
-    border: 1px solid rgba(200,169,96,.45); }
-  .tlp-per-n { font-family:'Cormorant Garamond',serif; font-size: 16px; font-weight: 600; color: var(--text); }
-  .tlp-per-b { grid-column: 2; font-size: 11.5px; color: var(--text-dim); line-height: 1.35; }
-  .tlp-per-m { grid-row: 1 / 3; grid-column: 3; align-self: center; font-size: 10px; color: var(--gold-dim); white-space: nowrap; }
-  .tlp-libro { display: flex; gap: 14px; align-items: center; text-align: left; width: 100%;
-    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
-    cursor: pointer; transition: border-color .25s, transform .25s; }
-  .tlp-libro:hover { border-color: rgba(200,169,96,.5); transform: translateY(-1px); }
-  .tlp-libro-cover { flex: none; width: 62px; }
-  .tlp-libro-cover img, .tlp-libro-cover .book-cover-mini { width: 62px !important; height: auto; border-radius: 5px; }
-  .tlp-libro-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .tlp-libro-t { font-family:'Cormorant Garamond',serif; font-size: 17px; font-weight: 600; color: var(--text); line-height: 1.2; }
-  .tlp-libro-a { font-size: 11.5px; color: var(--gold-dim); }
-  .tlp-libro-m { font-size: 10.5px; color: var(--text-dim); margin-top: 3px; }
-  .tlp-terms { display: flex; flex-wrap: wrap; gap: 7px; }
-  .tlp-term { background: var(--surface); border: 1px solid rgba(200,169,96,.3); border-radius: 999px;
-    padding: 6px 14px; cursor: pointer; color: var(--text); font-size: 12.5px;
-    font-family:'Cormorant Garamond',serif; font-style: italic; transition: border-color .25s; }
-  .tlp-term:hover { border-color: var(--gold); }
+  .tlp-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ac, #c8a960); }
+  .tlp-mini2 { align-self: center; background: none; border: 0; border-bottom: 1px solid rgba(200,169,96,.35);
+    color: var(--text-dim); font-size: 10.5px; letter-spacing: .5px; cursor: pointer; padding: 2px 4px; }
+  .tlp-mini2:hover { color: var(--gold); border-color: var(--gold); }
+  .tlp-rutas-all { display: none; position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%,-50%); z-index: 9; width: min(620px, 92%);
+    max-height: 76%; overflow-y: auto; padding: 18px; gap: 9px;
+    background: rgba(8,10,20,.92); border: 1px solid rgba(200,169,96,.4); border-radius: 16px;
+    backdrop-filter: blur(14px); box-shadow: 0 24px 80px rgba(0,0,0,.6); }
+  .tlp-rutas-all.open { display: flex; flex-direction: column; }
+
+  .tlp-zone-terms { left: 3%; bottom: 2.5%; width: 24%; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tlp-term { background: none; border: 0; border-bottom: 1px solid rgba(200,169,96,.3);
+    padding: 3px 2px; cursor: pointer; color: var(--text); font-size: 13px;
+    font-family:'Cormorant Garamond',serif; font-style: italic; letter-spacing: .4px;
+    transition: color .25s, border-color .25s; }
+  .tlp-term:hover { color: var(--gold); border-color: var(--gold); }
+
+  .tlp-explore { position: absolute; right: 2.5%; bottom: 2.5%; z-index: 6;
+    background: none; border: 0; border-bottom: 1px solid rgba(200,169,96,.5);
+    color: var(--gold); font-family:'Cormorant Garamond',serif; font-size: 14px; font-weight: 600;
+    letter-spacing: .5px; padding: 4px 2px; cursor: pointer; transition: text-shadow .25s; }
+  .tlp-explore:hover { text-shadow: 0 0 14px rgba(200,169,96,.7); }
+
+  /* ≤1100px y móvil: el dash fluye apilado (sin órbitas absolutas) */
+  @media (max-width: 1100px) {
+    .tl-portada-mode .tl-mapa-view.tlp-view { height: auto; min-height: 0; overflow: visible; }
+    .tlp-dash { position: static; padding: 10px 14px 26px; }
+    .tlp-stage { display: none; }
+    .tlp-top, .tlp-zone, .tlp-zone-pers, .tlp-zone-aut, .tlp-zone-lib, .tlp-zone-eras,
+    .tlp-zone-rutas, .tlp-zone-terms { position: static; transform: none; width: 100%; }
+    .tlp-zone { margin-top: 18px; }
+    .tlp-zone-pers, .tlp-zone-aut { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+    .tlp-zone-lib { flex-direction: row; justify-content: center; }
+    .tlp-cover { width: 84px; }
+    .tlp-zone-eras { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+    .tlp-zone-rutas { margin-top: 20px; }
+    .tlp-explore { position: static; display: block; margin: 22px auto 0; }
+    .tlp-arc, .tlp-stars { display: none; }
+    .tlp-shuffle { position: static; float: right; }
+  }
 
   /* Recorrido: banner guía */
   .tl-ruta-banner { position: sticky; top: 0; z-index: 20; margin: 2px 2px 10px;
@@ -21296,23 +21380,6 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     return !tlPortadaDismissed && !tlRuta && (filterIsEmpty(tlFilter) || tlFilterDefault);
   }
   function tlPortadaReset() { tlPortadaDismissed = false; }
-  // Punto de entrada del globo en portada: "hoy en la historia" si hay, si no un
-  // evento rico sembrado por la fecha — nunca siempre el Big Bang.
-  function tlPortadaInitialIdx(events) {
-    var now = new Date(), m0 = now.getMonth() + 1, d0 = now.getDate();
-    for (var i = 0; i < events.length; i++) {
-      var ev = events[i];
-      if (ev._date && ev._date.month === m0 && ev._date.day === d0) return i;
-    }
-    var rnd = tlPortadaRng();
-    var ricos = [];
-    for (var j = 0; j < events.length; j++) {
-      var e2 = events[j];
-      var y = e2._sortKey ? e2._sortKey.y : null;
-      if ((e2.detalle || (e2.citas && e2.citas.length)) && y != null && y >= -3000) ricos.push(j);
-    }
-    return ricos.length ? ricos[Math.floor(rnd() * ricos.length)] : 0;
-  }
   // Recorrido: una ruta dentro del mapa = filtro por sus libros + banner guía.
   // _strict: ignora el fallback era.bookIds (ese existe para contexto; en un
   // recorrido solo queremos eventos con cita directa de los libros de la ruta).
@@ -21542,49 +21609,103 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     var railHTML = portadaOn ? '' : buildEraRail(eraPills);
     var notice = '';
 
-    // Portada viva (se inyecta en la columna desktop Y en el shell móvil; sin
-    // ids internos — las puertas se cablean por delegación con data-door).
+    // Portada viva DASHBOARD: planeta flotando al centro, puertas en órbita.
+    // Sin selección inicial: el globo se muestra limpio hasta que el usuario
+    // elige una puerta o un pin. Se inyecta en .tlp-view (desktop) y en el
+    // shell móvil tras el LCD; sin ids internos (delegación con data-door).
     function buildPortada(allEvents, eraPills, totalAll) {
       var rnd = tlPortadaRng();
-      // Conteos sobre el UNIVERSO completo (no el set filtrado): las tarjetas
-      // muestran lo que la puerta encontrará al abrirse con filtro limpio.
+      // Conteos sobre el UNIVERSO completo (no el set filtrado).
       var citasPorLibro = {};
       eras.forEach(function(era){ (era.events||[]).forEach(function(ev){ (ev.citas||[]).forEach(function(c){ if (c.libro) citasPorLibro[c.libro]=(citasPorLibro[c.libro]||0)+1; }); }); });
       var bookById = {};
       books.forEach(function(b){ bookById[b.id] = b; });
-      var h = '<div class="tl-portada">';
-      h += '<div class="tlp-head">' +
-        '<div class="tlp-title">El tiempo de la biblioteca</div>' +
-        '<div class="tlp-counts">' + totalAll.toLocaleString('es-MX') + ' eventos · ' + eraPills.length + ' épocas · ' + rutas.length + ' recorridos · ' + Object.keys(citasPorLibro).length + ' libros</div>' +
-        '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">🔀</button>' +
-      '</div>';
-      h += '<button class="tlp-explore" type="button" data-door="explorar">Explorar todo el tiempo →</button>';
 
-      // Hoy en la historia (mes-día reales de hoy)
+      // Estrellas del fondo, sembradas por el día (estables durante el día)
+      var shadows = [];
+      for (var si = 0; si < 140; si++) {
+        var sop = (0.22 + rnd() * 0.6).toFixed(2);
+        shadows.push((rnd() * 100).toFixed(2) + 'vw ' + (rnd() * 100).toFixed(2) + 'vh 0 ' + (rnd() < 0.88 ? 1 : 2) + 'px rgba(215,230,255,' + sop + ')');
+      }
+
+      // Hoy en la historia (máx 2, líneas finas de texto)
       var now = new Date(), m0 = now.getMonth() + 1, d0 = now.getDate();
       var hoy = allEvents.filter(function(ev){
         return ev._date && ev._date.month === m0 && ev._date.day === d0 && (ev.detalle || (ev.citas && ev.citas.length));
-      }).slice(0, 3);
+      }).slice(0, 2);
+      var hoyHTML = '';
       if (hoy.length) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Hoy en la historia</div><div class="tlp-hoy">';
-        hoy.forEach(function(ev){
-          h += '<button class="tlp-hoy-item" type="button" data-door="evento" data-idx="' + ev._idx + '">' +
-            '<span class="tlp-hoy-y">' + esc(String(ev.year)) + '</span>' + esc(ev.text || '') + '</button>';
-        });
-        h += '</div></div>';
+        hoyHTML = '<div class="tlp-hoy-label">Hoy en la historia</div>' +
+          hoy.map(function(ev){
+            return '<button class="tlp-hoy-item" type="button" data-door="evento" data-idx="' + ev._idx + '" title="' + esc(ev.detalle ? String(ev.detalle).slice(0,160) : '') + '">' +
+              '<span class="tlp-hoy-y">' + esc(String(ev.year)) + '</span><span class="tlp-hoy-t">' + esc(ev.text || '') + '</span></button>';
+          }).join('');
       }
 
-      // Recorridos (3 rotativos + lista completa plegable)
-      function rutaCard(r, nEv) {
+      // Personajes: burbujas con medallón de inicial, tamaño ∝ menciones
+      var pers = (typeof tlPersonajes !== 'undefined' && tlPersonajes.length) ? tlShufflePick(tlPersonajes, 4, rnd) : [];
+      var persHTML = pers.map(function(p){
+        var inicial = (String(p.nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
+        var size = Math.round(54 + Math.min(30, p.menciones / 10));
+        return '<button class="tlp-bubble tlp-bubble-per" type="button" data-door="q" data-q="' + esc(p.nombre) + '" ' +
+          'style="--bs:' + size + 'px" title="' + esc(p.blurb || '') + ' — ' + p.menciones + ' menciones">' +
+          '<span class="tlp-bubble-ic">' + inicial + '</span>' +
+          '<span class="tlp-bubble-n">' + esc(p.nombre) + '</span></button>';
+      }).join('');
+
+      // Autores: burbujas con la portada de su libro más citado (o inicial)
+      var auMap = {}, auBook = {};
+      books.forEach(function(b){
+        var n = citasPorLibro[b.id] || 0;
+        if (!n) return;
+        var hasCover = b.coverUrl || (b.coverId && typeof coverImages !== 'undefined' && coverImages[b.coverId]);
+        var names = (typeof parseAuthors === 'function' ? parseAuthors(b.author || '') : []);
+        names.forEach(function(a){
+          if (!a.name) return;
+          if (hasCover && (!auBook[a.name] || n > (citasPorLibro[auBook[a.name].id] || 0))) auBook[a.name] = b;
+          auMap[a.name] = (auMap[a.name] || 0) + n;
+        });
+      });
+      var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k], bk: auBook[k] || null }; })
+        .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
+      var autHTML = tlShufflePick(auPool, 3, rnd).map(function(a){
+        var inicial = (a.name.match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
+        var size = Math.round(50 + Math.min(26, a.n / 8));
+        var inner = a.bk
+          ? '<span class="tlp-bubble-cover">' + getCoverHTML(a.bk, 'small') + '</span>'
+          : '<span class="tlp-bubble-ic">' + inicial + '</span>';
+        return '<button class="tlp-bubble tlp-bubble-aut" type="button" data-door="autor" data-id="' + esc(a.name) + '" ' +
+          'style="--bs:' + size + 'px" title="' + esc(a.name) + ' — ' + a.n + ' citas">' + inner +
+          '<span class="tlp-bubble-n">' + esc(a.name) + '</span></button>';
+      }).join('');
+
+      // Libros: 3 portadas flotantes
+      var libPool = Object.keys(citasPorLibro).map(function(id){ return { b: bookById[id], n: citasPorLibro[id] }; })
+        .filter(function(x){ return x.b && x.n >= 10 && (x.b.coverUrl || (x.b.coverId && typeof coverImages !== 'undefined' && coverImages[x.b.coverId])); })
+        .sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
+      var libHTML = tlShufflePick(libPool, 3, rnd).map(function(x, i){
+        return '<button class="tlp-cover" type="button" data-door="libro" data-id="' + esc(x.b.id) + '" ' +
+          'title="' + esc(x.b.title) + ' — ' + x.n + ' citas" style="--rot:' + (i % 2 ? 3 : -4) + 'deg; --dly:' + (i * 0.9).toFixed(1) + 's">' +
+          getCoverHTML(x.b, 'small') + '</button>';
+      }).join('');
+
+      // Épocas: líneas finas
+      var erasHTML = eraPills.map(function(p){
+        var short = String(p.label).split('—')[0].trim();
+        return '<button class="tlp-line" type="button" data-door="era" data-first="' + p.firstIdx + '" style="--ac:' + p.color + '" title="' + esc(p.label) + ' · ' + esc(p.years) + '">' +
+          '<span class="tlp-line-dot"></span><span class="tlp-line-n">' + esc(short) + '</span><span class="tlp-line-y">' + esc(p.years) + '</span></button>';
+      }).join('');
+
+      // Recorridos: 2 barras grandes + lista completa en overlay
+      function rutaBar(r, nEv) {
         var dots = r.steps.map(function(s){
           var c = rutaEraChip(s.bookId);
           return '<span class="tlp-dot" style="--ac:' + (c ? c.color : 'rgba(200,169,96,.25)') + '"></span>';
         }).join('');
-        return '<button class="tlp-ruta" type="button" data-door="ruta" data-id="' + esc(r.id) + '">' +
-          '<span class="tlp-ruta-ic">' + r.icon + '</span>' +
-          '<span class="tlp-ruta-t">' + esc(r.title) + '</span>' +
-          '<span class="tlp-ruta-d">' + esc(r.desc) + '</span>' +
-          '<span class="tlp-ruta-meta"><span class="tlp-dots">' + dots + '</span>' + r.steps.length + ' libros · ' + nEv + ' eventos</span>' +
+        return '<button class="tlp-bar" type="button" data-door="ruta" data-id="' + esc(r.id) + '" title="' + esc(r.desc) + '">' +
+          '<span class="tlp-bar-ic">' + r.icon + '</span>' +
+          '<span class="tlp-bar-t">' + esc(r.title) + '</span>' +
+          '<span class="tlp-bar-meta"><span class="tlp-dots">' + dots + '</span>' + r.steps.length + ' libros · ' + nEv + ' eventos</span>' +
         '</button>';
       }
       var rutaInfos = rutas.map(function(r){
@@ -21592,84 +21713,37 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         r.steps.forEach(function(s){ nEv += citasPorLibro[s.bookId] || 0; });
         return { r: r, nEv: nEv };
       }).filter(function(x){ return x.nEv > 0; });
+      var rutasHTML = '';
       if (rutaInfos.length) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Recorridos <button class="tlp-mini" type="button" data-door="rutas-todas">ver todos</button></div><div class="tlp-rutas">' +
-          tlShufflePick(rutaInfos, 3, rnd).map(function(x){ return rutaCard(x.r, x.nEv); }).join('') +
-          '</div><div class="tlp-rutas-all">' + rutaInfos.map(function(x){ return rutaCard(x.r, x.nEv); }).join('') + '</div></div>';
+        rutasHTML = tlShufflePick(rutaInfos, 2, rnd).map(function(x){ return rutaBar(x.r, x.nEv); }).join('') +
+          '<button class="tlp-mini2" type="button" data-door="rutas-todas">ver los ' + rutaInfos.length + ' recorridos</button>' +
+          '<div class="tlp-rutas-all">' + rutaInfos.map(function(x){ return rutaBar(x.r, x.nEv); }).join('') + '</div>';
       }
 
-      // Épocas (espina dorsal, siempre todas)
-      h += '<div class="tlp-sec"><div class="tlp-sec-t">Épocas</div><div class="tlp-eras">' +
-        eraPills.map(function(p){
-          return '<button class="tlp-era" type="button" data-door="era" data-first="' + p.firstIdx + '" style="--ac:' + p.color + '">' +
-            '<span class="tlp-era-dot"></span><span class="tlp-era-n">' + esc(p.label) + '</span><span class="tlp-era-y">' + esc(p.years) + '</span></button>';
-        }).join('') + '</div></div>';
+      // Términos: chips finas
+      var terms = (typeof tlTerminos !== 'undefined' && tlTerminos.length) ? tlShufflePick(tlTerminos, 5, rnd) : [];
+      var termsHTML = terms.map(function(t){
+        return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '" title="' + t.menciones + ' menciones">' + esc(t.termino) + '</button>';
+      }).join('');
 
-      // Personajes (índice curado; oculto si aún no existe)
-      var pers = (typeof tlPersonajes !== 'undefined' && tlPersonajes.length) ? tlShufflePick(tlPersonajes, 3, rnd) : [];
-      if (pers.length) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Personajes</div><div class="tlp-pers">';
-        pers.forEach(function(p){
-          var inicial = (String(p.nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-          h += '<button class="tlp-per" type="button" data-door="q" data-q="' + esc(p.nombre) + '">' +
-            '<span class="tlp-per-ic">' + inicial + '</span>' +
-            '<span class="tlp-per-n">' + esc(p.nombre) + '</span>' +
-            '<span class="tlp-per-b">' + esc(p.blurb) + '</span>' +
-            '<span class="tlp-per-m">' + p.menciones + ' menciones</span>' +
-          '</button>';
-        });
-        h += '</div></div>';
-      }
-
-      // Autores (top por citas, 2 rotativos)
-      var auMap = {};
-      books.forEach(function(b){
-        var n = citasPorLibro[b.id] || 0;
-        if (!n) return;
-        var names = (typeof parseAuthors === 'function' ? parseAuthors(b.author || '') : []);
-        names.forEach(function(a){ if (a.name) auMap[a.name] = (auMap[a.name] || 0) + n; });
-      });
-      var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k] }; })
-        .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
-      var auPick = tlShufflePick(auPool, 2, rnd);
-      if (auPick.length) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Autores</div><div class="tlp-pers">';
-        auPick.forEach(function(a){
-          var inicial = (a.name.match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-          h += '<button class="tlp-per" type="button" data-door="autor" data-id="' + esc(a.name) + '">' +
-            '<span class="tlp-per-ic">' + inicial + '</span>' +
-            '<span class="tlp-per-n">' + esc(a.name) + '</span>' +
-            '<span class="tlp-per-m">' + a.n + ' citas</span>' +
-          '</button>';
-        });
-        h += '</div></div>';
-      }
-
-      // Un libro para entrar (1 rotativo, con portada)
-      var libPool = Object.keys(citasPorLibro).map(function(id){ return { b: bookById[id], n: citasPorLibro[id] }; })
-        .filter(function(x){ return x.b && x.n >= 10 && (x.b.coverUrl || (x.b.coverId && typeof coverImages !== 'undefined' && coverImages[x.b.coverId])); })
-        .sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
-      var libPick = tlShufflePick(libPool, 1, rnd)[0];
-      if (libPick) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Un libro para entrar</div>' +
-          '<button class="tlp-libro" type="button" data-door="libro" data-id="' + esc(libPick.b.id) + '">' +
-            '<span class="tlp-libro-cover">' + getCoverHTML(libPick.b, 'small') + '</span>' +
-            '<span class="tlp-libro-body"><span class="tlp-libro-t">' + esc(libPick.b.title) + '</span>' +
-            '<span class="tlp-libro-a">' + esc(libPick.b.author || '') + '</span>' +
-            '<span class="tlp-libro-m">' + libPick.n + ' citas en la línea de tiempo</span></span>' +
-          '</button></div>';
-      }
-
-      // Términos (índice curado; oculto si aún no existe)
-      var terms = (typeof tlTerminos !== 'undefined' && tlTerminos.length) ? tlShufflePick(tlTerminos, 4, rnd) : [];
-      if (terms.length) {
-        h += '<div class="tlp-sec"><div class="tlp-sec-t">Términos</div><div class="tlp-terms">' +
-          terms.map(function(t){ return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '">' + esc(t.termino) + '</button>'; }).join('') +
-        '</div></div>';
-      }
-
-      h += '</div>';
-      return h;
+      return '<div class="tl-portada tlp-dash">' +
+        '<div class="tlp-stars" style="box-shadow:' + shadows.join(',') + ';"></div>' +
+        '<svg class="tlp-arc" aria-hidden="true"></svg>' +
+        '<div class="tlp-stage"></div>' +
+        '<div class="tlp-top">' +
+          hoyHTML +
+          '<div class="tlp-search-slot"></div>' +
+          '<div class="tlp-counts">' + totalAll.toLocaleString('es-MX') + ' eventos · ' + eraPills.length + ' épocas · ' + rutas.length + ' recorridos · ' + Object.keys(citasPorLibro).length + ' libros</div>' +
+        '</div>' +
+        '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">🔀</button>' +
+        (persHTML ? '<div class="tlp-zone tlp-zone-pers">' + persHTML + '</div>' : '') +
+        (autHTML ? '<div class="tlp-zone tlp-zone-aut">' + autHTML + '</div>' : '') +
+        (libHTML ? '<div class="tlp-zone tlp-zone-lib">' + libHTML + '</div>' : '') +
+        '<div class="tlp-zone tlp-zone-eras">' + erasHTML + '</div>' +
+        (rutasHTML ? '<div class="tlp-zone tlp-zone-rutas">' + rutasHTML + '</div>' : '') +
+        (termsHTML ? '<div class="tlp-zone tlp-zone-terms">' + termsHTML + '</div>' : '') +
+        '<button class="tlp-explore" type="button" data-door="explorar">Explorar todo el tiempo →</button>' +
+      '</div>';
     }
 
     // Banner del recorrido activo (guía por libros sobre la columna).
@@ -21712,14 +21786,17 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     var portadaHTML = portadaOn ? buildPortada(allEvents, eraPills, totalAll) : '';
     var rutaBannerHTML = (!portadaOn && tlRuta) ? buildRutaBanner(allEvents) : '';
 
-    var bodyHTML =
-      '<div class="tl-mapa-view">' +
-        railHTML +
-        '<div class="tl-mapa-column">' +
-          (portadaOn ? portadaHTML : rutaBannerHTML + '<div class="tl-mapa-events">' + columnHTML + '</div>') +
-        '</div>' +
-        buildGlobeBlock(allEvents.length) +
-      '</div>' + notice;
+    // Portada = dashboard: el globo va DENTRO del dash (reparented a .tlp-stage),
+    // sin columna ni rail. Solo al salir de la portada existe la columna de eventos.
+    var bodyHTML = portadaOn
+      ? '<div class="tl-mapa-view tlp-view">' + portadaHTML + buildGlobeBlock(allEvents.length) + '</div>' + notice
+      : '<div class="tl-mapa-view">' +
+          railHTML +
+          '<div class="tl-mapa-column">' +
+            rutaBannerHTML + '<div class="tl-mapa-events">' + columnHTML + '</div>' +
+          '</div>' +
+          buildGlobeBlock(allEvents.length) +
+        '</div>' + notice;
 
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
     // Bandera emoji desde el código ISO-2 (MX→🇲🇽); fallback si no es par de letras
@@ -21843,18 +21920,30 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     // a different DOM parent depending on breakpoint. Reparenting it preserves
     // the SVG and event handlers.
     var mqMobile = window.matchMedia('(max-width: 768px)');
+    var mqFlow = window.matchMedia('(max-width: 1100px)');
     var globeWrap = container.querySelector('.tl-mapa-globe-wrap');
     var tlmScreen = container.querySelector('#tlm-screen');
+    var portadaStage = portadaOn ? container.querySelector('.tlp-stage') : null;
     var desktopGlobeSlot = globeWrap ? globeWrap.parentNode : null;
     function placeGlobeForBreakpoint() {
-      if (!globeWrap || !tlmScreen || !desktopGlobeSlot) return;
+      if (!globeWrap) return;
       if (mqMobile.matches) {
-        if (globeWrap.parentNode !== tlmScreen) tlmScreen.appendChild(globeWrap);
-      } else {
+        if (tlmScreen && globeWrap.parentNode !== tlmScreen) tlmScreen.appendChild(globeWrap);
+      } else if (portadaStage && !mqFlow.matches) {
+        // Portada dashboard: el planeta flota centrado dentro del dash.
+        if (globeWrap.parentNode !== portadaStage) portadaStage.appendChild(globeWrap);
+      } else if (desktopGlobeSlot) {
         if (globeWrap.parentNode !== desktopGlobeSlot) desktopGlobeSlot.appendChild(globeWrap);
       }
     }
     placeGlobeForBreakpoint();
+    // La search bar vive dentro del dash (slot bajo "Hoy en la historia").
+    // En móvil no: allá tiene la suya dentro del shell.
+    if (portadaOn && !mqMobile.matches) {
+      var fbar = container.querySelector('.tl-mapa-filter-bar');
+      var fslot = container.querySelector('.tlp-search-slot');
+      if (fbar && fslot && fbar.parentNode !== fslot) fslot.appendChild(fbar);
+    }
     // React to rotation / window resize across breakpoint
     if (mqMobile.addEventListener) {
       mqMobile.addEventListener('change', placeGlobeForBreakpoint);
@@ -22180,6 +22269,56 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }
     };
     container.addEventListener('click', container._tlMapaClickHandler);
+
+    // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
+    if (portadaOn && window.matchMedia('(hover: hover)').matches) {
+      var dashEl = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
+      var arcSvg = dashEl ? dashEl.querySelector('.tlp-arc') : null;
+      var stageEl = dashEl ? dashEl.querySelector('.tlp-stage') : null;
+      var arcTimer = null;
+      function flashBolt(doorEl) {
+        if (!dashEl || !arcSvg || !stageEl) return;
+        var dashR = dashEl.getBoundingClientRect();
+        var dR = doorEl.getBoundingClientRect();
+        var sR = stageEl.getBoundingClientRect();
+        if (!sR.width) return;
+        var x1 = dR.left + dR.width / 2 - dashR.left, y1 = dR.top + dR.height / 2 - dashR.top;
+        var cx = sR.left + sR.width / 2 - dashR.left, cy = sR.top + sR.height / 2 - dashR.top;
+        var dx = cx - x1, dy = cy - y1, dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var R = sR.width / 2 * 0.94;
+        var x2 = cx - dx / dist * R, y2 = cy - dy / dist * R;
+        var segs = 5, pts = [[x1, y1]];
+        for (var bi = 1; bi < segs; bi++) {
+          var t = bi / segs;
+          pts.push([x1 + dx * t + (Math.random() - 0.5) * dist * 0.07,
+                    y1 + dy * t + (Math.random() - 0.5) * dist * 0.07]);
+        }
+        pts.push([x2, y2]);
+        var dAttr = 'M' + pts.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' L');
+        arcSvg.innerHTML = '<path class="tlp-bolt" d="' + dAttr + '"/><path class="tlp-bolt echo" d="' + dAttr + '"/>' +
+          '<circle class="tlp-bolt-dot" cx="' + x2.toFixed(1) + '" cy="' + y2.toFixed(1) + '" r="3"/>';
+        var path = arcSvg.querySelector('.tlp-bolt');
+        try {
+          var len = path.getTotalLength();
+          path.style.strokeDasharray = String(len);
+          path.style.strokeDashoffset = String(len);
+        } catch(e) {}
+        arcSvg.classList.remove('go'); void arcSvg.offsetWidth; arcSvg.classList.add('go');
+        clearTimeout(arcTimer);
+        arcTimer = setTimeout(function(){ arcSvg.innerHTML = ''; arcSvg.classList.remove('go'); }, 780);
+      }
+      var lastBoltDoor = null;
+      container.addEventListener('mouseover', function(e) {
+        var doorEl = e.target.closest ? e.target.closest('[data-door]') : null;
+        if (!doorEl || doorEl === lastBoltDoor) return;
+        lastBoltDoor = doorEl;
+        flashBolt(doorEl);
+      });
+      container.addEventListener('mouseout', function(e) {
+        var doorEl = e.target.closest ? e.target.closest('[data-door]') : null;
+        if (doorEl && doorEl === lastBoltDoor) lastBoltDoor = null;
+      });
+    }
 
     // Initialize globe — but only after the container has real dimensions.
     // During the page's initial render the timeline-view tab can still be
@@ -22837,6 +22976,13 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       .attr('class', function(d){ return 'pin ' + d.ev.scope; })
       .attr('transform', pinTransform)
       .on('click', function(_, d) {
+        // En portada: picar el mundo abre la vista completa en ese evento.
+        if (tlPortadaActive()) {
+          tlPortadaDismissed = true;
+          tlPendingSelect = d.ev._idx;
+          renderTimelineView();
+          return;
+        }
         // Clicking a pin jumps to that event; if playing, keep playing and move
         // the voice there (same as clicking an event in the timeline list).
         navTo(d.ev._idx);
@@ -24188,10 +24334,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, {passive: true});
     }
 
-    // Initial selection — en portada, un punto de entrada rotativo sembrado por
-    // la fecha ("hoy en la historia" o un evento rico), no siempre el Big Bang.
-    if (tlPortadaActive()) selectIdx(tlPortadaInitialIdx(events));
-    else selectIdx(0);
+    // Initial selection — en portada NO hay selección: el globo flota limpio
+    // (todos los pines visibles y tenues) hasta que el usuario elige algo.
+    if (!tlPortadaActive()) selectIdx(0);
   }
 
   // ── Timeline eras data: evaluated ONCE at load (was re-evaluated on every render) ──
