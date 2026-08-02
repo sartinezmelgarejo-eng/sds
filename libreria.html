@@ -7201,8 +7201,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-counts { margin-top: 7px; font-size: 10px; letter-spacing: .6px; color: rgba(226,232,245,.85);
     text-shadow: 0 1px 8px rgba(0,0,0,.9), 0 0 18px rgba(0,0,0,.7); }
   .tlp-shuffle { position: absolute; top: 10px; right: 12px; z-index: 6; background: none;
-    border: 1px solid rgba(140,170,230,.25); border-radius: 8px; padding: 4px 8px; cursor: pointer;
-    font-size: 14px; transition: border-color .25s; }
+    border: 1px solid rgba(140,170,230,.25); border-radius: 8px; padding: 4px 9px; cursor: pointer;
+    font-size: 15px; color: var(--text-dim); transition: border-color .25s, color .25s; }
+  .tlp-shuffle:hover { color: var(--gold); }
   .tlp-shuffle:hover { border-color: var(--gold); }
 
   /* Cuadrantes en órbita: una sola cosa por cuadrante */
@@ -7234,7 +7235,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-zone-lib { right: 2.5%; top: 12%; width: 24%; height: 36%; }
   .tlp-cover { position: absolute; width: min(104px, 88%); background: none; border: 0; padding: 0;
     cursor: pointer; transform: rotate(var(--rot, 0deg)); animation: tlpFloat 8s ease-in-out infinite;
-    animation-delay: var(--dly, 0s); transition: transform .3s; }
+    animation-delay: var(--dly, 0s); transition: transform .3s, opacity .45s ease; }
+  .tlp-cover.swap-out { opacity: 0; }
   .tlp-cover:hover { transform: rotate(0deg) scale(1.06); z-index: 3; }
   .tlp-cover img, .tlp-cover .book-cover-mini { width: 100% !important; height: auto; border-radius: 6px;
     box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
@@ -7255,7 +7257,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 
   .tlp-zone-rutas { left: 50%; bottom: 13.5%; transform: translateX(-50%); width: min(640px, 44%);
     display: flex; flex-direction: column; gap: 9px; z-index: 5; }
-  .tlp-bar { position: relative; display: flex; align-items: center; gap: 13px; overflow: hidden;
+  .tlp-bar { position: relative; display: flex; align-items: center; overflow: hidden;
     min-height: 68px; text-align: left; cursor: pointer;
     background: linear-gradient(90deg, rgba(20,26,44,.72), rgba(20,26,44,.28));
     border: 1px solid rgba(160,180,230,.20); border-left: 2px solid var(--gold);
@@ -7270,7 +7272,6 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-bar-cov:first-child { margin-left: 0; }
   .tlp-bar-cov img, .tlp-bar-cov .book-cover-mini { width: 100% !important; height: auto;
     border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,.55); opacity: .92; }
-  .tlp-bar-ic { flex: none; font-size: 26px; text-align: center; position: relative; z-index: 2; }
   .tlp-bar-body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .tlp-bar-t { font-family:'Cormorant Garamond',serif; font-size: 18px; font-weight: 600; }
   .tlp-bar-meta { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--gold-dim); }
@@ -21757,10 +21758,14 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var libPool = Object.keys(citasPorLibro).map(function(id){ return { b: bookById[id], n: citasPorLibro[id] }; })
         .filter(function(x){ return x.b && x.n >= 10 && (x.b.coverUrl || (x.b.coverId && typeof coverImages !== 'undefined' && coverImages[x.b.coverId])); })
         .sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
-      var LIB_SLOTS = [[58,0,-5],[6,8,3],[34,30,-3],[64,44,4],[12,60,-4]];
-      var libHTML = tlShufflePick(libPool, 5, rnd).map(function(x, i){
+      // 4 portadas visibles SIN encimarse; el resto del pool rota con fundido
+      // (cada ~14s sale una y entra otra — el orden diario ya viene sembrado).
+      var LIB_SLOTS = [[56,2,-4],[8,10,3],[30,46,-3],[62,54,4]];
+      var libShown = tlShufflePick(libPool, libPool.length, rnd);
+      window.__tlpLibPool = libShown;
+      var libHTML = libShown.slice(0, 4).map(function(x, i){
         var sl = LIB_SLOTS[i % LIB_SLOTS.length];
-        return '<button class="tlp-cover" type="button" data-door="libro" data-id="' + esc(x.b.id) + '" ' +
+        return '<button class="tlp-cover" type="button" data-door="libro" data-id="' + esc(x.b.id) + '" data-slot="' + i + '" ' +
           'title="' + esc(x.b.title) + ' — ' + x.n + ' citas" style="left:' + sl[0] + '%; top:' + sl[1] + '%; --rot:' + sl[2] + 'deg; --dly:' + (i * 0.9).toFixed(1) + 's">' +
           getCoverHTML(x.b, 'small') + '</button>';
       }).join('');
@@ -21787,7 +21792,6 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         }).join('') + '</span>' : '';
         return '<button class="tlp-bar" type="button" data-door="ruta" data-id="' + esc(r.id) + '" title="' + esc(r.desc) + '">' +
           covHTML +
-          '<span class="tlp-bar-ic">' + r.icon + '</span>' +
           '<span class="tlp-bar-body"><span class="tlp-bar-t">' + esc(r.title) + '</span>' +
           '<span class="tlp-bar-meta"><span class="tlp-dots">' + dots + '</span>' + r.steps.length + ' libros · ' + nEv + ' eventos</span></span>' +
         '</button>';
@@ -21808,8 +21812,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var terms = (typeof tlTerminos !== 'undefined' && tlTerminos.length) ? tlShufflePick(tlTerminos, 8, rnd) : [];
       var termsHTML = terms.map(function(t){
         var fs = (13 + Math.min(3, t.menciones / 60)).toFixed(1);
-        return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '" title="' + t.menciones + ' menciones" style="font-size:' + fs + 'px">' +
-          '<span class="tlp-term-ic">' + (t.icon || '✦') + '</span>' + esc(t.termino) + '</button>';
+        return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '" title="' + t.menciones + ' menciones" style="font-size:' + fs + 'px">' + esc(t.termino) + '</button>';
       }).join('');
 
       return '<div class="tl-portada tlp-dash">' +
@@ -21822,7 +21825,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           '<div class="tlp-search-slot"></div>' +
           '<div class="tlp-counts">' + totalAll.toLocaleString('es-MX') + ' eventos · ' + eraPills.length + ' épocas · ' + rutas.length + ' recorridos · ' + Object.keys(citasPorLibro).length + ' libros</div>' +
         '</div>' +
-        '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">🔀</button>' +
+        '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">↻</button>' +
         (persHTML ? '<div class="tlp-zone tlp-zone-per">' + persHTML + '</div>' : '') +
         (autHTML ? '<div class="tlp-zone tlp-zone-aut2">' + autHTML + '</div>' : '') +
         (libHTML ? '<div class="tlp-zone tlp-zone-lib">' + libHTML + '</div>' : '') +
@@ -22345,6 +22348,30 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }
     };
     container.addEventListener('click', container._tlMapaClickHandler);
+
+    // ── Rotación de portadas en la portada: cada ~14s sale una y entra otra ──
+    try { clearInterval(window.__tlpLibTimer); } catch(e) {}
+    if (portadaOn && window.__tlpLibPool && window.__tlpLibPool.length > 4) {
+      var libSlotIdx = 0, libPoolIdx = 4; // los primeros 4 ya están pintados
+      window.__tlpLibTimer = setInterval(function() {
+        var pool = window.__tlpLibPool;
+        if (!pool || !pool.length) { clearInterval(window.__tlpLibTimer); return; }
+        var slot = libSlotIdx % 4;
+        var next = pool[libPoolIdx % pool.length];
+        libPoolIdx++; libSlotIdx++;
+        var covers = container.querySelectorAll('.tlp-cover[data-slot="' + slot + '"]');
+        if (!covers.length) { clearInterval(window.__tlpLibTimer); return; }
+        covers.forEach(function(c) {
+          c.classList.add('swap-out');
+          setTimeout(function() {
+            c.setAttribute('data-id', next.b.id);
+            c.title = next.b.title + ' — ' + next.n + ' citas';
+            c.innerHTML = getCoverHTML(next.b, 'small');
+            c.classList.remove('swap-out');
+          }, 460);
+        });
+      }, 14000);
+    }
 
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
     if (portadaOn && window.matchMedia('(hover: hover)').matches) {
