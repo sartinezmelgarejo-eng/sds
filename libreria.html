@@ -7208,10 +7208,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 
   /* Órbita de esferas: overlay de todo el dash; cada burbuja centrada en su punto */
   .tlp-orbits { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-  .tlp-orbits .tlp-bubble { pointer-events: auto; transform: translate(-50%,-50%); }
+  .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none; }
   .tlp-orbits .tlp-bubble:hover { z-index: 7; }
-  .tlp-orbits .tlp-bubble-n { position: absolute; right: calc(100% + 10px); top: 50%;
-    transform: translateY(-50%); width: 130px; text-align: right; margin-top: 0; }
+  /* Nombre solo al hover: el arco va limpio (las etiquetas apilaban el arco) */
+  .tlp-orbits .tlp-bubble-n { position: absolute; top: calc(100% + 7px); left: 50%;
+    transform: translateX(-50%); width: max-content; max-width: 150px; text-align: center;
+    opacity: 0; transition: opacity .25s; pointer-events: none;
+    background: rgba(8,12,24,.8); border-radius: 8px; padding: 3px 9px; }
+  .tlp-orbits .tlp-bubble:hover .tlp-bubble-n { opacity: 1; }
+
   .tlp-bubble { position: absolute; width: var(--bs, 60px); background: none; border: 0;
     cursor: pointer; padding: 0; text-align: center;
     animation: tlpFloat 7s ease-in-out infinite; }
@@ -7347,7 +7352,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     .tlp-orbits { position: static; display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
       margin-top: 18px; pointer-events: auto; }
     .tlp-orbits .tlp-bubble { position: static; transform: none; }
-    .tlp-orbits .tlp-bubble-n { position: static; width: auto; text-align: center; transform: none; margin-top: 7px; }
+    .tlp-orbits .tlp-bubble-n { position: static; width: auto; max-width: none; text-align: center;
+      transform: none; margin-top: 7px; opacity: 1; background: none; padding: 0; }
     .tlp-zone-lib { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; }
     .tlp-zone-terms { justify-content: center; }
     .tlp-bubble, .tlp-cover { position: static; }
@@ -21726,7 +21732,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 
       // ── Orbes: personajes + autores MEZCLADOS, flotando como planetitas ──
       // Posiciones orgánicas (slot predefinido), tamaño ∝ menciones/citas.
-      var pers = (typeof tlPersonajes !== 'undefined' && tlPersonajes.length) ? tlShufflePick(tlPersonajes, 4, rnd) : [];
+      var pers = (typeof tlPersonajes !== 'undefined' && tlPersonajes.length) ? tlShufflePick(tlPersonajes, tlPersonajes.length, rnd) : [];
       var auMap = {}, auBook = {};
       books.forEach(function(b){
         var n = citasPorLibro[b.id] || 0;
@@ -21741,37 +21747,44 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       });
       var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k], bk: auBook[k] || null }; })
         .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
-      var auts = tlShufflePick(auPool, 3, rnd);
-      // ÓRBITA izquierda: 6 esferas alternadas (personaje/autor) en arco alrededor
-      // del planeta, con perspectiva suave (arriba chicas, crecen al bajar).
-      // [left%, top%] de la vista — alineadas con el stage (50%, 47%).
-      var ORBIT_SLOTS = [[25,27],[21,35.5],[20,44],[21,52.5],[24,59],[25.8,65]];
-      var ORBIT_SIZES = [56, 62, 68, 74, 78, 80];
+      var auts = tlShufflePick(auPool, auPool.length, rnd);
+      // ÓRBITA viva: 6 esferas viajando despacio en el arco (de fuera hacia
+      // dentro); al terminar el camino una se desvanece y entra cara nueva.
+      // La cola intercala TODOS los personajes y los autores top.
       var orbsHTML = '';
-      pers.slice(0, 3).forEach(function(p, i){
-        var inicial = (String(p.nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-        var oi = i * 2; // posiciones pares de la órbita
-        var sl = ORBIT_SLOTS[oi], size = ORBIT_SIZES[oi];
-        var inner = p.img
-          ? '<span class="tlp-bubble-cover"><img loading="lazy" src="' + p.img + '" alt=""></span>'
-          : '<span class="tlp-bubble-ic">' + inicial + '</span>';
-        orbsHTML += '<button class="tlp-bubble tlp-bubble-per" type="button" data-door="q" data-q="' + esc(p.nombre) + '" ' +
-          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (oi * 1.4).toFixed(1) + 's" ' +
-          'title="' + esc(p.blurb || '') + ' — ' + p.menciones + ' menciones">' + inner +
-          '<span class="tlp-bubble-n">' + esc(p.nombre) + '</span></button>';
-      });
-      auts.forEach(function(a, i){
-        var inicial = (a.name.match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
-        var oi = i * 2 + 1; // posiciones nones de la órbita
-        var sl = ORBIT_SLOTS[oi], size = ORBIT_SIZES[oi];
-        var inner = a.bk
-          ? '<span class="tlp-bubble-cover">' + getCoverHTML(a.bk, 'small') + '</span>'
-          : '<span class="tlp-bubble-ic">' + inicial + '</span>';
-        orbsHTML += '<button class="tlp-bubble tlp-bubble-aut" type="button" data-door="autor" data-id="' + esc(a.name) + '" ' +
-          'style="--bs:' + size + 'px; left:' + sl[0] + '%; top:' + sl[1] + '%; animation-delay:-' + (oi * 1.4).toFixed(1) + 's" ' +
-          'title="' + esc(a.name) + ' — ' + a.n + ' citas">' + inner +
-          '<span class="tlp-bubble-n">' + esc(a.name) + '</span></button>';
-      });
+      // Cola intercalada P,A,P,A… y 6 esferas iniciales (posiciones las pone el timer)
+      var orbQueue = [];
+      var pi = 0, ai = 0;
+      while (pi < pers.length || ai < auts.length) {
+        if (pi < pers.length) orbQueue.push({ tipo: 'per', data: pers[pi++] });
+        if (ai < auts.length) orbQueue.push({ tipo: 'aut', data: auts[ai++] });
+      }
+      window.__tlpOrbit = { queue: orbQueue, next: 5 };
+      function orbBubbleHTML(occ, i) {
+        var isPer = occ.tipo === 'per';
+        var nombre = isPer ? occ.data.nombre : occ.data.name;
+        var inicial = (String(nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
+        var inner;
+        if (isPer && occ.data.img) inner = '<span class="tlp-bubble-cover"><img loading="lazy" src="' + occ.data.img + '" alt=""></span>';
+        else if (!isPer && occ.data.bk) inner = '<span class="tlp-bubble-cover">' + getCoverHTML(occ.data.bk, 'small') + '</span>';
+        else inner = '<span class="tlp-bubble-ic">' + inicial + '</span>';
+        var door = isPer ? 'data-door="q" data-q="' + esc(nombre) + '"' : 'data-door="autor" data-id="' + esc(nombre) + '"';
+        var tip = isPer ? (esc(occ.data.blurb || '') + ' — ' + occ.data.menciones + ' menciones') : (esc(nombre) + ' — ' + occ.data.n + ' citas');
+        return '<button class="tlp-bubble tlp-bubble-' + (isPer ? 'per' : 'aut') + '" type="button" ' + door + ' data-orb="' + i + '" ' +
+          'style="--bs:64px" title="' + tip + '">' + inner +
+          '<span class="tlp-bubble-n">' + esc(nombre) + '</span></button>';
+      }
+      window.__tlpOrbBubbleHTML = orbBubbleHTML;
+      for (var oi = 0; oi < 5; oi++) {
+        var bh = orbBubbleHTML(orbQueue[oi % orbQueue.length], oi);
+        var p0 = oi / 5, th0 = (222 - 76 * p0) * Math.PI / 180;
+        var lx = (50 + 38 * Math.cos(th0)).toFixed(2), ty = (47 + 40 * Math.sin(th0)).toFixed(2);
+        var op0 = p0 < 0.06 ? p0 / 0.06 : 1;
+        bh = bh.replace('style="--bs:64px"',
+          'style="--bs:58px; left:' + lx + '%; top:' + ty + '%; opacity:' + op0.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + (0.72 + 0.36 * p0).toFixed(2) + ')"');
+        orbsHTML += bh;
+      }
+
 
       // ── Libros: 3 portadas en triángulo (dos derecha, una izquierda) ──
       var libPool = Object.keys(citasPorLibro).map(function(id){ return { b: bookById[id], n: citasPorLibro[id] }; })
@@ -22389,6 +22402,52 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           }, 460);
         });
       }, 14000);
+    }
+
+    // ── Órbita viva: conveyor de esferas a lo largo del arco ──
+    // Elipse centrada en el stage (50%,47% del dash): θ de 218°→152°, rx 34%,
+    // ry 35%. Cada esfera tarda ~100s en el viaje; al final se desvanece y
+    // respawnea al inicio con la siguiente cara de la cola (rotan TODOS).
+    try { clearInterval(window.__tlpOrbitTimer); } catch(e) {}
+    if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.queue.length) {
+      var orbDash = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
+      var orbSpheres = orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll('.tlp-orbits .tlp-bubble')) : [];
+      var orbLast = orbSpheres.map(function(_, i){ return i / 5; });
+      var orbT0 = Date.now();
+      window.__tlpOrbitTimer = setInterval(function() {
+        if (!window.__tlpOrbit || mqFlow.matches) return; // en flujo móvil/tablet van quietas
+        var dashR2 = orbDash && orbDash.getBoundingClientRect ? orbDash.getBoundingClientRect() : null;
+        if (!dashR2 || !dashR2.width) return;
+        var cx = dashR2.width * 0.50, cy = dashR2.height * 0.47;
+        var rx = dashR2.width * 0.38, ry = dashR2.height * 0.40;
+        var base = ((Date.now() - orbT0) / 100000) % 1; // 100s por vuelta
+        orbSpheres.forEach(function(sph, i) {
+          if (!sph.isConnected) return;
+          var p = (base + i / 5) % 1;
+          if (p < orbLast[i]) {
+            // dio la vuelta: cara nueva de la cola
+            var occ = window.__tlpOrbit.queue[window.__tlpOrbit.next % window.__tlpOrbit.queue.length];
+            window.__tlpOrbit.next++;
+            var tmp = document.createElement('div');
+            tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
+            var nb = tmp.firstChild;
+            sph.setAttribute('data-door', nb.getAttribute('data-door'));
+            var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
+            if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
+            else { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
+            sph.title = nb.title;
+            sph.innerHTML = nb.innerHTML;
+            sph.className = nb.className;
+          }
+          orbLast[i] = p;
+          var th = (222 - 76 * p) * Math.PI / 180;
+          sph.style.left = (cx + rx * Math.cos(th)) + 'px';
+          sph.style.top = (cy + ry * Math.sin(th)) + 'px';
+          var o = p < 0.06 ? p / 0.06 : (p > 0.94 ? (1 - p) / 0.06 : 1);
+          sph.style.opacity = o.toFixed(3);
+          sph.style.transform = 'translate(-50%,-50%) scale(' + (0.72 + 0.36 * p).toFixed(3) + ')';
+        });
+      }, 100);
     }
 
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
