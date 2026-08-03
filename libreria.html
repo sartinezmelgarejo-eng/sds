@@ -21824,19 +21824,31 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         });
       });
       var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k], bk: auBook[k] || null }; })
-        .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
+        .sort(function(a, b){ return b.n - a.n; });
       var auts = tlShufflePick(auPool, auPool.length, rnd);
       // ── Órbita viva: DOS arcos "))" — personajes en el interior (cerca del
       // planeta), autores en el exterior; fase desfasada y velocidades distintas
       // para que nunca vayan en formación. 5 esferas por arco, respawn de su cola.
       var orbsHTML = '';
       window.__tlpOrbit = { per: pers.slice(), aut: auts.slice(), nextPer: 9, nextAut: 9 };
+      // foto de autor con empate normalizado (sin acentos/puntos/espacios):
+      // rescata "V.I. Lenin" vs "V. I. Lenin" y similares
+      var __fotoNorm = {};
+      function __normA(n){ return String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z]/g,''); }
+      if (typeof autorFotos !== 'undefined') {
+        Object.keys(autorFotos).forEach(function(k){ __fotoNorm[__normA(k)] = autorFotos[k]; });
+      }
+      function fotoDeAutor(n){
+        if (typeof autorFotos !== 'undefined' && autorFotos[n]) return autorFotos[n];
+        return __fotoNorm[__normA(n)] || null;
+      }
       function orbBubbleHTML(occ, i) {
         var isPer = occ.tipo === 'per';
         var nombre = isPer ? occ.data.nombre : occ.data.name;
         var inicial = (String(nombre).match(/[\p{L}]/u) || ['?'])[0].toUpperCase();
         var inner;
         if (isPer && occ.data.img) inner = '<span class="tlp-bubble-cover"><img loading="lazy" src="' + occ.data.img + '" alt=""></span>';
+        else if (!isPer && fotoDeAutor(nombre)) inner = '<span class="tlp-bubble-cover"><img loading="lazy" src="' + fotoDeAutor(nombre) + '" alt=""></span>';
         else if (!isPer && occ.data.bk) inner = '<span class="tlp-bubble-cover">' + getCoverHTML(occ.data.bk, 'small') + '</span>';
         else inner = '<span class="tlp-bubble-ic">' + inicial + '</span>';
         var door = isPer ? 'data-door="q" data-q="' + esc(nombre) + '"' : 'data-door="autor" data-id="' + esc(nombre) + '"';
@@ -21865,7 +21877,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       // ── Libros: 3 portadas en triángulo (dos derecha, una izquierda) ──
       var libPool = Object.keys(citasPorLibro).map(function(id){ return { b: bookById[id], n: citasPorLibro[id] }; })
         .filter(function(x){ return x.b && x.n >= 10 && (x.b.coverUrl || (x.b.coverId && typeof coverImages !== 'undefined' && coverImages[x.b.coverId])); })
-        .sort(function(a, b){ return b.n - a.n; }).slice(0, 40);
+        .sort(function(a, b){ return b.n - a.n; });
       // 4 portadas visibles SIN encimarse; el resto del pool rota con fundido
       // (cada ~14s sale una y entra otra — el orden diario ya viene sembrado).
       var LIB_SLOTS = [[50,1,-4],[0,34,3],[44,62,-3]];
