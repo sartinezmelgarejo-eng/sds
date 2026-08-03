@@ -7308,7 +7308,10 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     mask-image: linear-gradient(to top, transparent 0, #000 7%, #000 74%, transparent 97%); }
   .tlp-crawl-belt { position: absolute; left: 0; right: 0; top: 0;
     display: flex; flex-direction: column; align-items: center; gap: 14px;
-    animation: tlpBelt var(--beltdur, 290s) linear infinite; }
+    /* Arranca por debajo del plano y entra a escena; al terminar, el JS la
+       pasa al bucle infinito (una sola animación en régimen). */
+    transform: translateY(var(--beltin, 100%));
+    animation: tlpBeltIn var(--beltindur, 45s) linear both; }
   .tlp-crawl-item { position: relative; display: flex; align-items: center;
     justify-content: center; background: none; border: 0; cursor: pointer; padding: 0; }
   /* luz tenue bajo el paquete, como si la barra viajara iluminada */
@@ -7337,7 +7340,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-counts-link:hover { color: var(--gold); border-color: var(--gold); }
   .tlp-crawl-belt:has(.tlp-crawl-item:hover) { animation-play-state: paused; }
   @keyframes tlpBelt { from { transform: translateY(0); } to { transform: translateY(-50%); } }
-  @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; } }
+  @keyframes tlpBeltIn { from { transform: translateY(var(--beltin, 100%)); } to { transform: translateY(0); } }
+  @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; transform: none; } }
   @media (min-width: 1101px) {
     .tlp-zone-rutas .tlp-bar, .tlp-zone-rutas .tlp-mini2 { display: none; }
   }
@@ -22706,6 +22710,24 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var belt = z.querySelector('.tlp-crawl-belt');
         if (!belt || belt.__wheeled) return;
         belt.__wheeled = true;
+
+        // Entrada: la banda nace justo debajo del plano y sube al MISMO paso
+        // que el bucle, así que el empalme no se nota. Se mide después del
+        // layout porque depende de cuántos recorridos haya.
+        requestAnimationFrame(function() {
+          var hPlano = z.clientHeight || 0;
+          var hCopia = belt.scrollHeight / 2 || 1;
+          var dur = parseFloat(getComputedStyle(belt).getPropertyValue('--beltdur')) || 290;
+          belt.style.setProperty('--beltin', hPlano + 'px');
+          belt.style.setProperty('--beltindur', (dur * hPlano / hCopia).toFixed(2) + 's');
+          belt.addEventListener('animationend', function alBucle(ev) {
+            if (ev.animationName !== 'tlpBeltIn') return;
+            belt.removeEventListener('animationend', alBucle);
+            belt.__entro = true;
+            belt.style.transform = '';
+            belt.style.animation = 'tlpBelt var(--beltdur) linear infinite';
+          });
+        });
         z.addEventListener('wheel', function(e) {
           // agarre pegajoso: el primer golpe debe caer sobre un banner, pero
           // mientras se siga scrolleando (ventana de 1.6s) la banda responde
@@ -22713,6 +22735,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           var sobreBanner = e.target && e.target.closest && e.target.closest('.tlp-crawl-item');
           var ahora = Date.now();
           if (!sobreBanner && !(belt.__grab && ahora - belt.__grab < 1600)) return;
+          if (!belt.__entro) return;   // aún entrando a escena
           belt.__grab = ahora;
           e.preventDefault();
           belt.__off = (belt.__off || 0) + e.deltaY * 0.022;
