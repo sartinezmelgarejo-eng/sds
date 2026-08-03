@@ -7398,20 +7398,17 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     transition: transform .25s, background .25s; }
   .tlp-seg:hover { transform: translateY(-3px); background: rgba(200,169,96,.07); }
   .tlp-seg { position: relative; }
-  /* Nombre en grande al pasar el mouse: placa flotante sobre el eje */
-  .tlp-seg::after { content: attr(data-t); position: absolute; bottom: calc(100% + 12px);
-    left: 50%; transform: translateX(-50%) translateY(5px); width: max-content;
-    max-width: min(520px, 70vw); white-space: normal;
-    font-family: 'Cormorant Garamond', serif; font-size: 25px; line-height: 1.15;
-    text-align: center; color: var(--gold); background: rgba(8,11,22,.9);
-    border: 1px solid rgba(200,169,96,.35); border-radius: 10px; padding: 7px 18px;
-    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 30; }
-  .tlp-seg:hover::after { opacity: 1; transform: translateX(-50%) translateY(0); }
-  /* En las orillas la placa se ancla al borde para no salirse de pantalla */
-  .tlp-rail .tlp-seg:nth-child(-n+3)::after { left: 0; transform: translateY(5px); }
-  .tlp-rail .tlp-seg:nth-child(-n+3):hover::after { transform: translateY(0); }
-  .tlp-rail .tlp-seg:nth-last-child(-n+4)::after { left: auto; right: 0; transform: translateY(5px); }
-  .tlp-rail .tlp-seg:nth-last-child(-n+4):hover::after { transform: translateY(0); }
+  /* Al pasar el mouse, el MISMO nombre del eje crece para leerse completo.
+     Sale del flujo (absolute) para no reacomodar el rail entero. */
+  .tlp-seg:hover .tlp-seg-n { position: absolute; bottom: calc(100% + 6px); left: 50%;
+    transform: translateX(-50%); z-index: 30; font-size: 23px; line-height: 1.15;
+    -webkit-line-clamp: unset; overflow: visible; width: max-content;
+    max-width: min(480px, 60vw); white-space: normal; pointer-events: none;
+    color: var(--gold); background: rgba(8,11,22,.88); border-radius: 8px;
+    padding: 4px 14px; }
+  /* En las orillas se ancla al borde para no salirse de pantalla */
+  .tlp-rail .tlp-seg:nth-child(-n+3):hover .tlp-seg-n { left: 0; transform: none; }
+  .tlp-rail .tlp-seg:nth-last-child(-n+4):hover .tlp-seg-n { left: auto; right: 0; transform: none; }
   .tlp-seg-n { font-size: 9px; letter-spacing: .2px; text-align: center; line-height: 1.15;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .tlp-seg-y { font-size: 7.5px; color: var(--text-dim); white-space: nowrap; }
@@ -22636,7 +22633,13 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         if (!belt || belt.__wheeled) return;
         belt.__wheeled = true;
         z.addEventListener('wheel', function(e) {
-          if (!e.target || !e.target.closest || !e.target.closest('.tlp-crawl-item')) return;
+          // agarre pegajoso: el primer golpe debe caer sobre un banner, pero
+          // mientras se siga scrolleando (ventana de 1.6s) la banda responde
+          // aunque el banner se haya corrido bajo el cursor.
+          var sobreBanner = e.target && e.target.closest && e.target.closest('.tlp-crawl-item');
+          var ahora = Date.now();
+          if (!sobreBanner && !(belt.__grab && ahora - belt.__grab < 1600)) return;
+          belt.__grab = ahora;
           e.preventDefault();
           belt.__off = (belt.__off || 0) + e.deltaY * 0.022;
           belt.style.animationDelay = (-belt.__off) + 's';
