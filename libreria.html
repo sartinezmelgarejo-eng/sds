@@ -7207,10 +7207,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-shuffle:hover { border-color: var(--gold); }
 
   /* Órbita de esferas: overlay de todo el dash; cada burbuja centrada en su punto */
-  .tlp-orbits { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+  .tlp-orbits { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
   .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none;
-    transition: left 3s cubic-bezier(.5,.05,.15,1), top 3s cubic-bezier(.5,.05,.15,1),
-                transform 3s cubic-bezier(.5,.05,.15,1), opacity 1s ease; }
+    transition: left 8s cubic-bezier(.45,.05,.2,1), top 8s cubic-bezier(.45,.05,.2,1),
+                transform 8s cubic-bezier(.45,.05,.2,1), opacity 1.6s ease,
+                filter 8s ease; }
   .tlp-orbits .tlp-bubble:hover { z-index: 7; }
   /* Nombre solo al hover: el arco va limpio (las etiquetas apilaban el arco) */
   .tlp-orbits .tlp-bubble-n { position: absolute; top: calc(100% + 7px); left: 50%;
@@ -7218,6 +7219,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     opacity: 0; transition: opacity .25s; pointer-events: none;
     background: rgba(8,12,24,.8); border-radius: 8px; padding: 3px 9px; }
   .tlp-orbits .tlp-bubble:hover .tlp-bubble-n { opacity: 1; }
+  .tlp-orbits .tlp-bubble-feat .tlp-bubble-n { opacity: .92; }
 
   .tlp-bubble { position: absolute; width: var(--bs, 60px); background: none; border: 0;
     cursor: pointer; padding: 0; text-align: center;
@@ -7264,9 +7266,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-zone-terms { right: 2%; top: 58%; width: 27%; height: 33%; display: flex;
     flex-wrap: wrap; gap: 15px 26px; align-content: flex-start; align-items: baseline;
     justify-content: center; }
-  .tlp-terms-label { flex-basis: 100%; text-align: center; font-size: 10px;
-    letter-spacing: 3px; text-transform: uppercase; color: var(--gold-dim);
-    padding-bottom: 5px; margin-bottom: 3px; border-bottom: 1px solid rgba(200,169,96,.16); }
+  .tlp-terms-label { flex-basis: 100%; height: 0; margin-bottom: 6px;
+    border-bottom: 1px solid rgba(200,169,96,.16); }
   /* Escalonado sutil: solo en el lienzo absoluto de escritorio (en flujo va plano) */
   @media (min-width: 1101px) {
     .tlp-zone-terms .tlp-term:nth-child(3n) { transform: translateY(-6px); }
@@ -21869,7 +21870,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var fs = (13.5 + Math.min(5.5, t.menciones / 40)).toFixed(1);
         return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '" title="' + t.menciones + ' menciones" style="font-size:' + fs + 'px">' + esc(t.termino) + '</button>';
       }).join('');
-      if (termsHTML) termsHTML = '<div class="tlp-terms-label">Conceptos</div>' + termsHTML;
+      if (termsHTML) termsHTML = '<div class="tlp-terms-label" aria-hidden="true"></div>' + termsHTML;
 
       return '<div class="tl-portada tlp-dash">' +
         '<div class="tlp-stars" style="box-shadow:' + shadows.join(',') + ';"></div>' +
@@ -22428,30 +22429,62 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, 14000);
     }
 
-    // ── Órbita en constelaciones: cada formación es una composición fija;
-    // pausa ~7.5s y migra suave (~3s vía transition CSS) a la siguiente.
-    // En cada cambio dos esferas (una por arco) se funden y respawnean con la
-    // siguiente cara de su cola, así desfila todo el elenco sin conveyor.
+    // ── Órbita en constelaciones: formaciones fijas, ritmo contemplativo.
+    // Entran desde la orilla izquierda; pausa ~22s y migración de 8s (CSS).
+    // En cada cambio dos esferas se funden y su relevo entra desde la orilla.
+    // 1-2 huecos por formación van destacados: más grandes y con nombre visible.
     try { clearInterval(window.__tlpOrbitTimer); } catch(e) {}
     try { clearTimeout(window.__tlpOrbitKick); } catch(e) {}
+    try { clearTimeout(window.__tlpOrbitKick2); } catch(e) {}
     if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.per.length) {
       var orbDash = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
       var orbBubbles = orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll('.tlp-orbits .tlp-bubble')) : [];
       // 10 huecos por formación (0-4 personajes, 5-9 autores) en la franja
-      // izquierda del dash; [x%, y%, escala]. El planeta vive al centro.
+      // izquierda; [x%, y%, escala, destacado]. Van bajo el planeta (z-index).
       var TLP_FORMS = [
-        [[13,18,1.04],[24,29,.98],[29,42,1.06],[26,55,.94],[16,63,1],
-         [4,10,.84],[16,7,.9],[28,13,.8],[35,26,.88],[36,42,.82]],          // doble arco "))"
-        [[5,12,.96],[12,24,1.05],[19,36,.95],[26,48,1.06],[33,60,.97],
-         [11,7,.82],[18,17,.88],[25,29,.8],[32,41,.86],[38,53,.9]],         // diagonal escalonada
-        [[9,16,1.05],[22,24,.94],[31,14,1],[27,47,1.07],[12,58,.96],
-         [17,8,.86],[35,30,.82],[20,38,.9],[33,56,.84],[6,37,.88]],         // constelación dispersa
-        [[11,12,1],[11,26,.95],[11,40,1.06],[11,54,.95],[11,68,1],
-         [26,9,.84],[26,23,.9],[26,37,.82],[26,51,.9],[26,65,.84]],         // doble columna
-        [[20,12,1.02],[33,24,.95],[33,48,1.05],[20,60,.96],[7,48,1],
-         [7,24,.86],[27,8,.84],[36,36,.9],[27,64,.82],[4,36,.88]]           // corona
+        [[13,26,1.04,0],[24,37,.98,0],[29,50,1.3,1],[26,63,.94,0],[16,71,1,0],
+         [4,18,.84,0],[16,15,1.14,1],[28,21,.8,0],[35,34,.88,0],[36,50,.82,0]],   // doble arco "))"
+        [[5,20,.96,0],[12,32,1.32,1],[19,44,.95,0],[26,56,1.06,0],[33,68,.97,0],
+         [11,15,.82,0],[18,25,.88,0],[25,37,.8,0],[32,49,1.12,1],[38,61,.9,0]],   // diagonal escalonada
+        [[9,24,1.05,0],[22,32,.94,0],[31,22,1.34,1],[27,55,1.07,0],[12,66,.96,0],
+         [17,16,.86,0],[35,38,.82,0],[20,46,1.1,1],[33,64,.84,0],[6,45,.88,0]],   // constelación dispersa
+        [[11,20,1,0],[11,34,.95,0],[11,48,1.3,1],[11,62,.95,0],[11,76,1,0],
+         [26,17,.84,0],[26,31,1.12,1],[26,45,.82,0],[26,59,.9,0],[26,73,.84,0]],  // doble columna
+        [[20,20,1.34,1],[33,32,.95,0],[33,56,1.05,0],[20,68,.96,0],[7,56,1,0],
+         [7,32,.86,0],[27,16,.84,0],[36,44,1.1,1],[27,72,.82,0],[4,44,.88,0]]     // corona
       ];
       var formStep = 0, swapPtr = 0;
+      function orbColoca(sph, f) {
+        sph.style.left = f[0] + '%';
+        sph.style.top = f[1] + '%';
+        sph.style.transform = 'translate(-50%,-50%) scale(' + f[2] + ')';
+        sph.style.opacity = 1;
+        // profundidad: las lejanas (escala chica) van borrosas y apagadas
+        sph.style.filter = f[2] <= 0.85 ? 'blur(1.1px) brightness(.72)'
+                          : f[2] < 1.05 ? 'blur(.4px) brightness(.88)' : 'none';
+        sph.style.zIndex = f[2] >= 1.05 ? 3 : (f[2] >= 0.85 ? 2 : 1);
+        sph.classList.toggle('tlp-bubble-feat', !!f[3]);
+      }
+      function orbEntrada(sph, f, modo) {
+        // teleport sin transición al punto de partida del viaje
+        sph.style.transition = 'none';
+        if (modo === 'lejos') {
+          // nace como estrella: un punto diminuto en el cielo alto
+          sph.style.left = (4 + Math.random() * 40).toFixed(1) + '%';
+          sph.style.top = (6 + Math.random() * 26).toFixed(1) + '%';
+          sph.style.transform = 'translate(-50%,-50%) scale(.05)';
+          sph.style.filter = 'blur(1.4px) brightness(1.6)';
+          sph.style.opacity = 0;
+        } else {
+          // entra desde la orilla izquierda, a la altura de su hueco
+          sph.style.left = '-9%';
+          sph.style.top = f[1] + '%';
+          sph.style.transform = 'translate(-50%,-50%) scale(' + (f[2] * 0.8).toFixed(2) + ')';
+          sph.style.opacity = 0;
+        }
+        void sph.offsetWidth;
+        sph.style.transition = '';
+      }
       function orbApply(withSwap) {
         var F = TLP_FORMS[formStep % TLP_FORMS.length];
         formStep++;
@@ -22460,15 +22493,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         orbBubbles.forEach(function(sph, i) {
           if (!sph.isConnected) return;
           var f = F[i % F.length];
-          var mover = function() {
-            sph.style.left = f[0] + '%';
-            sph.style.top = f[1] + '%';
-            sph.style.transform = 'translate(-50%,-50%) scale(' + f[2] + ')';
-            sph.style.opacity = 1;
-          };
-          if (swapIdx.indexOf(i) < 0) { mover(); return; }
-          // esfera de relevo: se funde, cambia de cara y reaparece en camino
-          sph.style.opacity = 0;
+          // ondulación: cada esfera arranca con un pequeño desfase propio
+          sph.style.transitionDelay = ((i % 5) * 0.45 + (i < 5 ? 0 : 0.22)).toFixed(2) + 's';
+          if (swapIdx.indexOf(i) < 0) { orbColoca(sph, f); return; }
+          // relevo: se encoge hasta quedar como una estrella y ahí se apaga
+          sph.style.transitionDelay = '0s';
+          sph.classList.remove('tlp-bubble-feat');
+          sph.style.transform = 'translate(-50%,-50%) scale(.05)';
+          sph.style.filter = 'blur(1.2px) brightness(1.7)';
+          setTimeout(function() { if (sph.isConnected) sph.style.opacity = 0; }, 6800);
           setTimeout(function() {
             if (!sph.isConnected || !window.__tlpOrbit) return;
             var isPer = i < 5;
@@ -22488,20 +22521,25 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
               sph.innerHTML = nb.innerHTML;
               sph.className = nb.className;
             }
-            mover();
-          }, 1050);
+            orbEntrada(sph, f, Math.random() < 0.5 ? 'lejos' : 'orilla');
+            setTimeout(function() { if (sph.isConnected) orbColoca(sph, f); }, 80);
+          }, 9200);
         });
       }
-      // arranque: desde los arcos estáticos del HTML deriva a la 1ª formación
+      // entrada inicial: todas fuera de pantalla y deriva a la 1ª formación
       window.__tlpOrbitKick = setTimeout(function() {
-        if (!mqFlow.matches) orbApply(false);
-      }, 700);
+        if (mqFlow.matches) return;
+        var F0 = TLP_FORMS[0];
+        orbBubbles.forEach(function(sph, i) {
+          if (sph.isConnected) orbEntrada(sph, F0[i % F0.length], (i % 2) ? 'lejos' : 'orilla');
+        });
+        window.__tlpOrbitKick2 = setTimeout(function() { orbApply(false); }, 400);
+      }, 90);
       window.__tlpOrbitTimer = setInterval(function() {
         if (!window.__tlpOrbit || mqFlow.matches) return;
         orbApply(true);
-      }, 10500);
+      }, 30000);
     }
-
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
     if (portadaOn && window.matchMedia('(hover: hover)').matches) {
       var dashEl = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
