@@ -21463,6 +21463,14 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     return !tlPortadaDismissed && !tlRuta && (filterIsEmpty(tlFilter) || tlFilterDefault);
   }
   function tlPortadaReset() { tlPortadaDismissed = false; }
+  // Camino de la órbita en forma ")" — entra lejos (arriba-izq), se acerca al
+  // planeta a media curva, vuelve a salir (abajo-izq). Bezier cuadrática en %
+  // del dash: P0=(10,16) P1=(50,45) P2=(13,67).
+  function tlOrbitPos(p) {
+    var u = 1 - p;
+    return [u*u*10 + 2*u*p*50 + p*p*13,
+            u*u*16 + 2*u*p*45 + p*p*67];
+  }
   // Recorrido: una ruta dentro del mapa = filtro por sus libros + banner guía.
   // _strict: ignora el fallback era.bookIds (ese existe para contexto; en un
   // recorrido solo queremos eventos con cita directa de los libros de la ruta).
@@ -21777,11 +21785,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       window.__tlpOrbBubbleHTML = orbBubbleHTML;
       for (var oi = 0; oi < 5; oi++) {
         var bh = orbBubbleHTML(orbQueue[oi % orbQueue.length], oi);
-        var p0 = oi / 5, th0 = (222 - 76 * p0) * Math.PI / 180;
-        var lx = (50 + 38 * Math.cos(th0)).toFixed(2), ty = (47 + 40 * Math.sin(th0)).toFixed(2);
-        var op0 = p0 < 0.06 ? p0 / 0.06 : 1;
+        var p0 = oi / 5, pos0 = tlOrbitPos(p0);
+        var op0 = p0 < 0.08 ? p0 / 0.08 : 1;
+        var sc0 = 0.70 + 0.40 * (1 - Math.abs(2 * p0 - 1));
         bh = bh.replace('style="--bs:64px"',
-          'style="--bs:58px; left:' + lx + '%; top:' + ty + '%; opacity:' + op0.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + (0.72 + 0.36 * p0).toFixed(2) + ')"');
+          'style="--bs:58px; left:' + pos0[0].toFixed(2) + '%; top:' + pos0[1].toFixed(2) + '%; opacity:' + op0.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + sc0.toFixed(2) + ')"');
         orbsHTML += bh;
       }
 
@@ -22418,8 +22426,6 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         if (!window.__tlpOrbit || mqFlow.matches) return; // en flujo móvil/tablet van quietas
         var dashR2 = orbDash && orbDash.getBoundingClientRect ? orbDash.getBoundingClientRect() : null;
         if (!dashR2 || !dashR2.width) return;
-        var cx = dashR2.width * 0.50, cy = dashR2.height * 0.47;
-        var rx = dashR2.width * 0.38, ry = dashR2.height * 0.40;
         var base = ((Date.now() - orbT0) / 100000) % 1; // 100s por vuelta
         orbSpheres.forEach(function(sph, i) {
           if (!sph.isConnected) return;
@@ -22440,12 +22446,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
             sph.className = nb.className;
           }
           orbLast[i] = p;
-          var th = (222 - 76 * p) * Math.PI / 180;
-          sph.style.left = (cx + rx * Math.cos(th)) + 'px';
-          sph.style.top = (cy + ry * Math.sin(th)) + 'px';
-          var o = p < 0.06 ? p / 0.06 : (p > 0.94 ? (1 - p) / 0.06 : 1);
+          var pos = tlOrbitPos(p);
+          sph.style.left = (dashR2.width * pos[0] / 100) + 'px';
+          sph.style.top = (dashR2.height * pos[1] / 100) + 'px';
+          var o = p < 0.08 ? p / 0.08 : (p > 0.92 ? (1 - p) / 0.08 : 1);
           sph.style.opacity = o.toFixed(3);
-          sph.style.transform = 'translate(-50%,-50%) scale(' + (0.72 + 0.36 * p).toFixed(3) + ')';
+          sph.style.transform = 'translate(-50%,-50%) scale(' + (0.70 + 0.40 * (1 - Math.abs(2 * p - 1))).toFixed(3) + ')';
         });
       }, 100);
     }
