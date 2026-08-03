@@ -7216,12 +7216,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-orbits { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
   .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none;
     transition: left 8s cubic-bezier(.45,.05,.2,1), top 8s cubic-bezier(.45,.05,.2,1),
-                transform 8s cubic-bezier(.45,.05,.2,1), opacity 1.6s ease,
-                filter 8s ease; }
+                transform 8s cubic-bezier(.45,.05,.2,1), opacity 1.6s ease; }
+  /* La profundidad empaña la IMAGEN, nunca el nombre (los labels iban borrosos) */
+  .tlp-orbits .tlp-bubble .tlp-bubble-cover, .tlp-orbits .tlp-bubble .tlp-bubble-ic {
+    filter: blur(var(--obl, 0px)) brightness(var(--obr, 1)); transition: filter 8s ease; }
   .tlp-orbits .tlp-bubble:hover { z-index: 7; }
   /* Nombre solo al hover: el arco va limpio (las etiquetas apilaban el arco) */
   .tlp-orbits .tlp-bubble-n { position: absolute; top: calc(100% + 7px); left: 50%;
-    transform: translateX(-50%); width: max-content; max-width: 150px; text-align: center;
+    transform: translateX(-50%) scale(calc(1 / var(--osc, 1))); transform-origin: top center;
+    width: max-content; max-width: 150px; text-align: center;
     opacity: 0; transition: opacity .25s; pointer-events: none;
     background: rgba(8,12,24,.8); border-radius: 8px; padding: 3px 9px; }
   .tlp-orbits .tlp-bubble:hover .tlp-bubble-n { opacity: 1; }
@@ -7290,8 +7293,32 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     text-overflow: ellipsis; white-space: nowrap; }
   .tlp-line-y { font-size: 8.5px; color: var(--text-dim); white-space: nowrap; }
 
-  .tlp-zone-rutas { left: 50%; bottom: 13.5%; transform: translateX(-50%); width: min(600px, 40%);
-    display: flex; flex-direction: column; gap: 9px; z-index: 5; }
+  .tlp-zone-rutas { left: 50%; bottom: 16.5%; transform: translateX(-50%); width: min(600px, 40%);
+    display: flex; flex-direction: column; gap: 9px; z-index: 1; }
+  .tlp-zone-rutas:has(.tlp-rutas-all.open) { z-index: 9; }
+  /* Crawl estilo Star Wars: el título del recorrido nace grande abajo y se
+     aleja hacia atrás del planeta; clic = ver todos los recorridos. */
+  .tlp-zone-crawl { left: 50%; bottom: 6%; transform: translateX(-50%);
+    width: min(720px, 52%); height: 12.5%; z-index: 1;
+    perspective: 380px; perspective-origin: 50% -30%; }
+  .tlp-crawl-plane { position: absolute; inset: 0; background: none; border: 0;
+    cursor: pointer; transform: rotateX(50deg); transform-origin: 50% 100%; }
+  .tlp-crawl-txt { position: absolute; left: 50%; bottom: 0; white-space: nowrap;
+    font-family: 'Cormorant Garamond', serif; font-size: 29px; color: #d9c98f;
+    letter-spacing: .8px; text-shadow: 0 0 18px rgba(200,169,96,.22);
+    animation: tlpCrawl 64s linear infinite; }
+  .tlp-crawl-meta { font-size: .6em; color: var(--text-dim); margin-left: 12px;
+    letter-spacing: 1.6px; font-style: normal; }
+  .tlp-crawl-plane:hover .tlp-crawl-txt { color: var(--gold); }
+  @keyframes tlpCrawl {
+    0%   { transform: translateX(-50%) translateY(8px) scale(1.1); opacity: 0; }
+    7%   { opacity: .95; }
+    70%  { opacity: .55; }
+    86%  { opacity: 0; }
+    100% { transform: translateX(-50%) translateY(-150px) scale(.42); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) { .tlp-crawl-txt { animation: none; } }
+  @media (min-width: 1101px) { .tlp-zone-rutas .tlp-mini2 { display: none; } }
   .tlp-bar { position: relative; display: flex; align-items: center; overflow: hidden;
     min-height: 68px; text-align: left; cursor: pointer;
     background: linear-gradient(90deg, rgba(20,26,44,.72), rgba(20,26,44,.28));
@@ -7365,6 +7392,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     .tlp-stage { display: none; }
     .tlp-top, .tlp-zone, .tlp-zone-lib,
     .tlp-zone-rutas, .tlp-zone-terms { position: static; transform: none; width: 100%; height: auto; }
+    .tlp-zone-crawl { display: none; }
     .tlp-zone { margin-top: 18px; }
     .tlp-orbits { position: static; display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;
       margin-top: 18px; pointer-events: auto; }
@@ -21863,11 +21891,19 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         r.steps.forEach(function(s){ nEv += citasPorLibro[s.bookId] || 0; });
         return { r: r, nEv: nEv };
       }).filter(function(x){ return x.nEv > 0; });
-      var rutasHTML = '';
+      var rutasHTML = '', crawlHTML = '';
       if (rutaInfos.length) {
         rutasHTML = tlShufflePick(rutaInfos, 2, rnd).map(function(x){ return rutaBar(x.r, x.nEv); }).join('') +
           '<button class="tlp-mini2" type="button" data-door="rutas-todas">ver los ' + rutaInfos.length + ' recorridos</button>' +
           '<div class="tlp-rutas-all">' + rutaInfos.map(function(x){ return rutaBar(x.r, x.nEv); }).join('') + '</div>';
+        // Crawl: los títulos desfilan en orden sembrado por el día; el HTML de
+        // cada uno se deja precocinado para que el ciclador no dependa de esc().
+        var crawlList = tlShufflePick(rutaInfos, rutaInfos.length, rnd).map(function(x){
+          return esc(x.r.title) + '<span class="tlp-crawl-meta">' + x.r.steps.length + ' libros · ' + x.nEv + ' eventos</span>';
+        });
+        window.__tlpCrawl = { list: crawlList, i: 0 };
+        crawlHTML = '<button class="tlp-crawl-plane" type="button" data-door="rutas-todas" title="Ver los ' + rutaInfos.length + ' recorridos">' +
+          '<span class="tlp-crawl-txt">' + crawlList[0] + '</span></button>';
       }
 
       // ── Términos: más cantidad y más aire ──
@@ -21891,6 +21927,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">↻</button>' +
         orbsHTML +
         (libHTML ? '<div class="tlp-zone tlp-zone-lib">' + libHTML + '</div>' : '') +
+        (crawlHTML ? '<div class="tlp-zone tlp-zone-crawl">' + crawlHTML + '</div>' : '') +
         (rutasHTML ? '<div class="tlp-zone tlp-zone-rutas">' + rutasHTML + '</div>' : '') +
         (termsHTML ? '<div class="tlp-zone tlp-zone-terms">' + termsHTML + '</div>' : '') +
         '<div class="tlp-rail">' + erasHTML +
@@ -22466,8 +22503,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         sph.style.transform = 'translate(-50%,-50%) scale(' + f[2] + ')';
         sph.style.opacity = 1;
         // profundidad: las lejanas (escala chica) van borrosas y apagadas
-        sph.style.filter = f[2] <= 0.85 ? 'blur(1.1px) brightness(.72)'
-                          : f[2] < 1.05 ? 'blur(.4px) brightness(.88)' : 'none';
+        sph.style.setProperty('--obl', f[2] <= 0.85 ? '1.1px' : (f[2] < 1.05 ? '.4px' : '0px'));
+        sph.style.setProperty('--obr', f[2] <= 0.85 ? '.72' : (f[2] < 1.05 ? '.88' : '1'));
+        sph.style.setProperty('--osc', f[2]);
         sph.style.zIndex = f[2] >= 1.05 ? 3 : (f[2] >= 0.85 ? 2 : 1);
         sph.classList.toggle('tlp-bubble-feat', !!f[3]);
       }
@@ -22479,7 +22517,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           sph.style.left = (4 + Math.random() * 40).toFixed(1) + '%';
           sph.style.top = (6 + Math.random() * 26).toFixed(1) + '%';
           sph.style.transform = 'translate(-50%,-50%) scale(.05)';
-          sph.style.filter = 'blur(1.4px) brightness(1.6)';
+          sph.style.setProperty('--obl', '1.4px'); sph.style.setProperty('--obr', '1.6');
           sph.style.opacity = 0;
         } else {
           // entra desde la orilla izquierda, a la altura de su hueco
@@ -22506,7 +22544,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           sph.style.transitionDelay = '0s';
           sph.classList.remove('tlp-bubble-feat');
           sph.style.transform = 'translate(-50%,-50%) scale(.05)';
-          sph.style.filter = 'blur(1.2px) brightness(1.7)';
+          sph.style.setProperty('--obl', '1.2px'); sph.style.setProperty('--obr', '1.7');
           setTimeout(function() { if (sph.isConnected) sph.style.opacity = 0; }, 6800);
           setTimeout(function() {
             if (!sph.isConnected || !window.__tlpOrbit) return;
@@ -22545,6 +22583,16 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         if (!window.__tlpOrbit || mqFlow.matches) return;
         orbApply(true);
       }, 30000);
+    }
+
+    // ── Crawl de recorridos: rota el título al cierre de cada pasada ──
+    if (portadaOn && window.__tlpCrawl) {
+      var crawlTxt = container.querySelector('.tlp-crawl-txt');
+      if (crawlTxt) crawlTxt.addEventListener('animationiteration', function() {
+        var c = window.__tlpCrawl;
+        c.i = (c.i + 1) % c.list.length;
+        crawlTxt.innerHTML = c.list[c.i];
+      });
     }
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
     if (portadaOn && window.matchMedia('(hover: hover)').matches) {
