@@ -7213,14 +7213,14 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-shuffle:hover { border-color: var(--gold); }
 
   /* Órbita de esferas: overlay de todo el dash; cada burbuja centrada en su punto */
-  .tlp-orbits { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .tlp-orbits { position: absolute; inset: 0; pointer-events: none; }
   .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none;
     transition: left 8s cubic-bezier(.45,.05,.2,1), top 8s cubic-bezier(.45,.05,.2,1),
                 transform 8s cubic-bezier(.45,.05,.2,1), opacity 1.6s ease; }
   /* La profundidad empaña la IMAGEN, nunca el nombre (los labels iban borrosos) */
   .tlp-orbits .tlp-bubble .tlp-bubble-cover, .tlp-orbits .tlp-bubble .tlp-bubble-ic {
     filter: blur(var(--obl, 0px)) brightness(var(--obr, 1)); transition: filter 8s ease; }
-  .tlp-orbits .tlp-bubble:hover { z-index: 7; }
+  .tlp-orbits .tlp-bubble:hover { z-index: 7 !important; }
   /* Nombre solo al hover: el arco va limpio (las etiquetas apilaban el arco) */
   .tlp-orbits .tlp-bubble-n { position: absolute; top: calc(100% + 7px); left: 50%;
     transform: translateX(-50%) scale(calc(1 / var(--osc, 1))); transform-origin: top center;
@@ -21830,7 +21830,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       // planeta), autores en el exterior; fase desfasada y velocidades distintas
       // para que nunca vayan en formación. 5 esferas por arco, respawn de su cola.
       var orbsHTML = '';
-      window.__tlpOrbit = { per: pers.slice(), aut: auts.slice(), nextPer: 5, nextAut: 5 };
+      window.__tlpOrbit = { per: pers.slice(), aut: auts.slice(), nextPer: 9, nextAut: 9 };
       function orbBubbleHTML(occ, i) {
         var isPer = occ.tipo === 'per';
         var nombre = isPer ? occ.data.nombre : occ.data.name;
@@ -21846,25 +21846,20 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           '<span class="tlp-bubble-n">' + esc(nombre) + '</span></button>';
       }
       window.__tlpOrbBubbleHTML = orbBubbleHTML;
-      var orbsIn = '', orbsOut = '';
-      for (var oi = 0; oi < 5; oi++) {
-        // interior: personajes
-        var bh = orbBubbleHTML({ tipo:'per', data: pers[oi % pers.length] }, oi);
-        var p0 = oi / 5, pos0 = tlOrbitPos(p0, 'in');
-        var op0 = p0 < 0.08 ? p0 / 0.08 : 1;
-        var sc0 = 0.72 + 0.38 * (1 - Math.abs(2 * p0 - 1));
-        orbsIn += bh.replace('style="--bs:58px"',
-          'style="--bs:58px; left:' + pos0[0].toFixed(2) + '%; top:' + pos0[1].toFixed(2) + '%; opacity:' + op0.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + sc0.toFixed(2) + ')"');
-        // exterior: autores, fase corrida medio slot
-        var bh2 = orbBubbleHTML({ tipo:'aut', data: auts[oi % auts.length] }, oi);
-        var p1 = ((oi + 0.5) / 5) % 1, pos1 = tlOrbitPos(p1, 'out');
-        var op1 = p1 < 0.08 ? p1 / 0.08 : 1;
-        var sc1 = 0.64 + 0.34 * (1 - Math.abs(2 * p1 - 1));
-        orbsOut += bh2.replace('style="--bs:58px"',
-          'style="--bs:54px; left:' + pos1[0].toFixed(2) + '%; top:' + pos1[1].toFixed(2) + '%; opacity:' + op1.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + sc1.toFixed(2) + ')"');
+      var orbsAll = '';
+      var NB = 18;   // elenco máximo en escena; cada formación usa los que pida
+      for (var oi = 0; oi < NB; oi++) {
+        var esPer = (oi % 2) === 0;
+        var pool0 = esPer ? pers : auts;
+        if (!pool0.length) { pool0 = esPer ? auts : pers; esPer = !esPer; }
+        if (!pool0.length) break;
+        var occ0 = { tipo: esPer ? 'per' : 'aut', data: pool0[Math.floor(oi / 2) % pool0.length] };
+        var bh0 = orbBubbleHTML(occ0, oi);
+        bh0 = bh0.replace('style="--bs:58px"',
+          'style="--bs:' + (esPer ? 58 : 54) + 'px; left:-9%; top:' + (12 + (oi * 4.3) % 70).toFixed(1) + '%; opacity:0; transform:translate(-50%,-50%) scale(.6)"');
+        orbsAll += bh0;
       }
-      orbsHTML = '<div class="tlp-orbits tlp-orbits-in">' + orbsIn + '</div>' +
-                 '<div class="tlp-orbits tlp-orbits-out">' + orbsOut + '</div>';
+      orbsHTML = '<div class="tlp-orbits tlp-orbits-all">' + orbsAll + '</div>';
 
 
       // ── Libros: 3 portadas en triángulo (dos derecha, una izquierda) ──
@@ -22500,29 +22495,55 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, 14000);
     }
 
-    // ── Órbita en constelaciones: formaciones fijas, ritmo contemplativo.
-    // Entran desde la orilla izquierda; pausa ~22s y migración de 8s (CSS).
-    // En cada cambio dos esferas se funden y su relevo entra desde la orilla.
-    // 1-2 huecos por formación van destacados: más grandes y con nombre visible.
+    // ── Baile de constelaciones: formaciones de tamaño variable (3 a 18).
+    // Pausa ~22s, migración de 8s. Las esferas que sobran salen del baile
+    // encogiéndose a estrella; las que faltan entran desde la orilla o desde
+    // lo lejos con cara nueva. Las destacadas van SIEMPRE delante del mundo
+    // (z 4 > stage 2); el resto, delante o detrás según su profundidad.
     try { clearInterval(window.__tlpOrbitTimer); } catch(e) {}
     try { clearTimeout(window.__tlpOrbitKick); } catch(e) {}
     try { clearTimeout(window.__tlpOrbitKick2); } catch(e) {}
-    if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.per.length) {
+    if (portadaOn && window.__tlpOrbit && (window.__tlpOrbit.per.length || window.__tlpOrbit.aut.length)) {
       var orbDash = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
       var orbBubbles = orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll('.tlp-orbits .tlp-bubble')) : [];
-      // 10 huecos por formación (0-4 personajes, 5-9 autores) en la franja
-      // izquierda; [x%, y%, escala, destacado]. Van bajo el planeta (z-index).
+      // [x%, y%, escala, destacada]; el orden de las formaciones alterna
+      // densidades para que el flujo se sienta coreografía, no plantilla.
       var TLP_FORMS = [
-        [[13,26,1.04,0],[24,37,.98,0],[29,50,1.3,1],[26,63,.94,0],[16,71,1,0],
-         [4,18,.84,0],[16,15,1.14,1],[28,21,.8,0],[35,34,.88,0],[36,50,.82,0]],   // doble arco "))"
-        [[5,20,.96,0],[12,32,1.32,1],[19,44,.95,0],[26,56,1.06,0],[33,68,.97,0],
-         [11,15,.82,0],[18,25,.88,0],[25,37,.8,0],[32,49,1.12,1],[38,61,.9,0]],   // diagonal escalonada
-        [[9,24,1.05,0],[22,32,.94,0],[31,22,1.34,1],[27,55,1.07,0],[12,66,.96,0],
-         [17,16,.86,0],[35,38,.82,0],[20,46,1.1,1],[33,64,.84,0],[6,45,.88,0]],   // constelación dispersa
-        [[11,20,1,0],[11,34,.95,0],[11,48,1.3,1],[11,62,.95,0],[11,76,1,0],
-         [26,17,.84,0],[26,31,1.12,1],[26,45,.82,0],[26,59,.9,0],[26,73,.84,0]],  // doble columna
-        [[20,20,1.34,1],[33,32,.95,0],[33,56,1.05,0],[20,68,.96,0],[7,56,1,0],
-         [7,32,.86,0],[27,16,.84,0],[36,44,1.1,1],[27,72,.82,0],[4,44,.88,0]]     // corona
+        // doble arco "))" (10)
+        [[13,30,1.04,0],[24,41,.98,0],[29,54,1.3,1],[26,67,.94,0],[16,75,1,0],
+         [4,22,.84,0],[16,19,1.14,1],[28,25,.8,0],[35,38,.88,0],[36,54,.82,0]],
+        // trío protagónico (3)
+        [[12,32,1.42,1],[27,50,1.34,1],[11,68,1.28,0]],
+        // diagonal ascendente ↗ (8)
+        [[5,82,1.26,1],[9.6,72.6,.9,0],[14.2,63.2,1.05,0],[18.8,53.8,.85,0],
+         [23.4,44.4,1.1,0],[28,35,.9,0],[32.6,25.6,1.18,1],[37.2,16.2,.8,0]],
+        // estrella: centro + 8 puntas (9)
+        [[19,46,1.45,1],[31,46,.86,0],[27.5,58,.82,0],[19,63,.9,0],[10.5,58,.82,0],
+         [7,46,.88,0],[10.5,34,.82,0],[19,29,.9,0],[27.5,34,.84,0]],
+        // retícula 3×6 (18)
+        [[7,14,.74,0],[19,14,.86,0],[31,14,.74,0],
+         [7,26,.86,0],[19,26,.74,0],[31,26,.86,0],
+         [7,38,.74,0],[19,38,1.24,1],[31,38,.74,0],
+         [7,50,.86,0],[19,50,.74,0],[31,50,.86,0],
+         [7,62,.74,0],[19,62,.86,0],[31,62,.74,0],
+         [7,74,.86,0],[19,74,1.1,1],[31,74,.74,0]],
+        // diagonal descendente ↘ (8)
+        [[5,14,1.24,1],[9.6,23.4,.88,0],[14.2,32.8,1.1,1],[18.8,42.2,.9,0],
+         [23.4,51.6,1.05,0],[28,61,.85,0],[32.6,70.4,.95,0],[37.2,79.8,.8,0]],
+        // corona de 12 con centro vacío
+        [[33,46,.8,0],[31.1,56,.95,0],[26,63.3,.8,0],[19,66,1.1,1],[12,63.3,.8,0],
+         [6.9,56,.95,0],[5,46,.8,0],[6.9,36,.95,0],[12,28.7,.8,0],[19,26,1.18,1],
+         [26,28.7,.8,0],[31.1,36,.95,0]],
+        // onda serpenteante (12)
+        [[4,46,.85,0],[7,68.5,.9,0],[10,68.5,.8,0],[13,46,1.02,0],[16,23.5,1.24,1],
+         [19,23.5,.86,0],[22,46,.9,0],[25,68.5,.8,0],[28,68.5,.86,0],[31,46,1.15,1],
+         [34,23.5,.84,0],[37,23.5,.78,0]],
+        // doble columna (10)
+        [[11,16,1,0],[11,30,.95,0],[11,44,1.3,1],[11,58,.95,0],[11,72,1,0],
+         [26,23,.84,0],[26,37,1.12,1],[26,51,.82,0],[26,65,.9,0],[26,79,.84,0]],
+        // flecha ‹ apuntando al mundo (9)
+        [[34,46,1.36,1],[26,36,1.02,0],[18,28,.9,0],[10,21,.84,0],[4,15,.78,0],
+         [26,56,1.02,0],[18,64,.9,0],[10,71,.84,0],[4,78,.78,0]]
       ];
       var formStep = 0, swapPtr = 0;
       function orbColoca(sph, f) {
@@ -22534,7 +22555,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         sph.style.setProperty('--obl', f[2] <= 0.85 ? '1.1px' : (f[2] < 1.05 ? '.4px' : '0px'));
         sph.style.setProperty('--obr', f[2] <= 0.85 ? '.72' : (f[2] < 1.05 ? '.88' : '1'));
         sph.style.setProperty('--osc', f[2]);
-        sph.style.zIndex = f[2] >= 1.05 ? 3 : (f[2] >= 0.85 ? 2 : 1);
+        // destacada SIEMPRE delante del mundo; el resto según profundidad
+        sph.style.zIndex = f[3] ? 4 : (f[2] >= 1.05 ? 3 : (f[2] >= 0.85 ? 2 : 1));
         sph.classList.toggle('tlp-bubble-feat', !!f[3]);
       }
       function orbEntrada(sph, f, modo) {
@@ -22557,16 +22579,63 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         void sph.offsetWidth;
         sph.style.transition = '';
       }
+      function cambiarCara(sph, i) {
+        if (!window.__tlpOrbit) return;
+        var isPer = sph.classList.contains('tlp-bubble-per');
+        var q = isPer ? window.__tlpOrbit.per : window.__tlpOrbit.aut;
+        var key = isPer ? 'nextPer' : 'nextAut';
+        if (!q.length) return;
+        var occ = { tipo: isPer ? 'per' : 'aut', data: q[window.__tlpOrbit[key] % q.length] };
+        window.__tlpOrbit[key]++;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
+        var nb = tmp.firstChild;
+        sph.setAttribute('data-door', nb.getAttribute('data-door'));
+        var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
+        if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
+        else if (nid) { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
+        sph.title = nb.title;
+        sph.innerHTML = nb.innerHTML;
+        sph.className = nb.className;
+      }
       function orbApply(withSwap) {
         var F = TLP_FORMS[formStep % TLP_FORMS.length];
         formStep++;
+        var N = Math.min(F.length, orbBubbles.length);
+        // relevos: nunca sobre destacadas y solo en formaciones con elenco
+        // suficiente (las chicas viven de que sus protagonistas se queden)
         var swapIdx = [];
-        if (withSwap) { swapIdx = [swapPtr % 10, (swapPtr + 5) % 10]; swapPtr++; }
+        if (withSwap && N >= 8) {
+          var cand = [];
+          for (var ci = 0; ci < N; ci++) { if (!F[ci][3]) cand.push(ci); }
+          if (cand.length > 3) {
+            swapIdx = [cand[swapPtr % cand.length], cand[(swapPtr + (cand.length >> 1)) % cand.length]];
+            swapPtr++;
+          }
+        }
         orbBubbles.forEach(function(sph, i) {
           if (!sph.isConnected) return;
-          var f = F[i % F.length];
-          // ondulación: cada esfera arranca con un pequeño desfase propio
-          sph.style.transitionDelay = ((i % 5) * 0.45 + (i < 5 ? 0 : 0.22)).toFixed(2) + 's';
+          sph.style.transitionDelay = ((i % 6) * 0.4 + (i % 2) * 0.2).toFixed(2) + 's';
+          if (i >= N) {
+            // sobra en esta formación: sale del baile encogiéndose a estrella
+            if (!sph.__oculta) {
+              sph.__oculta = true;
+              sph.classList.remove('tlp-bubble-feat');
+              sph.style.transform = 'translate(-50%,-50%) scale(.05)';
+              sph.style.setProperty('--obl', '1.2px'); sph.style.setProperty('--obr', '1.7');
+              setTimeout(function() { if (sph.isConnected && sph.__oculta) sph.style.opacity = 0; }, 6500);
+            }
+            return;
+          }
+          var f = F[i];
+          if (sph.__oculta) {
+            // vuelve al baile con cara nueva, desde la orilla o desde lo lejos
+            sph.__oculta = false;
+            cambiarCara(sph, i);
+            orbEntrada(sph, f, Math.random() < 0.5 ? 'lejos' : 'orilla');
+            setTimeout(function() { if (sph.isConnected && !sph.__oculta) orbColoca(sph, f); }, 80);
+            return;
+          }
           if (swapIdx.indexOf(i) < 0) { orbColoca(sph, f); return; }
           // relevo: se encoge hasta quedar como una estrella y ahí se apaga
           sph.style.transitionDelay = '0s';
@@ -22575,35 +22644,22 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           sph.style.setProperty('--obl', '1.2px'); sph.style.setProperty('--obr', '1.7');
           setTimeout(function() { if (sph.isConnected) sph.style.opacity = 0; }, 6800);
           setTimeout(function() {
-            if (!sph.isConnected || !window.__tlpOrbit) return;
-            var isPer = i < 5;
-            var q = isPer ? window.__tlpOrbit.per : window.__tlpOrbit.aut;
-            var key = isPer ? 'nextPer' : 'nextAut';
-            if (q.length) {
-              var occ = { tipo: isPer ? 'per' : 'aut', data: q[window.__tlpOrbit[key] % q.length] };
-              window.__tlpOrbit[key]++;
-              var tmp = document.createElement('div');
-              tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
-              var nb = tmp.firstChild;
-              sph.setAttribute('data-door', nb.getAttribute('data-door'));
-              var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
-              if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
-              else if (nid) { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
-              sph.title = nb.title;
-              sph.innerHTML = nb.innerHTML;
-              sph.className = nb.className;
-            }
+            if (!sph.isConnected || !window.__tlpOrbit || sph.__oculta) return;
+            cambiarCara(sph, i);
             orbEntrada(sph, f, Math.random() < 0.5 ? 'lejos' : 'orilla');
-            setTimeout(function() { if (sph.isConnected) orbColoca(sph, f); }, 80);
+            setTimeout(function() { if (sph.isConnected && !sph.__oculta) orbColoca(sph, f); }, 80);
           }, 9200);
         });
       }
-      // entrada inicial: todas fuera de pantalla y deriva a la 1ª formación
+      // entrada inicial: el elenco de la 1ª formación entra a escena;
+      // el resto espera oculto su turno
       window.__tlpOrbitKick = setTimeout(function() {
         if (mqFlow.matches) return;
         var F0 = TLP_FORMS[0];
         orbBubbles.forEach(function(sph, i) {
-          if (sph.isConnected) orbEntrada(sph, F0[i % F0.length], (i % 2) ? 'lejos' : 'orilla');
+          if (!sph.isConnected) return;
+          if (i < F0.length) orbEntrada(sph, F0[i], (i % 2) ? 'lejos' : 'orilla');
+          else sph.__oculta = true;
         });
         window.__tlpOrbitKick2 = setTimeout(function() { orbApply(false); }, 400);
       }, 90);
