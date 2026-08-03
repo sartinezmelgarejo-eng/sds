@@ -4369,15 +4369,44 @@ body {
   /* grading: azul menos saturado y un punto cálido, casa con la paleta */
   filter: saturate(.72) sepia(.16) saturate(1.18) brightness(1.02); }
 :root.light .tl-globe-tex { filter: saturate(.74) sepia(.12) saturate(1.12) brightness(1.12); }
-/* ── Modo luz: cielo de día en acuarela (la portada dejaba fondo blanco).
-   Lavados suaves: celeste, lavanda, menta-aurora y rosa-humo sobre base azul. */
-:root.light .tl-mapa-view.tlp-view .tlp-dash {
+/* ── Modo luz + portada: TODO el lienzo se vuelve día ──────────────────
+   El fondo base azul va en el body (cubre header y pie, fuera el beige) y
+   las variables de superficie se templan a azul para que píldoras y barras
+   acompañen. Los lavados acuarela viven en dos pseudo-capas FIJAS que
+   derivan lentísimo, como nubes. */
+:root.light body:has(.tl-portada-mode) {
+  --bg: #dfe9f7; --bg2: #d5e1f1; --surface: #cfdcef; --surface2: #c3d3e8;
+  --border: rgba(45,75,125,.14); --mj-nav-bg: rgba(214,227,244,.9);
+  background: linear-gradient(180deg, #d7e4f6 0%, #e6edf7 48%, #d8e3f1 100%);
+}
+:root.light .tl-mapa-view.tlp-view .tlp-dash { background: transparent; }
+:root.light .tl-portada-mode .tlp-dash::before,
+:root.light .tl-portada-mode .tlp-dash::after {
+  content: ''; position: fixed; inset: -22vh -22vw; z-index: -1;
+  pointer-events: none; will-change: transform;
+}
+:root.light .tl-portada-mode .tlp-dash::before {
   background:
-    radial-gradient(62% 52% at 12% 18%, rgba(188,214,246,.55), transparent 70%),
-    radial-gradient(50% 46% at 86% 14%, rgba(224,204,236,.42), transparent 70%),
-    radial-gradient(56% 52% at 78% 80%, rgba(188,230,220,.38), transparent 72%),
-    radial-gradient(46% 42% at 20% 84%, rgba(246,214,198,.34), transparent 70%),
-    linear-gradient(180deg, #dce8f8 0%, #e8eef7 55%, #dbe6f2 100%);
+    radial-gradient(46% 40% at 16% 22%, rgba(178,208,246,.6), transparent 70%),
+    radial-gradient(38% 34% at 82% 16%, rgba(222,200,238,.48), transparent 70%);
+  animation: tlpDeriva1 130s ease-in-out infinite alternate;
+}
+:root.light .tl-portada-mode .tlp-dash::after {
+  background:
+    radial-gradient(42% 38% at 78% 78%, rgba(180,228,216,.44), transparent 72%),
+    radial-gradient(36% 32% at 18% 84%, rgba(246,212,196,.4), transparent 70%);
+  animation: tlpDeriva2 170s ease-in-out infinite alternate;
+}
+@keyframes tlpDeriva1 {
+  from { transform: translate(-2.5%, -1.8%) scale(1); }
+  to   { transform: translate(2.5%, 2%) scale(1.07); }
+}
+@keyframes tlpDeriva2 {
+  from { transform: translate(2%, 2.4%) scale(1.05); }
+  to   { transform: translate(-2.6%, -1.6%) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tl-portada-mode .tlp-dash::before, .tl-portada-mode .tlp-dash::after { animation: none; }
 }
 :root.light .tl-texture path.sphere { fill: rgba(255,255,255,.05); }
 :root.light .tlp-stage::before {
