@@ -7308,10 +7308,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     mask-image: linear-gradient(to top, transparent 0, #000 7%, #000 74%, transparent 97%); }
   .tlp-crawl-belt { position: absolute; left: 0; right: 0; top: 0;
     display: flex; flex-direction: column; align-items: center; gap: 14px;
-    /* Arranca por debajo del plano y entra a escena; al terminar, el JS la
-       pasa al bucle infinito (una sola animación en régimen). */
-    transform: translateY(var(--beltin, 100%));
-    animation: tlpBeltIn var(--beltindur, 45s) linear both; }
+    /* Nace OCULTA y fuera de cuadro. El JS la revela y lanza la entrada solo
+       cuando el plano ya tiene alto real: renderTimelineView corre una primera
+       vez con la vista aún sin medir, y si se arrancaba ahí el plano aparecía
+       lleno de golpe antes de limpiarse. */
+    transform: translateY(150%); visibility: hidden; animation: none; }
+  .tlp-crawl-belt.lista { visibility: visible; }
   .tlp-crawl-item { position: relative; display: flex; align-items: center;
     justify-content: center; background: none; border: 0; cursor: pointer; padding: 0; }
   /* luz tenue bajo el paquete, como si la barra viajara iluminada */
@@ -7341,7 +7343,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-crawl-belt:has(.tlp-crawl-item:hover) { animation-play-state: paused; }
   @keyframes tlpBelt { from { transform: translateY(0); } to { transform: translateY(-50%); } }
   @keyframes tlpBeltIn { from { transform: translateY(var(--beltin, 100%)); } to { transform: translateY(0); } }
-  @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; transform: none; visibility: visible; } }
   @media (min-width: 1101px) {
     .tlp-zone-rutas .tlp-bar, .tlp-zone-rutas .tlp-mini2 { display: none; }
   }
@@ -22712,14 +22714,21 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         belt.__wheeled = true;
 
         // Entrada: la banda nace justo debajo del plano y sube al MISMO paso
-        // que el bucle, así que el empalme no se nota. Se mide después del
-        // layout porque depende de cuántos recorridos haya.
-        requestAnimationFrame(function() {
+        // que el bucle, así que el empalme no se nota. Espera a que el plano
+        // tenga alto real; medirlo en 0 (vista todavía sin layout) dejaba la
+        // banda parada en translateY(0), es decir el plano lleno de golpe.
+        (function arrancar(intentos) {
           var hPlano = z.clientHeight || 0;
-          var hCopia = belt.scrollHeight / 2 || 1;
+          var hCopia = belt.scrollHeight / 2 || 0;
+          if (hPlano < 40 || hCopia < 40) {
+            if (intentos < 120) requestAnimationFrame(function() { arrancar(intentos + 1); });
+            return;                       // sin medida fiable se queda oculta
+          }
           var dur = parseFloat(getComputedStyle(belt).getPropertyValue('--beltdur')) || 290;
           belt.style.setProperty('--beltin', hPlano + 'px');
           belt.style.setProperty('--beltindur', (dur * hPlano / hCopia).toFixed(2) + 's');
+          belt.classList.add('lista');
+          belt.style.animation = 'tlpBeltIn var(--beltindur) linear both';
           belt.addEventListener('animationend', function alBucle(ev) {
             if (ev.animationName !== 'tlpBeltIn') return;
             belt.removeEventListener('animationend', alBucle);
@@ -22727,7 +22736,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
             belt.style.transform = '';
             belt.style.animation = 'tlpBelt var(--beltdur) linear infinite';
           });
-        });
+        })(0);
         z.addEventListener('wheel', function(e) {
           // agarre pegajoso: el primer golpe debe caer sobre un banner, pero
           // mientras se siga scrolleando (ventana de 1.6s) la banda responde
