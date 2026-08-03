@@ -7335,6 +7335,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     color: inherit; font: inherit; cursor: pointer;
     border-bottom: 1px solid rgba(200,169,96,.4); }
   .tlp-counts-link:hover { color: var(--gold); border-color: var(--gold); }
+  .tlp-zone-crawl:hover .tlp-crawl-belt { animation-play-state: paused; }
   @keyframes tlpBelt { from { transform: translateY(0); } to { transform: translateY(-50%); } }
   @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; } }
   @media (min-width: 1101px) {
@@ -22609,6 +22610,22 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         if (!window.__tlpOrbit || mqFlow.matches) return;
         orbApply(true);
       }, 30000);
+    }
+
+    // ── Crawl: hover lo pausa (CSS); la rueda lo hojea a tu velocidad.
+    // Sin rAF ni timers: solo se corre la fase de la animación al llegar
+    // cada evento, así que el costo es nulo en reposo. ──
+    if (portadaOn) {
+      Array.prototype.forEach.call(container.querySelectorAll('.tlp-zone-crawl'), function(z) {
+        var belt = z.querySelector('.tlp-crawl-belt');
+        if (!belt || belt.__wheeled) return;
+        belt.__wheeled = true;
+        z.addEventListener('wheel', function(e) {
+          e.preventDefault();
+          belt.__off = (belt.__off || 0) + e.deltaY * 0.045;
+          belt.style.animationDelay = (-belt.__off) + 's';
+        }, { passive: false });
+      });
     }
 
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
