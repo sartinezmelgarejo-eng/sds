@@ -4380,34 +4380,35 @@ body {
   background: linear-gradient(180deg, #d7e4f6 0%, #e6edf7 48%, #d8e3f1 100%);
 }
 :root.light .tl-mapa-view.tlp-view .tlp-dash { background: transparent; }
-:root.light .tl-portada-mode .tlp-dash::before,
-:root.light .tl-portada-mode .tlp-dash::after {
-  content: ''; position: fixed; inset: -22vh -22vw; z-index: -1;
-  pointer-events: none; will-change: transform;
+/* ── Cielo acuarela vivo: tres capas fijas (manchas A, manchas B, grano de
+   papel). Las manchas son SVG con turbulencia+desplazamiento horneados (borde
+   de pigmento real); derivan y respiran con periodos que no comparten divisor
+   (83/127/211/347s), así la composición nunca se repite. Todo GPU. ── */
+:root.light .tl-portada-mode .tlp-cielo { display: block; }
+:root.light .tl-portada-mode .tlp-stars { display: none; }
+.tlp-cielo { display: none; position: fixed; inset: 0; z-index: -1; pointer-events: none; }
+.tlp-cielo i { position: absolute; inset: -24%; background-size: cover; background-position: center;
+  will-change: transform, filter; }
+.tlp-cielo i:nth-child(1) { background-image: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1600'%20height='1000'%3E%3Cdefs%3E%3Cfilter%20id='w'%20x='-40%25'%20y='-40%25'%20width='180%25'%20height='180%25'%3E%3CfeGaussianBlur%20stdDeviation='30'/%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.006'%20numOctaves='2'%20seed='7'%20result='n'/%3E%3CfeDisplacementMap%20in2='n'%20scale='90'/%3E%3CfeGaussianBlur%20stdDeviation='26'/%3E%3C/filter%3E%3C/defs%3E%3Cg%20filter='url(%23w)'%3E%3Cellipse%20cx='380'%20cy='260'%20rx='430'%20ry='300'%20fill='%23a9cdf2'%20opacity='.5'/%3E%3Cellipse%20cx='1220'%20cy='210'%20rx='390'%20ry='260'%20fill='%23d7c3ec'%20opacity='.42'/%3E%3Cellipse%20cx='1280'%20cy='760'%20rx='420'%20ry='300'%20fill='%23b4e1d1'%20opacity='.38'/%3E%3Cellipse%20cx='300'%20cy='790'%20rx='380'%20ry='270'%20fill='%23f4cfba'%20opacity='.36'/%3E%3C/g%3E%3C/svg%3E");
+  animation: tlpCieloA 127s ease-in-out infinite alternate, tlpCieloHue 211s ease-in-out infinite alternate; }
+.tlp-cielo i:nth-child(2) { background-image: url("data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='1600'%20height='1000'%3E%3Cdefs%3E%3Cfilter%20id='w'%20x='-40%25'%20y='-40%25'%20width='180%25'%20height='180%25'%3E%3CfeGaussianBlur%20stdDeviation='34'/%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='0.005'%20numOctaves='2'%20seed='31'%20result='n'/%3E%3CfeDisplacementMap%20in2='n'%20scale='80'/%3E%3CfeGaussianBlur%20stdDeviation='30'/%3E%3C/filter%3E%3C/defs%3E%3Cg%20filter='url(%23w)'%3E%3Cellipse%20cx='1000'%20cy='360'%20rx='360'%20ry='250'%20fill='%23f2cfc4'%20opacity='.28'/%3E%3Cellipse%20cx='470'%20cy='640'%20rx='420'%20ry='290'%20fill='%23aee0d6'%20opacity='.3'/%3E%3Cellipse%20cx='220'%20cy='300'%20rx='320'%20ry='230'%20fill='%23c9d9f4'%20opacity='.34'/%3E%3Cellipse%20cx='1350'%20cy='520'%20rx='330'%20ry='240'%20fill='%23dcc9ee'%20opacity='.28'/%3E%3C/g%3E%3C/svg%3E");
+  animation: tlpCieloB 83s ease-in-out infinite alternate, tlpCieloHue2 347s ease-in-out infinite alternate;
+  opacity: .85; }
+.tlp-cielo i:nth-child(3) { background-image: var(--paper-grain); background-size: 280px;
+  opacity: .05; animation: none; }
+@keyframes tlpCieloA {
+  0%   { transform: translate(-2.4%, -1.6%) rotate(-1.4deg) scale(1); }
+  45%  { transform: translate(1.2%, 1.9%) rotate(.6deg) scale(1.06); }
+  100% { transform: translate(2.6%, -1%) rotate(1.8deg) scale(1.02); }
 }
-:root.light .tl-portada-mode .tlp-dash::before {
-  background:
-    radial-gradient(46% 40% at 16% 22%, rgba(178,208,246,.6), transparent 70%),
-    radial-gradient(38% 34% at 82% 16%, rgba(222,200,238,.48), transparent 70%);
-  animation: tlpDeriva1 130s ease-in-out infinite alternate;
+@keyframes tlpCieloB {
+  0%   { transform: translate(2.2%, 1.4%) rotate(1.2deg) scale(1.04); }
+  55%  { transform: translate(-1.6%, -2%) rotate(-.8deg) scale(1); }
+  100% { transform: translate(-2.8%, 1.2%) rotate(-1.9deg) scale(1.07); }
 }
-:root.light .tl-portada-mode .tlp-dash::after {
-  background:
-    radial-gradient(42% 38% at 78% 78%, rgba(180,228,216,.44), transparent 72%),
-    radial-gradient(36% 32% at 18% 84%, rgba(246,212,196,.4), transparent 70%);
-  animation: tlpDeriva2 170s ease-in-out infinite alternate;
-}
-@keyframes tlpDeriva1 {
-  from { transform: translate(-2.5%, -1.8%) scale(1); }
-  to   { transform: translate(2.5%, 2%) scale(1.07); }
-}
-@keyframes tlpDeriva2 {
-  from { transform: translate(2%, 2.4%) scale(1.05); }
-  to   { transform: translate(-2.6%, -1.6%) scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tl-portada-mode .tlp-dash::before, .tl-portada-mode .tlp-dash::after { animation: none; }
-}
+@keyframes tlpCieloHue { from { filter: hue-rotate(-8deg) saturate(.96); } to { filter: hue-rotate(10deg) saturate(1.08); } }
+@keyframes tlpCieloHue2 { from { filter: hue-rotate(7deg); } to { filter: hue-rotate(-9deg); } }
+@media (prefers-reduced-motion: reduce) { .tlp-cielo i { animation: none; } }
 :root.light .tl-texture path.sphere { fill: rgba(255,255,255,.05); }
 :root.light .tlp-stage::before {
   background: radial-gradient(circle, rgba(255,255,255,.5) 0%, rgba(210,225,248,.25) 44%, transparent 64%); }
@@ -22017,6 +22018,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       if (termsHTML) termsHTML = '<div class="tlp-terms-label" aria-hidden="true"></div>' + termsHTML;
 
       return '<div class="tl-portada tlp-dash">' +
+        '<div class="tlp-cielo" aria-hidden="true"><i></i><i></i><i></i></div>' +
         '<div class="tlp-stars" style="box-shadow:' + shadows.join(',') + ';"></div>' +
         '<svg class="tlp-arc" aria-hidden="true"></svg>' +
         '<div class="tlp-pais-tip"></div>' +
