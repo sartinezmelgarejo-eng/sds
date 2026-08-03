@@ -7397,7 +7397,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
        vez con la vista aún sin medir, y si se arrancaba ahí el plano aparecía
        lleno de golpe antes de limpiarse. */
     transform: translateY(150%); visibility: hidden; animation: none; }
-  .tlp-crawl-belt.lista { visibility: visible; }
+  .tlp-crawl-belt.lista { visibility: visible;
+    animation: tlpBeltIn var(--beltindur, 45s) linear both; }
+  .tlp-crawl-belt.encarrilada { animation: tlpBelt var(--beltdur, 290s) linear infinite; }
   .tlp-crawl-item { position: relative; display: flex; align-items: center;
     justify-content: center; background: none; border: 0; cursor: pointer; padding: 0; }
   /* luz tenue bajo el paquete, como si la barra viajara iluminada */
@@ -7424,7 +7426,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     color: inherit; font: inherit; cursor: pointer;
     border-bottom: 1px solid rgba(200,169,96,.4); }
   .tlp-counts-link:hover { color: var(--gold); border-color: var(--gold); }
-  .tlp-crawl-belt:has(.tlp-crawl-item:hover) { animation-play-state: paused; }
+  .tlp-crawl-belt:has(.tlp-crawl-item:hover) { animation-play-state: paused !important; }
   @keyframes tlpBelt { from { transform: translateY(0); } to { transform: translateY(-50%); } }
   @keyframes tlpBeltIn { from { transform: translateY(var(--beltin, 100%)); } to { transform: translateY(0); } }
   @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; transform: none; visibility: visible; } }
@@ -22813,13 +22815,16 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           belt.style.setProperty('--beltin', hPlano + 'px');
           belt.style.setProperty('--beltindur', (dur * hPlano / hCopia).toFixed(2) + 's');
           belt.classList.add('lista');
-          belt.style.animation = 'tlpBeltIn var(--beltindur) linear both';
           belt.addEventListener('animationend', function alBucle(ev) {
             if (ev.animationName !== 'tlpBeltIn') return;
             belt.removeEventListener('animationend', alBucle);
             belt.__entro = true;
             belt.style.transform = '';
-            belt.style.animation = 'tlpBelt var(--beltdur) linear infinite';
+            // el bucle va por CLASE, no inline: el shorthand inline pisaba el
+            // animation-play-state del hover y mataba la pausa y el hojeado.
+            // 'lista' se queda (trae el visibility); 'encarrilada' la pisa
+            // en la animación por venir después en la hoja.
+            belt.classList.add('encarrilada');
           });
         })(0);
         z.addEventListener('wheel', function(e) {
