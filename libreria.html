@@ -21463,13 +21463,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     return !tlPortadaDismissed && !tlRuta && (filterIsEmpty(tlFilter) || tlFilterDefault);
   }
   function tlPortadaReset() { tlPortadaDismissed = false; }
-  // Camino de la órbita en forma ")" — entra lejos (arriba-izq), se acerca al
-  // planeta a media curva, vuelve a salir (abajo-izq). Bezier cuadrática en %
-  // del dash: P0=(10,16) P1=(50,45) P2=(13,67).
-  function tlOrbitPos(p) {
+  // Camino de la órbita en forma ")" — entra lejos, se acerca al planeta a
+  // media curva, vuelve a salir. Bezier cuadrática en % del dash; dos arcos:
+  // 'in' (interior, personajes, más pegado al planeta) y 'out' (exterior, autores).
+  function tlOrbitPos(p, arc) {
     var u = 1 - p;
-    return [u*u*10 + 2*u*p*50 + p*p*13,
-            u*u*16 + 2*u*p*45 + p*p*67];
+    if (arc === 'out') return [u*u*5 + 2*u*p*34 + p*p*6,
+                               u*u*12 + 2*u*p*44 + p*p*72];
+    return [u*u*13 + 2*u*p*50 + p*p*16,
+            u*u*18 + 2*u*p*46 + p*p*66];
   }
   // Recorrido: una ruta dentro del mapa = filtro por sus libros + banner guía.
   // _strict: ignora el fallback era.bookIds (ese existe para contexto; en un
@@ -21756,18 +21758,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var auPool = Object.keys(auMap).map(function(k){ return { name: k, n: auMap[k], bk: auBook[k] || null }; })
         .sort(function(a, b){ return b.n - a.n; }).slice(0, 30);
       var auts = tlShufflePick(auPool, auPool.length, rnd);
-      // ÓRBITA viva: 6 esferas viajando despacio en el arco (de fuera hacia
-      // dentro); al terminar el camino una se desvanece y entra cara nueva.
-      // La cola intercala TODOS los personajes y los autores top.
+      // ── Órbita viva: DOS arcos "))" — personajes en el interior (cerca del
+      // planeta), autores en el exterior; fase desfasada y velocidades distintas
+      // para que nunca vayan en formación. 5 esferas por arco, respawn de su cola.
       var orbsHTML = '';
-      // Cola intercalada P,A,P,A… y 6 esferas iniciales (posiciones las pone el timer)
-      var orbQueue = [];
-      var pi = 0, ai = 0;
-      while (pi < pers.length || ai < auts.length) {
-        if (pi < pers.length) orbQueue.push({ tipo: 'per', data: pers[pi++] });
-        if (ai < auts.length) orbQueue.push({ tipo: 'aut', data: auts[ai++] });
-      }
-      window.__tlpOrbit = { queue: orbQueue, next: 5 };
+      window.__tlpOrbit = { per: pers.slice(), aut: auts.slice(), nextPer: 5, nextAut: 5 };
       function orbBubbleHTML(occ, i) {
         var isPer = occ.tipo === 'per';
         var nombre = isPer ? occ.data.nombre : occ.data.name;
@@ -21779,19 +21774,29 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var door = isPer ? 'data-door="q" data-q="' + esc(nombre) + '"' : 'data-door="autor" data-id="' + esc(nombre) + '"';
         var tip = isPer ? (esc(occ.data.blurb || '') + ' — ' + occ.data.menciones + ' menciones') : (esc(nombre) + ' — ' + occ.data.n + ' citas');
         return '<button class="tlp-bubble tlp-bubble-' + (isPer ? 'per' : 'aut') + '" type="button" ' + door + ' data-orb="' + i + '" ' +
-          'style="--bs:64px" title="' + tip + '">' + inner +
+          'style="--bs:58px" title="' + tip + '">' + inner +
           '<span class="tlp-bubble-n">' + esc(nombre) + '</span></button>';
       }
       window.__tlpOrbBubbleHTML = orbBubbleHTML;
+      var orbsIn = '', orbsOut = '';
       for (var oi = 0; oi < 5; oi++) {
-        var bh = orbBubbleHTML(orbQueue[oi % orbQueue.length], oi);
-        var p0 = oi / 5, pos0 = tlOrbitPos(p0);
+        // interior: personajes
+        var bh = orbBubbleHTML({ tipo:'per', data: pers[oi % pers.length] }, oi);
+        var p0 = oi / 5, pos0 = tlOrbitPos(p0, 'in');
         var op0 = p0 < 0.08 ? p0 / 0.08 : 1;
-        var sc0 = 0.70 + 0.40 * (1 - Math.abs(2 * p0 - 1));
-        bh = bh.replace('style="--bs:64px"',
+        var sc0 = 0.72 + 0.38 * (1 - Math.abs(2 * p0 - 1));
+        orbsIn += bh.replace('style="--bs:58px"',
           'style="--bs:58px; left:' + pos0[0].toFixed(2) + '%; top:' + pos0[1].toFixed(2) + '%; opacity:' + op0.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + sc0.toFixed(2) + ')"');
-        orbsHTML += bh;
+        // exterior: autores, fase corrida medio slot
+        var bh2 = orbBubbleHTML({ tipo:'aut', data: auts[oi % auts.length] }, oi);
+        var p1 = ((oi + 0.5) / 5) % 1, pos1 = tlOrbitPos(p1, 'out');
+        var op1 = p1 < 0.08 ? p1 / 0.08 : 1;
+        var sc1 = 0.64 + 0.34 * (1 - Math.abs(2 * p1 - 1));
+        orbsOut += bh2.replace('style="--bs:58px"',
+          'style="--bs:54px; left:' + pos1[0].toFixed(2) + '%; top:' + pos1[1].toFixed(2) + '%; opacity:' + op1.toFixed(2) + '; transform:translate(-50%,-50%) scale(' + sc1.toFixed(2) + ')"');
       }
+      orbsHTML = '<div class="tlp-orbits tlp-orbits-in">' + orbsIn + '</div>' +
+                 '<div class="tlp-orbits tlp-orbits-out">' + orbsOut + '</div>';
 
 
       // ── Libros: 3 portadas en triángulo (dos derecha, una izquierda) ──
@@ -21866,7 +21871,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           '<div class="tlp-counts">' + totalAll.toLocaleString('es-MX') + ' eventos · ' + eraPills.length + ' épocas · ' + rutas.length + ' recorridos · ' + Object.keys(citasPorLibro).length + ' libros</div>' +
         '</div>' +
         '<button class="tlp-shuffle" type="button" data-door="shuffle" title="Otras sugerencias">↻</button>' +
-        (orbsHTML ? '<div class="tlp-orbits">' + orbsHTML + '</div>' : '') +
+        orbsHTML +
         (libHTML ? '<div class="tlp-zone tlp-zone-lib">' + libHTML + '</div>' : '') +
         (rutasHTML ? '<div class="tlp-zone tlp-zone-rutas">' + rutasHTML + '</div>' : '') +
         (termsHTML ? '<div class="tlp-zone tlp-zone-terms">' + termsHTML + '</div>' : '') +
@@ -22412,46 +22417,59 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, 14000);
     }
 
-    // ── Órbita viva: conveyor de esferas a lo largo del arco ──
-    // Elipse centrada en el stage (50%,47% del dash): θ de 218°→152°, rx 34%,
-    // ry 35%. Cada esfera tarda ~100s en el viaje; al final se desvanece y
-    // respawnea al inicio con la siguiente cara de la cola (rotan TODOS).
+    // ── Órbita viva: dos conveyors "))" — interior personajes, exterior autores ──
+    // Beziers en tlOrbitPos(p, arc); ~100s/118s por vuelta; al final la esfera
+    // se desvanece y respawnea con la siguiente cara de SU cola (rotan todos).
     try { clearInterval(window.__tlpOrbitTimer); } catch(e) {}
-    if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.queue.length) {
+    if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.per.length) {
       var orbDash = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
-      var orbSpheres = orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll('.tlp-orbits .tlp-bubble')) : [];
-      var orbLast = orbSpheres.map(function(_, i){ return i / 5; });
-      var orbT0 = Date.now();
+      function mkOrbSet(sel, arc, speed, phase) {
+        return {
+          list: orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll(sel)) : [],
+          last: [], arc: arc, speed: speed, phase: phase, t0: Date.now()
+        };
+      }
+      var orbSets = [ mkOrbSet('.tlp-orbits-in .tlp-bubble', 'in', 100000, 0),
+                      mkOrbSet('.tlp-orbits-out .tlp-bubble', 'out', 118000, 0.1) ];
+      orbSets.forEach(function(s){ s.last = s.list.map(function(_, i){ return (s.phase + i / 5) % 1; }); });
       window.__tlpOrbitTimer = setInterval(function() {
         if (!window.__tlpOrbit || mqFlow.matches) return; // en flujo móvil/tablet van quietas
         var dashR2 = orbDash && orbDash.getBoundingClientRect ? orbDash.getBoundingClientRect() : null;
         if (!dashR2 || !dashR2.width) return;
-        var base = ((Date.now() - orbT0) / 100000) % 1; // 100s por vuelta
-        orbSpheres.forEach(function(sph, i) {
-          if (!sph.isConnected) return;
-          var p = (base + i / 5) % 1;
-          if (p < orbLast[i]) {
-            // dio la vuelta: cara nueva de la cola
-            var occ = window.__tlpOrbit.queue[window.__tlpOrbit.next % window.__tlpOrbit.queue.length];
-            window.__tlpOrbit.next++;
-            var tmp = document.createElement('div');
-            tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
-            var nb = tmp.firstChild;
-            sph.setAttribute('data-door', nb.getAttribute('data-door'));
-            var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
-            if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
-            else { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
-            sph.title = nb.title;
-            sph.innerHTML = nb.innerHTML;
-            sph.className = nb.className;
-          }
-          orbLast[i] = p;
-          var pos = tlOrbitPos(p);
-          sph.style.left = (dashR2.width * pos[0] / 100) + 'px';
-          sph.style.top = (dashR2.height * pos[1] / 100) + 'px';
-          var o = p < 0.08 ? p / 0.08 : (p > 0.92 ? (1 - p) / 0.08 : 1);
-          sph.style.opacity = o.toFixed(3);
-          sph.style.transform = 'translate(-50%,-50%) scale(' + (0.70 + 0.40 * (1 - Math.abs(2 * p - 1))).toFixed(3) + ')';
+        orbSets.forEach(function(s) {
+          var base = ((Date.now() - s.t0) / s.speed + s.phase) % 1;
+          s.list.forEach(function(sph, i) {
+            if (!sph.isConnected) return;
+            var p = (base + i / 5) % 1;
+            if (p < s.last[i]) {
+              // dio la vuelta: cara nueva de la cola de su arco
+              var isIn = s.arc === 'in';
+              var q = isIn ? window.__tlpOrbit.per : window.__tlpOrbit.aut;
+              var key = isIn ? 'nextPer' : 'nextAut';
+              if (!q.length) return;
+              var occ = { tipo: isIn ? 'per' : 'aut', data: q[window.__tlpOrbit[key] % q.length] };
+              window.__tlpOrbit[key]++;
+              var tmp = document.createElement('div');
+              tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
+              var nb = tmp.firstChild;
+              sph.setAttribute('data-door', nb.getAttribute('data-door'));
+              var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
+              if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
+              else { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
+              sph.title = nb.title;
+              sph.innerHTML = nb.innerHTML;
+              sph.className = nb.className;
+            }
+            s.last[i] = p;
+            var pos = tlOrbitPos(p, s.arc);
+            sph.style.left = (dashR2.width * pos[0] / 100) + 'px';
+            sph.style.top = (dashR2.height * pos[1] / 100) + 'px';
+            var o = p < 0.08 ? p / 0.08 : (p > 0.92 ? (1 - p) / 0.08 : 1);
+            sph.style.opacity = o.toFixed(3);
+            var sc = s.arc === 'in' ? (0.72 + 0.38 * (1 - Math.abs(2 * p - 1)))
+                                    : (0.64 + 0.34 * (1 - Math.abs(2 * p - 1)));
+            sph.style.transform = 'translate(-50%,-50%) scale(' + sc.toFixed(3) + ')';
+          });
         });
       }, 100);
     }
