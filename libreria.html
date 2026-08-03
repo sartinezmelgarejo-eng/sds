@@ -7296,29 +7296,34 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-zone-rutas { left: 50%; bottom: 16.5%; transform: translateX(-50%); width: min(600px, 40%);
     display: flex; flex-direction: column; gap: 9px; z-index: 1; }
   .tlp-zone-rutas:has(.tlp-rutas-all.open) { z-index: 9; }
-  /* Crawl estilo Star Wars: el título del recorrido nace grande abajo y se
-     aleja hacia atrás del planeta; clic = ver todos los recorridos. */
-  .tlp-zone-crawl { left: 50%; bottom: 6%; transform: translateX(-50%);
-    width: min(720px, 52%); height: 12.5%; z-index: 1;
-    perspective: 380px; perspective-origin: 50% -30%; }
-  .tlp-crawl-plane { position: absolute; inset: 0; background: none; border: 0;
-    cursor: pointer; transform: rotateX(50deg); transform-origin: 50% 100%; }
-  .tlp-crawl-txt { position: absolute; left: 50%; bottom: 0; white-space: nowrap;
-    font-family: 'Cormorant Garamond', serif; font-size: 29px; color: #d9c98f;
-    letter-spacing: .8px; text-shadow: 0 0 18px rgba(200,169,96,.22);
-    animation: tlpCrawl 64s linear infinite; }
-  .tlp-crawl-meta { font-size: .6em; color: var(--text-dim); margin-left: 12px;
-    letter-spacing: 1.6px; font-style: normal; }
-  .tlp-crawl-plane:hover .tlp-crawl-txt { color: var(--gold); }
-  @keyframes tlpCrawl {
-    0%   { transform: translateX(-50%) translateY(8px) scale(1.1); opacity: 0; }
-    7%   { opacity: .95; }
-    70%  { opacity: .55; }
-    86%  { opacity: 0; }
-    100% { transform: translateX(-50%) translateY(-150px) scale(.42); opacity: 0; }
+  /* Crawl de recorridos: cada recorrido es un banner (título + sus portadas
+     lado a lado) sobre un plano inclinado que marcha muy lento hacia el
+     planeta; se ven ~3.5 a la vez. Clic en un banner = abrir ese recorrido. */
+  .tlp-zone-crawl { left: 50%; bottom: 6.5%; transform: translateX(-50%);
+    width: min(780px, 56%); height: 46%; z-index: 1;
+    perspective: 520px; perspective-origin: 50% -12%; }
+  .tlp-crawl-plane { position: absolute; inset: 0;
+    transform: rotateX(48deg); transform-origin: 50% 100%;
+    -webkit-mask-image: linear-gradient(to top, transparent 0, #000 7%, #000 74%, transparent 97%);
+    mask-image: linear-gradient(to top, transparent 0, #000 7%, #000 74%, transparent 97%); }
+  .tlp-crawl-belt { position: absolute; left: 0; right: 0; top: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    animation: tlpBelt var(--beltdur, 290s) linear infinite; }
+  .tlp-crawl-item { display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: none; border: 0; cursor: pointer; padding: 0; }
+  /* portadas compactas para que quepan ~3.5 banners a la vista */
+  .tlp-crawl-covs img { width: 38px !important; height: 57px !important; }
+  .tlp-crawl-item-t { font-family: 'Cormorant Garamond', serif; font-size: 15.5px;
+    color: #d9c98f; letter-spacing: .6px; white-space: nowrap; }
+  .tlp-crawl-meta { font-size: .68em; color: var(--text-dim); margin-left: 10px;
+    letter-spacing: 1.4px; font-style: normal; }
+  .tlp-crawl-item:hover .tlp-crawl-item-t { color: var(--gold); }
+  .tlp-crawl-covs { display: flex; gap: 3px; align-items: center; }
+  @keyframes tlpBelt { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .tlp-crawl-belt { animation: none; } }
+  @media (min-width: 1101px) {
+    .tlp-zone-rutas .tlp-bar, .tlp-zone-rutas .tlp-mini2 { display: none; }
   }
-  @media (prefers-reduced-motion: reduce) { .tlp-crawl-txt { animation: none; } }
-  @media (min-width: 1101px) { .tlp-zone-rutas .tlp-mini2 { display: none; } }
   .tlp-bar { position: relative; display: flex; align-items: center; overflow: hidden;
     min-height: 68px; text-align: left; cursor: pointer;
     background: linear-gradient(90deg, rgba(20,26,44,.72), rgba(20,26,44,.28));
@@ -21896,14 +21901,20 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         rutasHTML = tlShufflePick(rutaInfos, 2, rnd).map(function(x){ return rutaBar(x.r, x.nEv); }).join('') +
           '<button class="tlp-mini2" type="button" data-door="rutas-todas">ver los ' + rutaInfos.length + ' recorridos</button>' +
           '<div class="tlp-rutas-all">' + rutaInfos.map(function(x){ return rutaBar(x.r, x.nEv); }).join('') + '</div>';
-        // Crawl: los títulos desfilan en orden sembrado por el día; el HTML de
-        // cada uno se deja precocinado para que el ciclador no dependa de esc().
-        var crawlList = tlShufflePick(rutaInfos, rutaInfos.length, rnd).map(function(x){
-          return esc(x.r.title) + '<span class="tlp-crawl-meta">' + x.r.steps.length + ' libros · ' + x.nEv + ' eventos</span>';
-        });
-        window.__tlpCrawl = { list: crawlList, i: 0 };
-        crawlHTML = '<button class="tlp-crawl-plane" type="button" data-door="rutas-todas" title="Ver los ' + rutaInfos.length + ' recorridos">' +
-          '<span class="tlp-crawl-txt">' + crawlList[0] + '</span></button>';
+        // Crawl: cada recorrido es un banner de sus portadas con el título
+        // encima; la banda va duplicada para el loop sin costura.
+        var crawlList = tlShufflePick(rutaInfos, rutaInfos.length, rnd);
+        var beltItems = crawlList.map(function(x){
+          var covs = x.r.steps.map(function(st){ return bookById[st.bookId]; })
+            .filter(function(b){ return b && (b.coverUrl || (b.coverId && typeof coverImages !== 'undefined' && coverImages[b.coverId])); })
+            .slice(0, 7);
+          if (!covs.length) return '';
+          return '<button class="tlp-crawl-item" type="button" data-door="ruta" data-id="' + esc(x.r.id) + '" title="' + esc(x.r.desc || x.r.title) + '">' +
+            '<span class="tlp-crawl-item-t">' + esc(x.r.title) + '<span class="tlp-crawl-meta">' + x.r.steps.length + ' libros · ' + x.nEv + ' eventos</span></span>' +
+            '<span class="tlp-crawl-covs">' + covs.map(function(b){ return getCoverHTML(b, 'shelf'); }).join('') + '</span>' +
+          '</button>';
+        }).join('');
+        crawlHTML = '<div class="tlp-crawl-plane"><div class="tlp-crawl-belt" style="--beltdur:' + (crawlList.length * 19) + 's">' + beltItems + beltItems + '</div></div>';
       }
 
       // ── Términos: más cantidad y más aire ──
@@ -22585,15 +22596,6 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, 30000);
     }
 
-    // ── Crawl de recorridos: rota el título al cierre de cada pasada ──
-    if (portadaOn && window.__tlpCrawl) {
-      var crawlTxt = container.querySelector('.tlp-crawl-txt');
-      if (crawlTxt) crawlTxt.addEventListener('animationiteration', function() {
-        var c = window.__tlpCrawl;
-        c.i = (c.i + 1) % c.list.length;
-        crawlTxt.innerHTML = c.list[c.i];
-      });
-    }
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
     if (portadaOn && window.matchMedia('(hover: hover)').matches) {
       var dashEl = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
