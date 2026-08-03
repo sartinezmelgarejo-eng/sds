@@ -4361,6 +4361,18 @@ body {
 
 /* Pin styles for embedded globe */
 .tl-mapa-globe .sphere { fill: url(#oceanGradient-tl); stroke: rgba(200,169,96,0.22); stroke-width: 0.8; }
+/* ── Textura fotográfica del globo (canvas bajo el SVG) ──
+   Solo cuando la imagen cargó (clase tl-texture en el wrap): la tierra se
+   vuelve un velo para dejar ver la foto; líneas de país intactas. */
+.tl-globe-tex { position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0; }
+/* el SVG del globo debe apilarse SOBRE el canvas de la foto (un absolute
+   pinta encima del flujo normal aunque venga antes en el DOM) */
+#tl-mapa-globe > svg { position: relative; z-index: 1; }
+.tl-texture path.sphere { fill: rgba(4,10,24,.16); }
+.tl-texture path.land { fill: rgba(240,225,195,.05);
+  stroke: rgba(255,246,222,.85); stroke-width: .7; }
+.tl-texture path.graticule { opacity: .3; }
 .tl-mapa-globe .graticule { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 0.3; }
 .tl-mapa-globe .land {
   fill: #b8a37d;
@@ -23369,8 +23381,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     if (loading) loading.remove();
     var existingSvg = globeEl.querySelector('svg');
     if (existingSvg) existingSvg.remove();
+    var oldTex = globeEl.querySelector('canvas.tl-globe-tex');
+    if (oldTex) oldTex.remove();
+    // Canvas de textura DEBAJO del SVG: la foto se pinta aquí; países, pines
+    // e interacción siguen viviendo en el SVG de arriba.
+    var texCanvas = document.createElement('canvas');
+    texCanvas.className = 'tl-globe-tex';
+    globeEl.insertBefore(texCanvas, globeEl.firstChild);
     var svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    globeEl.insertBefore(svgNode, globeEl.firstChild);
+    globeEl.insertBefore(svgNode, texCanvas.nextSibling);
     var svg = d3.select(svgNode);
     var W = globeEl.clientWidth, H = globeEl.clientHeight;
     svg.attr('viewBox', '0 0 ' + W + ' ' + H);
@@ -23404,6 +23423,63 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       .rotate([95, -15, 0]);
     var path = d3.geoPath(projection);
     var g = svg.append('g');
+
+    // ── Textura: reproyección de la foto equirectangular a la vista actual.
+    // Cuesta solo cuando la rotación cambia (carga, arrastre, animateTo);
+    // en reposo, cero. quality<1 = borrador rápido durante el movimiento. ──
+    if (!window.__tlEarthTex) {
+      window.__tlEarthTex = { data: null };
+      var texImg = new Image();
+      texImg.onload = function() {
+        var c = document.createElement('canvas');
+        c.width = texImg.naturalWidth; c.height = texImg.naturalHeight;
+        var cx2 = c.getContext('2d', { willReadFrequently: true });
+        cx2.drawImage(texImg, 0, 0);
+        try { window.__tlEarthTex.data = cx2.getImageData(0, 0, c.width, c.height); }
+        catch (e) { window.__tlEarthTex.data = null; }
+        document.dispatchEvent(new Event('tl-earth-tex'));
+      };
+      texImg.src = 'earth-tex.jpg';
+    }
+    function tlTexRender(quality) {
+      var tex = window.__tlEarthTex && window.__tlEarthTex.data;
+      if (!tex || !texCanvas) return;
+      var wrapT = globeEl.closest('.tl-mapa-globe-wrap');
+      if (wrapT && !wrapT.classList.contains('tl-texture')) wrapT.classList.add('tl-texture');
+      var q = Math.min(quality || 1, 1);
+      var cw = globeEl.clientWidth, ch = globeEl.clientHeight;
+      var s = q * Math.min(window.devicePixelRatio || 1, 1.5);
+      var pw = Math.max(48, Math.round(cw * s)), ph = Math.max(48, Math.round(ch * s));
+      if (texCanvas.width !== pw || texCanvas.height !== ph) {
+        texCanvas.width = pw; texCanvas.height = ph;
+      }
+      var ctx = texCanvas.getContext('2d');
+      var out = ctx.createImageData(pw, ph);
+      var od = out.data, td = tex.data, tw = tex.width, th = tex.height;
+      var tr = projection.translate(), R = projection.scale();
+      var cx = tr[0] * s, cy = tr[1] * s, Rs = R * s;
+      var inv = projection.invert;
+      var x0 = Math.max(0, Math.floor(cx - Rs)), x1 = Math.min(pw, Math.ceil(cx + Rs));
+      var y0 = Math.max(0, Math.floor(cy - Rs)), y1 = Math.min(ph, Math.ceil(cy + Rs));
+      for (var py = y0; py < y1; py++) {
+        for (var px = x0; px < x1; px++) {
+          var dx = (px - cx) / Rs, dy = (py - cy) / Rs;
+          var rr = dx * dx + dy * dy;
+          if (rr > 1) continue;
+          var ll = inv([px / s, py / s]);
+          if (!ll || isNaN(ll[0])) continue;
+          var u = Math.min(tw - 1, Math.max(0, ((ll[0] + 180) / 360 * tw) | 0));
+          var v = Math.min(th - 1, Math.max(0, ((90 - ll[1]) / 180 * th) | 0));
+          var ti = (v * tw + u) * 4, oi = (py * pw + px) * 4;
+          od[oi] = td[ti]; od[oi + 1] = td[ti + 1]; od[oi + 2] = td[ti + 2];
+          // borde antialiasado del disco
+          od[oi + 3] = rr > 0.985 ? Math.max(0, Math.min(255, ((1 - Math.sqrt(rr)) * Rs * 2) * 255)) | 0 : 255;
+        }
+      }
+      ctx.putImageData(out, 0, 0);
+    }
+    container._tlTexRender = tlTexRender;
+    document.addEventListener('tl-earth-tex', function() { tlTexRender(1); });
 
     // Sphere
     g.append('path').datum({type:'Sphere'}).attr('class','sphere').attr('d', path);
@@ -23765,6 +23841,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     }
     container._tlMapaRedraw = redraw;
     redraw();
+    tlTexRender(1);
 
     // Drag (cancels any animation in flight)
     var rot0, p0;
@@ -23779,7 +23856,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         r[1] = Math.max(-85, Math.min(85, r[1]));
         projection.rotate(r);
         redraw();
+        tlTexRender(0.22);          // borrador vivo mientras se arrastra
       })
+      .on('end', function() { tlTexRender(1); })
     );
 
     // Selection state
@@ -23808,6 +23887,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         projection.rotate(interpRot(e));
         projection.scale(startScale + (targetScale - startScale) * e);
         redraw();
+        tlTexRender(t < 1 ? 0.22 : 1);
         if (t < 1) _animFrame = requestAnimationFrame(tick);
         else _animFrame = null;
       }
