@@ -7208,7 +7208,9 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
 
   /* Órbita de esferas: overlay de todo el dash; cada burbuja centrada en su punto */
   .tlp-orbits { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
-  .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none; }
+  .tlp-orbits .tlp-bubble { pointer-events: auto; animation: none;
+    transition: left 3s cubic-bezier(.5,.05,.15,1), top 3s cubic-bezier(.5,.05,.15,1),
+                transform 3s cubic-bezier(.5,.05,.15,1), opacity 1s ease; }
   .tlp-orbits .tlp-bubble:hover { z-index: 7; }
   /* Nombre solo al hover: el arco va limpio (las etiquetas apilaban el arco) */
   .tlp-orbits .tlp-bubble-n { position: absolute; top: calc(100% + 7px); left: 50%;
@@ -7259,9 +7261,17 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-cover img, .tlp-cover .book-cover-mini { width: 100% !important; height: auto; border-radius: 6px;
     box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
 
-  .tlp-zone-terms { right: 2.5%; top: 54%; width: 24%; height: 30%; display: flex;
-    flex-wrap: wrap; gap: 12px 18px; align-content: flex-start; align-items: baseline;
+  .tlp-zone-terms { right: 2%; top: 58%; width: 27%; height: 33%; display: flex;
+    flex-wrap: wrap; gap: 15px 26px; align-content: flex-start; align-items: baseline;
     justify-content: center; }
+  .tlp-terms-label { flex-basis: 100%; text-align: center; font-size: 10px;
+    letter-spacing: 3px; text-transform: uppercase; color: var(--gold-dim);
+    padding-bottom: 5px; margin-bottom: 3px; border-bottom: 1px solid rgba(200,169,96,.16); }
+  /* Escalonado sutil: solo en el lienzo absoluto de escritorio (en flujo va plano) */
+  @media (min-width: 1101px) {
+    .tlp-zone-terms .tlp-term:nth-child(3n) { transform: translateY(-6px); }
+    .tlp-zone-terms .tlp-term:nth-child(3n+2) { transform: translateY(7px); }
+  }
   .tlp-line { display: flex; align-items: baseline; gap: 7px; background: none; border: 0;
     border-bottom: 1px solid rgba(160,180,220,.10); padding: 5px 2px; cursor: pointer;
     text-align: left; color: var(--text); width: fit-content; max-width: 100%;
@@ -21854,11 +21864,12 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }
 
       // ── Términos: más cantidad y más aire ──
-      var terms = (typeof tlTerminos !== 'undefined' && tlTerminos.length) ? tlShufflePick(tlTerminos, 8, rnd) : [];
+      var terms = (typeof tlTerminos !== 'undefined' && tlTerminos.length) ? tlShufflePick(tlTerminos, 10, rnd) : [];
       var termsHTML = terms.map(function(t){
-        var fs = (13 + Math.min(3, t.menciones / 60)).toFixed(1);
+        var fs = (13.5 + Math.min(5.5, t.menciones / 40)).toFixed(1);
         return '<button class="tlp-term" type="button" data-door="q" data-q="' + esc(t.termino) + '" title="' + t.menciones + ' menciones" style="font-size:' + fs + 'px">' + esc(t.termino) + '</button>';
       }).join('');
+      if (termsHTML) termsHTML = '<div class="tlp-terms-label">Conceptos</div>' + termsHTML;
 
       return '<div class="tl-portada tlp-dash">' +
         '<div class="tlp-stars" style="box-shadow:' + shadows.join(',') + ';"></div>' +
@@ -22417,37 +22428,54 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       }, 14000);
     }
 
-    // ── Órbita viva: dos conveyors "))" — interior personajes, exterior autores ──
-    // Beziers en tlOrbitPos(p, arc); ~100s/118s por vuelta; al final la esfera
-    // se desvanece y respawnea con la siguiente cara de SU cola (rotan todos).
+    // ── Órbita en constelaciones: cada formación es una composición fija;
+    // pausa ~7.5s y migra suave (~3s vía transition CSS) a la siguiente.
+    // En cada cambio dos esferas (una por arco) se funden y respawnean con la
+    // siguiente cara de su cola, así desfila todo el elenco sin conveyor.
     try { clearInterval(window.__tlpOrbitTimer); } catch(e) {}
+    try { clearTimeout(window.__tlpOrbitKick); } catch(e) {}
     if (portadaOn && window.__tlpOrbit && window.__tlpOrbit.per.length) {
       var orbDash = container.querySelector('.tl-mapa-view.tlp-view .tlp-dash') || container.querySelector('.tlp-dash');
-      function mkOrbSet(sel, arc, speed, phase) {
-        return {
-          list: orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll(sel)) : [],
-          last: [], arc: arc, speed: speed, phase: phase, t0: Date.now()
-        };
-      }
-      var orbSets = [ mkOrbSet('.tlp-orbits-in .tlp-bubble', 'in', 100000, 0),
-                      mkOrbSet('.tlp-orbits-out .tlp-bubble', 'out', 118000, 0.1) ];
-      orbSets.forEach(function(s){ s.last = s.list.map(function(_, i){ return (s.phase + i / 5) % 1; }); });
-      window.__tlpOrbitTimer = setInterval(function() {
-        if (!window.__tlpOrbit || mqFlow.matches) return; // en flujo móvil/tablet van quietas
-        var dashR2 = orbDash && orbDash.getBoundingClientRect ? orbDash.getBoundingClientRect() : null;
-        if (!dashR2 || !dashR2.width) return;
-        orbSets.forEach(function(s) {
-          var base = ((Date.now() - s.t0) / s.speed + s.phase) % 1;
-          s.list.forEach(function(sph, i) {
-            if (!sph.isConnected) return;
-            var p = (base + i / 5) % 1;
-            if (p < s.last[i]) {
-              // dio la vuelta: cara nueva de la cola de su arco
-              var isIn = s.arc === 'in';
-              var q = isIn ? window.__tlpOrbit.per : window.__tlpOrbit.aut;
-              var key = isIn ? 'nextPer' : 'nextAut';
-              if (!q.length) return;
-              var occ = { tipo: isIn ? 'per' : 'aut', data: q[window.__tlpOrbit[key] % q.length] };
+      var orbBubbles = orbDash ? Array.prototype.slice.call(orbDash.querySelectorAll('.tlp-orbits .tlp-bubble')) : [];
+      // 10 huecos por formación (0-4 personajes, 5-9 autores) en la franja
+      // izquierda del dash; [x%, y%, escala]. El planeta vive al centro.
+      var TLP_FORMS = [
+        [[13,18,1.04],[24,29,.98],[29,42,1.06],[26,55,.94],[16,63,1],
+         [4,10,.84],[16,7,.9],[28,13,.8],[35,26,.88],[36,42,.82]],          // doble arco "))"
+        [[5,12,.96],[12,24,1.05],[19,36,.95],[26,48,1.06],[33,60,.97],
+         [11,7,.82],[18,17,.88],[25,29,.8],[32,41,.86],[38,53,.9]],         // diagonal escalonada
+        [[9,16,1.05],[22,24,.94],[31,14,1],[27,47,1.07],[12,58,.96],
+         [17,8,.86],[35,30,.82],[20,38,.9],[33,56,.84],[6,37,.88]],         // constelación dispersa
+        [[11,12,1],[11,26,.95],[11,40,1.06],[11,54,.95],[11,68,1],
+         [26,9,.84],[26,23,.9],[26,37,.82],[26,51,.9],[26,65,.84]],         // doble columna
+        [[20,12,1.02],[33,24,.95],[33,48,1.05],[20,60,.96],[7,48,1],
+         [7,24,.86],[27,8,.84],[36,36,.9],[27,64,.82],[4,36,.88]]           // corona
+      ];
+      var formStep = 0, swapPtr = 0;
+      function orbApply(withSwap) {
+        var F = TLP_FORMS[formStep % TLP_FORMS.length];
+        formStep++;
+        var swapIdx = [];
+        if (withSwap) { swapIdx = [swapPtr % 10, (swapPtr + 5) % 10]; swapPtr++; }
+        orbBubbles.forEach(function(sph, i) {
+          if (!sph.isConnected) return;
+          var f = F[i % F.length];
+          var mover = function() {
+            sph.style.left = f[0] + '%';
+            sph.style.top = f[1] + '%';
+            sph.style.transform = 'translate(-50%,-50%) scale(' + f[2] + ')';
+            sph.style.opacity = 1;
+          };
+          if (swapIdx.indexOf(i) < 0) { mover(); return; }
+          // esfera de relevo: se funde, cambia de cara y reaparece en camino
+          sph.style.opacity = 0;
+          setTimeout(function() {
+            if (!sph.isConnected || !window.__tlpOrbit) return;
+            var isPer = i < 5;
+            var q = isPer ? window.__tlpOrbit.per : window.__tlpOrbit.aut;
+            var key = isPer ? 'nextPer' : 'nextAut';
+            if (q.length) {
+              var occ = { tipo: isPer ? 'per' : 'aut', data: q[window.__tlpOrbit[key] % q.length] };
               window.__tlpOrbit[key]++;
               var tmp = document.createElement('div');
               tmp.innerHTML = window.__tlpOrbBubbleHTML(occ, i);
@@ -22455,23 +22483,23 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
               sph.setAttribute('data-door', nb.getAttribute('data-door'));
               var nq = nb.getAttribute('data-q'), nid = nb.getAttribute('data-id');
               if (nq) { sph.setAttribute('data-q', nq); sph.removeAttribute('data-id'); }
-              else { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
+              else if (nid) { sph.setAttribute('data-id', nid); sph.removeAttribute('data-q'); }
               sph.title = nb.title;
               sph.innerHTML = nb.innerHTML;
               sph.className = nb.className;
             }
-            s.last[i] = p;
-            var pos = tlOrbitPos(p, s.arc);
-            sph.style.left = (dashR2.width * pos[0] / 100) + 'px';
-            sph.style.top = (dashR2.height * pos[1] / 100) + 'px';
-            var o = p < 0.08 ? p / 0.08 : (p > 0.92 ? (1 - p) / 0.08 : 1);
-            sph.style.opacity = o.toFixed(3);
-            var sc = s.arc === 'in' ? (0.72 + 0.38 * (1 - Math.abs(2 * p - 1)))
-                                    : (0.64 + 0.34 * (1 - Math.abs(2 * p - 1)));
-            sph.style.transform = 'translate(-50%,-50%) scale(' + sc.toFixed(3) + ')';
-          });
+            mover();
+          }, 1050);
         });
-      }, 100);
+      }
+      // arranque: desde los arcos estáticos del HTML deriva a la 1ª formación
+      window.__tlpOrbitKick = setTimeout(function() {
+        if (!mqFlow.matches) orbApply(false);
+      }, 700);
+      window.__tlpOrbitTimer = setInterval(function() {
+        if (!window.__tlpOrbit || mqFlow.matches) return;
+        orbApply(true);
+      }, 10500);
     }
 
     // ── Portada: rayo eléctrico puerta → planeta al hover (solo con hover real) ──
