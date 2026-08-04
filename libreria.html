@@ -7362,15 +7362,22 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-cover { overflow: hidden; border-radius: 8px;
     box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
   .tlp-cover img, .tlp-cover .book-cover-mini { box-shadow: none !important; }
-  .tlp-cover.anochece::after { content: ''; position: absolute; top: -14%; bottom: -14%;
-    left: -300%; width: 300%; pointer-events: none; z-index: 2;
-    background: linear-gradient(90deg, transparent 4%, rgba(240,205,130,.32) 8%,
-      rgba(5,8,16,.97) 15%, rgba(5,8,16,.97) 85%, rgba(240,205,130,.32) 92%, transparent 96%);
-    animation: tlpTerminator 3.4s cubic-bezier(.55,.08,.45,.92) both; }
-  .tlp-cover.anochece.oeste::after { animation-direction: reverse; }
-  @keyframes tlpTerminator {
-    from { transform: translateX(0) skewX(var(--sk, -10deg)); }
-    to   { transform: translateX(133.5%) skewX(var(--sk, -10deg)); } }
+  .tlp-cara { display: block; }
+  .tlp-cara.vieja { position: absolute; inset: 0; z-index: 1; }
+  /* el libro viejo se repliega como cortina y el borde brilla dorado
+     (drop-shadow sigue solo la forma del clip, sincronía automática) */
+  .tlp-cover.amanece .tlp-cara.vieja {
+    animation: tlpVela 2.6s cubic-bezier(.6,.05,.4,.95) both;
+    filter: drop-shadow(3px 0 7px rgba(240,205,130,.55)); }
+  .tlp-cover.amanece .tlp-cara.vieja.oeste {
+    animation-name: tlpVelaO;
+    filter: drop-shadow(-3px 0 7px rgba(240,205,130,.55)); }
+  @keyframes tlpVela {
+    from { clip-path: polygon(-25% 0%, 115% 0%, 115% 100%, -40% 100%); }
+    to   { clip-path: polygon(115% 0%, 115% 0%, 115% 100%, 100% 100%); } }
+  @keyframes tlpVelaO {
+    from { clip-path: polygon(-15% 0%, 140% 0%, 125% 100%, -15% 100%); }
+    to   { clip-path: polygon(-15% 0%, -25% 0%, -40% 100%, -15% 100%); } }
   .tlp-cover:hover { transform: rotate(0deg) scale(1.06); z-index: 3; }
   .tlp-cover img, .tlp-cover .book-cover-mini { width: 100% !important; height: auto; border-radius: 6px;
     box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
@@ -22618,19 +22625,20 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var covers = container.querySelectorAll('.tlp-cover[data-slot="' + slot + '"]');
         if (!covers.length) { clearInterval(window.__tlpLibTimer); return; }
         covers.forEach(function(c) {
-          // terminador: ángulo y dirección varían para que ningún amanecer
-          // se repita igual; el libro se cambia en plena sombra
-          c.style.setProperty('--sk', (Math.random() * 24 - 12).toFixed(1) + 'deg');
-          c.classList.toggle('oeste', Math.random() < 0.5);
-          c.classList.remove('anochece');
-          void c.offsetWidth;
-          c.classList.add('anochece');
+          if (c.classList.contains('amanece')) return;   // barrido en curso
+          // cortina: el libro nuevo ya está debajo; el viejo se repliega con
+          // el barrido (dirección al azar) y el borde del recorte brilla
+          var oeste = Math.random() < 0.5;
+          var viejaHTML = c.innerHTML;
+          c.setAttribute('data-id', next.b.id);
+          c.title = next.b.title + ' — ' + next.n + ' citas';
+          c.innerHTML = '<span class="tlp-cara nueva">' + getCoverHTML(next.b, 'small') + '</span>' +
+            '<span class="tlp-cara vieja' + (oeste ? ' oeste' : '') + '">' + viejaHTML + '</span>';
+          c.classList.add('amanece');
           setTimeout(function() {
-            c.setAttribute('data-id', next.b.id);
-            c.title = next.b.title + ' — ' + next.n + ' citas';
+            c.classList.remove('amanece');
             c.innerHTML = getCoverHTML(next.b, 'small');
-          }, 1650);
-          setTimeout(function() { c.classList.remove('anochece'); }, 3600);
+          }, 2800);
         });
       }, 14000);
     }
