@@ -21845,7 +21845,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var d = parseEventDate(ev.year);
       var y = d.year;
       if (d.isBC && y != null && y > 0) y = -y;
-      return { y: y == null ? 99999 : y, m: d.month || 0, d: d.day || 0, _date: d };
+      // Orden intra-año (2026-08-04): sin mes explícito cae a ordMes (orden
+      // relativo curado/inferido) y, si tampoco hay, a 99 = fin de año.
+      // Misma convención que el sorter de la vista por décadas; antes era
+      // month||0 y TODOS los sin-mes se amontonaban al inicio de su año.
+      return { y: y == null ? 99999 : y, m: d.month || ev.ordMes || 99, d: d.day || ev.ordDia || 0, _date: d };
     }
     function sortByDate(a, b) {
       if (!a._sortKey) a._sortKey = computeSortKey(a);
