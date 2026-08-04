@@ -7356,6 +7356,21 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     cursor: pointer; transform: rotate(var(--rot, 0deg)); animation: tlpFloat 8s ease-in-out infinite;
     animation-delay: var(--dly, 0s); transition: transform .3s, opacity .45s ease; }
   .tlp-cover.swap-out { opacity: 0; }
+  /* Amanecer/anochecer: el cambio de libro es un terminador que barre la
+     portada — anochece, en plena sombra cambia el libro, y el mismo barrido
+     lo amanece con un filo dorado en el borde, como el limbo de un planeta. */
+  .tlp-cover { overflow: hidden; border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
+  .tlp-cover img, .tlp-cover .book-cover-mini { box-shadow: none !important; }
+  .tlp-cover.anochece::after { content: ''; position: absolute; top: -14%; bottom: -14%;
+    left: -300%; width: 300%; pointer-events: none; z-index: 2;
+    background: linear-gradient(90deg, transparent 4%, rgba(240,205,130,.32) 8%,
+      rgba(5,8,16,.97) 15%, rgba(5,8,16,.97) 85%, rgba(240,205,130,.32) 92%, transparent 96%);
+    animation: tlpTerminator 3.4s cubic-bezier(.55,.08,.45,.92) both; }
+  .tlp-cover.anochece.oeste::after { animation-direction: reverse; }
+  @keyframes tlpTerminator {
+    from { transform: translateX(0) skewX(var(--sk, -10deg)); }
+    to   { transform: translateX(133.5%) skewX(var(--sk, -10deg)); } }
   .tlp-cover:hover { transform: rotate(0deg) scale(1.06); z-index: 3; }
   .tlp-cover img, .tlp-cover .book-cover-mini { width: 100% !important; height: auto; border-radius: 6px;
     box-shadow: 0 10px 30px rgba(0,0,0,.55), 0 0 14px rgba(120,160,230,.12); }
@@ -7365,6 +7380,16 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     justify-content: center; }
   .tlp-terms-label { flex-basis: 100%; height: 0; margin-bottom: 6px;
     border-bottom: 1px solid rgba(200,169,96,.16); }
+  /* Constelaciones: hilos finos que unen 2-3 conceptos por un momento,
+     anclados bajo las palabras para no tacharlas */
+  .tlp-terms-svg { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+  .tlp-terms-svg polyline { fill: none; stroke: rgba(200,169,96,0); stroke-width: 1; }
+  .tlp-terms-svg circle { fill: rgba(200,169,96,0); }
+  .tlp-terms-svg polyline, .tlp-terms-svg circle { transition: stroke 2.4s ease, fill 2.4s ease; }
+  .tlp-terms-svg.on polyline { stroke: rgba(200,169,96,.4); }
+  .tlp-terms-svg.on circle { fill: rgba(200,169,96,.55); }
+  :root.light .tlp-terms-svg.on polyline { stroke: rgba(122,93,32,.45); }
+  :root.light .tlp-terms-svg.on circle { fill: rgba(122,93,32,.6); }
   /* Escalonado sutil: solo en el lienzo absoluto de escritorio (en flujo va plano) */
   @media (min-width: 1101px) {
     .tlp-zone-terms .tlp-term:nth-child(3n) { transform: translateY(-6px); }
@@ -22593,13 +22618,19 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var covers = container.querySelectorAll('.tlp-cover[data-slot="' + slot + '"]');
         if (!covers.length) { clearInterval(window.__tlpLibTimer); return; }
         covers.forEach(function(c) {
-          c.classList.add('swap-out');
+          // terminador: ángulo y dirección varían para que ningún amanecer
+          // se repita igual; el libro se cambia en plena sombra
+          c.style.setProperty('--sk', (Math.random() * 24 - 12).toFixed(1) + 'deg');
+          c.classList.toggle('oeste', Math.random() < 0.5);
+          c.classList.remove('anochece');
+          void c.offsetWidth;
+          c.classList.add('anochece');
           setTimeout(function() {
             c.setAttribute('data-id', next.b.id);
             c.title = next.b.title + ' — ' + next.n + ' citas';
             c.innerHTML = getCoverHTML(next.b, 'small');
-            c.classList.remove('swap-out');
-          }, 460);
+          }, 1650);
+          setTimeout(function() { c.classList.remove('anochece'); }, 3600);
         });
       }, 14000);
     }
@@ -22805,6 +22836,51 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         });
         window.__tlpOrbitKick2 = setTimeout(function() { orbApply(false); cicloOrb(); }, 400);
       }, 90);
+    }
+
+    // ── Constelaciones de conceptos: cada tanto, un hilo dorado une 2-3
+    // términos, se sostiene y se desvanece — las ideas como figuras que uno
+    // encuentra en el cielo de palabras. ──
+    try { clearInterval(window.__tlpConstTimer); } catch(e) {}
+    try { clearTimeout(window.__tlpConstKick); } catch(e) {}
+    if (portadaOn) {
+      var zonasT = Array.prototype.slice.call(container.querySelectorAll('.tlp-zone-terms'));
+      zonasT.forEach(function(z) {
+        if (!z.querySelector('svg.tlp-terms-svg')) {
+          var sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          sv.setAttribute('class', 'tlp-terms-svg');
+          z.insertBefore(sv, z.firstChild);
+        }
+      });
+      function constelar() {
+        zonasT.forEach(function(z) {
+          if (!z.offsetParent) return;
+          var sv = z.querySelector('svg.tlp-terms-svg');
+          var terms = Array.prototype.slice.call(z.querySelectorAll('.tlp-term'));
+          if (!sv || terms.length < 3) return;
+          var zr = z.getBoundingClientRect();
+          if (!zr.width) return;
+          sv.setAttribute('viewBox', '0 0 ' + Math.round(zr.width) + ' ' + Math.round(zr.height));
+          var n = 2 + (Math.random() < 0.55 ? 1 : 0);
+          var idx = [];
+          while (idx.length < n) {
+            var k = Math.floor(Math.random() * terms.length);
+            if (idx.indexOf(k) < 0) idx.push(k);
+          }
+          // anclas bajo cada palabra (en su raíz), no sobre el texto
+          var pts = idx.map(function(k) {
+            var r = terms[k].getBoundingClientRect();
+            return [((r.left + r.right) / 2 - zr.left).toFixed(1), (r.bottom - zr.top + 5).toFixed(1)];
+          });
+          sv.innerHTML = '<polyline points="' + pts.map(function(p){ return p[0] + ',' + p[1]; }).join(' ') + '"/>' +
+            pts.map(function(p){ return '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="1.8"/>'; }).join('');
+          void sv.getBoundingClientRect();
+          sv.classList.add('on');
+          setTimeout(function() { sv.classList.remove('on'); }, 9500);
+        });
+      }
+      window.__tlpConstKick = setTimeout(constelar, 5000);
+      window.__tlpConstTimer = setInterval(constelar, 17000);
     }
 
     // ── Crawl: hover lo pausa (CSS); la rueda lo hojea a tu velocidad.
