@@ -7206,7 +7206,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   .tlp-bolt.echo { stroke-width: 3.6; opacity: .3; }
   .tlp-arc .tlp-bolt, .tlp-arc .tlp-bolt-dot { transition: opacity .3s ease; }
   .tlp-arc.out .tlp-bolt, .tlp-arc.out .tlp-bolt-dot { opacity: 0 !important; }
-  .tlp-arc.go .tlp-bolt { animation: tlpBolt .5s ease-out forwards; }
+  .tlp-arc.go .tlp-bolt { animation: tlpBolt .35s ease-out forwards; }
+.tlp-bolt.rama { stroke-width: 1; opacity: .7; }
   @keyframes tlpBolt { 0% { opacity: 0; } 100% { stroke-dashoffset: 0; opacity: 1; } }
   .tlp-bolt-dot { opacity: 0; }
   .tlp-arc.go .tlp-bolt-dot { animation: tlpDot .55s ease-out forwards; }
@@ -22975,40 +22976,65 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         if (door.classList.contains('tlp-term')) return '#c8b0e8';
         return '#d5ecff';
       }
-      function flashBolt(doorEl) {
-        if (!dashEl || !arcSvg || !stageEl) return;
+      // ── Rayo vivo: electricidad que chisporrotea MIENTRAS dure el hover.
+      // Cada ~90ms se regenera el camino con jitter nuevo (parpadeo eléctrico)
+      // y a veces le brotan ramas cortas. Color por categoría (boltColor). ──
+      var boltTick = null;
+      function boltPath(x1, y1, x2, y2, jag) {
+        var dx = x2 - x1, dy = y2 - y1, dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var nx = -dy / dist, ny = dx / dist;      // normal para el zigzag
+        var segs = Math.max(6, Math.round(dist / 34));
+        var pts = [[x1, y1]];
+        for (var i = 1; i < segs; i++) {
+          var t = i / segs;
+          var j = (Math.random() - 0.5) * dist * jag * Math.sin(t * Math.PI);
+          pts.push([x1 + dx * t + nx * j, y1 + dy * t + ny * j]);
+        }
+        pts.push([x2, y2]);
+        return pts;
+      }
+      function dibujarRayo(doorEl, primera) {
+        if (!dashEl || !arcSvg || !stageEl || !doorEl.isConnected) return;
         var dashR = dashEl.getBoundingClientRect();
         var dR = doorEl.getBoundingClientRect();
         var sR = stageEl.getBoundingClientRect();
         if (!sR.width) return;
         var cx = sR.left + sR.width / 2 - dashR.left, cy = sR.top + sR.height / 2 - dashR.top;
-        // Sale de la ORILLA de la puerta (punto del rect más cercano al planeta)
         var x1 = Math.max(dR.left, Math.min(cx + dashR.left, dR.right)) - dashR.left;
         var y1 = Math.max(dR.top, Math.min(cy + dashR.top, dR.bottom)) - dashR.top;
-        var dx = cx - x1, dy = cy - y1, dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        var ddx = cx - x1, ddy = cy - y1, dist = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
         var R = sR.width / 2 * 0.94;
-        var x2 = cx - dx / dist * R, y2 = cy - dy / dist * R;
-        var segs = 5, pts = [[x1, y1]];
-        for (var bi = 1; bi < segs; bi++) {
-          var t = bi / segs;
-          pts.push([x1 + dx * t + (Math.random() - 0.5) * dist * 0.07,
-                    y1 + dy * t + (Math.random() - 0.5) * dist * 0.07]);
-        }
-        pts.push([x2, y2]);
-        var dAttr = 'M' + pts.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' L');
+        var x2 = cx - ddx / dist * R, y2 = cy - ddy / dist * R;
         var col = boltColor(doorEl);
-        arcSvg.innerHTML = '<path class="tlp-bolt" stroke="' + col + '" style="filter:drop-shadow(0 0 5px ' + col + ')" d="' + dAttr + '"/>' +
-          '<path class="tlp-bolt echo" stroke="' + col + '" d="' + dAttr + '"/>' +
-          '<circle class="tlp-bolt-dot" fill="' + col + '" style="filter:drop-shadow(0 0 6px ' + col + ')" cx="' + x2.toFixed(1) + '" cy="' + y2.toFixed(1) + '" r="3"/>';
-        var path = arcSvg.querySelector('.tlp-bolt');
-        try {
-          var len = path.getTotalLength();
-          path.style.strokeDasharray = String(len);
-          path.style.strokeDashoffset = String(len);
-        } catch(e) {}
-        arcSvg.classList.remove('go', 'out'); void arcSvg.offsetWidth; arcSvg.classList.add('go');
+        var pts = boltPath(x1, y1, x2, y2, 0.085);
+        var dAttr = 'M' + pts.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' L');
+        var html = '<path class="tlp-bolt echo" stroke="' + col + '" d="' + dAttr + '"/>' +
+          '<path class="tlp-bolt" stroke="' + col + '" style="filter:drop-shadow(0 0 5px ' + col + ')" d="' + dAttr + '"/>';
+        // ramas: brotan de un punto intermedio y mueren cortas
+        if (Math.random() < 0.55 && pts.length > 4) {
+          var k = 1 + Math.floor(Math.random() * (pts.length - 3));
+          var bx = pts[k][0], by = pts[k][1];
+          var ang = Math.atan2(y2 - by, x2 - bx) + (Math.random() - 0.5) * 1.5;
+          var blen = dist * (0.10 + Math.random() * 0.14);
+          var bpts = boltPath(bx, by, bx + Math.cos(ang) * blen, by + Math.sin(ang) * blen, 0.16);
+          html += '<path class="tlp-bolt rama" stroke="' + col + '" d="M' +
+            bpts.map(function(p){ return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' L') + '"/>';
+        }
+        html += '<circle class="tlp-bolt-dot" fill="' + col + '" style="filter:drop-shadow(0 0 6px ' + col + ')" cx="' +
+          x2.toFixed(1) + '" cy="' + y2.toFixed(1) + '" r="' + (2.4 + Math.random() * 1.6).toFixed(1) + '"/>';
+        arcSvg.innerHTML = html;
+        if (primera) { arcSvg.classList.remove('go', 'out'); void arcSvg.offsetWidth; arcSvg.classList.add('go'); }
       }
-      function fadeBolt() {
+      function encenderRayo(doorEl) {
+        clearInterval(boltTick); clearTimeout(arcTimer);
+        dibujarRayo(doorEl, true);
+        boltTick = setInterval(function() {
+          if (!doorEl.isConnected) { apagarRayo(); return; }
+          dibujarRayo(doorEl, false);
+        }, 90);
+      }
+      function apagarRayo() {
+        clearInterval(boltTick); boltTick = null;
         if (!arcSvg) return;
         arcSvg.classList.add('out');
         clearTimeout(arcTimer);
@@ -23019,13 +23045,13 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         var doorEl = e.target.closest ? e.target.closest('[data-door]') : null;
         if (!doorEl || doorEl === lastBoltDoor) return;
         lastBoltDoor = doorEl;
-        flashBolt(doorEl);
+        encenderRayo(doorEl);
       });
       container.addEventListener('mouseout', function(e) {
         var doorEl = e.target.closest ? e.target.closest('[data-door]') : null;
         if (doorEl && doorEl === lastBoltDoor) {
           lastBoltDoor = null;
-          fadeBolt();
+          apagarRayo();
         }
       });
     }
