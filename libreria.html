@@ -21575,16 +21575,11 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           if (f.libros.has(ev.citas[i].libro)) { has = true; break; }
         }
       }
-      // Era-level fallback: no verbatim cita from this book on this event,
-      // but its era declares the book as a period reference — surface it in
-      // the filter so context events (e.g. Sumeria under 'Grandeza') aren't
-      // silently hidden when a reader narrows by libro. En recorridos
-      // (f._strict) se omite: solo cuentan citas directas.
-      if (!has && era && era.bookIds && !f._strict) {
-        for (var k = 0; k < era.bookIds.length; k++) {
-          if (f.libros.has(era.bookIds[k])) { has = true; break; }
-        }
-      }
+      // Solo citas DIRECTAS: el fallback por era.bookIds se retiró (2026-08-04)
+      // porque metía eventos de toda la era sin cita del libro (p.ej.
+      // historiapueblo: 506 eventos "suyos" con solo 21 citas reales), y el
+      // _strict que lo esquivaba en recorridos no sobrevive un reload de URL.
+      // era.bookIds sigue vivo para la franja de libros por era.
       if (!has) return false;
     }
     if (f.autores && f.autores.size) {
@@ -21599,11 +21594,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
             if (bs[ev.citas[ci].libro]) { hasA = true; break outer; }
           }
         }
-        if (era && era.bookIds) {
-          for (var bi = 0; bi < era.bookIds.length; bi++) {
-            if (bs[era.bookIds[bi]]) { hasA = true; break outer; }
-          }
-        }
+        // (fallback era.bookIds retirado también aquí — solo citas directas)
       }
       if (!hasA) return false;
     }
@@ -21671,8 +21662,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
             u*u*18 + 2*u*p*46 + p*p*66];
   }
   // Recorrido: una ruta dentro del mapa = filtro por sus libros + banner guía.
-  // _strict: ignora el fallback era.bookIds (ese existe para contexto; en un
-  // recorrido solo queremos eventos con cita directa de los libros de la ruta).
+  // _strict: hoy es no-op (el fallback era.bookIds se retiró del filtro el
+  // 2026-08-04); se conserva por compatibilidad con URLs/estado previo.
   function tlRutaStart(id) {
     var ruta = (typeof rutas !== 'undefined') ? rutas.find(function(r){ return r.id === id; }) : null;
     if (!ruta) return;
@@ -24410,11 +24401,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     function readingTimeForEvent(ev) {
       if (!ev) return PLAY_BASE_MS;
       var chars = (ev.text || '').length + (ev.detalle || '').length;
-      if (ev.citas && ev.citas.length) {
-        for (var i = 0; i < ev.citas.length; i++) {
-          chars += (ev.citas[i].texto || '').length;
-        }
-      }
+      // mismas citas que narraría la voz (respeta el filtro de libro/autor)
+      narratedCitas(ev).forEach(function(p) { chars += (p.c.texto || '').length; });
       return Math.min(PLAY_MAX_MS, PLAY_BASE_MS + chars * PLAY_PER_CHAR_MS);
     }
     function updatePlayBtn() {
@@ -24884,16 +24872,36 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     }
     // Lee TODAS las citas (hasta 4). Si hay más de 4, elige 4 al azar y las
     // mantiene en orden. Devuelve {c, idx} para poder resaltar la que se lee.
-    function pickCitas(list) {
-      var out = [];
-      if (list.length <= 4) {
-        list.forEach(function(c, i) { if (c && c.texto) out.push({ c: c, idx: i }); });
-        return out;
+    // ¿Esta cita pertenece al libro/autor seleccionado? (ambos vacíos → sí)
+    function citaMatchesTlFilter(c) {
+      var okLibro = !tlFilter.libros.size || tlFilter.libros.has(c.libro);
+      var okAutor = true;
+      if (tlFilter.autores && tlFilter.autores.size) {
+        okAutor = false;
+        var names = Array.from(tlFilter.autores);
+        for (var i = 0; i < names.length; i++) {
+          if (authorBookSet(names[i])[c.libro]) { okAutor = true; break; }
+        }
       }
-      var idxs = list.map(function(_, i) { return i; });
+      return okLibro && okAutor;
+    }
+    // Citas que la NARRACIÓN leerá: solo las del libro/autor filtrado, con su
+    // índice ORIGINAL preservado (citaIdx alimenta el resaltado en pantalla).
+    // Si ninguna matchea (el evento entró por texto libre u otra dimensión),
+    // se leen todas, como siempre. Lo visual no cambia: el panel sigue
+    // mostrando todas las citas del evento.
+    function narratedCitas(ev) {
+      var todas = (ev.citas || []).map(function(c, i) { return { c: c, idx: i }; })
+        .filter(function(p) { return p.c && p.c.texto; });
+      if (!tlFilter.libros.size && !(tlFilter.autores && tlFilter.autores.size)) return todas;
+      var propias = todas.filter(function(p) { return citaMatchesTlFilter(p.c); });
+      return propias.length ? propias : todas;
+    }
+    function pickCitas(pairs) {
+      if (pairs.length <= 4) return pairs;
+      var idxs = pairs.map(function(_, i) { return i; });
       for (var i = idxs.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = idxs[i]; idxs[i] = idxs[j]; idxs[j] = t; }
-      idxs.slice(0, 4).sort(function(a, b) { return a - b; }).forEach(function(i) { if (list[i] && list[i].texto) out.push({ c: list[i], idx: i }); });
-      return out;
+      return idxs.slice(0, 4).sort(function(a, b) { return a - b; }).map(function(i) { return pairs[i]; });
     }
     function eventSegments(ev) {
       var segs = [{ text: speakNumbers(speakYear(ev.year) + '.'), lang: 'es', role: 'fecha' }];
@@ -24901,7 +24909,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       // en inglés — se detecta para que no los lea una voz en español.
       if (ev.text) segs.push({ text: speakNumbers(ev.text + '.'), lang: detectLang(ev.text), role: 'evento' });
       if (ev.detalle) segs.push({ text: speakNumbers(ev.detalle), lang: detectLang(ev.detalle), role: 'descripcion' });
-      var picked = pickCitas(ev.citas || []);
+      var picked = pickCitas(narratedCitas(ev));
       var prevSpeaker = null;
       picked.forEach(function(p) {
         var c = p.c, speaker = speakerFor(c), qLang = detectLang(c.texto);
