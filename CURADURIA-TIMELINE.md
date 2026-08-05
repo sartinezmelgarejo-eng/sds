@@ -146,3 +146,65 @@ La cronología oficial del INEHRM da una fecha exacta distinta al mes que ya ten
 - [ ] **E16** [1988] El PRI se mantiene en la presidencia con Carlos Salinas de Gortari tras la elección plagada de irregularidades de 1988
     - mes actual: 7 · INEHRM: 12/1 — «El 1 de diciembre, toma posesión Carlos Salinas de Gortari como presidente de la República.»
     - Decisión: ___ (INEHRM / DEJAR)
+
+
+---
+
+# Ronda de la noche del 4 al 5 de agosto de 2026
+
+## F · Auditoría verbatim completa (nueva) ✅
+
+Se cotejaron **las 12,812 citas** contra el texto de sus PDFs. Para lograrlo hubo que reconstruir el mapeo libro→PDF (320 de 350 libros) y **OCRear con Apple Vision 22 PDFs que eran escaneos sin capa de texto** (entre ellos el Martí, que tenía 0 bytes legibles, Soustelle, el Juche y el Bonialian).
+
+| Estado | Citas | % |
+|---|---:|---:|
+| Verbatim exacto carácter a carácter | 7,893 | 61.6% |
+| Exacto salvo marcas de nota al pie (formato) | 113 | 0.9% |
+| Confirmadas contra fuente OCR (cotejo difuso) | 3,821 | 29.8% |
+| Coincidencia parcial | 88 | 0.7% |
+| **No aparecen en su libro** | **14** | **0.1%** |
+| Sin fuente localizable (PDF ausente del acervo) | 883 | 6.9% |
+
+**Conclusión: 92.3% de las citas quedan confirmadas como texto real de su libro.** Y de las 14 que no aparecen, 13 son del Chilam Balam en **otra traducción** (el acervo tiene dos ediciones y las citas vienen de la que no está digitalizada), no errores. La única cita defectuosa de verdad es un fragmento cortado en `obsidianamesoamerica`.
+
+### Libros cuyos PDFs faltan del acervo (883 citas sin poder cotejar)
+
+Si consigues estos PDFs, sus citas quedarían verificables:
+
+- `amlo` — 243 citas
+- `leonavicario` — 69 citas
+- `humboldt` — 52 citas
+- `dussel16economia` — 39 citas
+- `soustelle` — 36 citas
+- `leninleftwing` — 36 citas
+- `lenintactics` — 32 citas
+- `alaman1` — 29 citas
+- `kimjucherev` — 25 citas
+- `leninkautsky` — 24 citas
+- `marti` — 23 citas
+- `tremlett` — 22 citas
+- `popolvuh` — 20 citas
+- `dusselsur` — 19 citas
+- `parentiempire` — 18 citas
+- `hudsontrade` — 18 citas
+- `parentireality` — 16 citas
+- `parenticulture` — 16 citas
+
+## G · Citas pegadas al evento equivocado
+
+DeepSeek revisó 3,021 citas (las 1,047 más sospechosas por señales mecánicas, más 2,061 al azar del resto) antes de que se agotara el saldo. Encontró **109 citas intrusas**: narran un hecho distinto, de otro lugar o de otra época, sin relación con el evento que las hospeda.
+
+De ellas, 27 pasaron una **segunda revisión a ciegas** (se le dio la cita sola, sin decirle que estaba marcada, y se le pidió fechar y ubicar el hecho; luego comparé mecánicamente con el año y país del evento).
+
+**5 ya se mudaron a su evento correcto** (ninguna se borró):
+
+- La cita sobre Katayama y la Comintern salió de «Madero visita Chihuahua, 1910» y se fue a «Sen Katayama llega a México, 1921»
+- La del patrón oro salió de un evento de 1913 y se fue a «Roosevelt torpedoes London Economic Conference, 1933»
+- Tres citas de la Revolución Mexicana (llegada de Ángeles, avance de Villa y Zapata, toma de Torreón) estaban colgadas de «Quiebra de la Segunda Internacional»
+
+**Las que siguen sin resolver** (ejemplos): dos citas sobre el asesinato de Kirov en Leningrado en 1934 viven en «Plan de San Diego, Texas, 1915»; una sobre la ejecución de un seminarista cristero en 1927 vive en «Orozco se rebela contra Madero, 1912». No tienen evento destino en la línea: habría que crearles uno o dejarlas donde están.
+
+### Lo que falta y por qué
+
+El barrido alcanzó a cubrir 3,021 de 12,812 citas. **Se acabó el saldo de DeepSeek de pago y después la cuota del tier gratuito.** Con la tasa observada (1.9% de intrusas en muestra aleatoria), quedan por descubrir unas **190 citas mal colocadas** en el resto del acervo. Los lotes ya están preparados y disparan en cuanto haya crédito.
+
