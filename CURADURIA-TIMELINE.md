@@ -90,3 +90,59 @@ Los 261 pares se revisaron uno a uno. **121 se fusionaron** (destino = mejor nom
 - [ ] **C21** [2023-12-22] (amlogracias) López Obrador reabre el tren de pasajeros del Istmo entre Salina Cruz y Coatzacoalcos
 - [ ] **C22** [2023-12-29] (amlogracias) López Obrador inaugura la Megafarmacia en Huehuetoca el 29 de diciembre
 - [ ] **C23** [2021-03-21] (lasderechas) FRENA realiza un juicio ciudadano contra AMLO y lo declara culpable de 15 delitos
+
+## E · Fechas del INEHRM que chocan con un mes ya curado (17) — decidir
+
+La cronología oficial del INEHRM da una fecha exacta distinta al mes que ya tenía el evento. No toqué ninguno: puede que el mes curado venga del libro citado y describa otra fase del mismo proceso (p. ej. Morelos tomó la ciudad de Acapulco en abril de 1813, pero el fuerte de San Diego cayó en agosto). Marca cuál gana.
+
+- [ ] **E0** [1814] Josefa Ortiz de Domínguez es recluida en el convento de Santa Teresa la Antigua de la Ciudad de México
+    - mes actual: 3 · INEHRM: 1/2 — «El 2 de enero, doña Josefa Ortiz es recluida en el Convento de Santa Teresa de México.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E1** [1821] Iturbide dirige a Guerrero la carta que inicia su acuerdo
+    - mes actual: 1 · INEHRM: 2/4 — «El 4 de febrero, Iturbide le responde a Guerrero y lo invita a reunirse.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E2** [1821] Juan O'Donojú desembarca en Veracruz sin tropas como jefe político superior
+    - mes actual: 8 · INEHRM: 7/30 — «El 30 de julio, llega Juan O’Donojú, jefe político superior y capitán general de la Nueva España, a Veracruz.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E3** [1853] Llega a Nueva Orleáns en el exilio
+    - mes actual: 12 · INEHRM: 10/5 — «El 5 de octubre, Benito Juárez se exilia en La Habana y después en Nueva Orleans.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E4** [1853] Santa Anna se autonombra Alteza Serenísima y recibe facultades extraordinarias
+    - mes actual: 8 · INEHRM: 12/1 — «El 1 de diciembre, el Consejo de Estado otorga a Santa Anna el título de Alteza Serenísima, el grado de Capitán General »
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E5** [1854] El francés Gaston Raousset de Boulbon promueve una invasión filibustera sobre Sonora
+    - mes actual: 6 · INEHRM: 7/13 — «El 13 de julio, el filibustero francés conde Raousset de Boulbon ataca Guaymas con 400 hombres.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E6** [1813] Morelos captura Acapulco tras un prolongado sitio
+    - mes actual: 8 · INEHRM: 4/6 — «Del 6 al 12 de abril, Morelos ataca y entra en Acapulco.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E7** [1862] Napoleón III nombra al general Forey comandante en jefe de la expedición francesa contra Puebla
+    - mes actual: 9 · INEHRM: 7/3 — «El 3 de julio, Napoleón III nombra general en jefe de la expedición francesa en México a Elías Federico Forey.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E8** [1867] Rafael Martínez de la Torre acompaña a Maximiliano como defensor durante su proceso judicial
+    - mes actual: 6 · INEHRM: 5/28 — «El 28 de mayo, el general Porfirio Díaz notifica al abogado Mariano Riva Palacio que el archiduque Maximiliano lo ha nom»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E9** [1918] Sentencian a Librado y a Magón a 15 años
+    - mes actual: 8 · INEHRM: 3/21 — «El 21 de marzo, en Los Ángeles, California, Ricardo Flores Magón y Librado Rivera caen presos y son condenados a 20 y 15»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E10** [1914] Villa está a punto de fusilar a Obregón en Chihuahua durante las conferencias
+    - mes actual: 8 · INEHRM: 9/17 — «El 17 de septiembre, en Chihuahua, Villa toma preso a Obregón y ordena su fusilamiento, pero es convencido de no hacerlo»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E11** [1919] De la Huerta triunfa arrolladoramente en las elecciones para gobernador de Sonora
+    - mes actual: 4 · INEHRM: 5/7 — «El 7 de mayo, después de concluida la gestión del general Plutarco Elías Calles, Adolfo de la Huerta es electo nuevo gob»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E12** [1914] La Convención retira a Carranza de la primera jefatura
+    - mes actual: 11 · INEHRM: 10/31 — «El 31 de octubre, se levanta la votación en la Convención de Aguascalientes para destituir a Carranza y a Villa.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E13** [1919] Se funda el Partido Comunista Mexicano y se incorpora a la III Internacional
+    - mes actual: 11 · INEHRM: 9/25 — «El 25 de septiembre, se constituye el Partido Comunista Mexicano.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E14** [1939] Fundación del PAN, del Partido Revolucionario Anticomunista y del PNSP
+    - mes actual: 9 · INEHRM: 1/30 — «El 30 de enero, se constituye el Partido Revolucionario Anticomunista (prac).»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E15** [1988] El gobierno interviene la elección de 1988 y declara ganador a Salinas de Gortari
+    - mes actual: 7 · INEHRM: 9/8 — «El 8 de septiembre, el pri presenta un dictamen que declara electo a Carlos Salinas de Gortari.»
+    - Decisión: ___ (INEHRM / DEJAR)
+- [ ] **E16** [1988] El PRI se mantiene en la presidencia con Carlos Salinas de Gortari tras la elección plagada de irregularidades de 1988
+    - mes actual: 7 · INEHRM: 12/1 — «El 1 de diciembre, toma posesión Carlos Salinas de Gortari como presidente de la República.»
+    - Decisión: ___ (INEHRM / DEJAR)
