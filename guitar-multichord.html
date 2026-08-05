@@ -16000,6 +16000,14 @@ class Player {
   _nextChordId() {
     const prog = this._currentProgression();
     if (!prog) return null;
+    // Práctica: si hay estación pendiente y el siguiente compás abre
+    // página (ahí aterriza el cambio), el próximo acorde que va a sonar
+    // es el primero del material en cola, no el de esta canción.
+    if (window.practice && window.practice.active && window.practice._pending
+        && this.totalBars % 4 === 3) {
+      const q = window.practice._peekQueued();
+      if (q) return q.song[0].progression.steps[0].chord;
+    }
     const nextStepIdx = this.currentStepIdx + 1;
     if (nextStepIdx < prog.steps.length) {
       return prog.steps[nextStepIdx].chord;
@@ -16009,6 +16017,13 @@ class Player {
     if (this.sectionIter + 1 < section.repeats) {
       // Repeating same progression
       return prog.steps[0].chord;
+    }
+    // Práctica: al terminar el ciclo NO se da la vuelta a la misma
+    // canción — entra el set nuevo pre-generado. Anticipar ESE.
+    if (window.practice && window.practice.active
+        && this.songIdx + 1 >= this.song.length) {
+      const q = window.practice._peekQueued();
+      if (q) return q.song[0].progression.steps[0].chord;
     }
     // Moving to next section
     const nextSectionIdx = (this.songIdx + 1) % this.song.length;
@@ -17130,48 +17145,32 @@ class Player {
                   renderAll();
                 }
               } else {
-              // Práctica: instead of restoring home, roll a fresh key
-              // (and tonality when the station allows both) from the
-              // station's pools. The key holds for a few patterns first
-              // (user: one pattern per key was too jumpy) — every cycle
-              // still brings a NEW progression, but the key only rolls
-              // every _practiceKeyEveryN cycles.
-              if (window._practiceKeyPool) {
-                window._practiceCycleN = (window._practiceCycleN || 0) + 1;
-                if (window._practiceCycleN < (window._practiceKeyEveryN || 3)) {
-                  // Same key, next pattern: stay anchored on home.
-                  state.keyPc = this._homeKey.keyPc;
-                  state.tonality = this._homeKey.tonality;
-                  this._travelNote = null;
-                } else {
-                window._practiceCycleN = 0;
-                const kp = window._practiceKeyPool;
-                const cur = state.keyPc;
-                let next = (kp === 'all')
-                  ? Math.floor(Math.random() * 12)
-                  : kp[Math.floor(Math.random() * kp.length)];
-                if (next === cur) {
-                  next = (kp === 'all') ? (next + 5) % 12
-                       : kp[(kp.indexOf(next) + 1) % kp.length];
-                }
-                state.keyPc = next;
-                const tp = window._practiceTonalityPool;
-                if (tp && tp.length) {
-                  state.tonality = tp[Math.floor(Math.random() * tp.length)];
-                  // Same stranded-focusedChord guard as applyStation: a
-                  // tonality flip can leave focusedChord pointing at an
-                  // id the new map lacks and renderFretboard throws.
+              // Práctica: el fin de ciclo consume la COLA pre-generada
+              // (el material que el preview amarillo ya anticipó) — su
+              // tono aguanta _practiceKeyEveryN patrones antes de rodar,
+              // y la canción entrante es exactamente la anunciada.
+              if (window._practiceKeyPool && window.practice && window.practice.active) {
+                window.practice._ensureQueued();
+                const _pq = window.practice._takeQueued();
+                if (_pq && !_pq.stationId) {
+                  state.keyPc = _pq.keyPc;
+                  state.tonality = _pq.tonality;
+                  // Stranded-focusedChord guard (tonality may flip).
                   if (!currentMap().chordDefs[state.focusedChord]) {
                     state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
                     state.userVoicing = null;
                   }
-                }
-                if (this._homeKey) {
-                  this._homeKey.keyPc = state.keyPc;
-                  this._homeKey.tonality = state.tonality;
+                  if (this._homeKey) {
+                    this._homeKey.keyPc = state.keyPc;
+                    this._homeKey.tonality = state.tonality;
+                  }
+                  this._practiceQueuedSong = _pq.song;
+                } else {
+                  // Cola no disponible (raro): quedarse anclado en casa.
+                  state.keyPc = this._homeKey.keyPc;
+                  state.tonality = this._homeKey.tonality;
                 }
                 this._travelNote = null;
-                }
               } else
               // Low-probability "travel" — the new song's home shifts to a
               // musically related key, like a jam session drifting over time.
@@ -17195,7 +17194,14 @@ class Player {
                 state._capturedSong = null;
                 state._composeASectionLen = null;
               }
-              this.song = this._generateSong();
+              // Práctica: si la cola dejó la canción entrante, usarla tal
+              // cual (es la que el preview anticipó); si no, generar.
+              if (this._practiceQueuedSong) {
+                this.song = this._practiceQueuedSong;
+                this._practiceQueuedSong = null;
+              } else {
+                this.song = this._generateSong();
+              }
               this.songIdx = 0;
               }
             }
@@ -17583,6 +17589,23 @@ class Player {
     let nxtTonality = state.tonality;
     const prog = this._currentProgression();
     const isLastStepOfProg = this.currentStepIdx + 1 >= prog.steps.length;
+    // Práctica: en las costuras (fin de ciclo, o estación pendiente que
+    // aterriza en la próxima página) el material entrante vive en la
+    // cola pre-generada — su tono/tonalidad/voicing pueden diferir de
+    // los actuales, y el plan viejo no sabe nada de él.
+    let _practiceQ = null;
+    if (window.practice && window.practice.active && window.practice._peekQueued) {
+      const _pendingSeam = window.practice._pending && (this.totalBars % 4 === 3);
+      const _cycleSeam = isLastStepOfProg
+        && (this.sectionIter + 1 >= this._currentSection().repeats)
+        && (this.songIdx + 1 >= this.song.length);
+      if (_pendingSeam || _cycleSeam) _practiceQ = window.practice._peekQueued();
+    }
+    if (_practiceQ) {
+      nextType    = _practiceQ.song[0].voicingType || nextType;
+      nxtKeyPc    = _practiceQ.keyPc;
+      nxtTonality = _practiceQ.tonality;
+    } else
     if (isLastStepOfProg) {
       const section = this._currentSection();
       const isLastIter = this.sectionIter + 1 >= section.repeats;
@@ -17612,7 +17635,11 @@ class Player {
     // plan already stores per-cell keyPc, so this branch is modulation-safe.
     const barInPage = this.totalBars % 4;
     const planEntries = [...(this._cachedPage || []), this._cachedPeek].filter(Boolean);
-    const plannedNext = planEntries.find((e, i) => i > barInPage && e.chord === nxtId);
+    // En costura de práctica el plan pertenece a la canción saliente:
+    // un id coincidente sería un falso amigo (shape resuelto en el tono
+    // viejo). Resolver fresco contra el material en cola.
+    const plannedNext = _practiceQ ? null
+      : planEntries.find((e, i) => i > barInPage && e.chord === nxtId);
     if (plannedNext) {
       state.nextVoicing = {
         chord: nxtId,
@@ -21628,6 +21655,7 @@ function renderLandscapeStandby() {
     stationId: null,
     hold: false,          // quédate — suspende el auto-avance
     _pending: null,       // estación en espera de frontera de página (múltiplo de 4)
+    _queued: null,        // material entrante pre-generado {song, keyPc, tonality, stationId, cycleN}
     _snap: null,
     _dwellSec: 0,
     _timer: null,
@@ -21703,6 +21731,8 @@ function renderLandscapeStandby() {
       this.stationId = null;
       this.route = null;
       this._pending = null;
+      this._queued = null;
+      player._practiceQueuedSong = null;
       document.body.classList.remove('practica-on');
       document.body.classList.remove('practica-select');
       if (typeof renderAll === 'function') renderAll();
@@ -21710,6 +21740,94 @@ function renderLandscapeStandby() {
       if (typeof syncMobileTransport === 'function') syncMobileTransport();
       if (typeof renderLandscapeStandby === 'function') renderLandscapeStandby();
       if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
+    },
+
+    /* ── Cola de material entrante ──
+       El siguiente set (próximo ciclo del mismo territorio, o la
+       estación pendiente) se pre-genera ANTES de que el actual termine,
+       para que el preview amarillo pueda anticipar su primer acorde en
+       el cuarto compás y para que la frontera lo consuma tal cual (lo
+       que anticipaste es exactamente lo que suena). */
+    _peekQueued() {
+      this._ensureQueued();
+      return this._queued;
+    },
+    _ensureQueued() {
+      if (!this.active) return;
+      const target = this._pending || null;
+      if (this._queued && this._queued.stationId === target) return;
+      this._queued = this._buildQueuedFor(target);
+    },
+    _takeQueued() {
+      const q = this._queued;
+      this._queued = null;
+      if (q && !q.stationId) window._practiceCycleN = q.cycleN;
+      return q;
+    },
+    _buildQueuedFor(id) {
+      const st = _stationById(id || this.stationId);
+      if (!st) return null;
+      const pool = _poolOf(st);
+      if (!pool) return null;   // estación E: generador libre, sin cola
+      // Tono/tonalidad del material entrante
+      let keyPc, ton, cycleN = 0;
+      let tons = st.tonalities.filter(t => (pool[t] || []).length);
+      if (!tons.length) tons = st.tonalities;
+      const rollKey = () => (st.keys === 'all')
+        ? Math.floor(Math.random() * 12)
+        : st.keys[Math.floor(Math.random() * st.keys.length)];
+      if (id) {
+        // estación nueva: roll fresco de sus pools
+        ton = tons[Math.floor(Math.random() * tons.length)];
+        keyPc = rollKey();
+      } else {
+        // mismo territorio: el tono aguanta _practiceKeyEveryN patrones
+        const n = (window._practiceCycleN || 0) + 1;
+        const home = player._homeKey || { keyPc: state.keyPc, tonality: state.tonality };
+        if (n < (window._practiceKeyEveryN || 3)) {
+          keyPc = home.keyPc;
+          ton = home.tonality;
+          cycleN = n;
+        } else {
+          ton = tons[Math.floor(Math.random() * tons.length)];
+          keyPc = rollKey();
+          if (keyPc === home.keyPc) {
+            keyPc = (st.keys === 'all') ? (keyPc + 5) % 12
+                  : st.keys[(st.keys.indexOf(keyPc) + 1) % st.keys.length];
+          }
+          cycleN = 0;
+        }
+      }
+      // Generación en seco bajo los parámetros del material entrante:
+      // snapshot de globals → aplicar → generar → restaurar TODO
+      // (incluido player._homeKey, que _generateSong pisa).
+      const save = {
+        keyPc: state.keyPc, tonality: state.tonality,
+        pref: voicingPrefSet,
+        allow: player._practiceProgAllowlist,
+        struct: state.songStructure,
+        fv: window._practiceForceVariant,
+        homeKey: player._homeKey,
+      };
+      this._selfChange = true;
+      state.keyPc = keyPc;
+      state.tonality = ton;
+      voicingPrefSet = st.voicings ? new Set(st.voicings) : new Set(VOICING_TYPE_IDS);
+      player._practiceProgAllowlist = new Set([...(pool.major || []), ...(pool.minor || [])]);
+      window._practiceForceVariant = st.forceVariant || null;
+      state.songStructure = 'A';
+      let song = null;
+      try { song = player._generateSong(); } catch (e) {}
+      state.keyPc = save.keyPc;
+      state.tonality = save.tonality;
+      voicingPrefSet = save.pref;
+      player._practiceProgAllowlist = save.allow;
+      state.songStructure = save.struct;
+      window._practiceForceVariant = save.fv;
+      player._homeKey = save.homeKey;
+      this._selfChange = false;
+      if (!song || !song.length) return null;
+      return { song, keyPc, tonality: ton, stationId: id || null, cycleN };
     },
 
     // Pide un cambio de estación respetando la música: si está sonando,
@@ -21734,6 +21852,10 @@ function renderLandscapeStandby() {
       const st = _stationById(id);
       if (!st || !this.active) return;
       const regen = !(opts && opts.regen === false);
+      // Material pre-generado para ESTA estación (la cola que el preview
+      // ya anticipó): usar su tono y su canción tal cual.
+      const q = (this._queued && this._queued.stationId === id) ? this._queued : null;
+      this._queued = null;
       this.stationId = id;
       this._pending = null;
       this._dwellSec = 0;
@@ -21745,10 +21867,15 @@ function renderLandscapeStandby() {
       let tons = st.tonalities;
       if (pool) tons = tons.filter(t => (pool[t] || []).length);
       if (!tons.length) tons = st.tonalities;
-      state.tonality = tons[Math.floor(Math.random() * tons.length)];
-      state.keyPc = (st.keys === 'all')
-        ? Math.floor(Math.random() * 12)
-        : st.keys[Math.floor(Math.random() * st.keys.length)];
+      if (q) {
+        state.tonality = q.tonality;
+        state.keyPc = q.keyPc;
+      } else {
+        state.tonality = tons[Math.floor(Math.random() * tons.length)];
+        state.keyPc = (st.keys === 'all')
+          ? Math.floor(Math.random() * 12)
+          : st.keys[Math.floor(Math.random() * st.keys.length)];
+      }
       if (!currentMap().chordDefs[state.focusedChord]) {
         state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
         state.userVoicing = null;
@@ -21769,7 +21896,13 @@ function renderLandscapeStandby() {
       state.songStructureUpcoming = null;
       if (regen && (player.playing || player.paused)) {
         // Swap-in-place — same recipe as scope-change-while-playing.
-        player.song = player._generateSong();
+        // Con cola: la canción pre-generada que el preview anunció.
+        if (q) {
+          player.song = q.song;
+          player._homeKey = { keyPc: q.keyPc, tonality: q.tonality };
+        } else {
+          player.song = player._generateSong();
+        }
         player.songIdx = 0;
         player.sectionIter = 0;
         player.currentStepIdx = 0;
