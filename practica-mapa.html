@@ -116,6 +116,15 @@
     white-space: nowrap;
   }
   .chip:active { cursor: grabbing; }
+  .chip.pack {
+    background: var(--cc, var(--gold));
+    color: #16130e;
+    font-weight: 800;
+    border-color: var(--cc, var(--gold));
+    width: 100%;
+    justify-content: center;
+  }
+  .card .chip.pack { width: auto; }
   .chip .x {
     display: none;
     margin-left: 2px;
@@ -291,38 +300,45 @@
    ══════════════════════════════════════════════════════════════ */
 
 const PALETTE = [
-  { name: 'Voicings guitarra', color: 'var(--jazz)', open: true, items: [
+  { name: 'Voicings guitarra', color: 'var(--jazz)', open: true,
+    pack: '📦 Voicings guitarra (todos)', items: [
     '🌰 Shells', '🔺 Triads', '✌️ 3rds+7ths', '🎷 Drop-2', '🎺 Drop-3',
     '🏛️ Quartal', '🪷 Sus', '💧 Add9', '🎸 Strum (todo)',
     '🤠 Open/cowboy', '🖐 Cejilla', '⚡ Power (R-5-R)',
   ]},
-  { name: 'Voicings pro (piano)', color: 'var(--lila)', open: false, items: [
+  { name: 'Voicings pro (piano)', color: 'var(--lila)', open: false,
+    pack: '📦 Pros piano (todos)', items: [
     '🪞 Rootless A+B', '🌑 Powell Shell', '🗼 So What Full', '🌊 Mehldau 10th',
     '🔺 UST V7#11', '🔻 UST V7alt', '🤝 Locked Hands', '🌋 McCoy Spread',
     '🚂 Stride 10th', '👯 Phineas Octaves', '⛪ Gospel Quartal',
     '🌙 Glasper ø', '🎩 Monk Cluster', '🎭 Polychord',
   ]},
-  { name: 'Progresiones diatónicas', color: 'var(--jazz)', open: false, items: [
+  { name: 'Progresiones diatónicas', color: 'var(--jazz)', open: false,
+    pack: '📦 Diatónicas (paquete)', items: [
     'ii–V–I', 'I–vi–ii–V (turnaround)', 'I–IV–V–I', 'Extended ii–V–I',
     'iii–vi–ii–V–I', 'Deceptive ii–V–vi', 'IV–vii°–I (Bach)', 'Rhythm Changes A',
   ]},
-  { name: 'Progresiones menores', color: 'var(--jazz)', open: false, items: [
+  { name: 'Progresiones menores', color: 'var(--jazz)', open: false,
+    pack: '📦 Menores (paquete)', items: [
     'iiø–V7–i', 'iv–V7–i', 'i–iv–V7–i (long)', 'Autumn Leaves', 'Minor ii-V chain',
     'i–bVII–bVI–V7 (Andalusian)', 'Andalusian extended', 'Andalusian with turn',
     'Minor folk with cell',
   ]},
-  { name: 'Blues', color: 'var(--teal)', open: false, items: [
+  { name: 'Blues', color: 'var(--teal)', open: false,
+    pack: '📦 Blues (paquete)', items: [
     '12-bar blues', '12-bar quick-change blues', 'Minor 12-bar blues',
     'Minor blues fragment', 'Jazz blues with ii-V subs', 'Minor jazz blues',
     'Bird-style blues last 4', 'Bird-style turnaround',
   ]},
-  { name: 'Dominantes y subs', color: 'var(--teal)', open: false, items: [
+  { name: 'Dominantes y subs', color: 'var(--teal)', open: false,
+    pack: '📦 Dominantes y subs (paquete)', items: [
     'V/V – V – I', 'V/ii – ii – V – I', 'iii – V/ii – ii – V – I',
     'Tritone sub turnaround', 'ii – bII7 – I', 'Sweet Georgia Brown turn',
     'Apple turnaround V/iii', 'iiø–bII7–i (tritone sub)', 'iiø–V/V–V7–i',
     'iiø–V7–iv–bII7–i',
   ]},
-  { name: 'Rock / pop / clásico', color: 'var(--rock)', open: false, items: [
+  { name: 'Rock / pop / clásico', color: 'var(--rock)', open: false,
+    pack: '📦 Rock/pop/clásico (paquete)', items: [
     'I–V–vi–IV', 'vi–IV–I–V', '50s doo-wop I-vi-IV-V',
     'Pachelbel I-V-vi-iii-IV-I-IV-V', 'I – iii – IV – iv (Creep)',
     'Country I-IV-I-V', 'Pop ballad I–V–vi–IV ×2', 'Britpop strummer',
@@ -330,7 +346,8 @@ const PALETTE = [
     'I – iv – bVII – I', 'i – bVI – bVII – i (epic)', 'i – bIII – bVII – iv',
     'i–iv–bVII–bIII', 'bVI–bVII–i',
   ]},
-  { name: 'Estructuras', color: 'var(--lila)', open: false, items: [
+  { name: 'Estructuras', color: 'var(--lila)', open: false,
+    pack: '📦 Estructuras (todas)', items: [
     'AABA', 'ABAB', 'ABABCB', 'AABB', 'ABA', 'BLUES 12', 'JAZZ BLUES 12', 'RANDOM',
   ]},
   { name: 'Tonos', color: 'var(--muted)', open: false, items: [
@@ -384,6 +401,10 @@ function buildPalette() {
     head.addEventListener('click', () => div.classList.toggle('closed'));
     const chips = document.createElement('div');
     chips.className = 'pal-chips';
+    // Package chip first: drops the whole group as ONE chip, so a level
+    // can say "todas las diatónicas" without listing them. Individual
+    // chips stay below for cherry-picking.
+    if (g.pack) chips.appendChild(makeChip(g.pack, g.color, true));
     for (const label of g.items) chips.appendChild(makeChip(label, g.color));
     div.appendChild(head);
     div.appendChild(chips);
@@ -409,11 +430,12 @@ function buildPalette() {
   pal.appendChild(grp);
 }
 
-function makeChip(label, color) {
+function makeChip(label, color, isPack) {
   const c = document.createElement('span');
-  c.className = 'chip';
+  c.className = 'chip' + (isPack ? ' pack' : '');
   c.style.setProperty('--cc', color);
   c.dataset.color = color;
+  if (isPack) c.dataset.pack = '1';
   c.textContent = label;
   c.addEventListener('pointerdown', (e) => startChipDrag(e, c, /*fromCard*/ null));
   return c;
@@ -425,7 +447,8 @@ let ghost = null, dragChip = null, dragFromCard = null;
 function startChipDrag(e, chipEl, fromCardId) {
   if (e.target.classList.contains('x')) return;   // deleting, not dragging
   e.preventDefault();
-  dragChip = { label: chipEl.textContent.replace(/✕$/, ''), color: chipEl.dataset.color };
+  dragChip = { label: chipEl.textContent.replace(/✕$/, ''), color: chipEl.dataset.color,
+               pack: chipEl.dataset.pack === '1' };
   dragFromCard = fromCardId;
   ghost = chipEl.cloneNode(true);
   ghost.id = 'ghost';
@@ -453,7 +476,9 @@ function dropChip(e) {
   if (cardEl && dragChip) {
     const card = cards.find(c => c.id === +cardEl.dataset.id);
     if (card) {
-      card.chips.push({ t: dragChip.label, c: dragChip.color });
+      card.chips.push(dragChip.pack
+        ? { t: dragChip.label, c: dragChip.color, p: 1 }
+        : { t: dragChip.label, c: dragChip.color });
       // moving between cards: remove from source
       if (dragFromCard != null && dragFromCard !== card.id) {
         removeChipFromCard(dragFromCard, dragChip.label, true);
@@ -568,9 +593,10 @@ function renderCard(card) {
     chips.className = 'chips';
     for (const ch of card.chips) {
       const c = document.createElement('span');
-      c.className = 'chip';
+      c.className = 'chip' + (ch.p ? ' pack' : '');
       c.style.setProperty('--cc', ch.c);
       c.dataset.color = ch.c;
+      if (ch.p) c.dataset.pack = '1';
       c.textContent = ch.t;
       const x = document.createElement('span');
       x.className = 'x';
