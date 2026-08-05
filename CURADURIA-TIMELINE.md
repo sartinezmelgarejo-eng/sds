@@ -252,3 +252,28 @@ Además de las 10 citas devueltas a eventos que ya existían, seis citas describ
 
 Conteos: eventos 10,311 → 10,317; citas 12,815 antes y después. Ninguna cita se borró ni se duplicó.
 
+
+## J · Cierre de la revisión de las 109 intrusas
+
+Revisé a mano las 109 que había marcado DeepSeek. **25 eran errores reales y quedaron corregidas**; las otras 84 se quedan, y por buenas razones.
+
+### Lo corregido (25)
+
+- **10 citas devueltas** a eventos que ya existían: Katayama a su llegada a México, el patrón oro a la Conferencia de Londres, tres escenas de la Revolución que colgaban de «Quiebra de la Segunda Internacional», la proclama de Morelos en el Aguacatillo, tres textos de Mao a sus propios escritos (el del «poder rojo» fue a parar al evento que lleva ese título), la ruptura villista de 1914 que estaba archivada en 1928, la biografía del padre Pro a su ejecución, y dos sobre templos vacíos a la persecución religiosa de 1926.
+- **7 eventos nuevos** para citas que narraban hechos que la línea no contenía (ver sección I, más el asesinato del padre David Uribe el 12 de abril de 1927).
+- **1 cita retirada**: un colofón de marxists.org que era substring exacto de otro; el sobreviviente se recortó al dato y perdió los créditos de transcripción. Es la única cita retirada de toda la ronda.
+
+### Lo que se queda y por qué (84)
+
+**La mayoría son falsos positivos de DeepSeek.** El detector marca por poco solapamiento de vocabulario, y eso confunde tres cosas legítimas:
+
+1. **Citas de contexto**: el corvée mesopotámico en el edicto de Ammi-saduqa, la frase de Marx sobre que la historia se repite en el evento del 18 Brumario original, Saint-Simon en la caída de Napoleón. No son el mismo hecho, pero acompañan bien.
+2. **Aciertos que el detector no entendió**: en «Desaparecen a Ignacio Salas Obregón» hay una cita que dice «se trataba de Oseas que cayó el 25 de abril» — Oseas *era* el alias de Salas Obregón, así que la cita pertenece exactamente ahí.
+3. **Datos bibliográficos legítimos**: «la Brevísima Relación, escrita en 1542 y publicada en Sevilla…» en el evento donde Las Casas la escribe.
+
+**Un puñado sí son intrusas pero no tienen dónde ir sin inventar.** Ejemplos: la escena de John Reed en el puesto de La Cadena (no sé fechar el episodio con certeza), y dos citas sobre Silva y Malgarejo, dos jóvenes fusilados tras una romería a Zamora en septiembre de 1926 — la cita no da la fecha de su muerte y no logré identificarlos con seguridad. Prefiero dejarlas donde están a colgarlas de un evento aproximado.
+
+### Lo que falta de verdad
+
+El barrido solo cubrió 3,021 de las 12,814 citas antes de que se agotara el crédito. Con la tasa observada (1.9% en muestra aleatoria) quedan por descubrir unas **190 citas mal colocadas** en las 9,800 sin revisar.
+
