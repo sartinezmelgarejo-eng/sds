@@ -5450,18 +5450,26 @@ body.practica-select #practica-screen { display: flex; }
   white-space: nowrap;
 }
 #practica-screen .ps-route {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   border: 1.5px solid #e8b64c;
-  border-radius: 999px;
+  border-radius: 13px;
   background: transparent;
   color: #e8b64c;
   font: inherit;
-  font-size: 13px;
-  font-weight: 700;
-  padding: 7px 14px;
+  padding: 7px 13px;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.12s, transform 0.12s;
 }
-#practica-screen .ps-route:hover { background: rgba(232,182,76,0.14); }
+#practica-screen .ps-route:hover {
+  background: rgba(232,182,76,0.14);
+  transform: translateY(-1px);
+}
+#practica-screen .ps-route .pr-name { font-size: 13px; font-weight: 800; }
+#practica-screen .ps-route .pr-sub { font-size: 10px; font-weight: 500; color: #a89877; }
 #practica-screen .ps-close {
   margin-left: auto;
   border: 1.5px solid #b0563a;
@@ -5499,50 +5507,121 @@ body.practica-select #practica-screen { display: flex; }
 #practica-screen .ps-node {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-width: 96px;
-  border: 1.5px solid var(--ps-c, #e8b64c);
-  border-radius: 10px;
+  align-items: center;
+  gap: 7px;
+  border: 0;
   background: transparent;
   color: #f3ead8;
   font: inherit;
-  padding: 8px 12px;
+  padding: 8px 2px 4px;
   cursor: pointer;
-  text-align: left;
+  width: 100%;
+  min-width: 0;
 }
-#practica-screen .ps-node:hover { background: rgba(232,182,76,0.10); }
-#practica-screen .ps-node-lvl {
-  font-size: 10.5px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
+#practica-screen .ps-orb {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2.5px solid var(--ps-c, #e8b64c);
+  background: #241f14;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.45);
+  transition: transform 0.13s, background 0.13s;
+  z-index: 1;
+  /* el dibujo de la familia se pinta del color de su línea */
   color: var(--ps-c, #e8b64c);
 }
-#practica-screen .ps-node-name { font-size: 13px; font-weight: 600; }
-#practica-screen .ps-node.master {
+#practica-screen .ps-orb svg { width: 40px; height: 26px; display: block; }
+/* Los dibujos del menú vienen trazados en #1a1a1a (para el app crema);
+   aquí se re-pintan al color del orbe. CSS gana sobre los atributos
+   de presentación, y los fill="none" se respetan. */
+#practica-screen .ps-orb svg [stroke] { stroke: currentColor; }
+#practica-screen .ps-orb svg [fill]:not([fill="none"]) { fill: currentColor; }
+#practica-screen .ps-glyph { font-size: 23px; line-height: 1; }
+#practica-screen .ps-node:hover .ps-orb {
+  transform: scale(1.12);
+  background: #2e2717;
+}
+#practica-screen .ps-id {
+  position: absolute;
+  top: -7px;
+  right: -10px;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--ps-c, #e8b64c);
+  background: #16130e;
+  border: 1.5px solid var(--ps-c, #e8b64c);
+  border-radius: 999px;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
+#practica-screen .ps-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  max-width: 116px;
+  line-height: 1.2;
+}
+#practica-screen .ps-node.master .ps-orb {
+  width: 66px;
+  height: 66px;
   background: var(--ps-c, #e8b64c);
+  color: #16130e;   /* sobre el relleno de color, el dibujo va oscuro */
   border-color: var(--ps-c, #e8b64c);
 }
-#practica-screen .ps-node.master .ps-node-lvl,
-#practica-screen .ps-node.master .ps-node-name { color: #16130e; }
-#practica-screen .ps-node.now {
-  outline: 3px solid #f3ead8;
-  outline-offset: 2px;
+#practica-screen .ps-node.master .ps-glyph { font-size: 27px; }
+#practica-screen .ps-node.master .ps-label {
+  font-weight: 800;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ps-c, #e8b64c);
 }
+#practica-screen .ps-node.now .ps-orb {
+  outline: 3px solid #f3ead8;
+  outline-offset: 3px;
+  animation: ps-pulse 1.6s ease-in-out infinite;
+}
+@keyframes ps-pulse {
+  0%, 100% { box-shadow: 0 4px 12px rgba(0,0,0,0.45), 0 0 0 0 rgba(243,234,216,0.35); }
+  50%      { box-shadow: 0 4px 12px rgba(0,0,0,0.45), 0 0 0 9px rgba(243,234,216,0); }
+}
+#practica-screen .ps-node.e-node .ps-orb {
+  width: 80px;
+  height: 80px;
+  box-shadow: 0 0 26px rgba(177,138,224,0.5), 0 4px 14px rgba(0,0,0,0.5);
+}
+#practica-screen .ps-node.e-node .ps-glyph { font-size: 32px; }
+
 #practica-screen .gold { --ps-c: #e8b64c; }
 #practica-screen .teal { --ps-c: #6fc7b4; }
 #practica-screen .lila { --ps-c: #b18ae0; }
 #practica-screen .rock { --ps-c: #e07a54; }
 
-/* ── La matriz: filas × columnas con masters en los dos bordes ── */
-#practica-screen .ps-matrix-wrap { overflow-x: auto; padding-bottom: 4px; }
+/* ── La matriz-mapa: filas × columnas con las líneas detrás ── */
+#practica-screen .ps-matrix-wrap {
+  position: relative;
+  overflow-x: auto;
+  padding: 6px 2px 10px;
+}
+#practica-screen .ps-wires {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
 #practica-screen .ps-matrix {
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(120px, auto) repeat(5, minmax(104px, 1fr)) minmax(150px, auto);
-  gap: 8px 10px;
-  align-items: stretch;
+  grid-template-columns: minmax(110px, auto) repeat(5, minmax(104px, 1fr)) minmax(140px, auto);
+  gap: 14px 10px;
+  align-items: center;
   min-width: 900px;
-  margin-bottom: 22px;
+  margin-bottom: 20px;
 }
 #practica-screen .ps-colhead {
   font-size: 10.5px;
@@ -5551,15 +5630,15 @@ body.practica-select #practica-screen { display: flex; }
   letter-spacing: 0.09em;
   color: #a89877;
   align-self: end;
-  padding: 0 4px 5px;
+  padding: 0 4px 2px;
   text-align: center;
 }
-#practica-screen .ps-colhead-m { color: #e8b64c; text-align: center; }
+#practica-screen .ps-colhead-m { color: #e8b64c; }
 #practica-screen .ps-rowlab {
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
   color: #a89877;
   padding-right: 4px;
@@ -5568,27 +5647,16 @@ body.practica-select #practica-screen { display: flex; }
 }
 #practica-screen .ps-rowlab-tag {
   font-family: 'Cormorant Garamond', Georgia, serif;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--ps-c, #e8b64c);
   line-height: 1;
 }
-#practica-screen .ps-cell { display: flex; min-width: 0; }
-#practica-screen .ps-cell .ps-node { width: 100%; min-width: 0; }
-#practica-screen .ps-empty {
-  margin: auto;
-  color: #3d3524;
-  font-size: 20px;
-  line-height: 1;
-}
-#practica-screen .ps-cell-e .ps-node .ps-node-name { font-size: 14px; }
-#practica-screen .ps-rock .ps-lane-name { margin-bottom: 8px; }
-#practica-screen .ps-node .ps-node-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
+#practica-screen .ps-cell { display: flex; justify-content: center; min-width: 0; }
+#practica-screen .ps-rock { margin-top: 10px; }
+#practica-screen .ps-rock .ps-lane-name { margin-bottom: 4px; }
+#practica-screen .ps-rock .ps-nodes { display: flex; gap: 10px; flex-wrap: wrap; }
+#practica-screen .ps-rock .ps-node { width: auto; min-width: 96px; }
 #practica-screen .ps-foot {
   padding: 10px 18px max(12px, env(safe-area-inset-bottom));
   border-top: 2px solid #3d3524;
@@ -5927,11 +5995,11 @@ body.practica-on #landscape-play .lp-practica-label {
 <div id="practica-screen" aria-hidden="true">
   <div class="ps-head">
     <div class="ps-title">◆ Práctica</div>
-    <button class="ps-route" data-route="guiada" title="territorio por territorio, con su master">▶ espiral · filas</button>
-    <button class="ps-route" data-route="columnas" title="un voicing bajado por toda la armonía">⇊ vetas · columnas</button>
-    <button class="ps-route" data-route="repaso" title="carril rápido: masters de fila">★ masters de fila</button>
-    <button class="ps-route" data-route="voicings" title="carril rápido: masters de voicing">◈ masters de voicing</button>
-    <button class="ps-route" data-route="rock" title="gimnasio físico">🎸 rock</button>
+    <button class="ps-route" data-route="guiada"><span class="pr-name">▶ espiral</span><span class="pr-sub">fila por fila, hasta su master</span></button>
+    <button class="ps-route" data-route="columnas"><span class="pr-name">⇊ vetas</span><span class="pr-sub">un voicing por toda la armonía</span></button>
+    <button class="ps-route" data-route="repaso"><span class="pr-name">★ masters de fila</span><span class="pr-sub">carril rápido de repaso</span></button>
+    <button class="ps-route" data-route="voicings"><span class="pr-name">◈ masters de voicing</span><span class="pr-sub">carril rápido vertical</span></button>
+    <button class="ps-route" data-route="rock"><span class="pr-name">🎸 rock</span><span class="pr-sub">gimnasio físico</span></button>
     <button class="ps-close" id="ps-close" title="cerrar">✕</button>
   </div>
   <div class="ps-lanes" id="ps-lanes"></div>
@@ -22105,16 +22173,28 @@ function renderLandscapeStandby() {
     E: { name: 'todo mezclado',      cls: 'lila' },
     R: { name: 'gimnasio rock',      cls: 'rock' },
   };
+  function _psEmoji(st) {
+    // Reusa las ilustraciones ya dibujadas del menú de voicings
+    // (VOICE_ICONS); emoji solo para los sabores del rock y los nodos
+    // especiales que no son una familia.
+    if (st.row === 'E') return '<span class="ps-glyph">◆</span>';
+    if (st.master && st.row !== 'V') return '<span class="ps-glyph">★</span>';
+    if (st.forceVariant === 'power') return '<span class="ps-glyph">⚡</span>';
+    if (st.forceVariant === 'open') return '<span class="ps-glyph">🤠</span>';
+    if (st.id === 'r3') return '<span class="ps-glyph">🖐</span>';
+    const v = st.voicings && st.voicings[0];
+    if (typeof VOICE_ICONS !== 'undefined' && VOICE_ICONS[v]) return VOICE_ICONS[v];
+    return '<span class="ps-glyph">♪</span>';
+  }
   function _psNode(s, extraCls) {
     const now = practice.active && practice.stationId === s.id;
-    const lvl = s.master
-      ? (s.row === 'V' ? '↓ ★' : (s.row === 'E' ? '◆' : '→ ★'))
-      : s.id.toUpperCase();
+    const badge = (!s.master) ? '<span class="ps-id">' + s.id.toUpperCase() + '</span>'
+                : (s.row === 'V' ? '<span class="ps-id">★</span>' : '');
     return '<button class="ps-node' + (s.master ? ' master' : '')
       + (now ? ' now' : '') + (extraCls ? ' ' + extraCls : '')
       + '" data-station="' + s.id + '">'
-      + '<span class="ps-node-lvl">' + lvl + '</span>'
-      + '<span class="ps-node-name">' + s.label + '</span></button>';
+      + '<span class="ps-orb">' + _psEmoji(s) + badge + '</span>'
+      + '<span class="ps-label">' + s.label + '</span></button>';
   }
   function renderPracticaScreen() {
     const lanes = document.getElementById('ps-lanes');
@@ -22122,38 +22202,87 @@ function renderLandscapeStandby() {
     const COL_NAMES = ['shells', 'triadas', 'drop-2', 'drop-3', 'color · grips'];
     const byRowCol = (row, col) =>
       PRACTICE_STATIONS.find(s => s.row === row && s.col === col);
-    let html = '<div class="ps-matrix-wrap"><div class="ps-matrix">';
-    // Encabezados de columna
+    let html = '<div class="ps-matrix-wrap"><svg class="ps-wires"></svg><div class="ps-matrix">';
     html += '<div class="ps-corner"></div>';
     COL_NAMES.forEach(c => { html += '<div class="ps-colhead">' + c + '</div>'; });
     html += '<div class="ps-colhead ps-colhead-m">master de fila</div>';
-    // Filas A-D: etiqueta + 5 celdas + master de fila
     for (const row of ['A', 'B', 'C', 'D']) {
       const meta = ROW_META[row];
       html += '<div class="ps-rowlab ' + meta.cls + '"><span class="ps-rowlab-tag">' + row
         + '</span>' + meta.name + '</div>';
       for (let c = 1; c <= 5; c++) {
         const s = byRowCol(row, c);
-        html += '<div class="ps-cell ' + meta.cls + '">' + (s ? _psNode(s) : '<span class="ps-empty">·</span>') + '</div>';
+        html += '<div class="ps-cell ' + meta.cls + '">' + (s ? _psNode(s) : '') + '</div>';
       }
       const master = PRACTICE_STATIONS.find(s => s.row === row && s.master);
       html += '<div class="ps-cell ps-cell-m ' + meta.cls + '">' + (master ? _psNode(master) : '') + '</div>';
     }
-    // Fila V: masters por voicing + E en la esquina
     html += '<div class="ps-rowlab lila"><span class="ps-rowlab-tag">↓</span>master de voicing</div>';
     for (let c = 1; c <= 5; c++) {
       const s = PRACTICE_STATIONS.find(x => x.row === 'V' && x.col === c);
-      html += '<div class="ps-cell lila">' + (s ? _psNode(s) : '<span class="ps-empty">·</span>') + '</div>';
+      html += '<div class="ps-cell lila">' + (s ? _psNode(s) : '') + '</div>';
     }
     const eSt = _stationById('e');
     html += '<div class="ps-cell ps-cell-m lila ps-cell-e">' + (eSt ? _psNode(eSt, 'e-node') : '') + '</div>';
     html += '</div></div>';
-    // Gimnasio rock: carril aparte, horizontal
     const rocks = PRACTICE_STATIONS.filter(s => s.row === 'R');
-    html += '<div class="ps-rock rock"><div class="ps-lane-name">R · gimnasio rock — voicings físicos, fuera de la matriz</div><div class="ps-nodes">'
+    html += '<div class="ps-rock rock"><div class="ps-lane-name">🎸 gimnasio rock — voicings físicos, fuera de la matriz</div><div class="ps-nodes">'
       + rocks.map(s => _psNode(s)).join('') + '</div></div>';
     lanes.innerHTML = html;
+    // Las líneas se dibujan cuando el layout ya midió los orbes.
+    requestAnimationFrame(_drawPsWires);
   }
+  /* Líneas del mapa: cada fila fluye → hacia su master; cada columna
+     baja ↓ hacia su master de voicing; la columna de masters y la fila
+     V convergen en E. Dibujadas como SVG detrás de los orbes para que
+     el mapa se lea como recorrido y no como tabla. */
+  function _drawPsWires() {
+    const lanes = document.getElementById('ps-lanes');
+    const wrap = lanes && lanes.querySelector('.ps-matrix-wrap');
+    const svg = wrap && wrap.querySelector('.ps-wires');
+    if (!svg) return;
+    const wr = wrap.getBoundingClientRect();
+    const sx = wrap.scrollLeft, sy = wrap.scrollTop;
+    svg.setAttribute('width', wrap.scrollWidth);
+    svg.setAttribute('height', wrap.scrollHeight);
+    const centerOf = (id) => {
+      const el = wrap.querySelector('.ps-node[data-station="' + id + '"] .ps-orb');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return [r.x + r.width / 2 - wr.x + sx, r.y + r.height / 2 - wr.y + sy];
+    };
+    const line = (ids, color, opts) => {
+      const pts = ids.map(centerOf).filter(Boolean);
+      if (pts.length < 2) return '';
+      return '<polyline points="' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')
+        + '" fill="none" stroke="' + color + '" stroke-width="' + ((opts && opts.w) || 3)
+        + '" stroke-opacity="' + ((opts && opts.o) || 0.35)
+        + '" stroke-linecap="round" stroke-linejoin="round"'
+        + ((opts && opts.dash) ? ' stroke-dasharray="3 7"' : '') + '/>';
+    };
+    let out = '';
+    // columnas (detrás, punteadas, lila tenue)
+    for (let c = 1; c <= 5; c++) {
+      const ids = ['A', 'B', 'C', 'D']
+        .map(r => PRACTICE_STATIONS.find(s => s.row === r && s.col === c))
+        .filter(Boolean).map(s => s.id);
+      ids.push('v' + c);
+      out += line(ids, '#b18ae0', { o: 0.28, dash: true });
+    }
+    // filas (encima, color de fila, sólidas)
+    const rowColor = { A: '#e8b64c', B: '#e8b64c', C: '#6fc7b4', D: '#6fc7b4' };
+    for (const row of ['A', 'B', 'C', 'D']) {
+      const ids = PRACTICE_STATIONS.filter(s => s.row === row).map(s => s.id);
+      out += line(ids, rowColor[row], { o: 0.4 });
+    }
+    // convergencia en E: bajada de masters de fila + llegada de la fila V
+    out += line(['am', 'bm', 'cm', 'dm', 'e'], '#e8b64c', { o: 0.3 });
+    out += line(['v1', 'v2', 'v3', 'v4', 'v5', 'e'], '#b18ae0', { o: 0.4 });
+    svg.innerHTML = out;
+  }
+  window.addEventListener('resize', () => {
+    if (document.body.classList.contains('practica-select')) _drawPsWires();
+  });
   function openPracticaScreen() {
     renderPracticaScreen();
     document.body.classList.add('practica-select');
