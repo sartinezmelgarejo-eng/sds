@@ -5418,70 +5418,137 @@
    here changes normal-mode rendering.
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Desktop popover (route / ramp / stations) ── */
-.practica-menu { min-width: 260px; max-width: 320px; }
-.practica-menu .pm-row {
+/* ── Pantalla completa de selección: el mapa de la espiral ──
+   Estética del mapa-herramienta (oscuro + oro) sobre el app crema:
+   deliberado, para que "entrar a práctica" se sienta como cambiar
+   de cuarto y no como abrir un menú. ── */
+#practica-screen {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  background: #16130e;
+  color: #f3ead8;
+  flex-direction: column;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+body.practica-select #practica-screen { display: flex; }
+#practica-screen .ps-head {
   display: flex;
-  gap: 6px;
-  padding: 4px 6px 6px;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: max(14px, env(safe-area-inset-top)) 18px 12px;
+  border-bottom: 2px solid #3d3524;
 }
-.practica-menu .pm-chip {
-  flex: 1;
-  border: 1px solid var(--line, #d8d2c2);
-  border-radius: 6px;
+#practica-screen .ps-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #e8b64c;
+  margin-right: 8px;
+  white-space: nowrap;
+}
+#practica-screen .ps-route {
+  border: 1.5px solid #e8b64c;
+  border-radius: 999px;
   background: transparent;
-  color: var(--text);
+  color: #e8b64c;
   font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 8px;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 14px;
   cursor: pointer;
+  white-space: nowrap;
 }
-.practica-menu .pm-chip:hover { background: var(--panel-2); }
-.practica-menu .pm-chip.on {
-  background: rgba(160,120,32,0.15);
-  color: var(--accent);
-  border-color: var(--accent);
+#practica-screen .ps-route:hover { background: rgba(232,182,76,0.14); }
+#practica-screen .ps-close {
+  margin-left: auto;
+  border: 1.5px solid #b0563a;
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  color: #e07a54;
+  font-size: 15px;
+  cursor: pointer;
+  flex-shrink: 0;
 }
-.practica-menu .pm-stations {
+#practica-screen .ps-lanes {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  border-top: 1px solid var(--line, #d8d2c2);
-  margin-top: 4px;
-  padding-top: 6px;
-  max-height: 46vh;
-  overflow-y: auto;
+  gap: 16px;
 }
-.practica-menu .pm-station {
-  display: grid;
-  grid-template-columns: 30px 1fr;
-  grid-template-rows: auto auto;
-  column-gap: 8px;
-  align-items: center;
-  text-align: left;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  padding: 5px 8px;
-  cursor: pointer;
-}
-.practica-menu .pm-station:hover { background: var(--panel-2); }
-.practica-menu .pm-station.on {
-  background: rgba(160,120,32,0.15);
-  color: var(--accent);
-}
-.practica-menu .pm-st-lvl {
-  grid-row: 1 / 3;
+#practica-screen .ps-lane-name {
+  font-size: 11px;
   font-weight: 800;
-  font-size: 13px;
-  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #a89877;
+  margin-bottom: 7px;
 }
-.practica-menu .pm-station.rock .pm-st-lvl { color: #b0563a; }
-.practica-menu .pm-st-label { font-size: 12px; font-weight: 700; }
-.practica-menu .pm-st-desc  { font-size: 10.5px; opacity: 0.65; grid-column: 2; }
+#practica-screen .ps-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+#practica-screen .ps-node {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 96px;
+  border: 1.5px solid var(--ps-c, #e8b64c);
+  border-radius: 10px;
+  background: transparent;
+  color: #f3ead8;
+  font: inherit;
+  padding: 8px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+#practica-screen .ps-node:hover { background: rgba(232,182,76,0.10); }
+#practica-screen .ps-node-lvl {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--ps-c, #e8b64c);
+}
+#practica-screen .ps-node-name { font-size: 13px; font-weight: 600; }
+#practica-screen .ps-node.master {
+  background: var(--ps-c, #e8b64c);
+  border-color: var(--ps-c, #e8b64c);
+}
+#practica-screen .ps-node.master .ps-node-lvl,
+#practica-screen .ps-node.master .ps-node-name { color: #16130e; }
+#practica-screen .ps-node.now {
+  outline: 3px solid #f3ead8;
+  outline-offset: 2px;
+}
+#practica-screen .ps-lane.gold { --ps-c: #e8b64c; }
+#practica-screen .ps-lane.teal { --ps-c: #6fc7b4; }
+#practica-screen .ps-lane.lila { --ps-c: #b18ae0; }
+#practica-screen .ps-lane.rock { --ps-c: #e07a54; }
+#practica-screen .ps-foot {
+  padding: 10px 18px max(12px, env(safe-area-inset-bottom));
+  border-top: 2px solid #3d3524;
+  font-size: 11.5px;
+  color: #a89877;
+}
+
+/* ── Práctica activa: quitar el ruido del header que la sesión ya
+   administra sola (tono, tonalidad, scope, export, picker de
+   estructura). El BPM se queda: el tempo es del usuario. ── */
+body.practica-on #key-row,
+body.practica-on #tonality-toggle,
+body.practica-on #chord-scope,
+body.practica-on #midi-wrap,
+body.practica-on #pi-song-picker,
+body.practica-on #player-info .pi-song-picker-mobile { display: none !important; }
 
 /* ── Desktop HUD pill — fixed bottom-right, practica-on only ── */
 #practica-hud {
@@ -5620,36 +5687,12 @@ body.practica-on #practica-hud { display: flex; }
   grid-column: 3;
   grid-row: 1 / 3;
 }
-#landscape-standby.practica-mode .ls-proute.on,
-#landscape-standby.practica-mode .ls-pramp.on {
+#landscape-standby.practica-mode .ls-ptrack.ls-proute2.on {
+  opacity: 1;
   background: #f5c96b;
   color: #211c14;
   border-color: #f5c96b;
 }
-
-#landscape-standby .ls-practica-stations { display: none; }
-#landscape-standby.practica-mode .ls-practica-stations {
-  display: flex;
-  gap: 8px;
-  grid-column: 1 / 4;
-  grid-row: 3;
-  justify-content: center;
-  flex-wrap: wrap;
-  max-width: 90vw;
-}
-#landscape-standby .ls-pstation {
-  border: 1.5px solid #fdfcf3;
-  background: transparent;
-  color: #fdfcf3;
-  font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 700;
-  font-size: clamp(11px, 2.2vh, 15px);
-  padding: 6px 10px;
-  cursor: pointer;
-  opacity: 0.8;
-}
-#landscape-standby .ls-pstation.rock { border-color: #e0876a; color: #e0876a; }
-#landscape-standby .ls-pstation:active { background: #fdfcf3; color: #211c14; }
 
 /* ── Landscape play overlay: práctica live buttons ── */
 #landscape-play .lp-practica-btn,
@@ -5820,14 +5863,30 @@ body.practica-on #landscape-play .lp-practica-label {
 <div class="sound-menu mixer-menu" id="mixer-menu" hidden></div>
 <div id="subdiv-popover"></div>
 <div class="sound-menu" id="rhythm-menu" hidden></div>
-<div class="sound-menu practica-menu" id="practica-menu" hidden></div>
+
+<!-- Práctica: pantalla completa de selección — el mapa de la espiral.
+     Gate: body.practica-select. Se abre desde el botón del header, el
+     HUD, o el panel del teléfono; funciona también con la sesión
+     sonando (saltar de estación sin detener el audio). -->
+<div id="practica-screen" aria-hidden="true">
+  <div class="ps-head">
+    <div class="ps-title">◆ Práctica</div>
+    <button class="ps-route" data-route="guiada">▶ guiada · toda la espiral</button>
+    <button class="ps-route" data-route="repaso">★ repaso · solo masters</button>
+    <button class="ps-route" data-route="rock">🎸 rock · gimnasio</button>
+    <button class="ps-close" id="ps-close" title="cerrar">✕</button>
+  </div>
+  <div class="ps-lanes" id="ps-lanes"></div>
+  <div class="ps-foot">tempo libre — usa el BPM de siempre · cada loop rueda a un tono nuevo · pica cualquier estación para entrar (o saltar) ahí</div>
+</div>
 
 <!-- Práctica HUD — fixed pill, bottom-right, only under body.practica-on.
      Deliberately NOT inside #player-info (the player rewrites that node's
      innerHTML every bar and relocatePlayerInfo reparents it). -->
 <div id="practica-hud" aria-hidden="true">
-  <button class="ph-label" id="ph-label" title="cambiar estación / ruta">práctica</button>
+  <button class="ph-label" id="ph-label" title="abrir el mapa">práctica</button>
   <div class="ph-dots" id="ph-dots"></div>
+  <button class="ph-btn" id="ph-map" title="mapa de estaciones">🗺</button>
   <button class="ph-btn" id="ph-harder" title="más difícil">＋</button>
   <button class="ph-btn" id="ph-stay" title="quédate (suspende el auto-avance)">⚓</button>
   <button class="ph-btn" id="ph-surprise" title="sorpréndeme">⚡</button>
@@ -6081,20 +6140,18 @@ body.practica-on #landscape-play .lp-practica-label {
     <!-- ─── PRÁCTICA MODE elements (4th swipe) ────────────────────
          Hidden by default; .practica-mode on the parent reveals them
          and hides the band/metronome slots, mirroring .tuner-mode.
-         Track toggle lands in ls-key-group's slot, routes+ramp in the
-         right column, the big start button in the center, and the 8
-         station chips (built by renderPracticaStandby) at the bottom. -->
+         Route chips in ls-key-group's slot, big start in the center,
+         and the map button on the right — the full station map lives
+         in the fullscreen #practica-screen overlay. -->
     <div class="ls-practica-tracks">
-      <button class="ls-ptrack on" data-track="jazz">JAZZ</button>
-      <button class="ls-ptrack" data-track="rock">ROCK</button>
+      <button class="ls-ptrack ls-proute2 on" data-route="guiada">GUIADA</button>
+      <button class="ls-ptrack ls-proute2" data-route="repaso">REPASO</button>
+      <button class="ls-ptrack ls-proute2" data-route="rock">ROCK</button>
     </div>
     <button class="ls-practica-play" id="ls-practica-play" title="Empezar práctica">▶</button>
     <div class="ls-practica-routes">
-      <button class="ls-btn ls-proute on" data-route="guiada">guiada</button>
-      <button class="ls-btn ls-proute" data-route="tour">tour</button>
-      <button class="ls-btn ls-pramp" id="ls-pramp" title="perfil de rampa de BPM">normal</button>
+      <button class="ls-btn" id="ls-practica-map">🗺 mapa</button>
     </div>
-    <div class="ls-practica-stations" id="ls-practica-stations"></div>
   </div>
   <!-- Status message (mic permission, etc) — pinned to the bottom edge -->
   <div class="ls-tuner-status" id="ls-tuner-status">play a string</div>
@@ -7735,14 +7792,17 @@ const _pickStartKeyPc = () => {
   return 0;
 };
 const _pickStartTonality = () => Math.random() < (2/3) ? 'major' : 'minor';
+const _startTonality = _pickStartTonality();
 
 const state = {
   keyPc: _pickStartKeyPc(),
-  tonality: _pickStartTonality(),
+  tonality: _startTonality,
   instrument: 'guitar',     // 'guitar' | 'piano' — swaps chord neck for piano keyboard
   proMode: false,           // Piano-only Pro voicings (Bill Evans rootless, So What, Mehldau 10th, …) — gated by instrument==='piano'
   display: 'notes',
-  focusedChord: 'I',
+  // Must match the rolled tonality: a minor boot with focusedChord 'I'
+  // (major-only id) made renderFretboard throw on ~1/3 of loads.
+  focusedChord: _startTonality === 'major' ? 'I' : 'i',
   userVoicing: null,
   playerVoicing: null,  // {chord, shape, type} — currently playing
   nextVoicing: null,    // {chord, shape, type} — predicted upcoming
@@ -14891,46 +14951,111 @@ const HEAVY_ROCK_PROGS = new Set([
 // which song structures, which keys ('all' = any pc), and the BPM
 // ramp window. `forceVariant` pins a strum sub-variant ('power').
 // No persistence: stations are pure data, sessions are ephemeral.
+// Progression pools per harmonic row. Rock/pop/clásico material is NOT
+// exiled from the jazz rows (user decision): pop diatonics live in row
+// A, Andalusian/modal-rock minors in row B. The rock track exists only
+// as a PHYSICAL voicing gym (power/open/barre), not a harmony world.
+const PRACTICE_POOLS = {
+  diatonic: {
+    major: ['ii–V–I','I–vi–ii–V (turnaround)','I–IV–V–I','Extended ii–V–I',
+            'iii–vi–ii–V–I','Deceptive ii–V–vi','IV–vii°–I (Bach)','Rhythm Changes A',
+            'I–V–vi–IV','vi–IV–I–V','50s doo-wop I-vi-IV-V',
+            'Pachelbel I-V-vi-iii-IV-I-IV-V','Country I-IV-I-V',
+            'Pop ballad I–V–vi–IV ×2','Britpop strummer Iadd9–vi–IVadd9–V'],
+    minor: [],
+  },
+  minor: {
+    major: [],
+    minor: ['iiø–V7–i','iv–V7–i','i–iv–V7–i (long)','Autumn Leaves','Minor ii-V chain',
+            'i–bVII–bVI–V7 (Andalusian)','Andalusian extended','Andalusian with turn',
+            'Minor folk with cell','i – bVI – bVII – i (epic)','i – bIII – bVII – iv',
+            'i–iv–bVII–bIII','bVI–bVII–i'],
+  },
+  blues: {
+    major: ['12-bar blues','12-bar quick-change blues','Jazz blues with ii-V subs',
+            'Bird-style blues last 4','Bird-style turnaround'],
+    minor: ['Minor 12-bar blues','Minor blues fragment','Minor jazz blues'],
+  },
+  subs: {
+    major: ['V/V – V – I','V/ii – ii – V – I','iii – V/ii – ii – V – I',
+            'Tritone sub turnaround','Sweet Georgia Brown turn','Apple turnaround V/iii',
+            'ii – bII7 – I','Walk-up with V→V/vi','Pop ballad V/V kick'],
+    minor: ['iiø–bII7–i (tritone sub)','iiø–V/V–V7–i','iiø–V7–iv–bII7–i'],
+  },
+  rockHeavy: {
+    major: ['Mixolydian vamp I – bVII','I – iv – bVII – I'],
+    minor: ['i – bVI – bVII – i (epic)','i – bIII – bVII – iv','i–iv–bVII–bIII','bVI–bVII–i'],
+  },
+  rockAll: {
+    major: ['I–V–vi–IV','vi–IV–I–V','I–IV–V–I','50s doo-wop I-vi-IV-V',
+            'Pachelbel I-V-vi-iii-IV-I-IV-V','I – iii – IV – iv (Creep)','Country I-IV-I-V',
+            'Pop ballad I–V–vi–IV ×2','Britpop strummer Iadd9–vi–IVadd9–V',
+            'Mixolydian vamp I – bVII','I – iv – bVII – I'],
+    minor: ['i–bVII–bVI–V7 (Andalusian)','Andalusian extended','Andalusian with turn',
+            'Minor folk with cell','i – bVI – bVII – i (epic)','i – bIII – bVII – iv',
+            'i–iv–bVII–bIII','bVI–bVII–i'],
+  },
+};
+// ── Práctica v2: the spiral grid the user designed in the map tool ──
+// Rows = harmonic territory (A diatonic major, B minor, C blues,
+// D subs/secondaries, E everything, R rock gym). Columns = voicing
+// ladder; each row ends in a MASTER station = ALL that row's voicings
+// over that row's harmony (blocked practice -> interleaved exam).
+// The blues row/master only carries idiomatic blues voicings.
+// No tempo management (libre), no song structures (structure 'A' =
+// one progression looping; new key rolls in per cycle). No persistence.
+const PRACTICE_LADDER_FULL = ['shell','triad','drop2','drop3','quartal','guide'];
 const PRACTICE_STATIONS = [
- {id:'j1', track:'jazz', nivel:1, label:'shells', desc:'shells · diatónico · C/F · lento',
-  voicings:['shell'],
-  progs:{major:['ii–V–I','I–vi–ii–V (turnaround)','I–IV–V–I','Extended ii–V–I'], minor:[]},
-  structures:['AABA'], keys:[0,5], tonality:'major', bpmStart:60, bpmTarget:80},
- {id:'j2', track:'jazz', nivel:2, label:'shells + triadas', desc:'+ triadas · más tonos',
-  voicings:['shell','triad'],
-  progs:{major:['ii–V–I','I–vi–ii–V (turnaround)','iii–vi–ii–V–I','Deceptive ii–V–vi','IV–vii°–I (Bach)','Extended ii–V–I','Rhythm Changes A'],
-         minor:['iiø–V7–i','iv–V7–i','i–iv–V7–i (long)']},
-  structures:['AABA','ABAB'], keys:[0,5,7,10,2], tonality:'both', bpmStart:70, bpmTarget:95},
- {id:'j3', track:'jazz', nivel:3, label:'drop-2 + blues', desc:'+ drop-2 · blues de 12',
-  voicings:['shell','triad','drop2'],
-  progs:{major:['ii–V–I','Rhythm Changes A','Extended ii–V–I','iii–vi–ii–V–I','12-bar blues','12-bar quick-change blues'],
-         minor:['iiø–V7–i','Autumn Leaves','Minor blues fragment','Minor 12-bar blues']},
-  structures:['AABA','ABAB','BLUES'], keys:[0,5,10,3,7,2], tonality:'both', bpmStart:80, bpmTarget:110},
- {id:'j4', track:'jazz', nivel:4, label:'drop-3 · quartal · subs', desc:'jazz blues con subs · dominantes secundarias',
-  voicings:['shell','drop2','drop3','quartal'],
-  progs:{major:['ii–V–I','V/V – V – I','V/ii – ii – V – I','iii – V/ii – ii – V – I','Tritone sub turnaround','Sweet Georgia Brown turn','Apple turnaround V/iii','ii – bII7 – I','Jazz blues with ii-V subs','Bird-style blues last 4','Bird-style turnaround'],
-         minor:['iiø–bII7–i (tritone sub)','iiø–V/V–V7–i','Minor jazz blues','Minor ii-V chain','Autumn Leaves','iiø–V7–iv–bII7–i']},
-  structures:['AABA','ABAB','JAZZ_BLUES'], keys:'all', tonality:'both', bpmStart:90, bpmTarget:130},
- {id:'j5', track:'jazz', nivel:5, label:'todo mezclado', desc:'todo · pro · tempos reales · tonos al azar',
-  voicings:null, progs:null, structures:null,
-  keys:'all', tonality:'both', bpmStart:100, bpmTarget:160},
- {id:'r1', track:'rock', nivel:1, label:'power chords', desc:'quintas sobre rock',
-  voicings:['strum'], forceVariant:'power',
-  progs:{major:['Mixolydian vamp I – bVII','I – iv – bVII – I'],
-         minor:['i – bVI – bVII – i (epic)','i – bIII – bVII – iv','i–iv–bVII–bIII','bVI–bVII–i']},
-  structures:['ABAB','AABB'], keys:[4,7,9,2,0], tonality:'both', bpmStart:85, bpmTarget:120},
- {id:'r2', track:'rock', nivel:2, label:'abiertos y cejilla', desc:'strum · pop-rock · clásicos',
-  voicings:['strum','add9'],
-  progs:{major:['I–V–vi–IV','vi–IV–I–V','I–IV–V–I','50s doo-wop I-vi-IV-V','Pachelbel I-V-vi-iii-IV-I-IV-V','I – iii – IV – iv (Creep)','Country I-IV-I-V','Pop ballad I–V–vi–IV ×2','Britpop strummer Iadd9–vi–IVadd9–V'],
-         minor:['i–bVII–bVI–V7 (Andalusian)','Andalusian extended','Minor folk with cell']},
-  structures:['ABAB','AABA'], keys:[0,7,2,9,4], tonality:'both', bpmStart:80, bpmTarget:115},
- {id:'r3', track:'rock', nivel:3, label:'mixto + secciones', desc:'todo el rock · cambios de sección',
-  voicings:['strum','triad','add9','sus'],
-  progs:{major:['I–V–vi–IV','vi–IV–I–V','Mixolydian vamp I – bVII','I – iv – bVII – I','I – iii – IV – iv (Creep)','Pop ballad V/V kick','Pachelbel I-V-vi-iii-IV-I-IV-V','Walk-up with V→V/vi'],
-         minor:['i – bVI – bVII – i (epic)','i–bVII–bVI–V7 (Andalusian)','i – bIII – bVII – iv','Andalusian with turn','Minor folk with cell']},
-  structures:['ABABCB','ABAB'], keys:'all', tonality:'both', bpmStart:90, bpmTarget:135},
+  // ── Row A · diatónico mayor ──
+  {id:'a1', row:'A', rowName:'diatónico mayor', label:'shells',  voicings:['shell'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a2', row:'A', rowName:'diatónico mayor', label:'triadas', voicings:['triad'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a3', row:'A', rowName:'diatónico mayor', label:'drop-2',  voicings:['drop2'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a4', row:'A', rowName:'diatónico mayor', label:'drop-3',  voicings:['drop3'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a5', row:'A', rowName:'diatónico mayor', label:'color',   voicings:['quartal','guide'], pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'am', row:'A', rowName:'diatónico mayor', label:'MASTER DIATONICS', master:true,
+   voicings:PRACTICE_LADDER_FULL, pool:'diatonic', tonalities:['major'], keys:'all'},
+  // ── Row B · menor ──
+  {id:'b1', row:'B', rowName:'menor', label:'shells',  voicings:['shell'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b2', row:'B', rowName:'menor', label:'triadas', voicings:['triad'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b3', row:'B', rowName:'menor', label:'drop-2',  voicings:['drop2'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b4', row:'B', rowName:'menor', label:'drop-3',  voicings:['drop3'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b5', row:'B', rowName:'menor', label:'color',   voicings:['quartal','guide'], pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'bm', row:'B', rowName:'menor', label:'MINOR PRACTICE', master:true,
+   voicings:PRACTICE_LADDER_FULL, pool:'minor', tonalities:['minor'], keys:'all'},
+  // ── Row C · blues (only idiomatic voicings — no triads/quartal) ──
+  {id:'c1', row:'C', rowName:'blues', label:'shells', voicings:['shell'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c2', row:'C', rowName:'blues', label:'drop-2', voicings:['drop2'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c3', row:'C', rowName:'blues', label:'drop-3', voicings:['drop3'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c4', row:'C', rowName:'blues', label:'grips',  voicings:['strum'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'cm', row:'C', rowName:'blues', label:'BLUES MASTER', master:true,
+   voicings:['shell','drop2','drop3','strum'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  // ── Row D · subs y secundarios ──
+  {id:'d1', row:'D', rowName:'subs y secundarios', label:'shells',  voicings:['shell'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d2', row:'D', rowName:'subs y secundarios', label:'triadas', voicings:['triad'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d3', row:'D', rowName:'subs y secundarios', label:'drop-2',  voicings:['drop2'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d4', row:'D', rowName:'subs y secundarios', label:'drop-3',  voicings:['drop3'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d5', row:'D', rowName:'subs y secundarios', label:'color',   voicings:['quartal','guide'], pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'dm', row:'D', rowName:'subs y secundarios', label:'SECONDARY & SUBS', master:true,
+   voicings:PRACTICE_LADDER_FULL, pool:'subs', tonalities:['major','minor'], keys:'all'},
+  // ── Row E · todo mezclado (generador libre, con modulación) ──
+  {id:'e', row:'E', rowName:'todo mezclado', label:'TODO MEZCLADO', master:true,
+   voicings:null, pool:null, tonalities:['major','minor'], keys:'all'},
+  // ── Row R · gimnasio rock (voicings físicos, no territorio armónico) ──
+  {id:'r1', row:'R', rowName:'gimnasio rock', label:'power',   voicings:['strum'], forceVariant:'power', pool:'rockHeavy', tonalities:['major','minor'], keys:[4,7,9,2,0]},
+  {id:'r2', row:'R', rowName:'gimnasio rock', label:'open',    voicings:['strum'], forceVariant:'open',  pool:'rockAll',   tonalities:['major','minor'], keys:[4,7,9,2,0]},
+  {id:'r3', row:'R', rowName:'gimnasio rock', label:'cejilla', voicings:['strum'],                       pool:'rockAll',   tonalities:['major','minor'], keys:'all'},
+  {id:'r4', row:'R', rowName:'gimnasio rock', label:'mixto',   voicings:['strum','triad','sus','add9'],  pool:'rockAll',   tonalities:['major','minor'], keys:'all'},
 ];
-const PRACTICE_TOUR_ORDER = ['j1','j2','j3','j4','j5','r1','r2','r3'];
+// Route orders. 'guiada' walks the whole jazz spiral (stations + row
+// masters, in the user's map order); 'repaso' is the master fast lane
+// (day-to-day maintenance once the spiral is climbed); 'rock' is the
+// physical gym chain; 'libre' has no order (map jumps only).
+const PRACTICE_ORDERS = {
+  guiada: ['a1','a2','a3','a4','a5','am','b1','b2','b3','b4','b5','bm',
+           'c1','c2','c3','c4','cm','d1','d2','d3','d4','d5','dm','e'],
+  repaso: ['am','bm','cm','dm','e'],
+  rock:   ['r1','r2','r3','r4'],
+};
 // `extensions` (optional): scales the rootless-9 extBias in _pickShape.
 // 1.0 = baseline (current jazz rate, ~20-35% of dominants land on a 9).
 // 1.2-1.4 = modal / bossa lean (slightly more 9s).
@@ -16995,6 +17120,38 @@ class Player {
                   renderAll();
                 }
               } else {
+              // Práctica: instead of restoring home, roll a fresh key
+              // (and tonality when the station allows both) from the
+              // station's pools — same material, new key, every cycle.
+              // That's the whole point of "todos los tonos siempre".
+              if (window._practiceKeyPool) {
+                const kp = window._practiceKeyPool;
+                const cur = state.keyPc;
+                let next = (kp === 'all')
+                  ? Math.floor(Math.random() * 12)
+                  : kp[Math.floor(Math.random() * kp.length)];
+                if (next === cur) {
+                  next = (kp === 'all') ? (next + 5) % 12
+                       : kp[(kp.indexOf(next) + 1) % kp.length];
+                }
+                state.keyPc = next;
+                const tp = window._practiceTonalityPool;
+                if (tp && tp.length) {
+                  state.tonality = tp[Math.floor(Math.random() * tp.length)];
+                  // Same stranded-focusedChord guard as applyStation: a
+                  // tonality flip can leave focusedChord pointing at an
+                  // id the new map lacks and renderFretboard throws.
+                  if (!currentMap().chordDefs[state.focusedChord]) {
+                    state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
+                    state.userVoicing = null;
+                  }
+                }
+                if (this._homeKey) {
+                  this._homeKey.keyPc = state.keyPc;
+                  this._homeKey.tonality = state.tonality;
+                }
+                this._travelNote = null;
+              } else
               // Low-probability "travel" — the new song's home shifts to a
               // musically related key, like a jam session drifting over time.
               if (!window._practiceNoModulation && Math.random() < 0.15) {
@@ -21424,54 +21581,45 @@ function renderLandscapeStandby() {
 })();
 
 /* ════════════════════════════════════════════════════════════
-   PRÁCTICA — continuous curriculum practice session.
+   PRÁCTICA v2 — continuous practice over the user's spiral map.
 
-   A thin controller over the existing engine: each PRACTICE_STATIONS
-   row constrains generation (voicingPrefSet, progression allowlist,
-   structure, keys) and playback tempo (BPM ramp). No persistence of
-   any kind — every session starts fresh by design.
-
-   Station switches while playing reuse the scope-change swap-in-place
-   recipe (regen + reset bookkeeping, audio never stops); the count-in
-   only fires once, at session start, via the normal player.start().
-
-   The session ends cleanly on ANY external interference (stop, scope /
-   structure / voicing menu changes) — practice's own mutations are
-   marked with _selfChange so they don't self-exit. Exit restores the
-   exact snapshot taken at start.
+   Same engine contract as v1 (allowlist + voicingPrefSet + swap-in-
+   place regen, snapshot/restore, external interference exits), with
+   the v2 curriculum: rows A-E + rock gym, MASTER stations per row,
+   routes guiada / repaso (masters fast-lane) / rock / libre.
+   No tempo management (libre — the user owns the BPM control), no
+   song structures (structure 'A' = one progression looping; each
+   cycle rolls a fresh key/tonality via _practiceKeyPool), and no
+   persistence of any kind.
    ════════════════════════════════════════════════════════════ */
 (function () {
-  const PRACTICE_DWELL = { guiada: 360, tour: 240 };   // seconds per station
-  const PRACTICE_RAMP  = { normal: 30, lento: 60 };    // seconds per +2 BPM
+  const PRACTICE_DWELL = { guiada: 360, repaso: 480, rock: 360 };  // seg/estación
   function _stationById(id) {
     return PRACTICE_STATIONS.find(s => s.id === id) || null;
+  }
+  function _poolOf(st) {
+    return st.pool ? PRACTICE_POOLS[st.pool] : null;
   }
 
   const practice = {
     active: false,
-    route: null,          // 'guiada' | 'tour' | 'libre' (null when off)
-    ramp: 'normal',       // 'normal' | 'lento' — persists as pre-start pref
-    track: 'jazz',        // pre-start pref for guiada; follows station while on
+    route: null,          // 'guiada' | 'repaso' | 'rock' | 'libre'
     stationId: null,
-    hold: false,          // quédate — suspends auto-advance
+    hold: false,          // quédate — suspende el auto-avance
     _snap: null,
     _dwellSec: 0,
-    _rampSec: 0,
     _timer: null,
     _selfChange: false,
 
-    start(route, stationId, ramp) {
+    start(route, stationId) {
       if (this.active) this.exit('restart');
-      // Stop any normal playback FIRST — practice isn't active yet so the
-      // stop() hook no-ops, stop() restores the user's home key, and the
-      // snapshot below captures their true resting state.
+      // Stop any normal playback FIRST (hook no-ops, home key restored,
+      // snapshot captures the user's true resting state).
       if (player.playing || player.paused) player.stop();
       this.route = route || 'libre';
-      if (ramp) this.ramp = ramp;
+      const order = PRACTICE_ORDERS[this.route];
       const first = _stationById(stationId)
-        || (this.route === 'tour'
-              ? _stationById(PRACTICE_TOUR_ORDER[0])
-              : PRACTICE_STATIONS.find(s => s.track === this.track && s.nivel === 1));
+        || _stationById(order ? order[0] : 'a1');
       if (!first) return;
       this._snap = {
         voicingPrefSet: new Set(voicingPrefSet),
@@ -21481,26 +21629,18 @@ function renderLandscapeStandby() {
         songStructureUpcoming: state.songStructureUpcoming,
         composedProgression: state.composedProgression,
         capturedSong: state._capturedSong,
-        bpm: metronome.bpm,
-        accelOn: !!metronome._accelOn,
         loopMode: loopMode,
       };
-      // Neutralize everything that would fight the session: composed
-      // seed (would hijack section A), captured song (would bypass the
-      // generator), metronome auto-accel (would double-ramp), loop
-      // anchoring (would trap the session in 4 bars).
+      // Neutralize what would fight the session. BPM/metronome are NOT
+      // touched anywhere: tempo is the user's domain (tempo libre).
       state.composedProgression = [];
       state._capturedSong = null;
-      metronome._accelOn = false;
       loopMode = 'off';
       this.active = true;
       this.hold = false;
       document.body.classList.add('practica-on');
       this.applyStation(first.id, { regen: false });
       player.start();   // generates from the globals applyStation just set
-      // start() doesn't toggle body.player-active itself — the play-button
-      // handler does that. Same call here so the playback view engages
-      // (phone: standby → #landscape-play swap).
       if (typeof _refreshAutoPlayUI === 'function') _refreshAutoPlayUI();
       this._timer = setInterval(() => this._tick(), 1000);
       this._renderHud();
@@ -21514,6 +21654,8 @@ function renderLandscapeStandby() {
       player._practiceProgAllowlist = null;
       window._practiceForceVariant = null;
       window._practiceNoModulation = false;
+      window._practiceKeyPool = null;
+      window._practiceTonalityPool = null;
       const s = this._snap;
       this._snap = null;
       if (s) {
@@ -21525,19 +21667,12 @@ function renderLandscapeStandby() {
         state.songStructureUpcoming = s.songStructureUpcoming;
         state.composedProgression = s.composedProgression;
         state._capturedSong = s.capturedSong;
-        metronome._accelOn = s.accelOn;
         loopMode = s.loopMode;
-        setBpm(s.bpm);
-        // Same stranded-focusedChord guard as applyStation — the restored
-        // tonality may not contain the station's focused chord id.
+        if (player._homeKey) player._homeKey = { keyPc: s.keyPc, tonality: s.tonality };
         if (!currentMap().chordDefs[state.focusedChord]) {
           state.focusedChord = s.tonality === 'major' ? 'I' : 'i';
           state.userVoicing = null;
         }
-        // If the song keeps playing (✕ salir mid-session) re-anchor the
-        // player's home key so the next cycle regen — now unconstrained —
-        // generates from the user's restored key instead of the station's.
-        if (player._homeKey) player._homeKey = { keyPc: s.keyPc, tonality: s.tonality };
         _voicingPostChange();
         this._selfChange = false;
       }
@@ -21545,8 +21680,7 @@ function renderLandscapeStandby() {
       this.stationId = null;
       this.route = null;
       document.body.classList.remove('practica-on');
-      const menu = document.getElementById('practica-menu');
-      if (menu) menu.hidden = true;
+      document.body.classList.remove('practica-select');
       if (typeof renderAll === 'function') renderAll();
       if (typeof _refreshAutoPlayUI === 'function') _refreshAutoPlayUI();
       if (typeof syncMobileTransport === 'function') syncMobileTransport();
@@ -21559,44 +21693,36 @@ function renderLandscapeStandby() {
       if (!st || !this.active) return;
       const regen = !(opts && opts.regen === false);
       this.stationId = id;
-      this.track = st.track;
       this._dwellSec = 0;
-      this._rampSec = 0;
       this._selfChange = true;
       voicingPrefSet = st.voicings ? new Set(st.voicings) : new Set(VOICING_TYPE_IDS);
-      // Tonality roll — 'both' picks whichever side has progressions
-      // listed (empty list = that tonality is off for this station).
-      let ton = st.tonality;
-      if (ton === 'both') {
-        const hasMaj = !st.progs || (st.progs.major && st.progs.major.length);
-        const hasMin = !st.progs || (st.progs.minor && st.progs.minor.length);
-        ton = (hasMaj && hasMin) ? (Math.random() < 0.5 ? 'major' : 'minor')
-            : (hasMin ? 'minor' : 'major');
-      }
-      state.tonality = ton;
+      const pool = _poolOf(st);
+      // Tonality: from the station's list, skipping sides the pool has
+      // no progressions for.
+      let tons = st.tonalities;
+      if (pool) tons = tons.filter(t => (pool[t] || []).length);
+      if (!tons.length) tons = st.tonalities;
+      state.tonality = tons[Math.floor(Math.random() * tons.length)];
       state.keyPc = (st.keys === 'all')
         ? Math.floor(Math.random() * 12)
         : st.keys[Math.floor(Math.random() * st.keys.length)];
-      // A tonality flip can strand focusedChord on an id the new map
-      // doesn't have (e.g. 'I' after major→minor) — renderFretboard
-      // would throw. Same fallback the scope-change handler uses.
       if (!currentMap().chordDefs[state.focusedChord]) {
-        state.focusedChord = ton === 'major' ? 'I' : 'i';
+        state.focusedChord = state.tonality === 'major' ? 'I' : 'i';
         state.userVoicing = null;
       }
-      // Union of both tonality lists is safe: _pickProgression filters
-      // PROGRESSIONS[state.tonality] by name, and names are unique per
-      // tonality table.
-      player._practiceProgAllowlist = st.progs
-        ? new Set([...(st.progs.major || []), ...(st.progs.minor || [])])
+      player._practiceProgAllowlist = pool
+        ? new Set([...(pool.major || []), ...(pool.minor || [])])
         : null;
       window._practiceForceVariant = st.forceVariant || null;
-      window._practiceNoModulation = !!st.progs;
-      state.songStructure = st.structures
-        ? st.structures[Math.floor(Math.random() * st.structures.length)]
-        : 'RANDOM';
+      window._practiceNoModulation = !!pool;
+      // Per-cycle key/tonality reroll pools (E leaves them null: the
+      // free generator keeps its own travel/modulation behavior).
+      window._practiceKeyPool = pool ? st.keys : null;
+      window._practiceTonalityPool = pool ? tons : null;
+      // No song structures: 'A' = one progression looping. E is the
+      // free generator and keeps RANDOM structures.
+      state.songStructure = pool ? 'A' : 'RANDOM';
       state.songStructureUpcoming = null;
-      setBpm(this.ramp === 'lento' ? Math.max(40, st.bpmStart - 10) : st.bpmStart);
       if (regen && (player.playing || player.paused)) {
         // Swap-in-place — same recipe as scope-change-while-playing.
         player.song = player._generateSong();
@@ -21616,16 +21742,14 @@ function renderLandscapeStandby() {
     },
 
     _order() {
-      return this.route === 'tour'
-        ? PRACTICE_TOUR_ORDER
-        : PRACTICE_STATIONS.filter(s => s.track === this.track).map(s => s.id);
+      return PRACTICE_ORDERS[this.route] || PRACTICE_ORDERS.guiada;
     },
     _nextOf(id) {
       const ord = this._order();
       const i = ord.indexOf(id);
       if (i < 0) return ord[0];
-      if (this.route === 'tour') return ord[(i + 1) % ord.length];
-      return (i + 1 < ord.length) ? ord[i + 1] : null;   // top of track: stay
+      if (this.route === 'repaso') return ord[(i + 1) % ord.length];  // el repaso da la vuelta
+      return (i + 1 < ord.length) ? ord[i + 1] : null;                // guiada/rock: en la cima se queda
     },
 
     harder() {
@@ -21642,204 +21766,154 @@ function renderLandscapeStandby() {
     },
     surprise() {
       if (!this.active) return;
-      const pool = PRACTICE_STATIONS.filter(s => s.id !== this.stationId);
-      const pick = pool[Math.floor(Math.random() * pool.length)];
-      this.applyStation(pick.id);
+      const cands = PRACTICE_STATIONS.filter(s => s.id !== this.stationId);
+      this.applyStation(cands[Math.floor(Math.random() * cands.length)].id);
     },
 
     _tick() {
-      // Paused (or somehow stopped without the hook) — freeze both clocks.
-      if (!this.active || !player.playing) return;
-      const st = _stationById(this.stationId);
-      if (!st) return;
-      // BPM ramp: +2 every N seconds up to the station target.
-      this._rampSec++;
-      if (this._rampSec >= (PRACTICE_RAMP[this.ramp] || 30)) {
-        this._rampSec = 0;
-        if (metronome.bpm < st.bpmTarget) {
-          setBpm(Math.min(st.bpmTarget, metronome.bpm + 2));
-        }
-      }
-      // Dwell clock — guided/tour auto-advance unless held.
-      if ((this.route === 'guiada' || this.route === 'tour') && !this.hold) {
-        this._dwellSec++;
-        if (this._dwellSec >= (PRACTICE_DWELL[this.route] || 360)) {
-          const nxt = this._nextOf(this.stationId);
-          if (nxt) this.applyStation(nxt);
-          else this._dwellSec = 0;
-        }
+      if (!this.active || !player.playing) return;   // pausa congela el reloj
+      const dwell = PRACTICE_DWELL[this.route];
+      if (!dwell || this.hold) return;               // libre: sin reloj
+      this._dwellSec++;
+      if (this._dwellSec >= dwell) {
+        const nxt = this._nextOf(this.stationId);
+        if (nxt) this.applyStation(nxt);
+        else this._dwellSec = 0;
       }
     },
 
     _renderHud() {
       const st = _stationById(this.stationId);
       const lbl = document.getElementById('ph-label');
-      if (lbl) lbl.textContent = st ? (st.track + ' · ' + st.label) : 'práctica';
+      if (lbl) {
+        lbl.textContent = st
+          ? (st.master ? '★ ' + st.label : st.id.toUpperCase() + ' · ' + st.label)
+          : 'práctica';
+      }
       const dots = document.getElementById('ph-dots');
       if (dots && st) {
-        const trackN = PRACTICE_STATIONS.filter(s => s.track === st.track).length;
-        if (dots.children.length !== trackN) {
+        const rowSts = PRACTICE_STATIONS.filter(s => s.row === st.row);
+        const idx = rowSts.findIndex(s => s.id === st.id);
+        if (dots.children.length !== rowSts.length) {
           dots.innerHTML = '';
-          for (let i = 0; i < trackN; i++) {
+          for (let i = 0; i < rowSts.length; i++) {
             dots.appendChild(document.createElement('span'));
           }
         }
         Array.prototype.forEach.call(dots.children, (d, i) => {
-          d.className = 'ph-dot' + (i < st.nivel ? ' on' : '');
+          d.className = 'ph-dot' + (i <= idx ? ' on' : '');
         });
-        dots.classList.toggle('rock', st.track === 'rock');
+        dots.classList.toggle('rock', st.row === 'R');
       }
       const stayBtn = document.getElementById('ph-stay');
       if (stayBtn) stayBtn.classList.toggle('on', this.hold);
-      // Landscape play overlay mirrors (phone).
       const lpl = document.getElementById('lp-practica-label');
       if (lpl) lpl.textContent = st ? st.label : '';
       const lpStay = document.getElementById('lp-stay');
       if (lpStay) lpStay.classList.toggle('on', this.hold);
+      // El mapa selector, si está abierto, marca la estación actual.
+      if (document.body.classList.contains('practica-select')) renderPracticaScreen();
     },
   };
   window.practice = practice;
 
-  /* ── Desktop popover ── */
-  function renderPracticaMenu() {
-    const menu = document.getElementById('practica-menu');
-    if (!menu) return;
-    const chip = (attr, val, on, txt) =>
-      '<button class="pm-chip' + (on ? ' on' : '') + '" data-' + attr + '="' + val + '">' + txt + '</button>';
-    let html = '<div class="pm-row">'
-      + chip('route', 'guiada', practice.active && practice.route === 'guiada', 'guiada')
-      + chip('route', 'tour',   practice.active && practice.route === 'tour',   'tour')
-      + '</div><div class="pm-row">'
-      + chip('ptrack', 'jazz', practice.track === 'jazz', 'jazz')
-      + chip('ptrack', 'rock', practice.track === 'rock', 'rock')
-      + '</div><div class="pm-row">'
-      + chip('ramp', 'normal', practice.ramp === 'normal', 'rampa normal')
-      + chip('ramp', 'lento',  practice.ramp === 'lento',  'muy lento')
-      + '</div><div class="pm-stations">';
-    for (const s of PRACTICE_STATIONS) {
-      const on = practice.active && s.id === practice.stationId;
-      html += '<button class="pm-station' + (on ? ' on' : '') + (s.track === 'rock' ? ' rock' : '')
-        + '" data-station="' + s.id + '">'
-        + '<span class="pm-st-lvl">' + (s.track === 'jazz' ? 'J' : 'R') + s.nivel + '</span>'
-        + '<span class="pm-st-label">' + s.label + '</span>'
-        + '<span class="pm-st-desc">' + s.desc + '</span></button>';
+  /* ── Pantalla completa: el mapa de la espiral como selector ── */
+  const ROW_META = {
+    A: { name: 'diatónico mayor',    cls: 'gold' },
+    B: { name: 'menor',              cls: 'gold' },
+    C: { name: 'blues',              cls: 'teal' },
+    D: { name: 'subs y secundarios', cls: 'teal' },
+    E: { name: 'todo mezclado',      cls: 'lila' },
+    R: { name: 'gimnasio rock',      cls: 'rock' },
+  };
+  function renderPracticaScreen() {
+    const lanes = document.getElementById('ps-lanes');
+    if (!lanes) return;
+    let html = '';
+    for (const row of ['A', 'B', 'C', 'D', 'E', 'R']) {
+      const meta = ROW_META[row];
+      const sts = PRACTICE_STATIONS.filter(s => s.row === row);
+      html += '<div class="ps-lane ' + meta.cls + '">'
+        + '<div class="ps-lane-name">' + row + ' · ' + meta.name + '</div>'
+        + '<div class="ps-nodes">';
+      for (const s of sts) {
+        const now = practice.active && practice.stationId === s.id;
+        html += '<button class="ps-node' + (s.master ? ' master' : '')
+          + (now ? ' now' : '') + '" data-station="' + s.id + '">'
+          + '<span class="ps-node-lvl">' + (s.master ? '★' : s.id.toUpperCase()) + '</span>'
+          + '<span class="ps-node-name">' + s.label + '</span></button>';
+      }
+      html += '</div></div>';
     }
-    html += '</div>';
-    menu.innerHTML = html;
+    lanes.innerHTML = html;
+  }
+  function openPracticaScreen() {
+    renderPracticaScreen();
+    document.body.classList.add('practica-select');
+  }
+  function closePracticaScreen() {
+    document.body.classList.remove('practica-select');
   }
 
-  (function wirePracticaDesktop() {
+  (function wirePractica() {
+    const screen = document.getElementById('practica-screen');
     const btn = document.getElementById('practica-btn');
-    const menu = document.getElementById('practica-menu');
-    if (!btn || !menu) return;
-    const openMenu = (anchor) => {
-      renderPracticaMenu();
-      positionPopoverUnder(menu, anchor);
-    };
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (!menu.hidden) { menu.hidden = true; return; }
-      openMenu(btn);
-    });
-    menu.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const t = e.target.closest('[data-route],[data-ptrack],[data-ramp],[data-station]');
-      if (!t) return;
-      if (t.dataset.route) {
-        if (practice.active) { practice.route = t.dataset.route; practice._dwellSec = 0; }
-        else practice.start(t.dataset.route, null, practice.ramp);
-        renderPracticaMenu();
-      } else if (t.dataset.ptrack) {
-        practice.track = t.dataset.ptrack;
-        renderPracticaMenu();
-      } else if (t.dataset.ramp) {
-        practice.ramp = t.dataset.ramp;
-        practice._rampSec = 0;
-        renderPracticaMenu();
-      } else if (t.dataset.station) {
-        if (practice.active) practice.applyStation(t.dataset.station);
-        else practice.start('libre', t.dataset.station, practice.ramp);
-        renderPracticaMenu();
-      }
-    });
-    document.addEventListener('click', (e) => {
-      if (!menu.hidden && !menu.contains(e.target) && e.target !== btn) menu.hidden = true;
-    });
-    // HUD wiring
+    if (btn) btn.addEventListener('click', openPracticaScreen);
+    if (screen) {
+      screen.addEventListener('click', (e) => {
+        const node = e.target.closest('.ps-node');
+        if (node) {
+          const id = node.dataset.station;
+          if (practice.active) practice.applyStation(id);
+          else practice.start('libre', id);
+          closePracticaScreen();
+          return;
+        }
+        const route = e.target.closest('.ps-route');
+        if (route) {
+          practice.start(route.dataset.route);
+          closePracticaScreen();
+          return;
+        }
+        if (e.target.closest('#ps-close')) closePracticaScreen();
+      });
+    }
     const on = (id, fn) => {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', fn);
     };
-    const phl = document.getElementById('ph-label');
-    if (phl) phl.addEventListener('click', (e) => {
-      // stopPropagation or the document-level outside-click closer would
-      // shut the menu in the same event bubble.
-      e.stopPropagation();
-      if (menu.hidden) openMenu(phl); else menu.hidden = true;
-    });
+    on('ph-label',    openPracticaScreen);
+    on('ph-map',      openPracticaScreen);
     on('ph-harder',   () => practice.harder());
     on('ph-stay',     () => practice.stay());
     on('ph-surprise', () => practice.surprise());
     on('ph-exit',     () => practice.exit('user'));
-    // Landscape play overlay buttons (phone)
     on('lp-harder',   () => practice.harder());
     on('lp-stay',     () => practice.stay());
   })();
 
-  /* ── Phone landscape standby panel (4th swipe) ── */
+  /* ── Panel standby del teléfono (4to swipe) ── */
   let _panelRoute = 'guiada';
   window.renderPracticaStandby = function renderPracticaStandby() {
     const el = document.getElementById('landscape-standby');
     if (!el) return;
-    el.querySelectorAll('.ls-ptrack').forEach(b => {
-      b.classList.toggle('on', b.dataset.track === practice.track);
-    });
-    el.querySelectorAll('.ls-proute').forEach(b => {
+    el.querySelectorAll('.ls-proute2').forEach(b => {
       b.classList.toggle('on', b.dataset.route === _panelRoute);
     });
-    const rampBtn = document.getElementById('ls-pramp');
-    if (rampBtn) {
-      rampBtn.textContent = practice.ramp === 'lento' ? 'muy lento' : 'normal';
-      rampBtn.classList.toggle('on', practice.ramp === 'lento');
-    }
-    const strip = document.getElementById('ls-practica-stations');
-    if (strip && !strip.children.length) {
-      strip.innerHTML = PRACTICE_STATIONS.map(s =>
-        '<button class="ls-pstation' + (s.track === 'rock' ? ' rock' : '')
-        + '" data-station="' + s.id + '">'
-        + (s.track === 'jazz' ? 'J' : 'R') + s.nivel + ' ' + s.label + '</button>'
-      ).join('');
-    }
   };
   (function wirePracticaStandby() {
     const el = document.getElementById('landscape-standby');
     if (!el) return;
-    el.querySelectorAll('.ls-ptrack').forEach(b => {
-      b.addEventListener('click', () => {
-        practice.track = b.dataset.track;
-        renderPracticaStandby();
-      });
-    });
-    el.querySelectorAll('.ls-proute').forEach(b => {
+    el.querySelectorAll('.ls-proute2').forEach(b => {
       b.addEventListener('click', () => {
         _panelRoute = b.dataset.route;
         renderPracticaStandby();
       });
     });
-    const rampBtn = document.getElementById('ls-pramp');
-    if (rampBtn) rampBtn.addEventListener('click', () => {
-      practice.ramp = practice.ramp === 'lento' ? 'normal' : 'lento';
-      renderPracticaStandby();
-    });
     const play = document.getElementById('ls-practica-play');
-    if (play) play.addEventListener('click', () => {
-      practice.start(_panelRoute, null, practice.ramp);
-    });
-    const strip = document.getElementById('ls-practica-stations');
-    if (strip) strip.addEventListener('click', (e) => {
-      const b = e.target.closest('.ls-pstation');
-      if (b) practice.start('libre', b.dataset.station, practice.ramp);
-    });
+    if (play) play.addEventListener('click', () => practice.start(_panelRoute));
+    const map = document.getElementById('ls-practica-map');
+    if (map) map.addEventListener('click', openPracticaScreen);
   })();
 })();
 
