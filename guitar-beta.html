@@ -5832,7 +5832,16 @@ body.practica-on:not(.instrument-piano):not(.lp-on) #practica-shapes.has { displ
   padding: 4px 6px;
 }
 #practica-shapes .pshapes-row { flex-direction: row; align-items: flex-start; gap: 18px; }
-#practica-shapes .pshelf { min-width: 0; }
+/* Columna de ancho FIJO (2 tarjetas por renglón): la repisa crece hacia
+   abajo y nunca empuja a sus vecinas. */
+#practica-shapes .pshelf { flex: 0 0 172px; width: 172px; }
+#practica-shapes .pshape-ghost {
+  width: 80px;
+  height: 96px;
+  border: 1.5px dashed #c8bfa8;
+  border-radius: 9px;
+  opacity: 0.55;
+}
 #practica-shapes .pshelf-label {
   font-size: 9.5px;
   font-weight: 800;
@@ -22197,11 +22206,12 @@ function renderLandscapeStandby() {
     _renderShelf() {
       const row = document.getElementById('pshapes-row');
       if (!row || !this._shelf) return;
-      // Repisas FIJAS por tipo de acorde. Dentro de cada repisa las
-      // formas aparecen en orden de descubrimiento y NUNCA se mueven:
-      // donde sale la primera vez es donde vive (memoria espacial).
-      // La nueva simplemente se agrega al final de SU repisa.
-      const SHELVES = ['mayor', 'menor', 'dominante', 'ø · dim', 'otros'];
+      // Repisas de POSICIÓN FIJA: las cuatro columnas existen desde el
+      // arranque con ancho fijo (hueco fantasma si están vacías) y las
+      // formas crecen hacia ABAJO dentro de su columna. Así ninguna
+      // tarjeta ya visible se desplaza jamás cuando llega una nueva —
+      // donde sale la primera vez es donde vive, en pixeles.
+      const SHELVES = ['mayor', 'menor', 'dominante', 'ø · dim'];
       const MAX_PER = 6;
       const byClass = {};
       for (const [k, e] of this._shelf.entries()) {
@@ -22209,16 +22219,18 @@ function renderLandscapeStandby() {
         (byClass[c] = byClass[c] || []).push({ k, e });
       }
       let html = '';
-      for (const shelf of SHELVES) {
-        const items = byClass[shelf];
-        if (!items || !items.length) continue;
-        html += '<div class="pshelf"><div class="pshelf-label">' + shelf + '</div>'
-          + '<div class="pshelf-row">'
-          + items.slice(0, MAX_PER).map(({ k, e }) => this._shapeCard(k, e)).join('')
-          + (items.length > MAX_PER
-              ? '<div class="pshape-more">+' + (items.length - MAX_PER) + '</div>' : '')
-          + '</div></div>';
-      }
+      const shelfHtml = (name) => {
+        const items = byClass[name] || [];
+        let inner = items.slice(0, MAX_PER).map(({ k, e }) => this._shapeCard(k, e)).join('');
+        if (items.length > MAX_PER) {
+          inner += '<div class="pshape-more">+' + (items.length - MAX_PER) + '</div>';
+        }
+        if (!items.length) inner = '<div class="pshape-ghost"></div>';
+        return '<div class="pshelf"><div class="pshelf-label">' + name + '</div>'
+          + '<div class="pshelf-row">' + inner + '</div></div>';
+      };
+      for (const shelf of SHELVES) html += shelfHtml(shelf);
+      if (byClass['otros'] && byClass['otros'].length) html += shelfHtml('otros');
       row.innerHTML = html;
       const panel = document.getElementById('practica-shapes');
       if (panel) panel.classList.toggle('has', this._shelf.size > 0);
