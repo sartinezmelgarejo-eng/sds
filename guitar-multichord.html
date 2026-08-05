@@ -5657,6 +5657,85 @@ body.practica-select #practica-screen { display: flex; }
 #practica-screen .ps-rock .ps-lane-name { margin-bottom: 4px; }
 #practica-screen .ps-rock .ps-nodes { display: flex; gap: 10px; flex-wrap: wrap; }
 #practica-screen .ps-rock .ps-node { width: auto; min-width: 96px; }
+/* ── Pre-menú de ruta: duración visible y editable ── */
+#ps-premenu {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: rgba(12, 10, 6, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+#ps-premenu[hidden] { display: none; }
+#ps-premenu .pp-card {
+  background: #201b13;
+  border: 2px solid #e8b64c;
+  border-radius: 16px;
+  padding: 22px 26px 20px;
+  max-width: 420px;
+  width: 100%;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+}
+#ps-premenu .pp-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #e8b64c;
+}
+#ps-premenu .pp-desc {
+  font-size: 12px;
+  color: #a89877;
+  margin-top: 3px;
+  line-height: 1.4;
+}
+#ps-premenu .pp-dur {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+}
+#ps-premenu .pp-dur-total {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: #f3ead8;
+}
+#ps-premenu .pp-dur-per { font-size: 11.5px; color: #a89877; }
+#ps-premenu #pp-range {
+  width: 100%;
+  margin: 12px 0 4px;
+  accent-color: #e8b64c;
+}
+#ps-premenu .pp-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+#ps-premenu .pp-actions button {
+  font: inherit;
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+#ps-premenu #pp-cancel {
+  border: 1.5px solid #8a7a55;
+  background: transparent;
+  color: #a89877;
+}
+#ps-premenu #pp-start {
+  border: 2px solid #e8b64c;
+  background: #e8b64c;
+  color: #16130e;
+  font-size: 15px;
+  flex: 1;
+}
+#ps-premenu #pp-start:hover { background: #f3c96a; }
+
 #practica-screen .ps-foot {
   padding: 10px 18px max(12px, env(safe-area-inset-bottom));
   border-top: 2px solid #3d3524;
@@ -6139,6 +6218,23 @@ body.practica-on #landscape-play .lp-info-practica {
     <button class="ps-close" id="ps-close" title="cerrar">✕</button>
   </div>
   <div class="ps-lanes" id="ps-lanes"></div>
+  <!-- Pre-menú de ruta: duración total visible y EDITABLE antes de
+       arrancar — nada suena hasta que le picas ▶ (y ahí el count-in). -->
+  <div id="ps-premenu" hidden>
+    <div class="pp-card">
+      <div class="pp-title" id="pp-title"></div>
+      <div class="pp-desc" id="pp-desc"></div>
+      <div class="pp-dur">
+        <span class="pp-dur-total" id="pp-dur-total"></span>
+        <span class="pp-dur-per" id="pp-dur-per"></span>
+      </div>
+      <input type="range" id="pp-range">
+      <div class="pp-actions">
+        <button id="pp-cancel">✕ cancelar</button>
+        <button id="pp-start">▶ empezar</button>
+      </div>
+    </div>
+  </div>
   <div class="ps-foot">→ filas: la espiral desemboca en su master ★ · ↓ columnas: el mismo voicing por toda la armonía · ◆ E: la esquina donde todo converge · tempo libre · pica cualquier estación para entrar o saltar</div>
 </div>
 
@@ -22094,6 +22190,7 @@ function renderLandscapeStandby() {
       this.route = null;
       this._pending = null;
       this._queued = null;
+      this.sessionDwell = null;
       player._practiceQueuedSong = null;
       this._updateNextToast(0);
       this._shelfReset();
@@ -22473,9 +22570,12 @@ function renderLandscapeStandby() {
       this._requestStation(cands[Math.floor(Math.random() * cands.length)].id);
     },
 
+    // Duración por estación de ESTA sesión: si el pre-menú fijó un
+    // total, escala proporcionalmente; si no, el default de la ruta.
+    sessionDwell: null,
     _tick() {
       if (!this.active || !player.playing) return;   // pausa congela el reloj
-      const dwell = PRACTICE_DWELL[this.route];
+      const dwell = this.sessionDwell || PRACTICE_DWELL[this.route];
       if (!dwell || this.hold || this._pending) return;   // libre: sin reloj
       this._dwellSec++;
       if (this._dwellSec >= dwell) {
@@ -22596,9 +22696,17 @@ function renderLandscapeStandby() {
     html += '<div class="ps-rock rock"><div class="ps-lane-name">🎸 gimnasio rock — voicings físicos, fuera de la matriz</div><div class="ps-nodes">'
       + rocks.map(s => _psNode(s)).join('') + '</div></div>';
     lanes.innerHTML = html;
-    // Marcar la ruta activa en los botones del encabezado.
-    document.querySelectorAll('#practica-screen .ps-route').forEach(b =>
-      b.classList.toggle('on', practice.active && practice.route === b.dataset.route));
+    // Marcar la ruta activa y pintar la duración default en el subtítulo.
+    document.querySelectorAll('#practica-screen .ps-route').forEach(b => {
+      b.classList.toggle('on', practice.active && practice.route === b.dataset.route);
+      const sub = b.querySelector('.pr-sub');
+      if (sub) {
+        if (!sub.dataset.base) sub.dataset.base = sub.textContent;
+        const info = _routeInfo(b.dataset.route);
+        sub.textContent = sub.dataset.base + ' · '
+          + (info.lap ? 'vuelta ≈ ' : '≈ ') + _fmtDur(info.defSecs);
+      }
+    });
     // Las líneas se dibujan cuando el layout ya midió los orbes.
     requestAnimationFrame(_drawPsWires);
   }
@@ -22659,6 +22767,58 @@ function renderLandscapeStandby() {
   }
   function closePracticaScreen() {
     document.body.classList.remove('practica-select');
+    const pm = document.getElementById('ps-premenu');
+    if (pm) pm.hidden = true;
+  }
+
+  /* ── Pre-menú de ruta: duración visible y editable ── */
+  const ROUTE_TITLES = {
+    guiada:   ['▶ espiral', 'fila por fila, cada territorio corona en su master'],
+    columnas: ['⇊ vetas', 'un voicing bajado por toda la armonía, columna por columna'],
+    repaso:   ['★ masters de fila', 'carril rápido de repaso — da la vuelta'],
+    voicings: ['◈ masters de voicing', 'carril rápido vertical — da la vuelta'],
+    rock:     ['🎸 rock', 'el gimnasio físico: power, open, cejilla, mixto'],
+  };
+  function _routeInfo(r) {
+    const ord = PRACTICE_ORDERS[r] || [];
+    return {
+      n: ord.length,
+      defSecs: ord.length * (PRACTICE_DWELL[r] || 360),
+      lap: r === 'repaso' || r === 'voicings',
+    };
+  }
+  function _fmtDur(secs) {
+    const m = Math.round(secs / 60);
+    const h = Math.floor(m / 60);
+    return h ? (h + ' h' + (m % 60 ? ' ' + (m % 60) + ' m' : '')) : (m + ' min');
+  }
+  let _premenuRoute = null;
+  function openPremenu(r) {
+    const pm = document.getElementById('ps-premenu');
+    const info = _routeInfo(r);
+    if (!pm || !info.n) return;
+    _premenuRoute = r;
+    const t = ROUTE_TITLES[r] || [r, ''];
+    document.getElementById('pp-title').textContent = t[0];
+    document.getElementById('pp-desc').textContent = info.n + ' estaciones · ' + t[1];
+    const range = document.getElementById('pp-range');
+    // El slider mueve el TOTAL en pasos de 1 min/estación, de 2 a 10
+    // min por estación. El default es el de la ruta.
+    range.min = info.n * 2 * 60;
+    range.max = info.n * 10 * 60;
+    range.step = info.n * 60;
+    range.value = info.defSecs;
+    _updatePremenuDur();
+    pm.hidden = false;
+  }
+  function _updatePremenuDur() {
+    const range = document.getElementById('pp-range');
+    const info = _routeInfo(_premenuRoute || 'guiada');
+    const secs = +range.value;
+    document.getElementById('pp-dur-total').textContent =
+      (info.lap ? 'vuelta ≈ ' : '≈ ') + _fmtDur(secs);
+    document.getElementById('pp-dur-per').textContent =
+      Math.round(secs / info.n / 60) + ' min por estación';
   }
 
   (function wirePractica() {
@@ -22703,8 +22863,29 @@ function renderLandscapeStandby() {
             practice.route = r;
             practice._dwellSec = 0;
             practice._renderHud();
+            closePracticaScreen();
           } else {
-            practice.start(r);
+            // Pre-menú: duración visible y editable; nada suena hasta ▶.
+            openPremenu(r);
+          }
+          return;
+        }
+        if (e.target.closest('#pp-cancel')) {
+          document.getElementById('ps-premenu').hidden = true;
+          _premenuRoute = null;
+          return;
+        }
+        if (e.target.closest('#pp-start')) {
+          if (_premenuRoute) {
+            const secs = +document.getElementById('pp-range').value;
+            const info = _routeInfo(_premenuRoute);
+            practice.start(_premenuRoute);
+            // Solo fijar sessionDwell si difiere del default de la ruta.
+            const per = Math.round(secs / info.n);
+            if (per !== (PRACTICE_DWELL[_premenuRoute] || 360)) {
+              practice.sessionDwell = per;
+            }
+            _premenuRoute = null;
           }
           closePracticaScreen();
           return;
@@ -22724,6 +22905,8 @@ function renderLandscapeStandby() {
     on('ph-exit',     () => practice.exit('user'));
     on('pn-now',      () => practice._applyPendingNow());
     on('lp-info-practica', openPracticaScreen);
+    const ppRange = document.getElementById('pp-range');
+    if (ppRange) ppRange.addEventListener('input', _updatePremenuDur);
   })();
 
   /* ── Panel standby del teléfono (4to swipe) ── */
@@ -22752,7 +22935,12 @@ function renderLandscapeStandby() {
       });
     });
     const play = document.getElementById('ls-practica-play');
-    if (play) play.addEventListener('click', () => practice.start(_panelRoute));
+    if (play) play.addEventListener('click', () => {
+      // El play del panel también pasa por el pre-menú (duración
+      // visible/editable); nada suena hasta el ▶ de ahí.
+      openPracticaScreen();
+      openPremenu(_panelRoute);
+    });
     const map = document.getElementById('ls-practica-map');
     if (map) map.addEventListener('click', openPracticaScreen);
   })();
