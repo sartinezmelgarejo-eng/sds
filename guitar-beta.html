@@ -22792,33 +22792,88 @@ function renderLandscapeStandby() {
     const h = Math.floor(m / 60);
     return h ? (h + ' h' + (m % 60 ? ' ' + (m % 60) + ' m' : '')) : (m + ' min');
   }
-  let _premenuRoute = null;
-  function openPremenu(r) {
+  // Pre-menú genérico: rutas, vetas (masters de voicing) y estaciones
+  // sueltas (masters de fila / E) comparten la misma tarjeta.
+  let _premenuCfg = null;
+  function _showPremenu(cfg) {
     const pm = document.getElementById('ps-premenu');
-    const info = _routeInfo(r);
-    if (!pm || !info.n) return;
-    _premenuRoute = r;
-    const t = ROUTE_TITLES[r] || [r, ''];
-    document.getElementById('pp-title').textContent = t[0];
-    document.getElementById('pp-desc').textContent = info.n + ' estaciones · ' + t[1];
+    if (!pm) return;
+    _premenuCfg = cfg;
+    document.getElementById('pp-title').textContent = cfg.title;
+    document.getElementById('pp-desc').textContent = cfg.desc;
     const range = document.getElementById('pp-range');
-    // El slider mueve el TOTAL en pasos de 1 min/estación, de 2 a 10
-    // min por estación. El default es el de la ruta.
-    range.min = info.n * 2 * 60;
-    range.max = info.n * 10 * 60;
-    range.step = info.n * 60;
-    range.value = info.defSecs;
-    _updatePremenuDur();
+    if (cfg.n > 1) {
+      // El slider mueve el TOTAL en pasos de 1 min/estación, 2-10 min.
+      range.style.display = '';
+      range.min = cfg.n * 2 * 60;
+      range.max = cfg.n * 10 * 60;
+      range.step = cfg.n * 60;
+      range.value = cfg.defSecs;
+      _updatePremenuDur();
+    } else {
+      // Estación única: sin reloj de avance — no hay qué editar.
+      range.style.display = 'none';
+      document.getElementById('pp-dur-total').textContent = 'sin reloj';
+      document.getElementById('pp-dur-per').textContent =
+        'te quedas hasta que saltes tú (o ⚡/🗺)';
+    }
     pm.hidden = false;
   }
   function _updatePremenuDur() {
-    const range = document.getElementById('pp-range');
-    const info = _routeInfo(_premenuRoute || 'guiada');
-    const secs = +range.value;
+    if (!_premenuCfg || _premenuCfg.n <= 1) return;
+    const secs = +document.getElementById('pp-range').value;
     document.getElementById('pp-dur-total').textContent =
-      (info.lap ? 'vuelta ≈ ' : '≈ ') + _fmtDur(secs);
+      (_premenuCfg.lap ? 'vuelta ≈ ' : '≈ ') + _fmtDur(secs);
     document.getElementById('pp-dur-per').textContent =
-      Math.round(secs / info.n / 60) + ' min por estación';
+      Math.round(secs / _premenuCfg.n / 60) + ' min por estación';
+  }
+  function openPremenu(r) {
+    const info = _routeInfo(r);
+    if (!info.n) return;
+    const t = ROUTE_TITLES[r] || [r, ''];
+    _showPremenu({
+      title: t[0],
+      desc: info.n + ' estaciones · ' + t[1],
+      n: info.n,
+      defSecs: info.defSecs,
+      lap: info.lap,
+      start(secs) {
+        practice.start(r);
+        const per = Math.round(secs / info.n);
+        if (per !== (PRACTICE_DWELL[r] || 360)) practice.sessionDwell = per;
+      },
+    });
+  }
+  function openPremenuNode(st) {
+    if (st.row === 'V') {
+      // Master de voicing = SU VETA: baja la columna y corona en él.
+      const colSts = PRACTICE_STATIONS.filter(s =>
+        'ABCD'.includes(s.row) && s.col === st.col);
+      const ids = colSts.map(s => s.id.toUpperCase());
+      const n = colSts.length + 1;
+      _showPremenu({
+        title: '◈ ' + st.label,
+        desc: 'la veta completa: ' + ids.join(' → ') + ' → ★ — y de ahí sigue la columna vecina',
+        n,
+        defSecs: n * (PRACTICE_DWELL.columnas || 360),
+        lap: false,
+        start(secs) {
+          practice.start('columnas', colSts.length ? colSts[0].id : st.id);
+          const per = Math.round(secs / n);
+          if (per !== (PRACTICE_DWELL.columnas || 360)) practice.sessionDwell = per;
+        },
+      });
+    } else {
+      // Master de fila / E: estación única, sin reloj.
+      _showPremenu({
+        title: '★ ' + st.label,
+        desc: st.row === 'E'
+          ? 'el generador libre: toda la armonía, todos los voicings, con modulación'
+          : 'el examen de la fila ' + st.row + ': todos sus voicings sobre su armonía',
+        n: 1,
+        start() { practice.start('libre', st.id); },
+      });
+    }
   }
 
   (function wirePractica() {
@@ -22831,26 +22886,28 @@ function renderLandscapeStandby() {
         if (node) {
           const id = node.dataset.station;
           const st = PRACTICE_STATIONS.find(s => s.id === id);
-          if (st && st.row === 'V') {
-            // Picar un master de voicing = arrancar SU VETA completa:
-            // empieza arriba de la columna (p.ej. DROP-2 PRACTICE →
-            // a3 → b3 → c2 → d3) y corona en el master. La ruta queda
-            // en columnas para que ＋ siga bajando la veta.
-            const top = PRACTICE_STATIONS.find(s =>
-              'ABCD'.includes(s.row) && s.col === st.col);
-            if (practice.active) {
+          if (practice.active) {
+            // Con sesión sonando los saltos son fluidos, sin pre-menú.
+            if (st && st.row === 'V') {
+              // Master de voicing = su veta: ruta columnas desde arriba.
+              const top = PRACTICE_STATIONS.find(s =>
+                'ABCD'.includes(s.row) && s.col === st.col);
               practice.route = 'columnas';
               practice._dwellSec = 0;
               practice._requestStation(top ? top.id : id);
             } else {
-              practice.start('columnas', top ? top.id : id);
+              practice._requestStation(id);
             }
-          } else if (practice.active) {
-            practice._requestStation(id);
+            closePracticaScreen();
+          } else if (st && st.master) {
+            // Masters (de voicing, de fila y E): pre-menú con qué son y,
+            // donde aplica, duración editable. Nada suena hasta ▶.
+            openPremenuNode(st);
           } else {
+            // Estación suelta: entrada directa (libre, sin reloj).
             practice.start('libre', id);
+            closePracticaScreen();
           }
-          closePracticaScreen();
           return;
         }
         const route = e.target.closest('.ps-route');
@@ -22872,20 +22929,15 @@ function renderLandscapeStandby() {
         }
         if (e.target.closest('#pp-cancel')) {
           document.getElementById('ps-premenu').hidden = true;
-          _premenuRoute = null;
+          _premenuCfg = null;
           return;
         }
         if (e.target.closest('#pp-start')) {
-          if (_premenuRoute) {
+          if (_premenuCfg) {
             const secs = +document.getElementById('pp-range').value;
-            const info = _routeInfo(_premenuRoute);
-            practice.start(_premenuRoute);
-            // Solo fijar sessionDwell si difiere del default de la ruta.
-            const per = Math.round(secs / info.n);
-            if (per !== (PRACTICE_DWELL[_premenuRoute] || 360)) {
-              practice.sessionDwell = per;
-            }
-            _premenuRoute = null;
+            const cfg = _premenuCfg;
+            _premenuCfg = null;
+            cfg.start(secs);
           }
           closePracticaScreen();
           return;
