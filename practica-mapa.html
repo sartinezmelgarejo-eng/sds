@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Práctica — mapa de niveles</title>
+<style>
+  :root {
+    --bg: #16130e;
+    --panel: #201b13;
+    --panel-2: #2a2418;
+    --line: #3d3524;
+    --text: #f3ead8;
+    --muted: #a89877;
+    --gold: #e8b64c;
+    --jazz: #e8b64c;
+    --rock: #e07a54;
+    --teal: #6fc7b4;
+    --lila: #b18ae0;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Top bar ── */
+  #topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--line);
+    background: var(--panel);
+    flex-wrap: wrap;
+  }
+  #topbar h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 10px 0 0;
+    color: var(--gold);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .tb-btn {
+    border: 1.5px solid var(--line);
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tb-btn:hover { background: var(--panel-2); }
+  .tb-btn.primary { border-color: var(--gold); color: var(--gold); }
+  .tb-btn.on { background: var(--gold); color: #16130e; border-color: var(--gold); }
+  #hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-left: auto;
+    max-width: 380px;
+  }
+
+  /* ── Layout ── */
+  #main { display: flex; flex: 1; min-height: 0; }
+
+  /* ── Palette ── */
+  #palette {
+    width: 250px;
+    min-width: 250px;
+    overflow-y: auto;
+    border-right: 2px solid var(--line);
+    background: var(--panel);
+    padding: 8px;
+  }
+  .pal-group { margin-bottom: 6px; }
+  .pal-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 6px 4px;
+    font-size: 11.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    user-select: none;
+  }
+  .pal-head .arrow { transition: transform 0.15s; font-size: 9px; }
+  .pal-group.closed .arrow { transform: rotate(-90deg); }
+  .pal-group.closed .pal-chips { display: none; }
+  .pal-chips { display: flex; flex-wrap: wrap; gap: 5px; padding: 2px 2px 6px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: 1.5px solid var(--cc, var(--line));
+    color: var(--text);
+    background: var(--panel-2);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 999px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    white-space: nowrap;
+  }
+  .chip:active { cursor: grabbing; }
+  .chip .x {
+    display: none;
+    margin-left: 2px;
+    opacity: 0.6;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .card .chip .x { display: inline; }
+  #custom-row { display: flex; gap: 5px; padding: 2px; }
+  #custom-input {
+    flex: 1;
+    min-width: 0;
+    background: var(--panel-2);
+    border: 1.5px solid var(--line);
+    border-radius: 7px;
+    color: var(--text);
+    font: inherit;
+    font-size: 12px;
+    padding: 5px 8px;
+  }
+
+  /* ── Canvas ── */
+  #viewport { flex: 1; overflow: auto; position: relative; }
+  #canvas {
+    position: relative;
+    width: 4000px;
+    height: 2600px;
+    background-image: radial-gradient(circle, #2a2418 1.2px, transparent 1.2px);
+    background-size: 26px 26px;
+  }
+  #wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #wires line.hit { stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: pointer; }
+  #wires line.vis { stroke: var(--muted); stroke-width: 2; stroke-dasharray: 6 5; opacity: 0.7; }
+
+  /* ── Cards ── */
+  .card {
+    position: absolute;
+    width: 300px;
+    background: var(--panel);
+    border: 2px solid var(--cc, var(--gold));
+    border-radius: 12px;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+  }
+  .card.note { width: 230px; background: #2b2415; border-style: dashed; }
+  .card.route { width: 340px; }
+  .card.connect-src { outline: 3px solid var(--teal); outline-offset: 2px; }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px 4px;
+    cursor: grab;
+    touch-action: none;
+  }
+  .card-head:active { cursor: grabbing; }
+  .card-kind {
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--cc, var(--gold));
+    border: 1px solid var(--cc, var(--gold));
+    border-radius: 4px;
+    padding: 1px 5px;
+    flex-shrink: 0;
+  }
+  .card-title {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-size: 19px;
+    font-weight: 700;
+    flex: 1;
+    min-width: 0;
+    outline: none;
+    line-height: 1.15;
+  }
+  .card-title:empty::before { content: 'nombre…'; color: var(--muted); }
+  .card-btn {
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    padding: 2px 4px;
+    flex-shrink: 0;
+  }
+  .card-btn:hover { color: var(--text); }
+  .card-sub {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 12px 6px;
+    outline: none;
+    line-height: 1.4;
+  }
+  .card-sub:empty::before { content: 'descripción / meta del nivel…'; color: #6b5f47; }
+  .card .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    padding: 4px 10px 12px;
+    min-height: 34px;
+    border-top: 1px dashed var(--line);
+  }
+  .card.drop-ok { background: var(--panel-2); }
+
+  /* drag ghost */
+  #ghost {
+    position: fixed;
+    z-index: 999;
+    pointer-events: none;
+    opacity: 0.9;
+    transform: translate(-50%, -50%) rotate(-2deg);
+  }
+
+  /* toast */
+  #toast {
+    position: fixed;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--gold);
+    color: #16130e;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 8px 16px;
+    border-radius: 999px;
+    opacity: 0;
+    transition: opacity 0.25s;
+    pointer-events: none;
+    z-index: 1000;
+  }
+  #toast.show { opacity: 1; }
+
+  @media (max-width: 700px) {
+    #palette { width: 190px; min-width: 190px; }
+    #hint { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>Práctica · mapa de niveles</h1>
+  <button class="tb-btn primary" id="add-level">＋ nivel</button>
+  <button class="tb-btn primary" id="add-route">＋ ruta</button>
+  <button class="tb-btn" id="add-note">＋ nota</button>
+  <button class="tb-btn" id="connect-toggle">⤳ conectar</button>
+  <button class="tb-btn" id="seed">cargar los 8 actuales</button>
+  <button class="tb-btn" id="export">⬇ exportar</button>
+  <button class="tb-btn" id="import">⬆ importar</button>
+  <button class="tb-btn" id="clear">vaciar</button>
+  <div id="hint">Arrastra fichas de la izquierda a los niveles · doble-click en una línea la borra · todo se guarda solo en este navegador · expórtame el JSON (o mándame captura) cuando tengas tu visión armada.</div>
+</div>
+
+<div id="main">
+  <div id="palette"></div>
+  <div id="viewport">
+    <div id="canvas">
+      <svg id="wires"></svg>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file-in" accept=".json" style="display:none">
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   Herramienta de diseño del currículum de Práctica.
+   Todas las fichas de la paleta son los bloques REALES del app
+   (familias de voicing, voicings pro, nombres exactos de
+   progresiones del catálogo, estructuras, herramientas del motor)
+   para que el mapa que armes sea directamente implementable.
+   ══════════════════════════════════════════════════════════════ */
+
+const PALETTE = [
+  { name: 'Voicings guitarra', color: 'var(--jazz)', open: true, items: [
+    '🌰 Shells', '🔺 Triads', '✌️ 3rds+7ths', '🎷 Drop-2', '🎺 Drop-3',
+    '🏛️ Quartal', '🪷 Sus', '💧 Add9', '🎸 Strum (todo)',
+    '🤠 Open/cowboy', '🖐 Cejilla', '⚡ Power (R-5-R)',
+  ]},
+  { name: 'Voicings pro (piano)', color: 'var(--lila)', open: false, items: [
+    '🪞 Rootless A+B', '🌑 Powell Shell', '🗼 So What Full', '🌊 Mehldau 10th',
+    '🔺 UST V7#11', '🔻 UST V7alt', '🤝 Locked Hands', '🌋 McCoy Spread',
+    '🚂 Stride 10th', '👯 Phineas Octaves', '⛪ Gospel Quartal',
+    '🌙 Glasper ø', '🎩 Monk Cluster', '🎭 Polychord',
+  ]},
+  { name: 'Progresiones diatónicas', color: 'var(--jazz)', open: false, items: [
+    'ii–V–I', 'I–vi–ii–V (turnaround)', 'I–IV–V–I', 'Extended ii–V–I',
+    'iii–vi–ii–V–I', 'Deceptive ii–V–vi', 'IV–vii°–I (Bach)', 'Rhythm Changes A',
+  ]},
+  { name: 'Progresiones menores', color: 'var(--jazz)', open: false, items: [
+    'iiø–V7–i', 'iv–V7–i', 'i–iv–V7–i (long)', 'Autumn Leaves', 'Minor ii-V chain',
+    'i–bVII–bVI–V7 (Andalusian)', 'Andalusian extended', 'Andalusian with turn',
+    'Minor folk with cell',
+  ]},
+  { name: 'Blues', color: 'var(--teal)', open: false, items: [
+    '12-bar blues', '12-bar quick-change blues', 'Minor 12-bar blues',
+    'Minor blues fragment', 'Jazz blues with ii-V subs', 'Minor jazz blues',
+    'Bird-style blues last 4', 'Bird-style turnaround',
+  ]},
+  { name: 'Dominantes y subs', color: 'var(--teal)', open: false, items: [
+    'V/V – V – I', 'V/ii – ii – V – I', 'iii – V/ii – ii – V – I',
+    'Tritone sub turnaround', 'ii – bII7 – I', 'Sweet Georgia Brown turn',
+    'Apple turnaround V/iii', 'iiø–bII7–i (tritone sub)', 'iiø–V/V–V7–i',
+    'iiø–V7–iv–bII7–i',
+  ]},
+  { name: 'Rock / pop / clásico', color: 'var(--rock)', open: false, items: [
+    'I–V–vi–IV', 'vi–IV–I–V', '50s doo-wop I-vi-IV-V',
+    'Pachelbel I-V-vi-iii-IV-I-IV-V', 'I – iii – IV – iv (Creep)',
+    'Country I-IV-I-V', 'Pop ballad I–V–vi–IV ×2', 'Britpop strummer',
+    'Pop ballad V/V kick', 'Walk-up with V→V/vi', 'Mixolydian vamp I – bVII',
+    'I – iv – bVII – I', 'i – bVI – bVII – i (epic)', 'i – bIII – bVII – iv',
+    'i–iv–bVII–bIII', 'bVI–bVII–i',
+  ]},
+  { name: 'Estructuras', color: 'var(--lila)', open: false, items: [
+    'AABA', 'ABAB', 'ABABCB', 'AABB', 'ABA', 'BLUES 12', 'JAZZ BLUES 12', 'RANDOM',
+  ]},
+  { name: 'Tonos', color: 'var(--muted)', open: false, items: [
+    'solo C', 'C · F', '3 tonos', '5 tonos', 'todos los tonos',
+    'cycle cromático', 'cycle en 4as', 'tonos guitarreros (E A D G C)',
+  ]},
+  { name: 'Tempo y rampa', color: 'var(--muted)', open: false, items: [
+    '♩ 60–80', '♩ 70–95', '♩ 80–110', '♩ 90–130', '♩ 100–160',
+    'rampa normal (+2/30s)', 'rampa muy lento (+2/60s)', 'sin rampa',
+  ]},
+  { name: 'Herramientas del motor', color: 'var(--muted)', open: false, items: [
+    'sin modulación', 'con modulación', 'multichord bars', 'silencios / respiración',
+    'cambios de sección', 'quédate (hold)', 'sorpréndeme', 'bajo two-feel',
+    'bajo walking', 'count-in', 'subdivisiones rítmicas',
+  ]},
+];
+
+const COLORS = ['var(--jazz)', 'var(--rock)', 'var(--teal)', 'var(--lila)'];
+const LSKEY = 'practica-mapa-niveles';
+
+let cards = [];        // {id, kind:'nivel'|'ruta'|'nota', x, y, color, title, sub, chips:[{t,c}]}
+let wires = [];        // [idA, idB]
+let nextId = 1;
+let connectMode = false;
+let connectSrc = null;
+
+const canvas = document.getElementById('canvas');
+const viewport = document.getElementById('viewport');
+const wiresSvg = document.getElementById('wires');
+
+/* ── Toast ── */
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ── Palette ── */
+function buildPalette() {
+  const pal = document.getElementById('palette');
+  pal.innerHTML = '';
+  for (const g of PALETTE) {
+    const div = document.createElement('div');
+    div.className = 'pal-group' + (g.open ? '' : ' closed');
+    const head = document.createElement('div');
+    head.className = 'pal-head';
+    head.innerHTML = '<span class="arrow">▼</span> ' + g.name;
+    head.addEventListener('click', () => div.classList.toggle('closed'));
+    const chips = document.createElement('div');
+    chips.className = 'pal-chips';
+    for (const label of g.items) chips.appendChild(makeChip(label, g.color));
+    div.appendChild(head);
+    div.appendChild(chips);
+    pal.appendChild(div);
+  }
+  // Custom chip creator
+  const grp = document.createElement('div');
+  grp.className = 'pal-group';
+  grp.innerHTML = '<div class="pal-head"><span class="arrow">▼</span> Ficha libre</div>';
+  const row = document.createElement('div');
+  row.id = 'custom-row';
+  const inp = document.createElement('input');
+  inp.id = 'custom-input';
+  inp.placeholder = 'escribe y Enter…';
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && inp.value.trim()) {
+      grp.insertBefore(makeChip('✳️ ' + inp.value.trim(), 'var(--teal)'), row);
+      inp.value = '';
+    }
+  });
+  row.appendChild(inp);
+  grp.appendChild(row);
+  pal.appendChild(grp);
+}
+
+function makeChip(label, color) {
+  const c = document.createElement('span');
+  c.className = 'chip';
+  c.style.setProperty('--cc', color);
+  c.dataset.color = color;
+  c.textContent = label;
+  c.addEventListener('pointerdown', (e) => startChipDrag(e, c, /*fromCard*/ null));
+  return c;
+}
+
+/* ── Chip drag (pointer-based so it also works on touch/tablet) ── */
+let ghost = null, dragChip = null, dragFromCard = null;
+
+function startChipDrag(e, chipEl, fromCardId) {
+  if (e.target.classList.contains('x')) return;   // deleting, not dragging
+  e.preventDefault();
+  dragChip = { label: chipEl.textContent.replace(/✕$/, ''), color: chipEl.dataset.color };
+  dragFromCard = fromCardId;
+  ghost = chipEl.cloneNode(true);
+  ghost.id = 'ghost';
+  const x = ghost.querySelector('.x'); if (x) x.remove();
+  document.body.appendChild(ghost);
+  moveGhost(e);
+  window.addEventListener('pointermove', moveGhost);
+  window.addEventListener('pointerup', dropChip, { once: true });
+}
+function moveGhost(e) {
+  if (!ghost) return;
+  ghost.style.left = e.clientX + 'px';
+  ghost.style.top = e.clientY + 'px';
+  document.querySelectorAll('.card.drop-ok').forEach(c => c.classList.remove('drop-ok'));
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const card = el && el.closest ? el.closest('.card') : null;
+  if (card) card.classList.add('drop-ok');
+}
+function dropChip(e) {
+  window.removeEventListener('pointermove', moveGhost);
+  if (ghost) { ghost.remove(); ghost = null; }
+  document.querySelectorAll('.card.drop-ok').forEach(c => c.classList.remove('drop-ok'));
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const cardEl = el && el.closest ? el.closest('.card') : null;
+  if (cardEl && dragChip) {
+    const card = cards.find(c => c.id === +cardEl.dataset.id);
+    if (card) {
+      card.chips.push({ t: dragChip.label, c: dragChip.color });
+      // moving between cards: remove from source
+      if (dragFromCard != null && dragFromCard !== card.id) {
+        removeChipFromCard(dragFromCard, dragChip.label, true);
+      }
+      renderCard(card);
+      save();
+    }
+  }
+  dragChip = null;
+  dragFromCard = null;
+}
+function removeChipFromCard(cardId, label, skipRender) {
+  const card = cards.find(c => c.id === cardId);
+  if (!card) return;
+  const i = card.chips.findIndex(ch => ch.t === label);
+  if (i >= 0) card.chips.splice(i, 1);
+  if (!skipRender) { renderCard(card); save(); }
+}
+
+/* ── Cards ── */
+function addCard(kind, x, y, preset) {
+  const card = Object.assign({
+    id: nextId++,
+    kind,
+    x: x != null ? x : 80 + viewport.scrollLeft + Math.random() * 120,
+    y: y != null ? y : 80 + viewport.scrollTop + Math.random() * 120,
+    color: kind === 'ruta' ? 'var(--teal)' : 'var(--jazz)',
+    title: '',
+    sub: '',
+    chips: [],
+  }, preset || {});
+  cards.push(card);
+  renderCard(card);
+  save();
+  return card;
+}
+
+function renderCard(card) {
+  let el = canvas.querySelector('.card[data-id="' + card.id + '"]');
+  if (!el) {
+    el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.id = card.id;
+    canvas.appendChild(el);
+  }
+  el.classList.toggle('note', card.kind === 'nota');
+  el.classList.toggle('route', card.kind === 'ruta');
+  el.style.setProperty('--cc', card.color);
+  el.style.left = card.x + 'px';
+  el.style.top = card.y + 'px';
+  el.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'card-head';
+  const kind = document.createElement('span');
+  kind.className = 'card-kind';
+  kind.textContent = card.kind;
+  const title = document.createElement('div');
+  title.className = 'card-title';
+  title.contentEditable = 'true';
+  title.spellcheck = false;
+  title.textContent = card.title;
+  title.addEventListener('input', () => { card.title = title.textContent; saveSoon(); });
+  title.addEventListener('pointerdown', (e) => e.stopPropagation());
+  const paint = document.createElement('button');
+  paint.className = 'card-btn';
+  paint.textContent = '🎨';
+  paint.title = 'cambiar color';
+  paint.addEventListener('pointerdown', (e) => e.stopPropagation());
+  paint.addEventListener('click', () => {
+    card.color = COLORS[(COLORS.indexOf(card.color) + 1) % COLORS.length];
+    renderCard(card); save();
+  });
+  const del = document.createElement('button');
+  del.className = 'card-btn';
+  del.textContent = '✕';
+  del.title = 'borrar tarjeta';
+  del.addEventListener('pointerdown', (e) => e.stopPropagation());
+  del.addEventListener('click', () => {
+    cards = cards.filter(c => c.id !== card.id);
+    wires = wires.filter(w => w[0] !== card.id && w[1] !== card.id);
+    el.remove(); drawWires(); save();
+  });
+  head.appendChild(kind); head.appendChild(title);
+  head.appendChild(paint); head.appendChild(del);
+  head.addEventListener('pointerdown', (e) => startCardDrag(e, card, el));
+  el.appendChild(head);
+
+  if (card.kind !== 'nota') {
+    const sub = document.createElement('div');
+    sub.className = 'card-sub';
+    sub.contentEditable = 'true';
+    sub.spellcheck = false;
+    sub.textContent = card.sub;
+    sub.addEventListener('input', () => { card.sub = sub.textContent; saveSoon(); });
+    sub.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.appendChild(sub);
+  } else {
+    const sub = document.createElement('div');
+    sub.className = 'card-sub';
+    sub.contentEditable = 'true';
+    sub.spellcheck = false;
+    sub.textContent = card.sub;
+    sub.style.minHeight = '40px';
+    sub.addEventListener('input', () => { card.sub = sub.textContent; saveSoon(); });
+    sub.addEventListener('pointerdown', (e) => e.stopPropagation());
+    el.appendChild(sub);
+  }
+
+  if (card.kind !== 'nota') {
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    for (const ch of card.chips) {
+      const c = document.createElement('span');
+      c.className = 'chip';
+      c.style.setProperty('--cc', ch.c);
+      c.dataset.color = ch.c;
+      c.textContent = ch.t;
+      const x = document.createElement('span');
+      x.className = 'x';
+      x.textContent = '✕';
+      x.addEventListener('pointerdown', (e) => e.stopPropagation());
+      x.addEventListener('click', () => removeChipFromCard(card.id, ch.t));
+      c.appendChild(x);
+      c.addEventListener('pointerdown', (e) => startChipDrag(e, c, card.id));
+      chips.appendChild(c);
+    }
+    el.appendChild(chips);
+  }
+
+  el.addEventListener('click', () => { if (connectMode) pickForConnect(card, el); });
+  drawWires();
+}
+
+/* ── Card drag ── */
+function startCardDrag(e, card, el) {
+  if (connectMode) return;   // clicks select for connection instead
+  e.preventDefault();
+  const startX = e.clientX, startY = e.clientY;
+  const origX = card.x, origY = card.y;
+  function mv(ev) {
+    card.x = Math.max(0, origX + ev.clientX - startX);
+    card.y = Math.max(0, origY + ev.clientY - startY);
+    el.style.left = card.x + 'px';
+    el.style.top = card.y + 'px';
+    drawWires();
+  }
+  function up() {
+    window.removeEventListener('pointermove', mv);
+    save();
+  }
+  window.addEventListener('pointermove', mv);
+  window.addEventListener('pointerup', up, { once: true });
+}
+
+/* ── Connections ── */
+function pickForConnect(card, el) {
+  if (!connectSrc) {
+    connectSrc = card.id;
+    el.classList.add('connect-src');
+    toast('ahora pica la tarjeta destino');
+    return;
+  }
+  if (connectSrc !== card.id) {
+    const exists = wires.some(w =>
+      (w[0] === connectSrc && w[1] === card.id) || (w[1] === connectSrc && w[0] === card.id));
+    if (!exists) wires.push([connectSrc, card.id]);
+    drawWires(); save();
+  }
+  document.querySelectorAll('.connect-src').forEach(c => c.classList.remove('connect-src'));
+  connectSrc = null;
+}
+function cardCenter(id) {
+  const c = cards.find(x => x.id === id);
+  if (!c) return null;
+  const el = canvas.querySelector('.card[data-id="' + id + '"]');
+  const w = el ? el.offsetWidth : 300, h = el ? el.offsetHeight : 120;
+  return [c.x + w / 2, c.y + h / 2];
+}
+function drawWires() {
+  wiresSvg.innerHTML = '';
+  for (let i = 0; i < wires.length; i++) {
+    const a = cardCenter(wires[i][0]), b = cardCenter(wires[i][1]);
+    if (!a || !b) continue;
+    for (const cls of ['vis', 'hit']) {
+      const ln = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      ln.setAttribute('x1', a[0]); ln.setAttribute('y1', a[1]);
+      ln.setAttribute('x2', b[0]); ln.setAttribute('y2', b[1]);
+      ln.setAttribute('class', cls);
+      if (cls === 'hit') {
+        ln.dataset.idx = i;
+        ln.addEventListener('dblclick', () => { wires.splice(i, 1); drawWires(); save(); });
+      }
+      wiresSvg.appendChild(ln);
+    }
+  }
+}
+
+/* ── Persistence ── */
+let saveTimer = null;
+function saveSoon() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); }
+function save() {
+  try {
+    localStorage.setItem(LSKEY, JSON.stringify({ cards, wires, nextId }));
+  } catch (e) {}
+}
+function load() {
+  try {
+    const raw = localStorage.getItem(LSKEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    cards = data.cards || [];
+    wires = data.wires || [];
+    nextId = data.nextId || (Math.max(0, ...cards.map(c => c.id)) + 1);
+    for (const c of cards) renderCard(c);
+    drawWires();
+    return cards.length > 0;
+  } catch (e) { return false; }
+}
+
+/* ── Seed: the 8 current stations ── */
+function seed() {
+  const J = 'var(--jazz)', R = 'var(--rock)', M = 'var(--muted)', T = 'var(--teal)';
+  const rows = [
+    { kind: 'nivel', x: 60,   y: 60,  color: J, title: 'J1 · shells', sub: 'diatónico puro, dos tonos amigos',
+      chips: [{t:'🌰 Shells',c:J},{t:'ii–V–I',c:J},{t:'I–vi–ii–V (turnaround)',c:J},{t:'I–IV–V–I',c:J},{t:'C · F',c:M},{t:'♩ 60–80',c:M},{t:'AABA',c:'var(--lila)'},{t:'sin modulación',c:M}] },
+    { kind: 'nivel', x: 400,  y: 60,  color: J, title: 'J2 · + triadas', sub: 'entra el modo menor',
+      chips: [{t:'🌰 Shells',c:J},{t:'🔺 Triads',c:J},{t:'iiø–V7–i',c:J},{t:'IV–vii°–I (Bach)',c:J},{t:'Rhythm Changes A',c:J},{t:'5 tonos',c:M},{t:'♩ 70–95',c:M}] },
+    { kind: 'nivel', x: 740,  y: 60,  color: J, title: 'J3 · drop-2 + blues', sub: 'la forma de 12 compases',
+      chips: [{t:'🎷 Drop-2',c:J},{t:'12-bar blues',c:T},{t:'12-bar quick-change blues',c:T},{t:'Minor 12-bar blues',c:T},{t:'Autumn Leaves',c:J},{t:'♩ 80–110',c:M},{t:'BLUES 12',c:'var(--lila)'}] },
+    { kind: 'nivel', x: 1080, y: 60,  color: J, title: 'J4 · subs y quartal', sub: 'fuera de la tonalidad',
+      chips: [{t:'🎺 Drop-3',c:J},{t:'🏛️ Quartal',c:J},{t:'Tritone sub turnaround',c:T},{t:'Jazz blues with ii-V subs',c:T},{t:'Minor jazz blues',c:T},{t:'V/V – V – I',c:T},{t:'todos los tonos',c:M},{t:'♩ 90–130',c:M}] },
+    { kind: 'nivel', x: 1420, y: 60,  color: J, title: 'J5 · todo mezclado', sub: 'el generador libre + rampa',
+      chips: [{t:'🎭 Polychord',c:'var(--lila)'},{t:'🪞 Rootless A+B',c:'var(--lila)'},{t:'RANDOM',c:'var(--lila)'},{t:'con modulación',c:M},{t:'todos los tonos',c:M},{t:'♩ 100–160',c:M}] },
+    { kind: 'nivel', x: 60,   y: 430, color: R, title: 'R1 · power chords', sub: 'quintas garantizadas',
+      chips: [{t:'⚡ Power (R-5-R)',c:R},{t:'i – bVI – bVII – i (epic)',c:R},{t:'Mixolydian vamp I – bVII',c:R},{t:'tonos guitarreros (E A D G C)',c:M},{t:'♩ 85–120',c:M}] },
+    { kind: 'nivel', x: 400,  y: 430, color: R, title: 'R2 · abiertos y cejilla', sub: 'el cancionero pop-rock',
+      chips: [{t:'🤠 Open/cowboy',c:R},{t:'🖐 Cejilla',c:R},{t:'💧 Add9',c:J},{t:'I–V–vi–IV',c:R},{t:'Pachelbel I-V-vi-iii-IV-I-IV-V',c:R},{t:'i–bVII–bVI–V7 (Andalusian)',c:J},{t:'♩ 80–115',c:M}] },
+    { kind: 'nivel', x: 740,  y: 430, color: R, title: 'R3 · mixto + secciones', sub: 'verso-coro-puente',
+      chips: [{t:'🎸 Strum (todo)',c:R},{t:'🔺 Triads',c:J},{t:'🪷 Sus',c:J},{t:'ABABCB',c:'var(--lila)'},{t:'cambios de sección',c:M},{t:'todos los tonos',c:M},{t:'♩ 90–135',c:M}] },
+  ];
+  const made = rows.map(r => addCard(r.kind, r.x, r.y, r));
+  for (let i = 0; i < 4; i++) wires.push([made[i].id, made[i + 1].id]);
+  for (let i = 5; i < 7; i++) wires.push([made[i].id, made[i + 1].id]);
+  drawWires(); save();
+  toast('cargados los 8 niveles actuales — edítalos a gusto');
+}
+
+/* ── Top bar wiring ── */
+document.getElementById('add-level').addEventListener('click', () => addCard('nivel'));
+document.getElementById('add-route').addEventListener('click', () => addCard('ruta'));
+document.getElementById('add-note').addEventListener('click', () => addCard('nota'));
+document.getElementById('connect-toggle').addEventListener('click', (e) => {
+  connectMode = !connectMode;
+  e.currentTarget.classList.toggle('on', connectMode);
+  document.querySelectorAll('.connect-src').forEach(c => c.classList.remove('connect-src'));
+  connectSrc = null;
+  toast(connectMode ? 'modo conectar: pica origen y luego destino' : 'modo conectar apagado');
+});
+document.getElementById('seed').addEventListener('click', seed);
+document.getElementById('clear').addEventListener('click', () => {
+  if (!cards.length) return;
+  cards = []; wires = [];
+  canvas.querySelectorAll('.card').forEach(c => c.remove());
+  drawWires(); save();
+  toast('lienzo vacío');
+});
+document.getElementById('export').addEventListener('click', () => {
+  const json = JSON.stringify({ cards, wires }, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'practica-mapa.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(
+      () => toast('JSON descargado y copiado al portapapeles'),
+      () => toast('JSON descargado'));
+  } else toast('JSON descargado');
+});
+document.getElementById('import').addEventListener('click', () =>
+  document.getElementById('file-in').click());
+document.getElementById('file-in').addEventListener('change', (e) => {
+  const f = e.target.files[0];
+  if (!f) return;
+  f.text().then(txt => {
+    try {
+      const data = JSON.parse(txt);
+      cards = data.cards || [];
+      wires = data.wires || [];
+      nextId = Math.max(0, ...cards.map(c => c.id)) + 1;
+      canvas.querySelectorAll('.card').forEach(c => c.remove());
+      for (const c of cards) renderCard(c);
+      drawWires(); save();
+      toast('mapa importado');
+    } catch (err) { toast('ese archivo no parece un mapa'); }
+  });
+  e.target.value = '';
+});
+
+/* ── Boot ── */
+buildPalette();
+if (!load()) {
+  addCard('nota', 120, 90, {
+    sub: 'Arrastra fichas de la izquierda a niveles nuevos. "cargar los 8 actuales" trae el currículum que ya está en el app como punto de partida. Cuando tengas tu visión, exporta el JSON y me lo pasas.',
+  });
+}
+</script>
+</body>
+</html>
