@@ -167,6 +167,8 @@
     border: 2px solid var(--cc, var(--gold));
     border-radius: 12px;
     box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+    touch-action: none;   /* whole card drags; without this touch scrolls instead */
+    cursor: grab;
   }
   .card.note { width: 230px; background: #2b2415; border-style: dashed; }
   .card.route { width: 340px; }
@@ -455,8 +457,20 @@ function startChipDrag(e, chipEl, fromCardId) {
   const x = ghost.querySelector('.x'); if (x) x.remove();
   document.body.appendChild(ghost);
   moveGhost(e);
+  try { chipEl.setPointerCapture(e.pointerId); } catch (err) {}
   window.addEventListener('pointermove', moveGhost);
   window.addEventListener('pointerup', dropChip, { once: true });
+  window.addEventListener('pointercancel', cancelChipDrag, { once: true });
+}
+function cancelChipDrag() {
+  // Touch gesture hijacked mid-drag (pointercancel): clean up without
+  // dropping, or the ghost + listeners would stay stuck forever.
+  window.removeEventListener('pointermove', moveGhost);
+  window.removeEventListener('pointerup', dropChip);
+  if (ghost) { ghost.remove(); ghost = null; }
+  document.querySelectorAll('.card.drop-ok').forEach(c => c.classList.remove('drop-ok'));
+  dragChip = null;
+  dragFromCard = null;
 }
 function moveGhost(e) {
   if (!ghost) return;
@@ -469,6 +483,7 @@ function moveGhost(e) {
 }
 function dropChip(e) {
   window.removeEventListener('pointermove', moveGhost);
+  window.removeEventListener('pointercancel', cancelChipDrag);
   if (ghost) { ghost.remove(); ghost = null; }
   document.querySelectorAll('.card.drop-ok').forEach(c => c.classList.remove('drop-ok'));
   const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -542,7 +557,6 @@ function renderCard(card) {
   title.spellcheck = false;
   title.textContent = card.title;
   title.addEventListener('input', () => { card.title = title.textContent; saveSoon(); });
-  title.addEventListener('pointerdown', (e) => e.stopPropagation());
   const paint = document.createElement('button');
   paint.className = 'card-btn';
   paint.textContent = '🎨';
@@ -564,29 +578,21 @@ function renderCard(card) {
   });
   head.appendChild(kind); head.appendChild(title);
   head.appendChild(paint); head.appendChild(del);
-  head.addEventListener('pointerdown', (e) => startCardDrag(e, card, el));
   el.appendChild(head);
+  // The WHOLE card drags (onpointerdown so re-renders don't stack
+  // handlers). Chips and buttons opt out inside startCardDrag; the
+  // editable texts still get focus when the gesture turns out to be a
+  // click (no movement) — see the up() handler.
+  el.onpointerdown = (e) => startCardDrag(e, card, el);
 
-  if (card.kind !== 'nota') {
-    const sub = document.createElement('div');
-    sub.className = 'card-sub';
-    sub.contentEditable = 'true';
-    sub.spellcheck = false;
-    sub.textContent = card.sub;
-    sub.addEventListener('input', () => { card.sub = sub.textContent; saveSoon(); });
-    sub.addEventListener('pointerdown', (e) => e.stopPropagation());
-    el.appendChild(sub);
-  } else {
-    const sub = document.createElement('div');
-    sub.className = 'card-sub';
-    sub.contentEditable = 'true';
-    sub.spellcheck = false;
-    sub.textContent = card.sub;
-    sub.style.minHeight = '40px';
-    sub.addEventListener('input', () => { card.sub = sub.textContent; saveSoon(); });
-    sub.addEventListener('pointerdown', (e) => e.stopPropagation());
-    el.appendChild(sub);
-  }
+  const sub = document.createElement('div');
+  sub.className = 'card-sub';
+  sub.contentEditable = 'true';
+  sub.spellcheck = false;
+  sub.textContent = card.sub;
+  if (card.kind === 'nota') sub.style.minHeight = '40px';
+  sub.addEventListener('input', () => { card.sub = sub.textContent; saveSoon(); });
+  el.appendChild(sub);
 
   if (card.kind !== 'nota') {
     const chips = document.createElement('div');
@@ -610,29 +616,53 @@ function renderCard(card) {
     el.appendChild(chips);
   }
 
-  el.addEventListener('click', () => { if (connectMode) pickForConnect(card, el); });
+  // onclick (not addEventListener) so re-renders don't stack handlers;
+  // _dragMoved skips the click that the browser fires right after a drag.
+  el.onclick = () => {
+    if (connectMode && !el._dragMoved) pickForConnect(card, el);
+  };
   drawWires();
 }
 
 /* ── Card drag ── */
+let topZ = 10;
 function startCardDrag(e, card, el) {
-  if (connectMode) return;   // clicks select for connection instead
-  e.preventDefault();
+  // Chips drag themselves; buttons are buttons.
+  if (e.target.closest('.chip') || e.target.closest('.card-btn')) return;
+  const editable = e.target.isContentEditable;
+  // Don't preventDefault on editable text: the native pointerdown is what
+  // places the caret. Dragging from there still works via the listeners.
+  if (!editable) e.preventDefault();
   const startX = e.clientX, startY = e.clientY;
   const origX = card.x, origY = card.y;
+  let moved = false;
+  el.style.zIndex = ++topZ;   // bring to front so overlapped cards don't steal the grab
+  // Pointer capture: on touch, without this a scroll gesture can hijack
+  // the pointer (pointercancel) and the card would stick to the finger.
+  try { el.setPointerCapture(e.pointerId); } catch (err) {}
   function mv(ev) {
-    card.x = Math.max(0, origX + ev.clientX - startX);
-    card.y = Math.max(0, origY + ev.clientY - startY);
+    const dx = ev.clientX - startX, dy = ev.clientY - startY;
+    if (!moved && Math.abs(dx) + Math.abs(dy) <= 4) return;   // click jitter
+    moved = true;
+    card.x = Math.max(0, origX + dx);
+    card.y = Math.max(0, origY + dy);
     el.style.left = card.x + 'px';
     el.style.top = card.y + 'px';
     drawWires();
   }
   function up() {
-    window.removeEventListener('pointermove', mv);
-    save();
+    el.removeEventListener('pointermove', mv);
+    el.removeEventListener('pointerup', up);
+    el.removeEventListener('pointercancel', up);
+    try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+    el._dragMoved = moved;
+    setTimeout(() => { el._dragMoved = false; }, 0);
+    if (moved) save();
+    else if (editable) e.target.focus();   // click on text = edit
   }
-  window.addEventListener('pointermove', mv);
-  window.addEventListener('pointerup', up, { once: true });
+  el.addEventListener('pointermove', mv);
+  el.addEventListener('pointerup', up);
+  el.addEventListener('pointercancel', up);
 }
 
 /* ── Connections ── */
