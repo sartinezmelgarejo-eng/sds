@@ -17054,6 +17054,16 @@ class Player {
       }
       this.totalBars++;
       this.barsRemaining--;
+      // Práctica: los cambios de estación pendientes SOLO aterrizan en
+      // fronteras de página (múltiplos de 4 compases) — el compás que
+      // está por sonar abre página nueva de la tira, así que el swap
+      // nunca corta una frase a la mitad. Los fines de ciclo de
+      // progresión ya caen aquí solos (los largos del catálogo son
+      // múltiplos de 4).
+      if (window.practice && window.practice.active && window.practice._pending
+          && this.totalBars % 4 === 0) {
+        window.practice._applyPendingNow();
+      }
       // Anchored loops (bars-4 or section): snap back to the
       // loopAnchor captured at the moment the user enabled the loop.
       // bars-4 loops the 4 visible strip cells; section loops the
@@ -21606,6 +21616,7 @@ function renderLandscapeStandby() {
     route: null,          // 'guiada' | 'repaso' | 'rock' | 'libre'
     stationId: null,
     hold: false,          // quédate — suspende el auto-avance
+    _pending: null,       // estación en espera de frontera de página (múltiplo de 4)
     _snap: null,
     _dwellSec: 0,
     _timer: null,
@@ -21679,6 +21690,7 @@ function renderLandscapeStandby() {
       this.hold = false;
       this.stationId = null;
       this.route = null;
+      this._pending = null;
       document.body.classList.remove('practica-on');
       document.body.classList.remove('practica-select');
       if (typeof renderAll === 'function') renderAll();
@@ -21688,11 +21700,30 @@ function renderLandscapeStandby() {
       if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
     },
 
+    // Pide un cambio de estación respetando la música: si está sonando,
+    // queda pendiente y el scheduler lo aplica en la próxima frontera de
+    // página (nunca a media frase); en silencio/pausa aplica de una vez.
+    _requestStation(id) {
+      if (!this.active || id === this.stationId) return;
+      if (player.playing) {
+        this._pending = id;
+        this._renderHud();
+      } else {
+        this.applyStation(id);
+      }
+    },
+    _applyPendingNow() {
+      const id = this._pending;
+      this._pending = null;
+      if (id) this.applyStation(id);
+    },
+
     applyStation(id, opts) {
       const st = _stationById(id);
       if (!st || !this.active) return;
       const regen = !(opts && opts.regen === false);
       this.stationId = id;
+      this._pending = null;
       this._dwellSec = 0;
       this._selfChange = true;
       voicingPrefSet = st.voicings ? new Set(st.voicings) : new Set(VOICING_TYPE_IDS);
@@ -21754,8 +21785,8 @@ function renderLandscapeStandby() {
 
     harder() {
       if (!this.active) return;
-      const nxt = this._nextOf(this.stationId);
-      if (nxt) this.applyStation(nxt);
+      const nxt = this._nextOf(this._pending || this.stationId);
+      if (nxt) this._requestStation(nxt);
       else { this._dwellSec = 0; this._renderHud(); }
     },
     stay() {
@@ -21767,17 +21798,17 @@ function renderLandscapeStandby() {
     surprise() {
       if (!this.active) return;
       const cands = PRACTICE_STATIONS.filter(s => s.id !== this.stationId);
-      this.applyStation(cands[Math.floor(Math.random() * cands.length)].id);
+      this._requestStation(cands[Math.floor(Math.random() * cands.length)].id);
     },
 
     _tick() {
       if (!this.active || !player.playing) return;   // pausa congela el reloj
       const dwell = PRACTICE_DWELL[this.route];
-      if (!dwell || this.hold) return;               // libre: sin reloj
+      if (!dwell || this.hold || this._pending) return;   // libre: sin reloj
       this._dwellSec++;
       if (this._dwellSec >= dwell) {
         const nxt = this._nextOf(this.stationId);
-        if (nxt) this.applyStation(nxt);
+        if (nxt) this._requestStation(nxt);
         else this._dwellSec = 0;
       }
     },
@@ -21786,9 +21817,12 @@ function renderLandscapeStandby() {
       const st = _stationById(this.stationId);
       const lbl = document.getElementById('ph-label');
       if (lbl) {
-        lbl.textContent = st
+        let txt = st
           ? (st.master ? '★ ' + st.label : st.id.toUpperCase() + ' · ' + st.label)
           : 'práctica';
+        const pend = this._pending && _stationById(this._pending);
+        if (pend) txt += ' ⇢ ' + (pend.master ? '★ ' + pend.label : pend.id.toUpperCase());
+        lbl.textContent = txt;
       }
       const dots = document.getElementById('ph-dots');
       if (dots && st) {
@@ -21864,7 +21898,7 @@ function renderLandscapeStandby() {
         const node = e.target.closest('.ps-node');
         if (node) {
           const id = node.dataset.station;
-          if (practice.active) practice.applyStation(id);
+          if (practice.active) practice._requestStation(id);
           else practice.start('libre', id);
           closePracticaScreen();
           return;
