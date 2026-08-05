@@ -5529,10 +5529,66 @@ body.practica-select #practica-screen { display: flex; }
   outline: 3px solid #f3ead8;
   outline-offset: 2px;
 }
-#practica-screen .ps-lane.gold { --ps-c: #e8b64c; }
-#practica-screen .ps-lane.teal { --ps-c: #6fc7b4; }
-#practica-screen .ps-lane.lila { --ps-c: #b18ae0; }
-#practica-screen .ps-lane.rock { --ps-c: #e07a54; }
+#practica-screen .gold { --ps-c: #e8b64c; }
+#practica-screen .teal { --ps-c: #6fc7b4; }
+#practica-screen .lila { --ps-c: #b18ae0; }
+#practica-screen .rock { --ps-c: #e07a54; }
+
+/* ── La matriz: filas × columnas con masters en los dos bordes ── */
+#practica-screen .ps-matrix-wrap { overflow-x: auto; padding-bottom: 4px; }
+#practica-screen .ps-matrix {
+  display: grid;
+  grid-template-columns: minmax(120px, auto) repeat(5, minmax(104px, 1fr)) minmax(150px, auto);
+  gap: 8px 10px;
+  align-items: stretch;
+  min-width: 900px;
+  margin-bottom: 22px;
+}
+#practica-screen .ps-colhead {
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #a89877;
+  align-self: end;
+  padding: 0 4px 5px;
+  text-align: center;
+}
+#practica-screen .ps-colhead-m { color: #e8b64c; text-align: center; }
+#practica-screen .ps-rowlab {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #a89877;
+  padding-right: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+#practica-screen .ps-rowlab-tag {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--ps-c, #e8b64c);
+  line-height: 1;
+}
+#practica-screen .ps-cell { display: flex; min-width: 0; }
+#practica-screen .ps-cell .ps-node { width: 100%; min-width: 0; }
+#practica-screen .ps-empty {
+  margin: auto;
+  color: #3d3524;
+  font-size: 20px;
+  line-height: 1;
+}
+#practica-screen .ps-cell-e .ps-node .ps-node-name { font-size: 14px; }
+#practica-screen .ps-rock .ps-lane-name { margin-bottom: 8px; }
+#practica-screen .ps-node .ps-node-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
 #practica-screen .ps-foot {
   padding: 10px 18px max(12px, env(safe-area-inset-bottom));
   border-top: 2px solid #3d3524;
@@ -5871,13 +5927,15 @@ body.practica-on #landscape-play .lp-practica-label {
 <div id="practica-screen" aria-hidden="true">
   <div class="ps-head">
     <div class="ps-title">◆ Práctica</div>
-    <button class="ps-route" data-route="guiada">▶ guiada · toda la espiral</button>
-    <button class="ps-route" data-route="repaso">★ repaso · solo masters</button>
-    <button class="ps-route" data-route="rock">🎸 rock · gimnasio</button>
+    <button class="ps-route" data-route="guiada" title="territorio por territorio, con su master">▶ espiral · filas</button>
+    <button class="ps-route" data-route="columnas" title="un voicing bajado por toda la armonía">⇊ vetas · columnas</button>
+    <button class="ps-route" data-route="repaso" title="carril rápido: masters de fila">★ masters de fila</button>
+    <button class="ps-route" data-route="voicings" title="carril rápido: masters de voicing">◈ masters de voicing</button>
+    <button class="ps-route" data-route="rock" title="gimnasio físico">🎸 rock</button>
     <button class="ps-close" id="ps-close" title="cerrar">✕</button>
   </div>
   <div class="ps-lanes" id="ps-lanes"></div>
-  <div class="ps-foot">tempo libre — usa el BPM de siempre · cada loop rueda a un tono nuevo · pica cualquier estación para entrar (o saltar) ahí</div>
+  <div class="ps-foot">→ filas: la espiral desemboca en su master ★ · ↓ columnas: el mismo voicing por toda la armonía · ◆ E: la esquina donde todo converge · tempo libre · pica cualquier estación para entrar o saltar</div>
 </div>
 
 <!-- Práctica HUD — fixed pill, bottom-right, only under body.practica-on.
@@ -15007,36 +15065,51 @@ const PRACTICE_POOLS = {
 const PRACTICE_LADDER_FULL = ['shell','triad','drop2','drop3','quartal','guide'];
 const PRACTICE_STATIONS = [
   // ── Row A · diatónico mayor ──
-  {id:'a1', row:'A', rowName:'diatónico mayor', label:'shells',  voicings:['shell'],  pool:'diatonic', tonalities:['major'], keys:'all'},
-  {id:'a2', row:'A', rowName:'diatónico mayor', label:'triadas', voicings:['triad'],  pool:'diatonic', tonalities:['major'], keys:'all'},
-  {id:'a3', row:'A', rowName:'diatónico mayor', label:'drop-2',  voicings:['drop2'],  pool:'diatonic', tonalities:['major'], keys:'all'},
-  {id:'a4', row:'A', rowName:'diatónico mayor', label:'drop-3',  voicings:['drop3'],  pool:'diatonic', tonalities:['major'], keys:'all'},
-  {id:'a5', row:'A', rowName:'diatónico mayor', label:'color',   voicings:['quartal','guide'], pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a1', row:'A', rowName:'diatónico mayor', label:'shells', col:1,  voicings:['shell'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a2', row:'A', rowName:'diatónico mayor', label:'triadas', col:2, voicings:['triad'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a3', row:'A', rowName:'diatónico mayor', label:'drop-2', col:3,  voicings:['drop2'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a4', row:'A', rowName:'diatónico mayor', label:'drop-3', col:4,  voicings:['drop3'],  pool:'diatonic', tonalities:['major'], keys:'all'},
+  {id:'a5', row:'A', rowName:'diatónico mayor', label:'color', col:5,   voicings:['quartal','guide'], pool:'diatonic', tonalities:['major'], keys:'all'},
   {id:'am', row:'A', rowName:'diatónico mayor', label:'MASTER DIATONICS', master:true,
    voicings:PRACTICE_LADDER_FULL, pool:'diatonic', tonalities:['major'], keys:'all'},
   // ── Row B · menor ──
-  {id:'b1', row:'B', rowName:'menor', label:'shells',  voicings:['shell'],  pool:'minor', tonalities:['minor'], keys:'all'},
-  {id:'b2', row:'B', rowName:'menor', label:'triadas', voicings:['triad'],  pool:'minor', tonalities:['minor'], keys:'all'},
-  {id:'b3', row:'B', rowName:'menor', label:'drop-2',  voicings:['drop2'],  pool:'minor', tonalities:['minor'], keys:'all'},
-  {id:'b4', row:'B', rowName:'menor', label:'drop-3',  voicings:['drop3'],  pool:'minor', tonalities:['minor'], keys:'all'},
-  {id:'b5', row:'B', rowName:'menor', label:'color',   voicings:['quartal','guide'], pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b1', row:'B', rowName:'menor', label:'shells', col:1,  voicings:['shell'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b2', row:'B', rowName:'menor', label:'triadas', col:2, voicings:['triad'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b3', row:'B', rowName:'menor', label:'drop-2', col:3,  voicings:['drop2'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b4', row:'B', rowName:'menor', label:'drop-3', col:4,  voicings:['drop3'],  pool:'minor', tonalities:['minor'], keys:'all'},
+  {id:'b5', row:'B', rowName:'menor', label:'color', col:5,   voicings:['quartal','guide'], pool:'minor', tonalities:['minor'], keys:'all'},
   {id:'bm', row:'B', rowName:'menor', label:'MINOR PRACTICE', master:true,
    voicings:PRACTICE_LADDER_FULL, pool:'minor', tonalities:['minor'], keys:'all'},
   // ── Row C · blues (only idiomatic voicings — no triads/quartal) ──
-  {id:'c1', row:'C', rowName:'blues', label:'shells', voicings:['shell'], pool:'blues', tonalities:['major','minor'], keys:'all'},
-  {id:'c2', row:'C', rowName:'blues', label:'drop-2', voicings:['drop2'], pool:'blues', tonalities:['major','minor'], keys:'all'},
-  {id:'c3', row:'C', rowName:'blues', label:'drop-3', voicings:['drop3'], pool:'blues', tonalities:['major','minor'], keys:'all'},
-  {id:'c4', row:'C', rowName:'blues', label:'grips',  voicings:['strum'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c1', row:'C', rowName:'blues', label:'shells', col:1, voicings:['shell'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c2', row:'C', rowName:'blues', label:'drop-2', col:3, voicings:['drop2'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c3', row:'C', rowName:'blues', label:'drop-3', col:4, voicings:['drop3'], pool:'blues', tonalities:['major','minor'], keys:'all'},
+  {id:'c4', row:'C', rowName:'blues', label:'grips', col:5,  voicings:['strum'], pool:'blues', tonalities:['major','minor'], keys:'all'},
   {id:'cm', row:'C', rowName:'blues', label:'BLUES MASTER', master:true,
    voicings:['shell','drop2','drop3','strum'], pool:'blues', tonalities:['major','minor'], keys:'all'},
   // ── Row D · subs y secundarios ──
-  {id:'d1', row:'D', rowName:'subs y secundarios', label:'shells',  voicings:['shell'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
-  {id:'d2', row:'D', rowName:'subs y secundarios', label:'triadas', voicings:['triad'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
-  {id:'d3', row:'D', rowName:'subs y secundarios', label:'drop-2',  voicings:['drop2'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
-  {id:'d4', row:'D', rowName:'subs y secundarios', label:'drop-3',  voicings:['drop3'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
-  {id:'d5', row:'D', rowName:'subs y secundarios', label:'color',   voicings:['quartal','guide'], pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d1', row:'D', rowName:'subs y secundarios', label:'shells', col:1,  voicings:['shell'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d2', row:'D', rowName:'subs y secundarios', label:'triadas', col:2, voicings:['triad'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d3', row:'D', rowName:'subs y secundarios', label:'drop-2', col:3,  voicings:['drop2'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d4', row:'D', rowName:'subs y secundarios', label:'drop-3', col:4,  voicings:['drop3'],  pool:'subs', tonalities:['major','minor'], keys:'all'},
+  {id:'d5', row:'D', rowName:'subs y secundarios', label:'color', col:5,   voicings:['quartal','guide'], pool:'subs', tonalities:['major','minor'], keys:'all'},
   {id:'dm', row:'D', rowName:'subs y secundarios', label:'SECONDARY & SUBS', master:true,
    voicings:PRACTICE_LADDER_FULL, pool:'subs', tonalities:['major','minor'], keys:'all'},
+  // ── Row V · masters por voicing (el eje vertical del mapa) ──
+  // Un solo voicing bajado por TODA la armonía donde es idiomático:
+  // la "raya" A1-B1-C1-D1 hecha estación. Blues solo entra donde su
+  // lenguaje lo admite (shells/drop-2/drop-3); triadas y color lo
+  // saltan. pool acepta array = unión de territorios.
+  {id:'v1', row:'V', rowName:'masters por voicing', label:'SHELLS PRACTICE', master:true, col:1,
+   voicings:['shell'], pool:['diatonic','minor','blues','subs'], tonalities:['major','minor'], keys:'all'},
+  {id:'v2', row:'V', rowName:'masters por voicing', label:'TRIADAS PRACTICE', master:true, col:2,
+   voicings:['triad'], pool:['diatonic','minor','subs'], tonalities:['major','minor'], keys:'all'},
+  {id:'v3', row:'V', rowName:'masters por voicing', label:'DROP-2 PRACTICE', master:true, col:3,
+   voicings:['drop2'], pool:['diatonic','minor','blues','subs'], tonalities:['major','minor'], keys:'all'},
+  {id:'v4', row:'V', rowName:'masters por voicing', label:'DROP-3 PRACTICE', master:true, col:4,
+   voicings:['drop3'], pool:['diatonic','minor','blues','subs'], tonalities:['major','minor'], keys:'all'},
+  {id:'v5', row:'V', rowName:'masters por voicing', label:'COLOR PRACTICE', master:true, col:5,
+   voicings:['quartal','guide'], pool:['diatonic','minor','subs'], tonalities:['major','minor'], keys:'all'},
   // ── Row E · todo mezclado (generador libre, con modulación) ──
   {id:'e', row:'E', rowName:'todo mezclado', label:'TODO MEZCLADO', master:true,
    voicings:null, pool:null, tonalities:['major','minor'], keys:'all'},
@@ -15051,10 +15124,17 @@ const PRACTICE_STATIONS = [
 // (day-to-day maintenance once the spiral is climbed); 'rock' is the
 // physical gym chain; 'libre' has no order (map jumps only).
 const PRACTICE_ORDERS = {
-  guiada: ['a1','a2','a3','a4','a5','am','b1','b2','b3','b4','b5','bm',
-           'c1','c2','c3','c4','cm','d1','d2','d3','d4','d5','dm','e'],
-  repaso: ['am','bm','cm','dm','e'],
-  rock:   ['r1','r2','r3','r4'],
+  // espiral por filas (territorio por territorio, con su master)
+  guiada:   ['a1','a2','a3','a4','a5','am','b1','b2','b3','b4','b5','bm',
+             'c1','c2','c3','c4','cm','d1','d2','d3','d4','d5','dm','e'],
+  // vetas por columnas (un voicing bajado por toda la armonía, con su
+  // master; blues solo aparece donde el voicing es idiomático)
+  columnas: ['a1','b1','c1','d1','v1','a2','b2','d2','v2',
+             'a3','b3','c2','d3','v3','a4','b4','c3','d4','v4',
+             'a5','b5','d5','v5','e'],
+  repaso:   ['am','bm','cm','dm','e'],       // carril rápido: masters de fila
+  voicings: ['v1','v2','v3','v4','v5','e'],  // carril rápido: masters de voicing
+  rock:     ['r1','r2','r3','r4'],
 };
 // `extensions` (optional): scales the rootless-9 extBias in _pickShape.
 // 1.0 = baseline (current jazz rate, ~20-35% of dominants land on a 9).
@@ -21641,12 +21721,25 @@ function renderLandscapeStandby() {
    persistence of any kind.
    ════════════════════════════════════════════════════════════ */
 (function () {
-  const PRACTICE_DWELL = { guiada: 360, repaso: 480, rock: 360 };  // seg/estación
+  const PRACTICE_DWELL = { guiada: 360, columnas: 360, repaso: 480, voicings: 480, rock: 360 };  // seg/estación
   function _stationById(id) {
     return PRACTICE_STATIONS.find(s => s.id === id) || null;
   }
   function _poolOf(st) {
-    return st.pool ? PRACTICE_POOLS[st.pool] : null;
+    if (!st.pool) return null;
+    // Array = unión de territorios (masters por voicing: el mismo
+    // voicing bajado por toda la armonía donde es idiomático).
+    if (Array.isArray(st.pool)) {
+      const out = { major: [], minor: [] };
+      for (const name of st.pool) {
+        const p = PRACTICE_POOLS[name];
+        if (!p) continue;
+        out.major.push(...(p.major || []));
+        out.minor.push(...(p.minor || []));
+      }
+      return out;
+    }
+    return PRACTICE_POOLS[st.pool];
   }
 
   const practice = {
@@ -21925,8 +22018,10 @@ function renderLandscapeStandby() {
       const ord = this._order();
       const i = ord.indexOf(id);
       if (i < 0) return ord[0];
-      if (this.route === 'repaso') return ord[(i + 1) % ord.length];  // el repaso da la vuelta
-      return (i + 1 < ord.length) ? ord[i + 1] : null;                // guiada/rock: en la cima se queda
+      if (this.route === 'repaso' || this.route === 'voicings') {
+        return ord[(i + 1) % ord.length];  // los carriles rápidos dan la vuelta
+      }
+      return (i + 1 < ord.length) ? ord[i + 1] : null;  // espiral/columnas/rock: en la cima se queda
     },
 
     harder() {
@@ -21997,34 +22092,66 @@ function renderLandscapeStandby() {
   };
   window.practice = practice;
 
-  /* ── Pantalla completa: el mapa de la espiral como selector ── */
+  /* ── Pantalla completa: la MATRIZ del currículum ──
+     Filas = territorio armónico (→ desembocan en su master).
+     Columnas = voicing (↓ desembocan en su master vertical).
+     E = la esquina donde ambos ejes convergen. Rock aparte (gimnasio). */
   const ROW_META = {
     A: { name: 'diatónico mayor',    cls: 'gold' },
     B: { name: 'menor',              cls: 'gold' },
     C: { name: 'blues',              cls: 'teal' },
     D: { name: 'subs y secundarios', cls: 'teal' },
+    V: { name: 'por voicing',        cls: 'lila' },
     E: { name: 'todo mezclado',      cls: 'lila' },
     R: { name: 'gimnasio rock',      cls: 'rock' },
   };
+  function _psNode(s, extraCls) {
+    const now = practice.active && practice.stationId === s.id;
+    const lvl = s.master
+      ? (s.row === 'V' ? '↓ ★' : (s.row === 'E' ? '◆' : '→ ★'))
+      : s.id.toUpperCase();
+    return '<button class="ps-node' + (s.master ? ' master' : '')
+      + (now ? ' now' : '') + (extraCls ? ' ' + extraCls : '')
+      + '" data-station="' + s.id + '">'
+      + '<span class="ps-node-lvl">' + lvl + '</span>'
+      + '<span class="ps-node-name">' + s.label + '</span></button>';
+  }
   function renderPracticaScreen() {
     const lanes = document.getElementById('ps-lanes');
     if (!lanes) return;
-    let html = '';
-    for (const row of ['A', 'B', 'C', 'D', 'E', 'R']) {
+    const COL_NAMES = ['shells', 'triadas', 'drop-2', 'drop-3', 'color · grips'];
+    const byRowCol = (row, col) =>
+      PRACTICE_STATIONS.find(s => s.row === row && s.col === col);
+    let html = '<div class="ps-matrix-wrap"><div class="ps-matrix">';
+    // Encabezados de columna
+    html += '<div class="ps-corner"></div>';
+    COL_NAMES.forEach(c => { html += '<div class="ps-colhead">' + c + '</div>'; });
+    html += '<div class="ps-colhead ps-colhead-m">master de fila</div>';
+    // Filas A-D: etiqueta + 5 celdas + master de fila
+    for (const row of ['A', 'B', 'C', 'D']) {
       const meta = ROW_META[row];
-      const sts = PRACTICE_STATIONS.filter(s => s.row === row);
-      html += '<div class="ps-lane ' + meta.cls + '">'
-        + '<div class="ps-lane-name">' + row + ' · ' + meta.name + '</div>'
-        + '<div class="ps-nodes">';
-      for (const s of sts) {
-        const now = practice.active && practice.stationId === s.id;
-        html += '<button class="ps-node' + (s.master ? ' master' : '')
-          + (now ? ' now' : '') + '" data-station="' + s.id + '">'
-          + '<span class="ps-node-lvl">' + (s.master ? '★' : s.id.toUpperCase()) + '</span>'
-          + '<span class="ps-node-name">' + s.label + '</span></button>';
+      html += '<div class="ps-rowlab ' + meta.cls + '"><span class="ps-rowlab-tag">' + row
+        + '</span>' + meta.name + '</div>';
+      for (let c = 1; c <= 5; c++) {
+        const s = byRowCol(row, c);
+        html += '<div class="ps-cell ' + meta.cls + '">' + (s ? _psNode(s) : '<span class="ps-empty">·</span>') + '</div>';
       }
-      html += '</div></div>';
+      const master = PRACTICE_STATIONS.find(s => s.row === row && s.master);
+      html += '<div class="ps-cell ps-cell-m ' + meta.cls + '">' + (master ? _psNode(master) : '') + '</div>';
     }
+    // Fila V: masters por voicing + E en la esquina
+    html += '<div class="ps-rowlab lila"><span class="ps-rowlab-tag">↓</span>master de voicing</div>';
+    for (let c = 1; c <= 5; c++) {
+      const s = PRACTICE_STATIONS.find(x => x.row === 'V' && x.col === c);
+      html += '<div class="ps-cell lila">' + (s ? _psNode(s) : '<span class="ps-empty">·</span>') + '</div>';
+    }
+    const eSt = _stationById('e');
+    html += '<div class="ps-cell ps-cell-m lila ps-cell-e">' + (eSt ? _psNode(eSt, 'e-node') : '') + '</div>';
+    html += '</div></div>';
+    // Gimnasio rock: carril aparte, horizontal
+    const rocks = PRACTICE_STATIONS.filter(s => s.row === 'R');
+    html += '<div class="ps-rock rock"><div class="ps-lane-name">R · gimnasio rock — voicings físicos, fuera de la matriz</div><div class="ps-nodes">'
+      + rocks.map(s => _psNode(s)).join('') + '</div></div>';
     lanes.innerHTML = html;
   }
   function openPracticaScreen() {
