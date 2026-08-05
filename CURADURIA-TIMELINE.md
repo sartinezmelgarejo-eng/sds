@@ -10,7 +10,10 @@ Los 261 pares se revisaron uno a uno. **121 se fusionaron** (destino = mejor nom
 
 9 eventos movidos a su año real: Berlanga→1914-12, Ramos Zavala→1972-02-06, CCE→1975-05-07, Ángeles/artillería→1914-03, Banco Minero→1913-12, Mensaje de Bolivia→1826-05-25, tratado con Francia→1839-03-09, Correo del Sur→1813-02-25, moratoria→1982-08 (y se corrigió el texto que la atribuía a De la Madrid). **1 se quedó**: 'Obregón arresta sacerdotes' (1917) — su propia cita (testimonio de Buckley) lo fecha en 1917, aunque el episodio histórico conocido es de feb-1915; moverlo contradiría la fuente citada.
 
-## B · Huérfanos — piloto DeepSeek corrido, veredicto abajo
+## B · Huérfanos — barrido completo HECHO ✅ (parcial por fuentes)
+
+
+**Resultado final B (2026-08-04 noche):** 2 huérfanos ganaron cita verbatim verificada del libro de Crooke (`crookeresistance`): H36 (Shariati, Teherán 1972) y H37 (ejecución de Qutb). H40 (Martes negro 1987) tiene pasaje verbatim hallado en `mexico_contemporaneo.pdf` pero ese libro NO está en el catálogo — candidato a onboarding. H38 (Baqir Sadr) sin fuente en el corpus. H32-H35, H39: DeepSeek devolvió null honesto (las páginas candidatas no narran el evento puntual). H0-H31 son andamiaje editorial sin libro fuente.
 
 **Hallazgos del piloto:** (1) los eventos huérfanos NO indican su libro fuente (sin citas ni pistas); hay que adivinarlo buscando palabras clave en el corpus de PDFs. (2) DeepSeek NO inventa: en 6 intentos con reglas estrictas devolvió `null` cuando las páginas no documentaban el evento, y cuando sí encontró pasaje lo copió fiel carácter por carácter. (3) El cuello de botella es elegir bien libro+páginas, no el modelo. (4) La mayoría de los 41 huérfanos (H0–H31) son hitos de contexto del mundo antiguo/prehispánico que probablemente nunca tuvieron libro fuente — son andamiaje editorial y pueden quedarse así o borrarse si estorban.
 
@@ -56,7 +59,10 @@ Los 261 pares se revisaron uno a uno. **121 se fusionaron** (destino = mejor nom
 - [ ] **H39** [1985-09-20] Réplica del 20 de septiembre agrava los daños
 - [ ] **H40** [1987-10-20] Martes negro: venta masiva y pánico bursátil
 
-## C · Citas que no aportan — piloto DeepSeek corrido
+## C · Citas que no aportan — barrido completo HECHO ✅
+
+
+**Resultado final C:** 14 de 24 citas fueron reemplazadas por pasajes más ricos, todos verificados como substring exacto del PDF fuente (p.ej. la matanza de Tacubaya 45→323 chars, la circunvalación de Querétaro 52→482, el Club Hijas de Cuauhtémoc 112→498). 4 null honestos (la cita ya era la entrada completa de una cronología), C20/C21 se quedaron (DeepSeek devolvió el mismo párrafo paraguas para dos eventos distintos; las citas viejas son más específicas), C0/C13 rechazados por divergencia (pegaron texto salteado), C23 sin PDF localizable.
 
 **Hallazgos:** con el libro conocido (la cita trae su id) el pipeline funciona: se localiza la página de la cita pobre, DeepSeek busca un pasaje más rico y se verifica que sea substring exacto del PDF. Resultado del piloto (4 casos): 1 éxito verbatim exacto (filomenomata: la cita de Manuel González ahora con el contexto de Filomeno Mata), 1 fiel pero cruzando salto de página (verificable quitando encabezados corridos), 2 `null` honestos (la cita pobre ES la entrada completa de una cronología; no hay nada más rico). Conclusión: vale la pena correrlo sobre los 24, esperando mejorar quizá la mitad.
 
