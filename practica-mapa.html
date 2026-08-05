@@ -273,7 +273,7 @@
   <button class="tb-btn primary" id="add-route">＋ ruta</button>
   <button class="tb-btn" id="add-note">＋ nota</button>
   <button class="tb-btn" id="connect-toggle">⤳ conectar</button>
-  <button class="tb-btn" id="seed">cargar los 8 actuales</button>
+  <button class="tb-btn" id="seed">cargar propuesta espiral</button>
   <button class="tb-btn" id="export">⬇ exportar</button>
   <button class="tb-btn" id="import">⬆ importar</button>
   <button class="tb-btn" id="clear">vaciar</button>
@@ -730,32 +730,97 @@ function load() {
   } catch (e) { return false; }
 }
 
-/* ── Seed: the 8 current stations ── */
+/* ── Seed: la propuesta espiral ──
+   Filas = territorio armónico, columnas = escalera de voicings.
+   Recorres la fila completa antes de bajar; shells es siempre la
+   puerta de la fila siguiente (re-entrada corta). Sin estructuras de
+   canción (a repensar: loops que repiten hasta que TÚ avanzas). Todos
+   los tonos siempre; la única excepción son los open chords del rock.
+   Se añade DEBAJO de lo que ya exista en el lienzo, nunca lo pisa.  */
 function seed() {
-  const J = 'var(--jazz)', R = 'var(--rock)', M = 'var(--muted)', T = 'var(--teal)';
-  const rows = [
-    { kind: 'nivel', x: 60,   y: 60,  color: J, title: 'J1 · shells', sub: 'diatónico puro, dos tonos amigos',
-      chips: [{t:'🌰 Shells',c:J},{t:'ii–V–I',c:J},{t:'I–vi–ii–V (turnaround)',c:J},{t:'I–IV–V–I',c:J},{t:'C · F',c:M},{t:'♩ 60–80',c:M},{t:'AABA',c:'var(--lila)'},{t:'sin modulación',c:M}] },
-    { kind: 'nivel', x: 400,  y: 60,  color: J, title: 'J2 · + triadas', sub: 'entra el modo menor',
-      chips: [{t:'🌰 Shells',c:J},{t:'🔺 Triads',c:J},{t:'iiø–V7–i',c:J},{t:'IV–vii°–I (Bach)',c:J},{t:'Rhythm Changes A',c:J},{t:'5 tonos',c:M},{t:'♩ 70–95',c:M}] },
-    { kind: 'nivel', x: 740,  y: 60,  color: J, title: 'J3 · drop-2 + blues', sub: 'la forma de 12 compases',
-      chips: [{t:'🎷 Drop-2',c:J},{t:'12-bar blues',c:T},{t:'12-bar quick-change blues',c:T},{t:'Minor 12-bar blues',c:T},{t:'Autumn Leaves',c:J},{t:'♩ 80–110',c:M},{t:'BLUES 12',c:'var(--lila)'}] },
-    { kind: 'nivel', x: 1080, y: 60,  color: J, title: 'J4 · subs y quartal', sub: 'fuera de la tonalidad',
-      chips: [{t:'🎺 Drop-3',c:J},{t:'🏛️ Quartal',c:J},{t:'Tritone sub turnaround',c:T},{t:'Jazz blues with ii-V subs',c:T},{t:'Minor jazz blues',c:T},{t:'V/V – V – I',c:T},{t:'todos los tonos',c:M},{t:'♩ 90–130',c:M}] },
-    { kind: 'nivel', x: 1420, y: 60,  color: J, title: 'J5 · todo mezclado', sub: 'el generador libre + rampa',
-      chips: [{t:'🎭 Polychord',c:'var(--lila)'},{t:'🪞 Rootless A+B',c:'var(--lila)'},{t:'RANDOM',c:'var(--lila)'},{t:'con modulación',c:M},{t:'todos los tonos',c:M},{t:'♩ 100–160',c:M}] },
-    { kind: 'nivel', x: 60,   y: 430, color: R, title: 'R1 · power chords', sub: 'quintas garantizadas',
-      chips: [{t:'⚡ Power (R-5-R)',c:R},{t:'i – bVI – bVII – i (epic)',c:R},{t:'Mixolydian vamp I – bVII',c:R},{t:'tonos guitarreros (E A D G C)',c:M},{t:'♩ 85–120',c:M}] },
-    { kind: 'nivel', x: 400,  y: 430, color: R, title: 'R2 · abiertos y cejilla', sub: 'el cancionero pop-rock',
-      chips: [{t:'🤠 Open/cowboy',c:R},{t:'🖐 Cejilla',c:R},{t:'💧 Add9',c:J},{t:'I–V–vi–IV',c:R},{t:'Pachelbel I-V-vi-iii-IV-I-IV-V',c:R},{t:'i–bVII–bVI–V7 (Andalusian)',c:J},{t:'♩ 80–115',c:M}] },
-    { kind: 'nivel', x: 740,  y: 430, color: R, title: 'R3 · mixto + secciones', sub: 'verso-coro-puente',
-      chips: [{t:'🎸 Strum (todo)',c:R},{t:'🔺 Triads',c:J},{t:'🪷 Sus',c:J},{t:'ABABCB',c:'var(--lila)'},{t:'cambios de sección',c:M},{t:'todos los tonos',c:M},{t:'♩ 90–135',c:M}] },
+  const J = 'var(--jazz)', R = 'var(--rock)', M = 'var(--muted)',
+        T = 'var(--teal)', L = 'var(--lila)';
+  const baseY = cards.length ? Math.max(...cards.map(c => c.y)) + 420 : 40;
+  const X0 = 60, DX = 340, DY = 340;
+  const gridY = baseY + 250;
+
+  // Notas de intención, arriba de la cuadrícula
+  addCard('nota', X0, baseY, { color: T, title: 'la espiral',
+    sub: 'Filas = territorio armónico. Columnas = escalera de voicings. Recorres la fila completa antes de bajar; cada fila nueva RE-ENTRA por shells (la radiografía del acorde nuevo) pero corto, y la escalera se re-sube rápido porque las formas ya viven en las manos.' });
+  addCard('nota', X0 + 300, baseY, { color: L, title: 'formato (repensar)',
+    sub: 'Fuera AABA y estructuras de canción. Propuesta: loops de 4-8 compases que repiten hasta que TÚ decides avanzar; solo el blues conserva su forma de 12.' });
+  addCard('nota', X0 + 600, baseY, { color: J, title: 'tonos',
+    sub: 'Todos los tonos, todo el tiempo. Única excepción: los open chords del rock (R1-R2) viven en tonos de guitarra.' });
+
+  const cols = [
+    { name: 'shells',  bpm: '♩ 60–80',  chips: [{t:'🌰 Shells',c:J}] },
+    { name: 'triadas', bpm: '♩ 70–95',  chips: [{t:'🔺 Triads',c:J}] },
+    { name: 'drop-2',  bpm: '♩ 80–110', chips: [{t:'🎷 Drop-2',c:J}] },
+    { name: 'drop-3',  bpm: '♩ 90–130', chips: [{t:'🎺 Drop-3',c:J}] },
+    { name: 'color',   bpm: '♩ 90–130', chips: [{t:'🏛️ Quartal',c:J},{t:'✌️ 3rds+7ths',c:J}] },
   ];
-  const made = rows.map(r => addCard(r.kind, r.x, r.y, r));
-  for (let i = 0; i < 4; i++) wires.push([made[i].id, made[i + 1].id]);
-  for (let i = 5; i < 7; i++) wires.push([made[i].id, made[i + 1].id]);
+  const rows = [
+    { tag: 'A', name: 'diatónico mayor',    color: J, pack: {t:'📦 Diatónicas (paquete)',c:J,p:1} },
+    { tag: 'B', name: 'menor',              color: J, pack: {t:'📦 Menores (paquete)',c:J,p:1} },
+    { tag: 'C', name: 'blues',              color: T, pack: {t:'📦 Blues (paquete)',c:T,p:1} },
+    { tag: 'D', name: 'subs y secundarios', color: T, pack: {t:'📦 Dominantes y subs (paquete)',c:T,p:1} },
+  ];
+  const grid = [];
+  rows.forEach((row, r) => {
+    cols.forEach((col, i) => {
+      let sub = row.name;
+      if (i === 0) {
+        sub += r === 0
+          ? ' — la base: guide tones sobre armonía que el oído ya conoce'
+          : ' — puerta de la fila: oye QUÉ cambió; re-entrada corta';
+      }
+      grid.push(addCard('nivel', X0 + i * DX, gridY + r * DY, {
+        color: row.color,
+        title: row.tag + (i + 1) + ' · ' + col.name,
+        sub,
+        chips: [...col.chips.map(ch => ({ ...ch })), { ...row.pack },
+                {t:'todos los tonos',c:M}, {t: col.bpm, c:M}],
+      }));
+    });
+  });
+  // Cierre de la espiral jazz: todo junto
+  const final = addCard('nivel', X0, gridY + rows.length * DY, {
+    color: L, title: 'E · todo mezclado',
+    sub: 'el generador libre: toda la armonía, todos los voicings, pros si hay piano, con modulación',
+    chips: [{t:'📦 Voicings guitarra (todos)',c:J,p:1},{t:'📦 Pros piano (todos)',c:L,p:1},
+            {t:'📦 Dominantes y subs (paquete)',c:T,p:1},{t:'con modulación',c:M},
+            {t:'todos los tonos',c:M},{t:'♩ 100–160',c:M}],
+  });
+
+  // Pista rock: su propia mini-espiral (misma lógica, menos filas)
+  const rockY = gridY + (rows.length + 1) * DY + 60;
+  const rock = [
+    addCard('nivel', X0, rockY, { color: R, title: 'R1 · power',
+      sub: 'quintas garantizadas sobre rock pesado — la excepción de tonos',
+      chips: [{t:'⚡ Power (R-5-R)',c:R},{t:'i – bVI – bVII – i (epic)',c:R},{t:'Mixolydian vamp I – bVII',c:R},{t:'i – bIII – bVII – iv',c:R},{t:'tonos guitarreros (E A D G C)',c:M},{t:'♩ 85–120',c:M}] }),
+    addCard('nivel', X0 + DX, rockY, { color: R, title: 'R2 · open/cowboy',
+      sub: 'acordes abiertos — viven en tonos de guitarra, la otra excepción',
+      chips: [{t:'🤠 Open/cowboy',c:R},{t:'📦 Rock/pop/clásico (paquete)',c:R,p:1},{t:'tonos guitarreros (E A D G C)',c:M},{t:'♩ 80–115',c:M}] }),
+    addCard('nivel', X0 + DX * 2, rockY, { color: R, title: 'R3 · cejilla',
+      sub: 'la cejilla libera el mástil: aquí ya entran todos los tonos',
+      chips: [{t:'🖐 Cejilla',c:R},{t:'📦 Rock/pop/clásico (paquete)',c:R,p:1},{t:'todos los tonos',c:M},{t:'♩ 85–125',c:M}] }),
+    addCard('nivel', X0 + DX * 3, rockY, { color: R, title: 'R4 · mixto',
+      sub: 'todo el arsenal rítmico junto',
+      chips: [{t:'🎸 Strum (todo)',c:R},{t:'🔺 Triads',c:J},{t:'🪷 Sus',c:J},{t:'💧 Add9',c:J},{t:'📦 Rock/pop/clásico (paquete)',c:R,p:1},{t:'todos los tonos',c:M},{t:'♩ 90–135',c:M}] }),
+  ];
+
+  // Cables: cadena por fila, y el final de cada fila baja al shells de la siguiente
+  rows.forEach((row, r) => {
+    for (let i = 0; i < cols.length - 1; i++) {
+      wires.push([grid[r * cols.length + i].id, grid[r * cols.length + i + 1].id]);
+    }
+    const next = (r < rows.length - 1) ? grid[(r + 1) * cols.length] : final;
+    wires.push([grid[r * cols.length + cols.length - 1].id, next.id]);
+  });
+  for (let i = 0; i < rock.length - 1; i++) wires.push([rock[i].id, rock[i + 1].id]);
+
   drawWires(); save();
-  toast('cargados los 8 niveles actuales — edítalos a gusto');
+  toast('propuesta espiral cargada — 25 estaciones jazz + 4 rock, edítala a gusto');
 }
 
 /* ── Top bar wiring ── */
