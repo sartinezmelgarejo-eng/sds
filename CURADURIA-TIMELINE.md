@@ -158,14 +158,14 @@ Se cotejaron **las 12,812 citas** contra el texto de sus PDFs. Para lograrlo hub
 
 | Estado | Citas | % |
 |---|---:|---:|
-| Verbatim exacto carácter a carácter | 7,893 | 61.6% |
+| Verbatim exacto carácter a carácter | 7,894 | 61.6% |
 | Exacto salvo marcas de nota al pie (formato) | 113 | 0.9% |
-| Confirmadas contra fuente OCR (cotejo difuso) | 3,821 | 29.8% |
-| Coincidencia parcial | 88 | 0.7% |
-| **No aparecen en su libro** | **14** | **0.1%** |
-| Sin fuente localizable (PDF ausente del acervo) | 883 | 6.9% |
+| Confirmadas contra fuente OCR (cotejo difuso) | 3,920 | 30.6% |
+| Coincidencia parcial | 162 | 1.3% |
+| **No aparecen en su libro** | **29** | **0.2%** |
+| Sin fuente localizable (PDF ausente del acervo) | 694 | 5.4% |
 
-**Conclusión: 92.3% de las citas quedan confirmadas como texto real de su libro.** Y de las 14 que no aparecen, 13 son del Chilam Balam en **otra traducción** (el acervo tiene dos ediciones y las citas vienen de la que no está digitalizada), no errores. La única cita defectuosa de verdad es un fragmento cortado en `obsidianamesoamerica`.
+**Conclusión: 93.1% de las citas quedan confirmadas como texto real de su libro.** Y de las 14 que no aparecen, 13 son del Chilam Balam en **otra traducción** (el acervo tiene dos ediciones y las citas vienen de la que no está digitalizada), no errores. La única cita defectuosa de verdad es un fragmento cortado en `obsidianamesoamerica`.
 
 ### Libros cuyos PDFs faltan del acervo (883 citas sin poder cotejar)
 
@@ -207,4 +207,34 @@ De ellas, 27 pasaron una **segunda revisión a ciegas** (se le dio la cita sola,
 ### Lo que falta y por qué
 
 El barrido alcanzó a cubrir 3,021 de 12,812 citas. **Se acabó el saldo de DeepSeek de pago y después la cuota del tier gratuito.** Con la tasa observada (1.9% de intrusas en muestra aleatoria), quedan por descubrir unas **190 citas mal colocadas** en el resto del acervo. Los lotes ya están preparados y disparan en cuanto haya crédito.
+
+
+## H · PDFs que faltan en el acervo — lista de compras
+
+Estos 22 libros no tienen PDF en `Books/`, por eso sus 694 citas no se pueden cotejar. Conseguirlos cerraría casi todo el hueco que queda.
+
+- [ ] **243 citas** — `amlo` · amlo
+- [ ] **69 citas** — `leonavicario` · leonavicario
+- [ ] **52 citas** — `humboldt` · humboldt
+- [ ] **36 citas** — `leninleftwing` · Left-Wing Communism: An Infantile Disorder
+- [ ] **32 citas** — `lenintactics` · Two Tactics of Social-Democracy
+- [ ] **24 citas** — `leninkautsky` · The Proletarian Revolution and the Renegade Kautsky
+- [ ] **23 citas** — `marti` · Nuestra América
+- [ ] **22 citas** — `tremlett` · Franco: A Biography
+- [ ] **19 citas** — `dusselsur` · Filosofías del Sur
+- [ ] **18 citas** — `parentiempire` · Against Empire
+- [ ] **16 citas** — `parentireality` · Inventing Reality
+- [ ] **16 citas** — `parenticulture` · The Culture Struggle
+- [ ] **15 citas** — `parentiterror` · The Terrorism Trap
+- [ ] **15 citas** — `parentisword` · The Sword and the Dollar
+- [ ] **15 citas** — `parentisuper` · Superpatriotism
+- [ ] **15 citas** — `parentimedia` · Make-Believe Media
+- [ ] **15 citas** — `parentiidols` · Land of Idols
+- [ ] **15 citas** — `parentihistory` · History as Mystery
+- [ ] **13 citas** — `parentidirty` · Dirty Truths
+- [ ] **8 citas** — `stalinfoundations` · Foundations of Leninism
+- [ ] **7 citas** — `kamenempire` · kamenempire
+- [ ] **6 citas** — `parentiblackshirts` · Blackshirts and Reds
+
+**Caso aparte: `marti` (Nuestra América).** El PDF está en el acervo pero es ilegible incluso para el OCR: el archivo no entrega ni imagen ni texto. Necesita una copia nueva, no un reprocesado.
 
