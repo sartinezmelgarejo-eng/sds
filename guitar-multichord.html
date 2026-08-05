@@ -5719,6 +5719,7 @@ body.practica-select { overflow: hidden; }
 }
 #ps-premenu .pp-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 10px;
   margin-top: 14px;
@@ -5735,13 +5736,18 @@ body.practica-select { overflow: hidden; }
   background: transparent;
   color: #a89877;
 }
+/* Las dos puertas de un master de voicing pesan IGUAL: la veta (oro)
+   y todo revuelto (lila), en renglón completo cada una. */
 #ps-premenu #pp-alt {
-  border: 1.5px solid #b18ae0;
-  background: transparent;
-  color: #b18ae0;
+  border: 2px solid #b18ae0;
+  background: #b18ae0;
+  color: #16130e;
+  font-size: 15px;
+  flex: 1 1 100%;
   white-space: nowrap;
 }
-#ps-premenu #pp-alt:hover { background: rgba(177,138,224,0.15); }
+#ps-premenu #pp-alt:hover { background: #c4a3ec; }
+#ps-premenu #pp-alt:not([hidden]) ~ #pp-start { flex: 1 1 100%; }
 #ps-premenu #pp-start {
   border: 2px solid #e8b64c;
   background: #e8b64c;
@@ -22822,6 +22828,8 @@ function renderLandscapeStandby() {
       altBtn.hidden = !cfg.alt;
       if (cfg.alt) altBtn.textContent = cfg.alt.label;
     }
+    const startBtn = document.getElementById('pp-start');
+    if (startBtn) startBtn.textContent = cfg.startLabel || '▶ empezar';
     const range = document.getElementById('pp-range');
     if (cfg.n > 1) {
       // El slider mueve el TOTAL en pasos de 1 min/estación, 1-10 min
@@ -22879,15 +22887,17 @@ function renderLandscapeStandby() {
         n,
         defSecs: n * (PRACTICE_DWELL.columnas || 360),
         lap: false,
+        startLabel: '▶ la veta (recorrido)',
         start(secs) {
           practice.start('columnas', colSts.length ? colSts[0].id : st.id);
           const per = Math.round(secs / n);
           if (per !== (PRACTICE_DWELL.columnas || 360)) practice.sessionDwell = per;
         },
-        // La otra puerta: el master a secas — este voicing con TODOS
-        // los acordes revueltos, sin recorrido ni reloj.
+        // La otra puerta, con el MISMO peso: el master a secas — este
+        // voicing con TODAS las progresiones revueltas, sin recorrido
+        // ni reloj (lo que el usuario llama "todas juntas").
         alt: {
-          label: '★ directo: todo revuelto',
+          label: '★ todo revuelto',
           start() { practice.start('libre', st.id); },
         },
       });
