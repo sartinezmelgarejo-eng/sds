@@ -5735,6 +5735,13 @@ body.practica-select { overflow: hidden; }
   background: transparent;
   color: #a89877;
 }
+#ps-premenu #pp-alt {
+  border: 1.5px solid #b18ae0;
+  background: transparent;
+  color: #b18ae0;
+  white-space: nowrap;
+}
+#ps-premenu #pp-alt:hover { background: rgba(177,138,224,0.15); }
 #ps-premenu #pp-start {
   border: 2px solid #e8b64c;
   background: #e8b64c;
@@ -6239,6 +6246,7 @@ body.practica-on #landscape-play .lp-info-practica {
       <input type="range" id="pp-range">
       <div class="pp-actions">
         <button id="pp-cancel">✕ cancelar</button>
+        <button id="pp-alt" hidden></button>
         <button id="pp-start">▶ empezar</button>
       </div>
     </div>
@@ -22809,6 +22817,11 @@ function renderLandscapeStandby() {
     _premenuCfg = cfg;
     document.getElementById('pp-title').textContent = cfg.title;
     document.getElementById('pp-desc').textContent = cfg.desc;
+    const altBtn = document.getElementById('pp-alt');
+    if (altBtn) {
+      altBtn.hidden = !cfg.alt;
+      if (cfg.alt) altBtn.textContent = cfg.alt.label;
+    }
     const range = document.getElementById('pp-range');
     if (cfg.n > 1) {
       // El slider mueve el TOTAL en pasos de 1 min/estación, 1-10 min
@@ -22870,6 +22883,12 @@ function renderLandscapeStandby() {
           practice.start('columnas', colSts.length ? colSts[0].id : st.id);
           const per = Math.round(secs / n);
           if (per !== (PRACTICE_DWELL.columnas || 360)) practice.sessionDwell = per;
+        },
+        // La otra puerta: el master a secas — este voicing con TODOS
+        // los acordes revueltos, sin recorrido ni reloj.
+        alt: {
+          label: '★ directo: todo revuelto',
+          start() { practice.start('libre', st.id); },
         },
       });
     } else {
@@ -22947,6 +22966,15 @@ function renderLandscapeStandby() {
             const cfg = _premenuCfg;
             _premenuCfg = null;
             cfg.start(secs);
+          }
+          closePracticaScreen();
+          return;
+        }
+        if (e.target.closest('#pp-alt')) {
+          if (_premenuCfg && _premenuCfg.alt) {
+            const cfg = _premenuCfg;
+            _premenuCfg = null;
+            cfg.alt.start();
           }
           closePracticaScreen();
           return;
