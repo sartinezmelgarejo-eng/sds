@@ -5936,28 +5936,45 @@ body.practica-on:not(.instrument-piano):not(.lp-on) #practica-shapes.has { displ
   color: #211c14;
   border-color: #f5c96b;
 }
-
-/* ── Landscape play overlay: práctica live buttons ── */
-#landscape-play .lp-practica-btn,
-#landscape-play .lp-practica-label { display: none; }
-body.practica-on #landscape-play .lp-practica-btn {
-  display: flex;
-}
-body.practica-on #landscape-play .lp-practica-label {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: lowercase;
-  letter-spacing: 0.03em;
-  color: #1a1a1a;
-  background: #f5c96b;
-  padding: 0 8px;
+/* Cinco rutas + mapa caben en landscape: chips más compactos. */
+#landscape-standby.practica-mode .ls-proute2,
+#landscape-standby.practica-mode #ls-practica-map {
+  font-size: clamp(10px, 2.2vh, 14px);
+  padding: 7px 10px;
+  min-width: clamp(84px, 20vw, 150px);
   white-space: nowrap;
 }
-#landscape-play #lp-stay.on { background: #f5c96b; color: #1a1a1a; }
+#landscape-standby.practica-mode .ls-practica-tracks,
+#landscape-standby.practica-mode .ls-practica-routes { gap: 7px; }
+
+/* ── Landscape play overlay: la info de práctica vive DENTRO del
+   cuadro de now playing — el overlay conserva su limpieza. ── */
+#landscape-play .lp-info-practica { display: none; }
+body.practica-on #landscape-play .lp-info {
+  grid-template-areas:
+    "name icon"
+    "sub  icon"
+    "prac prac";
+}
+body.practica-on #landscape-play .lp-info-practica {
+  grid-area: prac;
+  display: block;
+  border: 0;
+  border-top: 1.5px solid rgba(26,26,26,0.25);
+  background: transparent;
+  color: #1a1a1a;
+  font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 3px 0 0;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
 </style>
 </head>
 <body class="keypad-open">
@@ -6275,6 +6292,10 @@ body.practica-on #landscape-play .lp-practica-label {
       <div class="lp-info-name" id="lp-info-name">—</div>
       <div class="lp-info-sub"  id="lp-info-sub"></div>
       <div class="lp-info-icon" id="lp-info-icon"></div>
+      <!-- Práctica: la info de estación vive AQUÍ, dentro del cuadro
+           de now playing (no botones extra flotando — el overlay se
+           queda limpio). Picarla abre el mapa para saltar. -->
+      <button class="lp-info-practica" id="lp-info-practica" title="abrir el mapa de práctica"></button>
     </div>
     <!-- Middle row: pitch shift (left) + loop (right) split. -->
     <button class="lp-btn" id="lp-cycle"    title="PITCHED — key shift per loop">·</button>
@@ -6289,12 +6310,6 @@ body.practica-on #landscape-play .lp-practica-label {
     <button class="lp-btn lp-btn-stop" id="lp-stop" title="Stop and reset" hidden>
       <svg viewBox="0 0 24 24" class="lp-ico" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
     </button>
-    <!-- Práctica live controls — static buttons (NOT tap zones: the swipe
-         handler on #landscape-play would fight invisible zones). Shown
-         only under body.practica-on via CSS. -->
-    <div class="lp-practica-label" id="lp-practica-label"></div>
-    <button class="lp-btn lp-practica-btn" id="lp-harder" title="más difícil">＋</button>
-    <button class="lp-btn lp-practica-btn" id="lp-stay" title="quédate">⚓</button>
   </div>
 </div>
 
@@ -6409,13 +6424,15 @@ body.practica-on #landscape-play .lp-practica-label {
          and the map button on the right — the full station map lives
          in the fullscreen #practica-screen overlay. -->
     <div class="ls-practica-tracks">
-      <button class="ls-ptrack ls-proute2 on" data-route="guiada">GUIADA</button>
-      <button class="ls-ptrack ls-proute2" data-route="repaso">REPASO</button>
-      <button class="ls-ptrack ls-proute2" data-route="rock">ROCK</button>
+      <button class="ls-ptrack ls-proute2 on" data-route="guiada">▶ ESPIRAL</button>
+      <button class="ls-ptrack ls-proute2" data-route="columnas">⇊ VETAS</button>
+      <button class="ls-ptrack ls-proute2" data-route="repaso">★ M · FILA</button>
     </div>
     <button class="ls-practica-play" id="ls-practica-play" title="Empezar práctica">▶</button>
     <div class="ls-practica-routes">
-      <button class="ls-btn" id="ls-practica-map">🗺 mapa</button>
+      <button class="ls-ptrack ls-proute2" data-route="voicings">◈ M · VOICING</button>
+      <button class="ls-ptrack ls-proute2" data-route="rock">🎸 ROCK</button>
+      <button class="ls-btn" id="ls-practica-map">🗺 MAPA</button>
     </div>
   </div>
   <!-- Status message (mic permission, etc) — pinned to the bottom edge -->
@@ -22458,10 +22475,14 @@ function renderLandscapeStandby() {
       }
       const stayBtn = document.getElementById('ph-stay');
       if (stayBtn) stayBtn.classList.toggle('on', this.hold);
-      const lpl = document.getElementById('lp-practica-label');
-      if (lpl) lpl.textContent = st ? st.label : '';
-      const lpStay = document.getElementById('lp-stay');
-      if (lpStay) lpStay.classList.toggle('on', this.hold);
+      // Teléfono: la info vive en el cuadro de now playing.
+      const lpp = document.getElementById('lp-info-practica');
+      if (lpp) {
+        let t = st ? (st.master ? '★ ' + st.label : st.id.toUpperCase() + ' · ' + st.label) : '';
+        const pend2 = this._pending && _stationById(this._pending);
+        if (pend2) t += '  ⇢ ' + pend2.id.toUpperCase();
+        lpp.textContent = t;
+      }
       // El mapa selector, si está abierto, marca la estación actual.
       if (document.body.classList.contains('practica-select')) renderPracticaScreen();
     },
@@ -22663,9 +22684,8 @@ function renderLandscapeStandby() {
     on('ph-stay',     () => practice.stay());
     on('ph-surprise', () => practice.surprise());
     on('ph-exit',     () => practice.exit('user'));
-    on('lp-harder',   () => practice.harder());
-    on('lp-stay',     () => practice.stay());
     on('pn-now',      () => practice._applyPendingNow());
+    on('lp-info-practica', openPracticaScreen);
   })();
 
   /* ── Panel standby del teléfono (4to swipe) ── */
