@@ -5831,12 +5831,21 @@ body.practica-on:not(.instrument-piano):not(.lp-on) #practica-shapes.has { displ
   color: #8a7a55;
   padding: 4px 6px;
 }
-#practica-shapes .pshape-div {
-  width: 1.5px;
-  align-self: stretch;
-  background: #d8d2c2;
-  border-radius: 1px;
-  margin: 4px 2px;
+#practica-shapes .pshapes-row { flex-direction: row; align-items: flex-start; gap: 18px; }
+#practica-shapes .pshelf { min-width: 0; }
+#practica-shapes .pshelf-label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8a7a55;
+  margin-bottom: 4px;
+}
+#practica-shapes .pshelf-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: flex-start;
 }
 
 /* ── Landscape standby: 4th swipe (práctica) ──
@@ -22178,32 +22187,37 @@ function renderLandscapeStandby() {
       e.count++;
       this._highlightShelf(key);
     },
+    _qualityClass(q) {
+      if (['maj7', 'maj9', '6', 'add9'].includes(q)) return 'mayor';
+      if (['m7', 'm9', 'm6', 'madd9', 'mMaj7'].includes(q)) return 'menor';
+      if (['7', '9', '7sus4', '9sus4', '7#11', '7alt'].includes(q)) return 'dominante';
+      if (['m7b5', 'dim7'].includes(q)) return 'ø · dim';
+      return 'otros';
+    },
     _renderShelf() {
       const row = document.getElementById('pshapes-row');
       if (!row || !this._shelf) return;
-      const MAX = 10;
-      // Librero, no fila de llegada: las formas siguen APARECIENDO al
-      // sonar por primera vez, pero aterrizan junto a su familia de
-      // cualidad (todas las maj7 juntas, luego menores, dominantes...).
-      // Dentro de cada familia se conserva el orden de descubrimiento.
-      const QORDER = ['maj7', 'maj9', '6', 'add9', 'm7', 'm9', 'm6', 'madd9', 'mMaj7',
-                      '7', '9', '7sus4', '9sus4', '7#11', '7alt', 'm7b5', 'dim7',
-                      'sus4', 'sus2'];
-      const entries = [...this._shelf.entries()].map(([k, e], idx) => ({ k, e, idx }));
-      entries.sort((a, b) => {
-        const ra = QORDER.indexOf(a.e.quality), rb = QORDER.indexOf(b.e.quality);
-        const qa = ra < 0 ? 99 : ra, qb = rb < 0 ? 99 : rb;
-        return qa !== qb ? qa - qb : a.idx - b.idx;
-      });
-      let html = '';
-      let lastQ = null;
-      for (const { k, e } of entries.slice(0, MAX)) {
-        if (lastQ !== null && e.quality !== lastQ) html += '<div class="pshape-div"></div>';
-        lastQ = e.quality;
-        html += this._shapeCard(k, e);
+      // Repisas FIJAS por tipo de acorde. Dentro de cada repisa las
+      // formas aparecen en orden de descubrimiento y NUNCA se mueven:
+      // donde sale la primera vez es donde vive (memoria espacial).
+      // La nueva simplemente se agrega al final de SU repisa.
+      const SHELVES = ['mayor', 'menor', 'dominante', 'ø · dim', 'otros'];
+      const MAX_PER = 6;
+      const byClass = {};
+      for (const [k, e] of this._shelf.entries()) {
+        const c = this._qualityClass(e.quality);
+        (byClass[c] = byClass[c] || []).push({ k, e });
       }
-      if (entries.length > MAX) {
-        html += '<div class="pshape-more">+' + (entries.length - MAX) + '</div>';
+      let html = '';
+      for (const shelf of SHELVES) {
+        const items = byClass[shelf];
+        if (!items || !items.length) continue;
+        html += '<div class="pshelf"><div class="pshelf-label">' + shelf + '</div>'
+          + '<div class="pshelf-row">'
+          + items.slice(0, MAX_PER).map(({ k, e }) => this._shapeCard(k, e)).join('')
+          + (items.length > MAX_PER
+              ? '<div class="pshape-more">+' + (items.length - MAX_PER) + '</div>' : '')
+          + '</div></div>';
       }
       row.innerHTML = html;
       const panel = document.getElementById('practica-shapes');
