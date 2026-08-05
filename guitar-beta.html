@@ -5738,6 +5738,46 @@ body.practica-on #practica-hud { display: flex; }
 }
 #practica-hud .ph-exit { border-color: #b0563a; color: #b0563a; }
 
+/* ── Toast del cambio en camino ── */
+#practica-next {
+  display: none;
+  position: fixed;
+  bottom: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  align-items: center;
+  gap: 10px;
+  background: #16130e;
+  color: #f3ead8;
+  border: 2px solid #e8b64c;
+  border-radius: 999px;
+  padding: 8px 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  font-size: 13px;
+}
+#practica-next.show { display: flex; }
+#practica-next .pn-label { font-weight: 800; color: #e8b64c; white-space: nowrap; }
+#practica-next .pn-bars { color: #a89877; font-size: 12px; white-space: nowrap; }
+#practica-next #pn-now {
+  border: 1.5px solid #e8b64c;
+  border-radius: 999px;
+  background: transparent;
+  color: #e8b64c;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+#practica-next #pn-now:hover { background: #e8b64c; color: #16130e; }
+
+#practica-screen .ps-route.on {
+  background: #e8b64c;
+  color: #16130e;
+}
+#practica-screen .ps-route.on .pr-sub { color: #4d3f1e; }
+
 /* ── Landscape standby: 4th swipe (práctica) ──
    Mirror of the tuner-mode pattern: hide the band/metronome slots,
    reveal the practica slots into the same grid cells. */
@@ -6017,6 +6057,15 @@ body.practica-on #landscape-play .lp-practica-label {
   <button class="ph-btn" id="ph-stay" title="quédate (suspende el auto-avance)">⚓</button>
   <button class="ph-btn" id="ph-surprise" title="sorpréndeme">⚡</button>
   <button class="ph-btn ph-exit" id="ph-exit" title="salir de práctica">✕</button>
+</div>
+
+<!-- Aviso de cambio en camino: cuando pides estación nueva, el cambio
+     espera la frontera de página; este toast te dice QUÉ viene y en
+     CUÁNTOS compases, con botón para entrarle ya sin esperar. -->
+<div id="practica-next" aria-hidden="true">
+  <span class="pn-label"></span>
+  <span class="pn-bars"></span>
+  <button id="pn-now" title="cambiar ahora sin esperar la frontera">¡ya!</button>
 </div>
 
 <!-- Compose keypad — number pad for typing a custom progression. Only visible
@@ -17223,9 +17272,13 @@ class Player {
       // nunca corta una frase a la mitad. Los fines de ciclo de
       // progresión ya caen aquí solos (los largos del catálogo son
       // múltiplos de 4).
-      if (window.practice && window.practice.active && window.practice._pending
-          && this.totalBars % 4 === 0) {
-        window.practice._applyPendingNow();
+      if (window.practice && window.practice.active && window.practice._pending) {
+        if (this.totalBars % 4 === 0) {
+          window.practice._applyPendingNow();
+        } else {
+          // Cuenta regresiva del toast: compases que faltan de página.
+          window.practice._updateNextToast(4 - (this.totalBars % 4));
+        }
       }
       // Anchored loops (bars-4 or section): snap back to the
       // loopAnchor captured at the moment the user enabled the loop.
@@ -21894,6 +21947,7 @@ function renderLandscapeStandby() {
       this._pending = null;
       this._queued = null;
       player._practiceQueuedSong = null;
+      this._updateNextToast(0);
       document.body.classList.remove('practica-on');
       document.body.classList.remove('practica-select');
       if (typeof renderAll === 'function') renderAll();
@@ -21999,9 +22053,24 @@ function renderLandscapeStandby() {
       if (player.playing) {
         this._pending = id;
         this._renderHud();
+        // Aviso inmediato: qué viene y en cuántos compases (a tempos
+        // lentos la frontera puede tardar; sin esto el botón se siente
+        // muerto).
+        this._updateNextToast(((4 - (player.totalBars % 4)) % 4) || 4);
       } else {
         this.applyStation(id);
       }
+    },
+    _updateNextToast(barsLeft) {
+      const t = document.getElementById('practica-next');
+      if (!t) return;
+      const pend = this._pending && _stationById(this._pending);
+      if (!pend || !barsLeft) { t.classList.remove('show'); return; }
+      t.querySelector('.pn-label').textContent = '⇢ '
+        + (pend.master ? '★ ' + pend.label : pend.id.toUpperCase() + ' · ' + pend.label);
+      t.querySelector('.pn-bars').textContent =
+        barsLeft === 1 ? 'en 1 compás' : 'en ' + barsLeft + ' compases';
+      t.classList.add('show');
     },
     _applyPendingNow() {
       const id = this._pending;
@@ -22077,6 +22146,7 @@ function renderLandscapeStandby() {
       _voicingPostChange();
       this._selfChange = false;
       this._renderHud();
+      this._updateNextToast(0);   // el cambio ya aterrizó: fuera aviso
     },
 
     _order() {
@@ -22229,6 +22299,9 @@ function renderLandscapeStandby() {
     html += '<div class="ps-rock rock"><div class="ps-lane-name">🎸 gimnasio rock — voicings físicos, fuera de la matriz</div><div class="ps-nodes">'
       + rocks.map(s => _psNode(s)).join('') + '</div></div>';
     lanes.innerHTML = html;
+    // Marcar la ruta activa en los botones del encabezado.
+    document.querySelectorAll('#practica-screen .ps-route').forEach(b =>
+      b.classList.toggle('on', practice.active && practice.route === b.dataset.route));
     // Las líneas se dibujan cuando el layout ya midió los orbes.
     requestAnimationFrame(_drawPsWires);
   }
@@ -22307,7 +22380,17 @@ function renderLandscapeStandby() {
         }
         const route = e.target.closest('.ps-route');
         if (route) {
-          practice.start(route.dataset.route);
+          const r = route.dataset.route;
+          if (practice.active) {
+            // Cambio de ruta EN CALIENTE: la sesión sigue sonando donde
+            // está y los botones/reloj siguen el orden nuevo. Antes esto
+            // reiniciaba todo (stop + count-in), que se sentía roto.
+            practice.route = r;
+            practice._dwellSec = 0;
+            practice._renderHud();
+          } else {
+            practice.start(r);
+          }
           closePracticaScreen();
           return;
         }
@@ -22326,6 +22409,7 @@ function renderLandscapeStandby() {
     on('ph-exit',     () => practice.exit('user'));
     on('lp-harder',   () => practice.harder());
     on('lp-stay',     () => practice.stay());
+    on('pn-now',      () => practice._applyPendingNow());
   })();
 
   /* ── Panel standby del teléfono (4to swipe) ── */
@@ -22343,6 +22427,13 @@ function renderLandscapeStandby() {
     el.querySelectorAll('.ls-proute2').forEach(b => {
       b.addEventListener('click', () => {
         _panelRoute = b.dataset.route;
+        // Con sesión activa el chip cambia la ruta EN VIVO, no solo la
+        // preferencia del próximo arranque.
+        if (practice.active) {
+          practice.route = b.dataset.route;
+          practice._dwellSec = 0;
+          practice._renderHud();
+        }
         renderPracticaStandby();
       });
     });
