@@ -17132,9 +17132,19 @@ class Player {
               } else {
               // Práctica: instead of restoring home, roll a fresh key
               // (and tonality when the station allows both) from the
-              // station's pools — same material, new key, every cycle.
-              // That's the whole point of "todos los tonos siempre".
+              // station's pools. The key holds for a few patterns first
+              // (user: one pattern per key was too jumpy) — every cycle
+              // still brings a NEW progression, but the key only rolls
+              // every _practiceKeyEveryN cycles.
               if (window._practiceKeyPool) {
+                window._practiceCycleN = (window._practiceCycleN || 0) + 1;
+                if (window._practiceCycleN < (window._practiceKeyEveryN || 3)) {
+                  // Same key, next pattern: stay anchored on home.
+                  state.keyPc = this._homeKey.keyPc;
+                  state.tonality = this._homeKey.tonality;
+                  this._travelNote = null;
+                } else {
+                window._practiceCycleN = 0;
                 const kp = window._practiceKeyPool;
                 const cur = state.keyPc;
                 let next = (kp === 'all')
@@ -17161,6 +17171,7 @@ class Player {
                   this._homeKey.tonality = state.tonality;
                 }
                 this._travelNote = null;
+                }
               } else
               // Low-probability "travel" — the new song's home shifts to a
               // musically related key, like a jam session drifting over time.
@@ -21667,6 +21678,7 @@ function renderLandscapeStandby() {
       window._practiceNoModulation = false;
       window._practiceKeyPool = null;
       window._practiceTonalityPool = null;
+      window._practiceCycleN = 0;
       const s = this._snap;
       this._snap = null;
       if (s) {
@@ -21750,6 +21762,7 @@ function renderLandscapeStandby() {
       // free generator keeps its own travel/modulation behavior).
       window._practiceKeyPool = pool ? st.keys : null;
       window._practiceTonalityPool = pool ? tons : null;
+      window._practiceCycleN = 0;   // estación nueva: cuenta de patrones-por-tono desde cero
       // No song structures: 'A' = one progression looping. E is the
       // free generator and keeps RANDOM structures.
       state.songStructure = pool ? 'A' : 'RANDOM';
