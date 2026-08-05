@@ -22155,7 +22155,19 @@ function renderLandscapeStandby() {
     _nextOf(id) {
       const ord = this._order();
       const i = ord.indexOf(id);
-      if (i < 0) return ord[0];
+      if (i < 0) {
+        // Estación fuera de la ruta actual: seguir SU propia geografía
+        // en vez de botarte al inicio de la ruta (bug: estar en un
+        // master de voicing con ruta libre y picar ＋ te mandaba a a1).
+        const st = _stationById(id);
+        const alt = st && (st.row === 'V' ? PRACTICE_ORDERS.voicings
+                  : st.row === 'R' ? PRACTICE_ORDERS.rock : null);
+        if (alt) {
+          const j = alt.indexOf(id);
+          if (j >= 0) return (j + 1 < alt.length) ? alt[j + 1] : null;
+        }
+        return ord[0];
+      }
       if (this.route === 'repaso' || this.route === 'voicings') {
         return ord[(i + 1) % ord.length];  // los carriles rápidos dan la vuelta
       }
@@ -22373,8 +22385,26 @@ function renderLandscapeStandby() {
         const node = e.target.closest('.ps-node');
         if (node) {
           const id = node.dataset.station;
-          if (practice.active) practice._requestStation(id);
-          else practice.start('libre', id);
+          const st = PRACTICE_STATIONS.find(s => s.id === id);
+          if (st && st.row === 'V') {
+            // Picar un master de voicing = arrancar SU VETA completa:
+            // empieza arriba de la columna (p.ej. DROP-2 PRACTICE →
+            // a3 → b3 → c2 → d3) y corona en el master. La ruta queda
+            // en columnas para que ＋ siga bajando la veta.
+            const top = PRACTICE_STATIONS.find(s =>
+              'ABCD'.includes(s.row) && s.col === st.col);
+            if (practice.active) {
+              practice.route = 'columnas';
+              practice._dwellSec = 0;
+              practice._requestStation(top ? top.id : id);
+            } else {
+              practice.start('columnas', top ? top.id : id);
+            }
+          } else if (practice.active) {
+            practice._requestStation(id);
+          } else {
+            practice.start('libre', id);
+          }
           closePracticaScreen();
           return;
         }
