@@ -18549,14 +18549,44 @@ class Player {
     const anchorActive = (loopMode === 'bars-4' || loopMode === 'section') && this._loopAnchor;
     const barsLoopLen = anchorActive ? this._loopAnchor.length : 0;
     let absoluteBars = this.totalBars;
+    // Práctica: la simulación CRUZA la costura hacia el material en
+    // cola — al fin de la canción (fin de ciclo) o en la próxima
+    // frontera de página si hay estación pendiente. Sin esto el peek
+    // de la tira (el compás parpadeante) moría en cada costura.
+    let songArr = this.song;
+    const _prActive = window.practice && window.practice.active
+      && typeof window.practice._peekQueued === 'function';
+    let pendingBoundary = (_prActive && window.practice._pending)
+      ? (4 - (this.totalBars % 4)) : Infinity;
+    const _switchToQueued = () => {
+      const q = window.practice._peekQueued();
+      if (!q || !q.song || !q.song.length) return false;
+      songArr = q.song;
+      songIdx = 0;
+      sectionIter = 0;
+      stepIdx = 0;
+      simKeyPc = q.keyPc;
+      simTonality = q.tonality;
+      return true;
+    };
     while (totalBars < n && safety++ < 30) {
-      const section = this.song[songIdx];
+      // Frontera de estación pendiente: lo que sigue es la cola.
+      if (songArr === this.song && totalBars >= pendingBoundary) {
+        if (_switchToQueued()) continue;
+        pendingBoundary = Infinity;   // sin cola disponible: seguir normal
+      }
+      const section = songArr[songIdx];
       if (!section) break;
       const prog = section.progression;
       const step = prog.steps[stepIdx];
       if (!step) break;
       const stepBars = isFirst ? barsLeft : step.bars;
-      const barsToShow = Math.min(stepBars, n - totalBars);
+      let barsToShow = Math.min(stepBars, n - totalBars);
+      // Con estación pendiente, la canción actual solo llega hasta la
+      // frontera de página; de ahí en adelante habla la cola.
+      if (songArr === this.song && pendingBoundary < Infinity) {
+        barsToShow = Math.min(barsToShow, Math.max(1, pendingBoundary - totalBars));
+      }
       // voicingType comes straight from the section's pre-assignment — guaranteed
       // to match what the player will pick when it transitions in. EXCEPT
       // when the step was hand-composed: the user explicitly chose a family
@@ -18606,7 +18636,7 @@ class Player {
         songIdx      = this._loopAnchor.songIdx;
         sectionIter  = this._loopAnchor.sectionIter;
         stepIdx      = this._loopAnchor.stepIdx;
-        barsLeft     = this.song[songIdx]?.progression?.steps?.[stepIdx]?.bars || 1;
+        barsLeft     = songArr[songIdx]?.progression?.steps?.[stepIdx]?.bars || 1;
         if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
         continue;
       }
@@ -18617,17 +18647,21 @@ class Player {
         if (sectionIter >= section.repeats) {
           sectionIter = 0;
           songIdx++;
-          if (songIdx >= this.song.length) {
+          if (songIdx >= songArr.length) {
             if (loopMode === 'song') {
               songIdx = 0;
               if (cycleStep) simKeyPc = (simKeyPc + cycleStep) % 12;
+            } else if (songArr === this.song && _prActive && _switchToQueued()) {
+              // Fin de ciclo de práctica: sigue el batch en cola, con
+              // SU tono/tonalidad (ya seteados por _switchToQueued).
+              continue;
             } else break;
           }
           // Adopt the new section's key/tonality so a modulated bridge
           // (parallel minor, truck-driver lift, etc.) shows the right
           // chords from the right map starting on its FIRST bar — not
           // one bar late.
-          const nextSection = this.song[songIdx];
+          const nextSection = songArr[songIdx];
           if (nextSection) {
             if (nextSection.keyPc !== undefined) simKeyPc = nextSection.keyPc;
             else simKeyPc = this._homeKey ? this._homeKey.keyPc : simKeyPc;
@@ -22172,6 +22206,10 @@ function renderLandscapeStandby() {
         // lentos la frontera puede tardar; sin esto el botón se siente
         // muerto).
         this._updateNextToast(((4 - (player.totalBars % 4)) % 4) || 4);
+        // Invalida el plan de página para que el peek de la tira se
+        // reconstruya YA con el material en cola parpadeando.
+        player._cachedPage = null;
+        player._cachedPeek = null;
       } else {
         this.applyStation(id);
       }
