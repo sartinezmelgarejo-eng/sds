@@ -5778,6 +5778,60 @@ body.practica-on #practica-hud { display: flex; }
 }
 #practica-screen .ps-route.on .pr-sub { color: #4d3f1e; }
 
+/* ── Estante de formas (práctica + guitarra, desktop) ── */
+#practica-shapes { display: none; margin-top: 10px; padding: 0 2px; }
+body.practica-on:not(.instrument-piano):not(.lp-on) #practica-shapes.has { display: block; }
+#practica-shapes .pshapes-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+#practica-shapes .pshapes-title {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1f1d18;
+}
+#practica-shapes .pshapes-hint {
+  font-size: 10.5px;
+  color: #8a7a55;
+}
+#practica-shapes .pshapes-row {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-top: 7px;
+}
+#practica-shapes .pshape-card {
+  width: 80px;
+  background: #faf6e8;
+  border: 1.5px solid #2a2620;
+  border-radius: 9px;
+  padding: 4px 3px 1px;
+  transition: transform 0.13s, box-shadow 0.13s;
+}
+#practica-shapes .pshape-card svg { width: 100%; display: block; }
+#practica-shapes .pshape-q {
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #1f1d18;
+  padding: 1px 0 3px;
+}
+#practica-shapes .pshape-card.hot {
+  transform: translateY(-3px);
+  box-shadow: 0 0 0 2.5px #a07820, 0 7px 14px rgba(0,0,0,0.18);
+}
+#practica-shapes .pshape-more {
+  align-self: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #8a7a55;
+  padding: 4px 6px;
+}
+
 /* ── Landscape standby: 4th swipe (práctica) ──
    Mirror of the tuner-mode pattern: hide the band/metronome slots,
    reveal the practica slots into the same grid cells. */
@@ -6111,6 +6165,17 @@ body.practica-on #landscape-play .lp-practica-label {
         <div class="neck-label">chord</div>
         <svg class="scale-neck" id="chord-neck" preserveAspectRatio="xMidYMid meet"></svg>
         <svg class="piano-svg" id="chord-piano" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <!-- Práctica: el estante de formas — el alfabeto de garras
+           trasladables de la estación, sin número de traste. La que
+           suena se enciende: mismas formas, distinto tono, ese es el
+           clic mental. Solo guitarra + practica-on (desktop). -->
+      <div id="practica-shapes" aria-hidden="true">
+        <div class="pshapes-head">
+          <span class="pshapes-title">las formas de esta estación</span>
+          <span class="pshapes-hint">la que suena se enciende · mismo dibujo, otro traste = mismo acorde</span>
+        </div>
+        <div class="pshapes-row" id="pshapes-row"></div>
       </div>
       <!-- Mobile-only transport bar shown below the realistic guitar
            while in play mode. Replaces the duplicated top toolbar
@@ -17580,6 +17645,13 @@ class Player {
       this._lastTopNote = _liveTop;
     }
     this._chainSectionLabel = this.song?.[this.songIdx]?.label ?? null;
+    // Práctica: alimenta el estante de formas (guitarra) con la forma
+    // que acaba de sonar — normalizada, es el alfabeto de la estación.
+    if (window.practice && window.practice.active && shape && !pianoShape
+        && state.instrument !== 'piano'
+        && typeof window.practice._noteShape === 'function') {
+      try { window.practice._noteShape(shape, root, _eqForLabel); } catch (e) {}
+    }
     const vol = currentDroneVolume() * 1.8;
 
     // Rhythmic subdivisions: bar divided into N equal slots. Slot 0 fires
@@ -21948,6 +22020,7 @@ function renderLandscapeStandby() {
       this._queued = null;
       player._practiceQueuedSong = null;
       this._updateNextToast(0);
+      this._shelfReset();
       document.body.classList.remove('practica-on');
       document.body.classList.remove('practica-select');
       if (typeof renderAll === 'function') renderAll();
@@ -22061,6 +22134,106 @@ function renderLandscapeStandby() {
         this.applyStation(id);
       }
     },
+    /* ── Estante de formas (guitarra) ──
+       Cada forma que suena se normaliza (traste mínimo → 1) y se
+       archiva por forma+cualidad. El estante muestra el alfabeto
+       REAL de la estación conforme aparece, y enciende la garra que
+       está sonando: ver la misma forma prenderse en tonos distintos
+       es la lección de trasladabilidad, sin decirla con palabras. */
+    _shelf: null,
+    _shelfReset() {
+      this._shelf = new Map();
+      const row = document.getElementById('pshapes-row');
+      if (row) row.innerHTML = '';
+      const panel = document.getElementById('practica-shapes');
+      if (panel) panel.classList.remove('has');
+    },
+    _noteShape(shape, root, quality) {
+      if (!this.active || !Array.isArray(shape)) return;
+      if (!this._shelf) this._shelf = new Map();
+      const fretted = shape.filter(f => f > 0);
+      const base = fretted.length ? Math.min(...fretted) : 1;
+      const rel = shape.map(f => f > 0 ? f - base + 1 : f);   // 1.., 0 = aire, -1 = muda
+      const key = rel.join(',') + '|' + quality;
+      let e = this._shelf.get(key);
+      if (!e) {
+        const q = (typeof QUALITIES !== 'undefined') && QUALITIES[quality];
+        const degByPc = {};
+        if (q) q.ints.forEach((semi, i) => {
+          const pc = (root + semi) % 12;
+          if (!(pc in degByPc)) degByPc[pc] = q.degs[i];
+        });
+        const degs = shape.map((f, s) => f >= 0 ? (degByPc[noteAt(s, f)] || '') : '');
+        e = { rel, degs, quality, count: 0 };
+        this._shelf.set(key, e);
+        this._renderShelf();
+      }
+      e.count++;
+      this._highlightShelf(key);
+    },
+    _renderShelf() {
+      const row = document.getElementById('pshapes-row');
+      if (!row || !this._shelf) return;
+      const MAX = 10;
+      const entries = [...this._shelf.entries()];
+      row.innerHTML = entries.slice(0, MAX)
+        .map(([k, e]) => this._shapeCard(k, e)).join('')
+        + (entries.length > MAX
+            ? '<div class="pshape-more">+' + (entries.length - MAX) + '</div>' : '');
+      const panel = document.getElementById('practica-shapes');
+      if (panel) panel.classList.toggle('has', this._shelf.size > 0);
+    },
+    _shapeCard(key, e) {
+      const rel = e.rel;
+      const rows = Math.max(4, ...rel.filter(f => f > 0));
+      const W = 76, H = 88, mt = 15, ml = 9, mb = 5;
+      const sw = (W - 2 * ml) / 5;
+      const rh = (H - mt - mb) / rows;
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '">';
+      s += '<line x1="' + ml + '" y1="' + mt + '" x2="' + (W - ml) + '" y2="' + mt
+        + '" stroke="#1f1d18" stroke-width="2.4"/>';
+      for (let i = 0; i < 6; i++) {
+        const x = ml + i * sw;
+        s += '<line x1="' + x + '" y1="' + mt + '" x2="' + x + '" y2="' + (H - mb)
+          + '" stroke="#1f1d18" stroke-width="0.8" opacity="0.55"/>';
+      }
+      for (let r = 1; r <= rows; r++) {
+        const y = mt + r * rh;
+        s += '<line x1="' + ml + '" y1="' + y + '" x2="' + (W - ml) + '" y2="' + y
+          + '" stroke="#1f1d18" stroke-width="0.6" opacity="0.3"/>';
+      }
+      for (let str = 0; str < 6; str++) {
+        const f = rel[str];
+        const x = ml + (5 - str) * sw;   // 6ª a la izquierda, como todo diagrama
+        if (f === -1) {
+          s += '<text x="' + x + '" y="' + (mt - 5) + '" text-anchor="middle" font-size="8" fill="#8a7a55">✕</text>';
+          continue;
+        }
+        if (f === 0) {
+          s += '<circle cx="' + x + '" cy="' + (mt - 8) + '" r="3" fill="none" stroke="#8a7a55" stroke-width="1.2"/>';
+          continue;
+        }
+        const y = mt + (f - 0.5) * rh;
+        const c = intervalColor(e.degs[str] || '');
+        s += '<circle cx="' + x + '" cy="' + y + '" r="' + (Math.min(sw, rh) * 0.44)
+          + '" fill="' + c + '" stroke="#1f1d18" stroke-width="1"/>';
+        if (e.degs[str]) {
+          s += '<text x="' + x + '" y="' + (y + 2.6) + '" text-anchor="middle" font-size="6.2" font-weight="700" fill="#141414">'
+            + e.degs[str] + '</text>';
+        }
+      }
+      s += '</svg>';
+      return '<div class="pshape-card" data-shape="' + key + '">' + s
+        + '<div class="pshape-q">' + e.quality + '</div></div>';
+    },
+    _highlightShelf(key) {
+      const row = document.getElementById('pshapes-row');
+      if (!row) return;
+      row.querySelectorAll('.pshape-card.hot').forEach(c => c.classList.remove('hot'));
+      const el = row.querySelector('.pshape-card[data-shape="' + key + '"]');
+      if (el) el.classList.add('hot');
+    },
+
     _updateNextToast(barsLeft) {
       const t = document.getElementById('practica-next');
       if (!t) return;
@@ -22147,6 +22320,7 @@ function renderLandscapeStandby() {
       this._selfChange = false;
       this._renderHud();
       this._updateNextToast(0);   // el cambio ya aterrizó: fuera aviso
+      this._shelfReset();         // estación nueva = alfabeto nuevo
     },
 
     _order() {
