@@ -19248,6 +19248,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     if (e.key === 'Escape') closeDeckLightbox();
     else if (e.key === 'ArrowLeft') lightboxPrev();
     else if (e.key === 'ArrowRight') lightboxNext();
+    else if (e.key === ' ' || e.key === 'Spacebar' || e.code === 'Space') {
+      // Espacio = play/pausa de la narración, como en la línea de tiempo.
+      // Si el foco está en un botón del lightbox lo dejamos pasar: el
+      // navegador ya lo activa con espacio y si no, se dispararía dos veces.
+      var foco = document.activeElement;
+      if (foco && foco.tagName === 'BUTTON' && lb.contains(foco)) return;
+      e.preventDefault();   // sin esto la página hace scroll bajo el lightbox
+      if (typeof lbNarrToggle === 'function') lbNarrToggle();
+    }
   });
   // Click outside frame closes
   document.getElementById('deck-lightbox')?.addEventListener('click', function(e){
