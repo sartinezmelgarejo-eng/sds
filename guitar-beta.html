@@ -5831,6 +5831,13 @@ body.practica-on:not(.instrument-piano):not(.lp-on) #practica-shapes.has { displ
   color: #8a7a55;
   padding: 4px 6px;
 }
+#practica-shapes .pshape-div {
+  width: 1.5px;
+  align-self: stretch;
+  background: #d8d2c2;
+  border-radius: 1px;
+  margin: 4px 2px;
+}
 
 /* ── Landscape standby: 4th swipe (práctica) ──
    Mirror of the tuner-mode pattern: hide the band/metronome slots,
@@ -22175,11 +22182,30 @@ function renderLandscapeStandby() {
       const row = document.getElementById('pshapes-row');
       if (!row || !this._shelf) return;
       const MAX = 10;
-      const entries = [...this._shelf.entries()];
-      row.innerHTML = entries.slice(0, MAX)
-        .map(([k, e]) => this._shapeCard(k, e)).join('')
-        + (entries.length > MAX
-            ? '<div class="pshape-more">+' + (entries.length - MAX) + '</div>' : '');
+      // Librero, no fila de llegada: las formas siguen APARECIENDO al
+      // sonar por primera vez, pero aterrizan junto a su familia de
+      // cualidad (todas las maj7 juntas, luego menores, dominantes...).
+      // Dentro de cada familia se conserva el orden de descubrimiento.
+      const QORDER = ['maj7', 'maj9', '6', 'add9', 'm7', 'm9', 'm6', 'madd9', 'mMaj7',
+                      '7', '9', '7sus4', '9sus4', '7#11', '7alt', 'm7b5', 'dim7',
+                      'sus4', 'sus2'];
+      const entries = [...this._shelf.entries()].map(([k, e], idx) => ({ k, e, idx }));
+      entries.sort((a, b) => {
+        const ra = QORDER.indexOf(a.e.quality), rb = QORDER.indexOf(b.e.quality);
+        const qa = ra < 0 ? 99 : ra, qb = rb < 0 ? 99 : rb;
+        return qa !== qb ? qa - qb : a.idx - b.idx;
+      });
+      let html = '';
+      let lastQ = null;
+      for (const { k, e } of entries.slice(0, MAX)) {
+        if (lastQ !== null && e.quality !== lastQ) html += '<div class="pshape-div"></div>';
+        lastQ = e.quality;
+        html += this._shapeCard(k, e);
+      }
+      if (entries.length > MAX) {
+        html += '<div class="pshape-more">+' + (entries.length - MAX) + '</div>';
+      }
+      row.innerHTML = html;
       const panel = document.getElementById('practica-shapes');
       if (panel) panel.classList.toggle('has', this._shelf.size > 0);
     },
