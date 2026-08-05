@@ -238,3 +238,17 @@ Estos 22 libros no tienen PDF en `Books/`, por eso sus 694 citas no se pueden co
 
 **Caso aparte: `marti` (Nuestra América).** El PDF está en el acervo pero es ilegible incluso para el OCR: el archivo no entrega ni imagen ni texto. Necesita una copia nueva, no un reprocesado.
 
+
+## I · Citas intrusas: 6 eventos nuevos para las que no tenían casa
+
+Además de las 10 citas devueltas a eventos que ya existían, seis citas describían hechos reales que **la línea de tiempo simplemente no contenía**. Se les creó evento, con la fecha cotejada contra fuentes externas donde el libro citado se equivocaba:
+
+- **1923-12-21 · Los hermanos Escudero fusilados en El Aguacatillo.** La línea tenía todo el arco de Juan R. Escudero (su nacimiento, el Partido Obrero de Acapulco, *Regeneración*, la alcaldía, el atentado de 1922 que sobrevivió mutilado, el pacto de las casas comerciales para matarlo) y se quedaba sin final. Sus dos citas vivían en «Villa entra a Guadalajara, 1914». Nota: el libro dice El Raicero; la ejecución fue en El Aguacatillo y Juan sobrevivió a la descarga para morir horas después en El Raicero, camino a Chilpancingo.
+- **1934-12-01 · Asesinato de Serguéi Kirov en Leningrado.** Tres citas lo narraban desde «Plan de San Diego, Texas, 1915» y «Asesinato de Sandino». El libro de Losurdo lo fecha el 3 de diciembre; la fecha real es el 1. Ahora cae entre Sandino y el Primer Proceso de Moscú, que es lo que su muerte desencadenó.
+- **1927-11-13 · Atentado con bombas contra Obregón en Chapultepec.** Estaba en «Rebelión delahuertista, 1924». Explica el fusilamiento del padre Pro diez días después.
+- **1915-04-24 · Genocidio armenio.** Estaba en «Primera Convención Nacional Socialista de México, 1919».
+- **1967-06-24 · Masacre de San Juan en Siglo XX y Catavi.** Estaba en «Muerte del Che en Bolivia»; es el episodio que buscaba cortarle el apoyo minero a la guerrilla.
+- **1968-03-16 · Masacre de My Lai.** Estaba en «Masacre de Tlatelolco» — dos matanzas del 68, pero distintas.
+
+Conteos: eventos 10,311 → 10,317; citas 12,815 antes y después. Ninguna cita se borró ni se duplicó.
+
