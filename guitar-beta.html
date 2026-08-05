@@ -5431,8 +5431,14 @@
   color: #f3ead8;
   flex-direction: column;
   font-family: 'Inter', system-ui, sans-serif;
+  /* Sin rebote elástico ni pull-to-refresh: el gesto de arrastre
+     sacudía el mapa aunque todo cupiera en pantalla (Android). */
+  overscroll-behavior: none;
 }
 body.practica-select #practica-screen { display: flex; }
+/* Y el fondo no scrollea mientras el mapa está abierto (evita el
+   encadenamiento del gesto hacia la página de atrás). */
+body.practica-select { overflow: hidden; }
 #practica-screen .ps-head {
   display: flex;
   align-items: center;
@@ -5489,6 +5495,7 @@ body.practica-select #practica-screen { display: flex; }
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overscroll-behavior: contain;
 }
 #practica-screen .ps-lane-name {
   font-size: 11px;
@@ -5607,6 +5614,7 @@ body.practica-select #practica-screen { display: flex; }
   position: relative;
   overflow-x: auto;
   padding: 6px 2px 10px;
+  overscroll-behavior: contain;
 }
 #practica-screen .ps-wires {
   position: absolute;
@@ -22803,9 +22811,10 @@ function renderLandscapeStandby() {
     document.getElementById('pp-desc').textContent = cfg.desc;
     const range = document.getElementById('pp-range');
     if (cfg.n > 1) {
-      // El slider mueve el TOTAL en pasos de 1 min/estación, 2-10 min.
+      // El slider mueve el TOTAL en pasos de 1 min/estación, 1-10 min
+      // (el mínimo de 1 permite sesiones relámpago).
       range.style.display = '';
-      range.min = cfg.n * 2 * 60;
+      range.min = cfg.n * 60;
       range.max = cfg.n * 10 * 60;
       range.step = cfg.n * 60;
       range.value = cfg.defSecs;
