@@ -22947,13 +22947,21 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           });
         })(0);
         z.addEventListener('wheel', function(e) {
-          // agarre pegajoso: el primer golpe debe caer sobre un banner, pero
-          // mientras se siga scrolleando (ventana de 1.6s) la banda responde
-          // aunque el banner se haya corrido bajo el cursor.
-          var sobreBanner = e.target && e.target.closest && e.target.closest('.tlp-crawl-item');
+          // La rueda hojea en CUALQUIER punto de la franja. Antes exigía que
+          // el primer golpe cayera sobre un banner, pero durante la entrada
+          // los rótulos todavía vienen subiendo desde abajo del plano y están
+          // fuera de pantalla: el agarre nunca se daba y la rueda se sentía
+          // muerta. La franja no compite con nada — la portada no scrollea.
           var ahora = Date.now();
-          if (!sobreBanner && !(belt.__grab && ahora - belt.__grab < 1600)) return;
-          if (!belt.__entro) return;   // aún entrando a escena
+          if (!belt.__entro) {
+            // Antes esto era `return` y dejaba la rueda muerta durante toda la
+            // entrada, que dura ~80 s: en la práctica el hojeado casi nunca
+            // respondía. Si el usuario ya quiere hojear, cortamos la entrada
+            // y lo dejamos en el bucle de inmediato.
+            belt.__entro = true;
+            belt.style.transform = '';
+            belt.classList.add('encarrilada');
+          }
           belt.__grab = ahora;
           e.preventDefault();
           belt.__off = (belt.__off || 0) + e.deltaY * 0.022;
