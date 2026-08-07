@@ -863,6 +863,7 @@ select:focus { outline: none; border-color: var(--amber); }
             <label id="ex-start-wrap">Start fret <select id="ex-start"></select></label>
             <label id="ex-perm-wrap">Permutation <select id="ex-perm"></select></label>
             <label class="loop-check"><input type="checkbox" id="ex-loop" checked> Loop</label>
+            <button id="ex-sugg" class="mini" title="Tempo sugerido para este ejercicio">→ 60 bpm</button>
             <button id="ex-play" class="btn btn-primary">▶ Play along</button>
           </div>
         </div>
@@ -2537,7 +2538,7 @@ const TabStaff = (() => {
     scaleKeyPc: 4, scaleId: 'pent-min', scalePos: 'all',
     arpKeyPc: 4,   arpId: 'maj',      arpPos: 'all',
     label: 'names',
-    bpm: 90,
+    bpm: 90, bpmTouched: false,
     exCat: 'mobility', exId: 'spider', exStart: 5, exPerm: '1234',
     jamKeyPc: 4, jamProgId: 'blues12', jamStyleId: 'shuffle', jamScaleId: 'blues',
     trMode: 'find',
@@ -2941,7 +2942,8 @@ const TabStaff = (() => {
       sel.value = state.exStart;
     }
 
-    setBpm(ex.defaultBpm || state.bpm);
+    suggestBpm(ex.defaultBpm || state.bpm);
+    $('ex-sugg').textContent = '→ ' + (ex.defaultBpm || 90) + ' bpm';
     renderExList();
     exGrid.build(currentGen());
     if (state.tab === 'exercises') renderBoard();
@@ -2965,6 +2967,12 @@ const TabStaff = (() => {
     if (exOwnPlaying) stopExercise();
     state.exPerm = e.target.value;
     exGrid.build(currentGen());
+  });
+
+  $('ex-sugg').addEventListener('click', () => {
+    const ex = Exercises.byId(state.exId);
+    state.bpmTouched = true;
+    setBpm(ex.defaultBpm || 90);
   });
 
   $('ex-play').addEventListener('click', () => {
@@ -3180,7 +3188,7 @@ const TabStaff = (() => {
   $('jam-style').addEventListener('change', e => {
     state.jamStyleId = e.target.value;
     const st = Theory.byId(Theory.STYLES, state.jamStyleId);
-    setBpm(st.bpm);
+    suggestBpm(st.bpm);
     $('jam-swing').value = Math.round(st.swing * 100);
     restartJamIfPlaying();
   });
@@ -3329,10 +3337,16 @@ const TabStaff = (() => {
     $('bpm-input').value = v;
     $('bpm-slider').value = v;
     jamCfg.bpm = v; // live tempo for a running jam
+    localStorage.setItem('gd-bpm', String(v));
   }
 
-  $('bpm-input').addEventListener('change', e => setBpm(+e.target.value));
-  $('bpm-slider').addEventListener('input', e => setBpm(+e.target.value));
+  // Exercise/groove defaults only apply while the user hasn't set a tempo.
+  function suggestBpm(v) {
+    if (!state.bpmTouched) setBpm(v);
+  }
+
+  $('bpm-input').addEventListener('change', e => { state.bpmTouched = true; setBpm(+e.target.value); });
+  $('bpm-slider').addEventListener('input', e => { state.bpmTouched = true; setBpm(+e.target.value); });
 
   $('metro-toggle').addEventListener('click', () => {
     const btn = $('metro-toggle');
@@ -3359,6 +3373,7 @@ const TabStaff = (() => {
     if (taps.length > 1 && now - taps[taps.length - 2] < 2500) {
       const ivs = [];
       for (let i = 1; i < taps.length; i++) ivs.push(taps[i] - taps[i - 1]);
+      state.bpmTouched = true;
       setBpm(60000 / (ivs.reduce((a, b) => a + b, 0) / ivs.length));
     }
   });
@@ -3381,6 +3396,10 @@ const TabStaff = (() => {
   Fretboard.mount($('fretboard'));
   syncScalePanel();
   syncArpPanel();
+  // restore the user's tempo from last visit; once set by hand it always wins
+  const savedBpm = +(localStorage.getItem('gd-bpm') || 0);
+  if (savedBpm >= 30) state.bpmTouched = true;
+  setBpm(savedBpm >= 30 ? savedBpm : 90);
   selectExercise('spider');
   buildSession();
   trScore();
