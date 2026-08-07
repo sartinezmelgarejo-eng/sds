@@ -704,6 +704,49 @@ select:focus { outline: none; border-color: var(--amber); }
 .ts-stroke { fill: var(--teal); font: 600 12px var(--font-body); text-anchor: middle; }
 .ts-finger { fill: var(--muted); font: italic 600 11px var(--font-body); text-anchor: middle; }
 
+/* ── practice-station layout: everything visible, no page scroll ── */
+@media (min-width: 900px) and (min-height: 620px) {
+  body {
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-width: 1400px;
+    padding-top: 14px;
+    padding-bottom: 14px;
+  }
+  .site-header { padding-bottom: 10px; }
+  .tabs { margin-bottom: 10px; }
+  .board-card { flex: none; padding: 10px 14px 6px; margin-bottom: 12px; }
+  #fretboard svg { height: clamp(175px, 25vh, 235px); }
+  .site-footer { display: none; }
+
+  main#panels { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .panel.active { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; }
+  #panel-session.active { overflow: hidden; }
+
+  #panel-session .controls { margin-bottom: 10px; }
+  .ses-desc {
+    margin-bottom: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+  }
+  .ses-stage { flex: 1; min-height: 0; display: flex; gap: 14px; margin-bottom: 10px; }
+  .ses-now {
+    width: 360px;
+    flex: none;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .ses-stage .tabstrip-wrap { flex: 1; height: auto; min-height: 0; margin-bottom: 0; }
+  .ses-overview { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+  .ses-chip { flex: none; }
+}
+
 </style>
 </head>
 <body>
@@ -730,6 +773,11 @@ select:focus { outline: none; border-color: var(--amber); }
       <span>bpm</span>
     </div>
     <input id="bpm-slider" type="range" min="30" max="240" value="90" aria-label="Tempo slider">
+    <select id="tone-select" title="Sound of the notes">
+      <option value="pluck">Pluck</option>
+      <option value="soft">Mellow</option>
+    </select>
+    <button id="fs-toggle" class="btn btn-ghost" title="Fullscreen">⛶</button>
   </div>
 </header>
 
@@ -783,21 +831,25 @@ select:focus { outline: none; border-color: var(--amber); }
         <option value="2" selected>2×</option>
         <option value="3">3×</option>
       </select></label>
+      <label class="loop-check"><input type="checkbox" id="ses-backing"> Backing</label>
+      <label id="ses-groove-wrap">Groove <select id="ses-groove"></select></label>
       <button id="ses-play" class="btn btn-primary btn-big">▶ Play session</button>
     </div>
     <p class="ses-desc" id="ses-desc"></p>
-    <div class="ses-now">
-      <div class="ses-now-main"><span class="jam-label">Now</span><span id="ses-now-title">Pick a routine, hit play</span></div>
-      <div class="ses-now-sub" id="ses-now-sub">It plays a short chunk, you play it with the sound, it moves on. All keys, one bite at a time.</div>
-      <div class="ses-playline">
-        <span class="jam-label">Play</span><span id="ses-note-now" class="ses-note-now">—</span>
-        <span class="jam-label ses-then">then</span><span id="ses-note-next" class="ses-note-next">—</span>
+    <div class="ses-stage">
+      <div class="ses-now">
+        <div class="ses-now-main"><span class="jam-label">Now</span><span id="ses-now-title">Pick a routine, hit play</span></div>
+        <div class="ses-now-sub" id="ses-now-sub">It plays a complete figure, you play it with the sound, it moves on. All keys, one bite at a time.</div>
+        <div class="ses-playline">
+          <span class="jam-label">Play</span><span id="ses-note-now" class="ses-note-now">—</span>
+          <span class="jam-label ses-then">then</span><span id="ses-note-next" class="ses-note-next">—</span>
+        </div>
+        <div class="ses-next"><span class="jam-label">Next</span><span id="ses-next-title">—</span></div>
+        <div class="ses-progress"><div id="ses-progress-fill"></div></div>
+        <div class="ses-count" id="ses-count"></div>
       </div>
-      <div class="ses-next"><span class="jam-label">Next</span><span id="ses-next-title">—</span></div>
-      <div class="ses-progress"><div id="ses-progress-fill"></div></div>
-      <div class="ses-count" id="ses-count"></div>
+      <div class="tabstrip-wrap"><div id="tabstrip"></div></div>
     </div>
-    <div class="tabstrip-wrap"><div id="tabstrip"></div></div>
     <div class="ses-overview" id="ses-overview"></div>
   </section>
 
@@ -1598,11 +1650,15 @@ const Sessions = (() => {
   // One segment = one COMPLETE figure (full run, full walk, full pattern),
   // played `repeats` times. No bar cap: the tab ribbon scrolls, so a
   // figure is never cut mid-phrase.
-  function emit(rawGen, title, sub, markers, opts, bpmOverride) {
+  // key = { rootPc, minor } for tonal material (the backing track follows
+  // it), null for drills.
+  function emit(rawGen, title, sub, markers, opts, bpmOverride, key) {
     return [{
       title, sub, markers,
       gen: repeatGen(rawGen, (opts && opts.repeats) || 1),
       bpm: bpmOverride || null,
+      rootPc: key && key.rootPc != null ? key.rootPc : null,
+      minor: key ? !!key.minor : null,
     }];
   }
 
@@ -1613,7 +1669,8 @@ const Sessions = (() => {
     const segs = [];
     keyOrder(opts.startPc, opts.scheme).slice(0, opts.keys || 12).forEach(pc => {
       const { gen, pool } = windowGen(pc, sc.iv);
-      segs.push(...emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down', markersFromPool(pool), opts));
+      segs.push(...emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
+        markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 }));
     });
     return segs;
   }
@@ -1626,7 +1683,8 @@ const Sessions = (() => {
       const ar = Theory.byId(Theory.ARPEGGIOS, q);
       keys.forEach(pc => {
         const { gen, pool } = windowGen(pc, ar.iv);
-        segs.push(...emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down', markersFromPool(pool), opts));
+        segs.push(...emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
+          markersFromPool(pool), opts, null, { rootPc: pc, minor: q !== 'maj' }));
       });
     });
     return segs;
@@ -1658,13 +1716,15 @@ const Sessions = (() => {
   function scaleSeg(pc, scaleId, opts) {
     const sc = Theory.byId(Theory.SCALES, scaleId);
     const { gen, pool } = windowGen(pc, sc.iv);
-    return emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down', markersFromPool(pool), opts);
+    return emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
+      markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 });
   }
 
   function arpSeg(pc, q, opts) {
     const ar = Theory.byId(Theory.ARPEGGIOS, q);
     const { gen, pool } = windowGen(pc, ar.iv);
-    return emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down', markersFromPool(pool), opts);
+    return emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
+      markersFromPool(pool), opts, null, { rootPc: pc, minor: q !== 'maj' });
   }
 
   // Mixed circuit: types interleaved so nothing overstays.
@@ -1805,6 +1865,10 @@ const AudioEngine = (() => {
     active.clear();
   }
 
+  // Note voice: 'pluck' (Karplus–Strong) or 'soft' (mellow synth).
+  let tone = 'pluck';
+  function setTone(t) { tone = t === 'soft' ? 'soft' : 'pluck'; }
+
   /* ── Karplus–Strong plucked string ──────────────────────── */
 
   const pluckCache = new Map();
@@ -1839,6 +1903,7 @@ const AudioEngine = (() => {
   function playPluck(midi, t, vel = 1) {
     const c = ac();
     if (t == null) t = c.currentTime;
+    if (tone === 'soft') { softNote(midi, t, vel); return; }
     const src = c.createBufferSource();
     src.buffer = ksBuffer(midi);
     const lp = c.createBiquadFilter();
@@ -1850,6 +1915,27 @@ const AudioEngine = (() => {
     register(g, src);
     src.start(t);
     src.stop(t + 3.2);
+  }
+
+  // Mellow voice: rounded attack, triangle body plus a soft octave sheen.
+  // Not a guitar impersonation, just a calm tone for long practice.
+  function softNote(midi, t, vel = 1) {
+    const c = ac();
+    const f = midiFreq(midi);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.3 * vel, t + 0.018);
+    g.gain.setTargetAtTime(0, t + 0.22, 0.26);
+    const lp = c.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1600;
+    const o1 = c.createOscillator(); o1.type = 'triangle'; o1.frequency.value = f;
+    const o2 = c.createOscillator(); o2.type = 'sine'; o2.frequency.value = f * 2;
+    const g2 = c.createGain(); g2.gain.value = 0.22;
+    o1.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(g); g.connect(master);
+    register(g, o1); register(g, o2);
+    o1.start(t); o1.stop(t + 1.8);
+    o2.start(t); o2.stop(t + 1.8);
   }
 
   // Six open strings fanned out like a real stroke.
@@ -2072,6 +2158,14 @@ const AudioEngine = (() => {
     jam.timer = null; jam.playing = false;
   }
 
+  // Audio time of the next bar line in the running jam (null if not playing).
+  // Lets guided chunks enter exactly on the backing's bar boundary.
+  function jamNextBarTime() {
+    if (!jam.playing || !ctx) return null;
+    const stepDur = 60 / jam.cfg.bpm / 4;
+    return jam.nextT + ((16 - (jam.step % 16)) % 16) * stepDur;
+  }
+
   /* ── exercise / scale player ────────────────────────────── */
 
   const ex = { playing: false, ui: [], t0: 0, spb: 0.5 };
@@ -2082,7 +2176,8 @@ const AudioEngine = (() => {
     const c = ac();
     const spb = 60 / bpm;
     let t0 = c.currentTime + 0.15;
-    if (opts.countIn) {
+    if (opts.startAt != null) t0 = Math.max(t0, opts.startAt);
+    else if (opts.countIn) {
       for (let i = 0; i < 4; i++) click(t0 + i * spb, i === 0);
       t0 += 4 * spb;
     }
@@ -2126,9 +2221,9 @@ const AudioEngine = (() => {
   function stopAll() { stopJam(); stopMetro(); stopNotes(); chokeAll(); }
 
   return {
-    playPluck, playStrum,
+    playPluck, playStrum, setTone,
     startMetro, stopMetro, metroPlaying: () => metro.playing,
-    startJam, stopJam, jamPlaying: () => jam.playing,
+    startJam, stopJam, jamPlaying: () => jam.playing, jamNextBarTime,
     playNotes, stopNotes, notesPlaying: () => ex.playing, notesPosition,
     stopAll,
   };
@@ -2412,7 +2507,7 @@ const TabStaff = (() => {
       svg = el('svg', { viewBox: `0 0 ${width} ${height}`, width, height });
       svg.style.position = 'absolute';
       svg.style.left = '0';
-      svg.style.top = '0';
+      svg.style.top = 'calc(50% - 88px)';
 
       for (let s = 0; s < 6; s++)
         svg.appendChild(el('line', {
@@ -2997,6 +3092,7 @@ const TabStaff = (() => {
   /* ── play-along session ───────────────────────────────── */
 
   const ses = { segs: [], idx: -1, playing: false };
+  let backingLive = false;
 
   // Smooth playhead driven by the audio clock, not by note callbacks.
   let stripClock = null;
@@ -3016,9 +3112,11 @@ const TabStaff = (() => {
   fill($('ses-routine'), Sessions.ROUTINES, r => r.id, r => r.name);
   fill($('ses-key'), Theory.KEYS, k => k.pc, k => k.n);
   fill($('ses-scale'), Theory.SCALES, s => s.id, s => s.name);
+  fill($('ses-groove'), Theory.STYLES, s => s.id, s => s.name);
   $('ses-routine').value = state.sesRoutine;
   $('ses-key').value = state.sesStartPc;
   $('ses-scale').value = state.sesScaleId;
+  $('ses-groove').value = 'bossa';
 
   function sessionOpts() {
     return {
@@ -3088,13 +3186,30 @@ const TabStaff = (() => {
     $('ses-progress-fill').style.width = (i / ses.segs.length * 100) + '%';
     $('ses-note-now').textContent = 'get ready…';
     $('ses-note-next').textContent = noteReadout(seg.gen.notes[0]);
+
+    // Guided jam: the backing follows each figure's key and the figure
+    // enters exactly on the backing's next bar line.
+    const wantBacking = $('ses-backing').checked;
+    if (wantBacking) {
+      const style = Theory.byId(Theory.STYLES, $('ses-groove').value);
+      jamCfg.keyPc = seg.rootPc != null ? seg.rootPc : state.sesStartPc;
+      jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, seg.rootPc == null ? 'rock' : (seg.minor ? 'rock' : 'pop'));
+      jamCfg.style = style;
+      jamCfg.bpm = seg.bpm || state.bpm;
+      jamCfg.swing = style.swing;
+      if (!AudioEngine.jamPlaying()) AudioEngine.startJam(jamCfg, onJamChord);
+      backingLive = true;
+    }
+    const startAt = wantBacking ? AudioEngine.jamNextBarTime() : null;
+
     AudioEngine.playNotes(seg.gen, seg.bpm || state.bpm, {
-      countIn: true,
+      countIn: !wantBacking,
+      startAt,
       onNote: (k, n) => {
         Fretboard.setPlaying(n.strum ? null : n, upcoming(seg.gen.notes, k));
         $('ses-note-now').textContent = noteReadout(n);
         $('ses-note-next').textContent =
-          seg.gen.notes[k + 1] ? noteReadout(seg.gen.notes[k + 1]) : 'chunk change';
+          seg.gen.notes[k + 1] ? noteReadout(seg.gen.notes[k + 1]) : 'next figure';
       },
       onEnd: () => { if (ses.playing) playSegment(i + 1); },
     });
@@ -3104,6 +3219,7 @@ const TabStaff = (() => {
   function stopSession(finished) {
     ses.playing = false;
     AudioEngine.stopNotes();
+    if (backingLive) { AudioEngine.stopJam(); backingLive = false; }
     setBtnIdle($('ses-play'));
     stopStripClock();
     tabStrip.setPlayhead(null);
@@ -3378,6 +3494,18 @@ const TabStaff = (() => {
     }
   });
 
+  /* ── tone & fullscreen ────────────────────────────────── */
+
+  $('tone-select').addEventListener('change', e => {
+    AudioEngine.setTone(e.target.value);
+    localStorage.setItem('gd-tone', e.target.value);
+  });
+
+  $('fs-toggle').addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+
   /* ── keyboard ─────────────────────────────────────────── */
 
   window.addEventListener('keydown', e => {
@@ -3400,6 +3528,8 @@ const TabStaff = (() => {
   const savedBpm = +(localStorage.getItem('gd-bpm') || 0);
   if (savedBpm >= 30) state.bpmTouched = true;
   setBpm(savedBpm >= 30 ? savedBpm : 90);
+  const savedTone = localStorage.getItem('gd-tone');
+  if (savedTone) { $('tone-select').value = savedTone; AudioEngine.setTone(savedTone); }
   selectExercise('spider');
   buildSession();
   trScore();
