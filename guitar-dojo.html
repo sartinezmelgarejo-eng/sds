@@ -833,6 +833,7 @@ select:focus { outline: none; border-color: var(--amber); }
       </select></label>
       <label class="loop-check"><input type="checkbox" id="ses-backing"> Backing</label>
       <label id="ses-groove-wrap">Groove <select id="ses-groove"></select></label>
+      <button id="ses-shuffle" class="btn" title="Re-roll the lineup">↻ Shuffle</button>
       <button id="ses-play" class="btn btn-primary btn-big">▶ Play session</button>
     </div>
     <p class="ses-desc" id="ses-desc"></p>
@@ -1598,6 +1599,16 @@ const Sessions = (() => {
 
   const keyName = pc => Theory.pcName(pc, Theory.preferFlats(pc));
 
+  const shuffle = arr => {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
   /* ── position pattern: every tone of the collection inside a
         ~6-fret window anchored at the low-E root, up then down ── */
 
@@ -1727,54 +1738,61 @@ const Sessions = (() => {
       markersFromPool(pool), opts, null, { rootPc: pc, minor: q !== 'maj' });
   }
 
-  // Mixed circuit: types interleaved so nothing overstays.
-  // Every figure plays COMPLETE, and everything runs at the user's tempo:
-  // no per-segment bpm overrides outside the Gauntlet (its ramp IS the point).
-  // The spider uses a short 2-fret walk here.
+  // Mixed circuit, re-rolled on every build: a random mobility opener in a
+  // random position, a shuffled middle of scale runs, triads and picking
+  // drills, and a fingerstyle landing. Never the same journey twice.
   function fullWorkout(opts) {
     const keys = keyOrder(opts.startPc, opts.scheme).slice(0, 4);
-    let segs = [];
-    segs = segs.concat(drillSegments('spider', [5], opts, null, { cycles: 2 }));
-    segs = segs.concat(scaleSeg(keys[0], 'pent-min', opts));
-    segs = segs.concat(arpSeg(keys[0], 'maj', opts));
-    segs = segs.concat(drillSegments('ap101', [5], opts));
-    segs = segs.concat(scaleSeg(keys[1], 'pent-min', opts));
-    segs = segs.concat(arpSeg(keys[1], 'min', opts));
-    segs = segs.concat(drillSegments('trill', [5], opts));
-    segs = segs.concat(scaleSeg(keys[2], 'pent-min', opts));
-    segs = segs.concat(arpSeg(keys[2], 'maj', opts));
-    segs = segs.concat(drillSegments('skip-bursts', [5], opts));
-    segs = segs.concat(scaleSeg(keys[3], 'pent-min', opts));
-    segs = segs.concat(fingerstyleFlow(opts).slice(0, 1));
-    return segs;
+    const mob = pick([
+      ['spider', pick([3, 5, 7]), { cycles: 2 }], ['trill', pick([3, 5, 7])],
+      ['stretch', pick([3, 5, 7])], ['sync', pick([3, 5, 7])], ['skip-spider', pick([3, 5])],
+    ]);
+    const picks = shuffle([
+      ['ap101', pick([3, 5, 7])], ['in-out', 5], ['skip-bursts', pick([3, 5])],
+      ['gallop', pick([1, 3, 5])], ['scalar', pick([5, 7])],
+    ]);
+    const scalePool = shuffle(['pent-min', 'blues', 'nat-min', 'dorian']);
+    const middle = [];
+    keys.forEach((pc, i) => {
+      middle.push(...scaleSeg(pc, scalePool[i % scalePool.length], opts));
+      middle.push(...arpSeg(pc, i % 2 ? 'min' : 'maj', opts));
+    });
+    picks.slice(0, 2).forEach(([id, f]) => middle.push(...drillSegments(id, [f], opts)));
+    const flow = shuffle(fingerstyleFlow(opts));
+    return [
+      ...drillSegments(mob[0], [mob[1]], opts, null, mob[2]),
+      ...shuffle(middle),
+      flow[0],
+    ];
   }
 
-  // Maximum variety: twelve complete figures, all different.
+  // Maximum variety: twelve complete figures drawn at random from the whole
+  // library — drills, scales, triads, fingerstyle — shuffled head to toe.
   function sampler(opts) {
     const keys = keyOrder(opts.startPc, opts.scheme);
-    const flow = fingerstyleFlow(opts);
-    let segs = [];
-    segs = segs.concat(drillSegments('spider', [5], opts, null, { cycles: 2 }));
-    segs = segs.concat(drillSegments('stretch', [5], opts));
-    segs = segs.concat(drillSegments('trill', [5], opts));
-    keys.slice(0, 3).forEach(pc => { segs = segs.concat(scaleSeg(pc, 'pent-min', opts)); });
-    segs = segs.concat(arpSeg(keys[3], 'maj', opts));
-    segs = segs.concat(arpSeg(keys[4], 'min', opts));
-    segs = segs.concat(drillSegments('in-out', [5], opts));
-    segs = segs.concat(drillSegments('gallop', [3], opts));
-    segs = segs.concat(flow.slice(0, 1));   // pima
-    segs = segs.concat(flow.slice(2, 3));   // travis
-    return segs;
+    const drillPool = shuffle([
+      ['spider', pick([3, 5, 7]), { cycles: 2 }], ['stretch', pick([3, 5, 7])],
+      ['trill', pick([3, 5, 7])], ['skip-spider', pick([3, 5])], ['sync', pick([3, 5, 7])],
+      ['climb', 1], ['ap101', pick([3, 5, 7])], ['in-out', 5],
+      ['skip-bursts', pick([3, 5])], ['gallop', pick([1, 3, 5])], ['tremolo', 7], ['scalar', pick([5, 7])],
+    ]);
+    const scalePool = shuffle(['pent-min', 'blues', 'nat-min', 'dorian', 'mixolydian']);
+    const segs = [];
+    drillPool.slice(0, 4).forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
+    shuffle(keys.slice(0, 5)).slice(0, 3).forEach((pc, i) => segs.push(...scaleSeg(pc, scalePool[i], opts)));
+    shuffle(keys.slice(5, 9)).slice(0, 3).forEach((pc, i) => segs.push(...arpSeg(pc, i % 2 ? 'min' : 'maj', opts)));
+    segs.push(...shuffle(fingerstyleFlow(opts)).slice(0, 2));
+    return shuffle(segs);
   }
 
   /* ── routines ───────────────────────────────────────────── */
 
   const ROUTINES = [
     { id: 'full', name: 'The Full Workout',
-      desc: 'A bit of everything, interleaved so nothing overstays: mobility, one key per scale run, triads, picking, fingerstyle.',
+      desc: 'A bit of everything, re-rolled every time: random mobility opener, keys and drills shuffled, fingerstyle landing.',
       build: fullWorkout },
     { id: 'sampler', name: 'The Sampler',
-      desc: 'Twelve chunks, all different. A tasting menu across mobility, scales, arpeggios, picking and fingerstyle.',
+      desc: 'Twelve complete figures drawn at random from the whole library. Never the same session twice.',
       build: sampler },
     { id: 'pent-tour', name: 'Pentatonic World Tour',
       desc: 'Minor pentatonic through the keys, one position run per key. Choose 3, 6 or all 12 keys.',
@@ -3236,6 +3254,12 @@ const TabStaff = (() => {
       renderOverview();
     }
   }
+
+  $('ses-shuffle').addEventListener('click', () => {
+    if (ses.playing) stopSession();
+    buildSession();
+    if (state.tab === 'session') renderBoard();
+  });
 
   $('ses-play').addEventListener('click', () => {
     const btn = $('ses-play');
