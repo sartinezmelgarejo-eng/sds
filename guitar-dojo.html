@@ -747,6 +747,17 @@ select:focus { outline: none; border-color: var(--amber); }
   .ses-chip { flex: none; }
 }
 
+/* coach note in the session card */
+.ses-tip {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-style: italic;
+}
+.ses-tip:empty { display: none; }
+
 </style>
 </head>
 <body>
@@ -846,6 +857,7 @@ select:focus { outline: none; border-color: var(--amber); }
           <span class="jam-label ses-then">then</span><span id="ses-note-next" class="ses-note-next">—</span>
         </div>
         <div class="ses-next"><span class="jam-label">Next</span><span id="ses-next-title">—</span></div>
+        <div class="ses-tip" id="ses-tip"></div>
         <div class="ses-progress"><div id="ses-progress-fill"></div></div>
         <div class="ses-count" id="ses-count"></div>
       </div>
@@ -1609,6 +1621,18 @@ const Sessions = (() => {
   };
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
+  // Deterministic RNG: the daily workouts use it so the lineup is the same
+  // all day and changes tomorrow.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const segMinutes = (seg, bpm) => ((seg.gen.totalSteps / 4) + 4) * (60 / (seg.bpm || bpm)) / 60;
+
   /* ── position pattern: every tone of the collection inside a
         ~6-fret window anchored at the low-E root, up then down ── */
 
@@ -1684,8 +1708,10 @@ const Sessions = (() => {
     const segs = [];
     keyOrder(opts.startPc, opts.scheme).slice(0, opts.keys || 12).forEach(pc => {
       const { gen, pool } = windowGen(pc, sc.iv);
-      segs.push(...emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
-        markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 }));
+      const e = emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
+        markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 });
+      e[0].tip = sc.use;
+      segs.push(...e);
     });
     return segs;
   }
@@ -1698,8 +1724,10 @@ const Sessions = (() => {
       const ar = Theory.byId(Theory.ARPEGGIOS, q);
       keys.forEach(pc => {
         const { gen, pool } = windowGen(pc, ar.iv);
-        segs.push(...emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
-          markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) }));
+        const e = emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
+          markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) });
+        e[0].tip = ar.use;
+        segs.push(...e);
       });
     });
     return segs;
@@ -1712,7 +1740,9 @@ const Sessions = (() => {
       startFrets.forEach(f => {
         const raw = Exercises.generate(ex, Object.assign({ startFret: f }, genOpts || {}));
         const title = `${ex.name}, fret ${f}` + (bpm ? `, ${bpm} bpm` : '');
-        segs.push(...emit(raw, title, ex.focus, markersFromGen(raw), opts, bpm));
+        const e = emit(raw, title, ex.focus, markersFromGen(raw), opts, bpm);
+        e[0].tip = ex.tips[Math.floor(Math.random() * ex.tips.length)];
+        segs.push(...e);
       });
     });
     return segs;
@@ -1731,8 +1761,10 @@ const Sessions = (() => {
   function scaleSeg(pc, scaleId, opts) {
     const sc = Theory.byId(Theory.SCALES, scaleId);
     const { gen, pool } = windowGen(pc, sc.iv);
-    return emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
+    const e = emit(gen, `${keyName(pc)} ${sc.name}`, 'position run, up and down',
       markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 });
+    e[0].tip = sc.use;
+    return e;
   }
 
   const INV_NAMES = ['', ' (1st inv)', ' (2nd inv)', ' (3rd inv)'];
@@ -1742,10 +1774,12 @@ const Sessions = (() => {
     const ar = Theory.byId(Theory.ARPEGGIOS, q);
     const anchor = (pc + ar.iv[inv]) % 12;
     const { gen, pool } = windowGen(pc, ar.iv, 0.25, anchor);
-    return emit(gen,
+    const e = emit(gen,
       `${keyName(pc)} ${ar.name}${INV_NAMES[inv]}`,
       inv === 0 ? 'root position, up and down' : `${keyName(anchor)} in the bass, up and down`,
       markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) });
+    e[0].tip = inv === 0 ? ar.use : `Hear the ${keyName(anchor)} as the floor of the chord. Same notes, new gravity.`;
+    return e;
   }
 
   const arpSeg = (pc, q, opts) => arpSegInv(pc, q, opts, 0);
@@ -1764,36 +1798,114 @@ const Sessions = (() => {
     return segs;
   }
 
-  // Mixed circuit, re-rolled on every build: a random mobility opener in a
-  // random position, then real coverage — six scale runs across the library,
-  // five arpeggios including 7ths and inversions, picking drills — plus a
-  // fingerstyle landing. Never the same journey twice.
+  // The Full Workout — the long one. Every mobility drill, all 12 scales,
+  // every arpeggio with ALL of its inversions, the whole picking catalog,
+  // and the fingerstyle set to land on. Family blocks, keys rotating
+  // through the cycle, order shuffled within each block.
   function fullWorkout(opts) {
-    const keys = keyOrder(opts.startPc, opts.scheme).slice(0, 6);
-    const mob = pick([
-      ['spider', pick([3, 5, 7]), { cycles: 2 }], ['trill', pick([3, 5, 7])],
-      ['stretch', pick([3, 5, 7])], ['sync', pick([3, 5, 7])], ['skip-spider', pick([3, 5])],
-    ]);
-    const picks = shuffle([
+    const keys = keyOrder(opts.startPc, opts.scheme);
+    const segs = [];
+    // 1. mobility catalog, full journeys
+    shuffle([
+      ['spider', 5, { cycles: 3 }], ['perm-lab', pick([3, 5, 7]), { perm: pick(Exercises.PERMS) }],
+      ['stretch', pick([3, 5, 7])], ['trill', pick([3, 5, 7])],
+      ['skip-spider', pick([3, 5])], ['climb', 1], ['sync', pick([3, 5, 7])],
+    ]).forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
+    // 2. every scale in the library
+    shuffle(Theory.SCALES.map(s => s.id)).forEach((id, i) =>
+      segs.push(...scaleSeg(keys[i % keys.length], id, opts)));
+    // 3. every arpeggio with all its inversions, keys rotating
+    shuffle(Theory.ARPEGGIOS.map(a => a.id)).forEach(q => {
+      const n = Theory.byId(Theory.ARPEGGIOS, q).iv.length;
+      for (let inv = 0; inv < n; inv++)
+        segs.push(...arpSegInv(keys[(inv + segs.length) % keys.length], q, opts, inv));
+    });
+    // 4. picking catalog
+    shuffle([
       ['ap101', pick([3, 5, 7])], ['in-out', 5], ['skip-bursts', pick([3, 5])],
-      ['gallop', pick([1, 3, 5])], ['scalar', pick([5, 7])],
+      ['tremolo', 7], ['gallop', pick([1, 3, 5])], ['scalar', pick([5, 7])],
+    ]).forEach(([id, f]) => segs.push(...drillSegments(id, [f], opts)));
+    // 5. fingerstyle landing, the whole set
+    segs.push(...shuffle(fingerstyleFlow(opts)));
+    segs.push(...drillSegments('rasgueado', [5], opts));
+    segs.push(...drillSegments('rest-stroke', [5], opts));
+    return segs;
+  }
+
+  // Daily workouts: seeded by the date, so the lineup is fixed all day and
+  // fresh tomorrow. A sample of everything, sized to a time target.
+  function dailyWorkout(opts, targetMin) {
+    const d = new Date();
+    const rnd = mulberry32(d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate());
+    const pickR = arr => arr[Math.floor(rnd() * arr.length)];
+    const shuffleR = arr => {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(rnd() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const bpm = opts.bpm || 60;
+    const keys = [opts.startPc, ...shuffleR([...Array(12).keys()].filter(p => p !== opts.startPc))];
+    const mobPool = shuffleR([
+      ['spider', 5, { cycles: 2 }], ['perm-lab', pickR([3, 5, 7]), { perm: pickR(Exercises.PERMS) }],
+      ['stretch', pickR([3, 5, 7])], ['trill', pickR([3, 5, 7])],
+      ['skip-spider', pickR([3, 5])], ['climb', 1], ['sync', pickR([3, 5, 7])],
     ]);
-    const scalePool = shuffle(['pent-min', 'pent-maj', 'blues', 'major', 'nat-min', 'dorian', 'mixolydian', 'harm-min']);
-    const arpPlan = shuffle([
-      ['maj', 0], ['min', 0], ['maj7', 0], ['min7', 0], ['dom7', 0],
-      ['maj', 1], ['min', 2], ['min7', 1], ['dom7', 2], ['min7b5', 0],
-    ]);
-    const middle = [];
-    keys.forEach((pc, i) => middle.push(...scaleSeg(pc, scalePool[i % scalePool.length], opts)));
-    arpPlan.slice(0, 5).forEach(([q, inv], i) =>
-      middle.push(...arpSegInv(keys[(i + 1) % keys.length], q, opts, inv)));
-    picks.slice(0, 2).forEach(([id, f]) => middle.push(...drillSegments(id, [f], opts)));
-    const flow = shuffle(fingerstyleFlow(opts));
-    return [
-      ...drillSegments(mob[0], [mob[1]], opts, null, mob[2]),
-      ...shuffle(middle),
-      flow[0],
-    ];
+    const scalePool = shuffleR(Theory.SCALES.map(s => s.id).filter(id => id !== 'chromatic'));
+    const arpPool = shuffleR(Theory.ARPEGGIOS.map(a => a.id));
+    const pickPool = shuffleR([['ap101', 5], ['in-out', 5], ['skip-bursts', 5], ['tremolo', 7], ['gallop', 3], ['scalar', 5]]);
+    const flowPool = shuffleR(fingerstyleFlow(opts));
+    let mi = 0, si = 0, ai = 0, pi = 0, fi = 0, ki = 0;
+    const nextKey = () => keys[ki++ % keys.length];
+    const draw = cat => {
+      if (cat === 'mob') { const [id, f, g] = mobPool[mi++ % mobPool.length]; return drillSegments(id, [f], opts, null, g); }
+      if (cat === 'scale') return scaleSeg(nextKey(), scalePool[si++ % scalePool.length], opts);
+      if (cat === 'arp') return arpSegInv(nextKey(), arpPool[ai++ % arpPool.length], opts, 0);
+      if (cat === 'arpinv') {
+        const q = arpPool[ai++ % arpPool.length];
+        const nInv = Theory.byId(Theory.ARPEGGIOS, q).iv.length - 1;
+        return arpSegInv(nextKey(), q, opts, 1 + Math.floor(rnd() * nInv));
+      }
+      if (cat === 'pick') { const [id, f] = pickPool[pi++ % pickPool.length]; return drillSegments(id, [f], opts); }
+      return [flowPool[fi++ % flowPool.length]];
+    };
+    const pattern = ['mob', 'scale', 'arp', 'pick', 'scale', 'arpinv', 'mob', 'flow', 'scale', 'arp', 'pick', 'arpinv'];
+    const segs = [];
+    let mins = 0, p = 0, guard = 0;
+    while (mins < targetMin && guard++ < 300) {
+      const drawn = draw(pattern[p++ % pattern.length]);
+      segs.push(...drawn);
+      mins += drawn.reduce((m, s) => m + segMinutes(s, bpm), 0);
+    }
+    return segs;
+  }
+
+  // Pure left-hand athletics: the complete mobility catalog, full journeys.
+  function fingerGym(opts) {
+    const segs = [];
+    [
+      ['spider', 5, { cycles: 4 }], ['perm-lab', pick([3, 5, 7]), { perm: pick(Exercises.PERMS) }],
+      ['stretch', pick([3, 5, 7])], ['trill', pick([3, 5, 7])],
+      ['skip-spider', pick([3, 5])], ['climb', 1], ['sync', pick([3, 5, 7])],
+    ].forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
+    return segs;
+  }
+
+  // The musical one: scale runs, triads, 7th arpeggios and their inversions
+  // across the keys. No drills, just harmony.
+  function harmonyRun(opts) {
+    const keys = keyOrder(opts.startPc, opts.scheme);
+    const segs = [];
+    shuffle(['pent-min', 'pent-maj', 'major', 'nat-min', 'dorian', 'mixolydian', 'lydian', 'harm-min'])
+      .forEach((id, i) => segs.push(...scaleSeg(keys[i % keys.length], id, opts)));
+    shuffle(['maj', 'min', 'maj7', 'min7', 'dom7', 'min7b5']).forEach((q, i) => {
+      const nInv = Theory.byId(Theory.ARPEGGIOS, q).iv.length - 1;
+      segs.push(...arpSegInv(keys[(i + 3) % keys.length], q, opts, 0));
+      segs.push(...arpSegInv(keys[(i + 4) % keys.length], q, opts, 1 + (i % nInv)));
+    });
+    return segs;
   }
 
   // Maximum variety: twelve complete figures drawn at random from the whole
@@ -1818,12 +1930,24 @@ const Sessions = (() => {
   /* ── routines ───────────────────────────────────────────── */
 
   const ROUTINES = [
+    { id: 'daily15', name: 'Daily 15',
+      desc: 'About 15 minutes, a sample of everything. Same lineup all day; a fresh one tomorrow.',
+      build: o => dailyWorkout(o, 15) },
+    { id: 'quick10', name: 'Quick 10',
+      desc: 'The 10-minute daily sample. Same day, same lineup; tomorrow, a new one.',
+      build: o => dailyWorkout(o, 10) },
     { id: 'full', name: 'The Full Workout',
-      desc: 'A bit of everything, re-rolled every time: mobility opener, six scale runs across the library, five arpeggios with 7ths and inversions, picking, fingerstyle landing.',
+      desc: 'The long one: every mobility drill, all 12 scales, every arpeggio with all its inversions, the whole picking catalog, fingerstyle to land. A complete review.',
       build: fullWorkout },
     { id: 'sampler', name: 'The Sampler',
       desc: 'Twelve complete figures drawn at random from the whole library. Never the same session twice.',
       build: sampler },
+    { id: 'harmony', name: 'In Tune (Harmony)',
+      desc: 'The musical one: scale runs, triads, 7th arpeggios and inversions across the keys. No drills, just harmony.',
+      build: harmonyRun },
+    { id: 'finger-gym', name: 'Finger Gym',
+      desc: 'Pure left-hand athletics: the complete mobility catalog, full journeys.',
+      build: fingerGym },
     { id: 'pent-tour', name: 'Pentatonic World Tour',
       desc: 'Minor pentatonic through the keys, one position run per key. Choose 3, 6 or all 12 keys.',
       keyCount: true,
@@ -1843,7 +1967,7 @@ const Sessions = (() => {
       desc: 'The spider walk from fret 5: up the strings and back down, one fret higher every round trip, to fret 9 and all the way home again.',
       build: o => drillSegments('spider', [5], o) },
     { id: 'gauntlet', name: 'Picking Gauntlet',
-      desc: 'The same alternate-picking drill at 60, 70, 80, 90 bpm. Earn each tempo.',
+      desc: 'The same alternate-picking drill at 60, 70, 80, 90 bpm. Earn each tempo. (This one changes your bpm on purpose.)',
       build: o => drillSegments('ap101', [5], o, [60, 70, 80, 90]) },
     { id: 'fingerstyle-flow', name: 'Fingerstyle Flow',
       desc: 'PIMA, reverse arpeggio and Travis patterns, looped slow. Right-hand calibration.',
@@ -2681,7 +2805,7 @@ const TabStaff = (() => {
 
   const state = {
     tab: 'session',
-    sesRoutine: 'full', sesStartPc: 4, sesScheme: 'fourths',
+    sesRoutine: 'daily15', sesStartPc: 4, sesScheme: 'fourths',
     sesScaleId: 'major', sesQuality: 'both', sesReps: 2, sesKeys: 6,
     scaleKeyPc: 4, scaleId: 'pent-min', scalePos: 'all',
     arpKeyPc: 4,   arpId: 'maj',      arpPos: 'all',
@@ -3175,7 +3299,7 @@ const TabStaff = (() => {
     return {
       startPc: state.sesStartPc, scheme: state.sesScheme,
       repeats: state.sesReps, scaleId: state.sesScaleId, quality: state.sesQuality,
-      keys: state.sesKeys,
+      keys: state.sesKeys, bpm: state.bpm,
     };
   }
 
@@ -3203,9 +3327,10 @@ const TabStaff = (() => {
     if (!seg) return;
     $('ses-now-title').textContent = seg.title;
     $('ses-now-sub').textContent = seg.sub || '';
+    $('ses-tip').textContent = seg.tip ? 'Coach: ' + seg.tip : '';
     const next = ses.segs[i + 1];
-    $('ses-next-title').textContent = next ? next.title : 'last chunk';
-    $('ses-count').textContent = `Chunk ${i + 1} of ${ses.segs.length}`;
+    $('ses-next-title').textContent = next ? next.title : 'last figure';
+    $('ses-count').textContent = `Figure ${i + 1} of ${ses.segs.length}`;
   }
 
   function renderOverview() {
