@@ -769,7 +769,7 @@ select:focus { outline: none; border-color: var(--amber); }
     <button id="metro-toggle" class="btn btn-ghost" title="Start/stop metronome (Space)">Metronome</button>
     <button id="metro-tap" class="btn btn-ghost" title="Tap tempo">Tap</button>
     <div class="bpm-box">
-      <input id="bpm-input" type="number" min="30" max="240" value="90" aria-label="Tempo in BPM">
+      <input id="bpm-input" type="number" min="20" max="240" value="90" aria-label="Tempo in BPM">
       <span>bpm</span>
     </div>
     <input id="bpm-slider" type="range" min="0" max="1000" value="528" aria-label="Tempo slider">
@@ -3451,7 +3451,7 @@ const TabStaff = (() => {
 
   // Log-scale slider: slow practice tempos get most of the travel.
   // 40 bpm sits at ~14%, 60 at ~33%, 120 at ~67%, 240 at 100%.
-  const BPM_MIN = 30, BPM_MAX = 240;
+  const BPM_MIN = 20, BPM_MAX = 240;
   const bpmToSlider = v => Math.round(1000 * Math.log(v / BPM_MIN) / Math.log(BPM_MAX / BPM_MIN));
   const sliderToBpm = x => Math.round(BPM_MIN * Math.pow(BPM_MAX / BPM_MIN, x / 1000));
 
@@ -3534,8 +3534,8 @@ const TabStaff = (() => {
   syncArpPanel();
   // restore the user's tempo from last visit; once set by hand it always wins
   const savedBpm = +(localStorage.getItem('gd-bpm') || 0);
-  if (savedBpm >= 30) state.bpmTouched = true;
-  setBpm(savedBpm >= 30 ? savedBpm : 90);
+  if (savedBpm >= BPM_MIN) state.bpmTouched = true;
+  setBpm(savedBpm >= BPM_MIN ? savedBpm : 90);
   const savedTone = localStorage.getItem('gd-tone');
   if (savedTone) { $('tone-select').value = savedTone; AudioEngine.setTone(savedTone); }
   selectExercise('spider');
