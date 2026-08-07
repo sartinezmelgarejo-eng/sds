@@ -1565,18 +1565,6 @@ const Sessions = (() => {
 
   /* ── chunk plumbing ─────────────────────────────────────── */
 
-  function sliceGen(gen, bars = 2) {
-    const perBeats = bars * 4, out = [];
-    const totalBeats = gen.totalSteps / 4;
-    for (let start = 0; start < totalBeats; start += perBeats) {
-      const ns = gen.notes
-        .filter(n => n.beat >= start && n.beat < start + perBeats - 1e-9)
-        .map(n => Object.assign({}, n, { beat: n.beat - start }));
-      if (ns.length) out.push({ notes: ns, totalSteps: bars * 16 });
-    }
-    return out;
-  }
-
   function repeatGen(gen, times) {
     if (times <= 1) return gen;
     const cycle = gen.totalSteps / 4, notes = [];
@@ -1606,16 +1594,15 @@ const Sessions = (() => {
     return out;
   }
 
-  // Cut raw material into 2-bar chunks, apply repeats, emit segments.
+  // One segment = one COMPLETE figure (full run, full walk, full pattern),
+  // played `repeats` times. No bar cap: the tab ribbon scrolls, so a
+  // figure is never cut mid-phrase.
   function emit(rawGen, title, sub, markers, opts, bpmOverride) {
-    const slices = sliceGen(rawGen, 2);
-    return slices.map((s, i) => ({
-      title: slices.length > 1 ? `${title} (${i + 1}/${slices.length})` : title,
-      sub, markers,
-      view: s,
-      gen: repeatGen(s, (opts && opts.repeats) || 1),
+    return [{
+      title, sub, markers,
+      gen: repeatGen(rawGen, (opts && opts.repeats) || 1),
       bpm: bpmOverride || null,
-    }));
+    }];
   }
 
   /* ── segment builders ───────────────────────────────────── */
@@ -1644,12 +1631,12 @@ const Sessions = (() => {
     return segs;
   }
 
-  function drillSegments(exId, startFrets, opts, bpmList) {
+  function drillSegments(exId, startFrets, opts, bpmList, genOpts) {
     const ex = Exercises.byId(exId);
     const segs = [];
     (bpmList || [null]).forEach(bpm => {
       startFrets.forEach(f => {
-        const raw = Exercises.generate(ex, { startFret: f });
+        const raw = Exercises.generate(ex, Object.assign({ startFret: f }, genOpts || {}));
         const title = `${ex.name}, fret ${f}` + (bpm ? `, ${bpm} bpm` : '');
         segs.push(...emit(raw, title, ex.focus, markersFromGen(raw), opts, bpm));
       });
@@ -1679,40 +1666,41 @@ const Sessions = (() => {
     return emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down', markersFromPool(pool), opts);
   }
 
-  // Mixed circuit: types interleaved so nothing repeats for long.
+  // Mixed circuit: types interleaved so nothing overstays.
+  // Every figure plays COMPLETE; the spider uses a short 2-fret walk here.
   function fullWorkout(opts) {
     const keys = keyOrder(opts.startPc, opts.scheme).slice(0, 4);
     let segs = [];
-    segs = segs.concat(drillSegments('spider', [5], opts).slice(0, 1));
+    segs = segs.concat(drillSegments('spider', [5], opts, null, { cycles: 2 }));
     segs = segs.concat(scaleSeg(keys[0], 'pent-min', opts));
     segs = segs.concat(arpSeg(keys[0], 'maj', opts));
-    segs = segs.concat(drillSegments('ap101', [5], opts, [70]).slice(0, 1));
+    segs = segs.concat(drillSegments('ap101', [5], opts, [70]));
     segs = segs.concat(scaleSeg(keys[1], 'pent-min', opts));
     segs = segs.concat(arpSeg(keys[1], 'min', opts));
-    segs = segs.concat(drillSegments('trill', [5], opts).slice(0, 1));
+    segs = segs.concat(drillSegments('trill', [5], opts));
     segs = segs.concat(scaleSeg(keys[2], 'pent-min', opts));
     segs = segs.concat(arpSeg(keys[2], 'maj', opts));
-    segs = segs.concat(drillSegments('skip-bursts', [5], opts).slice(0, 1));
+    segs = segs.concat(drillSegments('skip-bursts', [5], opts));
     segs = segs.concat(scaleSeg(keys[3], 'pent-min', opts));
     segs = segs.concat(fingerstyleFlow(opts).slice(0, 1));
     return segs;
   }
 
-  // Maximum variety: twelve chunks, all different.
+  // Maximum variety: twelve complete figures, all different.
   function sampler(opts) {
     const keys = keyOrder(opts.startPc, opts.scheme);
     const flow = fingerstyleFlow(opts);
     let segs = [];
-    segs = segs.concat(drillSegments('spider', [5], opts).slice(0, 1));
-    segs = segs.concat(drillSegments('stretch', [5], opts).slice(0, 1));
-    segs = segs.concat(drillSegments('trill', [5], opts).slice(0, 1));
+    segs = segs.concat(drillSegments('spider', [5], opts, null, { cycles: 2 }));
+    segs = segs.concat(drillSegments('stretch', [5], opts));
+    segs = segs.concat(drillSegments('trill', [5], opts));
     keys.slice(0, 3).forEach(pc => { segs = segs.concat(scaleSeg(pc, 'pent-min', opts)); });
     segs = segs.concat(arpSeg(keys[3], 'maj', opts));
     segs = segs.concat(arpSeg(keys[4], 'min', opts));
-    segs = segs.concat(drillSegments('in-out', [5], opts).slice(0, 1));
-    segs = segs.concat(drillSegments('gallop', [3], opts).slice(0, 1));
+    segs = segs.concat(drillSegments('in-out', [5], opts));
+    segs = segs.concat(drillSegments('gallop', [3], opts));
     segs = segs.concat(flow.slice(0, 1));   // pima
-    segs = segs.concat(flow.slice(4, 5));   // travis
+    segs = segs.concat(flow.slice(2, 3));   // travis
     return segs;
   }
 
@@ -1757,7 +1745,7 @@ const Sessions = (() => {
     return Math.max(1, Math.round(sec / 60));
   }
 
-  return { ROUTINES, byId, build, estimateMinutes, keyOrder, windowGen, sliceGen, repeatGen };
+  return { ROUTINES, byId, build, estimateMinutes, keyOrder, windowGen, repeatGen };
 })();
 
 
