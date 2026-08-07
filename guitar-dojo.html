@@ -1612,9 +1612,13 @@ const Sessions = (() => {
   /* ── position pattern: every tone of the collection inside a
         ~6-fret window anchored at the low-E root, up then down ── */
 
-  function windowGen(rootPc, iv, spacing = 0.25) {
+  // Position run: every tone of the collection inside the 4-fret box
+  // anchored at `anchorPc` on the low E (defaults to the root; pass a chord
+  // tone to get that inversion). Up then down, no repeated peak.
+  function windowGen(rootPc, iv, spacing = 0.25, anchorPc = null) {
+    const anchor = anchorPc == null ? rootPc : anchorPc;
     let r = 0;
-    for (let f = 0; f <= 11; f++) if (Theory.pcAt(0, f) === rootPc) { r = f; break; }
+    for (let f = 0; f <= 11; f++) if (Theory.pcAt(0, f) === anchor) { r = f; break; }
     // The classic 4-fret box. With exactly 4 frets, no two adjacent strings
     // can contain the same pitch, so the run never repeats a note back-to-back.
     const lo = r, hi = Math.min(15, r + 3);
@@ -1695,7 +1699,7 @@ const Sessions = (() => {
       keys.forEach(pc => {
         const { gen, pool } = windowGen(pc, ar.iv);
         segs.push(...emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
-          markersFromPool(pool), opts, null, { rootPc: pc, minor: q !== 'maj' }));
+          markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) }));
       });
     });
     return segs;
@@ -1731,18 +1735,41 @@ const Sessions = (() => {
       markersFromPool(pool), opts, null, { rootPc: pc, minor: sc.iv[1] === 3 });
   }
 
-  function arpSeg(pc, q, opts) {
+  const INV_NAMES = ['', ' (1st inv)', ' (2nd inv)', ' (3rd inv)'];
+  const MINOR_QUALS = new Set(['min', 'min7', 'min7b5', 'dim']);
+
+  function arpSegInv(pc, q, opts, inv) {
     const ar = Theory.byId(Theory.ARPEGGIOS, q);
-    const { gen, pool } = windowGen(pc, ar.iv);
-    return emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
-      markersFromPool(pool), opts, null, { rootPc: pc, minor: q !== 'maj' });
+    const anchor = (pc + ar.iv[inv]) % 12;
+    const { gen, pool } = windowGen(pc, ar.iv, 0.25, anchor);
+    return emit(gen,
+      `${keyName(pc)} ${ar.name}${INV_NAMES[inv]}`,
+      inv === 0 ? 'root position, up and down' : `${keyName(anchor)} in the bass, up and down`,
+      markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) });
+  }
+
+  const arpSeg = (pc, q, opts) => arpSegInv(pc, q, opts, 0);
+
+  // Arpeggios through their inversions, one quality at a time, keys rotating.
+  function inversionLadder(opts) {
+    const keys = keyOrder(opts.startPc, opts.scheme);
+    const plan = ['maj', 'min', 'maj7', 'min7', 'dom7'];
+    const segs = [];
+    plan.forEach((q, ti) => {
+      const ar = Theory.byId(Theory.ARPEGGIOS, q);
+      const pc = keys[ti % keys.length];
+      for (let inv = 0; inv < ar.iv.length; inv++)
+        segs.push(...arpSegInv(pc, q, opts, inv));
+    });
+    return segs;
   }
 
   // Mixed circuit, re-rolled on every build: a random mobility opener in a
-  // random position, a shuffled middle of scale runs, triads and picking
-  // drills, and a fingerstyle landing. Never the same journey twice.
+  // random position, then real coverage — six scale runs across the library,
+  // five arpeggios including 7ths and inversions, picking drills — plus a
+  // fingerstyle landing. Never the same journey twice.
   function fullWorkout(opts) {
-    const keys = keyOrder(opts.startPc, opts.scheme).slice(0, 4);
+    const keys = keyOrder(opts.startPc, opts.scheme).slice(0, 6);
     const mob = pick([
       ['spider', pick([3, 5, 7]), { cycles: 2 }], ['trill', pick([3, 5, 7])],
       ['stretch', pick([3, 5, 7])], ['sync', pick([3, 5, 7])], ['skip-spider', pick([3, 5])],
@@ -1751,12 +1778,15 @@ const Sessions = (() => {
       ['ap101', pick([3, 5, 7])], ['in-out', 5], ['skip-bursts', pick([3, 5])],
       ['gallop', pick([1, 3, 5])], ['scalar', pick([5, 7])],
     ]);
-    const scalePool = shuffle(['pent-min', 'blues', 'nat-min', 'dorian']);
+    const scalePool = shuffle(['pent-min', 'pent-maj', 'blues', 'major', 'nat-min', 'dorian', 'mixolydian', 'harm-min']);
+    const arpPlan = shuffle([
+      ['maj', 0], ['min', 0], ['maj7', 0], ['min7', 0], ['dom7', 0],
+      ['maj', 1], ['min', 2], ['min7', 1], ['dom7', 2], ['min7b5', 0],
+    ]);
     const middle = [];
-    keys.forEach((pc, i) => {
-      middle.push(...scaleSeg(pc, scalePool[i % scalePool.length], opts));
-      middle.push(...arpSeg(pc, i % 2 ? 'min' : 'maj', opts));
-    });
+    keys.forEach((pc, i) => middle.push(...scaleSeg(pc, scalePool[i % scalePool.length], opts)));
+    arpPlan.slice(0, 5).forEach(([q, inv], i) =>
+      middle.push(...arpSegInv(keys[(i + 1) % keys.length], q, opts, inv)));
     picks.slice(0, 2).forEach(([id, f]) => middle.push(...drillSegments(id, [f], opts)));
     const flow = shuffle(fingerstyleFlow(opts));
     return [
@@ -1789,7 +1819,7 @@ const Sessions = (() => {
 
   const ROUTINES = [
     { id: 'full', name: 'The Full Workout',
-      desc: 'A bit of everything, re-rolled every time: random mobility opener, keys and drills shuffled, fingerstyle landing.',
+      desc: 'A bit of everything, re-rolled every time: mobility opener, six scale runs across the library, five arpeggios with 7ths and inversions, picking, fingerstyle landing.',
       build: fullWorkout },
     { id: 'sampler', name: 'The Sampler',
       desc: 'Twelve complete figures drawn at random from the whole library. Never the same session twice.',
@@ -1806,6 +1836,9 @@ const Sessions = (() => {
       desc: 'Triads through the keys, one position shape per key. Fretboard harmony, absorbed by doing.',
       qualitySelect: true, keyCount: true,
       build: arpSegments },
+    { id: 'inversions', name: 'Inversion Ladder',
+      desc: 'Arpeggios through their inversions: root position, then each inversion with the 3rd, 5th and 7th in the bass, keys rotating through the cycle.',
+      build: inversionLadder },
     { id: 'spider-climb', name: 'Spider Climb',
       desc: 'The spider walk from fret 5: up the strings and back down, one fret higher every round trip, to fret 9 and all the way home again.',
       build: o => drillSegments('spider', [5], o) },
