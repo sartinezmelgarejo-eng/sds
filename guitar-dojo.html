@@ -758,6 +758,43 @@ select:focus { outline: none; border-color: var(--amber); }
 }
 .ses-tip:empty { display: none; }
 
+/* ── play visuals: transition card, beat dots, ribbon motion ── */
+.ts-card {
+  position: absolute;
+  left: 38%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(16, 18, 21, 0.9);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 22px;
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms;
+  max-width: 62%;
+  z-index: 2;
+}
+.ts-card.show { opacity: 1; }
+.ts-card-title { font-family: var(--font-disp); font-size: 22px; color: var(--amber-hot); }
+.ts-card-sub { color: var(--teal); font-size: 12.5px; font-weight: 600; margin-top: 3px; font-style: italic; }
+.ts-card-count { font: 700 30px var(--font-mono); color: #fff; margin-top: 4px; min-height: 34px; }
+
+.ses-beats { display: flex; gap: 8px; margin-top: 10px; }
+.ses-beats i {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  transition: background 60ms;
+}
+.ses-beats i.on { background: var(--amber); }
+.ses-beats i.on.first { background: #fff; }
+
+.ts-note.past { opacity: 0.28; }
+.ts-note.soon .ts-num { fill: var(--amber); }
+.ts-note.soon .ts-pad { stroke: rgba(232, 163, 61, 0.35); stroke-width: 1; }
+
 </style>
 </head>
 <body>
@@ -859,9 +896,16 @@ select:focus { outline: none; border-color: var(--amber); }
         <div class="ses-next"><span class="jam-label">Next</span><span id="ses-next-title">—</span></div>
         <div class="ses-tip" id="ses-tip"></div>
         <div class="ses-progress"><div id="ses-progress-fill"></div></div>
+        <div class="ses-beats" id="ses-beats"><i></i><i></i><i></i><i></i></div>
         <div class="ses-count" id="ses-count"></div>
       </div>
-      <div class="tabstrip-wrap"><div id="tabstrip"></div></div>
+      <div class="tabstrip-wrap"><div id="tabstrip"></div>
+        <div class="ts-card" id="ts-card">
+          <div class="ts-card-title" id="ts-card-title"></div>
+          <div class="ts-card-sub" id="ts-card-sub"></div>
+          <div class="ts-card-count" id="ts-card-count"></div>
+        </div>
+      </div>
     </div>
     <div class="ses-overview" id="ses-overview"></div>
   </section>
@@ -2984,7 +3028,16 @@ const TabStaff = (() => {
       const st = beat == null || beat < 0 ? -1 : Math.floor(beat * 4);
       if (st !== curStep) {
         curStep = st;
-        noteGroups.forEach(o => o.g.classList.toggle('cur', o.st === st));
+        noteGroups.forEach(o => {
+          o.g.classList.toggle('cur', o.st === st);
+          o.g.classList.toggle('past', st >= 0 && o.st < st);
+          o.g.classList.remove('soon');
+        });
+        if (st >= 0) {
+          let nxt = Infinity;
+          noteGroups.forEach(o => { if (o.st > st && o.st < nxt) nxt = o.st; });
+          if (nxt - st <= 4) noteGroups.forEach(o => { if (o.st === nxt) o.g.classList.add('soon'); });
+        }
       }
     }
 
@@ -3473,10 +3526,37 @@ const TabStaff = (() => {
   let backingLive = false;
 
   // Smooth playhead driven by the audio clock, not by note callbacks.
+  // The same clock drives the transition countdown and the beat dots.
   let stripClock = null;
+  let lastBeat = -2;
+
+  function updatePlayUI(pos) {
+    if (pos == null) return;
+    const card = $('ts-card');
+    if (pos < 0) {
+      // count-in (or waiting for the backing's bar line): big countdown
+      card.classList.add('show');
+      const txt = String(Math.ceil(-pos));
+      if ($('ts-card-count').textContent !== txt) $('ts-card-count').textContent = txt;
+      return;
+    }
+    if (card.classList.contains('show')) card.classList.remove('show');
+    const beat = Math.floor(pos);
+    if (beat !== lastBeat) {
+      lastBeat = beat;
+      const dots = $('ses-beats').children;
+      for (let i = 0; i < 4; i++) {
+        const on = i === (beat % 4 + 4) % 4;
+        dots[i].classList.toggle('on', on);
+        dots[i].classList.toggle('first', on && beat % 4 === 0);
+      }
+    }
+  }
+
   function startStripClock() {
     stopStripClock();
     const tick = () => {
+      updatePlayUI(AudioEngine.notesPosition());
       tabStrip.setPlayhead(AudioEngine.notesPosition());
       stripClock = requestAnimationFrame(tick);
     };
@@ -3565,6 +3645,11 @@ const TabStaff = (() => {
     $('ses-progress-fill').style.width = (i / ses.segs.length * 100) + '%';
     $('ses-note-now').textContent = 'get ready…';
     $('ses-note-next').textContent = noteReadout(seg.gen.notes[0]);
+    $('ts-card-title').textContent = seg.title;
+    $('ts-card-sub').textContent = seg.tip || seg.sub || '';
+    $('ts-card-count').textContent = '';
+    $('ts-card').classList.add('show');
+    lastBeat = -2;
 
     // Guided jam: the backing follows each figure's key and the figure
     // enters exactly on the backing's next bar line.
@@ -3602,6 +3687,8 @@ const TabStaff = (() => {
     setBtnIdle($('ses-play'));
     stopStripClock();
     tabStrip.setPlayhead(null);
+    $('ts-card').classList.remove('show');
+    Array.from($('ses-beats').children).forEach(d => d.classList.remove('on', 'first'));
     Fretboard.clearPlaying();
     $('ses-note-now').textContent = '—';
     $('ses-note-next').textContent = '—';
