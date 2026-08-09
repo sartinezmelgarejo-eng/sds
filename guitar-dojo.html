@@ -868,6 +868,7 @@ select:focus { outline: none; border-color: var(--amber); }
         <option value="6" selected>6 keys</option>
         <option value="12">all 12</option>
       </select></label>
+      <label id="ses-tune-wrap" style="display:none">Tune <select id="ses-tune"></select></label>
       <label id="ses-scale-wrap" style="display:none">Scale <select id="ses-scale"></select></label>
       <label id="ses-qual-wrap" style="display:none">Quality <select id="ses-qual">
         <option value="both">Major + minor</option>
@@ -1162,6 +1163,12 @@ const Theory = (() => {
 
   const QUAL_SUFFIX = { maj: '', m: 'm', '7': '7', maj7: 'maj7', m7: 'm7', m7b5: 'm7♭5' };
 
+  // Normalize any progression to bars of 1-2 chords: [ [ [off,qual], ... ], ... ]
+  function progBars(prog) {
+    if (prog.bars) return prog.bars;
+    return prog.chords.map(c => [c]);
+  }
+
   // Each chord: [semitones above key root, quality].
   const PROGRESSIONS = [
     { id: 'blues12', name: '12-Bar Blues',
@@ -1231,6 +1238,56 @@ const Theory = (() => {
       bass: { walk: true, dur: 0.85 } },
   ];
 
+  // Jazz standards: chord changes verified against published sources
+  // (spytunes, jazzguitar.be, the iReal "Jazz 1460" community charts,
+  // jazz-guitar-licks, joshhindmarsh.com; chord changes are facts of the
+  // tunes, no melodies here). bars: per bar 1-2 chords as
+  // [semitones above the tune's tonic, quality].
+  const STANDARDS = [
+    { id: 'autumn-leaves', name: 'Autumn Leaves', homePc: 7, minor: true, suggest: 'nat-min', style: 'jazz',
+      bars: [
+        [[5,'m7']], [[10,'7']], [[3,'maj7']], [[8,'maj7']], [[2,'m7b5']], [[7,'7']], [[0,'m7']], [[0,'m7']],
+        [[5,'m7']], [[10,'7']], [[3,'maj7']], [[8,'maj7']], [[2,'m7b5']], [[7,'7']], [[0,'m7']], [[0,'m7']],
+        [[2,'m7b5']], [[7,'7']], [[0,'m7']], [[0,'m7']], [[5,'m7']], [[10,'7']], [[3,'maj7']], [[3,'maj7']],
+        [[2,'m7b5']], [[7,'7']], [[0,'m7'],[6,'7']], [[5,'m7'],[4,'7']], [[8,'maj7']], [[7,'7']], [[0,'m7']], [[0,'m7']],
+      ] },
+    { id: 'blue-bossa', name: 'Blue Bossa', homePc: 0, minor: true, suggest: 'nat-min', style: 'bossa',
+      bars: [
+        [[0,'m7']], [[0,'m7']], [[5,'m7']], [[5,'m7']], [[2,'m7b5']], [[7,'7']], [[0,'m7']], [[0,'m7']],
+        [[3,'m7']], [[8,'7']], [[1,'maj7']], [[1,'maj7']], [[2,'m7b5']], [[7,'7']], [[0,'m7']], [[2,'m7b5'],[7,'7']],
+      ] },
+    { id: 'so-what', name: 'So What', homePc: 2, minor: true, suggest: 'dorian', style: 'jazz',
+      bars: [
+        ...Array(16).fill([[0,'m7']]),
+        ...Array(8).fill([[1,'m7']]),
+        ...Array(8).fill([[0,'m7']]),
+      ] },
+    { id: 'fly-me', name: 'Fly Me to the Moon', homePc: 0, minor: false, suggest: 'major', style: 'jazz',
+      bars: [
+        [[9,'m7']], [[2,'m7']], [[7,'7']], [[0,'maj7']], [[5,'maj7']], [[11,'m7b5']], [[4,'7']], [[9,'m7'],[9,'7']],
+        [[2,'m7']], [[7,'7']], [[0,'maj7'],[5,'7']], [[4,'m7'],[9,'7']], [[2,'m7']], [[7,'7']], [[0,'maj7']], [[11,'m7b5'],[4,'7']],
+        [[9,'m7']], [[2,'m7']], [[7,'7']], [[0,'maj7']], [[5,'maj7']], [[11,'m7b5']], [[4,'7']], [[9,'m7'],[9,'7']],
+        [[2,'m7']], [[7,'7']], [[4,'m7']], [[9,'7']], [[2,'m7']], [[7,'7']], [[0,'maj7']], [[11,'m7b5'],[4,'7']],
+      ] },
+    { id: 'summertime', name: 'Summertime', homePc: 9, minor: true, suggest: 'nat-min', style: 'ballad',
+      bars: [
+        [[0,'m7']], [[2,'m7b5'],[7,'7']], [[0,'m7']], [[0,'7']], [[5,'m7']], [[5,'m7']], [[2,'m7b5']], [[7,'7']],
+        [[0,'m7']], [[2,'m7b5'],[7,'7']], [[0,'m7']], [[5,'7'],[10,'7']], [[3,'maj7'],[0,'m7']], [[2,'m7b5'],[7,'7']], [[0,'m7']], [[2,'m7b5'],[7,'7']],
+      ] },
+    { id: 'cantaloupe', name: 'Cantaloupe Island', homePc: 5, minor: true, suggest: 'dorian', style: 'funk',
+      bars: [
+        ...Array(4).fill([[0,'m7']]),
+        ...Array(4).fill([[8,'7']]),
+        ...Array(4).fill([[9,'m7']]),
+        ...Array(4).fill([[0,'m7']]),
+      ] },
+    { id: 'blue-monk', name: 'Blue Monk', homePc: 10, minor: false, suggest: 'blues', style: 'shuffle',
+      bars: [
+        [[0,'7']], [[5,'7']], [[0,'7']], [[0,'7']], [[5,'7']], [[5,'7']],
+        [[0,'7']], [[0,'7']], [[7,'7']], [[7,'7']], [[0,'7']], [[0,'7']],
+      ] },
+  ];
+
   /* ── Fretboard mapping ──────────────────────────────────── */
 
   // Every position of the given pitch collection on the board.
@@ -1262,8 +1319,8 @@ const Theory = (() => {
 
   return {
     SHARP, FLAT, TUNING, STRING_NAMES, INTERVAL_NAMES, KEYS,
-    SCALES, ARPEGGIOS, PROGRESSIONS, STYLES, QUAL_IV, QUAL_SUFFIX,
-    preferFlats, pcName, norm, midiAt, pcAt, notesOnBoard, byId,
+    SCALES, ARPEGGIOS, PROGRESSIONS, STYLES, QUAL_IV, QUAL_SUFFIX, STANDARDS,
+    preferFlats, pcName, norm, midiAt, pcAt, notesOnBoard, byId, progBars,
   };
 })();
 
@@ -1858,20 +1915,30 @@ const Sessions = (() => {
   /* ── position pattern: every tone of the collection inside a
         ~6-fret window anchored at the low-E root, up then down ── */
 
+  // The classic 4-fret box: every tone of the collection, anchored at
+  // anchorPc on the low E (or nearest preferFret). asc = per string ascending.
+  function boxRun(rootPc, iv, anchorPc, preferFret) {
+    const anchor = anchorPc == null ? rootPc : anchorPc;
+    let r = 0;
+    if (preferFret == null) {
+      for (let f = 0; f <= 11; f++) if (Theory.pcAt(0, f) === anchor) { r = f; break; }
+    } else {
+      let d = 99;
+      for (let f = 0; f <= 12; f++)
+        if (Theory.pcAt(0, f) === anchor && Math.abs(f - preferFret) < d) { d = Math.abs(f - preferFret); r = f; }
+    }
+    const pool = Theory.notesOnBoard(rootPc, iv, r, Math.min(15, r + 3));
+    const asc = [];
+    for (let s = 0; s < 6; s++)
+      pool.filter(n => n.string === s).sort((a, b) => a.fret - b.fret).forEach(n => asc.push(n));
+    return { asc, pool };
+  }
+
   // Position run: every tone of the collection inside the 4-fret box
   // anchored at `anchorPc` on the low E (defaults to the root; pass a chord
   // tone to get that inversion). Up then down, no repeated peak.
   function windowGen(rootPc, iv, spacing = 0.25, anchorPc = null) {
-    const anchor = anchorPc == null ? rootPc : anchorPc;
-    let r = 0;
-    for (let f = 0; f <= 11; f++) if (Theory.pcAt(0, f) === anchor) { r = f; break; }
-    // The classic 4-fret box. With exactly 4 frets, no two adjacent strings
-    // can contain the same pitch, so the run never repeats a note back-to-back.
-    const lo = r, hi = Math.min(15, r + 3);
-    const pool = Theory.notesOnBoard(rootPc, iv, lo, hi);
-    const asc = [];
-    for (let s = 0; s < 6; s++)
-      pool.filter(n => n.string === s).sort((a, b) => a.fret - b.fret).forEach(n => asc.push(n));
+    const { asc, pool } = boxRun(rootPc, iv, anchorPc);
     const seq = asc.concat(asc.slice().reverse().slice(1)); // down without repeating the peak
     const notes = seq.map((n, i) => N(n.string, n.fret, i * spacing, { len: spacing * 0.9 }));
     return { gen: finish(notes), pool };
@@ -2020,6 +2087,54 @@ const Sessions = (() => {
   }
 
   const arpSeg = (pc, q, opts) => arpSegInv(pc, q, opts, 0);
+
+  // Standards: one figure per bar of the tune, the arpeggio of each chord,
+  // positions connected (each chord anchored near the previous one).
+  // The band follows the form; with backing on, the app follows the band.
+  function changesRun(opts) {
+    const tune = Theory.byId(Theory.STANDARDS, opts.tuneId) || Theory.STANDARDS[0];
+    const o1 = Object.assign({}, opts, { repeats: 1 }); // the form itself is the loop
+    const QUAL2ARP = { maj: 'maj', m: 'min', '7': 'dom7', maj7: 'maj7', m7: 'min7', m7b5: 'min7b5' };
+    const segs = [];
+    let prevFret = 5;
+    tune.bars.forEach((bar, bi) => {
+      const notes = [];
+      const markersMap = new Map();
+      const titleParts = [];
+      const barRoots = new Set();
+      let tip = '';
+      const stepDur = bar.length > 1 ? 0.25 : 0.5;
+      let b = 0;
+      bar.forEach(([off, qual]) => {
+        const rootPc = Theory.norm(opts.startPc + off);
+        barRoots.add(rootPc);
+        const iv = Theory.QUAL_IV[qual];
+        const flats = Theory.preferFlats(opts.startPc);
+        titleParts.push(Theory.pcName(rootPc, flats) + Theory.QUAL_SUFFIX[qual]);
+        const { asc, pool } = boxRun(rootPc, iv, rootPc, prevFret);
+        if (asc.length) prevFret = asc[0].fret;
+        const seq = asc.concat(asc.slice().reverse().slice(1));
+        for (let k = 0; k < 8; k++) {
+          const n = seq[k % seq.length];
+          notes.push(N(n.string, n.fret, b, { len: stepDur * 0.9 }));
+          b += stepDur;
+        }
+        pool.forEach(n => { const k2 = n.string + ':' + n.fret; if (!markersMap.has(k2)) markersMap.set(k2, n); });
+        if (!tip) tip = (Theory.byId(Theory.ARPEGGIOS, QUAL2ARP[qual]) || {}).use || '';
+      });
+      const markers = [...markersMap.values()].map(n => ({
+        string: n.string, fret: n.fret, pc: n.pc, isRoot: barRoots.has(n.pc),
+        kind: barRoots.has(n.pc) ? 'root' : 'tone', name: n.name, ivName: n.ivName,
+      }));
+      const e = emit(finish(notes), `Bar ${bi + 1} · ${titleParts.join(' / ')}`, tune.name, markers, o1);
+      e[0].rootPc = Theory.norm(opts.startPc + bar[0][0]);
+      e[0].minor = MINOR_QUALS.has(bar[0][1]);
+      e[0].tip = tip;
+      e[0].barIdx = bi;
+      segs.push(e[0]);
+    });
+    return segs;
+  }
 
   // Arpeggios through their inversions, one quality at a time, keys rotating.
   function inversionLadder(opts) {
@@ -2187,6 +2302,10 @@ const Sessions = (() => {
     { id: 'sampler', name: 'The Sampler',
       desc: 'Twelve complete figures drawn at random from the whole library. Never the same session twice.',
       build: sampler },
+    { id: 'changes', name: 'Play the Changes',
+      desc: 'A jazz standard as the backing track, and the app shows you the arpeggio of each chord as the band reaches it, in connected positions. Turn Backing on for the full effect.',
+      tuneSelect: true,
+      build: changesRun },
     { id: 'harmony', name: 'In Tune (Harmony)',
       desc: 'The musical one: scale runs, triads, 7th arpeggios and inversions across the keys. No drills, just harmony.',
       build: harmonyRun },
@@ -2520,19 +2639,21 @@ const AudioEngine = (() => {
     const bpm = cfg.bpm;
     const s16 = step % 16;
     const bar = Math.floor(step / 16);
-    const chords = cfg.prog.chords;
-    const ci = bar % chords.length;
-    const [off, qual] = chords[ci];
-    const [nOff, nQual] = chords[(ci + 1) % chords.length];
+    const bars = cfg.bars;                 // [ [ [off,qual], ... ], ... ]
+    const barChords = bars[bar % bars.length];
+    const half = s16 < 8 ? 0 : Math.min(1, barChords.length - 1);
+    const [off, qual] = barChords[half];
+    const [nOff, nQual] = (s16 < 8 && barChords.length > 1) ? barChords[1] : bars[(bar + 1) % bars.length][0];
     const rootPc = Theory.norm(cfg.keyPc + off);
     const nextRootPc = Theory.norm(cfg.keyPc + nOff);
     const flats = Theory.preferFlats(cfg.keyPc);
+    const barLen = 16 * 60 / bpm / 4;
+    const chordLen = barChords.length > 1 ? barLen / 2 : barLen;
 
     if (s16 % 2 === 1) t += (cfg.swing - 0.5) * 2 * (60 / bpm / 4); // swing the off-16ths
 
-    if (s16 === 0) {
-      const barLen = 16 * 60 / bpm / 4;
-      padChord(Theory.QUAL_IV[qual].map(iv => 48 + rootPc + iv), t, barLen);
+    if (s16 === 0 || (s16 === 8 && barChords.length > 1)) {
+      padChord(Theory.QUAL_IV[qual].map(iv => 48 + rootPc + iv), t, chordLen);
       const name = Theory.pcName(rootPc, flats) + Theory.QUAL_SUFFIX[qual];
       const nextName = Theory.pcName(nextRootPc, flats) + Theory.QUAL_SUFFIX[nQual];
       const tones = Theory.QUAL_IV[qual].map(iv => Theory.pcName(rootPc + iv, flats)).join(' · ');
@@ -2563,6 +2684,7 @@ const AudioEngine = (() => {
     stopJam();
     const c = ac();
     jam.cfg = cfg; jam.onChord = onChord || (() => {});
+    jam.cfg.bars = Theory.progBars(cfg.prog);
     jam.step = 0; jam.nextT = c.currentTime + 0.12; jam.playing = true;
     jam.timer = setInterval(() => {
       while (jam.nextT < ctx.currentTime + 0.14) {
@@ -2586,6 +2708,12 @@ const AudioEngine = (() => {
     if (!jam.playing || !ctx) return null;
     const stepDur = 60 / jam.cfg.bpm / 4;
     return jam.nextT + ((16 - (jam.step % 16)) % 16) * stepDur;
+  }
+
+  // Live clock of the running jam, so guided figures can follow the band.
+  function jamState() {
+    if (!jam.playing || !ctx) return null;
+    return { step: jam.step, nextT: jam.nextT, bpm: jam.cfg.bpm, barCount: jam.cfg.bars.length };
   }
 
   /* ── exercise / scale player ────────────────────────────── */
@@ -2645,7 +2773,7 @@ const AudioEngine = (() => {
   return {
     playPluck, playStrum, setTone,
     startMetro, stopMetro, metroPlaying: () => metro.playing,
-    startJam, stopJam, jamPlaying: () => jam.playing, jamNextBarTime,
+    startJam, stopJam, jamPlaying: () => jam.playing, jamNextBarTime, jamState,
     playNotes, stopNotes, notesPlaying: () => ex.playing, notesPosition,
     stopAll,
   };
@@ -3061,6 +3189,7 @@ const TabStaff = (() => {
     tab: 'session',
     sesRoutine: 'daily15', sesStartPc: 4, sesScheme: 'fourths',
     sesScaleId: 'major', sesQuality: 'both', sesReps: 2, sesKeys: 6,
+    sesTune: 'autumn-leaves',
     scaleKeyPc: 4, scaleId: 'pent-min', scalePos: 'all',
     arpKeyPc: 4,   arpId: 'maj',      arpPos: 'all',
     label: 'names',
@@ -3090,7 +3219,27 @@ const TabStaff = (() => {
   fill($('jam-key'), Theory.KEYS, k => k.pc, k => k.n);
   fill($('scale-id'), Theory.SCALES, s => s.id, s => s.name);
   fill($('arp-id'), Theory.ARPEGGIOS, a => a.id, a => a.name);
-  fill($('jam-prog'), Theory.PROGRESSIONS, p => p.id, p => p.name);
+  // jam progression select: loops + jazz standards (optgroups)
+  {
+    const progSel = $('jam-prog');
+    progSel.innerHTML = '';
+    const gLoops = document.createElement('optgroup');
+    gLoops.label = 'Loops';
+    Theory.PROGRESSIONS.forEach(p => {
+      const o = document.createElement('option');
+      o.value = p.id; o.textContent = p.name;
+      gLoops.appendChild(o);
+    });
+    const gStd = document.createElement('optgroup');
+    gStd.label = 'Standards';
+    Theory.STANDARDS.forEach(t => {
+      const o = document.createElement('option');
+      o.value = 'std:' + t.id; o.textContent = t.name;
+      gStd.appendChild(o);
+    });
+    progSel.appendChild(gLoops);
+    progSel.appendChild(gStd);
+  }
   fill($('jam-style'), Theory.STYLES, s => s.id, s => s.name);
   fill($('jam-scale'), Theory.SCALES, s => s.id, s => s.name);
   fill($('ex-perm'), Exercises.PERMS, p => p, p => p.split('').join('-'));
@@ -3192,7 +3341,9 @@ const TabStaff = (() => {
       Fretboard.setRange(state.arpPos === 'all' ? null : lo, hi);
     } else if (state.tab === 'jam') {
       const sc = Theory.byId(Theory.SCALES, state.jamScaleId);
-      const prog = Theory.byId(Theory.PROGRESSIONS, state.jamProgId);
+      const prog = state.jamProgId.startsWith('std:')
+        ? Theory.byId(Theory.STANDARDS, state.jamProgId.slice(4))
+        : Theory.byId(Theory.PROGRESSIONS, state.jamProgId);
       notes = Theory.notesOnBoard(state.jamKeyPc, sc.iv, 0, 15);
       title = `${keyLabel(state.jamKeyPc)} ${sc.name} over ${prog.name}`;
       legend = chip + '<span>your safe notes, noodle freely</span>';
@@ -3571,16 +3722,18 @@ const TabStaff = (() => {
   fill($('ses-key'), Theory.KEYS, k => k.pc, k => k.n);
   fill($('ses-scale'), Theory.SCALES, s => s.id, s => s.name);
   fill($('ses-groove'), Theory.STYLES, s => s.id, s => s.name);
+  fill($('ses-tune'), Theory.STANDARDS, t => t.id, t => t.name);
   $('ses-routine').value = state.sesRoutine;
   $('ses-key').value = state.sesStartPc;
   $('ses-scale').value = state.sesScaleId;
   $('ses-groove').value = 'bossa';
+  $('ses-tune').value = state.sesTune;
 
   function sessionOpts() {
     return {
       startPc: state.sesStartPc, scheme: state.sesScheme,
       repeats: state.sesReps, scaleId: state.sesScaleId, quality: state.sesQuality,
-      keys: state.sesKeys, bpm: state.bpm,
+      keys: state.sesKeys, bpm: state.bpm, tuneId: state.sesTune,
     };
   }
 
@@ -3594,6 +3747,7 @@ const TabStaff = (() => {
     $('ses-scale-wrap').style.display = r.scaleSelect ? '' : 'none';
     $('ses-qual-wrap').style.display = r.qualitySelect ? '' : 'none';
     $('ses-keys-wrap').style.display = r.keyCount ? '' : 'none';
+    $('ses-tune-wrap').style.display = r.tuneSelect ? '' : 'none';
     ses.segs = Sessions.build(r.id, sessionOpts());
     ses.idx = -1;
     $('ses-desc').textContent =
@@ -3634,6 +3788,45 @@ const TabStaff = (() => {
   }
 
   function playSegment(i) {
+    const routine = Sessions.byId(state.sesRoutine);
+    const wantBacking = $('ses-backing').checked;
+    let startAt = null;
+
+    // Guided jam: the backing follows each figure's key (or loops the tune),
+    // and figures enter exactly on the backing's bar lines.
+    if (wantBacking) {
+      const style = Theory.byId(Theory.STYLES, $('ses-groove').value);
+      const tuneMode = !!routine.tuneSelect;
+      if (tuneMode) {
+        jamCfg.keyPc = state.sesStartPc;
+        jamCfg.prog = Theory.byId(Theory.STANDARDS, state.sesTune);
+      } else {
+        const s0 = ses.segs[Math.min(i, ses.segs.length - 1)];
+        jamCfg.keyPc = s0 && s0.rootPc != null ? s0.rootPc : state.sesStartPc;
+        jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, !s0 || s0.rootPc == null ? 'rock' : (s0.minor ? 'rock' : 'pop'));
+      }
+      jamCfg.style = style;
+      jamCfg.bpm = state.bpm;
+      jamCfg.swing = style.swing;
+      if (!AudioEngine.jamPlaying()) AudioEngine.startJam(jamCfg, onJamChord);
+      backingLive = true;
+
+      if (tuneMode) {
+        // follow the band: play the figure of the bar the backing hits next
+        const st = AudioEngine.jamState();
+        if (st) {
+          const stepDur = 60 / st.bpm / 4;
+          const nb = Math.ceil(st.step / 16) * 16;
+          i = (nb / 16) % st.barCount;
+          startAt = st.nextT + (nb - st.step) * stepDur;
+        }
+      } else {
+        const s1 = ses.segs[Math.min(i, ses.segs.length - 1)];
+        if (s1) jamCfg.bpm = s1.bpm || state.bpm;
+        startAt = AudioEngine.jamNextBarTime();
+      }
+    }
+
     if (i >= ses.segs.length) { stopSession(true); return; }
     ses.idx = i;
     ses.playing = true;
@@ -3650,21 +3843,6 @@ const TabStaff = (() => {
     $('ts-card-count').textContent = '';
     $('ts-card').classList.add('show');
     lastBeat = -2;
-
-    // Guided jam: the backing follows each figure's key and the figure
-    // enters exactly on the backing's next bar line.
-    const wantBacking = $('ses-backing').checked;
-    if (wantBacking) {
-      const style = Theory.byId(Theory.STYLES, $('ses-groove').value);
-      jamCfg.keyPc = seg.rootPc != null ? seg.rootPc : state.sesStartPc;
-      jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, seg.rootPc == null ? 'rock' : (seg.minor ? 'rock' : 'pop'));
-      jamCfg.style = style;
-      jamCfg.bpm = seg.bpm || state.bpm;
-      jamCfg.swing = style.swing;
-      if (!AudioEngine.jamPlaying()) AudioEngine.startJam(jamCfg, onJamChord);
-      backingLive = true;
-    }
-    const startAt = wantBacking ? AudioEngine.jamNextBarTime() : null;
 
     AudioEngine.playNotes(seg.gen, seg.bpm || state.bpm, {
       countIn: !wantBacking,
@@ -3716,7 +3894,7 @@ const TabStaff = (() => {
     playSegment(ses.idx >= 0 ? ses.idx : 0);
   });
 
-  ['ses-routine', 'ses-key', 'ses-scheme', 'ses-scale', 'ses-qual', 'ses-reps', 'ses-keys'].forEach(id => {
+  ['ses-routine', 'ses-key', 'ses-scheme', 'ses-scale', 'ses-qual', 'ses-reps', 'ses-keys', 'ses-tune'].forEach(id => {
     $(id).addEventListener('change', () => {
       state.sesRoutine = $('ses-routine').value;
       state.sesStartPc = +$('ses-key').value;
@@ -3725,6 +3903,11 @@ const TabStaff = (() => {
       state.sesQuality = $('ses-qual').value;
       state.sesReps = +$('ses-reps').value;
       state.sesKeys = +$('ses-keys').value;
+      state.sesTune = $('ses-tune').value;
+      if (id === 'ses-tune') {
+        const t = Theory.byId(Theory.STANDARDS, state.sesTune);
+        if (t) { state.sesStartPc = t.homePc; $('ses-key').value = t.homePc; }
+      }
       if (ses.playing) stopSession();
       buildSession();
       if (state.tab === 'session') renderBoard();
@@ -3737,7 +3920,9 @@ const TabStaff = (() => {
 
   function syncJamCfg() {
     jamCfg.keyPc = state.jamKeyPc;
-    jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, state.jamProgId);
+    jamCfg.prog = state.jamProgId.startsWith('std:')
+      ? Theory.byId(Theory.STANDARDS, state.jamProgId.slice(4))
+      : Theory.byId(Theory.PROGRESSIONS, state.jamProgId);
     jamCfg.style = Theory.byId(Theory.STYLES, state.jamStyleId);
     jamCfg.bpm = state.bpm;
     jamCfg.swing = +$('jam-swing').value / 100;
@@ -3767,9 +3952,21 @@ const TabStaff = (() => {
   $('jam-key').addEventListener('change', e => { state.jamKeyPc = +e.target.value; restartJamIfPlaying(); renderBoard(); });
   $('jam-prog').addEventListener('change', e => {
     state.jamProgId = e.target.value;
-    const prog = Theory.byId(Theory.PROGRESSIONS, state.jamProgId);
-    state.jamScaleId = prog.suggest;
-    $('jam-scale').value = prog.suggest;
+    let suggest;
+    if (state.jamProgId.startsWith('std:')) {
+      const t = Theory.byId(Theory.STANDARDS, state.jamProgId.slice(4));
+      suggest = t.suggest;
+      if (t.style) {
+        state.jamStyleId = t.style;
+        $('jam-style').value = t.style;
+        const st = Theory.byId(Theory.STYLES, t.style);
+        suggestBpm(st.bpm);
+        $('jam-swing').value = Math.round(st.swing * 100);
+      }
+    } else {
+      suggest = Theory.byId(Theory.PROGRESSIONS, state.jamProgId).suggest;
+    }
+    if (suggest) { state.jamScaleId = suggest; $('jam-scale').value = suggest; }
     restartJamIfPlaying();
     renderBoard();
   });
