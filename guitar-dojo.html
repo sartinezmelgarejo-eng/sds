@@ -869,6 +869,12 @@ select:focus { outline: none; border-color: var(--amber); }
         <option value="12">all 12</option>
       </select></label>
       <label id="ses-tune-wrap" style="display:none">Tune <select id="ses-tune"></select></label>
+      <label id="ses-starton-wrap" style="display:none">Start on <select id="ses-starton">
+        <option value="0">Root</option>
+        <option value="1">3rd</option>
+        <option value="2">5th</option>
+        <option value="3">7th</option>
+      </select></label>
       <label id="ses-scale-wrap" style="display:none">Scale <select id="ses-scale"></select></label>
       <label id="ses-qual-wrap" style="display:none">Quality <select id="ses-qual">
         <option value="both">Major + minor</option>
@@ -2012,7 +2018,9 @@ const Sessions = (() => {
     quals.forEach(q => {
       const ar = Theory.byId(Theory.ARPEGGIOS, q);
       keys.forEach(pc => {
-        const { gen, pool } = windowGen(pc, ar.iv);
+        const startOn = Math.min(opts.startOn || 0, ar.iv.length - 1);
+        const anchor = Theory.norm(pc + ar.iv[startOn]);
+        const { gen, pool } = windowGen(pc, ar.iv, 0.25, anchor);
         const e = emit(gen, `${keyName(pc)} ${ar.name}`, 'arpeggio, up and down',
           markersFromPool(pool), opts, null, { rootPc: pc, minor: MINOR_QUALS.has(q) });
         e[0].tip = ar.use;
@@ -2104,6 +2112,7 @@ const Sessions = (() => {
       const barRoots = new Set();
       let tip = '';
       const stepDur = bar.length > 1 ? 0.25 : 0.5;
+      const startOn = opts.startOn || 0;
       let b = 0;
       bar.forEach(([off, qual]) => {
         const rootPc = Theory.norm(opts.startPc + off);
@@ -2111,7 +2120,9 @@ const Sessions = (() => {
         const iv = Theory.QUAL_IV[qual];
         const flats = Theory.preferFlats(opts.startPc);
         titleParts.push(Theory.pcName(rootPc, flats) + Theory.QUAL_SUFFIX[qual]);
-        const { asc, pool } = boxRun(rootPc, iv, rootPc, prevFret);
+        // anchor the box at the chosen chord tone (root, 3rd, 5th, 7th)
+        const tone = iv[Math.min(startOn, iv.length - 1)];
+        const { asc, pool } = boxRun(rootPc, iv, Theory.norm(rootPc + tone), prevFret);
         if (asc.length) prevFret = asc[0].fret;
         const seq = asc.concat(asc.slice().reverse().slice(1));
         for (let k = 0; k < 8; k++) {
@@ -2126,7 +2137,9 @@ const Sessions = (() => {
         string: n.string, fret: n.fret, pc: n.pc, isRoot: barRoots.has(n.pc),
         kind: barRoots.has(n.pc) ? 'root' : 'tone', name: n.name, ivName: n.ivName,
       }));
-      const e = emit(finish(notes), `Bar ${bi + 1} · ${titleParts.join(' / ')}`, tune.name, markers, o1);
+      const e = emit(finish(notes), `Bar ${bi + 1} · ${titleParts.join(' / ')}`,
+        tune.name + (startOn ? ` · from the ${['root', '3rd', '5th', '7th'][startOn]}` : ''),
+        markers, o1);
       e[0].rootPc = Theory.norm(opts.startPc + bar[0][0]);
       e[0].minor = MINOR_QUALS.has(bar[0][1]);
       e[0].tip = tip;
@@ -3189,7 +3202,7 @@ const TabStaff = (() => {
     tab: 'session',
     sesRoutine: 'daily15', sesStartPc: 4, sesScheme: 'fourths',
     sesScaleId: 'major', sesQuality: 'both', sesReps: 2, sesKeys: 6,
-    sesTune: 'autumn-leaves',
+    sesTune: 'autumn-leaves', sesStartOn: 0,
     scaleKeyPc: 4, scaleId: 'pent-min', scalePos: 'all',
     arpKeyPc: 4,   arpId: 'maj',      arpPos: 'all',
     label: 'names',
@@ -3733,7 +3746,7 @@ const TabStaff = (() => {
     return {
       startPc: state.sesStartPc, scheme: state.sesScheme,
       repeats: state.sesReps, scaleId: state.sesScaleId, quality: state.sesQuality,
-      keys: state.sesKeys, bpm: state.bpm, tuneId: state.sesTune,
+      keys: state.sesKeys, bpm: state.bpm, tuneId: state.sesTune, startOn: state.sesStartOn,
     };
   }
 
@@ -3748,6 +3761,7 @@ const TabStaff = (() => {
     $('ses-qual-wrap').style.display = r.qualitySelect ? '' : 'none';
     $('ses-keys-wrap').style.display = r.keyCount ? '' : 'none';
     $('ses-tune-wrap').style.display = r.tuneSelect ? '' : 'none';
+    $('ses-starton-wrap').style.display = (r.tuneSelect || r.id === 'arp-ladder') ? '' : 'none';
     ses.segs = Sessions.build(r.id, sessionOpts());
     ses.idx = -1;
     $('ses-desc').textContent =
@@ -3789,42 +3803,23 @@ const TabStaff = (() => {
 
   function playSegment(i) {
     const routine = Sessions.byId(state.sesRoutine);
+    if (routine.tuneSelect) { playChangesForm(i); return; }
     const wantBacking = $('ses-backing').checked;
     let startAt = null;
 
-    // Guided jam: the backing follows each figure's key (or loops the tune),
-    // and figures enter exactly on the backing's bar lines.
+    // Guided jam: the backing follows each figure's key and the figure
+    // enters exactly on the backing's next bar line.
     if (wantBacking) {
       const style = Theory.byId(Theory.STYLES, $('ses-groove').value);
-      const tuneMode = !!routine.tuneSelect;
-      if (tuneMode) {
-        jamCfg.keyPc = state.sesStartPc;
-        jamCfg.prog = Theory.byId(Theory.STANDARDS, state.sesTune);
-      } else {
-        const s0 = ses.segs[Math.min(i, ses.segs.length - 1)];
-        jamCfg.keyPc = s0 && s0.rootPc != null ? s0.rootPc : state.sesStartPc;
-        jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, !s0 || s0.rootPc == null ? 'rock' : (s0.minor ? 'rock' : 'pop'));
-      }
+      const s0 = ses.segs[Math.min(i, ses.segs.length - 1)];
+      jamCfg.keyPc = s0 && s0.rootPc != null ? s0.rootPc : state.sesStartPc;
+      jamCfg.prog = Theory.byId(Theory.PROGRESSIONS, !s0 || s0.rootPc == null ? 'rock' : (s0.minor ? 'rock' : 'pop'));
       jamCfg.style = style;
-      jamCfg.bpm = state.bpm;
+      jamCfg.bpm = s0 && s0.bpm ? s0.bpm : state.bpm;
       jamCfg.swing = style.swing;
       if (!AudioEngine.jamPlaying()) AudioEngine.startJam(jamCfg, onJamChord);
       backingLive = true;
-
-      if (tuneMode) {
-        // follow the band: play the figure of the bar the backing hits next
-        const st = AudioEngine.jamState();
-        if (st) {
-          const stepDur = 60 / st.bpm / 4;
-          const nb = Math.ceil(st.step / 16) * 16;
-          i = (nb / 16) % st.barCount;
-          startAt = st.nextT + (nb - st.step) * stepDur;
-        }
-      } else {
-        const s1 = ses.segs[Math.min(i, ses.segs.length - 1)];
-        if (s1) jamCfg.bpm = s1.bpm || state.bpm;
-        startAt = AudioEngine.jamNextBarTime();
-      }
+      startAt = AudioEngine.jamNextBarTime();
     }
 
     if (i >= ses.segs.length) { stopSession(true); return; }
@@ -3854,6 +3849,74 @@ const TabStaff = (() => {
           seg.gen.notes[k + 1] ? noteReadout(seg.gen.notes[k + 1]) : 'next figure';
       },
       onEnd: () => { if (ses.playing) playSegment(i + 1); },
+    });
+    startStripClock();
+  }
+
+  // Standards mode: the WHOLE FORM as one continuous looped stream, no
+  // seams between chords. With backing on, the stream locks onto the band's
+  // next bar line and loops the form until stopped.
+  function playChangesForm(startBar) {
+    const tune = Theory.byId(Theory.STANDARDS, state.sesTune);
+    const wantBacking = $('ses-backing').checked;
+    let startAt = null;
+    if (wantBacking) {
+      const style = Theory.byId(Theory.STYLES, $('ses-groove').value);
+      jamCfg.keyPc = state.sesStartPc;
+      jamCfg.prog = tune;
+      jamCfg.style = style;
+      jamCfg.bpm = state.bpm;
+      jamCfg.swing = style.swing;
+      if (!AudioEngine.jamPlaying()) AudioEngine.startJam(jamCfg, onJamChord);
+      backingLive = true;
+      const st = AudioEngine.jamState();
+      if (st) {
+        const stepDur = 60 / st.bpm / 4;
+        const nb = Math.ceil(st.step / 16) * 16;
+        startBar = (nb / 16) % st.barCount;
+        startAt = st.nextT + (nb - st.step) * stepDur;
+      }
+    }
+    ses.playing = true;
+    const ordered = ses.segs.map((_, k) => ses.segs[(startBar + k) % ses.segs.length]);
+    const notes = [];
+    ordered.forEach((seg, k) => seg.gen.notes.forEach(n => {
+      const m = Object.assign({}, n, { beat: n.beat + k * 4 });
+      m.segIdx = seg.barIdx;
+      notes.push(m);
+    }));
+    const gen = { notes, totalSteps: ordered.length * 16 };
+    tabStrip.build(gen);
+    ses.idx = startBar;
+    updateSesPanel(startBar);
+    renderOverview();
+    renderBoard();
+    $('ses-progress-fill').style.width = '0%';
+    $('ses-note-now').textContent = 'get ready…';
+    $('ses-note-next').textContent = noteReadout(notes[0]);
+    $('ts-card-title').textContent = tune.name;
+    $('ts-card-sub').textContent = 'from bar ' + (startBar + 1) + ' · the form loops until you stop it';
+    $('ts-card-count').textContent = '';
+    $('ts-card').classList.add('show');
+    lastBeat = -2;
+    let curIdx = -1;
+    AudioEngine.playNotes(gen, state.bpm, {
+      loop: true,
+      countIn: !wantBacking,
+      startAt,
+      onNote: (k, n) => {
+        if (n.segIdx !== curIdx) {
+          curIdx = n.segIdx;
+          ses.idx = curIdx;
+          updateSesPanel(curIdx);
+          renderOverview();
+          renderBoard();
+          $('ses-progress-fill').style.width = (curIdx / ses.segs.length * 100) + '%';
+        }
+        Fretboard.setPlaying(n.strum ? null : n, upcoming(notes, k));
+        $('ses-note-now').textContent = noteReadout(n);
+        $('ses-note-next').textContent = notes[k + 1] ? noteReadout(notes[k + 1]) : 'top of the form';
+      },
     });
     startStripClock();
   }
@@ -3894,7 +3957,7 @@ const TabStaff = (() => {
     playSegment(ses.idx >= 0 ? ses.idx : 0);
   });
 
-  ['ses-routine', 'ses-key', 'ses-scheme', 'ses-scale', 'ses-qual', 'ses-reps', 'ses-keys', 'ses-tune'].forEach(id => {
+  ['ses-routine', 'ses-key', 'ses-scheme', 'ses-scale', 'ses-qual', 'ses-reps', 'ses-keys', 'ses-tune', 'ses-starton'].forEach(id => {
     $(id).addEventListener('change', () => {
       state.sesRoutine = $('ses-routine').value;
       state.sesStartPc = +$('ses-key').value;
@@ -3904,6 +3967,7 @@ const TabStaff = (() => {
       state.sesReps = +$('ses-reps').value;
       state.sesKeys = +$('ses-keys').value;
       state.sesTune = $('ses-tune').value;
+      state.sesStartOn = +$('ses-starton').value;
       if (id === 'ses-tune') {
         const t = Theory.byId(Theory.STANDARDS, state.sesTune);
         if (t) { state.sesStartPc = t.homePc; $('ses-key').value = t.homePc; }
