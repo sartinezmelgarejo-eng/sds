@@ -910,6 +910,7 @@ select:focus { outline: none; border-color: var(--amber); }
   <section class="panel" id="panel-exercises">
     <div class="controls ex-cats" id="ex-cats">
       <button class="pill active" data-cat="mobility">Finger Mobility</button>
+      <button class="pill" data-cat="harmony">Harmony & Melody</button>
       <button class="pill" data-cat="picking">Picking</button>
       <button class="pill" data-cat="fingerstyle">Fingerstyle & Strumming</button>
     </div>
@@ -1474,6 +1475,153 @@ const Exercises = (() => {
     return finish(notes);
   }
 
+  /* ── harmony & melody (the masters' material) ───────────── */
+
+  // Segovia: full two-octave diatonic run from the low-E root, i–m rest strokes.
+  function segoviaRun({ rootPc = 0, scaleId = 'major' } = {}) {
+    const sc = Theory.byId(Theory.SCALES, scaleId);
+    let r = 0;
+    for (let f = 0; f <= 11; f++) if (Theory.pcAt(0, f) === rootPc) { r = f; break; }
+    const rootMidi = 40 + r;
+    const pool = Theory.notesOnBoard(rootPc, sc.iv, 0, 15)
+      .filter(n => n.midi >= rootMidi && n.midi <= rootMidi + 24)
+      .sort((a, b) => a.midi - b.midi);
+    const seq = [];
+    pool.forEach(n => { if (!seq.length || seq[seq.length - 1].midi !== n.midi) seq.push(n); });
+    const full = seq.concat(seq.slice().reverse().slice(1));
+    const notes = full.map((n, i) => N(n.string, n.fret, i * 0.5, { finger: IM[i % 2], len: 0.45 }));
+    return finish(notes);
+  }
+
+  // Goodrick's "unitar": the whole scale on one string, every string in turn.
+  function unitar({ rootPc = 4, scaleId = 'major' } = {}) {
+    const sc = Theory.byId(Theory.SCALES, scaleId);
+    const notes = [];
+    let b = 0, k = 0;
+    for (let s = 0; s < 6; s++) {
+      const pool = Theory.notesOnBoard(rootPc, sc.iv, 0, 15)
+        .filter(n => n.string === s).sort((a, c) => a.fret - c.fret);
+      pool.concat(pool.slice().reverse().slice(1)).forEach(n => {
+        notes.push(N(s, n.fret, b, { finger: IM[k % 2], len: 0.4 })); b += 0.5; k++;
+      });
+    }
+    return finish(notes);
+  }
+
+  // Fujita string-set triads: root, 1st and 2nd inversion on strings 3-4-5,
+  // slow arpeggios, up the neck and back. Defaults to C major.
+  function triadStrings({ rootPc = 0, qual = 'maj' } = {}) {
+    const iv = Theory.QUAL_IV[qual];
+    const SS = [3, 4, 5];
+    const grips = [];
+    let prevAvg = -1;
+    for (let k = 0; k < 3; k++) {
+      const want = [Theory.norm(rootPc + iv[k]), Theory.norm(rootPc + iv[(k + 1) % 3]), Theory.norm(rootPc + iv[(k + 2) % 3])];
+      let best = null, fallback = null;
+      for (let f3 = 0; f3 <= 15; f3++) {
+        if (Theory.pcAt(3, f3) !== want[0]) continue;
+        for (let f4 = 0; f4 <= 15; f4++) {
+          if (Theory.pcAt(4, f4) !== want[1]) continue;
+          if (55 + f3 >= 59 + f4) continue;              // strictly ascending pitch
+          for (let f5 = 0; f5 <= 15; f5++) {
+            if (Theory.pcAt(5, f5) !== want[2]) continue;
+            if (59 + f4 >= 64 + f5) continue;
+            const span = Math.max(f3, f4, f5) - Math.min(f3, f4, f5);
+            if (span > 5) continue;
+            const avg = (f3 + f4 + f5) / 3;
+            if (!fallback || avg < fallback.avg) fallback = { frets: [f3, f4, f5], avg };
+            if (avg > prevAvg && (!best || avg < best.avg)) best = { frets: [f3, f4, f5], avg };
+          }
+        }
+      }
+      const grip = best || fallback;
+      if (!grip) continue;
+      prevAvg = grip.avg;
+      grips.push(grip.frets);
+    }
+    const seq = [grips[0], grips[1], grips[2], grips[1], grips[0]].filter(Boolean);
+    const notes = [];
+    let b = 0;
+    seq.forEach(g => g.forEach((f, i) => {
+      notes.push(N(SS[i], f, b, { finger: ['i', 'm', 'a'][i], len: 0.8 }));
+      b += 1;
+    }));
+    return finish(notes);
+  }
+
+  // C major harmonized in diatonic thirds on the B and high e strings.
+  function thirdsRun({ rootPc = 0, scaleId = 'major' } = {}) {
+    const sc = Theory.byId(Theory.SCALES, scaleId);
+    let rf = 1;
+    for (let f = 0; f <= 11; f++) if (Theory.pcAt(4, f) === rootPc) { rf = f; break; }
+    const rootMidi = 59 + rf;
+    const ladder = sc.iv.map(iv => rootMidi + iv).concat([rootMidi + 12]);
+    const up = [];
+    for (let d = 0; d + 2 < ladder.length; d++) up.push([ladder[d], ladder[d + 2]]);
+    const pairs = up.concat(up.slice(0, -1).reverse());
+    const notes = [];
+    let b = 0;
+    pairs.forEach(([m1, m2]) => {
+      const f1 = m1 - 59, f2 = m2 - 64;
+      if (f1 < 0 || f1 > 15 || f2 < 0 || f2 > 15) return;
+      notes.push(N(4, f1, b, { len: 0.45 }));
+      notes.push(N(5, f2, b, { len: 0.45 }));
+      b += 0.5;
+    });
+    return finish(notes);
+  }
+
+  // Pedal point: open high e ringing between C major steps on the B string.
+  function pedalPoint({ rootPc = 0, scaleId = 'major' } = {}) {
+    const sc = Theory.byId(Theory.SCALES, scaleId);
+    let rf = 1;
+    for (let f = 0; f <= 11; f++) if (Theory.pcAt(4, f) === rootPc) { rf = f; break; }
+    const frets = sc.iv.map(iv => rf + iv).concat([rf + 12]).filter(f => f <= 15);
+    const seq = frets.concat(frets.slice(0, -1).reverse());
+    const notes = [];
+    let b = 0;
+    seq.forEach(f => {
+      notes.push(N(4, f, b, { finger: 'i', len: 0.4 }));
+      notes.push(N(5, 0, b + 0.5, { finger: 'm', len: 0.4 }));
+      b += 1;
+    });
+    return finish(notes);
+  }
+
+  // Classical tremolo (Giuliani no. 96 lineage): p on bass, a-m-i sixteenths.
+  function tremoloClassical() {
+    const notes = [];
+    let b = 0;
+    for (let bar = 0; bar < 4; bar++) {
+      for (let beat = 0; beat < 4; beat++) {
+        notes.push(N(beat % 2 ? 1 : 0, 0, b, { finger: 'p', len: 0.9 }));
+        notes.push(N(5, 0, b + 0.25, { finger: 'a' }));
+        notes.push(N(5, 0, b + 0.5, { finger: 'm' }));
+        notes.push(N(5, 0, b + 0.75, { finger: 'i' }));
+        b += 1;
+      }
+    }
+    return finish(notes);
+  }
+
+  // Satriani legato: slur cells per string in the E minor pentatonic box.
+  function legatoScale({ rootPc = 4, scaleId = 'pent-min' } = {}) {
+    const sc = Theory.byId(Theory.SCALES, scaleId);
+    const notes = [];
+    let b = 0;
+    const pass = s => {
+      const pool = Theory.notesOnBoard(rootPc, sc.iv, 0, 4).filter(n => n.string === s).sort((a, c) => a.fret - c.fret);
+      for (let i = 0; i < pool.length; i += 3) {
+        pool.slice(i, i + 3).forEach((n, j) => {
+          notes.push(N(s, n.fret, b, { slur: j > 0 })); b += 0.25;
+        });
+      }
+    };
+    for (let s = 0; s < 6; s++) pass(s);
+    for (let s = 5; s >= 0; s--) pass(s);
+    return finish(notes);
+  }
+
   /* ── catalog ────────────────────────────────────────────── */
 
   const ALL = [
@@ -1554,6 +1702,36 @@ const Exercises = (() => {
       startable: true, defaultBpm: 60, gen: restStroke,
       desc: 'Classical scale mechanics: i and m alternate strictly, each stroke coming to rest on the next string. The loudest, warmest single-note tone your fingers can make.',
       tips: ['i-m-i-m never breaks, even across strings.', 'Let each finger land on the adjacent string and stay there a moment.', 'This is the fingerstyle equivalent of alternate picking, same discipline, different engine.'] },
+
+    /* harmony & melody (the masters' material) */
+    { id: 'segovia-run', cat: 'harmony', name: 'Segovia Scale Run', level: 2, focus: '2-octave scales',
+      defaultBpm: 55, gen: segoviaRun,
+      desc: 'Andrés Segovia built his technique on his Diatonic Major and Minor Scales (1953): full two-octave runs across the neck with rest strokes and strict i–m alternation. This is the C major journey, up and all the way back.',
+      tips: ['Rest stroke: each finger comes to rest on the next string.', 'Even tone on every note. The scale is the music.', 'Glide between positions on a guide finger, no jumps.'] },
+    { id: 'unitar', cat: 'harmony', name: 'The Unitar (Single String)', level: 2, focus: 'fretboard map',
+      defaultBpm: 55, gen: unitar,
+      desc: 'Mick Goodrick opens The Advancing Guitarist with one-string playing: the whole scale on a single string, then the next. Positions disappear and the neck becomes one long line. E major, every string.',
+      tips: ['Name each note out loud as you play it.', 'This is the fastest honest way to learn the fretboard.', 'Smooth slides between notes, no silence between steps.'] },
+    { id: 'triad-strings', cat: 'harmony', name: 'String-Set Triads', level: 2, focus: 'inversions on 3 strings',
+      defaultBpm: 50, gen: triadStrings,
+      desc: 'Tomo Fujita’s daily bread: a C major triad on the top three strings, walking root position to first inversion to second and home, as slow arpeggios. Three shapes, the whole harmony of the neck.',
+      tips: ['Sing the top note of each grip before you play it.', 'Name the inversion as you land: root, first, second.', 'Light pressure, zero noise between grips.'] },
+    { id: 'thirds-run', cat: 'harmony', name: 'Scale in Thirds', level: 2, focus: 'harmony double-stops',
+      defaultBpm: 55, gen: thirdsRun,
+      desc: 'The C major scale harmonized in diatonic thirds on the B and high e strings, two notes per step. One of the sweetest sounds the guitar makes, and the doorway to playing in harmony.',
+      tips: ['Keep both notes ringing together, let them blend.', 'Hear which thirds are major and which are minor.', 'When this feels easy, try the same idea in sixths.'] },
+    { id: 'pedal-point', cat: 'harmony', name: 'Pedal Point', level: 1, focus: 'melody over a drone',
+      defaultBpm: 60, gen: pedalPoint,
+      desc: 'The open high e rings between every step of a C major climb on the B string. Instantly beautiful, and it trains your ear to hear a melody against a fixed point.',
+      tips: ['Let the open string ring over everything.', 'Listen to how each melody note changes color against the drone.', 'Slow enough that it sounds like music, not a drill.'] },
+    { id: 'tremolo-classical', cat: 'fingerstyle', name: 'Classical Tremolo', level: 3, focus: 'p-a-m-i flow',
+      defaultBpm: 55, gen: tremoloClassical,
+      desc: 'The Recuerdos de la Alhambra engine, descended from Giuliani’s 96th study: the thumb keeps the bass while a-m-i spin sixteenth notes on the top string. The ultimate right-hand evenness test.',
+      tips: ['The a finger sets the ceiling, keep it as strong as i.', 'Bass notes land exactly on the beat, never rushed.', 'Slow enough that every sixteenth sounds identical.'] },
+    { id: 'legato-scale', cat: 'mobility', name: 'Legato Cells', level: 2, focus: 'hammer-on flow',
+      defaultBpm: 65, gen: legatoScale,
+      desc: 'Slur cells across the E minor pentatonic box: pick once per cell and let the left hand do the rest, up the strings and back. The Satriani school of fluidity.',
+      tips: ['Volume comes from the fretting hand, not the pick.', 'Pull-offs pluck the string slightly downward.', 'One pick stroke per cell, no cheating.'] },
   ];
 
   const PERMS = ['1234', '1243', '1324', '1342', '1423', '1432'];
@@ -1739,13 +1917,28 @@ const Sessions = (() => {
     (bpmList || [null]).forEach(bpm => {
       startFrets.forEach(f => {
         const raw = Exercises.generate(ex, Object.assign({ startFret: f }, genOpts || {}));
-        const title = `${ex.name}, fret ${f}` + (bpm ? `, ${bpm} bpm` : '');
+        const title = (ex.startable ? `${ex.name}, fret ${f}` : ex.name) + (bpm ? `, ${bpm} bpm` : '');
         const e = emit(raw, title, ex.focus, markersFromGen(raw), opts, bpm);
         e[0].tip = ex.tips[Math.floor(Math.random() * ex.tips.length)];
         segs.push(...e);
       });
     });
     return segs;
+  }
+
+  // The masters' fixed-key studies and the key each lives in (so the
+  // backing track can follow them).
+  const HARM_KEYS = {
+    'segovia-run': [0, false], 'thirds-run': [0, false], 'pedal-point': [0, false],
+    'triad-strings': [0, false], 'unitar': [4, false], 'legato-scale': [4, true],
+    'tremolo-classical': [4, true],
+  };
+  const HARM_IDS = ['segovia-run', 'unitar', 'triad-strings', 'thirds-run', 'pedal-point'];
+  function harmSeg(id, opts) {
+    const e = drillSegments(id, [5], opts);
+    const k = HARM_KEYS[id];
+    if (k) { e[0].rootPc = k[0]; e[0].minor = k[1]; }
+    return e;
   }
 
   function fingerstyleFlow(opts) {
@@ -1809,11 +2002,13 @@ const Sessions = (() => {
     shuffle([
       ['spider', 5, { cycles: 3 }], ['perm-lab', pick([3, 5, 7]), { perm: pick(Exercises.PERMS) }],
       ['stretch', pick([3, 5, 7])], ['trill', pick([3, 5, 7])],
-      ['skip-spider', pick([3, 5])], ['climb', 1], ['sync', pick([3, 5, 7])],
+      ['skip-spider', pick([3, 5])], ['climb', 1], ['sync', pick([3, 5, 7])], ['legato-scale', 5],
     ]).forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
     // 2. every scale in the library
     shuffle(Theory.SCALES.map(s => s.id)).forEach((id, i) =>
       segs.push(...scaleSeg(keys[i % keys.length], id, opts)));
+    // 2b. the masters' melody and harmony studies
+    shuffle(HARM_IDS).forEach(id => segs.push(...harmSeg(id, opts)));
     // 3. every arpeggio with all its inversions, keys rotating
     shuffle(Theory.ARPEGGIOS.map(a => a.id)).forEach(q => {
       const n = Theory.byId(Theory.ARPEGGIOS, q).iv.length;
@@ -1829,6 +2024,7 @@ const Sessions = (() => {
     segs.push(...shuffle(fingerstyleFlow(opts)));
     segs.push(...drillSegments('rasgueado', [5], opts));
     segs.push(...drillSegments('rest-stroke', [5], opts));
+    segs.push(...drillSegments('tremolo-classical', [5], opts));
     return segs;
   }
 
@@ -1856,8 +2052,9 @@ const Sessions = (() => {
     const scalePool = shuffleR(Theory.SCALES.map(s => s.id).filter(id => id !== 'chromatic'));
     const arpPool = shuffleR(Theory.ARPEGGIOS.map(a => a.id));
     const pickPool = shuffleR([['ap101', 5], ['in-out', 5], ['skip-bursts', 5], ['tremolo', 7], ['gallop', 3], ['scalar', 5]]);
+    const harmPool = shuffleR(HARM_IDS.concat(['tremolo-classical', 'legato-scale']));
     const flowPool = shuffleR(fingerstyleFlow(opts));
-    let mi = 0, si = 0, ai = 0, pi = 0, fi = 0, ki = 0;
+    let mi = 0, si = 0, ai = 0, pi = 0, fi = 0, ki = 0, hi = 0;
     const nextKey = () => keys[ki++ % keys.length];
     const draw = cat => {
       if (cat === 'mob') { const [id, f, g] = mobPool[mi++ % mobPool.length]; return drillSegments(id, [f], opts, null, g); }
@@ -1869,9 +2066,10 @@ const Sessions = (() => {
         return arpSegInv(nextKey(), q, opts, 1 + Math.floor(rnd() * nInv));
       }
       if (cat === 'pick') { const [id, f] = pickPool[pi++ % pickPool.length]; return drillSegments(id, [f], opts); }
+      if (cat === 'harm') return harmSeg(harmPool[hi++ % harmPool.length], opts);
       return [flowPool[fi++ % flowPool.length]];
     };
-    const pattern = ['mob', 'scale', 'arp', 'pick', 'scale', 'arpinv', 'mob', 'flow', 'scale', 'arp', 'pick', 'arpinv'];
+    const pattern = ['mob', 'scale', 'harm', 'arp', 'pick', 'scale', 'arpinv', 'mob', 'flow', 'harm', 'scale', 'arp', 'pick', 'arpinv'];
     const segs = [];
     let mins = 0, p = 0, guard = 0;
     while (mins < targetMin && guard++ < 300) {
@@ -1898,6 +2096,7 @@ const Sessions = (() => {
   function harmonyRun(opts) {
     const keys = keyOrder(opts.startPc, opts.scheme);
     const segs = [];
+    shuffle(HARM_IDS).slice(0, 3).forEach(id => segs.push(...harmSeg(id, opts)));
     shuffle(['pent-min', 'pent-maj', 'major', 'nat-min', 'dorian', 'mixolydian', 'lydian', 'harm-min'])
       .forEach((id, i) => segs.push(...scaleSeg(keys[i % keys.length], id, opts)));
     shuffle(['maj', 'min', 'maj7', 'min7', 'dom7', 'min7b5']).forEach((q, i) => {
@@ -1919,10 +2118,12 @@ const Sessions = (() => {
       ['skip-bursts', pick([3, 5])], ['gallop', pick([1, 3, 5])], ['tremolo', 7], ['scalar', pick([5, 7])],
     ]);
     const scalePool = shuffle(['pent-min', 'blues', 'nat-min', 'dorian', 'mixolydian']);
+    const harmPool = shuffle(HARM_IDS.concat(['tremolo-classical', 'legato-scale']));
     const segs = [];
-    drillPool.slice(0, 4).forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
+    drillPool.slice(0, 3).forEach(([id, f, g]) => segs.push(...drillSegments(id, [f], opts, null, g)));
     shuffle(keys.slice(0, 5)).slice(0, 3).forEach((pc, i) => segs.push(...scaleSeg(pc, scalePool[i], opts)));
-    shuffle(keys.slice(5, 9)).slice(0, 3).forEach((pc, i) => segs.push(...arpSeg(pc, i % 2 ? 'min' : 'maj', opts)));
+    shuffle(keys.slice(5, 9)).slice(0, 2).forEach((pc, i) => segs.push(...arpSeg(pc, i % 2 ? 'min' : 'maj', opts)));
+    harmPool.slice(0, 2).forEach(id => segs.push(...harmSeg(id, opts)));
     segs.push(...shuffle(fingerstyleFlow(opts)).slice(0, 2));
     return shuffle(segs);
   }
