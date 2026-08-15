@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Balcanizados bajo un mismo rey — mapa de tiempo de las restricciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c14;
+    --bg2:#0e1119;
+    --gold:#c8a960;
+    --gold-hi:#e8cb8a;
+    --ink:#d8d3c4;
+    --ink-dim:#8f8a79;
+    --hair:rgba(200,169,96,.14);
+    --hair-soft:rgba(200,169,96,.07);
+    --c-mar:#5f8fce;
+    --c-tierra:#c08a50;
+    --c-prod:#8fa060;
+    --c-min:#9fb2c4;
+    --c-per:#a085c8;
+    --c-ape:#6fbf7f;
+    --c-gue:#8f4040;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:
+      radial-gradient(1200px 500px at 50% -180px, rgba(200,169,96,.06), transparent 70%),
+      var(--bg);
+    color:var(--ink);
+    font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    padding:44px 0 60px;
+  }
+  .wrap{max-width:1560px;margin:0 auto;padding:0 28px}
+
+  /* ---------- header ---------- */
+  header{border-bottom:1px solid var(--hair);padding-bottom:22px;margin-bottom:8px}
+  .kicker{
+    font-size:10.5px;letter-spacing:.34em;text-transform:uppercase;
+    color:var(--gold);margin-bottom:14px;font-weight:500;
+  }
+  h1{
+    font-family:"Cormorant Garamond",Georgia,serif;
+    font-weight:600;font-size:clamp(30px,4.2vw,46px);
+    line-height:1.05;color:var(--gold-hi);
+    letter-spacing:.01em;
+  }
+  .sub{
+    margin-top:10px;font-size:12.5px;color:var(--ink-dim);
+    letter-spacing:.06em;font-weight:400;
+  }
+  .sub b{color:var(--ink);font-weight:500}
+  .legend{
+    display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:18px;
+    font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-dim);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .legend i{width:14px;height:8px;border-radius:2px;display:inline-block}
+
+  /* ---------- chart ---------- */
+  .hint{
+    display:none;text-align:right;font-size:11px;letter-spacing:.14em;
+    color:var(--gold);margin:6px 4px 2px;text-transform:uppercase;
+  }
+  .chart-scroll{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;scrollbar-color:rgba(200,169,96,.3) transparent}
+  .chart-scroll::-webkit-scrollbar{height:6px}
+  .chart-scroll::-webkit-scrollbar-thumb{background:rgba(200,169,96,.25);border-radius:3px}
+  .chart{position:relative;width:1460px;min-width:1100px;padding:0 26px}
+
+  .axis{position:relative;height:34px}
+  .axis .tick{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--hair)}
+  .axis .tick.major{border-left-color:rgba(200,169,96,.22)}
+  .axis .ylab{
+    position:absolute;top:9px;transform:translateX(-50%);
+    font-family:"Cormorant Garamond",Georgia,serif;font-size:14.5px;font-weight:600;
+    color:#9a937e;font-feature-settings:"onum";letter-spacing:.04em;white-space:nowrap;
+  }
+  .axis.bottom .ylab{top:auto;bottom:9px}
+
+  .gridlayer{position:absolute;left:26px;right:26px;top:0;pointer-events:none;z-index:0}
+  .gridlayer .gl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--hair-soft)}
+  .gridlayer .gl.major{border-left-color:rgba(200,169,96,.12)}
+
+  .lane{position:relative;z-index:1}
+  .lane + .lane{border-top:1px solid var(--hair-soft)}
+  .lane-head{
+    position:sticky;left:0;display:inline-block;z-index:6;
+    height:24px;line-height:24px;padding:0 14px 0 2px;
+    font-size:10px;letter-spacing:.26em;text-transform:uppercase;font-weight:600;
+    color:var(--ink-dim);white-space:nowrap;
+    background:linear-gradient(90deg,var(--bg) 82%,transparent);
+    vertical-align:top;
+  }
+  .lane-head .dot{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:9px;vertical-align:1px}
+  .lane-body{position:relative}
+
+  .bar{
+    position:absolute;height:14px;border-radius:2.5px;cursor:pointer;z-index:2;
+    border:1px solid rgba(255,255,255,.10);
+    background-image:linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0) 55%);
+    box-shadow:0 1px 0 rgba(0,0,0,.35);
+    transform:scaleX(0);transform-origin:left center;opacity:0;
+    transition:transform .8s cubic-bezier(.22,.7,.25,1),opacity .5s ease,filter .2s ease;
+  }
+  .bar:hover{filter:brightness(1.25)}
+  .bar .bl-in{
+    position:absolute;left:8px;right:6px;top:50%;transform:translateY(-50%);
+    font-size:10.5px;font-weight:600;letter-spacing:.015em;line-height:1;
+    color:rgba(8,10,16,.88);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    pointer-events:none;
+  }
+  .bl-out{
+    position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+    font-size:10.5px;font-weight:500;letter-spacing:.015em;line-height:1;
+    color:#b3ac99;white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .6s ease .25s;
+  }
+  .in .bar{transform:scaleX(1);opacity:1}
+  .in .bl-out{opacity:1}
+
+  .bar.crown{
+    border:2px solid var(--gold-hi);
+    box-shadow:0 0 18px rgba(232,203,138,.5),0 0 4px rgba(232,203,138,.6),0 1px 0 rgba(0,0,0,.4);
+    z-index:4;
+  }
+  .bar.crown .bl-in{
+    color:#f6e7bd;font-size:11.5px;font-weight:600;letter-spacing:.04em;
+    text-shadow:0 1px 3px rgba(0,0,0,.7);
+  }
+
+  /* ---------- aperturas ---------- */
+  .ap-lines{position:absolute;left:26px;right:26px;pointer-events:none;z-index:1}
+  .ap-lines .vl{
+    position:absolute;top:0;bottom:0;width:0;
+    border-left:1px dashed rgba(111,191,127,.30);
+  }
+  .mk{
+    position:absolute;width:11px;height:11px;cursor:pointer;z-index:5;
+    background:var(--c-ape);transform:rotate(45deg) scale(0);
+    border:1px solid rgba(255,255,255,.35);
+    box-shadow:0 0 10px rgba(111,191,127,.45);
+    transition:transform .5s cubic-bezier(.3,1.4,.5,1);
+  }
+  .mk:hover{filter:brightness(1.3)}
+  .in .mk{transform:rotate(45deg) scale(1)}
+  .mk-lab{
+    position:absolute;transform:translateX(-50%);z-index:3;
+    font-size:10.5px;font-weight:600;letter-spacing:.02em;color:#9fd8ab;
+    white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .6s ease .3s;
+  }
+  .mk-lab .yr{
+    font-family:"Cormorant Garamond",Georgia,serif;font-feature-settings:"onum";
+    font-size:12px;color:var(--c-ape);margin-right:5px;font-weight:700;
+  }
+  .in .mk-lab{opacity:1}
+
+  /* ---------- guerras ---------- */
+  .wbar{
+    position:absolute;height:7px;border-radius:2px;cursor:pointer;z-index:2;
+    background:linear-gradient(180deg,#a04c4c,var(--c-gue));
+    border:1px solid rgba(255,255,255,.08);
+    transform:scaleX(0);transform-origin:left center;opacity:0;
+    transition:transform .8s cubic-bezier(.22,.7,.25,1),opacity .5s ease,filter .2s ease;
+  }
+  .wbar:hover{filter:brightness(1.35)}
+  .in .wbar{transform:scaleX(1);opacity:1}
+  .wlab{
+    position:absolute;top:50%;transform:translateY(-50%);z-index:3;
+    font-size:10px;font-weight:500;letter-spacing:.03em;color:#c08f8f;
+    white-space:nowrap;pointer-events:none;
+    opacity:0;transition:opacity .6s ease .25s;
+  }
+  .in .wlab{opacity:1}
+
+  /* ---------- tooltip ---------- */
+  #tip{
+    position:fixed;z-index:50;max-width:300px;pointer-events:none;
+    background:linear-gradient(180deg,#141824,#0e1119);
+    border:1px solid rgba(200,169,96,.4);border-radius:6px;
+    padding:12px 14px 11px;opacity:0;visibility:hidden;
+    transform:translateY(4px);
+    transition:opacity .18s ease,transform .18s ease,visibility .18s;
+    box-shadow:0 12px 34px rgba(0,0,0,.6),0 0 0 1px rgba(0,0,0,.4);
+  }
+  #tip.show{opacity:1;visibility:visible;transform:translateY(0)}
+  #tip .tt{
+    font-family:"Cormorant Garamond",Georgia,serif;font-size:16.5px;font-weight:700;
+    color:var(--gold-hi);line-height:1.15;margin-bottom:4px;
+  }
+  #tip .ty{
+    font-family:"Cormorant Garamond",Georgia,serif;font-feature-settings:"onum";
+    font-size:13px;font-weight:600;color:var(--gold);letter-spacing:.05em;margin-bottom:6px;
+  }
+  #tip .td{font-size:11.5px;line-height:1.5;color:#c9c3b2}
+  #tip .tl{display:block;height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:0 0 8px;width:52px}
+
+  /* ---------- footer ---------- */
+  footer{
+    margin-top:26px;border-top:1px solid var(--hair);padding-top:16px;
+    font-size:11.5px;line-height:1.65;color:var(--ink-dim);max-width:880px;
+  }
+  footer em{color:var(--ink);font-style:italic}
+
+  @media (max-width:899px){
+    .hint{display:block}
+    body{padding:28px 0 44px}
+    .wrap{padding:0 16px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">Mapa de tiempo · Imperio español</div>
+    <h1>Balcanizados bajo un mismo rey</h1>
+    <div class="sub">Restricciones al comercio entre colonias españolas · <b>1503–1797</b> · la barra = la vigencia de la norma</div>
+    <div class="legend" id="legend"></div>
+  </header>
+
+  <div class="hint">desliza →</div>
+  <div class="chart-scroll">
+    <div class="chart" id="chart">
+      <div class="axis" id="axisTop"></div>
+      <div id="lanesHost" style="position:relative"></div>
+      <div class="axis bottom" id="axisBot" style="border-top:1px solid var(--hair)"></div>
+    </div>
+  </div>
+
+  <footer>
+    <em>La reiteración de una cédula es la prueba de su incumplimiento</em> — la letra y el contrabando coexistieron tres siglos.
+    Fuentes: investigación propia (49 decretos documentados) + la librería (Galeano, Bonialian, Marichal, Foster, <em>Precious Metals</em>, Semo…).
+  </footer>
+</div>
+
+<div id="tip"><span class="tl"></span><div class="tt"></div><div class="ty"></div><div class="td"></div></div>
+
+<script>
+"use strict";
+/* ================= datos ================= */
+const Y0 = 1500, Y1 = 1825;
+
+const LANES = [
+ { id:"mar", name:"Mar", desc:"rutas · puertos · flotas · galeón", color:"#5f8fce", items:[
+  [1503,1717,"Casa de Contratación de Sevilla","Puerto único: todo el comercio con Indias solo por Sevilla."],
+  [1561,1778,"Navíos sueltos prohibidos","Flota obligatoria: ningún navío suelto a Indias sin licencia expresa."],
+  [1717,1790,"Monopolio trasladado a Cádiz","El puerto único cambia de sede, intacto."],
+  [1720,1739,"Real Proyecto de Galeones y Flotas","Reafirma convoyes, ferias de Veracruz y Portobelo."],
+  [1579,1774,"Freno a géneros de China","Primera restricción a las mercancías chinas Manila–Acapulco–Perú."],
+  [1586,1774,"Géneros chinos vedados en N. España","Ni el terminal oficial del Galeón podía recibirlos libremente."],
+  [1587,1774,"Ropa china vedada en Perú y T. Firme","Que la plata de Potosí no se fuese a la China."],
+  [1591,1774,"Comercio Filipinas–Perú prohibido","Dos colonias del mismo rey, mismo océano, vedadas."],
+  [1593,1815,"Reglamento del Galeón de Manila","2 galeones/año, cupo 250,000 pesos, solo Manila–Acapulco."],
+  [1594,1774,"Navíos del Perú a China prohibidos","Los peruanos no podían comerciar con Asia."],
+  [1604,1634,"Fin del permiso Perú–N. España","Se deroga el cupo de 2 navíos / 200,000 ducados."],
+  [1609,1620,"Solo 2 navíos de 200 t","Reapertura con corsé de tonelaje."],
+  [1620,1631,"Solo 1 navío al año","Un barco anual entre los dos virreinatos."],
+  [1621,1774,"Guayaquil–Acapulco prohibido","El cacao guayaquileño viajaba con plata de contrabando."],
+  [1631,1634,"Prohibición N. España–Perú","Primera forma de la veda total."],
+  [1634,1774,"PROHIBICIÓN TOTAL Perú–N. España","Las dos economías mayores del imperio, vedadas entre sí 140 años.","crown"],
+  [1636,1774,"Ley perpetua (Recopilación)","«Prohíban y estorven este comercio por todos los caminos y medios posibles»."],
+  [1650,1774,"Chile: sin dinero, trigo forzoso al Perú","El trigo chileno se vendía y reinvertía en el Perú."],
+  [1676,1774,"Perú→Guatemala: 2 navíos","Permiso con cupo: solo añil, cacao y brea."],
+  [1685,1688,"Licencia vinos Perú→Guatemala","3 años, 200,000 ducados; cacao y textiles chinos vedados."],
+  [1718,1774,"Sedas chinas vedadas en N. España","A petición de los sederos españoles."],
+  [1594,1778,"Cierre de Buenos Aires","Colonia atlántica abasteciéndose por el Pacífico: Lima–Potosí–Tucumán."],
+  [1622,1640,"Navíos de registro a B. Aires","El cierre administrado: licencias individuales con cupos."],
+  [1770,1778,"Yucatán sin internación","Libre con España, vedada a las provincias vecinas."],
+  [1560,1800,"Guardacostas","La militarización del monopolio en el Caribe y Atlántico."]
+ ]},
+ { id:"tierra", name:"Tierra", desc:"corredores terrestres · aduanas internas", color:"#c08a50", items:[
+  [1595,1778,"Santa Cruz vedada hacia Brasil","Ni descubrir ni comerciar hacia el este."],
+  [1625,1778,"Aduana seca de Córdoba","Doble cobro interior en el corredor Alto Perú–Tucumán."],
+  [1700,1778,"Puerto preciso de Santa Fe","Comercio fluvial solo por puntos fiscalizados."]
+ ]},
+ { id:"prod", name:"Producción", desc:"viñas · obrajes · cacao · seda", color:"#8fa060", items:[
+  [1595,1774,"Viñas vedadas en el Perú","Vid y olivo prohibidos para proteger vinos y aceites peninsulares."],
+  [1601,1778,"Obrajes textiles restringidos","La Corona limita la mano de obra de los talleres coloniales."],
+  [1695,1774,"Cacao de Guayaquil vedado en N. España","Caracas reclamó su “prebenda monopolística” del mercado mexicano."]
+ ]},
+ { id:"min", name:"Minería y estancos", desc:"", color:"#9fb2c4", items:[
+  [1559,1821,"Estanco del azogue","La Corona monopoliza el mercurio, insumo de la plata."],
+  [1576,1810,"Estanco de naipes","Solo el arrendatario real podía fabricarlos."],
+  [1614,1764,"Tabaco: primera regulación","Primer paso del monopolio estatal del tabaco."],
+  [1764,1821,"Estanco del tabaco (N. España)","Nadie podía producir ni vender fuera de la Real Renta."]
+ ]},
+ { id:"per", name:"Personas y compañías", desc:"quién podía comerciar", color:"#a085c8", items:[
+  [1529,1797,"Personas prohibidas de pasar a Indias","Moros, conversos, reconciliados… y todo extranjero, aun con licencia."],
+  [1543,1790,"Consulados cerrados","Sevilla 1543, México 1592, Lima 1593: solo mercaderes matriculados."],
+  [1602,1641,"Portugueses fuera de B. Aires","Sin desembarque de no castellanos sin licencia."],
+  [1641,1668,"Cédulas contra portugueses","Tras la restauración de 1640: ni comerciar, ni residir, ni cargos."],
+  [1680,1797,"Recopilación: exclusión de extranjeros","«Ningún extranjero pueda tratar y contratar en las Indias»."],
+  [1702,1713,"Asiento francés de esclavos","La Guinea Company: exclusiva a una compañía extranjera."],
+  [1713,1748,"Navío de permiso británico","Utrecht: un barco legal al año a Portobelo — el agujero legal del monopolio."],
+  [1728,1785,"Compañía Guipuzcoana de Caracas","Venezuela monopolizada por una compañía vasca."]
+ ]}
+];
+
+const APERTURAS = [
+ [1739,"Registros sueltos (guerra)","La guerra rompe las flotas: barcos solos legalizados."],
+ [1765,"Comercio libre Antillas","9 puertos españoles habilitados para Cuba, Sto. Domingo, PR, Margarita, Trinidad."],
+ [1774,"Fin de la veda del Pacífico","El rey levanta “la general prohibición” entre los cuatro reinos — la confesión."],
+ [1778,"Reglamento de Comercio Libre","13 puertos españoles, 24 americanos."],
+ [1789,"Extensión a N. España y Venezuela","Las más valiosas esperaron 11 años más."],
+ [1797,"Comercio con neutrales","La guerra con Inglaterra abre los puertos a cascos neutrales (EE.UU.)."]
+];
+
+const GUERRAS = [
+ [1701,1714,"Sucesión 1701–1714","Guerra de Sucesión: el imperio cambia de dinastía."],
+ [1739,1748,"Oreja de Jenkins 1739–1748","La guerra que rompió el sistema de flotas."],
+ [1756,1763,"Siete Años 1756–1763","España pierde La Habana y Manila en 1762."],
+ [1779,1783,"Indep. EE.UU. 1779–1783","España entra en 1779 contra Gran Bretaña."],
+ [1796,1808,"Guerras vs Gran Bretaña 1796–1808","Bloqueo casi continuo: de ahí el comercio con neutrales."]
+];
+
+/* ================= geometría ================= */
+const PLOT_W = 1408;               // ancho del área de plot (entre márgenes del chart)
+const X = y => (y - Y0) / (Y1 - Y0) * PLOT_W;
+const ROW_P = 23, BAR_H = 14, LANE_PAD_B = 12;
+
+const mcanvas = document.createElement("canvas");
+const mctx = mcanvas.getContext("2d");
+function measure(txt, font){ mctx.font = font; return mctx.measureText(txt).width + 2; }
+
+const FONT_LAB = '500 10.5px Inter,-apple-system,sans-serif';
+const FONT_CROWN = '600 11.5px Inter,-apple-system,sans-serif';
+
+/* ================= tooltip ================= */
+const tip = document.getElementById("tip");
+const tipT = tip.querySelector(".tt"), tipY = tip.querySelector(".ty"), tipD = tip.querySelector(".td");
+let tipPinned = false;
+
+function showTip(el, title, yrs, desc){
+  tipT.textContent = title;
+  tipY.textContent = yrs;
+  tipD.textContent = desc;
+  tip.classList.add("show");
+  const r = el.getBoundingClientRect();
+  const tw = tip.offsetWidth, th = tip.offsetHeight, vw = window.innerWidth, vh = window.innerHeight;
+  let x = r.left + r.width/2 - tw/2;
+  x = Math.max(8, Math.min(x, vw - tw - 8));
+  let y = r.top - th - 10;
+  if(y < 8) y = Math.min(r.bottom + 10, vh - th - 8);
+  tip.style.left = x + "px";
+  tip.style.top  = y + "px";
+}
+function hideTip(force){
+  if(tipPinned && !force) return;
+  tipPinned = false;
+  tip.classList.remove("show");
+}
+function bindTip(el, title, yrs, desc){
+  el.addEventListener("pointerenter", e => { if(e.pointerType !== "touch"){ tipPinned = false; showTip(el,title,yrs,desc); } });
+  el.addEventListener("pointerleave", e => { if(e.pointerType !== "touch") hideTip(false); });
+  el.addEventListener("click", e => {
+    e.stopPropagation();
+    if(tip.classList.contains("show") && tipPinned){ hideTip(true); }
+    else { tipPinned = true; showTip(el,title,yrs,desc); }
+  });
+}
+document.addEventListener("click", () => hideTip(true));
+document.addEventListener("scroll", () => hideTip(true), true);
+
+/* ================= render ================= */
+function renderAxis(host){
+  for(let y = Y0; y <= Y1; y += 25){
+    const t = document.createElement("div");
+    t.className = "tick" + (y % 100 === 0 ? " major" : "");
+    t.style.left = X(y) + "px";
+    host.appendChild(t);
+    const l = document.createElement("div");
+    l.className = "ylab";
+    l.style.left = X(y) + "px";
+    l.textContent = y;
+    host.appendChild(l);
+  }
+}
+
+function packBars(items){
+  // devuelve placements con fila asignada, sin solapes (incluye etiqueta)
+  const rows = [];          // {end: px}
+  const placed = [];
+  const sorted = items.slice().sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  for(const it of sorted){
+    const crown = it[4] === "crown";
+    const lw = measure(it[2], crown ? FONT_CROWN : FONT_LAB);
+    const x0 = X(it[0]), x1 = X(it[1]);
+    let lx0, lx1, inside;
+    if(x1 - x0 >= lw + 18){ inside = true;  lx0 = x0; lx1 = x1; }
+    else if(x1 + 7 + lw <= PLOT_W - 2){ inside = false; lx0 = x1 + 7; lx1 = lx0 + lw; }
+    else { inside = false; lx1 = x0 - 7; lx0 = lx1 - lw; }
+    const occS = Math.min(x0, lx0), occE = Math.max(x1, lx1);
+    let r = rows.findIndex(row => row.end <= occS - 7);
+    if(r < 0){ r = rows.length; rows.push({end:-Infinity}); }
+    rows[r].end = occE;
+    placed.push({it, r, x0, x1, lx0, lx1, inside, crown});
+  }
+  return {placed, n: rows.length};
+}
+
+function renderLane(lane){
+  const el = document.createElement("div");
+  el.className = "lane";
+
+  const head = document.createElement("div");
+  head.className = "lane-head";
+  head.innerHTML = '<span class="dot" style="background:' + lane.color + '"></span>' +
+    lane.name + (lane.desc ? ' &nbsp;·&nbsp; <span style="letter-spacing:.14em;font-weight:400;opacity:.75">' + lane.desc + "</span>" : "");
+  el.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "lane-body";
+  const {placed, n} = packBars(lane.items);
+  body.style.height = (n * ROW_P + LANE_PAD_B) + "px";
+
+  for(const p of placed){
+    const y = p.r * ROW_P + 4;
+    const bar = document.createElement("div");
+    bar.className = "bar" + (p.crown ? " crown" : "");
+    bar.style.left = p.x0 + "px";
+    bar.style.width = Math.max(p.x1 - p.x0, 3) + "px";
+    bar.style.top = y + "px";
+    bar.style.height = BAR_H + "px";
+    bar.style.backgroundColor = lane.color;
+    if(p.inside){
+      const lab = document.createElement("span");
+      lab.className = "bl-in";
+      lab.textContent = p.it[2];
+      bar.appendChild(lab);
+    }
+    bindTip(bar, p.it[2], p.it[0] + " — " + p.it[1] + " · " + (p.it[1]-p.it[0]) + " años", p.it[3]);
+    body.appendChild(bar);
+
+    if(!p.inside){
+      const lab = document.createElement("div");
+      lab.className = "bl-out";
+      lab.style.left = p.lx0 + "px";
+      lab.style.top = (y + BAR_H/2) + "px";
+      lab.textContent = p.it[2];
+      body.appendChild(lab);
+    }
+  }
+  el.appendChild(body);
+  return {el, h: 24 + n * ROW_P + LANE_PAD_B};
+}
+
+function packLabels(entries, lw, halfW, pitch){
+  // packing genérico de etiquetas centradas en x (aperturas)
+  const rows = [];
+  const placed = [];
+  for(const e of entries.slice().sort((a,b)=>a.x-b.x)){
+    let cx = Math.max(e.w/2 + 2, Math.min(e.x, PLOT_W - e.w/2 - 2));
+    let r = rows.findIndex(row => row.end <= cx - e.w/2 - 10);
+    if(r < 0){ r = rows.length; rows.push({end:-Infinity}); }
+    rows[r].end = cx + e.w/2;
+    placed.push({e, r, cx});
+  }
+  return {placed, n: rows.length};
+}
+
+function build(){
+  const host = document.getElementById("lanesHost");
+  host.innerHTML = "";
+
+  // leyenda
+  const legend = document.getElementById("legend");
+  legend.innerHTML = "";
+  const legItems = LANES.map(l => [l.color, l.name])
+    .concat([["#6fbf7f","Aperturas"],["#8f4040","Guerras"]]);
+  for(const [c,n] of legItems){
+    const s = document.createElement("span");
+    s.innerHTML = '<i style="background:' + c + '"></i>' + n;
+    legend.appendChild(s);
+  }
+
+  renderAxis(document.getElementById("axisTop"));
+  renderAxis(document.getElementById("axisBot"));
+
+  // carriles principales
+  let mainH = 0;
+  const laneEls = [];
+  for(const lane of LANES){
+    const r = renderLane(lane);
+    host.appendChild(r.el);
+    laneEls.push(r.el);
+    mainH += r.h;
+  }
+
+  // líneas verticales de aperturas atravesando los carriles
+  const apLines = document.createElement("div");
+  apLines.className = "ap-lines";
+  apLines.style.top = "0px";
+  apLines.style.height = mainH + "px";
+  for(const a of APERTURAS){
+    const vl = document.createElement("div");
+    vl.className = "vl";
+    vl.style.left = X(a[0]) + "px";
+    apLines.appendChild(vl);
+  }
+  host.appendChild(apLines);
+
+  // carril de aperturas
+  const apLane = document.createElement("div");
+  apLane.className = "lane";
+  const apHead = document.createElement("div");
+  apHead.className = "lane-head";
+  apHead.innerHTML = '<span class="dot" style="background:#6fbf7f"></span>Aperturas &nbsp;·&nbsp; <span style="letter-spacing:.14em;font-weight:400;opacity:.75">las excepciones y el fin</span>';
+  apLane.appendChild(apHead);
+  const apBody = document.createElement("div");
+  apBody.className = "lane-body";
+
+  const apEntries = APERTURAS.map(a => ({x:X(a[0]), w:measure(a[0] + "  " + a[1], '600 10.5px Inter,sans-serif') + 14, data:a}));
+  const apPack = packLabels(apEntries);
+  const MK_TOP = 6;
+  apBody.style.height = (22 + apPack.n * 17 + 10) + "px";
+
+  for(const p of apPack.placed){
+    const a = p.e.data;
+    const mk = document.createElement("div");
+    mk.className = "mk";
+    mk.style.left = (p.e.x - 5.5) + "px";
+    mk.style.top = MK_TOP + "px";
+    bindTip(mk, a[1], String(a[0]), a[2]);
+    apBody.appendChild(mk);
+    const lab = document.createElement("div");
+    lab.className = "mk-lab";
+    lab.style.left = p.cx + "px";
+    lab.style.top = (MK_TOP + 16 + p.r * 17) + "px";
+    lab.innerHTML = '<span class="yr">' + a[0] + "</span>" + a[1];
+    apBody.appendChild(lab);
+  }
+  apLane.appendChild(apBody);
+  host.appendChild(apLane);
+
+  // carril de guerras
+  const wLane = document.createElement("div");
+  wLane.className = "lane";
+  const wHead = document.createElement("div");
+  wHead.className = "lane-head";
+  wHead.innerHTML = '<span class="dot" style="background:#8f4040"></span>Guerras &nbsp;·&nbsp; <span style="letter-spacing:.14em;font-weight:400;opacity:.75">las excepciones llegaban en guerra</span>';
+  wLane.appendChild(wHead);
+  const wBody = document.createElement("div");
+  wBody.className = "lane-body";
+  const wPack = packBars(GUERRAS.map(g => [g[0], g[1], g[2], g[3]]));
+  wBody.style.height = (wPack.n * 19 + 12) + "px";
+  for(const p of wPack.placed){
+    const y = p.r * 19 + 5;
+    const bar = document.createElement("div");
+    bar.className = "wbar";
+    bar.style.left = p.x0 + "px";
+    bar.style.width = Math.max(p.x1 - p.x0, 3) + "px";
+    bar.style.top = y + "px";
+    bindTip(bar, p.it[2], p.it[0] + " — " + p.it[1], p.it[3]);
+    wBody.appendChild(bar);
+    const lab = document.createElement("div");
+    lab.className = "wlab";
+    lab.style.left = p.lx0 + "px";
+    lab.style.top = (y + 3.5) + "px";
+    lab.textContent = p.it[2];
+    wBody.appendChild(lab);
+  }
+  wLane.appendChild(wBody);
+  host.appendChild(wLane);
+
+  // capa de grid vertical (sobre todo el bloque de carriles)
+  const grid = document.createElement("div");
+  grid.className = "gridlayer";
+  grid.style.top = "0px";
+  grid.style.bottom = "0px";
+  for(let y = Y0; y <= Y1; y += 25){
+    const gl = document.createElement("div");
+    gl.className = "gl" + (y % 100 === 0 ? " major" : "");
+    gl.style.left = X(y) + "px";
+    grid.appendChild(gl);
+  }
+  host.insertBefore(grid, host.firstChild);
+
+  // animación de entrada escalonada
+  const animEls = host.querySelectorAll(".bar, .wbar, .mk");
+  animEls.forEach((el, i) => { el.style.transitionDelay = (i * 26) + "ms"; });
+  requestAnimationFrame(() => requestAnimationFrame(() => host.classList.add("in")));
+}
+
+if(document.fonts && document.fonts.ready){
+  document.fonts.ready.then(build);
+  setTimeout(() => { if(!document.querySelector(".bar")) build(); }, 1500);
+} else {
+  build();
+}
+</script>
+</body>
+</html>
