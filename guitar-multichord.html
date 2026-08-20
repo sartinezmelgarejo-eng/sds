@@ -24613,11 +24613,27 @@ function composeAddChord(chordId, cycleInversion = false, direction = 1) {
 function composeCycleLastInversion(direction) {
   const seq = state.composedProgression;
   if (!seq.length) return;
-  // If a cell is selected, cycle ITS inversion; otherwise cycle the last.
-  const idx = (state.composedSelectedIdx !== null && state.composedSelectedIdx < seq.length)
+  // Locked cell, else focused (tapped) cell, else last — same resolution
+  // order as delete/backspace and the 9 key. Ties resolve to their origin.
+  let idx = (state.composedSelectedIdx !== null && state.composedSelectedIdx < seq.length)
     ? state.composedSelectedIdx
-    : seq.length - 1;
+    : (state._composeFocusedIdx !== null && state._composeFocusedIdx !== undefined
+        && state._composeFocusedIdx >= 0 && state._composeFocusedIdx < seq.length)
+      ? state._composeFocusedIdx
+      : seq.length - 1;
+  while (idx > 0 && seq[idx] && seq[idx]._tie) idx--;
+  if (!seq[idx] || !seq[idx].chord) return;
+  // composeAddChord's append path only cycles the LAST cell; arm a one-shot
+  // replace so its edit path writes THIS cell instead.
+  const armed = idx !== seq.length - 1 && state.composedSelectedIdx === null;
+  if (armed) state._oneShotReplaceIdx = idx;
   composeAddChord(seq[idx].chord, true, direction);
+  // The one-shot path clears the focus after writing; restore it so REPEATED
+  // arrow presses keep cycling the same tapped cell (same feel as the 9 key).
+  if (armed) {
+    state._composeFocusedIdx = idx;
+    if (typeof renderComposeStrip === 'function') renderComposeStrip();
+  }
 }
 // "9" key — cycle the target cell through ALL allowed voicings without
 // repeating, picking the smoothest MIDI move from current at each step.
