@@ -1384,6 +1384,31 @@ body {
 /* ── Muro de portadas (modo Muro) ────────────────────────────────────────── */
 .wall-wrap { display: block; }
 .wall-shelf { margin-bottom: 34px; }
+
+/* ── Nacimiento estelar: la primera vez que se abre el librero, cada
+   portada nace como una estrella — un punto de luz que se contrae,
+   destella y del destello queda el libro. Corre UNA vez por visita
+   (window.__librosNacieron); los re-renders por cambio de modo no. ── */
+@keyframes naceEstrella {
+  0%   { opacity: 0; transform: scale(.05); filter: brightness(9) saturate(0); }
+  40%  { opacity: 1; transform: scale(.22); filter: brightness(5) saturate(.25); }
+  58%  { transform: scale(1.12); filter: brightness(2.4) saturate(1.2); }
+  76%  { transform: scale(.97); filter: brightness(1.25); }
+  100% { opacity: 1; transform: scale(1); filter: brightness(1) saturate(1); }
+}
+@keyframes naceHalo {
+  0%, 38% { box-shadow: 0 0 2px 1px rgba(255,244,214,.0); }
+  58%  { box-shadow: 0 0 22px 6px rgba(255,238,190,.55); }
+  100% { box-shadow: 0 0 0 0 rgba(255,238,190,0); }
+}
+.nace-estrella {
+  animation: naceEstrella .68s cubic-bezier(.22,1,.36,1) both,
+             naceHalo .9s ease-out both;
+  animation-delay: var(--nd, 0ms), var(--nd, 0ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nace-estrella { animation: none; }
+}
 .wall-grid {
   display: grid; gap: 14px;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
@@ -18250,6 +18275,22 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     });
   }
 
+  // Nacimiento estelar: escalona el nacimiento de cada libro la primera vez
+  // que se pinta el librero en esta visita. Cascada por orden del DOM con un
+  // jitter determinista (hash del índice) para que no se sienta mecánico.
+  // Tope ~1.4s aunque el acervo crezca. Los re-renders posteriores no animan.
+  function nacimientoEstelar(root) {
+    if (window.__librosNacieron) return;
+    window.__librosNacieron = true;
+    var cards = root.querySelectorAll('.wall-card, .micro-book');
+    for (var i = 0; i < cards.length; i++) {
+      var jit = ((i * 2654435761) >>> 0) % 90;
+      var d = Math.min(i * 9, 1250) + jit;
+      cards[i].style.setProperty('--nd', d + 'ms');
+      cards[i].classList.add('nace-estrella');
+    }
+  }
+
   function renderMegaLibrary() {
     const shelvesDiv = document.getElementById('mega-shelves');
     killShelfSpy();
@@ -18357,6 +18398,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         '<div class="bookcase">' + switcher +
           '<div class="wall-wrap">' + wallHTML + '</div>' +
         '</div>';
+      nacimientoEstelar(shelvesDiv);
       return;
     }
 
@@ -18380,6 +18422,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         '<div class="bookcase">' + switcher +
           '<div class="bookcase-grid">' + temaHTML + '</div>' +
         '</div>';
+      nacimientoEstelar(shelvesDiv);
       return;
     }
 
@@ -18518,6 +18561,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
           '</div>' +
         '</div>' +
       '</div>';
+    nacimientoEstelar(shelvesDiv);
     initShelfSpy();
   }
 
