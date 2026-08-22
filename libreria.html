@@ -18574,10 +18574,18 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // Patterns: "X y Y", "X & Y", "X / Y", "X, Y", "X; Y" (in priority order).
   // Strip parenthetical suffixes like "(coordinadores)", "(ed.)", "(eds.)".
   // Collective markers ("Varios", "(comp.)") render as single non-clickable label.
+  // Nombres de UNA persona que contienen separador y NO deben partirse.
+  var AUTHOR_NO_SPLIT = ['Armando de Maria y Campos'];
+
   function parseAuthors(authorStr) {
     if (!authorStr) return [];
-    // Strip parenthetical suffix
-    var s = authorStr.replace(/\s*\([^)]+\)\s*$/, '').trim();
+    if (AUTHOR_NO_SPLIT.indexOf(authorStr.trim()) !== -1) {
+      return [{ name: authorStr.trim(), collective: false }];
+    }
+    // Strip TODOS los paréntesis (roles como "(coordinadores)" aparecen también
+    // a media lista; quitarlos ANTES de partir por comas evita chips mutilados
+    // tipo "Pérez Moncada (compilación documental").
+    var s = authorStr.replace(/\([^)]*\)/g, ' ').replace(/\s{2,}/g, ' ').trim();
     // Strip after semicolon (collaborator lists)
     var semi = s.indexOf(';');
     if (semi > 0) s = s.slice(0, semi).trim();
@@ -18585,17 +18593,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
     if (/^Varios\b/i.test(s) || /\(comp\.\)/i.test(authorStr) || /\(eds?\.\)/i.test(authorStr)) {
       return [{ name: s, collective: true }];
     }
-    // Split on separators, preserving order. Pipeline:
-    //   1. Replace " y " (preceded by alpha, followed by capital) with ||
-    //   2. Replace " & " with ||
-    //   3. Replace " / " with ||
-    //   4. Replace ", " (but not inside parens — already stripped) with ||
-    s = s.replace(/\s+y\s+([A-ZÁÉÍÓÚÑ])/g, '||$1')
+    // Split on separators, preserving order: " y "/" e " ante mayúscula, &, /, ",".
+    s = s.replace(/\s+[ye]\s+([A-ZÁÉÍÓÚÑ])/g, '||$1')
          .replace(/\s+&\s+/g, '||')
          .replace(/\s+\/\s+/g, '||')
          .replace(/,\s+/g, '||');
-    return s.split('||').map(function(n) { return { name: n.trim(), collective: false }; })
-            .filter(function(a) { return a.name.length > 1; });
+    return s.split('||').map(function(n) { return { name: n.trim().replace(/[,;.]$/, ''), collective: false }; })
+            // Los roles sueltos empiezan en minúscula ("introducción", "con X",
+            // "presentación de Y"): no son personas, fuera.
+            .filter(function(a) { return a.name.length > 1 && /^[A-ZÁÉÍÓÚÑ"'“]/.test(a.name); });
   }
 
   // Render an authors string as HTML — multiple clickable chips when applicable.
@@ -19703,7 +19709,15 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // ══════════════════════════════════════════════
 
   function openAuthor(authorName) {
-    const authorBooks = books.filter(b => b.author === authorName).sort((a,b) => a.year - b.year);
+    // Coincidencia SIMÉTRICA: un libro cuenta si su campo completo coincide O si
+    // cualquiera de sus autores parseados es el buscado. Sin esto, (a) picar a un
+    // coautor no encontraba nada, y (b) picar a "Eulalia Guzmán" desde un libro
+    // cuyo campo trae decoración ("(estudio introductorio de...)") abría la
+    // página de la autora SIN ese libro. Bug real del 21-ago-2026.
+    const authorBooks = books.filter(b =>
+      b.author === authorName ||
+      parseAuthors(b.author || '').some(a => !a.collective && a.name === authorName)
+    ).sort((a,b) => a.year - b.year);
     if (authorBooks.length === 0) return;
 
     const autorData = (typeof autorInfo==='function') ? autorInfo(authorName) : autores[authorName];
