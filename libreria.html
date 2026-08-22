@@ -18271,14 +18271,25 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // Tope ~1.4s aunque el acervo crezca. Los re-renders posteriores no animan.
   function nacimientoEstelar(root) {
     if (window.__librosNacieron) return;
+    // El librero se pre-renderiza al cargar la página bajo la portada, con
+    // currentView='themes'; si marcáramos la bandera ahí, la animación
+    // correría sin público y al abrir la Librería ya no habría nada.
+    // (offsetParent no sirve de guard: el nodo es "visible" bajo la portada.)
+    if (!root || currentView !== 'libros') return;
     window.__librosNacieron = true;
-    var cards = root.querySelectorAll('.wall-card, .micro-book');
-    for (var i = 0; i < cards.length; i++) {
-      var jit = ((i * 2654435761) >>> 0) % 90;
-      var d = Math.min(i * 9, 1250) + jit;
-      cards[i].style.setProperty('--nd', d + 'ms');
-      cards[i].classList.add('nace-estrella');
-    }
+    // Doble rAF: en el arranque el hilo sigue ocupado construyendo la página
+    // (12 MB) y las animaciones CSS avanzan por RELOJ aunque no se pinte un
+    // solo frame — aplicadas síncronas, expiran antes del primer cuadro y
+    // parece que nunca corrieron. Se aplican hasta que ya se puede pintar.
+    requestAnimationFrame(function() { requestAnimationFrame(function() {
+      var cards = root.querySelectorAll('.wall-card, .micro-book');
+      for (var i = 0; i < cards.length; i++) {
+        var jit = ((i * 2654435761) >>> 0) % 90;
+        var d = Math.min(i * 9, 1250) + jit;
+        cards[i].style.setProperty('--nd', d + 'ms');
+        cards[i].classList.add('nace-estrella');
+      }
+    }); });
   }
 
   function renderMegaLibrary() {
@@ -26118,6 +26129,8 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       const el = document.getElementById(target.id);
       el.style.display = target.display;
       el.classList.add('active');
+      // Primera vez que la Librería se VE: ahora sí nacen los libros.
+      if (view === 'libros') nacimientoEstelar(document.getElementById('mega-shelves'));
       if (!skipScroll) {
         requestAnimationFrame(() => {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
