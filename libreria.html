@@ -16904,6 +16904,51 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       ]
     },
     {
+      id: "debate_sacrificios",
+      title: "El debate de los sacrificios",
+      icon: "🗿",
+      desc: "¿Institución real o propaganda de conquista? El expediente con las dos voces: las cartas de Cortés anotadas por Eulalia Guzmán, la crítica de fuentes de Peter Hassler, la síntesis de Grandeza (con la claudicación final de Las Casas) — y enfrente, el volumen del INAH y la arqueología del Templo Mayor.",
+      // Grandeza participa solo con su expediente sobre el tema (9 citas),
+      // no con sus 243 citas. Ver rutaVentanaOk → citasSel.
+      citasSel: {
+        amlo: [
+          "quien elaboró el texto base para exponer y divulgar la invención",
+          "supuesto tzompantli por Francisco López de Gómara",
+          "Bartolomé de las Casas copia, en 1559",
+          "también franciscano Diego de Landa",
+          "De Landa fue absuelto",
+          "acusaba a los indígenas de idólatras y caníbales",
+          "para extraer del cenote o pozo sagrado",
+          "Sylvanus Griswold Morley"
+        ]
+      },
+      steps: [
+        {
+          bookId: "eulaliacortes",
+          reason: "El acusador, leído con lupa: las Relaciones de Cortés en la edición crítica de Eulalia Guzmán, que anota dónde el conquistador escribe para justificarse."
+        },
+        // Las Casas no va como paso: sus 56 citas son la denuncia de la
+        // destrucción (otro expediente, cero tocan sacrificios). Su claudicación
+        // final la narra la cita de Grandeza en 1559, dentro de esta ruta.
+        {
+          bookId: "hassler",
+          reason: "La crítica de fuentes: Peter Hassler revisa a los cronistas testigo por testigo y pregunta ¿realidad o fantasía?"
+        },
+        {
+          bookId: "amlo",
+          reason: "La síntesis: Grandeza reúne el caso contra la leyenda — aquí solo su expediente sobre el tema, no el libro entero."
+        },
+        {
+          bookId: "sacrificio",
+          reason: "La contraparte: el volumen del INAH que documenta el sacrificio como institución mesoamericana, con sus propias fuentes."
+        },
+        {
+          bookId: "camara3_templomayor",
+          reason: "La arqueología habla: la cámara 3 del Templo Mayor, evidencia que no depende de ningún cronista."
+        }
+      ]
+    },
+    {
       id: "voz_epocas",
       title: "Cada quien su época",
       icon: "🎙️",
@@ -21928,10 +21973,24 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   // libro solo cuenta cuando el evento cae dentro de la vida pública del
   // autor. Así "la voz del protagonista" no arrastra los capítulos donde
   // narra un pasado que no vivió. Libros sin ventana pasan siempre.
-  function rutaVentanaOk(libro, year) {
+  function rutaVentanaOk(libro, year, cita) {
     if (!tlRuta || typeof rutas === 'undefined') return true;
     var r = rutas.find(function(x){ return x.id === tlRuta; });
-    if (!r || !r.ventanas || !r.ventanas[libro]) return true;
+    if (!r) return true;
+    // citasSel: selección TEMÁTICA de citas por libro (hermana de ventanas,
+    // que recorta por años). ruta.citasSel = { libro: [fragmentos...] } — la
+    // cita de ese libro solo cuenta si contiene alguno de los fragmentos.
+    // Así una ruta puede usar 9 citas de Grandeza sin arrastrar las 243.
+    if (r.citasSel && r.citasSel[libro]) {
+      var t = ((cita && (cita.texto || cita.cita)) || '').toLowerCase();
+      if (!t) return false;
+      var sel = r.citasSel[libro], okSel = false;
+      for (var si = 0; si < sel.length; si++) {
+        if (t.indexOf(sel[si].toLowerCase()) !== -1) { okSel = true; break; }
+      }
+      if (!okSel) return false;
+    }
+    if (!r.ventanas || !r.ventanas[libro]) return true;
     var m = /^(-?\d{1,4})/.exec(String(year || ''));
     if (!m) return false;
     var y = +m[1];
@@ -21952,7 +22011,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
       var has = false;
       if (ev.citas) {
         for (var i = 0; i < ev.citas.length; i++) {
-          if (f.libros.has(ev.citas[i].libro) && rutaVentanaOk(ev.citas[i].libro, ev.year)) { has = true; break; }
+          if (f.libros.has(ev.citas[i].libro) && rutaVentanaOk(ev.citas[i].libro, ev.year, ev.citas[i])) { has = true; break; }
         }
       }
       // Solo citas DIRECTAS: el fallback por era.bookIds se retiró (2026-08-04)
@@ -25287,7 +25346,7 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
         .filter(function(p) { return p.c && p.c.texto; });
       if (!tlFilter.libros.size && !(tlFilter.autores && tlFilter.autores.size)) return todas;
       var propias = todas.filter(function(p) {
-        return citaMatchesTlFilter(p.c) && rutaVentanaOk(p.c.libro, ev.year);
+        return citaMatchesTlFilter(p.c) && rutaVentanaOk(p.c.libro, ev.year, p.c);
       });
       return propias.length ? propias : todas;
     }
