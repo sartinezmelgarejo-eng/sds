@@ -18729,19 +18729,17 @@ a.btlsc-paglink:hover { color: var(--gold,#d4b25e); border-bottom-color: var(--g
   }
   function authorTimelineEntries(name){
     var ids={}; authorBookIds(name).forEach(function(id){ids[id]=1;});
-    var needles=authorNeedles(name);
     var out=[]; if(typeof timelineEras==='undefined') return out;
     timelineEras.forEach(function(era){
       (era.events||[]).forEach(function(ev){
-        var hadCita=false;
         (ev.citas||[]).forEach(function(c){
-          if(ids[c.libro]){ hadCita=true; out.push({kind:'cita',year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color,libro:c.libro}); }
+          if(ids[c.libro]){ out.push({kind:'cita',year:ev.year,text:ev.text,quote:c.texto,pagina:c.pagina,color:era.color,libro:c.libro}); }
         });
-        if(!hadCita && needles.length){
-          var t=tlNorm(ev.text||'');
-          var hit=needles.some(function(n){ var re=new RegExp('(^|[^a-z0-9])'+n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'([^a-z0-9]|$)'); return re.test(t); });
-          if(hit) out.push({kind:'mencion',year:ev.year,text:ev.text,quote:(ev.detalle||ev.text||''),pagina:'',color:era.color});
-        }
+        // Las "menciones" (el nombre del autor aparece en el título de un
+        // evento sin cita suya) NO entran: como el quote caía en detalle||text
+        // y 6 de cada 10 eventos no tienen detalle, la tarjeta mostraba el puro
+        // título disfrazado de cita. Decisión de Samuel (21-ago-2026): en la
+        // sección de citas del autor solo van citas reales, con página.
       });
     });
     out.sort(function(a,b){return tlYearNum(a.year)-tlYearNum(b.year);});
