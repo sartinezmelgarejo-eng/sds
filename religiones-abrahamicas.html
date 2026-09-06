@@ -1181,7 +1181,359 @@ function renderLista(){
     if(e.key==="Enter"||e.key===" "){const el=e.target.closest("[data-nid]");if(el){e.preventDefault();seleccionar(el.getAttribute("data-nid"));}}
   });
 }
-/*__C5__*/
+/* ============================== UTILIDADES SVG ============================== */
+function interp(pts,v){
+  if(v<=pts[0][0])return pts[0][1];
+  for(let i=1;i<pts.length;i++)if(v<=pts[i][0]){
+    const [a,fa]=pts[i-1],[b,fb]=pts[i];
+    return fa+(v-a)*(fb-fa)/(b-a);
+  }
+  return pts[pts.length-1][1];
+}
+const fmtPct=p=>String(p).replace(".",",");
+const colDeClave=k=>byId[k]?FES[byId[k].fe].c:(FES[k]?FES[k].c:"#6a6152");
+
+/* pan + zoom (ratón, rueda, táctil con pellizco) sobre viewBox */
+function svgPZ(svg,fitBox,opts){
+  opts=opts||{};
+  let vb={x:0,y:0,w:1000,h:700};
+  const ptrs=new Map();
+  let moved=0,downTarget=null;
+  const cw=()=>svg.clientWidth||Math.min(innerWidth-30,1140)||900;
+  const chh=()=>svg.clientHeight||520;
+  const apply=()=>svg.setAttribute("viewBox",vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+  const fit=()=>{
+    const b=fitBox(),W=cw(),H=chh(),s=Math.min(W/b.w,H/b.h);
+    vb={w:W/s,h:H/s,x:0,y:0};
+    vb.x=b.x-(vb.w-b.w)/2;vb.y=b.y-(vb.h-b.h)/2;apply();
+  };
+  const world=(sx,sy)=>({x:vb.x+sx/cw()*vb.w,y:vb.y+sy/chh()*vb.h});
+  const zoomAt=(f,sx,sy)=>{
+    if(sx==null){sx=cw()/2;sy=chh()/2;}
+    const p=world(sx,sy);
+    vb.w=Math.max(40,Math.min(vb.w/f,20000));vb.h=Math.max(28,Math.min(vb.h/f,15000));
+    vb.x=p.x-sx/cw()*vb.w;vb.y=p.y-sy/chh()*vb.h;apply();
+  };
+  svg.addEventListener("pointerdown",e=>{
+    if(opts.skip&&e.target.closest(opts.skip))return;
+    try{svg.setPointerCapture(e.pointerId);}catch(_){}
+    ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(ptrs.size===1){moved=0;downTarget=e.target;}
+  });
+  svg.addEventListener("pointermove",e=>{
+    const p=ptrs.get(e.pointerId);if(!p)return;
+    if(ptrs.size===1){
+      const dx=e.clientX-p.x,dy=e.clientY-p.y;
+      moved+=Math.abs(dx)+Math.abs(dy);
+      vb.x-=dx*vb.w/cw();vb.y-=dy*vb.h/chh();apply();
+      p.x=e.clientX;p.y=e.clientY;
+    }else if(ptrs.size===2){
+      const other=[...ptrs.entries()].find(([id])=>id!==e.pointerId);
+      if(!other)return;
+      const o=other[1];
+      const d0=Math.hypot(p.x-o.x,p.y-o.y);
+      p.x=e.clientX;p.y=e.clientY;
+      const d1=Math.hypot(p.x-o.x,p.y-o.y);
+      const rect=svg.getBoundingClientRect();
+      if(d0>4&&d1>4)zoomAt(d1/d0,(p.x+o.x)/2-rect.left,(p.y+o.y)/2-rect.top);
+      moved=99;
+    }
+  });
+  const up=e=>{
+    if(!ptrs.has(e.pointerId))return;
+    ptrs.delete(e.pointerId);
+    if(!ptrs.size&&moved<=6&&opts.tap&&downTarget)opts.tap(downTarget);
+  };
+  svg.addEventListener("pointerup",up);
+  svg.addEventListener("pointercancel",e=>ptrs.delete(e.pointerId));
+  svg.addEventListener("wheel",e=>{
+    e.preventDefault();
+    const rect=svg.getBoundingClientRect();
+    zoomAt(e.deltaY<0?1.18:1/1.18,e.clientX-rect.left,e.clientY-rect.top);
+  },{passive:false});
+  return {fit,zoomAt,world,apply,get vb(){return vb;},set vb(v){vb=v;apply();}};
+}
+
+/* ============================== VISTA ÁRBOL ============================== */
+/* Cada rama ocupa una fila (agrupada por tradición, hijas bajo su madre);
+   el eje horizontal es el tiempo, comprimido en la Antigüedad. */
+const A_PTS=[[-1800,0],[-1300,55],[-800,105],[-450,145],[0,215],[300,265],[600,330],
+  [900,400],[1054,455],[1300,530],[1517,620],[1700,730],[1800,830],[1900,950],[1950,1020],[2026,1075]];
+const A_MARKS=[-1800,-1000,-450,0,300,600,900,1200,1500,1700,1800,1900,2000];
+let pzA=null,A_POS={},A_BOX={x:0,y:0,w:1400,h:900};
+
+function cuentaDesc(id){let c=0;HIJOS[id].forEach(h=>{c+=1+cuentaDesc(h);});return c;}
+
+function renderArbol(){
+  const svg=$("#svg-arbol");
+  const rowH=34,TOP=64,LEFT=76;
+  const xDe=y=>LEFT+interp(A_PTS,y);
+  const vis=[];
+  (function dfs(id){vis.push(id);if(!S.colapsados.has(id))HIJOS[id].forEach(dfs);})("raiz");
+  A_POS={};
+  vis.forEach((id,i)=>{A_POS[id]={x:xDe(byId[id].y),y:TOP+i*rowH};});
+  const H=TOP+vis.length*rowH+26;
+  let maxX=LEFT+1120;
+  const ejes=[],edges=[],nodos=[];
+  A_MARKS.forEach(m=>{
+    const x=xDe(m);
+    ejes.push(`<line class="eje-g${(m===0||m===1500||m===-1800)?" siglo":""}" x1="${x}" y1="${TOP-26}" x2="${x}" y2="${H-10}"/>`);
+    ejes.push(`<text class="eje-l" x="${x}" y="${TOP-32}" text-anchor="middle">${fmtY(m)}</text>`);
+  });
+  vis.forEach(id=>{
+    const n=byId[id],pos=A_POS[id],x=pos.x,y=pos.y,r=radio(n);
+    const p=n.p&&A_POS[n.p];
+    if(p){
+      const my=(p.y+y)/2;
+      edges.push(`<path class="edge" data-eid="${n.p}→${id}" d="M ${p.x} ${p.y} C ${p.x} ${my}, ${x} ${my}, ${x} ${y}"/>`);
+    }
+    const col=S.colapsados.has(id),lab=esc(n.n);
+    let g=`<g class="nodo" data-nid="${id}" transform="translate(${x},${y})">`;
+    g+=`<circle class="c" r="${r}" fill="${feCol(n)}"/>`;
+    g+=`<text x="${r+8}" dy=".33em">${lab}${col?` <tspan class="sub-t">(⊕ ${cuentaDesc(id)} ocultas)</tspan>`:""}</text>`;
+    if(n.cisma)g+=`<text class="cisma-l" x="${r+8}" y="16">${esc(n.cisma)}</text>`;
+    g+=`</g>`;
+    if(HIJOS[id].length)
+      g+=`<g class="tog" data-tog="${id}" role="button" aria-label="${col?"Expandir":"Contraer"} ${lab}"><circle cx="${x-r-14}" cy="${y}" r="7"/><text x="${x-r-14}" y="${y}">${col?"⊕":"⊖"}</text></g>`;
+    nodos.push(g);
+    maxX=Math.max(maxX,x+r+12+n.n.length*7);
+  });
+  svg.innerHTML=ejes.join("")+edges.join("")+nodos.join("");
+  A_BOX={x:0,y:0,w:maxX+30,h:H};
+  if(!pzA){pzA=svgPZ(svg,()=>A_BOX,{tap:arbolTap});pzA.fit();}
+}
+function arbolTap(target){
+  const t=target.closest(".tog");
+  if(t){
+    const id=t.getAttribute("data-tog");
+    if(S.colapsados.has(id))S.colapsados.delete(id);else S.colapsados.add(id);
+    $("#btn-colapsar").textContent=S.colapsados.size?"Expandir subramas":"Contraer subramas";
+    renderArbol();pintar();return;
+  }
+  const nd=target.closest(".nodo");
+  if(nd)seleccionar(nd.getAttribute("data-nid"));
+}
+function centrarEnArbol(id){
+  if(!pzA||!A_POS[id])return;
+  const svg=$("#svg-arbol"),cw=svg.clientWidth||900,ch=svg.clientHeight||600;
+  const w=Math.min(A_BOX.w,860),h=w*ch/cw;
+  pzA.vb={x:A_POS[id].x-w*.4,y:A_POS[id].y-h/2,w,h};
+}
+
+/* ============================== VISTA MAPA ============================== */
+function renderMapa(){
+  const svg=$("#svg-mapa");
+  svg.setAttribute("viewBox","40 20 930 470");
+  svg.innerHTML=REGIONES.map(r=>{
+    const comp=[...r.comp].sort((a,b)=>b[1]-a[1]);
+    const pk=comp[0][0],pv=comp[0][1];
+    const col=colDeClave(pk);
+    const op=(0.35+Math.min(pv,60)/60*0.55).toFixed(2);
+    const pn=byId[pk]?byId[pk].n:(FES[pk]?FES[pk].n:pk);
+    const cx=r.x+r.w/2,cy=r.y+r.h/2;
+    return `<g class="region" data-rid="${r.id}" role="button" aria-label="${esc(r.n)}">
+      <rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="10" fill="${col}" fill-opacity="${op}"/>
+      <text x="${cx}" y="${cy-3}" text-anchor="middle">${esc(r.n)}</text>
+      <text class="pct-t" x="${cx}" y="${cy+13}" text-anchor="middle">${esc(pn)} · ${fmtPct(pv)} %</text>
+    </g>`;
+  }).join("");
+}
+function renderRegionInfo(){
+  const box=$("#region-info");
+  const r=REGIONES.find(x=>x.id===S.regionSel);
+  if(!r){box.innerHTML=`<p class="mutex" style="margin:0">Selecciona una región del mapa…</p>`;return;}
+  const comp=[...r.comp].sort((a,b)=>b[1]-a[1]);
+  const filas=comp.map(([k,v])=>{
+    const n=byId[k],nom=n?n.n:(FES[k]?FES[k].n:k),col=n?feCol(n):"#6a6152";
+    return `<div class="barra"><span class="nom" ${n?`data-go="${k}" role="button" tabindex="0"`:""} title="${esc(nom)}">${esc(nom)}</span>
+      <div class="tubo"><div class="fill" style="width:${Math.max(v,0.5)}%;background:${col}"></div></div>
+      <span class="val">${fmtPct(v)} %</span></div>`;
+  }).join("");
+  const otras=`<div class="barra"><span class="nom" style="cursor:default;text-decoration:none">otras creencias / sin religión</span>
+    <div class="tubo"><div class="fill" style="width:${Math.max(r.otras,0.5)}%;background:#4a4438"></div></div>
+    <span class="val">≈ ${fmtPct(r.otras)} %</span></div>`;
+  box.innerHTML=`<h3 class="serif">${esc(r.n)}</h3>
+    <div class="mutex">Composición aproximada (porcentaje orientativo de la población regional). Toca un nombre para abrir su ficha.</div>
+    ${filas}${otras}`;
+}
+
+/* ============================== VISTA GRAFO ============================== */
+let gBuilt=false,pzG=null,GN=[],GE=[],gAlpha=0,gRaf=null,gDrag=null;
+const GSEED={raiz:[500,80],judaismo:[190,250],cristianismo:[470,430],islam:[800,280],bahai:[680,640]};
+
+function gApply(){
+  GE.forEach(e=>{e.el.setAttribute("x1",e.a.x);e.el.setAttribute("y1",e.a.y);e.el.setAttribute("x2",e.b.x);e.el.setAttribute("y2",e.b.y);});
+  GN.forEach(o=>o.el.setAttribute("transform",`translate(${o.x},${o.y})`));
+}
+function gTick(){
+  const al=gAlpha;
+  for(let i=0;i<GN.length;i++){
+    const a=GN[i],s=GSEED[byId[a.id].fe]||GSEED.raiz;
+    a.vx+=(s[0]-a.x)*.015*al;a.vy+=(s[1]-a.y)*.015*al;
+    for(let j=i+1;j<GN.length;j++){
+      const b=GN[j];
+      let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy;
+      if(d2<0.5){dx=Math.random()-.5;dy=Math.random()-.5;d2=1;}
+      if(d2<45000){
+        const d=Math.sqrt(d2),f=(2200/d2)*al,ux=dx/d,uy=dy/d;
+        a.vx+=ux*f*(b.r+6);a.vy+=uy*f*(b.r+6);
+        b.vx-=ux*f*(a.r+6);b.vy-=uy*f*(a.r+6);
+      }
+    }
+  }
+  GE.forEach(e=>{
+    const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,d=Math.hypot(dx,dy)||1;
+    let L,k;
+    if(e.t==="fil"){L=70+e.a.r+e.b.r;k=.05;}
+    else if(e.t==="cerca"){L=55+e.a.r+e.b.r;k=.03;}
+    else{L=330;k=d>L?0:.02;}
+    const f=(d-L)*k*al,ux=dx/d,uy=dy/d;
+    e.a.vx+=ux*f;e.a.vy+=uy*f;e.b.vx-=ux*f;e.b.vy-=uy*f;
+  });
+  GN.forEach(o=>{
+    if(o.fx!=null){o.x=o.fx;o.y=o.fy;o.vx=o.vy=0;return;}
+    o.vx*=.5;o.vy*=.5;
+    o.x+=Math.max(-14,Math.min(14,o.vx));
+    o.y+=Math.max(-14,Math.min(14,o.vy));
+  });
+  gApply();
+  gAlpha*=.97;
+  if(gAlpha>.015)gRaf=requestAnimationFrame(gTick);
+  else{gRaf=null;gAlpha=0;}
+}
+function gHeat(a){gAlpha=Math.max(gAlpha,a);if(!gRaf&&gBuilt)gRaf=requestAnimationFrame(gTick);}
+
+function grafoIniciar(){
+  if(gBuilt){gHeat(.25);return;}
+  gBuilt=true;
+  const svg=$("#svg-grafo");
+  const cnt={};
+  GN=RAMAS.map(n=>{
+    const s=GSEED[n.fe]||GSEED.raiz,i=(cnt[n.fe]=(cnt[n.fe]||0)+1);
+    const a=i*2.4,rr=26+11*Math.sqrt(i);
+    return {id:n.id,x:s[0]+Math.cos(a)*rr,y:s[1]+Math.sin(a)*rr,vx:0,vy:0,fx:null,fy:null,r:Math.max(5,radio(n)*.8)};
+  });
+  const gn={};GN.forEach(o=>gn[o.id]=o);
+  const seen=new Set();GE=[];
+  RAMAS.forEach(n=>{
+    if(n.p&&gn[n.p])GE.push({a:gn[n.p],b:gn[n.id],t:"fil"});
+    const rel=(lista,t)=>(lista||[]).forEach(c=>{
+      if(!gn[c]||c===n.id)return;
+      if(byId[n.id].p===c||byId[c].p===n.id)return; // ya hay filiación
+      const k=t+[n.id,c].sort().join("|");
+      if(seen.has(k))return;seen.add(k);
+      GE.push({a:gn[n.id],b:gn[c],t});
+    });
+    rel(n.cerca,"cerca");rel(n.lejos,"lejos");
+  });
+  const eHtml=GE.map((e,i)=>{
+    if(e.t==="fil")return `<line class="edge" data-eid="${e.a.id}→${e.b.id}" data-gi="${i}"/>`;
+    const col=e.t==="cerca"?"var(--cerca)":"var(--lejos)";
+    return `<line class="edge" data-gi="${i}" ${e.t==="lejos"?'stroke-dasharray="5 4"':""} style="stroke:${col};stroke-opacity:.55"/>`;
+  }).join("");
+  const nHtml=GN.map(o=>{
+    const n=byId[o.id],lab=n.n.length>24?n.n.slice(0,22)+"…":n.n;
+    return `<g class="nodo" data-nid="${o.id}"><circle class="c" r="${o.r}" fill="${feCol(n)}"/><text y="${o.r+13}" text-anchor="middle">${esc(lab)}</text></g>`;
+  }).join("");
+  svg.innerHTML=eHtml+nHtml;
+  GE.forEach((e,i)=>e.el=svg.querySelector(`[data-gi="${i}"]`));
+  GN.forEach(o=>o.el=svg.querySelector(`.nodo[data-nid="${o.id}"]`));
+  pzG=svgPZ(svg,()=>({x:0,y:-20,w:1000,h:800}),{skip:".nodo"});
+  pzG.fit();
+  /* arrastre de nodos (y toque = seleccionar) */
+  svg.addEventListener("pointerdown",e=>{
+    const nd=e.target.closest(".nodo");if(!nd)return;
+    const o=gn[nd.getAttribute("data-nid")];if(!o)return;
+    try{svg.setPointerCapture(e.pointerId);}catch(_){}
+    gDrag={n:o,pid:e.pointerId,moved:0,lx:e.clientX,ly:e.clientY};
+    o.fx=o.x;o.fy=o.y;
+  });
+  svg.addEventListener("pointermove",e=>{
+    if(!gDrag||e.pointerId!==gDrag.pid)return;
+    gDrag.moved+=Math.abs(e.clientX-gDrag.lx)+Math.abs(e.clientY-gDrag.ly);
+    gDrag.lx=e.clientX;gDrag.ly=e.clientY;
+    const rect=svg.getBoundingClientRect();
+    const w=pzG.world(e.clientX-rect.left,e.clientY-rect.top);
+    gDrag.n.fx=gDrag.n.x=w.x;gDrag.n.fy=gDrag.n.y=w.y;
+    gHeat(.3);gApply();
+  });
+  const gUp=e=>{
+    if(!gDrag||e.pointerId!==gDrag.pid)return;
+    const id=gDrag.n.id,tap=gDrag.moved<6;
+    gDrag.n.fx=gDrag.n.fy=null;gDrag=null;
+    if(tap)seleccionar(id);
+  };
+  svg.addEventListener("pointerup",gUp);
+  svg.addEventListener("pointercancel",gUp);
+  gApply();pintar();grafoPintar();gHeat(1);
+}
+function grafoPintar(){
+  if(!gBuilt)return;
+  GE.forEach(e=>{
+    if(e.t==="fil")return; // pintar() ya gestiona data-eid
+    const ok=pasaFiltro(byId[e.a.id])&&pasaFiltro(byId[e.b.id]);
+    const inc=!!S.sel&&(e.a.id===S.sel||e.b.id===S.sel);
+    e.el.classList.toggle("dim",!ok);
+    e.el.style.strokeOpacity=inc?.95:(S.sel?.25:.55);
+    e.el.style.strokeWidth=inc?2.6:1.4;
+  });
+}
+
+/* ============================== LEYENDAS ============================== */
+function renderLeyendas(){
+  const it=(c,t)=>`<span class="it"><span class="sw" style="background:${c}"></span>${t}</span>`;
+  const fes=["judaismo","cristianismo","islam","bahai"].map(f=>it(FES[f].c,esc(FES[f].n))).join("");
+  $("#ley-arbol").innerHTML=fes+it(FES.raiz.c,"raíz común")+
+    `<span class="it" style="font-style:italic">tamaño del círculo ∝ nº de fieles</span>`;
+  $("#ley-mapa").innerHTML=fes+it("#4a4438","otras creencias / sin religión");
+  const ln=(c,t,d)=>`<span class="it"><span class="ln" style="border-top-color:${c}${d?";border-top-style:dashed":""}"></span>${t}</span>`;
+  $("#ley-grafo").innerHTML=fes+ln("var(--cerca)","cercanía doctrinal")+
+    ln("var(--lejos)","oposición",true)+ln("#4a4438","filiación histórica");
+}
+
+/* ============================== ARRANQUE ============================== */
+function colapsables(){
+  const tieneFeDesc=id=>HIJOS[id].some(h=>byId[h].tipo==="fe"||tieneFeDesc(h));
+  return RAMAS.filter(n=>HIJOS[n.id].length&&(n.tipo==="rama"||n.tipo==="sub")&&!tieneFeDesc(n.id)).map(n=>n.id);
+}
+(function boot(){
+  renderLeyendas();
+  $$('#vista-arbol [data-zoom]').forEach(b=>b.addEventListener("click",()=>{
+    if(!pzA)return;
+    const z=b.getAttribute("data-zoom");
+    if(z==="in")pzA.zoomAt(1.35);
+    else if(z==="out")pzA.zoomAt(1/1.35);
+    else pzA.fit();
+  }));
+  $$('#vista-grafo [data-gz]').forEach(b=>b.addEventListener("click",()=>{
+    if(!pzG)return;
+    pzG.zoomAt(b.getAttribute("data-gz")==="in"?1.35:1/1.35);
+  }));
+  $("#btn-reheat").addEventListener("click",()=>{if(gBuilt)gHeat(1);});
+  $("#btn-colapsar").addEventListener("click",()=>{
+    if(S.colapsados.size)S.colapsados.clear();
+    else colapsables().forEach(id=>S.colapsados.add(id));
+    $("#btn-colapsar").textContent=S.colapsados.size?"Expandir subramas":"Contraer subramas";
+    renderArbol();pintar();
+  });
+  $("#svg-mapa").addEventListener("click",e=>{
+    const g=e.target.closest(".region");if(!g)return;
+    const rid=g.getAttribute("data-rid");
+    S.regionSel=(S.regionSel===rid)?null:rid;
+    renderRegionInfo();pintar();
+  });
+  $("#region-info").addEventListener("click",e=>{
+    const b=e.target.closest("[data-go]");
+    if(b)seleccionar(b.getAttribute("data-go"));
+  });
+  $("#region-info").addEventListener("keydown",e=>{
+    if(e.key!=="Enter"&&e.key!==" ")return;
+    const b=e.target.closest("[data-go]");
+    if(b){e.preventDefault();seleccionar(b.getAttribute("data-go"));}
+  });
+  renderLista();renderArbol();renderMapa();renderRegionInfo();grafoPintar();
+  hashLeer();aplicarEstado();
+})();
 
 </script>
 </body>
