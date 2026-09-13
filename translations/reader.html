@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reader</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{--gold:#c8a960;--bg:#0a0a0f;--line:#1e1e28;--en:#eae3d0;--es:#b9c2cc}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:#d4d4d4;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:13px;padding:10px 16px;background:#0d0d14;border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .bar h1{font-family:'Cormorant Garamond',Georgia,serif;color:var(--gold);font-size:16px;font-weight:500;margin-right:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw}
+  .ctl{display:flex;align-items:center;gap:6px}
+  .ctl label{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#7a7a86;font-weight:700}
+  select{background:#12121a;border:1px solid #2a2a36;color:#e8e0cc;border-radius:7px;padding:7px 9px;font-size:13px;font-family:inherit;max-width:180px}
+  select:focus{outline:none;border-color:var(--gold)}
+  input[type=range]{width:92px;accent-color:var(--gold);vertical-align:middle}
+  .rateval{color:var(--gold);font-weight:700;font-size:12px;min-width:30px;display:inline-block}
+  button{background:var(--gold);color:#0a0a0f;border:none;border-radius:7px;padding:9px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:.15s;white-space:nowrap}
+  button:hover{background:#e0c987}
+  button.ghost{background:#16161e;color:#e0d5b8;border:1px solid #333}
+  button.ghost:hover{background:#22222c}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  .seg{display:flex;border:1px solid #2a2a36;border-radius:7px;overflow:hidden}
+  .seg button{background:#12121a;color:#9a9aa6;border:none;border-radius:0;padding:8px 12px;font-size:12px;font-weight:600}
+  .seg button.on{background:var(--gold);color:#0a0a0f}
+  .cols{flex:1;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+  .col{overflow-y:auto;padding:20px 26px 40vh}
+  .col.en{border-right:1px solid var(--line)}
+  .col.es{background:#0b0b11}
+  .chead{position:sticky;top:0;padding-bottom:10px;margin-bottom:6px;z-index:2;background:linear-gradient(#0a0a0f,#0a0a0fdd 70%,#0a0a0f00)}
+  .col.es .chead{background:linear-gradient(#0b0b11,#0b0b11dd 70%,#0b0b1100)}
+  .flag{font-size:10px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#6a6a76}
+  .ttl{font-family:'Cormorant Garamond',Georgia,serif;font-size:20px;line-height:1.25;margin-top:3px}
+  .col.en .ttl{color:var(--gold)}.col.es .ttl{color:#9db0c2}
+  .byl{font-size:11px;color:#666;margin-top:5px}
+  p.para{font-size:15.5px;line-height:1.68;margin:0 0 4px;padding:9px 12px;border-radius:8px;transition:background .25s,color .25s;cursor:pointer}
+  .col.en p.para{color:var(--en)}.col.es p.para{color:var(--es);font-size:15px}
+  p.para.on{background:rgba(200,169,96,.15)}
+  .col.en p.para.on{color:#fff}
+  .col.es p.para.on{background:rgba(120,160,200,.16);color:#e6eef7}
+  p.para.empty{min-height:6px;padding:0;margin:0;cursor:default}
+  p.para.quote{border-left:3px solid var(--gold);font-style:italic;background:rgba(200,169,96,.04)}
+  .col.es p.para.quote{border-left-color:#5f7d9c}
+  body.solo .cols{grid-template-columns:1fr}
+  body.solo .col.es{display:none}
+  .status{padding:40px;text-align:center;color:#888;font-size:15px}
+  .status a{color:var(--gold)}
+  @media(max-width:640px){.bar h1{max-width:100%;order:-1;width:100%}.cols{grid-template-columns:1fr}.col.es{display:none}}
+</style>
+</head>
+<body class="split">
+<div class="bar">
+  <h1 id="doctitle">Reader</h1>
+  <div class="ctl"><label>EN&nbsp;voice</label><select id="envoice"></select></div>
+  <div class="ctl"><label>ES&nbsp;voice</label><select id="esvoice"></select></div>
+  <div class="ctl"><label>Speed</label><input type="range" id="rate" min="0.6" max="1.5" step="0.05" value="1"><span class="rateval" id="rateval">1.0</span></div>
+  <div class="seg" id="mode">
+    <button data-m="en" class="on">English only</button>
+    <button data-m="bi">EN → ES</button>
+  </div>
+  <div class="seg" id="view">
+    <button data-v="split" class="on">Side by side</button>
+    <button data-v="solo">English view</button>
+  </div>
+  <button id="play" disabled>▶ Play</button>
+  <button id="pause" class="ghost" disabled>⏸</button>
+  <button id="stop" class="ghost" disabled>⏹</button>
+</div>
+<div class="cols">
+  <div class="col en" id="colEn"><div class="status" id="status">Loading…</div></div>
+  <div class="col es" id="colEs"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+let voices=[], mode='en', userPaused=false, playing=false, queue=[], qi=0;
+let D={title_en:'',title_es:'',author:'',outlet:'',date:'',rows:[]};
+
+// ---- load article by slug ----
+function slug(){ return new URLSearchParams(location.search).get('slug'); }
+function decodeHTML(s){ const t=document.createElement('textarea'); t.innerHTML=s; return t.value; }
+function stripTags(s){ const d=document.createElement('div'); d.innerHTML=s; return (d.textContent||'').replace(/\s+/g,' ').trim(); }
+
+async function load(){
+  const sl=slug();
+  if(!sl){ $('status').innerHTML='No article specified. Add <b>?slug=…</b> to the URL.'; return; }
+  try{
+    const [meta, art, orig] = await Promise.all([
+      fetch(sl+'/meta.json').then(r=>{if(!r.ok)throw 0;return r.json();}),
+      fetch(sl+'/article.html').then(r=>{if(!r.ok)throw 0;return r.text();}),
+      fetch(sl+'/original.json').then(r=>r.ok?r.json():{paragraphs:[]}).catch(()=>({paragraphs:[]}))
+    ]);
+    // extract EN body blocks (paragraph + quote) in document order
+    const blocks=[]; const re=/<!-- wp:(paragraph|quote) -->([\s\S]*?)<!-- \/wp:\1 -->/g; let m;
+    while((m=re.exec(art))){ const txt=stripTags(m[2]); if(txt) blocks.push({txt,quote:m[1]==='quote'}); }
+    const es=(orig&&orig.paragraphs)||[];
+    // block[0] = attribution (EN only). block[i>=1] pairs with es[i-1]
+    const rows=[];
+    if(blocks.length){ rows.push({en:blocks[0].txt, es:'', quote:blocks[0].quote}); }
+    for(let i=1;i<blocks.length;i++){ rows.push({en:blocks[i].txt, es:es[i-1]||'', quote:blocks[i].quote}); }
+    // trailing es without EN counterpart (rare)
+    for(let j=blocks.length-1;j<es.length;j++){ if(j>=0 && !rows.some(r=>r.es===es[j])) rows.push({en:'',es:es[j],quote:false}); }
+    D={title_en:meta.translated_title||'', title_es:meta.original_title||'',
+       author:meta.author||'', outlet:meta.outlet||'', date:meta.original_date||'', rows};
+    document.title='Reader — '+D.title_en;
+    render(); $('play').disabled=false;
+  }catch(e){ $('status').innerHTML='Could not load “'+sl+'”. Check the slug or that the article was pushed.'; }
+}
+
+function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function render(){
+  $('doctitle').textContent=D.title_en;
+  const en=$('colEn'), es=$('colEs');
+  en.innerHTML='<div class="chead"><div class="flag">English — translation</div><div class="ttl">'+esc(D.title_en)+'</div><div class="byl">'+esc(D.author)+' · '+esc(D.outlet)+' · '+esc(D.date)+'</div></div>';
+  es.innerHTML='<div class="chead"><div class="flag">Español — original</div><div class="ttl">'+esc(D.title_es)+'</div><div class="byl">'+esc(D.outlet)+'</div></div>';
+  D.rows.forEach((r,i)=>{
+    const q=r.quote?' quote':'';
+    en.insertAdjacentHTML('beforeend', r.en?'<p class="para'+q+'" data-i="'+i+'">'+esc(r.en)+'</p>':'<p class="para empty" data-i="'+i+'"></p>');
+    es.insertAdjacentHTML('beforeend', r.es?'<p class="para'+q+'" data-i="'+i+'">'+esc(r.es)+'</p>':'<p class="para empty" data-i="'+i+'"></p>');
+  });
+}
+
+// ---- voices: English + Spanish only ----
+function fillVoices(){
+  voices=speechSynthesis.getVoices();
+  const enSel=$('envoice'), esSel=$('esvoice');
+  const enV=voices.map((v,i)=>({v,i})).filter(o=>o.v.lang.toLowerCase().startsWith('en'));
+  const esV=voices.map((v,i)=>({v,i})).filter(o=>o.v.lang.toLowerCase().startsWith('es'));
+  const opt=o=>'<option value="'+o.i+'">'+esc(o.v.name)+' · '+o.v.lang+(o.v.localService?'':' ·net')+'</option>';
+  enSel.innerHTML=enV.length?enV.map(opt).join(''):'<option value="">—</option>';
+  esSel.innerHTML=esV.length?esV.map(opt).join(''):'<option value="">—</option>';
+  const pick=(arr,pref)=>{let x=arr.find(o=>o.v.lang.toLowerCase()===pref);if(!x)x=arr.find(o=>o.v.default);return x?x.i:(arr[0]&&arr[0].i);};
+  if(enV.length) enSel.value=pick(enV,'en-us');
+  if(esV.length){ const v=pick(esV,'es-mx'); esSel.value=(v!==undefined?v:pick(esV,'es-es')); }
+}
+
+// ---- playback ----
+function buildQueue(){
+  const q=[{text:D.title_en,lang:'en',i:-1}];
+  D.rows.forEach((r,i)=>{
+    if(r.en) q.push({text:r.en,lang:'en',i});
+    if(mode==='bi' && r.es) q.push({text:r.es,lang:'es',i});
+  });
+  return q;
+}
+function voiceFor(lang){ const id=lang==='es'?$('esvoice').value:$('envoice').value; return id!==''?voices[+id]:null; }
+function hi(i){
+  document.querySelectorAll('p.para.on').forEach(p=>p.classList.remove('on'));
+  if(i<0)return;
+  document.querySelectorAll('p.para[data-i="'+i+'"]').forEach(p=>{ p.classList.add('on'); p.scrollIntoView({block:'center',behavior:'smooth'}); });
+}
+function setBtns(on){ $('play').disabled=on; $('pause').disabled=!on; $('stop').disabled=!on; }
+function step(){
+  if(qi>=queue.length){ finish(); return; }
+  const item=queue[qi];
+  const u=new SpeechSynthesisUtterance(item.text);
+  const v=voiceFor(item.lang); if(v)u.voice=v;
+  u.lang=item.lang==='es'?(v?v.lang:'es-MX'):(v?v.lang:'en-US');
+  u.rate=parseFloat($('rate').value);
+  u.onstart=()=>hi(item.i);
+  u.onend=()=>{ if(!playing)return; qi++; step(); };
+  u.onerror=()=>{ if(!playing)return; qi++; step(); };
+  speechSynthesis.speak(u);
+}
+function startFrom(idx){
+  speechSynthesis.cancel();
+  queue=buildQueue(); qi=Math.max(0,idx); playing=true; userPaused=false;
+  $('pause').textContent='⏸'; setBtns(true); step();
+}
+function play(){ startFrom(0); }
+function finish(){ playing=false; userPaused=false; setBtns(false); $('pause').textContent='⏸'; hi(-1); }
+
+$('play').onclick=play;
+$('pause').onclick=()=>{
+  if(!playing)return;
+  if(userPaused){ speechSynthesis.resume(); userPaused=false; $('pause').textContent='⏸'; }
+  else { speechSynthesis.pause(); userPaused=true; $('pause').textContent='▶'; }
+};
+$('stop').onclick=()=>{ playing=false; speechSynthesis.cancel(); finish(); };
+$('rate').oninput=e=>{ $('rateval').textContent=parseFloat(e.target.value).toFixed(2); };
+$('mode').onclick=e=>{ const b=e.target.closest('button'); if(!b)return; mode=b.dataset.m; [...$('mode').children].forEach(x=>x.classList.toggle('on',x===b)); if(playing) play(); };
+$('view').onclick=e=>{ const b=e.target.closest('button'); if(!b)return; document.body.classList.toggle('solo',b.dataset.v==='solo'); [...$('view').children].forEach(x=>x.classList.toggle('on',x===b)); };
+
+// click any paragraph → read from there (in current mode), starting with its English line
+document.addEventListener('click',e=>{
+  const p=e.target.closest('p.para'); if(!p||!p.textContent.trim())return;
+  const i=+p.dataset.i;
+  queue=buildQueue();
+  let idx=queue.findIndex(q=>q.i===i && q.lang==='en');
+  if(idx<0) idx=queue.findIndex(q=>q.i===i);
+  if(idx<0) idx=0;
+  startFrom(idx);
+});
+
+// keep speech alive (Chrome auto-pauses long runs); never override a manual pause
+setInterval(()=>{ if(playing && !userPaused && speechSynthesis.speaking) speechSynthesis.resume(); }, 8000);
+
+fillVoices();
+if(typeof speechSynthesis!=='undefined') speechSynthesis.onvoiceschanged=fillVoices;
+window.addEventListener('beforeunload',()=>{ playing=false; speechSynthesis.cancel(); });
+load();
+</script>
+</body>
+</html>
