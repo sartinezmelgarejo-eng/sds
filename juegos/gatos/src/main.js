@@ -55,7 +55,9 @@ async function main() {
   for (const [n, c] of Object.entries(CATS)) {
     const e = eyes[n]; const ey = [e.eyeL, e.eyeR];
     catT[n] = {calm: catTex(imgs[n], c.fur, ey, 'calm'), angry: catTex(imgs[n], c.fur, ey, 'angry')};
-    if (c.flyImg) { const fe = eyes[n + '-up']; catT[n].fly = catTex(await loadImg(c.flyImg), c.fur, [fe.eyeL, fe.eyeR], 'angry'); }
+    if (c.flyImg) { const fe = eyes[n + '-up']; const fi = await loadImg(c.flyImg); catT[n].fly = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry');
+      // Omi inflado: textura 4× más grande para que no se pixele al crecer
+      if (n === 'omi') catT[n].puff = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry', CAT_R * 2.3 * 2 * 3.2); }
   }
 
   const eyeImg = await loadImg('assets/omi-eye.jpg');
@@ -76,6 +78,8 @@ async function main() {
     k.fillStyle = ART.rad(k, 256, 230, 150, 380, [[0, 'rgba(20,10,40,0)'], [1, 'rgba(20,10,40,0.5)']]); k.fillRect(0, 0, 512, 512);
   }));
   app.stage.addChild(vignette);
+  // destello blanco de pantalla en explosiones (da sensación de "bloom")
+  const flashSp = new Sprite(Texture.WHITE); flashSp.alpha = 0; app.stage.addChild(flashSp); let screenFlash = 0;
 
   // sombras de contacto (se reutiliza una textura)
   const shadowTex = canvasTex(256, 64, k => { k.fillStyle = ART.rad(k, 128, 32, 0, 128, [[0, 'rgba(40,28,60,0.42)'], [1, 'rgba(40,28,60,0)']]); k.save(); k.translate(128, 32); k.scale(1, 0.25); k.beginPath(); k.arc(0, 0, 128, 0, Math.PI * 2); k.fill(); k.restore(); });
@@ -166,9 +170,9 @@ async function main() {
   function activatePower(f) {
     const b = f.body, p = b.position, name = f.q.name;
     if (name === 'mako') { // 💥 Bola de pelos: explota
-      fx.fireball(p.x, p.y, 170); fx.ring(p.x, p.y, 300, 0xFFF1C8);
+      fx.explosion(p.x, p.y, 200); fx.ring(p.x, p.y, 320, 0xFFF1C8);
+      screenFlash = 0.12;
       fx.burst('fur', p.x, p.y, 26, 900, {up: 120, size: 1.4, life: 1.4, drag: 1.5});
-      fx.smoke(p.x, p.y, 120, 16);
       blast(p.x, p.y, 280, 26, 34, {can: 1.6});
       cam.shake(34, 0.5); SFX.boom();
       f.exploded = true; f.sprite.visible = false; Composite.remove(engine.world, b); f.still = 99;
@@ -188,7 +192,11 @@ async function main() {
       if (!I.pushed && I.t >= 0.15) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.2}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
       if (!I.deflated && I.t > 2.15) { I.deflated = true; SFX.deflate(); }
       if (I.t > 2.6) f.inflate = null;
-      f.sprite.scale.set(0.5 * I.k * (1 + Math.sin(I.t * 30) * 0.02 * (I.k > 3.9 ? 1 : 0)));
+      // con más de 1.6× usa la textura grande (misma proporción de ancla)
+      const P = catT[f.q.name].puff, big = P && I.k > 1.6, T = big ? P : flyTex(f.q.name);
+      if (f.sprite.texture !== T.tex) f.sprite.texture = T.tex;
+      const r = big ? catT[f.q.name].fly.tex.width / P.tex.width : 1;
+      f.sprite.scale.set(0.5 * r * I.k * (1 + Math.sin(I.t * 30) * 0.02 * (I.k > 3.9 ? 1 : 0)));
     }
     if (f.loop) {
       const L = f.loop; L.t += dt; const u = Math.min(1, L.t / L.dur);
@@ -418,7 +426,7 @@ async function main() {
   // ---------- loop ----------
   const resize = () => {
     cam.resize(app.screen.width, app.screen.height);
-    vignette.width = app.screen.width; vignette.height = app.screen.height;
+    vignette.width = app.screen.width; vignette.height = app.screen.height; flashSp.width = app.screen.width; flashSp.height = app.screen.height;
     const fs = Math.max(app.screen.width, app.screen.height) / 2048 * 0.75;
     bg.fl.scale.set(fs); bg.fr.scale.set(-fs, fs);
   };
@@ -491,6 +499,7 @@ async function main() {
     const dt = menus.blocking ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
     hud.visible = !menus.blocking; ui.hud.visible = !menus.blocking && !ui.open;
     ui.update(rdt); menus.update(rdt);
+    if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;

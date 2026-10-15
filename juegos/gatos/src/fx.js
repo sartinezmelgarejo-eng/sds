@@ -38,12 +38,29 @@ export class FX {
   }
   // bola de fuego: núcleo blanco + capa naranja que se expande
   fireball(x, y, R) {
-    if (!this.fireTex) this.fireTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.35, 'rgba(255,214,90,0.95)'); g.addColorStop(0.7, 'rgba(255,120,40,0.6)'); g.addColorStop(1, 'rgba(200,60,20,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
-    for (let i = 0; i < 7; i++) {
-      const s = new Sprite(this.fireTex); s.anchor.set(0.5); const a = Math.random() * 6.3, d = i ? R * 0.35 : 0;
-      s.position.set(x + Math.cos(a) * d, y + Math.sin(a) * d); const sz = (i ? 0.5 : 0.9) * R / 64; s.scale.set(sz); this.root.addChild(s);
-      this.parts.push({s, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120 - 60, vr: 0, life: 0.32 + Math.random() * 0.15, t: 0, g: -100, drag: 2, grow: 0.6, sz});
+    if (!this.fireTex) this.fireTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,250,210,1)'); g.addColorStop(0.18, 'rgba(255,210,70,1)'); g.addColorStop(0.55, 'rgba(255,120,20,0.95)'); g.addColorStop(0.8, 'rgba(210,60,15,0.6)'); g.addColorStop(1, 'rgba(160,40,10,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
+    for (let i = 10; i >= 0; i--) { // el núcleo (i=0) al final para que quede encima
+      const s = new Sprite(this.fireTex); s.anchor.set(0.5); const a = Math.random() * 6.3, d = i ? R * (0.25 + Math.random() * 0.3) : 0;
+      s.position.set(x + Math.cos(a) * d, y + Math.sin(a) * d); const sz = (i ? 0.45 + Math.random() * 0.25 : 1.0) * R / 64; s.scale.set(sz);
+      this.root.addChild(s);
+      this.parts.push({s, vx: Math.cos(a) * 160, vy: Math.sin(a) * 160 - 80, vr: 0, life: 0.6 + Math.random() * 0.25, t: 0, g: -160, drag: 2.2, grow: 0.7, sz});
     }
+  }
+  // explosión estilo AB2: destello blanco, bola de fuego aditiva en capas, chispas y humo oscuro que sube y se queda un rato
+  explosion(x, y, R) {
+    // humo (detrás, aparece cuando el fuego se apaga)
+    const n0 = this.parts.length;
+    this.burst('smoke', x, y, 10, R * 2.6, {up: 110, g: -150, drag: 3.0, life: 1.3, size: R / 110, grow: 1.4, w: R * 0.9, h: R * 0.7});
+    for (let i = n0; i < this.parts.length; i++) { const p = this.parts[i]; p.s.tint = [0xB8ACA4, 0xCFC4BA, 0x9A8E86][i % 3]; p.delay = 0.25 + Math.random() * 0.15; p.s.alpha = 0; p.maxA = 0.6; }
+    this.fireball(x, y, R);
+    // destello corto
+    if (!this.flashTex) this.flashTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.4, 'rgba(255,230,150,0.6)'); g.addColorStop(1, 'rgba(255,200,120,0)'); k.fillStyle = g; k.fillRect(0, 0, 128, 128); });
+    const f = new Sprite(this.flashTex); f.anchor.set(0.5); f.position.set(x, y); const fs = R * 1.5 / 64; f.scale.set(fs); this.root.addChild(f);
+    this.parts.push({s: f, vx: 0, vy: 0, vr: 0, life: 0.1, t: 0, g: 0, drag: 0, grow: 0.6, sz: fs});
+    // brasas
+    const n1 = this.parts.length;
+    this.burst('star', x, y, 18, R * 5, {up: 200, size: 0.6, life: 0.8, drag: 1.2});
+    for (let i = n1; i < this.parts.length; i++) this.parts[i].s.tint = [0xFFC030, 0xFF7A20, 0xFFE070][i % 3];
   }
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
   points(x, y, value, color = '#FFFFFF', big = false) {
@@ -56,13 +73,15 @@ export class FX {
   clear() { this.parts.forEach(p => p.s.destroy()); this.texts.forEach(o => o.t.destroy()); this.parts = []; this.texts = []; }
   update(dt) {
     for (let i = this.parts.length - 1; i >= 0; i--) {
-      const p = this.parts[i]; p.t += dt;
+      const p = this.parts[i];
+      if (p.delay > 0) { p.delay -= dt; continue; }
+      p.t += dt;
       p.vy += p.g * dt; const d = Math.exp(-p.drag * dt); p.vx *= d; p.vy *= d;
       p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += p.vr * dt;
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
       if (p.ring) p.s.scale.set(0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)));
-      const u = p.t / p.life; p.s.alpha = u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : 1;
+      const u = p.t / p.life; p.s.alpha = (p.maxA ?? 1) * (u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : Math.min(1, p.maxA ? u * 6 : 1));
       if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); }
     }
     for (let i = this.texts.length - 1; i >= 0; i--) {
