@@ -5,6 +5,9 @@ import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CAT
 import {buildBackground} from './background.js';
 import {Camera} from './camera.js';
 import {Slingshot} from './sling.js';
+import {FX} from './fx.js';
+import * as SFX from './sfx.js';
+import {Text} from '../vendor/pixi.min.mjs';
 
 const {Engine, Bodies, Body, Composite, Sleeping} = Matter;
 const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
@@ -15,11 +18,11 @@ function canvasTex(w, h, draw, res = 1) {
   const k = c.getContext('2d'); k.scale(res, res); draw(k); return Texture.from(c);
 }
 const PAD = 14; // margen para contorno/sombra en texturas de bloques
-function blockTex(t, w, h, seed) {
+function blockTex(t, w, h, seed, damage = 0) {
   return canvasTex(w + PAD * 2, h + PAD * 2, k => {
-    if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, label: w > 150 && h > 150, tape: h > 100});
-    else if (t === 'jar') ART.jar(k, PAD, PAD, w, h, {seed, lid: seed % 2 ? '#3D8BD8' : '#C8452F'});
-    else ART.can(k, PAD, PAD, w, h, {seed});
+    if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
+    else if (t === 'jar') ART.jar(k, PAD, PAD, w, h, {seed, damage, lid: seed % 2 ? '#3D8BD8' : '#C8452F'});
+    else ART.can(k, PAD, PAD, w, h, {seed, damage});
   }, 1.5);
 }
 function mouseTex(kind, r) {
@@ -82,22 +85,29 @@ async function main() {
   engine.gravity.y = 1; engine.gravity.scale = GRAVITY;
   const ground = Bodies.rectangle(LEVEL_W / 2, GROUND + 200, BOUNDS.x1 - BOUNDS.x0 + 4000, 400, {isStatic: true, friction: 1, label: 'ground'});
   Composite.add(engine.world, ground);
-  const dyn = []; // {body, sprite, shadow}
+  const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
+  // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
+  const LIFE = {box: 13, jar: 7, can: 30, small: 6, thimble: 12, boss: 18};
+  const FRAGILE = {box: 1, jar: 1.6, can: 0.55, mouse: 1};
+  const PTS = {box: 500, jar: 500, can: 1000, mouse: 5000};
   const MAT = {box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}};
   level.blocks.forEach((b, i) => {
     const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
     const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
     Sleeping.set(body, true);
-    const sp = new Sprite(blockTex(b.t, b.w, b.h, i + 2)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
+    const texs = [0, 1, 2, 3].map(dmg => blockTex(b.t, b.w, b.h, i + 2, dmg));
+    const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
     Composite.add(engine.world, body); actors.addChild(sp);
-    dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w});
+    // vida escalada por tamaño (bloques grandes aguantan más)
+    const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
+    dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, life, max: life, texs, dmg: 0});
   });
   level.mice.forEach(m => {
     const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
     Sleeping.set(body, true);
     const sp = new Sprite(mouseTex(m.k, m.r)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
     Composite.add(engine.world, body); actors.addChild(sp);
-    dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2});
+    dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k]});
   });
 
   let acc = 0, time = 0;
@@ -105,6 +115,43 @@ async function main() {
   const sling = new Slingshot(slingBack, slingFront);
   slingFront.setChildIndex(sling.gFront, 0); // la liga delantera va bajo el brazo delantero de madera
   const trail = new Container(); behind.addChild(trail);
+  const fx = new FX(front);
+  let score = 0, shownScore = 0;
+  const hud = new Container(); app.stage.addChild(hud);
+  const scoreLbl = new Text({text: 'PUNTOS', style: {fontFamily: 'Luckiest Guy', fontSize: 34, fill: '#FFE27A', stroke: {color: '#1F2240', width: 7, join: 'round'}}});
+  const scoreTxt = new Text({text: '0', style: {fontFamily: 'Luckiest Guy', fontSize: 66, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 11, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
+  scoreLbl.anchor.set(1, 0); scoreTxt.anchor.set(1, 0); hud.addChild(scoreLbl, scoreTxt);
+  const addScore = (v, x, y, color, big) => { score += v; fx.points(x, y, v, color, big); SFX.points(); };
+  const PTS_COL = {box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
+  let started = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
+
+  function damage(d, amount, k) {
+    if (d.dead) return;
+    d.life -= amount;
+    if (d.mat !== 'mouse' && d.life > 0) {
+      const st = Math.min(3, Math.floor((1 - d.life / d.max) * 4)); // 4 estados de grieta
+      if (st !== d.dmg) { d.dmg = st; d.sprite.texture = d.texs[st]; }
+    }
+    if (d.mat === 'mouse' && d.life > 0) d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto)
+    if (d.life <= 0) destroyDyn(d);
+  }
+  function destroyDyn(d) {
+    d.dead = true; const p = d.body.position;
+    Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy();
+    dyn.splice(dyn.indexOf(d), 1);
+    dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
+    if (d.mat === 'mouse') {
+      fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
+      addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
+    } else {
+      const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
+      fx.burst(d.mat, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
+      fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
+      SFX.breakSfx(d.mat);
+      addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
+    }
+  }
+  const byBody = b => dyn.find(o => o.body === b);
   const dotTex = canvasTex(40, 40, k => { k.fillStyle = 'rgba(60,40,70,0.25)'; k.beginPath(); k.arc(22, 23, 15, 0, Math.PI * 2); k.fill(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.arc(19, 19, 15, 0, Math.PI * 2); k.fill(); }, 2);
   const flyTex = n => CATS[n].flyImg ? catT[n].fly : catT[n].angry;
 
@@ -143,6 +190,20 @@ async function main() {
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
   function launch(vx, vy) { if (state === 'ready') shoot({x: vx, y: vy}); }
 
+  Matter.Events.on(engine, 'collisionStart', ev => {
+    for (const pr of ev.pairs) {
+      const A = pr.bodyA, B = pr.bodyB, n = pr.collision.normal;
+      const closing = Math.abs((A.velocity.x - B.velocity.x) * n.x + (A.velocity.y - B.velocity.y) * n.y);
+      if (closing < 1.0) continue;
+      for (const [me, other] of [[A, B], [B, A]]) {
+        const d = byBody(me); if (!d) continue;
+        SFX.hit(d.mat, closing / 18);
+        if (started < 1) continue;
+        const mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
+        damage(d, Math.max(0, closing - 1.2) * mf * FRAGILE[d.mat], closing);
+      }
+    }
+  });
   Matter.Events.on(engine, 'collisionStart', ev => {
     if (!flying || flying.hit) return;
     for (const pr of ev.pairs) if (pr.bodyA === flying.body || pr.bodyB === flying.body) {
@@ -218,7 +279,7 @@ async function main() {
   const ptrs = new Map(); let pinch = null, aimPtr = null;
   const el = app.canvas; el.style.touchAction = 'none';
   el.addEventListener('pointerdown', e => {
-    ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId);
+    ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
     if (cam.mode === 'flyover') { cam.skipFlyover(); return; }
     if (ptrs.size === 1) {
       const w = cam.toWorld(e.clientX, e.clientY);
@@ -237,7 +298,7 @@ async function main() {
   el.addEventListener('pointermove', e => {
     const p = ptrs.get(e.pointerId); if (!p) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
-    if (e.pointerId === aimPtr) { const w = cam.toWorld(e.clientX, e.clientY); sling.aimTo({x: w.x + sling.grab.dx, y: w.y + sling.grab.dy}); return; }
+    if (e.pointerId === aimPtr) { const w = cam.toWorld(e.clientX, e.clientY); sling.aimTo({x: w.x + sling.grab.dx, y: w.y + sling.grab.dy}); SFX.stretch(sling.power); return; }
     if (ptrs.size >= 2 && pinch) {
       const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
       cam.panBy(mx - pinch.mx, my - pinch.my); cam.zoomAt(d / pinch.d, mx, my);
@@ -246,7 +307,7 @@ async function main() {
   });
   const up = e => {
     ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
-    if (e.pointerId === aimPtr) { aimPtr = null; const v = sling.release(); if (v && onSling) shoot(v); }
+    if (e.pointerId === aimPtr) { aimPtr = null; const pw = sling.power, v = sling.release(); if (v && onSling) { SFX.release(pw); shoot(v); } }
   };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', e => { e.preventDefault(); cam.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, {passive: false});
@@ -270,19 +331,25 @@ async function main() {
     const dt = Math.min(tk.deltaMS, 50) / 1000; time += dt;
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
+    started += dt; fx.update(dt);
     for (const d of dyn) {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
+      if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
     updateTurn(dt);
     cam.update(dt);
+    if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
+    scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
+    { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
+      scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62); }
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
     applyLayers(bg.layers, sw, sh, z, cx, cy);
     // primer plano: un poco de parallax inverso
-    const fx = (cx - X0) * z * 0.12;
-    bg.fl.position.set(-fx - 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y); bg.fr.position.set(sw - fx + 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y);
+    const fgx = (cx - X0) * z * 0.12;
+    bg.fl.position.set(-fgx - 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y); bg.fr.position.set(sw - fgx + 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y);
   });
 
   // cada capa es un Sprite con escala 1/res y posición en mundo: la envolvemos en un contenedor por capa
@@ -295,6 +362,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, engine, sling, launch, toScreen, get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, engine, sling, launch, toScreen, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
