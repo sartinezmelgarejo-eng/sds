@@ -17,16 +17,14 @@ function letterTex(ch, size, top, bottom, side) {
   const w = Math.ceil(k.measureText(ch).width + size * 0.5), h = Math.ceil(size * 1.55);
   c.width = w * 1.5; c.height = h * 1.5; k.scale(1.5, 1.5);
   k.font = `${size}px "Luckiest Guy"`; k.textAlign = 'center'; k.textBaseline = 'middle'; k.lineJoin = 'round';
-  const x = w / 2, y = h * 0.44, ext = size * 0.11;
-  k.lineWidth = size * 0.2; k.strokeStyle = '#1A0E08'; k.fillStyle = '#1A0E08';
-  for (let i = ext; i >= 0; i -= 2) { k.strokeText(ch, x, y + i + size * 0.03); }       // sombra/contorno del relieve
-  for (let i = ext; i > 0; i -= 2) { k.fillStyle = side; k.fillText(ch, x, y + i); }    // cara lateral
-  k.strokeText(ch, x, y);
-  k.fillStyle = ART.lin(k, 0, y - size * 0.45, 0, y + size * 0.4, [[0, top], [1, bottom]]); k.fillText(ch, x, y);
-  // brillo en la mitad superior
-  k.save(); k.globalCompositeOperation = 'source-atop'; k.fillStyle = 'rgba(255,255,255,0.32)';
-  k.beginPath(); k.ellipse(x, y - size * 0.32, w * 0.55, size * 0.2, 0, 0, Math.PI * 2); k.fill(); k.restore();
-  return {tex: Texture.from(c), w, h, ax: 0.5, ay: 0.44};
+  const x = w / 2, y = h * 0.42, ext = Math.round(size * 0.15);
+  // 1) contorno oscuro de todo el bloque (frente + relieve)  2) cara lateral  3) contorno y cara frontal con brillo en la mitad de arriba
+  k.lineWidth = size * 0.15; k.strokeStyle = '#1A0E08';
+  for (let i = ext; i >= 0; i -= 1) k.strokeText(ch, x, y + i);
+  k.fillStyle = side; for (let i = ext; i > 0; i -= 1) k.fillText(ch, x, y + i);
+  k.lineWidth = size * 0.05; k.strokeText(ch, x, y);
+  k.fillStyle = ART.lin(k, 0, y - size * 0.42, 0, y + size * 0.38, [[0, ART.shade(top, 40)], [0.46, top], [0.5, ART.shade(top, -14)], [1, bottom]]); k.fillText(ch, x, y);
+  return {tex: Texture.from(c), w, h, ax: 0.5, ay: 0.42};
 }
 
 export class Menus {
