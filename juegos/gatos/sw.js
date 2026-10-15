@@ -1,6 +1,6 @@
 // Service worker (generado por scripts/build_sw.py — no editar a mano): precachea todo el juego para jugar sin internet.
 // Estrategia: caché primero. Cada despliegue genera una versión nueva del SW que vuelve a bajar todo (sin caché HTTP) y borra las cachés viejas.
-const CACHE = 'gatos-d7832d0a71';
+const CACHE = 'gatos-a2e63402c9';
 const FILES = [
   './',
   './index.html',
@@ -24,6 +24,8 @@ const FILES = [
   './levels/1-4.json',
   './levels/1-5.json',
   './levels/1-6.json',
+  './levels/1-7.json',
+  './levels/1-8.json',
   './src/art.js',
   './src/background.js',
   './src/camera.js',
