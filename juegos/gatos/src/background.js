@@ -442,6 +442,43 @@ function birdLayer() {
   return c;
 }
 // Árboles redondos + cerca de madera + arbustos con flores. Parallax 0.6.
+// Gnomos de jardín al pie de la cerca (f 0.6): estatuitas que con un estruendo se tambalean sobre su base (resorte
+// amortiguado, el gorro puntiagudo se cimbra con retraso) y de vez en cuando uno parpadea (chiste de AB2: la utilería está viva).
+function gnomeLayer() {
+  const c = new Container(), items = [], OL = '#3A2418';
+  const cv = (w, h, draw) => { const e = document.createElement('canvas'); e.width = w; e.height = h; draw(e.getContext('2d')); return Texture.from(e); };
+  const body = (shirt, beardC) => cv(160, 200, k => { k.translate(80, 196); k.lineJoin = 'round';
+    k.beginPath(); k.ellipse(0, -6, 52, 10, 0, 0, TAU); k.fillStyle = 'rgba(40,60,30,0.35)'; k.fill(); // sombra
+    for (const s of [-1, 1]) { rr(k, s * 22 - 14, -30, 28, 26, 8); k.fillStyle = '#4A3020'; k.fill(); k.lineWidth = 4; k.strokeStyle = OL; k.stroke(); } // botas
+    k.beginPath(); k.moveTo(-46, -26); k.quadraticCurveTo(-50, -110, 0, -116); k.quadraticCurveTo(50, -110, 46, -26); k.closePath(); // saco
+    k.fillStyle = lin(k, -46, 0, 46, 0, [[0, shade(shirt, 30)], [1, shade(shirt, -35)]]); k.fill(); k.lineWidth = 5; k.strokeStyle = OL; k.stroke();
+    k.fillStyle = '#2E2A2A'; k.fillRect(-45, -52, 90, 12); k.fillStyle = '#F2C230'; rr(k, -10, -54, 20, 16, 3); k.fill(); // cinturón
+    k.beginPath(); k.arc(0, -134, 34, 0, TAU); k.fillStyle = rad(k, -10, -146, 4, 40, [[0, '#FFE3CC'], [1, '#E9A98A']]); k.fill(); k.lineWidth = 4; k.strokeStyle = OL; k.stroke(); // cara
+    k.beginPath(); k.moveTo(-34, -128); k.quadraticCurveTo(-40, -60, 0, -50); k.quadraticCurveTo(40, -60, 34, -128); k.quadraticCurveTo(0, -112, -34, -128); // barba
+    k.fillStyle = lin(k, 0, -128, 0, -50, [[0, '#FFFFFF'], [1, beardC]]); k.fill(); k.lineWidth = 4; k.stroke();
+    k.beginPath(); k.arc(0, -126, 10, 0, TAU); k.fillStyle = '#F08A7A'; k.fill(); k.lineWidth = 3; k.stroke(); // nariz
+    k.fillStyle = 'rgba(255,255,255,0.4)'; k.beginPath(); k.ellipse(-24, -90, 7, 20, 0.3, 0, TAU); k.fill(); });
+  const eyesT = [cv(60, 20, k => { k.fillStyle = '#2A1A12'; for (const x of [16, 44]) { k.beginPath(); k.arc(x, 10, 5, 0, TAU); k.fill(); } }),
+    cv(60, 20, k => { k.strokeStyle = '#2A1A12'; k.lineWidth = 3; k.lineCap = 'round'; for (const x of [16, 44]) { k.beginPath(); k.moveTo(x - 6, 10); k.lineTo(x + 6, 10); k.stroke(); } })];
+  const hatT = col => cv(100, 150, k => { k.translate(50, 144); k.beginPath(); k.moveTo(-42, 0); k.quadraticCurveTo(-30, -70, 6, -138); k.quadraticCurveTo(26, -70, 42, 0); k.quadraticCurveTo(0, 8, -42, 0); k.closePath();
+    k.fillStyle = lin(k, -42, 0, 42, 0, [[0, shade(col, 30)], [1, shade(col, -35)]]); k.fill(); k.lineWidth = 5; k.strokeStyle = OL; k.lineJoin = 'round'; k.stroke(); });
+  for (const [x, shirt, hat, beard, fl] of [[1280, '#3D7BD8', '#D9372B', '#E6E1D8', 1]]) { // solo cerca de la resortera: detrás de las fortalezas se confundirían con ratones
+    const g = new Container(); g.position.set(x, GROUND + 4); g.scale.set(fl * 1.15, 1.15); c.addChild(g); // pivote = base
+    const b = new Sprite(body(shirt, beard)); b.anchor.set(0.5, 196 / 200); g.addChild(b);
+    const e = new Sprite(eyesT[0]); e.anchor.set(0.5); e.position.set(0, -146); g.addChild(e);
+    const h = new Sprite(hatT(hat)); h.anchor.set(0.5, 144 / 150); h.position.set(0, -156); g.addChild(h);
+    items.push({g, e, h, x, r: 0, vr: 0, hr: 0, hv: 0, blinkAt: 2 + Math.random() * 6, kick: 0, t: 0});
+  }
+  c.jolt = (k = 1, x = null) => items.forEach(o => { const near = x == null ? 1 : Math.max(0.6, 1 - Math.abs(o.x - x) / 3500);
+    o.t = -Math.random() * 0.15 - (x == null ? 0 : Math.abs(o.x - x) / 7000); o.kick = (Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 1.2) * Math.min(1.5, k) * near; });
+  let T0 = 0;
+  c.update = dt => { T0 += dt; items.forEach(o => {
+    if (o.kick) { o.t += dt; if (o.t >= 0) { o.vr += o.kick; o.kick = 0; } }
+    o.vr += (-o.r * 60 - o.vr * 2.2) * dt; o.r += o.vr * dt; o.r = Math.max(-0.4, Math.min(0.4, o.r)); o.g.rotation = o.r;
+    o.hv += (-(o.hr + o.r * 0.8) * 90 - o.hv * 5) * dt; o.hr += o.hv * dt; o.h.rotation = o.hr; // el gorro se cimbra con retraso
+    const bl = T0 > o.blinkAt; o.e.texture = eyesT[bl ? 1 : 0]; if (T0 > o.blinkAt + 0.14) o.blinkAt = T0 + 3 + Math.random() * 7; }); };
+  return c;
+}
 function fenceLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 1250, w = x1 - x0, h = GROUND - ty + 30;
   return bake(x0, ty, w, h, 0.55, ctx => {
@@ -791,10 +828,10 @@ export function buildBackground(theme = 'kitchen') {
     return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); bats.update(dt); }, jolt: (k, x) => { lamps.jolt(k); bats.jolt(k, x); }, bats};
   }
   if (theme === 'garden') {
-    const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer();
-    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: birds, f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
+    const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer(), gnomes = gnomeLayer();
+    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: birds, f: 0.6}, {node: gnomes, f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); }, birds};
+    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); gnomes.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); gnomes.jolt(k, x); }, birds, gnomes};
   }
   const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer(), kettle = kettleLayer(), clock = catClockLayer();
   const layers = [
