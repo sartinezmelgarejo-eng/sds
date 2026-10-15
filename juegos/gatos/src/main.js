@@ -408,7 +408,7 @@ async function main() {
 
   // ---------- CAJA DE CUETES (= TNT de AB2) ----------
   // al romperse: explosión que daña y empuja alrededor (puede encadenar otras cajas) + cohetes que salen volando y truenan en el aire
-  const booms = [], rockets = [];
+  const booms = [], rockets = []; let warnedTnt = false;
   const FW = [0xFF4A6A, 0x4AB8FF, 0x6BE04A, 0xFFE14A, 0xD06BFF, 0xFFFFFF];
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
@@ -655,6 +655,10 @@ async function main() {
   function updateTurn(dt) {
     sling.update(dt);
     if (state === 'loading' && onSling && !onSling.hop) state = 'ready';
+    // nivel con cajas de cuetes: la primera vez que el jugador puede tirar, un ratón junto a una caja avisa (enseña la mecánica, con humor)
+    if (state === 'ready' && !warnedTnt) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
+      const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
+      if (ms && ms.length) { const o = ms[0]; o.hurt = 0.35; setTimeout(() => { if (!o.dead && dyn.includes(o)) { say(o, ['¡NO TOQUEN\nLOS CUETES!', '¡CUIDADO CON\nLOS CUETES!'][Math.floor(Math.random() * 2)], 2.2, 0.8); SFX.squeak(); } }, 400); } }
     if (onSling && !onSling.hop) {
       const p = sling.pouch, pw = sling.power;
       // en la resortera: sigue a la bolsa; al estirar se aplasta en la dirección del jalón y se inclina hacia el tiro
@@ -819,7 +823,7 @@ async function main() {
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
-    booms.length = rockets.length = 0; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
+    booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
