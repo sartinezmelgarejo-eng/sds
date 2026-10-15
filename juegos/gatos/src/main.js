@@ -629,8 +629,10 @@ async function main() {
       const p = sling.pouch, pw = sling.power;
       // en la resortera: sigue a la bolsa; al estirar se aplasta en la dirección del jalón y se inclina hacia el tiro
       const tilt = (sling.aiming || sling.held) && pw > 0.05 ? Math.max(-0.45, Math.min(0.45, Math.atan2(-sling.pull.y, -sling.pull.x) * 0.5)) : Math.sin(time * 1.7) * 0.04;
-      onSling.sprite.position.set(p.x, p.y); onSling.sprite.rotation = tilt;
-      const br = sling.aiming || sling.held ? 0 : Math.sin(time * 3.4) * 0.03;
+      // impaciencia (AB2): si el jugador tarda, el gato da dobles brinquitos en la bolsa cada ~3 s
+      const ip = readyIdle > 6 && !sling.held ? Math.max(0, Math.sin((readyIdle - 6) * 4.2)) ** 3 * (Math.sin((readyIdle - 6) * 2.1) > 0 ? 1 : 0) : 0;
+      onSling.sprite.position.set(p.x, p.y - ip * 30); onSling.sprite.rotation = tilt + ip * Math.sin(readyIdle * 9) * 0.08;
+      const br = sling.aiming || sling.held ? 0 : Math.sin(time * 3.4) * 0.03 + ip * 0.06;
       onSling.sprite.scale.set(0.5 * (1 - pw * 0.1 - br * 0.5), 0.5 * (1 + pw * 0.07 + br));
     }
     if (flying) {
