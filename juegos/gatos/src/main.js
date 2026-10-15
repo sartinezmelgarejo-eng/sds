@@ -40,6 +40,7 @@ function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null, bruise
   const S = r * 3.2;
   return cached(`m|${kind}|${r}|${expr}|${noPupils}|${hat}|${bruise}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr, noPupils, hat, bruise}), 1.5));
 }
+const hatTex = (which, r) => cached(`hat|${which}|${r}`, () => canvasTex(r * 2.2, r * 2, k => ART.hat(k, r * 1.1, r * 1.25, r, which), 1.5));
 // las 4 caras de un ratón (normal/susto sin pupilas: las pupilas van aparte y siguen al gato) para un nivel de golpes
 const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2) { // se hornea al doble para que aguante el zoom
@@ -516,7 +517,15 @@ async function main() {
     }
     // golpeado (AB2): con 2/3 y 1/3 de vida le sale curita, ojo morado y el gorro se abolla y queda chueco
     const bz = d.life < d.max * 0.34 ? 2 : d.life < d.max * 0.67 ? 1 : 0;
-    if (bz > d.bz) { d.bz = bz; d.mt = mouseFaces(d.kind, d.r, d.hat, bz); const p = d.body.position;
+    if (bz > d.bz) { const p = d.body.position;
+      // muy golpeado: el gorro (dedal / bellota / casco de minero) sale volando, como los cascos de los cerdos de AB2
+      if (bz >= 2 && d.kind !== 'boss' && (d.kind === 'thimble' || d.hat) && d.hat !== 'none') {
+        const which = d.hat || 'thimble', a = d.body.angle - Math.PI / 2, hx = p.x + Math.cos(a) * d.r * 0.62, hy = p.y + Math.sin(a) * d.r * 0.62;
+        const side = flying && flying.body.position.x < p.x ? 1 : Math.random() < 0.5 ? -1 : 1;
+        fx.debris(hatTex(which, d.r), hx, hy, side * (180 + Math.random() * 160), -(620 + Math.random() * 260), {size: 1 / 1.5, rot: d.body.angle, vr: side * (7 + Math.random() * 5)});
+        d.hat = 'none'; if (d.beam) { d.beam.visible = false; d.beam = null; } SFX.hit('can', 0.9);
+      }
+      d.bz = bz; d.mt = mouseFaces(d.kind, d.r, d.hat, bz);
       fx.burst('star', p.x, p.y - d.w * 0.5, 5 + bz * 2, 300, {up: 160, size: 0.45, life: 0.5, drag: 2}); if (d.kind !== 'small' || d.hat) SFX.hit('can', 0.4 + bz * 0.2); }
     const tx = d.mt[expr]; if (d.sprite.texture !== tx) d.sprite.texture = tx;
     // pupilas: miran al gato en vuelo; si no, al gato de la resortera, con miradas de reojo de vez en cuando

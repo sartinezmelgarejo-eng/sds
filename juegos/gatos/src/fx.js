@@ -40,6 +40,11 @@ export class FX {
       this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (opts.up ?? 250), vr: (Math.random() - 0.5) * 14, life: opts.life ?? (0.9 + Math.random() * 0.7), t: 0, g: opts.g ?? G, drag: opts.drag ?? 0.4, grow: opts.grow ?? 0, sz});
     }
   }
+  // pedazo suelto con textura propia (p. ej. el gorro que pierde un ratón): vuela girando, rebota en la barra y se desvanece
+  debris(t, x, y, vx, vy, opts = {}) {
+    const s = new Sprite(t); s.anchor.set(0.5); s.position.set(x, y); s.scale.set(opts.size ?? 1); s.rotation = opts.rot ?? 0; this.root.addChild(s);
+    this.parts.push({s, vx, vy, vr: opts.vr ?? 8, life: opts.life ?? 2.4, t: 0, g: opts.g ?? G, drag: opts.drag ?? 0.2, grow: 0, sz: opts.size ?? 1});
+  }
   // anillo de onda expansiva (crece y se desvanece)
   ring(x, y, R, color = 0xFFFFFF, dur = 0.38) {
     if (!this.ringTex) this.ringTex = tex(256, 256, k => { k.lineWidth = 18; k.strokeStyle = 'rgba(255,255,255,0.95)'; k.beginPath(); k.arc(128, 128, 110, 0, 7); k.stroke(); k.lineWidth = 34; k.strokeStyle = 'rgba(255,255,255,0.35)'; k.beginPath(); k.arc(128, 128, 96, 0, 7); k.stroke(); });

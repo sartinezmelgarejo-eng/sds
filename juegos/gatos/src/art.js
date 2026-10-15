@@ -449,7 +449,8 @@ const ART = (() => {
     }
     // gorros: con golpes se abollan y quedan chuecos
     const hatTilt = (x, y, f, dent = true) => { ctx.save(); ctx.translate(x, y); ctx.rotate(bruise >= 2 ? 0.28 : bruise ? 0.1 : 0); if (bruise >= 2) ctx.translate(r * 0.08, -r * 0.03); f(); if (bruise && dent) dents(ctx, r, bruise); ctx.restore(); };
-    if (opt.hat === 'miner') hatTilt(0, -r * 0.6, () => minerHat(ctx, 0, 0, r));
+    if (opt.hat === 'none') {} // perdió el gorro de un golpe (sale volando aparte)
+    else if (opt.hat === 'miner') hatTilt(0, -r * 0.6, () => minerHat(ctx, 0, 0, r));
     else if (opt.hat === 'acorn') hatTilt(0, -r * 0.62, () => acornCap(ctx, 0, 0, r));
     else if (kind === 'thimble') hatTilt(0, -r * 0.62, () => thimble(ctx, 0, 0, r));
     if (kind === 'boss') hatTilt(0, -r * 0.82, () => crown(ctx, 0, 0, r), false); // la corona solo se ladea
@@ -466,6 +467,8 @@ const ART = (() => {
       ctx.beginPath(); ctx.ellipse(-r * 0.2, -r * 0.18, r * 0.1, r * 0.07, -0.3, 0, TAU); ctx.fillStyle = 'rgba(30,30,45,0.3)'; ctx.fill(); }
     ctx.restore();
   }
+  // solo el gorro (el que sale volando cuando un ratón queda muy golpeado), con sus abolladuras
+  function hat(ctx, x, y, r, which) { ctx.save(); ctx.translate(x, y); ({miner: minerHat, acorn: acornCap, thimble})[which](ctx, 0, 0, r); dents(ctx, r, 2); ctx.restore(); }
   function thimble(ctx, x, y, r) {
     ctx.save(); ctx.translate(x, y);
     ctx.beginPath(); ctx.moveTo(-r * 0.62, r * 0.18); ctx.quadraticCurveTo(-r * 0.62, -r * 0.62, 0, -r * 0.66); ctx.quadraticCurveTo(r * 0.62, -r * 0.62, r * 0.62, r * 0.18); ctx.closePath();
@@ -643,7 +646,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;
