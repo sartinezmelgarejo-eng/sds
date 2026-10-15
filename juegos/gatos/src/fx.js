@@ -20,6 +20,9 @@ export class FX {
       smoke: [tex(96, 96, (k) => { const g = k.createRadialGradient(48, 44, 4, 48, 48, 46); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.6, 'rgba(240,235,228,0.8)'); g.addColorStop(1, 'rgba(230,225,215,0)'); k.fillStyle = g; k.beginPath(); k.arc(48, 48, 46, 0, 7); k.fill(); })],
       star: [tex(48, 48, (k) => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 9 : 22; k.lineTo(24 + Math.cos(a) * r, 24 + Math.sin(a) * r); } k.closePath(); k.fillStyle = '#FFE680'; k.fill(); })],
     };
+    // chispas eléctricas (aspiradora dañada): rayito blanco-azul y punto amarillo
+    this.T.zap = [tex(48, 48, k => { k.lineCap = 'round'; k.lineJoin = 'round'; k.strokeStyle = 'rgba(120,200,255,0.9)'; k.lineWidth = 9; const z = () => { k.beginPath(); k.moveTo(6, 10); k.lineTo(22, 20); k.lineTo(18, 28); k.lineTo(42, 40); k.stroke(); }; z(); k.strokeStyle = '#FFFFFF'; k.lineWidth = 4; z(); }),
+      tex(32, 32, k => { const g = k.createRadialGradient(16, 16, 1, 16, 16, 15); g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, '#FFF27A'); g.addColorStop(1, 'rgba(255,190,40,0)'); k.fillStyle = g; k.beginPath(); k.arc(16, 16, 15, 0, 7); k.fill(); })];
     this.T.robot = this.T.can; // la aspiradora suelta pedacitos de metal
   }
   burst(kind, x, y, n, speed, opts = {}) {

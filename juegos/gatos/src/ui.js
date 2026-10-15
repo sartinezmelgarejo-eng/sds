@@ -61,8 +61,8 @@ export function bounceButtons(list, dt) {
 }
 
 export class UI {
-  constructor(app, {onRetry, onNext, onMenu, onPause, mouseTex}) {
-    this.app = app; this.onRetry = onRetry; this.onNext = onNext; this.onMenu = onMenu; this.mouseTex = mouseTex;
+  constructor(app, {onRetry, onNext, onMenu, onPause, mouseTex, cats}) {
+    this.app = app; this.cats = cats || []; this.onRetry = onRetry; this.onNext = onNext; this.onMenu = onMenu; this.mouseTex = mouseTex;
     this.hud = new Container(); this.overlay = new Container(); this.overlay.visible = false;
     app.stage.addChild(this.hud, this.overlay);
     this.T = {
@@ -74,6 +74,7 @@ export class UI {
       starOn: tex(260, 260, k => ART.star(k, 130, 134, 112, true)),
       starOff: tex(260, 260, k => ART.star(k, 130, 134, 112, false)),
       spark: tex(48, 48, k => { k.fillStyle = '#FFF6C0'; k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 6 : 22; k.lineTo(24 + Math.cos(a) * r, 24 + Math.sin(a) * r); } k.fill(); }),
+      confetti: tex(24, 14, k => { k.fillStyle = '#FFFFFF'; k.fillRect(0, 0, 24, 14); k.fillStyle = 'rgba(0,0,0,0.18)'; k.fillRect(0, 9, 24, 5); }),
       tuna: tex(220, 200, k => ART.can(k, 30, 40, 160, 130, {tuna: true, seed: 3})),
       panel: tex(1180, 980, k => {
         ART.rr(k, 14, 34, 1152, 930, 90); k.fillStyle = '#14163A'; k.fill();                       // base 3D
@@ -103,7 +104,7 @@ export class UI {
     this.hide(); this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
     const B = this.box, add = (o, x, y) => { o.position.set(x, y); B.addChild(o); return o; };
     const panel = add(new Sprite(this.T.panel), 0, 40); panel.anchor.set(0.5);
-    const title = add(txt(r.win ? '¡NIVEL SUPERADO!' : 'NIVEL FALLIDO', 104, r.win ? '#FFE27A' : '#FF8A6A'), 0, -440); title.anchor.set(0.5);
+    const title = add(txt(r.final ? '¡JEFA VENCIDA!' : r.win ? '¡NIVEL SUPERADO!' : 'NIVEL FALLIDO', 104, r.win ? '#FFE27A' : '#FF8A6A'), 0, -440); title.anchor.set(0.5);
     const sub = add(txt(r.name, 50, '#C9D2FF'), 0, -350); sub.anchor.set(0.5);
     // animaciones: {o, t0, kind}
     const A = this.anims;
@@ -116,8 +117,16 @@ export class UI {
         A.push({o: off, t0: 0.3, dur: 0.3, k: 'pop', s});
         if (i < r.stars) { const on = add(new Sprite(this.T.starOn), x, y); on.anchor.set(0.5); on.rotation = rot; on.visible = false; A.push({o: on, t0: 0.9 + i * 0.55, dur: 0.42, k: 'star', s, i}); }
       });
-      const tuna = add(new Sprite(this.T.tuna), 0, 15); tuna.anchor.set(0.5); A.push({o: tuna, t0: 0.6, dur: 0.45, k: 'pop', s: 1});
-      const tl = add(txt('¡ATÚN RECUPERADO!', 46, '#BDEBFF'), 0, 125); tl.anchor.set(0.5); A.push({o: tl, t0: 0.75, dur: 0.3, k: 'pop'});
+      if (r.final && this.cats.length) {
+        // final del juego: los 3 gatos festejan brincando detrás de una pila de latas de atún
+        this.cats.forEach((c, i) => { const sp = add(new Sprite(c.tex), (i - 1) * 260, 70); sp.anchor.set(c.ax, c.ay);
+          A.push({o: sp, t0: 0.55 + i * 0.12, dur: 0.45, k: 'pop', s: i === 1 ? 0.42 : 0.36, cheer: i, y0: i === 1 ? 60 : 78}); });
+        [[-140, 120, 0.55, -0.2], [140, 120, 0.55, 0.2], [0, 132, 0.62, 0]].forEach(([x, y, s, rot], i) => { const t = add(new Sprite(this.T.tuna), x, y); t.anchor.set(0.5); t.rotation = rot; A.push({o: t, t0: 0.85 + i * 0.1, dur: 0.4, k: 'pop', s}); });
+        this.confetti = [];
+      } else {
+        const tuna = add(new Sprite(this.T.tuna), 0, 15); tuna.anchor.set(0.5); A.push({o: tuna, t0: 0.6, dur: 0.45, k: 'pop', s: 1});
+        const tl = add(txt('¡ATÚN RECUPERADO!', 46, '#BDEBFF'), 0, 125); tl.anchor.set(0.5); A.push({o: tl, t0: 0.75, dur: 0.3, k: 'pop'});
+      }
     } else {
       const m = add(new Sprite(this.mouseTex), 0, -90); m.anchor.set(0.5); A.push({o: m, t0: 0.3, dur: 0.4, k: 'pop', s: 1.45, laugh: true});
       const tl = add(txt('¡Los ratones se quedan con el atún!', 46, '#FFFFFF'), 0, 115); tl.anchor.set(0.5); A.push({o: tl, t0: 0.5, dur: 0.3, k: 'pop'});
@@ -162,10 +171,19 @@ export class UI {
         if (u >= 1 && !a.done) { a.done = true; SFX.star(a.i); this.burst(a.o.x, a.o.y); }
       }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
+      if (u > 1 && a.cheer != null) { const c = (t * 1.6 + a.cheer * 0.33) % 1, h = c < 0.45 ? Math.sin(c / 0.45 * Math.PI) : 0;
+        a.o.y = a.y0 - h * 70; const sq = c < 0.45 ? 1 + h * 0.06 : 1 - Math.sin((c - 0.45) / 0.55 * Math.PI) * 0.07; a.o.scale.set(a.s / Math.sqrt(sq), a.s * sq); a.o.rotation = h * (a.cheer - 1) * 0.12; }
       if (u > 1 && a.laugh) { a.o.rotation = Math.sin(t * 14) * 0.06; a.o.y = -90 - Math.abs(Math.sin(t * 7)) * 18; }
     }
     // puntaje cuenta de 0 al total
     const cu = clamp01((t - 0.4) / 1.1); this.scoreTxt.text = Math.round(this.r.score * (1 - Math.pow(1 - cu, 3))).toLocaleString('en-US');
+    if (this.r.final && this.confetti) { // confeti que cae sin parar sobre el panel final
+      const hw = sw / 2 / s, hh = sh / 2 / s, C = [0xFFE27A, 0xFF7A8A, 0x7AD8FF, 0xA8F06A, 0xFFB04A, 0xD9A0FF];
+      if (t > 0.5 && this.confetti.length < 90) for (let i = 0; i < 2; i++) { const c = new Sprite(this.T.confetti); c.anchor.set(0.5); c.tint = C[Math.floor(Math.random() * C.length)];
+        c.position.set((Math.random() - 0.5) * hw * 2, -hh - 20); this.box.addChild(c); this.confetti.push({s: c, vy: 180 + Math.random() * 160, w: Math.random() * 6, ph: Math.random() * 6, sz: 0.8 + Math.random() * 0.8}); }
+      for (let i = this.confetti.length - 1; i >= 0; i--) { const c = this.confetti[i]; c.ph += dt * (3 + c.w); c.s.y += c.vy * dt; c.s.x += Math.sin(c.ph) * 60 * dt; c.s.rotation = c.ph * 0.7; c.s.scale.set(c.sz * Math.cos(c.ph), c.sz);
+        if (c.s.y > hh + 30) { c.s.destroy(); this.confetti.splice(i, 1); } }
+    }
     for (let i = this.sparks.length - 1; i >= 0; i--) {
       const p = this.sparks[i]; p.t += dt; p.vx *= 0.93; p.vy = p.vy * 0.93 + 900 * dt; p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += dt * 6; p.s.alpha = 1 - p.t / 0.7;
       if (p.t > 0.7) { p.s.destroy(); this.sparks.splice(i, 1); }

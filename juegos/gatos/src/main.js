@@ -80,12 +80,12 @@ async function main() {
   slingRoot.addChild(slingBack, slingCat, slingFront);
   world.addChild(behind, actors, slingRoot, front);
   app.stage.addChild(bgRoot, world, bg.fg);
-  let wraps = [], curLayers = null;
+  let wraps = [], curLayers = null, curBg = null;
   // cambia el fondo según el mundo del nivel (las capas de cada mundo se hornean una vez y se guardan)
   function useBg(theme) {
     if (wraps.length && theme === bgTheme) return;
     bgTheme = theme; const nb = BGS[theme] || (BGS[theme] = buildBackground(theme));
-    bgRoot.removeChildren(); curLayers = nb.layers;
+    bgRoot.removeChildren(); curLayers = nb.layers; curBg = nb;
     wraps = nb.layers.map(l => { const c = new Container(); bgRoot.addChild(c); c.addChild(l.node); return c; });
   }
   useBg(bgTheme);
@@ -141,10 +141,15 @@ async function main() {
   function updateTutorial(dt) {
     const want = levelId === LEVELS[0] && !tutDone && state === 'ready' && !sling.aiming && !localStorage.getItem('gatos.best.' + LEVELS[0]);
     if (sling.aiming && levelId === LEVELS[0]) tutDone = true;
-    hand.visible = want; if (!want) { tutT = 0; return; }
+    hand.visible = want;
+    const letGo = () => { if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; } }; // la bolsa regresa sola con el resorte
+    if (!want) { tutT = 0; letGo(); return; }
     tutT += dt; const c = tutT % 2.2, r = sling.rest;
     const u = c < 0.35 ? 0 : c < 1.45 ? (c - 0.35) / 1.1 : 1, e = 1 - Math.pow(1 - u, 3);
     hand.position.set(r.x - e * 210, r.y + e * 90);
+    // como en AB2: la manita de verdad estira la bolsa (y el gato se aplasta); al soltar, la bolsa rebota sin disparar
+    if (c >= 0.35 && c < 1.8 && onSling && !onSling.hop) { sling.held = true; sling.aimTo({x: hand.x, y: hand.y}); }
+    else letGo();
     hand.alpha = c < 0.25 ? c / 0.25 : c > 1.8 ? Math.max(0, 1 - (c - 1.8) / 0.3) : 1;
     hand.scale.set(0.9 * (c < 0.35 ? 1.15 - 0.15 * c / 0.35 : 1)); // "presiona" al inicio
   }
@@ -162,8 +167,10 @@ async function main() {
 
   // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
   function driveRobot(d, dt) {
-    const b = d.body, p = b.position;
-    if (d.stun > 0) d.stun -= dt;
+    const b = d.body, p = b.position, hp = d.life / d.max;
+    if (d.stun > 0) { d.stun -= dt;
+      // la Rata Jefa se recupera del susto y se burla ("¡ni me hiciste nada!")
+      if (d.stun <= 0) { const r = dyn.find(o => o.ride); if (r && !r.dead) { r.laugh = 1.3; SFX.giggle(); } } }
     else {
       if (p.x > d.patrol[1]) d.dir = -1; else if (p.x < d.patrol[0]) d.dir = 1;
       d.vx += (d.dir * d.speed - d.vx) * Math.min(1, dt * 2.2);
@@ -171,13 +178,31 @@ async function main() {
       if (Math.abs(b.angle) < 0.6) { Body.setAngularVelocity(b, 0); Body.setAngle(b, b.angle * (1 - Math.min(1, dt * 4))); } // estabilizador
       d.dust -= dt; if (d.dust <= 0 && Math.abs(d.vx) > 60) { d.dust = 0.14; fx.smoke(p.x - Math.sign(d.vx) * d.w * 0.45, p.y + d.h * 0.4, 16, 1); }
     }
+    // dañada: humo oscuro (<60 %) y chispas eléctricas (<30 %) que salen de la carcasa
+    d.fume = (d.fume || 0) - dt;
+    if (hp < 0.6 && d.fume <= 0) {
+      d.fume = hp < 0.3 ? 0.16 : 0.32; const n0 = fx.parts.length;
+      const bk = -(d.dir || 1); // sale por la parte de atrás (no tapa la cara de la Rata Jefa)
+      fx.burst('smoke', p.x + bk * d.w * 0.44, p.y - d.h * 0.15, 1, 30, {dir: Math.atan2(-1, bk * 0.9), spread: 0.5, up: 60, g: -110, drag: 1.4, life: 1.5, size: 1.0, grow: 2.0});
+      for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = hp < 0.3 ? 0x3E3844 : 0x6E6874; fx.parts[i].maxA = 0.85; }
+    }
+    d.zapT = (d.zapT ?? 0.5) - dt;
+    if (hp < 0.3 && d.zapT <= 0) {
+      d.zapT = 0.25 + Math.random() * 0.5; const sx = p.x + (Math.random() - 0.5) * d.w * 0.8, sy = p.y - d.h * 0.1 + (Math.random() - 0.5) * d.h * 0.5;
+      fx.burst('zap', sx, sy, 7, 520, {up: 120, size: 0.9, life: 0.35, drag: 2.5, g: 600}); SFX.zap();
+      d.sprite.tint = 0xBFE6FF; d.zapFlash = 0.06;
+    }
+    if (d.zapFlash > 0 && (d.zapFlash -= dt) <= 0) d.sprite.tint = 0xFFFFFF;
     // barra de vida sobre la Rata Jefa
     const k = Math.max(0, d.life / d.max), W = 260, H = 26, x = p.x - W / 2, y = p.y - d.h / 2 - 230;
     d.bar.clear().roundRect(x - 6, y - 6, W + 12, H + 12, 14).fill({color: 0x1F2240}).roundRect(x, y, W, H, 9).fill({color: 0x4A2030})
       .roundRect(x, y, Math.max(H, W * k), H, 9).fill({color: k > 0.5 ? 0x6BE04A : k > 0.25 ? 0xFFC83A : 0xFF4A3A}).roundRect(x + 6, y + 4, Math.max(8, W * k - 12), 6, 3).fill({color: 0xFFFFFF, alpha: 0.4});
   }
   function damage(d, amount, k) {
-    if (d.patrol && amount > 2) d.stun = 0.8;
+    if (d.patrol && amount > 2 && !d.dead) {
+      // golpe a la aspiradora: se frena en seco y la Rata Jefa se espanta y grita
+      d.stun = 0.8; const r = dyn.find(o => o.ride); if (r && !r.dead) { r.hurt = 0.5; r.laugh = 0; SFX.squeak(); }
+    }
     if (d.dead) return;
     d.life -= amount;
     if (d.mat !== 'mouse' && d.life > 0) {
@@ -338,7 +363,7 @@ async function main() {
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
-    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'win'; endT0 = false; SFX.duck(4); SFX.win(); return; }
+    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'win'; endT0 = false; SFX.duck(levelId === LEVELS[LEVELS.length - 1] ? 6 : 4); (levelId === LEVELS[LEVELS.length - 1] ? SFX.fanfare : SFX.win)(); return; }
     laughAll = 1.3;
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700); return; }
     state = 'between'; turnWait = 0.9;
@@ -352,10 +377,11 @@ async function main() {
     const stars = win ? 1 + (score >= st[1]) + (score >= st[2]) : 0;
     const record = win && (!prev || score > prev.score);
     if (win) try { localStorage.setItem(key, JSON.stringify({score: Math.max(score, prev?.score || 0), stars: Math.max(stars, prev?.stars || 0)})); } catch (e) {}
-    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: level.name, hasNext: true});
+    const final = win && levelId === LEVELS[LEVELS.length - 1]; // jefe final vencido: panel especial
+    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
-  function launch(vx, vy) { if (state === 'ready') shoot({x: vx, y: vy}); }
+  function launch(vx, vy) { if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }
 
   Matter.Events.on(engine, 'collisionStart', ev => {
     for (const pr of ev.pairs) {
@@ -390,9 +416,9 @@ async function main() {
     if (onSling && !onSling.hop) {
       const p = sling.pouch, pw = sling.power;
       // en la resortera: sigue a la bolsa; al estirar se aplasta en la dirección del jalón y se inclina hacia el tiro
-      const tilt = sling.aiming && pw > 0.05 ? Math.max(-0.45, Math.min(0.45, Math.atan2(-sling.pull.y, -sling.pull.x) * 0.5)) : Math.sin(time * 1.7) * 0.04;
+      const tilt = (sling.aiming || sling.held) && pw > 0.05 ? Math.max(-0.45, Math.min(0.45, Math.atan2(-sling.pull.y, -sling.pull.x) * 0.5)) : Math.sin(time * 1.7) * 0.04;
       onSling.sprite.position.set(p.x, p.y); onSling.sprite.rotation = tilt;
-      const br = sling.aiming ? 0 : Math.sin(time * 3.4) * 0.03;
+      const br = sling.aiming || sling.held ? 0 : Math.sin(time * 3.4) * 0.03;
       onSling.sprite.scale.set(0.5 * (1 - pw * 0.1 - br * 0.5), 0.5 * (1 + pw * 0.07 + br));
     }
     if (flying) {
@@ -539,7 +565,7 @@ async function main() {
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name);
     score = shownScore = 0; resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
-    state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
+    state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
@@ -563,7 +589,7 @@ async function main() {
       const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0});
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride});
     });
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
@@ -581,7 +607,7 @@ async function main() {
     onNext: () => buildLevel(LEVELS[(LEVELS.indexOf(levelId) + 1) % LEVELS.length], true),
     onMenu: () => { ui.hide(); menus.showSelect((level.world || 1) - 1); },
     onPause: () => pause(),
-    mouseTex: mouseTex('boss', 66, 'laugh'),
+    mouseTex: mouseTex('boss', 66, 'laugh'), cats: bigCats,
   });
   const menus = new Menus(app, {
     eyeImg, cats: bigCats, worlds: WORLDS, bossTex: mouseTex('boss', 66, 'laugh'),
@@ -607,9 +633,15 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
+    started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt);
+    { // zumbido del motor: volumen por distancia a la cámara, paneo según el lado de la pantalla
+      const r = !menus.blocking && !ui.open && dyn.find(d => d.patrol);
+      if (r) { const rp = r.body.position, sxp = (rp.x - cam.x) * cam.zoom / (app.screen.width / 2), k = Math.max(0, 1 - Math.max(0, Math.abs(sxp) - 1) * 0.8);
+        SFX.motor((0.45 + 0.55 * cam.zoom / 0.9) * k * (r.stun > 0 ? 0.5 : 1), sxp * 0.8, r.stun > 0 ? 0.6 : 0.8 + 0.4 * Math.min(1, Math.abs(r.vx) / r.speed)); }
+      else SFX.motor(0);
+    }
     for (const d of dyn) {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
@@ -640,6 +672,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

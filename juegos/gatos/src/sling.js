@@ -40,7 +40,7 @@ export class Slingshot {
     return v;
   }
   update(dt) {
-    if (!this.aiming) { // resorte amortiguado hacia el reposo (la bolsa "tiembla" tras disparar)
+    if (!this.aiming && !this.held) { // resorte (held = la manita del tutorial la sostiene) amortiguado hacia el reposo (la bolsa "tiembla" tras disparar)
       const k = 420, c = 13, n = 4, h = dt / n;
       for (let i = 0; i < n; i++) {
         this.pv.x += (-k * (this.pouch.x - this.rest.x) - c * this.pv.x) * h; this.pv.y += (-k * (this.pouch.y - this.rest.y) - c * this.pv.y) * h;

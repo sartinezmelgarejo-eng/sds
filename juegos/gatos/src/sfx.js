@@ -132,3 +132,39 @@ export function duck(sec) {
   g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.0001, g.value), t); g.exponentialRampToValueAtTime(0.012, t + 0.25);
   g.setValueAtTime(0.012, t + sec); g.exponentialRampToValueAtTime(MUS_VOL, t + sec + 2);
 }
+// ---- motor de la aspiradora robot: zumbido continuo (vol 0 = se apaga suave); pan = -1..1 según la cámara ----
+let mot = null;
+export function motor(vol, pan = 0, rate = 1) {
+  if (!ctx) return;
+  if (!mot && vol <= 0.001) return;
+  if (!mot) {
+    const out = ctx.createGain(); out.gain.value = 0.0001;
+    const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 62;
+    const o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = 124.7;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420; lp.Q.value = 2;
+    const g2 = ctx.createGain(); g2.gain.value = 0.25;
+    const ns = ctx.createBufferSource(); ns.buffer = noiseBuf; ns.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 0.8;
+    const gn = ctx.createGain(); gn.gain.value = 0.35;
+    // trémolo lento (el cepillo que gira)
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 7; const lg = ctx.createGain(); lg.gain.value = 0.3;
+    const trem = ctx.createGain(); trem.gain.value = 0.7; lfo.connect(lg); lg.connect(trem.gain);
+    o.connect(lp); o2.connect(g2); g2.connect(lp); lp.connect(trem); ns.connect(bp); bp.connect(gn); gn.connect(trem);
+    trem.connect(out); if (pn) { out.connect(pn); pn.connect(master); } else out.connect(master);
+    [o, o2, ns, lfo].forEach(n => n.start());
+    mot = {out, pn, o, o2, bp, nodes: [o, o2, ns, lfo]};
+  }
+  const t = ctx.currentTime;
+  mot.out.gain.setTargetAtTime(Math.max(0.0001, vol * 0.22), t, 0.12);
+  if (mot.pn) mot.pn.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), t, 0.1);
+  mot.o.frequency.setTargetAtTime(62 * rate, t, 0.15); mot.o2.frequency.setTargetAtTime(124.7 * rate, t, 0.15); mot.bp.frequency.setTargetAtTime(2400 * rate, t, 0.15);
+  if (vol <= 0.001) { const m = mot; mot = null; setTimeout(() => m.nodes.forEach(n => { try { n.stop(); } catch (e) {} }), 600); }
+}
+// chisporroteo eléctrico (aspiradora dañada)
+export function zap() { if (!ok('zap', 0.12)) return; const t = ctx.currentTime; for (let i = 0; i < 4; i++) { noise(t + i * 0.025, 0.03, 'highpass', 3500, 1, 0.25, 0.025); } tone(t, 1800, 'square', 0.04, 0.08, 600); }
+// la Rata Jefa grita enojada ("¡IIIK!")
+export function squeak() { if (!ok('sqk', 0.6)) return; const t = ctx.currentTime; tone(t, 1500, 'square', 0.07, 0.12, 2300); tone(t + 0.12, 2200, 'square', 0.07, 0.22, 1300); }
+// fanfarria final (jefe vencido): arpegio largo y acorde mayor sostenido
+export function fanfare() { if (!ctx) return; const t = ctx.currentTime; [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => { tone(t + i * 0.13, f, 'triangle', 0.28, 0.4); tone(t + i * 0.13, f * 2, 'sine', 0.07, 0.3); });
+  [1046, 1318, 1568].forEach(f => tone(t + 0.95, f, 'triangle', 0.22, 1.6)); noise(t + 0.95, 0.4, 'highpass', 6000, 1, 0.12, 0.35); }

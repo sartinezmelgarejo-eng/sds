@@ -151,13 +151,6 @@ function skyLayer() {
     ctx.fillStyle = lin(ctx, 0, y0, 0, GROUND, [[0, '#3FA7E8'], [0.55, '#9BD8F6'], [1, '#FFF1CC']]); ctx.fillRect(x0, y0, w, h);
     // sol con halo
     ctx.fillStyle = rad(ctx, 700, 250, 0, 700, [[0, 'rgba(255,250,210,1)'], [0.12, 'rgba(255,240,170,0.9)'], [0.4, 'rgba(255,236,170,0.25)'], [1, 'rgba(255,236,170,0)']]); ctx.fillRect(x0, y0, w, h);
-    const r = rng(41);
-    for (let i = 0; i < 9; i++) { // nubes esponjosas
-      const cx = x0 + r() * w, cy = y0 + 150 + r() * 650, k = 0.7 + r() * 0.9;
-      [[0, 0, 90], [-90, 25, 65], [95, 20, 70], [-40, -40, 70], [50, -35, 60]].forEach(([dx, dy, R]) => {
-        ctx.fillStyle = rad(ctx, cx + dx * k - R * k * 0.3, cy + dy * k - R * k * 0.4, 0, R * k * 1.3, [[0, '#FFFFFF'], [1, '#D7ECFA']]);
-        ctx.beginPath(); ctx.arc(cx + dx * k, cy + dy * k, R * k, 0, TAU); ctx.fill(); });
-    }
     const hill = (base, amp, per, ph, top, bot) => {
       ctx.beginPath(); ctx.moveTo(x0, GROUND + 100);
       for (let x = x0; x <= x1 + 40; x += 40) ctx.lineTo(x, base - amp * (0.6 * Math.sin(x / per + ph) + 0.4 * Math.sin(x / (per * 0.43) + ph * 2)));
@@ -167,6 +160,44 @@ function skyLayer() {
     hill(GROUND - 720, 130, 300, 4.1, '#8CC3A0', '#B9DDB0');
     ctx.fillStyle = 'rgba(255,245,220,0.18)'; ctx.fillRect(x0, y0, w, h);
   });
+}
+// Nubes esponjosas sueltas (sprites) que se deslizan lento con el viento; parallax 0.2 (delante del cielo)
+function cloudLayer() {
+  const {x0, y0, x1} = BOUNDS, w = x1 - x0, r = rng(41), c = new Container();
+  const tex = [0, 1, 2].map(v => { const cv = document.createElement('canvas'); cv.width = 420; cv.height = 220; const k = cv.getContext('2d'), rr2 = rng(5 + v);
+    const puffs = [[0, 0, 90], [-95, 25, 62], [100, 22, 68], [-40, -40, 72], [52, -38, 62]].map(([dx, dy, R]) => [dx + (rr2() - 0.5) * 20, dy, R * (0.85 + rr2() * 0.3)]);
+    k.translate(210, 125); k.fillStyle = 'rgba(120,170,210,0.25)'; puffs.forEach(([dx, dy, R]) => { k.beginPath(); k.arc(dx + 6, dy + 10, R, 0, TAU); k.fill(); }); // sombra azulada abajo
+    puffs.forEach(([dx, dy, R]) => { k.fillStyle = rad(k, dx - R * 0.3, dy - R * 0.4, 0, R * 1.3, [[0, '#FFFFFF'], [1, '#D7ECFA']]); k.beginPath(); k.arc(dx, dy, R, 0, TAU); k.fill(); });
+    return Texture.from(cv); });
+  const items = [];
+  for (let i = 0; i < 10; i++) { const s = new Sprite(tex[i % 3]); s.anchor.set(0.5); const k = 0.7 + r() * 0.9; s.scale.set(k * (r() > 0.5 ? 1 : -1), k);
+    s.position.set(x0 + (i + r() * 0.7) / 10 * w, GROUND - 2050 + r() * 800); s.alpha = 0.85 + r() * 0.15; c.addChild(s); items.push({s, v: 10 + r() * 14}); }
+  c.update = dt => items.forEach(o => { o.s.x += o.v * dt; if (o.s.x > x1 + 300) o.s.x = x0 - 300; });
+  return c;
+}
+// Mariposas que revolotean delante de la cerca (aleteo = escala x; ruta ondulada que cambia de rumbo). Parallax 0.85.
+function butterflyLayer() {
+  const {x0, x1} = BOUNDS, r = rng(19), c = new Container();
+  const wing = col => { const cv = document.createElement('canvas'); cv.width = 64; cv.height = 56; const k = cv.getContext('2d');
+    k.translate(32, 28); k.lineWidth = 3; k.strokeStyle = '#3A2A40';
+    for (const sx of [-1, 1]) { k.fillStyle = col; k.beginPath(); k.ellipse(sx * 15, -8, 15, 13, sx * 0.5, 0, TAU); k.fill(); k.stroke();
+      k.fillStyle = shade(col, -40); k.beginPath(); k.ellipse(sx * 11, 11, 10, 9, -sx * 0.4, 0, TAU); k.fill(); k.stroke();
+      k.fillStyle = 'rgba(255,255,255,0.75)'; k.beginPath(); k.arc(sx * 17, -10, 4, 0, TAU); k.fill(); }
+    k.fillStyle = '#3A2A40'; k.beginPath(); k.ellipse(0, 2, 3.5, 15, 0, 0, TAU); k.fill();
+    k.lineWidth = 2; k.beginPath(); k.moveTo(-1, -12); k.quadraticCurveTo(-6, -24, -10, -25); k.moveTo(1, -12); k.quadraticCurveTo(6, -24, 10, -25); k.stroke();
+    return Texture.from(cv); };
+  const T = ['#FFB13B', '#FF7FA8', '#8FD3FF', '#FFF07A'].map(wing), items = [];
+  for (let i = 0; i < 7; i++) { const s = new Sprite(T[i % T.length]); s.anchor.set(0.5); c.addChild(s);
+    items.push({s, x: x0 + 400 + r() * (x1 - x0 - 800), y: GROUND - 140 - r() * 380, a: r() * TAU, ph: r() * TAU, f: 16 + r() * 8, k: 0.75 + r() * 0.4, turn: 0}); }
+  c.update = dt => items.forEach(o => {
+    o.turn -= dt; if (o.turn <= 0) { o.turn = 1 + Math.random() * 2.5; o.da = (Math.random() - 0.5) * 1.6; }
+    o.a += o.da * dt; const home = GROUND - 330; o.a += ((o.y < home - 250 ? 1 : o.y > home + 170 ? -1 : 0) * Math.sign(Math.cos(o.a)) * 0.9) * dt; // no se alejan de la cerca
+    o.ph += dt * o.f; const flap = Math.abs(Math.cos(o.ph));
+    o.x += Math.cos(o.a) * 70 * dt; o.y += Math.sin(o.a) * 45 * dt + Math.sin(o.ph * 0.5) * 30 * dt * (1 - flap);
+    if (o.x > x1 - 100) o.a = Math.PI - Math.abs(o.a % TAU); if (o.x < x0 + 100) o.a = 0;
+    o.s.position.set(o.x, o.y); o.s.scale.set(o.k * (0.25 + 0.75 * flap) * (Math.cos(o.a) < 0 ? -1 : 1), o.k); o.s.rotation = Math.sin(o.ph * 0.3) * 0.2;
+  });
+  return c;
 }
 // Árboles redondos + cerca de madera + arbustos con flores. Parallax 0.6.
 function fenceLayer() {
@@ -223,9 +254,10 @@ function lawnLayer() {
 
 export function buildBackground(theme = 'kitchen') {
   if (theme === 'garden') {
-    const layers = [{node: skyLayer(), f: 0.15}, {node: fenceLayer(), f: 0.6}, {node: lawnLayer(), f: 1}];
+    const clouds = cloudLayer(), flies = butterflyLayer();
+    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr};
+    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); }};
   }
   const layers = [
     {node: wallLayer(), f: 0.35},
