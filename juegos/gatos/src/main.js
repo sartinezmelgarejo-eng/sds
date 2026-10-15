@@ -507,7 +507,10 @@ async function main() {
     let expr = 'normal', hop = 0;
     const fc = flying && !flying.fade ? flying.body : null;
     const near = fc && Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) < 650 && fc.speed > 3;
-    if (d.hurt > 0 || near) expr = 'scared';
+    // AB2: si va cayendo o rodando rápido, pone cara de susto y (una vez cada tanto) chilla
+    const tumble = !d.ride && !d.body.isSleeping && d.body.speed > 4.5 && started > 1;
+    if (tumble && time - (d.yelpT || -9) > 2.5 && d.body.velocity.y > 4) { d.yelpT = time; SFX.squeak(); }
+    if (d.hurt > 0 || near || tumble) expr = 'scared';
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
       if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
