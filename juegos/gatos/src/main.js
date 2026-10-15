@@ -763,7 +763,7 @@ async function main() {
     if (ptrs.size === 1) {
       const w = cam.toWorld(e.clientX, e.clientY);
       if (state === 'ready' && Math.hypot(w.x - sling.pouch.x, w.y - sling.pouch.y) < Math.max(CAT_R * 2, 70 / cam.zoom)) {
-        aimPtr = e.pointerId; sling.aiming = true; sling.grab = {dx: sling.pouch.x - w.x, dy: sling.pouch.y - w.y};
+        aimPtr = e.pointerId; sling.aiming = true; sling.grab = {dx: sling.pouch.x - w.x, dy: sling.pouch.y - w.y}; if (onSling) SFX.growl(['omi', 'mako', 'miu'].indexOf(onSling.name));
         if (cam.mode === 'user') cam.mode = 'rest';
         return;
       }

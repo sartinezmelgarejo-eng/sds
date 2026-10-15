@@ -79,6 +79,14 @@ export function meow(i = 0) {
   const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(900, t); f.frequency.linearRampToValueAtTime(1900, t + 0.14); f.frequency.exponentialRampToValueAtTime(800, t + 0.42);
   const g = ctx.createGain(); env(g, t, 0.04, 0.5, 0.4); o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 0.5);
 }
+// gruñidito al agarrar al gato en la resortera ("mrrrau" corto con trémolo, como el graznido de AB2 al tomar al pájaro)
+export function growl(i = 0) {
+  if (!ok('growl', 0.4)) return; const t = ctx.currentTime, b = 210 + (i % 3) * 45;
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(b, t); o.frequency.linearRampToValueAtTime(b * 1.5, t + 0.22); o.frequency.exponentialRampToValueAtTime(b * 1.1, t + 0.32);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.5; f.frequency.setValueAtTime(600, t); f.frequency.linearRampToValueAtTime(1400, t + 0.25);
+  const trem = ctx.createGain(), lfo = ctx.createOscillator(), dep = ctx.createGain(); lfo.frequency.value = 28; dep.gain.value = 0.45; trem.gain.value = 0.55; lfo.connect(dep); dep.connect(trem.gain);
+  const g = ctx.createGain(); env(g, t, 0.03, 0.35, 0.3); o.connect(f); f.connect(trem); trem.connect(g); g.connect(master); o.start(t); lfo.start(t); o.stop(t + 0.36); lfo.stop(t + 0.36);
+}
 export function win() { if (!ctx) return; const t = ctx.currentTime; [523, 659, 784, 1046].forEach((f, i) => { tone(t + i * 0.11, f, 'triangle', 0.3, 0.35); tone(t + i * 0.11, f * 2, 'sine', 0.08, 0.3); }); tone(t + 0.44, 1046, 'triangle', 0.3, 0.9); tone(t + 0.44, 1318, 'triangle', 0.2, 0.9); }
 export function lose() { if (!ctx) return; const t = ctx.currentTime; [392, 370, 349, 330].forEach((f, i) => tone(t + i * 0.32, f, 'sawtooth', 0.09, i === 3 ? 0.9 : 0.3, i === 3 ? 300 : 0)); }
 export function giggle() { if (!ok('gig', 0.5)) return; const t = ctx.currentTime; for (let i = 0; i < 6; i++) tone(t + i * 0.09, 1300 + Math.random() * 400 - i * 40, 'square', 0.04, 0.06, 1700); }
