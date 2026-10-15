@@ -299,7 +299,7 @@ async function main() {
   }
   const backOutE = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
   const PTS_COL = {tnt: '#FFB07A', robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
-  let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
+  let started = 0, slow = 0, lastFocus = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
   // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
   // entrada del jefe (durante el sobrevuelo): la aspiradora con la Rata Jefa cae del techo, azota, rebota y la Jefa se burla
@@ -396,7 +396,8 @@ async function main() {
       if (time - (sayT.mourn || -9) > 3 && Math.random() < 0.45) { const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && !bubbles.some(b => b.d === o) && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 800);
         if (nb.length) { sayT.mourn = time; const o = nb[Math.floor(Math.random() * nb.length)]; o.hurt = 0.35;
           setTimeout(() => { if (!o.dead && dyn.includes(o)) say(o, ['¡NOOO!', '¡PACO!\n¡NOOO!', '¡SE LLEVARON\nA BETO!', '¡RETIRADA!'][Math.floor(Math.random() * 4)], 1.3, 0.72); }, 250); } }
-      if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; // cámara lenta breve en el último ratón
+      if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) { slow = 1.1; // cámara lenta breve en el último ratón
+        if (flying && cam.mode === 'follow') { cam.follow({position: {x: p.x, y: p.y - 80}}, 2.3); lastFocus = 1.3; } } // y la cámara se acerca a él (AB2)
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
       queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.8); if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
@@ -882,7 +883,7 @@ async function main() {
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
-    booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
+    booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -958,6 +959,7 @@ async function main() {
 
   app.ticker.add(tk => {
     const rdt = Math.min(tk.deltaMS, 50) / 1000; if (slow > 0) slow -= rdt;
+    if (lastFocus > 0) { lastFocus -= rdt; if (lastFocus <= 0 && flying && cam.mode === 'follow') cam.follow(flying.body); }
     // con un menú abierto (título, niveles, pausa) el mundo se congela pero se sigue dibujando
     const dt = menus.blocking || ui.cardOpen ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
     hud.visible = !menus.blocking; ui.hud.visible = !menus.blocking && !ui.open;
