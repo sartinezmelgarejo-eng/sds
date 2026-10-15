@@ -386,7 +386,8 @@ const ART = (() => {
     }
     // brillo de borde (rim light)
     ctx.beginPath(); ctx.ellipse(0, 0, r * 0.93, r * 0.85, 0, Math.PI * 1.1, Math.PI * 1.55); ctx.lineWidth = r * 0.06; ctx.strokeStyle = 'rgba(255,250,235,0.7)'; ctx.stroke();
-    if (kind === 'thimble') thimble(ctx, 0, -r * 0.62, r);
+    if (opt.hat === 'miner') minerHat(ctx, 0, -r * 0.6, r);
+    else if (kind === 'thimble') thimble(ctx, 0, -r * 0.62, r);
     if (kind === 'boss') crown(ctx, 0, -r * 0.82, r);
     ctx.restore();
   }
@@ -399,6 +400,19 @@ const ART = (() => {
     ctx.restore();
     ctx.lineWidth = r * 0.06; ctx.strokeStyle = '#2B2F45'; ctx.stroke();
     rr(ctx, -r * 0.68, r * 0.1, r * 1.36, r * 0.16, r * 0.08); ctx.fillStyle = lin(ctx, -r, 0, r, 0, [[0, '#7D8794'], [0.4, '#F2F5F8'], [1, '#69727E']]); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // casco de minero (ratones de La Guarida): casco amarillo rayado y lamparita al frente (la luz va aparte, aditiva)
+  function minerHat(ctx, x, y, r) {
+    ctx.save(); ctx.translate(x, y); const o = '#2B2F45';
+    ctx.beginPath(); ctx.ellipse(0, r * 0.16, r * 0.82, r * 0.17, 0, 0, TAU); // ala
+    ctx.fillStyle = lin(ctx, 0, 0, 0, r * 0.32, [[0, '#F7C934'], [1, '#B98512']]); ctx.fill(); ctx.lineWidth = r * 0.06; ctx.strokeStyle = o; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * 0.6, r * 0.14); ctx.bezierCurveTo(-r * 0.62, -r * 0.62, r * 0.62, -r * 0.62, r * 0.6, r * 0.14); ctx.closePath(); // domo
+    ctx.fillStyle = lin(ctx, -r * 0.6, 0, r * 0.6, 0, [[0, '#C98E10'], [0.3, '#FFE36A'], [0.5, '#FFD23A'], [1, '#A86F08']]); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r * 0.07, -r * 0.44); ctx.lineTo(r * 0.07, -r * 0.44); ctx.lineTo(r * 0.09, r * 0.1); ctx.lineTo(-r * 0.09, r * 0.1); ctx.closePath(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fill(); // cresta
+    ctx.beginPath(); ctx.ellipse(-r * 0.28, -r * 0.2, r * 0.1, r * 0.2, -0.5, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill(); // brillo
+    rr(ctx, -r * 0.2, -r * 0.2, r * 0.4, r * 0.3, r * 0.08); ctx.fillStyle = lin(ctx, 0, -r * 0.2, 0, r * 0.1, [[0, '#7A8290'], [1, '#3D434F']]); ctx.fill(); ctx.lineWidth = r * 0.05; ctx.stroke(); // lámpara
+    ctx.beginPath(); ctx.arc(0, -r * 0.05, r * 0.12, 0, TAU); ctx.fillStyle = rad(ctx, 0, -r * 0.05, 0, r * 0.12, [[0, '#FFFFFF'], [0.6, '#FFF2A0'], [1, '#FFC23A']]); ctx.fill(); ctx.lineWidth = r * 0.035; ctx.stroke();
     ctx.restore();
   }
   function crown(ctx, x, y, r) {

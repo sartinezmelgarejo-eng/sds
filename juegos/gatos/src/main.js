@@ -35,9 +35,9 @@ function blockTex(t, w, h, seed, damage = 0) {
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
   }, 1.5));
 }
-function mouseTex(kind, r, expr = 'normal', noPupils = false) {
+function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null) {
   const S = r * 3.2;
-  return cached(`m|${kind}|${r}|${expr}|${noPupils}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr, noPupils}), 1.5));
+  return cached(`m|${kind}|${r}|${expr}|${noPupils}|${hat}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr, noPupils, hat}), 1.5));
 }
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes);
@@ -453,10 +453,18 @@ async function main() {
       const R = d.w / 2 * 1.5, sc = expr === 'scared';
       d.pup[expr].position.set(d.look.x * R * (sc ? 0.15 : 0.1), (sc ? -0.16 : -0.09) * R + d.look.y * R * (sc ? 0.2 : 0.13));
     }
+    if (d.beam) { // la lamparita del casco alumbra hacia donde mira (sigue al gato como reflector); parpadea un poco
+      const ang = Math.atan2(d.look.y * 0.8, d.look.x), cur = d.beam.cone.rotation, da = Math.atan2(Math.sin(ang - cur), Math.cos(ang - cur)); d.beam.cone.rotation = cur + da * Math.min(1, dt * 8);
+      d.beam.cone.alpha = (expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
     const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5), B * (1 + br + sq));
     d.sprite.y -= hop + br * d.h * 0.25;
   }
+  // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
+  const beamTex = canvasTex(320, 160, k => { const g = k.createLinearGradient(0, 0, 320, 0); g.addColorStop(0, 'rgba(255,240,170,0.55)'); g.addColorStop(0.35, 'rgba(255,230,150,0.22)'); g.addColorStop(1, 'rgba(255,220,140,0)');
+    k.fillStyle = g; k.beginPath(); k.moveTo(0, 74); k.lineTo(320, 0); k.lineTo(320, 160); k.lineTo(0, 86); k.closePath(); k.fill();
+    const g2 = k.createLinearGradient(0, 0, 200, 0); g2.addColorStop(0, 'rgba(255,255,230,0.5)'); g2.addColorStop(1, 'rgba(255,255,230,0)'); k.fillStyle = g2; k.beginPath(); k.moveTo(0, 77); k.lineTo(200, 45); k.lineTo(200, 115); k.lineTo(0, 83); k.closePath(); k.fill(); });
+  const lampGlowTex = canvasTex(120, 120, k => { const g = k.createRadialGradient(60, 60, 0, 60, 60, 60); g.addColorStop(0, 'rgba(255,250,210,0.95)'); g.addColorStop(0.25, 'rgba(255,225,140,0.45)'); g.addColorStop(1, 'rgba(255,200,100,0)'); k.fillStyle = g; k.fillRect(0, 0, 120, 120); });
   const dotTex = canvasTex(40, 40, k => { k.fillStyle = 'rgba(60,40,70,0.25)'; k.beginPath(); k.arc(22, 23, 15, 0, Math.PI * 2); k.fill(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.arc(19, 19, 15, 0, Math.PI * 2); k.fill(); }, 2);
   const flyTex = n => CATS[n].flyImg ? catT[n].fly : catT[n].angry;
 
@@ -732,13 +740,18 @@ async function main() {
       if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1;
         const rb = dyn.find(o => o.enter); if (rb) { rb.enter.ry = body.position.y - rb.enter.y; Body.setPosition(body, {x: m.x, y: body.position.y - ENTER_DROP}); } }
       // ojos normal/susto sin pupilas: las pupilas van aparte y siguen al gato (como los cerdos de AB2)
-      const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e, e === 'normal' || e === 'scared')]));
+      // en La Guarida los ratoncitos llevan casco de minero con lamparita que alumbra hacia donde miran
+      const hat = bgTheme === 'lair' && m.k === 'small' ? 'miner' : null;
+      const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e, e === 'normal' || e === 'scared', hat)]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       const R = m.r * 1.5, pup = {normal: new Graphics(), scared: new Graphics()};
       for (const sx of [-0.33, 0.33]) { pup.normal.circle(sx * R, 0, R * 0.1).fill(0x1B1D2A).circle(sx * R - R * 0.03, -R * 0.05, R * 0.035).fill(0xFFFFFF); pup.scared.circle(sx * R, 0, R * 0.065).fill(0x1B1D2A); }
       sp.addChild(pup.normal, pup.scared);
+      let beam = null;
+      if (hat) { beam = new Container(); beam.position.set(0, -m.r * 0.65 * 1.5); const c = new Sprite(beamTex), g = new Sprite(lampGlowTex);
+        c.anchor.set(0.02, 0.5); c.scale.set(m.r * 1.5 / 40); c.blendMode = g.blendMode = 'add'; g.anchor.set(0.5); g.scale.set(m.r * 1.5 / 60); c.rotation = Math.PI; beam.addChild(c, g); beam.cone = c; sp.addChild(beam); }
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
     });
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
