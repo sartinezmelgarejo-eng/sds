@@ -313,6 +313,42 @@ const ART = (() => {
     ctx.restore();
   }
 
+  // Muro de piedra (terrazas fijas del Jardín/Guarida): mampostería de lajas con mezcla, corona PLANA (lo de encima no flota) y pasto
+  function wall(ctx, x, y, w, h, opt = {}) {
+    const {seed = 7, grass = true} = opt;
+    const R = rng(seed * 53 + 11);
+    ctx.save();
+    rr(ctx, x, y, w, h, 6); ctx.fillStyle = '#4E4A44'; ctx.fill();
+    ctx.save(); rr(ctx, x, y, w, h, 6); ctx.clip();
+    // hiladas de lajas irregulares, cuatrapeadas
+    let ry = y + 16, row = 0;
+    while (ry < y + h) {
+      const rh = 34 + R() * 22; let rx = x - (row % 2 ? 30 + R() * 20 : R() * 12);
+      while (rx < x + w) {
+        const sw = 46 + R() * 50, g = 3;
+        const c = 150 + R() * 45 | 0, tone = `rgb(${c},${c - 4},${c - 12})`, dark = `rgb(${c - 70},${c - 72},${c - 78})`;
+        rr(ctx, rx + g, ry + g, sw - g * 2, rh - g * 2, 7 + R() * 6);
+        ctx.fillStyle = lin(ctx, rx, ry, rx + sw * 0.4, ry + rh, [[0, tone], [1, dark]]); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,245,0.18)'; ctx.fillRect(rx + g + 4, ry + g + 2, sw - g * 2 - 10, 3);
+        for (let i = 0; i < 3; i++) { ctx.fillStyle = `rgba(${R() < 0.5 ? '40,38,35' : '240,238,230'},0.18)`; ctx.beginPath(); ctx.arc(rx + R() * sw, ry + R() * rh, 1 + R() * 2, 0, TAU); ctx.fill(); }
+        rx += sw;
+      }
+      ry += rh; row++;
+    }
+    // sombra hacia abajo (volumen) y corona de laja plana
+    ctx.fillStyle = lin(ctx, 0, y, 0, y + h, [[0, 'rgba(0,0,0,0)'], [0.6, 'rgba(0,0,0,0.08)'], [1, 'rgba(0,0,0,0.32)']]); ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    rr(ctx, x - 2, y, w + 4, 18, 5); ctx.fillStyle = lin(ctx, 0, y, 0, y + 18, [[0, '#D8D4CA'], [1, '#8F8B83']]); ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#3B3935'; ctx.stroke();
+    if (grass) for (let i = 0; i < w / 7; i++) {   // pasto y musgo que cuelga de la orilla
+      const gx = x + R() * w, gh = 5 + R() * 9;
+      ctx.strokeStyle = R() < 0.5 ? '#5E9E34' : '#7DBB45'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gx, y + 3); ctx.lineTo(gx + (R() - 0.5) * 6, y + 3 - gh); ctx.stroke();
+      if (R() < 0.25) { ctx.fillStyle = 'rgba(95,150,50,0.85)'; ctx.beginPath(); ctx.ellipse(gx, y + 18, 5 + R() * 6, 3 + R() * 7, 0, 0, TAU); ctx.fill(); }
+    }
+    rr(ctx, x, y, w, h, 6); ctx.lineWidth = 3; ctx.strokeStyle = '#2E2C29'; ctx.stroke();
+    ctx.restore();
+  }
+
   // Aspiradora robot (jefe final): disco visto de lado, defensa, luces rojas, cepillo. damage 0..3 = abolladuras/chispas
   function robot(ctx, x, y, w, h, opt = {}) {
     const {damage = 0, seed = 9, led = '#FF3B3B'} = opt;
@@ -738,7 +774,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, wall, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;

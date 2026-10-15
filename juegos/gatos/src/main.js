@@ -32,6 +32,7 @@ function blockTex(t, w, h, seed, damage = 0) {
     else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'stone') ART.stone(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'wall' || t === 'wallx') ART.wall(k, PAD, PAD, w, h, {seed, grass: t === 'wall'});   // wallx = sin pasto (Guarida)
     else if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
     else if (t === 'jar') ART.jar(k, PAD, PAD, w, h, {seed, damage, lid: seed % 2 ? '#3D8BD8' : '#C8452F'});
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
@@ -1005,7 +1006,8 @@ async function main() {
       // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
       // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body);
-        const sp = new Sprite(blockTex(SKIN[bgTheme].shelf, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); return; }
+        const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
+        const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); return; }
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
       const round = b.t === 'rock', mat = round ? 'can' : b.t;
       const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, frictionAir: 0.0012, restitution: 0.05, label: 'can', sleepThreshold: 40})
