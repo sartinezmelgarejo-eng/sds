@@ -824,6 +824,7 @@ async function main() {
     if (!flying || flying.hit) return;
     for (const pr of ev.pairs) if (pr.bodyA === flying.body || pr.bodyB === flying.body) {
       flying.hit = true; flying.hitT = flying.t; cam.shake(Math.min(18, flying.body.speed * 0.6));
+      if (flying.body.speed > 7 && !flying.dive) { const sp = pr.collision.supports?.[0] || flying.body.position; fx.impact(sp.x, sp.y, Math.min(110, 40 + flying.body.speed * 3), Math.random()); }
       if (flying.dive) { // Miu: onda de choque + temblor de estructuras
         const p = flying.body.position; flying.dive = false;
         blast(p.x, p.y + CAT_R, 240, 16, 34, {can: 2.0, box: 0.85}); dyn.forEach(o => { Sleeping.set(o.body, false); Body.setAngularVelocity(o.body, (Math.random() - 0.5) * 0.05); });

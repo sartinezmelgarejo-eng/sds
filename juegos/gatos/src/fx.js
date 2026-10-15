@@ -52,6 +52,14 @@ export class FX {
     const s = new Sprite(this.ringTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; s.scale.set(0.1); this.root.addChild(s);
     this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R / 110});
   }
+  // destello de impacto (AB2): estrella blanca de picos irregulares que aparece de golpe, crece un poco y se apaga en ~0.15 s
+  impact(x, y, R, rot = 0) {
+    if (!this.impTex) this.impTex = tex(160, 160, k => { k.translate(80, 80); const P = 9;
+      const star = (r0, r1, j) => { k.beginPath(); for (let i = 0; i < P * 2; i++) { const a = i * Math.PI / P, r = i % 2 ? r0 : r1 * (0.75 + 0.25 * Math.abs(Math.sin(i * 2.3 + j))); k.lineTo(Math.cos(a) * r, Math.sin(a) * r); } k.closePath(); };
+      star(26, 76, 0); k.fillStyle = 'rgba(255,226,120,0.9)'; k.fill(); star(18, 58, 1); k.fillStyle = '#FFFFFF'; k.fill(); });
+    const s = new Sprite(this.impTex); s.anchor.set(0.5); s.position.set(x, y); s.rotation = rot; const sz = R / 76; s.scale.set(sz); this.root.addChild(s);
+    this.parts.push({s, vx: 0, vy: 0, vr: 0, life: 0.15, t: 0, g: 0, drag: 0, grow: 0.5, sz});
+  }
   // bola de fuego: núcleo blanco + capa naranja que se expande
   fireball(x, y, R) {
     if (!this.fireTex) this.fireTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,250,210,1)'); g.addColorStop(0.18, 'rgba(255,210,70,1)'); g.addColorStop(0.55, 'rgba(255,120,20,0.95)'); g.addColorStop(0.8, 'rgba(210,60,15,0.6)'); g.addColorStop(1, 'rgba(160,40,10,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
