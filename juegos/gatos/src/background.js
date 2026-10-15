@@ -275,7 +275,220 @@ function lawnLayer() {
   });
 }
 
+// ================= MUNDO 3: LA GUARIDA (sótano bajo la casa) =================
+// Noche: luz cálida de focos colgantes + luz fría de luna por una ventanita con barrotes. Todo lo que no está iluminado, oscuro.
+const LAMPS = [{x: 380, y: 760, ph: 0.3}, {x: 1950, y: 640, ph: 2.1}, {x: 3500, y: 780, ph: 4.4}]; // focos (mundo, parallax 0.35)
+const MOON = {x: 1080, y: 120, w: 420, h: 300}; // ventanita del sótano
+function tunaCan(ctx, x, y, r) { // lata de atún (cilindro chato visto de lado, etiqueta azul con pescadito)
+  const h = r * 0.62;
+  ctx.fillStyle = lin(ctx, x - r, 0, x + r, 0, [[0, '#6E7A86'], [0.3, '#E8EEF4'], [0.55, '#AEB9C4'], [1, '#56606B']]); rr(ctx, x - r, y - h, 2 * r, h, r * 0.12); ctx.fill();
+  ctx.fillStyle = lin(ctx, x - r, 0, x + r, 0, [[0, '#1F4E8C'], [0.35, '#4C8FE0'], [1, '#173A6A']]); ctx.fillRect(x - r, y - h * 0.8, 2 * r, h * 0.6);
+  ctx.fillStyle = '#FFD84A'; ctx.beginPath(); ctx.ellipse(x - r * 0.05, y - h * 0.5, r * 0.32, h * 0.16, 0, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x + r * 0.22, y - h * 0.5); ctx.lineTo(x + r * 0.45, y - h * 0.68); ctx.lineTo(x + r * 0.45, y - h * 0.32); ctx.fill();
+  ctx.fillStyle = lin(ctx, x - r, 0, x + r, 0, [[0, '#9AA6B2'], [0.4, '#FFFFFF'], [1, '#7D8894']]); ctx.beginPath(); ctx.ellipse(x, y - h, r, r * 0.2, 0, 0, TAU); ctx.fill();
+  ctx.lineWidth = Math.max(2, r * 0.06); ctx.strokeStyle = '#2A2E38'; rr(ctx, x - r, y - h, 2 * r, h, r * 0.12); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y - h, r, r * 0.2, 0, 0, TAU); ctx.stroke();
+}
+// Pared de ladrillo + vigas del techo + tubería de cobre + ventanita con luna + botín de latas de atún. Parallax 0.35.
+function lairWallLayer() {
+  const {x0, y0, x1} = BOUNDS, w = x1 - x0, h = GROUND + 120 - y0;
+  return bake(x0, y0, w, h, 0.45, ctx => {
+    const r = rng(311);
+    ctx.fillStyle = '#3A2626'; ctx.fillRect(x0, y0, w, h);
+    // ladrillos (filas alternadas, tono variable, junta oscura)
+    const BW = 170, BH = 74;
+    for (let y = y0 + 160, row = 0; y < y0 + h; y += BH, row++) for (let x = x0 - (row % 2) * BW / 2; x < x1; x += BW) {
+      const t = r(), base = t > 0.92 ? '#8A5A44' : t > 0.6 ? '#7A4636' : t > 0.25 ? '#6C3D31' : '#5E352C';
+      rr(ctx, x + 4, y + 4, BW - 8, BH - 8, 6); ctx.fillStyle = lin(ctx, x, y, x, y + BH, [[0, shade(base, 18)], [1, shade(base, -22)]]); ctx.fill();
+      ctx.fillStyle = 'rgba(255,220,180,0.12)'; ctx.fillRect(x + 8, y + 6, BW - 16, 5);
+      if (r() > 0.85) { ctx.fillStyle = 'rgba(30,15,10,0.35)'; ctx.beginPath(); ctx.arc(x + 20 + r() * (BW - 40), y + 18 + r() * (BH - 36), 4 + r() * 6, 0, TAU); ctx.fill(); } // picaduras
+    }
+    // manchas de humedad que bajan de la tubería
+    for (let i = 0; i < 9; i++) { const x = x0 + 200 + r() * (w - 400), yy = GROUND - 1480;
+      ctx.fillStyle = lin(ctx, 0, yy, 0, yy + 500 + r() * 400, [[0, 'rgba(25,30,30,0.45)'], [1, 'rgba(25,30,30,0)']]); ctx.beginPath(); ctx.ellipse(x, yy + 300, 60 + r() * 70, 380, 0, 0, TAU); ctx.fill(); }
+    // ventanita del sótano con barrotes: cielo de noche, luna, estrellas
+    const {x: wx, y: wy, w: ww, h: wh} = MOON;
+    ctx.save(); rr(ctx, wx, wy, ww, wh, 14); ctx.clip();
+    ctx.fillStyle = lin(ctx, 0, wy, 0, wy + wh, [[0, '#0E1F45'], [1, '#2D4F86']]); ctx.fillRect(wx, wy, ww, wh);
+    ctx.fillStyle = rad(ctx, wx + ww * 0.68, wy + wh * 0.35, 0, 200, [[0, 'rgba(210,230,255,0.7)'], [0.3, 'rgba(160,200,255,0.25)'], [1, 'rgba(160,200,255,0)']]); ctx.fillRect(wx, wy, ww, wh);
+    ctx.fillStyle = rad(ctx, wx + ww * 0.65, wy + wh * 0.32, 0, 58, [[0, '#FFFFF4'], [1, '#D9E6F5']]); ctx.beginPath(); ctx.arc(wx + ww * 0.68, wy + wh * 0.35, 52, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(150,170,200,0.35)'; [[-14, -10, 10], [12, 14, 7], [-4, 20, 5]].forEach(([dx, dy, R]) => { ctx.beginPath(); ctx.arc(wx + ww * 0.68 + dx, wy + wh * 0.35 + dy, R, 0, TAU); ctx.fill(); });
+    for (let i = 0; i < 14; i++) { ctx.fillStyle = `rgba(255,255,255,${0.4 + r() * 0.6})`; ctx.beginPath(); ctx.arc(wx + r() * ww, wy + r() * wh * 0.7, 2 + r() * 2.5, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = '#1C2A22'; ctx.beginPath(); ctx.moveTo(wx, wy + wh); for (let x = wx; x <= wx + ww; x += 18) ctx.lineTo(x, wy + wh - 30 - r() * 40); ctx.lineTo(wx + ww, wy + wh); ctx.fill(); // pasto visto desde abajo
+    ctx.restore();
+    ctx.lineWidth = 10; ctx.strokeStyle = '#2A1A16'; rr(ctx, wx, wy, ww, wh, 14); ctx.stroke();
+    ctx.lineWidth = 26; ctx.strokeStyle = lin(ctx, wx, wy, wx + ww, wy + wh, [[0, '#7B6A5C'], [1, '#43372F']]); rr(ctx, wx - 16, wy - 16, ww + 32, wh + 32, 22); ctx.stroke();
+    for (let i = 1; i < 5; i++) { const bx = wx + i * ww / 5; ctx.fillStyle = lin(ctx, bx - 8, 0, bx + 8, 0, [[0, '#2A2A30'], [0.4, '#77808C'], [1, '#22222A']]); ctx.fillRect(bx - 8, wy, 16, wh); }
+    // vigas de madera del techo + postes
+    ctx.fillStyle = lin(ctx, 0, y0, 0, y0 + 170, [[0, '#2B1A12'], [0.7, '#5A3A24'], [1, '#3A2416']]); ctx.fillRect(x0, y0, w, 170);
+    for (let x = x0 + 60; x < x1; x += 330) { ctx.fillStyle = lin(ctx, x, 0, x + 90, 0, [[0, '#6E4A2E'], [1, '#3A2416']]); ctx.fillRect(x, y0, 90, 210); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x, y0 + 210, 90, 14); }
+    for (const px of [-120, 2750]) { ctx.fillStyle = lin(ctx, px, 0, px + 120, 0, [[0, '#7A5434'], [0.5, '#5C3C24'], [1, '#2E1C10']]); ctx.fillRect(px, y0 + 170, 120, h); ctx.strokeStyle = 'rgba(30,15,5,0.5)'; ctx.lineWidth = 3;
+      for (let yy = y0 + 260; yy < y0 + h; yy += 140 + r() * 120) { ctx.beginPath(); ctx.moveTo(px + 20, yy); ctx.quadraticCurveTo(px + 60, yy + 30, px + 100, yy + 6); ctx.stroke(); } }
+    // tubería de cobre horizontal con bridas, codo que baja y llave roja
+    const py = GROUND - 1500, pipe = (xa, ya, xb, yb, R) => { const horiz = ya === yb;
+      ctx.fillStyle = horiz ? lin(ctx, 0, ya - R, 0, ya + R, [[0, '#6E3A1C'], [0.3, '#E89A5A'], [0.5, '#C9763C'], [1, '#5A2C12']]) : lin(ctx, xa - R, 0, xa + R, 0, [[0, '#6E3A1C'], [0.3, '#E89A5A'], [0.5, '#C9763C'], [1, '#5A2C12']]);
+      if (horiz) ctx.fillRect(xa, ya - R, xb - xa, 2 * R); else ctx.fillRect(xa - R, ya, 2 * R, yb - ya); };
+    pipe(x0, py, x1, py, 30); pipe(x0, py - 120, x1, py - 120, 18);
+    for (let x = x0 + 200; x < x1; x += 600) { ctx.fillStyle = lin(ctx, 0, py - 40, 0, py + 40, [[0, '#8A5030'], [0.35, '#F2B07A'], [1, '#4E2510']]); rr(ctx, x - 16, py - 40, 32, 80, 6); ctx.fill(); ctx.fillStyle = '#2A1A16'; ctx.fillRect(x - 4, py + 40, 8, 70); } // bridas + soportes
+    pipe(1700, py, 1700, GROUND + 100, 30); pipe(3180, py - 120, 3180, GROUND + 100, 18);
+    ctx.fillStyle = rad(ctx, 1700, py, 0, 70, [[0, '#F2B07A'], [1, '#6E3A1C']]); ctx.beginPath(); ctx.arc(1700, py, 46, 0, TAU); ctx.fill();
+    ctx.lineWidth = 12; ctx.strokeStyle = '#C8322E'; ctx.beginPath(); ctx.arc(1700, py + 230, 52, 0, TAU); ctx.stroke(); // llave de paso
+    ctx.lineWidth = 8; for (let a = 0; a < 3; a++) { ctx.beginPath(); ctx.moveTo(1700, py + 230); ctx.lineTo(1700 + Math.cos(a * 2.1) * 52, py + 230 + Math.sin(a * 2.1) * 52); ctx.stroke(); }
+    ctx.fillStyle = '#E0524A'; ctx.beginPath(); ctx.arc(1700, py + 230, 14, 0, TAU); ctx.fill();
+    // cartel "SE BUSCA" que hicieron los ratones (gato garabateado con una X roja)
+    const sx = 620, sy = GROUND - 1250;
+    ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.06);
+    ctx.fillStyle = '#E9DDBF'; ctx.fillRect(-120, -150, 240, 300); ctx.fillStyle = 'rgba(120,90,40,0.25)'; ctx.fillRect(-120, 110, 240, 40);
+    ctx.fillStyle = '#5A2A1A'; ctx.font = '44px "Luckiest Guy"'; ctx.textAlign = 'center'; ctx.fillText('SE BUSCA', 0, -95);
+    ctx.lineWidth = 6; ctx.strokeStyle = '#3A2A20'; ctx.beginPath(); ctx.arc(0, 10, 62, 0, TAU); ctx.moveTo(-55, -20); ctx.lineTo(-48, -82); ctx.lineTo(-18, -55); ctx.moveTo(55, -20); ctx.lineTo(48, -82); ctx.lineTo(18, -55); ctx.stroke();
+    ctx.fillStyle = '#3A2A20'; [[-22, 0], [22, 0]].forEach(([dx, dy]) => { ctx.beginPath(); ctx.arc(dx, dy, 7, 0, TAU); ctx.fill(); });
+    ctx.beginPath(); ctx.moveTo(-6, 20); ctx.lineTo(6, 20); ctx.lineTo(0, 28); ctx.fill(); ctx.lineWidth = 3; [[-1, 1]].forEach(() => { for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(s * 18, 30); ctx.lineTo(s * 70, 22); ctx.moveTo(s * 18, 36); ctx.lineTo(s * 70, 42); ctx.stroke(); } });
+    ctx.lineWidth = 14; ctx.strokeStyle = 'rgba(205,40,35,0.9)'; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-80, -60); ctx.lineTo(80, 90); ctx.moveTo(80, -60); ctx.lineTo(-80, 90); ctx.stroke();
+    ctx.fillStyle = '#9A9AA2'; ctx.beginPath(); ctx.arc(0, -140, 8, 0, TAU); ctx.fill();
+    ctx.restore();
+    // repisa con el BOTÍN: pirámide de latas de atún robadas (brillan bajo el foco)
+    const shx = 3080, shy = GROUND - 1130, shw = 760;
+    ctx.fillStyle = rad(ctx, shx + shw / 2, shy - 120, 0, 520, [[0, 'rgba(255,215,120,0.35)'], [1, 'rgba(255,215,120,0)']]); ctx.fillRect(shx - 200, shy - 600, shw + 400, 900);
+    const R = 62; for (let row = 0; row < 4; row++) for (let i = 0; i < 5 - row; i++) tunaCan(ctx, shx + 70 + R + row * R + i * 2 * R * 1.02, shy - row * R * 0.62 * 1.05, R);
+    rr(ctx, shx, shy, shw, 30, 8); ctx.fillStyle = lin(ctx, 0, shy, 0, shy + 30, [[0, '#9A6A40'], [1, '#5A3A20']]); ctx.fill();
+    ctx.fillStyle = '#2A1A10'; ctx.fillRect(shx + 60, shy + 30, 14, 60); ctx.fillRect(shx + shw - 74, shy + 30, 14, 60);
+    ctx.fillStyle = lin(ctx, 0, shy + 30, 0, shy + 110, [[0, 'rgba(0,0,0,0.4)'], [1, 'rgba(0,0,0,0)']]); ctx.fillRect(shx, shy + 30, shw, 80);
+    // charcos de luz cálida de los focos sobre la pared + oscuridad general arriba y en los bordes
+    ctx.save(); ctx.globalCompositeOperation = 'multiply';
+    ctx.fillStyle = lin(ctx, 0, y0, 0, GROUND + 120, [[0, 'rgba(40,40,70,1)'], [0.35, 'rgba(110,100,130,1)'], [1, 'rgba(90,80,110,1)']]); ctx.fillRect(x0, y0, w, h);
+    ctx.restore(); ctx.save(); ctx.globalCompositeOperation = 'screen';
+    LAMPS.forEach(L => { ctx.fillStyle = rad(ctx, L.x, L.y + 80, 0, 1100, [[0, 'rgba(255,190,110,0.55)'], [0.35, 'rgba(230,140,70,0.22)'], [1, 'rgba(200,110,50,0)']]); ctx.fillRect(L.x - 1200, y0, 2400, h); });
+    ctx.fillStyle = rad(ctx, wx + ww / 2, wy + wh / 2, 0, 700, [[0, 'rgba(120,160,230,0.35)'], [1, 'rgba(120,160,230,0)']]); ctx.fillRect(wx - 700, y0, ww + 1400, 1400);
+    ctx.restore();
+  });
+}
+// Focos colgantes que se mecen (con halo y cono de luz aditivos) + haz de luna con polvo + gotas de la tubería. Parallax 0.35.
+function lampLayer() {
+  const c = new Container(), r = rng(57), {y0} = BOUNDS;
+  const glowT = (() => { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const k = cv.getContext('2d');
+    k.fillStyle = rad(k, 64, 64, 0, 64, [[0, 'rgba(255,240,200,1)'], [0.15, 'rgba(255,210,130,0.8)'], [0.5, 'rgba(255,170,80,0.18)'], [1, 'rgba(255,150,60,0)']]); k.fillRect(0, 0, 128, 128); return Texture.from(cv); })();
+  const coneT = (() => { const cv = document.createElement('canvas'); cv.width = 200; cv.height = 300; const k = cv.getContext('2d');
+    k.filter = 'blur(6px)'; k.beginPath(); k.moveTo(85, 0); k.lineTo(115, 0); k.lineTo(195, 295); k.lineTo(5, 295); k.closePath();
+    k.fillStyle = lin(k, 0, 0, 0, 300, [[0, 'rgba(255,215,140,0.5)'], [0.5, 'rgba(255,200,120,0.18)'], [1, 'rgba(255,190,110,0)']]); k.fill(); return Texture.from(cv); })();
+  const bulbT = (() => { const cv = document.createElement('canvas'); cv.width = 120; cv.height = 190; const k = cv.getContext('2d');
+    k.fillStyle = lin(k, 40, 0, 80, 0, [[0, '#3A3A40'], [0.5, '#8A8A94'], [1, '#2A2A30']]); rr(k, 42, 0, 36, 50, 6); k.fill(); // socket
+    k.fillStyle = lin(k, 20, 40, 100, 40, [[0, '#4A5A3A'], [0.4, '#7E9A5E'], [1, '#2E3A24']]); k.beginPath(); k.moveTo(48, 40); k.lineTo(72, 40); k.lineTo(116, 108); k.lineTo(4, 108); k.closePath(); k.fill(); // pantalla de lámina verde
+    k.lineWidth = 4; k.strokeStyle = '#1E2618'; k.stroke();
+    k.fillStyle = rad(k, 60, 128, 0, 40, [[0, '#FFFFFF'], [0.5, '#FFF2B8'], [1, '#FFC860']]); k.beginPath(); k.arc(60, 126, 30, 0, TAU); k.fill();
+    return Texture.from(cv); })();
+  const lamps = LAMPS.map(L => { const p = new Container(); p.position.set(L.x, y0 + 140); c.addChild(p); const len = L.y - (y0 + 140);
+    const cord = new Sprite(Texture.WHITE); cord.tint = 0x15100C; cord.width = 7; cord.height = len; cord.x = -3.5; p.addChild(cord);
+    const cone = new Sprite(coneT); cone.anchor.set(0.5, 0); cone.scale.set(6.5, 5.5); cone.y = len + 90; cone.blendMode = 'add'; cone.alpha = 0.55;
+    const glow = new Sprite(glowT); glow.anchor.set(0.5); glow.scale.set(5.5); glow.y = len + 100; glow.blendMode = 'add';
+    const bulb = new Sprite(bulbT); bulb.anchor.set(0.5, 0); bulb.scale.set(1.6); bulb.y = len - 10;
+    p.addChild(cone, bulb, glow); return {p, glow, cone, ph: L.ph, fl: 0}; });
+  // polvo en el haz de luna (luz fría que baja en diagonal desde la ventanita)
+  const {x: wx, y: wy, w: ww, h: wh} = MOON;
+  const shaft = new Sprite((() => { const cv = document.createElement('canvas'); cv.width = 260; cv.height = 260; const k = cv.getContext('2d'); k.filter = 'blur(5px)';
+    k.beginPath(); k.moveTo(10, 10); k.lineTo(52, 10); k.lineTo(250, 250); k.lineTo(140, 250); k.closePath();
+    k.fillStyle = lin(k, 0, 10, 0, 250, [[0, 'rgba(170,200,255,0.5)'], [1, 'rgba(170,200,255,0)']]); k.fill(); return Texture.from(cv); })());
+  shaft.scale.set(ww / 42, 9); shaft.position.set(wx - 10 * ww / 42, wy + wh * 0.4); shaft.blendMode = 'add'; shaft.alpha = 0.5; c.addChildAt(shaft, 0);
+  const moteT = glowT, motes = [];
+  for (let i = 0; i < 34; i++) { const s = new Sprite(moteT); s.anchor.set(0.5); s.blendMode = 'add'; s.tint = 0xCFE0FF; c.addChild(s); motes.push({s, u: r(), v: r(), ph: r() * TAU, sz: 0.08 + r() * 0.1, dv: 0.01 + r() * 0.015}); }
+  // gotas que caen de las bridas de la tubería
+  const dropT = (() => { const cv = document.createElement('canvas'); cv.width = 16; cv.height = 26; const k = cv.getContext('2d');
+    k.fillStyle = lin(k, 0, 0, 16, 0, [[0, 'rgba(150,200,230,0.9)'], [0.4, 'rgba(240,250,255,1)'], [1, 'rgba(90,140,180,0.9)']]); k.beginPath(); k.moveTo(8, 0); k.quadraticCurveTo(16, 18, 8, 25); k.quadraticCurveTo(0, 18, 8, 0); k.fill(); return Texture.from(cv); })();
+  const drips = [500, 1700, 2900].map((x, i) => { const s = new Sprite(dropT); s.anchor.set(0.5, 0); s.scale.set(1.6); c.addChild(s); return {s, x: x + 20, y0: GROUND - 1460, t: -i * 1.3, v: 0}; });
+  let T = 0;
+  c.update = dt => { T += dt;
+    lamps.forEach((L, i) => { L.p.rotation = Math.sin(T * 0.9 + L.ph) * 0.035 + Math.sin(T * 0.37 + L.ph * 2) * 0.015;
+      if (i === 1) { L.fl -= dt; if (L.fl <= 0) L.fl = Math.random() < 0.25 ? 0.06 : 2 + Math.random() * 5; } // el foco del centro parpadea de vez en cuando
+      const on = i === 1 && L.fl < 0.07 ? 0.35 : 1; L.glow.alpha = (0.85 + Math.sin(T * 9 + L.ph) * 0.04) * on; L.cone.alpha = 0.5 * on; });
+    shaft.alpha = 0.45 + Math.sin(T * 0.5) * 0.05;
+    motes.forEach(o => { o.ph += dt; o.v += o.dv * dt; if (o.v > 1) { o.v -= 1; o.u = Math.random(); }
+      const x = wx + o.u * ww + o.v * 1150 + Math.sin(o.ph * 0.8) * 14, y = wy + wh * 0.4 + o.v * 1150; o.s.position.set(x, y); o.s.scale.set(o.sz);
+      o.s.alpha = (0.35 + 0.65 * Math.abs(Math.sin(o.ph * 1.3))) * (1 - o.v) * Math.min(1, o.v * 8); });
+    drips.forEach(d => { d.t += dt; if (d.t < 0) { d.s.visible = false; return; }
+      if (d.t < 1.2) { d.s.visible = true; const g = d.t / 1.2; d.s.position.set(d.x, d.y0); d.s.scale.set(1.6 * g, 1.6 * g); d.v = 0; d.s.alpha = 1; return; } // la gota se forma
+      d.v += 2200 * dt; d.s.y += d.v * dt; d.s.scale.set(1.3, 2); d.s.alpha = Math.max(0, 1 - (d.s.y - d.y0) / 700);
+      if (d.s.y > d.y0 + 700) d.t = -1.5 - Math.random() * 3; });
+  };
+  return c;
+}
+// Fondo medio: cajas apiladas, frascos en anaquel, calentador de agua, telarañas, agujero de ratón iluminado. Parallax 0.65.
+function cratesLayer() {
+  const {x0, x1} = BOUNDS, ty = GROUND - 1150, w = x1 - x0, h = GROUND - ty + 30;
+  return bake(x0, ty, w, h, 0.55, ctx => {
+    const r = rng(131);
+    const crate = (x, y, cw, chh) => { // caja de madera (huacal) oscura
+      ctx.fillStyle = lin(ctx, x, y, x + cw, y + chh, [[0, '#6A4A30'], [1, '#3A2616']]); ctx.fillRect(x, y, cw, chh);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)'; for (let yy = y + chh / 3; yy < y + chh - 4; yy += chh / 3) ctx.fillRect(x, yy - 3, cw, 6);
+      ctx.strokeStyle = '#2A1A0E'; ctx.lineWidth = 6; ctx.strokeRect(x + 3, y + 3, cw - 6, chh - 6); ctx.beginPath(); ctx.moveTo(x + 8, y + 8); ctx.lineTo(x + cw - 8, y + chh - 8); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,210,150,0.18)'; ctx.fillRect(x + 6, y + 6, cw - 12, 8); };
+    const box = (x, y, bw, bh) => { ctx.fillStyle = lin(ctx, x, y, x + bw, y + bh, [[0, '#8E6A44'], [1, '#5A4028']]); ctx.fillRect(x, y, bw, bh);
+      ctx.fillStyle = 'rgba(200,170,110,0.35)'; ctx.fillRect(x + bw * 0.42, y, bw * 0.16, bh); ctx.strokeStyle = '#33220F'; ctx.lineWidth = 5; ctx.strokeRect(x, y, bw, bh); };
+    // calentador de agua (izq, detrás de la resortera)
+    const hx = 120, hw = 300, hy = GROUND - 1000;
+    ctx.fillStyle = lin(ctx, hx, 0, hx + hw, 0, [[0, '#5E6A70'], [0.35, '#B8C4C8'], [1, '#3A4246']]); rr(ctx, hx, hy, hw, GROUND - hy, 60); ctx.fill(); ctx.strokeStyle = '#1E2428'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.fillStyle = '#E8E2D0'; ctx.beginPath(); ctx.arc(hx + hw / 2, hy + 260, 50, 0, TAU); ctx.fill(); ctx.stroke(); // manómetro
+    ctx.strokeStyle = '#C8322E'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(hx + hw / 2, hy + 260); ctx.lineTo(hx + hw / 2 + 30, hy + 235); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,140,40,0.85)'; rr(ctx, hx + hw / 2 - 50, GROUND - 180, 100, 40, 10); ctx.fill(); // flamita del piloto
+    ctx.fillStyle = '#5FA8FF'; ctx.beginPath(); ctx.ellipse(hx + hw / 2, GROUND - 160, 18, 10, 0, 0, TAU); ctx.fill();
+    // pilas de cajas y huacales
+    [[700, 3], [1250, 2], [2250, 4], [2900, 2], [3850, 3]].forEach(([x, n]) => { let y = GROUND;
+      for (let i = 0; i < n; i++) { const bw = 230 + r() * 120, bh = 150 + r() * 70, ox = (r() - 0.5) * 50; y -= bh; (r() > 0.45 ? crate : box)(x + ox - bw / 2, y, bw, bh); }
+      // telaraña en la esquina de arriba
+      const tx = x + 110, tY = y; ctx.strokeStyle = 'rgba(230,230,240,0.35)'; ctx.lineWidth = 2;
+      for (let a = 0; a <= 4; a++) { ctx.beginPath(); ctx.moveTo(tx, tY); ctx.lineTo(tx - Math.cos(a * Math.PI / 8) * 120, tY + Math.sin(a * Math.PI / 8) * 120); ctx.stroke(); }
+      for (let k = 1; k <= 3; k++) { ctx.beginPath(); for (let a = 0; a <= 4; a++) { const R = k * 36 + (a % 2) * 5; ctx[a ? 'lineTo' : 'moveTo'](tx - Math.cos(a * Math.PI / 8) * R, tY + Math.sin(a * Math.PI / 8) * R); } ctx.stroke(); } });
+    // anaquel metálico con frascos de conserva
+    const ax = 1600, aw = 520; [GROUND - 330, GROUND - 660].forEach(y => {
+      let cx = ax + 30; while (cx < ax + aw - 90) { const jw = 70 + r() * 40, jh = 90 + r() * 70, col = ['#C9562E', '#E0A030', '#7AA040', '#B03A50'][Math.floor(r() * 4)];
+        rr(ctx, cx, y - jh, jw, jh, 14); ctx.fillStyle = lin(ctx, cx, 0, cx + jw, 0, [[0, shade(col, 10)], [1, shade(col, -60)]]); ctx.fill();
+        ctx.fillStyle = '#8A8A90'; ctx.fillRect(cx + 4, y - jh - 12, jw - 8, 16); ctx.fillStyle = 'rgba(255,255,255,0.3)'; rr(ctx, cx + jw * 0.18, y - jh + 10, jw * 0.16, jh - 24, 5); ctx.fill(); cx += jw + 14 + r() * 20; }
+      ctx.fillStyle = lin(ctx, 0, y, 0, y + 22, [[0, '#9AA0A8'], [1, '#4E545C']]); ctx.fillRect(ax, y, aw, 22); });
+    ctx.fillStyle = '#3E444C'; ctx.fillRect(ax, GROUND - 760, 18, 760); ctx.fillRect(ax + aw - 18, GROUND - 760, 18, 760);
+    // agujero de ratón en el zoclo, con luz cálida adentro
+    ctx.fillStyle = lin(ctx, 0, GROUND - 90, 0, GROUND, [[0, '#4A3424'], [1, '#2A1C12']]); ctx.fillRect(x0, GROUND - 90, w, 90);
+    ctx.fillStyle = 'rgba(255,220,170,0.15)'; ctx.fillRect(x0, GROUND - 90, w, 6);
+    for (const mx of [1000, 3400]) { ctx.fillStyle = rad(ctx, mx, GROUND - 30, 0, 90, [[0, '#FFC870'], [0.6, '#A0602A'], [1, '#2A1408']]); ctx.beginPath(); ctx.moveTo(mx - 55, GROUND); ctx.lineTo(mx - 55, GROUND - 60); ctx.arc(mx, GROUND - 60, 55, Math.PI, 0); ctx.lineTo(mx + 55, GROUND); ctx.fill();
+      ctx.fillStyle = 'rgba(255,190,100,0.25)'; ctx.beginPath(); ctx.ellipse(mx, GROUND, 120, 22, 0, 0, TAU); ctx.fill(); }
+    // oscurecer todo (está más lejos de los focos que el juego) + sombra al pie
+    ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(30,20,40,0.38)'; ctx.fillRect(x0, ty, w, h); ctx.restore();
+    ctx.fillStyle = lin(ctx, 0, GROUND - 120, 0, GROUND, [[0, 'rgba(10,5,15,0)'], [1, 'rgba(10,5,15,0.5)']]); ctx.fillRect(x0, GROUND - 120, w, 120);
+  });
+}
+// Piso de concreto: borde gastado, grietas, manchas, coladera. Parallax 1.
+function concreteLayer() {
+  const {x0, x1, y1} = BOUNDS, top = GROUND, w = x1 - x0, h = y1 - top + 20;
+  return bake(x0, top - 12, w, h + 12, 0.8, ctx => {
+    const r = rng(271);
+    ctx.fillStyle = lin(ctx, 0, top, 0, y1, [[0, '#7A736C'], [0.08, '#5E5852'], [0.5, '#46413D'], [1, '#2A2624']]); ctx.fillRect(x0, top - 12, w, h + 12);
+    for (let i = 0; i < 60; i++) { const x = x0 + r() * w, y = top + 30 + r() * (h - 40), R = 20 + r() * 90; ctx.fillStyle = `rgba(${r() > 0.5 ? '20,18,16' : '140,130,120'},${0.08 + r() * 0.1})`; ctx.beginPath(); ctx.ellipse(x, y, R * 1.8, R * 0.5, 0, 0, TAU); ctx.fill(); }
+    for (let i = 0; i < w * h / 4000; i++) { ctx.fillStyle = r() > 0.5 ? 'rgba(0,0,0,0.25)' : 'rgba(200,190,180,0.2)'; ctx.fillRect(x0 + r() * w, top + r() * h, 3, 3); }
+    ctx.strokeStyle = 'rgba(20,15,12,0.6)'; ctx.lineWidth = 3; // grietas
+    for (let i = 0; i < 14; i++) { let x = x0 + r() * w, y = top + 2; ctx.beginPath(); ctx.moveTo(x, y); for (let k = 0; k < 6; k++) { x += (r() - 0.5) * 60; y += 15 + r() * 30; ctx.lineTo(x, y); } ctx.stroke(); }
+    for (let x = x0 + 600; x < x1; x += 900) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x, top, 4, h); ctx.fillStyle = 'rgba(200,190,180,0.12)'; ctx.fillRect(x + 4, top, 3, h); } // juntas de colado
+    const dx = 2350, dy = top + 120; ctx.fillStyle = '#26221F'; ctx.beginPath(); ctx.ellipse(dx, dy, 90, 26, 0, 0, TAU); ctx.fill(); ctx.strokeStyle = '#8A8580'; ctx.lineWidth = 6; ctx.stroke(); // coladera
+    ctx.lineWidth = 4; for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(dx + k * 22, dy - 22 + Math.abs(k) * 2); ctx.lineTo(dx + k * 22, dy + 22 - Math.abs(k) * 2); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(225,215,200,0.55)'; ctx.fillRect(x0, top - 12, w, 5); // filo iluminado
+    ctx.fillStyle = lin(ctx, 0, top, 0, top + 90, [[0, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,0.25)']]); ctx.fillRect(x0, top, w, 90);
+    ctx.save(); ctx.globalCompositeOperation = 'screen'; LAMPS.forEach(L => { const x = L.x; ctx.fillStyle = rad(ctx, x, top, 0, 700, [[0, 'rgba(255,180,100,0.22)'], [1, 'rgba(255,180,100,0)']]); ctx.fillRect(x - 700, top - 12, 1400, 400); }); ctx.restore();
+  });
+}
+// Primer plano oscuro desenfocado del sótano: tubo con codo (izq) y esquina de caja con telaraña (der)
+function lairFg(side) {
+  const S = 700, c = document.createElement('canvas'); c.width = S; c.height = S; const ctx = c.getContext('2d');
+  ctx.filter = 'blur(10px)';
+  if (side < 0) { ctx.fillStyle = '#1E1410'; ctx.fillRect(30, S - 700, 100, 720); ctx.fillStyle = '#2C1E16'; ctx.fillRect(14, S - 420, 132, 46); ctx.fillRect(14, S - 160, 132, 46); } // tubo vertical con abrazaderas
+  else { ctx.fillStyle = '#1A120E'; ctx.fillRect(0, S - 330, 380, 360); ctx.fillStyle = '#2A1C14'; ctx.fillRect(0, S - 330, 380, 40);
+    ctx.strokeStyle = 'rgba(200,200,210,0.25)'; ctx.lineWidth = 3; for (let a = 0; a <= 4; a++) { ctx.beginPath(); ctx.moveTo(380, S - 330); ctx.lineTo(380 + Math.cos(Math.PI - a * Math.PI / 8) * 200, S - 330 - Math.sin(a * Math.PI / 8) * 200); ctx.stroke(); } }
+  const s = new Sprite(Texture.from(c)); s.anchor.set(side < 0 ? 0 : 1, 1); if (side > 0) s.scale.x = -1;
+  return s;
+}
+
 export function buildBackground(theme = 'kitchen') {
+  if (theme === 'lair') {
+    const lamps = lampLayer();
+    const layers = [{node: lairWallLayer(), f: 0.35}, {node: lamps, f: 0.35}, {node: cratesLayer(), f: 0.65}, {node: concreteLayer(), f: 1}];
+    const fg = new Container(); const fl = lairFg(-1), fr = lairFg(1); fg.addChild(fl, fr);
+    return {layers, fg, fl, fr, update: dt => lamps.update(dt)};
+  }
   if (theme === 'garden') {
     const clouds = cloudLayer(), flies = butterflyLayer();
     const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];

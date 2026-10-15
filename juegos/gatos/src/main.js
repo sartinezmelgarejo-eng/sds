@@ -23,7 +23,7 @@ const PAD = 14; // margen para contorno/sombra en texturas de bloques
 const TEXC = new Map();
 const cached = (key, make) => { if (!TEXC.has(key)) TEXC.set(key, make()); return TEXC.get(key); };
 // pieles por mundo: misma física, otro material visual (Jardín: madera / maceta de barro / piedra)
-const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood', jar: 'pot', can: 'stone'}};
+const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood', jar: 'pot', can: 'stone'}, lair: {box: 'wood', jar: 'jar', can: 'stone'}};
 function blockTex(t, w, h, seed, damage = 0) {
   return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
     if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
@@ -86,6 +86,7 @@ async function main() {
     if (wraps.length && theme === bgTheme) return;
     bgTheme = theme; const nb = BGS[theme] || (BGS[theme] = buildBackground(theme));
     bgRoot.removeChildren(); curLayers = nb.layers; curBg = nb;
+    if (nb.fg !== bg.fg) { const i = app.stage.getChildIndex(bg.fg); app.stage.removeChild(bg.fg); app.stage.addChildAt(nb.fg, i); bg = nb; if (wraps.length) resize(); }
     wraps = nb.layers.map(l => { const c = new Container(); bgRoot.addChild(c); c.addChild(l.node); return c; });
   }
   useBg(bgTheme);
@@ -661,7 +662,7 @@ async function main() {
   // ---------- construir / reiniciar un nivel (sin recargar la página) ----------
   let fortX = 0;
   function buildLevel(id, fly) {
-    levelId = id; level = levels[id]; useBg((level.world || 1) >= 2 ? 'garden' : 'kitchen');
+    levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair');
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     dyn.length = 0; queue.length = 0;
