@@ -758,15 +758,15 @@ async function main() {
       if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1;
         const rb = dyn.find(o => o.enter); if (rb) { rb.enter.ry = body.position.y - rb.enter.y; Body.setPosition(body, {x: m.x, y: body.position.y - ENTER_DROP}); } }
       // ojos normal/susto sin pupilas: las pupilas van aparte y siguen al gato (como los cerdos de AB2)
-      // en La Guarida los ratoncitos llevan casco de minero con lamparita que alumbra hacia donde miran
-      const hat = bgTheme === 'lair' && m.k === 'small' ? 'miner' : null;
+      // ratoncitos con gorro del mundo: Jardín = gorrito de bellota; Guarida = casco de minero con lamparita que alumbra hacia donde miran
+      const hat = m.k !== 'small' ? null : bgTheme === 'lair' ? 'miner' : bgTheme === 'garden' ? 'acorn' : null;
       const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e, e === 'normal' || e === 'scared', hat)]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       const R = m.r * 1.5, pup = {normal: new Graphics(), scared: new Graphics()};
       for (const sx of [-0.33, 0.33]) { pup.normal.circle(sx * R, 0, R * 0.1).fill(0x1B1D2A).circle(sx * R - R * 0.03, -R * 0.05, R * 0.035).fill(0xFFFFFF); pup.scared.circle(sx * R, 0, R * 0.065).fill(0x1B1D2A); }
       sp.addChild(pup.normal, pup.scared);
       let beam = null;
-      if (hat) { beam = new Container(); beam.position.set(0, -m.r * 0.65 * 1.5); const c = new Sprite(beamTex), g = new Sprite(lampGlowTex);
+      if (hat === 'miner') { beam = new Container(); beam.position.set(0, -m.r * 0.65 * 1.5); const c = new Sprite(beamTex), g = new Sprite(lampGlowTex);
         c.anchor.set(0.02, 0.5); c.scale.set(m.r * 1.5 / 40); c.blendMode = g.blendMode = 'add'; g.anchor.set(0.5); g.scale.set(m.r * 1.5 / 60); c.rotation = Math.PI; beam.addChild(c, g); beam.cone = c; sp.addChild(beam); }
       Composite.add(engine.world, body); actors.addChild(sp);
       dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});

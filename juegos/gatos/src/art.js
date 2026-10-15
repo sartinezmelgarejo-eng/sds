@@ -387,6 +387,7 @@ const ART = (() => {
     // brillo de borde (rim light)
     ctx.beginPath(); ctx.ellipse(0, 0, r * 0.93, r * 0.85, 0, Math.PI * 1.1, Math.PI * 1.55); ctx.lineWidth = r * 0.06; ctx.strokeStyle = 'rgba(255,250,235,0.7)'; ctx.stroke();
     if (opt.hat === 'miner') minerHat(ctx, 0, -r * 0.6, r);
+    else if (opt.hat === 'acorn') acornCap(ctx, 0, -r * 0.62, r);
     else if (kind === 'thimble') thimble(ctx, 0, -r * 0.62, r);
     if (kind === 'boss') crown(ctx, 0, -r * 0.82, r);
     ctx.restore();
@@ -413,6 +414,21 @@ const ART = (() => {
     ctx.beginPath(); ctx.ellipse(-r * 0.28, -r * 0.2, r * 0.1, r * 0.2, -0.5, 0, TAU); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.fill(); // brillo
     rr(ctx, -r * 0.2, -r * 0.2, r * 0.4, r * 0.3, r * 0.08); ctx.fillStyle = lin(ctx, 0, -r * 0.2, 0, r * 0.1, [[0, '#7A8290'], [1, '#3D434F']]); ctx.fill(); ctx.lineWidth = r * 0.05; ctx.stroke(); // lámpara
     ctx.beginPath(); ctx.arc(0, -r * 0.05, r * 0.12, 0, TAU); ctx.fillStyle = rad(ctx, 0, -r * 0.05, 0, r * 0.12, [[0, '#FFFFFF'], [0.6, '#FFF2A0'], [1, '#FFC23A']]); ctx.fill(); ctx.lineWidth = r * 0.035; ctx.stroke();
+    ctx.restore();
+  }
+  // gorrito de bellota (ratones del Jardín): cúpula café con escamas en rombo, palito y una hojita
+  function acornCap(ctx, x, y, r) {
+    ctx.save(); ctx.translate(x, y - r * 0.06); ctx.rotate(-0.14); ctx.scale(1.22, 1.22); const o = '#2B2F45';
+    ctx.beginPath(); ctx.moveTo(-r * 0.66, r * 0.16); ctx.bezierCurveTo(-r * 0.7, -r * 0.5, r * 0.7, -r * 0.5, r * 0.66, r * 0.16); ctx.quadraticCurveTo(0, r * 0.3, -r * 0.66, r * 0.16); ctx.closePath();
+    ctx.fillStyle = lin(ctx, -r * 0.6, -r * 0.4, r * 0.5, r * 0.2, [[0, '#C08A4E'], [0.5, '#8E5B2C'], [1, '#5C3818']]); ctx.fill();
+    ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(50,28,10,0.45)'; ctx.lineWidth = r * 0.035;
+    for (let i = -6; i <= 6; i++) { ctx.beginPath(); ctx.moveTo(i * r * 0.16 - r * 0.5, r * 0.3); ctx.lineTo(i * r * 0.16 + r * 0.5, -r * 0.6); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i * r * 0.16 + r * 0.5, r * 0.3); ctx.lineTo(i * r * 0.16 - r * 0.5, -r * 0.6); ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(-r * 0.25, -r * 0.18, r * 0.16, r * 0.09, -0.4, 0, TAU); ctx.fillStyle = 'rgba(255,230,190,0.35)'; ctx.fill(); ctx.restore();
+    ctx.lineWidth = r * 0.06; ctx.strokeStyle = o; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -r * 0.34); ctx.quadraticCurveTo(r * 0.04, -r * 0.5, r * 0.13, -r * 0.56); ctx.lineWidth = r * 0.11; ctx.lineCap = 'round'; ctx.strokeStyle = o; ctx.stroke(); ctx.lineWidth = r * 0.055; ctx.strokeStyle = '#7A4C22'; ctx.stroke(); // palito
+    ctx.beginPath(); ctx.moveTo(r * 0.1, -r * 0.5); ctx.quadraticCurveTo(r * 0.45, -r * 0.78, r * 0.62, -r * 0.48); ctx.quadraticCurveTo(r * 0.38, -r * 0.3, r * 0.1, -r * 0.5); ctx.closePath(); // hojita
+    ctx.fillStyle = lin(ctx, r * 0.1, -r * 0.7, r * 0.6, -r * 0.4, [[0, '#9BE05A'], [1, '#4E9A2A']]); ctx.fill(); ctx.lineWidth = r * 0.045; ctx.strokeStyle = o; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(r * 0.14, -r * 0.5); ctx.quadraticCurveTo(r * 0.38, -r * 0.56, r * 0.56, -r * 0.5); ctx.lineWidth = r * 0.02; ctx.strokeStyle = 'rgba(30,70,20,0.6)'; ctx.stroke();
     ctx.restore();
   }
   function crown(ctx, x, y, r) {
