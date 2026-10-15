@@ -1,12 +1,15 @@
 // Sonidos sintetizados con WebAudio (sin archivos): golpes por material, rotura, resortera, puf, puntos.
 // Se desbloquea con el primer toque (requisito de iOS/Safari).
 let ctx = null, master = null, noiseBuf = null;
+let muted = false; try { muted = localStorage.getItem('gatos.mute') === '1'; } catch (e) {}
+export const isMuted = () => muted;
+export function setMuted(m) { muted = m; try { localStorage.setItem('gatos.mute', m ? '1' : '0'); } catch (e) {} if (master) master.gain.value = m ? 0 : 0.55; }
 const last = {}; // limitar repeticiones del mismo sonido en ráfaga
 
 export function unlockAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-  ctx = new AC(); master = ctx.createGain(); master.gain.value = 0.55;
+  ctx = new AC(); master = ctx.createGain(); master.gain.value = muted ? 0 : 0.55;
   const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -67,3 +70,6 @@ export function win() { if (!ctx) return; const t = ctx.currentTime; [523, 659, 
 export function lose() { if (!ctx) return; const t = ctx.currentTime; [392, 370, 349, 330].forEach((f, i) => tone(t + i * 0.32, f, 'sawtooth', 0.09, i === 3 ? 0.9 : 0.3, i === 3 ? 300 : 0)); }
 export function giggle() { if (!ok('gig', 0.5)) return; const t = ctx.currentTime; for (let i = 0; i < 6; i++) tone(t + i * 0.09, 1300 + Math.random() * 400 - i * 40, 'square', 0.04, 0.06, 1700); }
 export function click() { if (!ctx) return; const t = ctx.currentTime; tone(t, 660, 'sine', 0.25, 0.08, 990); }
+// título: zumbido grave al entrar a la pupila + "pop" al abrir el iris
+export function whoosh() { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.8, 'bandpass', 300, 1.2, 0.6, 0.75, 2600); tone(t, 90, 'sine', 0.35, 0.7, 40); }
+export function pop() { if (!ok('pop', 0.04)) return; const t = ctx.currentTime; tone(t, 380 + Math.random() * 120, 'sine', 0.22, 0.09, 760); }

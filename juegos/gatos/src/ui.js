@@ -6,13 +6,13 @@ import ART from './art.js';
 import * as SFX from './sfx.js';
 
 const W = 2048, H = 1536;
-function tex(w, h, draw, res = 1) { const c = document.createElement('canvas'); c.width = w * res; c.height = h * res; const k = c.getContext('2d'); k.scale(res, res); draw(k); return Texture.from(c); }
-const backOut = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
-const clamp01 = u => Math.max(0, Math.min(1, u));
-const txt = (text, size, fill = '#FFFFFF', stroke = 0.17) => new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: size, fill, stroke: {color: '#1F2240', width: Math.round(size * stroke), join: 'round'}, dropShadow: {color: '#1F2240', distance: Math.round(size * 0.08), angle: Math.PI / 2, blur: 0, alpha: 0.95}, align: 'center'}});
+export function tex(w, h, draw, res = 1) { const c = document.createElement('canvas'); c.width = w * res; c.height = h * res; const k = c.getContext('2d'); k.scale(res, res); draw(k); return Texture.from(c); }
+export const backOut = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
+export const clamp01 = u => Math.max(0, Math.min(1, u));
+export const txt = (text, size, fill = '#FFFFFF', stroke = 0.17) => new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: size, fill, stroke: {color: '#1F2240', width: Math.round(size * stroke), join: 'round'}, dropShadow: {color: '#1F2240', distance: Math.round(size * 0.08), angle: Math.PI / 2, blur: 0, alpha: 0.95}, align: 'center'}});
 
 // íconos blancos con contorno para los botones
-function iconRetry(k, x, y, h) {
+export function iconRetry(k, x, y, h) {
   const r = h * 0.24; k.save(); k.lineCap = 'round'; k.lineJoin = 'round';
   for (const [col, lw] of [['#1F2240', h * 0.17], ['#FFFFFF', h * 0.09]]) {
     k.strokeStyle = col; k.fillStyle = col; k.lineWidth = lw;
@@ -22,21 +22,55 @@ function iconRetry(k, x, y, h) {
   }
   k.restore();
 }
-function iconNext(k, x, y, h) {
+export function iconNext(k, x, y, h) {
   const s = h * 0.24; k.save(); k.lineJoin = 'round';
   k.beginPath(); k.moveTo(x - s * 0.7, y - s); k.lineTo(x + s * 1.0, y); k.lineTo(x - s * 0.7, y + s); k.closePath();
   k.lineWidth = h * 0.08; k.strokeStyle = '#1F2240'; k.fillStyle = '#FFFFFF'; k.stroke(); k.fill(); k.restore();
 }
+// pausa (dos barras), menú de niveles (cuadrícula 2×2), atrás (flecha), sonido (bocina con ondas / tachada)
+const outlined = (k, h, draw) => { k.save(); k.lineJoin = 'round'; k.lineCap = 'round'; k.lineWidth = h * 0.07; k.strokeStyle = '#1F2240'; k.fillStyle = '#FFFFFF'; draw(); k.stroke(); k.fill(); k.restore(); };
+export function iconPause(k, x, y, h) { const w = h * 0.11, t = h * 0.36; for (const dx of [-w * 1.6, w * 0.6]) outlined(k, h, () => ART.rr(k, x + dx, y - t / 2, w, t, w * 0.35)); }
+export function iconMenu(k, x, y, h) { const s = h * 0.15, g = h * 0.06; for (const i of [-1, 0]) for (const j of [-1, 0]) outlined(k, h, () => ART.rr(k, x + (i ? -s - g / 2 : g / 2), y + (j ? -s - g / 2 : g / 2), s, s, s * 0.25)); }
+export function iconBack(k, x, y, h) { const s = h * 0.24; outlined(k, h, () => { k.beginPath(); k.moveTo(x - s * 1.05, y); k.lineTo(x + s * 0.1, y - s); k.lineTo(x + s * 0.1, y - s * 0.42); k.lineTo(x + s * 0.95, y - s * 0.42); k.lineTo(x + s * 0.95, y + s * 0.42); k.lineTo(x + s * 0.1, y + s * 0.42); k.lineTo(x + s * 0.1, y + s); k.closePath(); }); }
+export function iconSound(on) {
+  return (k, x, y, h) => {
+    const s = h * 0.2; x -= s * 0.35;
+    outlined(k, h, () => { k.beginPath(); k.moveTo(x - s, y - s * 0.45); k.lineTo(x - s * 0.35, y - s * 0.45); k.lineTo(x + s * 0.35, y - s * 1.05); k.lineTo(x + s * 0.35, y + s * 1.05); k.lineTo(x - s * 0.35, y + s * 0.45); k.lineTo(x - s, y + s * 0.45); k.closePath(); });
+    k.save(); k.lineCap = 'round';
+    for (const [col, lw] of [['#1F2240', h * 0.12], ['#FFFFFF', h * 0.055]]) {
+      k.strokeStyle = col; k.lineWidth = lw; k.beginPath();
+      if (on) { k.arc(x + s * 0.5, y, s * 0.75, -0.8, 0.8); k.moveTo(x + s * 0.5 + Math.cos(-0.8) * s * 1.35, y + Math.sin(-0.8) * s * 1.35); k.arc(x + s * 0.5, y, s * 1.35, -0.8, 0.8); }
+      else { k.moveTo(x + s * 0.85, y - s * 0.5); k.lineTo(x + s * 1.75, y + s * 0.5); k.moveTo(x + s * 1.75, y - s * 0.5); k.lineTo(x + s * 0.85, y + s * 0.5); }
+      k.stroke();
+    }
+    k.restore();
+  };
+}
+export const BTN = {yellow: ['#FFD860', '#E8861A'], green: ['#A6EA62', '#3C9A1C'], blue: ['#7CC8FF', '#2F6BD0'], grey: ['#C3C8DA', '#6F7590'], red: ['#FF9A7A', '#D4382A']};
+export const btnTex = (size, col, icon) => tex(size + 20, size + 40, k => ART.button(k, 10, 10, size, size, BTN[col][0], BTN[col][1], icon), 1.5);
+// botón gordito: se hunde al presionar y rebota al soltar (se anima con bounceButtons)
+export function makeButton(t, cb, base = 1) {
+  const b = new Sprite(t); b.anchor.set(0.5); b.scale.set(base); b.base = base; b.eventMode = 'static'; b.cursor = 'pointer';
+  b.on('pointerdown', e => { e.stopPropagation(); b.pressed = true; b.scale.set(base * 0.86); SFX.unlockAudio(); SFX.click(); });
+  b.on('pointerupoutside', () => { b.pressed = false; b.scale.set(base); });
+  b.on('pointerup', e => { e.stopPropagation(); if (!b.pressed) return; b.pressed = false; b.bounce = 0; cb(); });
+  return b;
+}
+export function bounceButtons(list, dt) {
+  for (const b of list) if (b.bounce != null) { b.bounce += dt; const u = clamp01(b.bounce / 0.3); b.scale.set(b.base * (1 + Math.sin(u * Math.PI) * 0.15)); if (u >= 1) b.bounce = null; }
+}
 
 export class UI {
-  constructor(app, {onRetry, onNext, mouseTex}) {
-    this.app = app; this.onRetry = onRetry; this.onNext = onNext; this.mouseTex = mouseTex;
+  constructor(app, {onRetry, onNext, onMenu, onPause, mouseTex}) {
+    this.app = app; this.onRetry = onRetry; this.onNext = onNext; this.onMenu = onMenu; this.mouseTex = mouseTex;
     this.hud = new Container(); this.overlay = new Container(); this.overlay.visible = false;
     app.stage.addChild(this.hud, this.overlay);
     this.T = {
       retry: tex(170, 190, k => ART.button(k, 10, 10, 150, 150, '#FFD860', '#E8861A', iconRetry), 1.5),
       next: tex(230, 250, k => ART.button(k, 10, 10, 210, 210, '#A6EA62', '#3C9A1C', iconNext), 1.5),
       retryBig: tex(230, 250, k => ART.button(k, 10, 10, 210, 210, '#FFD860', '#E8861A', iconRetry), 1.5),
+      pause: btnTex(150, 'blue', iconPause),
+      menu: btnTex(170, 'blue', iconMenu),
       starOn: tex(260, 260, k => ART.star(k, 130, 134, 112, true)),
       starOff: tex(260, 260, k => ART.star(k, 130, 134, 112, false)),
       spark: tex(48, 48, k => { k.fillStyle = '#FFF6C0'; k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 6 : 22; k.lineTo(24 + Math.cos(a) * r, 24 + Math.sin(a) * r); } k.fill(); }),
@@ -49,23 +83,18 @@ export class UI {
         ART.rr(k, 120, 640, 940, 150, 50); k.fillStyle = 'rgba(10,12,40,0.45)'; k.fill();          // marco del puntaje
       }),
     };
-    // HUD: reintentar (arriba a la izquierda) + nombre del nivel
-    this.hudRetry = this.button(this.T.retry, () => this.onRetry(), 0.62); this.hudRetry.position.set(84, 80);
-    this.lvlName = txt('', 44, '#FFE27A'); this.lvlName.anchor.set(0, 0.5); this.lvlName.position.set(150, 76);
-    this.hud.addChild(this.hudRetry, this.lvlName);
+    // HUD: pausa (arriba a la izquierda, como AB2) + reintentar rápido + nombre del nivel
+    this.hudPause = this.button(this.T.pause, () => onPause(), 0.54); this.hudPause.position.set(84, 92);
+    this.hudRetry = this.button(this.T.retry, () => this.onRetry(), 0.54); this.hudRetry.position.set(234, 92);
+    this.lvlName = txt('', 44, '#FFE27A'); this.lvlName.anchor.set(0, 0.5); this.lvlName.position.set(318, 88);
+    this.hud.addChild(this.hudPause, this.hudRetry, this.lvlName);
     // overlay de resultados
     this.dim = new Graphics(); this.overlay.addChild(this.dim);
     this.box = new Container(); this.overlay.addChild(this.box);
     this.anims = []; this.t = 0; this.open = false;
   }
   // botón gordito: se hunde al presionar y rebota al soltar
-  button(t, cb, base = 1) {
-    const b = new Sprite(t); b.anchor.set(0.5); b.scale.set(base); b.base = base; b.eventMode = 'static'; b.cursor = 'pointer';
-    b.on('pointerdown', e => { e.stopPropagation(); b.pressed = true; b.scale.set(base * 0.86); SFX.unlockAudio(); SFX.click(); });
-    b.on('pointerupoutside', () => { b.pressed = false; b.scale.set(base); });
-    b.on('pointerup', e => { e.stopPropagation(); if (!b.pressed) return; b.pressed = false; b.bounce = 0; cb(); });
-    return b;
-  }
+  button(t, cb, base = 1) { return makeButton(t, cb, base); }
   setLevelName(s) { this.lvlName.text = s; }
   hide() { this.overlay.visible = false; this.open = false; this.box.removeChildren().forEach(c => c.destroy()); this.anims = []; this.hud.visible = true; }
 
@@ -99,12 +128,11 @@ export class UI {
     A.push({o: this.bestTxt, t0: r.win ? 0.9 + r.stars * 0.55 + 0.2 : 1.0, dur: 0.35, k: 'pop'});
     // botones
     const tb = r.win ? 0.9 + r.stars * 0.55 + 0.35 : 1.2;
-    if (r.win && r.hasNext) {
-      const rb = add(this.button(this.T.retryBig, () => this.onRetry(), 0.72), -160, 625); A.push({o: rb, t0: tb, dur: 0.35, k: 'pop', s: 0.72});
-      const nb = add(this.button(this.T.next, () => this.onNext(), 0.9), 160, 625); A.push({o: nb, t0: tb + 0.1, dur: 0.35, k: 'pop', s: 0.9, pulse: true});
-    } else {
-      const rb = add(this.button(this.T.retryBig, () => this.onRetry(), 0.9), 0, 625); A.push({o: rb, t0: tb, dur: 0.35, k: 'pop', s: 0.9, pulse: true});
-    }
+    // menú (niveles) · reintentar · siguiente; el principal late
+    const btns = r.win && r.hasNext
+      ? [[this.T.menu, this.onMenu, 0.62, -330], [this.T.retryBig, this.onRetry, 0.72, -95], [this.T.next, this.onNext, 0.9, 185, true]]
+      : [[this.T.menu, this.onMenu, 0.62, -150], [this.T.retryBig, this.onRetry, 0.9, 110, true]];
+    btns.forEach(([t, cb, s, x, pulse], i) => { const b = add(this.button(t, () => cb(), s), x, 625); A.push({o: b, t0: tb + i * 0.1, dur: 0.35, k: 'pop', s, pulse}); });
     A.forEach(a => { a.s = a.s ?? 1; if (a.k !== 'star') a.o.scale.set(0); });
     this.sparks = [];
   }
@@ -117,7 +145,7 @@ export class UI {
   update(dt) {
     const sw = this.app.screen.width, sh = this.app.screen.height;
     const hs = Math.min(sw / W, sh / H) * 1.25; this.hud.scale.set(hs);
-    this.hud.children.forEach(b => { if (b.bounce != null) { b.bounce += dt; const u = clamp01(b.bounce / 0.3); b.scale.set(b.base * (1 + Math.sin(u * Math.PI) * 0.15)); if (u >= 1) b.bounce = null; } });
+    bounceButtons(this.hud.children, dt);
     if (!this.open) return;
     this.t += dt; const t = this.t;
     this.dim.clear().rect(0, 0, sw, sh).fill({color: 0x0A0820, alpha: Math.min(0.62, t * 2)});

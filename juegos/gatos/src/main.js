@@ -9,6 +9,7 @@ import {FX} from './fx.js';
 import * as SFX from './sfx.js';
 import {Text} from '../vendor/pixi.min.mjs';
 import {UI} from './ui.js';
+import {Menus} from './menus.js';
 
 const {Engine, Bodies, Body, Composite, Sleeping} = Matter;
 const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
@@ -32,8 +33,7 @@ function mouseTex(kind, r, expr = 'normal') {
   const S = r * 3.2;
   return cached(`m|${kind}|${r}|${expr}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr}), 1.5));
 }
-function catTex(img, fur, eyes, expr) {
-  const size = CAT_R * 2.3 * 2; // se hornea al doble para que aguante el zoom
+function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes);
   return {tex: Texture.from(sp.canvas), ax: sp.ox / sp.canvas.width, ay: sp.cy / sp.canvas.height, footY: (sp.oy - sp.cy) / 2};
 }
@@ -57,6 +57,9 @@ async function main() {
     catT[n] = {calm: catTex(imgs[n], c.fur, ey, 'calm'), angry: catTex(imgs[n], c.fur, ey, 'angry')};
     if (c.flyImg) { const fe = eyes[n + '-up']; catT[n].fly = catTex(await loadImg(c.flyImg), c.fur, [fe.eyeL, fe.eyeR], 'angry'); }
   }
+
+  const eyeImg = await loadImg('assets/omi-eye.jpg');
+  const bigCats = ['mako', 'omi', 'miu'].map(n => { const e = eyes[n]; const t = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'calm', 440); return t; });
 
   // ---------- escena ----------
   const cam = new Camera();
@@ -252,7 +255,9 @@ async function main() {
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.giggle(); setTimeout(SFX.lose, 700); return; }
     state = 'between'; turnWait = 0.9;
   }
+  let resultsShown = false; // el panel sale una sola vez por intento (al ir al menú no debe reaparecer)
   function showResults(win) {
+    resultsShown = true;
     const key = 'gatos.best.' + levelId; let prev = null;
     try { prev = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
     const st = level.stars || [0, 1e9, 1e9];
@@ -344,9 +349,9 @@ async function main() {
         q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true};
         addScore(10000, q.x, GROUND - 470, '#FFE27A', true); SFX.meow(i);
       }
-      if (!ui.open && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
+      if (!resultsShown && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
     }
-    if (state === 'lose') { endT += dt; if (!ui.open && endT > 1.8) showResults(false); }
+    if (state === 'lose') { endT += dt; if (!resultsShown && endT > 1.8) showResults(false); }
     // gatos en espera: respiran, dan saltitos de vez en cuando y avanzan con saltos
     const hopAnim = (o, base) => {
       const h = o.hop; h.t += dt; if (h.t < 0) return false;
@@ -374,6 +379,8 @@ async function main() {
   const el = app.canvas; el.style.touchAction = 'none';
   el.addEventListener('pointerdown', e => {
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
+    if (menus.blocking) { menus.skipIntro(); return; }
+    if (ui.open) return;
     if (cam.mode === 'flyover') { cam.skipFlyover(); return; }
     if (ptrs.size === 1) {
       const w = cam.toWorld(e.clientX, e.clientY);
@@ -390,7 +397,7 @@ async function main() {
     }
   });
   el.addEventListener('pointermove', e => {
-    const p = ptrs.get(e.pointerId); if (!p) return;
+    const p = ptrs.get(e.pointerId); if (!p || menus.blocking || ui.open) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
     if (e.pointerId === aimPtr) { const w = cam.toWorld(e.clientX, e.clientY); sling.aimTo({x: w.x + sling.grab.dx, y: w.y + sling.grab.dy}); SFX.stretch(sling.power); return; }
     if (ptrs.size >= 2 && pinch) {
@@ -425,7 +432,7 @@ async function main() {
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name);
-    score = shownScore = 0; started = 0; slow = 0; laughAll = 0; endT = 0;
+    score = shownScore = 0; resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -460,14 +467,28 @@ async function main() {
   const ui = new UI(app, {
     onRetry: () => buildLevel(levelId, false),
     onNext: () => buildLevel(LEVELS[(LEVELS.indexOf(levelId) + 1) % LEVELS.length], true),
+    onMenu: () => { ui.hide(); menus.showSelect(); },
+    onPause: () => pause(),
     mouseTex: mouseTex('boss', 66, 'laugh'),
   });
-  buildLevel(levelId, !new URLSearchParams(location.search).has('nofly'));
+  const menus = new Menus(app, {
+    eyeImg, cats: bigCats, levels: LEVELS,
+    onPlay: id => buildLevel(id, true),
+    onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect(),
+  });
+  const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+  // con ?level=… se entra directo al nivel (pruebas); si no, pantalla de título con el nivel 1-1 congelado detrás
+  const QS = new URLSearchParams(location.search);
+  if (QS.has('level') || QS.has('nofly')) buildLevel(levelId, !QS.has('nofly'));
+  else { buildLevel(levelId, false); menus.showTitle(QS.has('skipintro')); }
 
   app.ticker.add(tk => {
     const rdt = Math.min(tk.deltaMS, 50) / 1000; if (slow > 0) slow -= rdt;
-    const dt = rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
-    ui.update(rdt);
+    // con un menú abierto (título, niveles, pausa) el mundo se congela pero se sigue dibujando
+    const dt = menus.blocking ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
+    hud.visible = !menus.blocking; ui.hud.visible = !menus.blocking && !ui.open;
+    ui.update(rdt); menus.update(rdt);
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
@@ -502,6 +523,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
