@@ -2,6 +2,7 @@
 // Cada capa se pinta UNA vez en un canvas offscreen (a resolución reducida si está lejos) -> textura Pixi.
 import {Sprite, Texture, Container} from '../vendor/pixi.min.mjs';
 import ART from './art.js';
+import * as SFX from './sfx.js';
 import {BOUNDS, GROUND, LEVEL_W} from './config.js';
 const {rr, lin, rad, rng, shade, TAU} = ART;
 
@@ -397,7 +398,7 @@ function lampLayer() {
   let T = 0;
   c.update = dt => { T += dt;
     lamps.forEach((L, i) => { L.p.rotation = Math.sin(T * 0.9 + L.ph) * 0.035 + Math.sin(T * 0.37 + L.ph * 2) * 0.015;
-      if (i === 1) { L.fl -= dt; if (L.fl <= 0) L.fl = Math.random() < 0.25 ? 0.06 : 2 + Math.random() * 5; } // el foco del centro parpadea de vez en cuando
+      if (i === 1) { L.fl -= dt; if (L.fl <= 0) { L.fl = Math.random() < 0.25 ? 0.06 : 2 + Math.random() * 5; if (L.fl < 0.07) SFX.buzz(0.6); } } // el foco del centro parpadea de vez en cuando
       const on = i === 1 && L.fl < 0.07 ? 0.35 : 1; L.glow.alpha = (0.85 + Math.sin(T * 9 + L.ph) * 0.04) * on; L.cone.alpha = 0.5 * on; });
     shaft.alpha = 0.45 + Math.sin(T * 0.5) * 0.05;
     motes.forEach(o => { o.ph += dt; o.v += o.dv * dt; if (o.v > 1) { o.v -= 1; o.u = Math.random(); }
@@ -406,7 +407,7 @@ function lampLayer() {
     drips.forEach(d => { d.t += dt; if (d.t < 0) { d.s.visible = false; return; }
       if (d.t < 1.2) { d.s.visible = true; const g = d.t / 1.2; d.s.position.set(d.x, d.y0); d.s.scale.set(1.6 * g, 1.6 * g); d.v = 0; d.s.alpha = 1; return; } // la gota se forma
       d.v += 2200 * dt; d.s.y += d.v * dt; d.s.scale.set(1.3, 2); d.s.alpha = Math.max(0, 1 - (d.s.y - d.y0) / 700);
-      if (d.s.y > d.y0 + 700) d.t = -1.5 - Math.random() * 3; });
+      if (d.s.y > d.y0 + 700) { d.t = -1.5 - Math.random() * 3; SFX.drip(0.3 + Math.random() * 0.3); } });
   };
   return c;
 }

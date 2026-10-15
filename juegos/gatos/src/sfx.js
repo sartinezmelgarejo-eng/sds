@@ -179,3 +179,9 @@ export function creak(mat, k = 0.5) {
   for (let i = 0, tt = t; i < n; i++) { const f = f0 * (up ? 1 + i * 0.04 : 1.4 - i * 0.03); noise(tt, 0.015, 'bandpass', f, 9, 0.5 * v, 0.012); tt += dt; dt *= 0.9; }
   tone(t, f0 * 0.25, 'sawtooth', 0.025 * v, 0.4, f0 * 0.21);
 }
+
+// sótano: gota que cae en un charco ("plic" con eco corto) y zumbido eléctrico del foco que parpadea
+export function drip(v = 0.5) { if (!ok('drip', 0.25)) return; const t = ctx.currentTime, f = rnd(1300, 1900);
+  tone(t, f, 'sine', 0.12 * v, 0.09, f * 2.1); tone(t + 0.11, f * 1.05, 'sine', 0.035 * v, 0.07, f * 2); noise(t, 0.03, 'bandpass', 2600, 4, 0.03 * v, 0.03); }
+export function buzz(v = 0.5) { if (!ok('buzz', 0.2)) return; const t = ctx.currentTime;
+  tone(t, 120, 'sawtooth', 0.05 * v, 0.09); tone(t, 240, 'square', 0.02 * v, 0.07); noise(t, 0.05, 'highpass', 4000, 1, 0.04 * v, 0.04); }
