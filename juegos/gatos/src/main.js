@@ -494,7 +494,9 @@ async function main() {
       Body.setAngularVelocity(d.body, d.body.angularVelocity + (Math.random() - 0.5) * 0.3 * k);
       damage(d, dmg * k * FRAGILE[d.mat] * (bonus[d.mat] ?? 1), push);
       // AB2: lo que sobrevive pegadito a la explosión queda tiznado de hollín (el ratón además echa humito un rato)
-      if (dmg > 0 && R >= 200 && !d.dead && dist < R * 0.75 && d.mat !== 'robot') { d.soot = Math.max(d.soot || 0, 1 - dist / (R * 0.75) * 0.4); d.sootT = 0; }
+      if (dmg > 0 && R >= 200 && !d.dead && dist < R * 0.75 && d.mat !== 'robot') { d.soot = Math.max(d.soot || 0, 1 - dist / (R * 0.75) * 0.4); d.sootT = 0;
+        // la madera/cartón que aguantó pegadita al fogonazo se queda ardiendo con llamitas un par de segundos
+        if (d.mat === 'box' && dist < R * 0.55) { d.burn = Math.max(d.burn || 0, 1.8 + Math.random() * 1.2); const nf = d.w > 220 ? 3 : 2; d.fires = d.fires || Array.from({length: nf}, (_, i) => (i + 0.5) / nf - 0.5 + (Math.random() - 0.5) * 0.2); } }
     }
   }
   // hollín: oscurece el sprite y se va limpiando despacio (los bloques se quedan un poco tiznados)
@@ -505,8 +507,22 @@ async function main() {
     if (d.mat === 'mouse' && d.sootT < 4.5 && Math.random() < dt * 5) { const p = d.body.position; const n0 = fx.parts.length; // humito que sube de la cabeza
       fx.burst('smoke', p.x + (Math.random() - 0.5) * d.w * 0.4, p.y - d.h * 0.45, 1, 30, {up: 70, g: -60, drag: 1.5, life: 1.1, size: 0.22 + d.w / 900, grow: 1.5});
       for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0x5A5560; fx.parts[i].maxA = 0.6; fx.parts[i].s.alpha = 0; } }
-    if (v <= keep + 0.001) d.soot = d.mat === 'mouse' ? 0 : d.soot;
+    if (d.burn > 0) { d.burn -= dt; const p = d.body.position, a = d.body.angle, ca = Math.cos(a), sa = Math.sin(a);
+      // llamitas que salen de la cara de arriba del bloque (la que mira hacia arriba según el giro) y humito oscuro
+      for (const fu of d.fires) if (Math.random() < dt * (10 + 8 * Math.min(1, d.burn))) {
+        const flat = Math.abs(ca) >= Math.abs(sa), sg = Math.sign(flat ? ca : sa) || 1, u = fu * 0.85 + (Math.random() - 0.5) * 0.06;
+        const ex = flat ? p.x + sg * d.h / 2 * sa + u * d.w * ca : p.x - sg * d.w / 2 * ca - u * d.h * sa;
+        const ey = flat ? p.y - sg * d.h / 2 * ca + u * d.w * sa : p.y - sg * d.w / 2 * sa + u * d.h * ca;
+        const n0 = fx.parts.length, sz = 1.25 * Math.min(1, 0.4 + d.burn * 0.5);
+        fx.burst('flame', ex, ey + 6, 1, 18, {up: 70, g: -170, drag: 2, life: 0.4 + Math.random() * 0.2, size: sz, grow: -0.6});
+        for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].vr = 0; fx.parts[i].s.rotation = (Math.random() - 0.5) * 0.4; fx.parts[i].s.anchor.set(0.5, 0.8); }
+        if (Math.random() < 0.35) { const n1 = fx.parts.length; fx.burst('smoke', ex, ey - 20, 1, 20, {up: 60, g: -50, drag: 1.4, life: 1.2, size: 0.25 + sz * 0.15, grow: 1.6});
+          for (let i = n1; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0x4A4248; fx.parts[i].maxA = 0.45; fx.parts[i].s.alpha = 0; } } } }
+    if (v <= keep + 0.001 && !(d.burn > 0)) d.soot = d.mat === 'mouse' ? 0 : d.soot;
   }
+  // llamita en forma de gota (amarillo al centro → naranja → rojo; mezcla normal: la aditiva se pierde en la cocina clara)
+  fx.T.flame = [canvasTex(48, 72, k => { const g = k.createRadialGradient(24, 50, 2, 24, 46, 26); g.addColorStop(0, 'rgba(255,250,200,1)'); g.addColorStop(0.35, 'rgba(255,200,60,0.95)'); g.addColorStop(0.75, 'rgba(245,100,20,0.9)'); g.addColorStop(1, 'rgba(200,40,10,0.15)');
+    k.fillStyle = g; k.beginPath(); k.moveTo(24, 2); k.bezierCurveTo(34, 22, 46, 36, 44, 52); k.bezierCurveTo(42, 66, 6, 66, 4, 52); k.bezierCurveTo(2, 36, 14, 22, 24, 2); k.fill(); })];
   const furTex = canvasTex(64, 64, k => { k.strokeStyle = '#F4EEE4'; k.lineWidth = 7; k.lineCap = 'round'; k.beginPath(); k.moveTo(8, 50); k.quadraticCurveTo(30, 6, 56, 20); k.stroke(); k.strokeStyle = 'rgba(120,100,80,0.8)'; k.lineWidth = 3; k.stroke(); });
   fx.T.fur = [furTex];
   const flash = (x, y, r, color) => { fx.burst('smoke', x, y, 1, 0, {up: 0, g: 0, life: 0.25, size: r / 40, grow: 0.8}); const s = fx.parts[fx.parts.length - 1].s; s.tint = color; };
