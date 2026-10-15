@@ -378,7 +378,7 @@ const ART = (() => {
   // ---------- RATONES ----------
   // kind: 'small' | 'thimble' | 'boss'
   function mouse(ctx, cx, cy, r, kind = 'small', opt = {}) {
-    const {look = 1, grin = true, expr = 'normal', noPupils = false} = opt; // expr: normal | blink | scared | laugh
+    const {look = 1, grin = true, expr = 'normal', noPupils = false, bruise = 0} = opt; // expr: normal | blink | scared | laugh · bruise 0..2 (golpeado, como los cerdos de AB2)
     ctx.save(); ctx.translate(cx, cy);
     const outline = '#2B2F45';
     // cola
@@ -397,6 +397,9 @@ const ART = (() => {
     ctx.lineWidth = r * 0.07; ctx.strokeStyle = outline; ctx.stroke();
     // panza clara
     ctx.beginPath(); ctx.ellipse(0, r * 0.38, r * 0.55, r * 0.42, 0, 0, TAU); ctx.fillStyle = 'rgba(245,240,235,0.65)'; ctx.fill();
+    // ojo morado (golpeado fuerte): moretón alrededor del ojo izquierdo
+    if (bruise >= 2) { ctx.beginPath(); ctx.ellipse(-r * 0.34, -r * 0.12, r * 0.34, r * 0.38, -0.2, 0, TAU);
+      ctx.fillStyle = rad(ctx, -r * 0.34, -r * 0.12, r * 0.15, r * 0.38, [[0, 'rgba(90,40,120,0.85)'], [0.7, 'rgba(110,60,140,0.55)'], [1, 'rgba(110,60,140,0)']]); ctx.fill(); }
     // ojos
     const closedEye = (s, up) => { ctx.beginPath(); ctx.arc(s * r, -r * 0.1 + (up ? r * 0.06 : -r * 0.04), r * 0.17, up ? Math.PI * 1.1 : 0.2, up ? Math.PI * 1.9 : Math.PI - 0.2); ctx.lineWidth = r * 0.07; ctx.strokeStyle = outline; ctx.lineCap = 'round'; ctx.stroke(); };
     if (expr === 'blink') [-0.33, 0.33].forEach(s => closedEye(s, false));
@@ -434,10 +437,33 @@ const ART = (() => {
     }
     // brillo de borde (rim light)
     ctx.beginPath(); ctx.ellipse(0, 0, r * 0.93, r * 0.85, 0, Math.PI * 1.1, Math.PI * 1.55); ctx.lineWidth = r * 0.06; ctx.strokeStyle = 'rgba(255,250,235,0.7)'; ctx.stroke();
-    if (opt.hat === 'miner') minerHat(ctx, 0, -r * 0.6, r);
-    else if (opt.hat === 'acorn') acornCap(ctx, 0, -r * 0.62, r);
-    else if (kind === 'thimble') thimble(ctx, 0, -r * 0.62, r);
-    if (kind === 'boss') crown(ctx, 0, -r * 0.82, r);
+    if (bruise >= 1) { // curita en el cachete
+      ctx.save(); ctx.translate(r * 0.56, r * 0.2); ctx.rotate(0.65 + (bruise - 1) * 0.3);
+      rr(ctx, -r * 0.24, -r * 0.08, r * 0.48, r * 0.16, r * 0.08); ctx.fillStyle = '#F2C79A'; ctx.fill(); ctx.lineWidth = r * 0.03; ctx.strokeStyle = '#8A5A34'; ctx.stroke();
+      ctx.fillStyle = '#FBE6CC'; ctx.fillRect(-r * 0.07, -r * 0.065, r * 0.14, r * 0.13);
+      ctx.fillStyle = 'rgba(138,90,52,0.5)'; for (const dx of [-0.17, -0.12, 0.12, 0.17]) { ctx.beginPath(); ctx.arc(dx * r, 0, r * 0.012, 0, TAU); ctx.fill(); }
+      ctx.restore();
+      if (bruise >= 2) { ctx.save(); ctx.translate(-r * 0.62, r * 0.32); ctx.rotate(-0.7); // segunda curita en cruz
+        for (const a of [0, Math.PI / 2]) { ctx.save(); ctx.rotate(a); rr(ctx, -r * 0.18, -r * 0.06, r * 0.36, r * 0.12, r * 0.06); ctx.fillStyle = '#F2C79A'; ctx.fill(); ctx.lineWidth = r * 0.025; ctx.strokeStyle = '#8A5A34'; ctx.stroke(); ctx.restore(); }
+        ctx.restore(); }
+    }
+    // gorros: con golpes se abollan y quedan chuecos
+    const hatTilt = (x, y, f, dent = true) => { ctx.save(); ctx.translate(x, y); ctx.rotate(bruise >= 2 ? 0.28 : bruise ? 0.1 : 0); if (bruise >= 2) ctx.translate(r * 0.08, -r * 0.03); f(); if (bruise && dent) dents(ctx, r, bruise); ctx.restore(); };
+    if (opt.hat === 'miner') hatTilt(0, -r * 0.6, () => minerHat(ctx, 0, 0, r));
+    else if (opt.hat === 'acorn') hatTilt(0, -r * 0.62, () => acornCap(ctx, 0, 0, r));
+    else if (kind === 'thimble') hatTilt(0, -r * 0.62, () => thimble(ctx, 0, 0, r));
+    if (kind === 'boss') hatTilt(0, -r * 0.82, () => crown(ctx, 0, 0, r), false); // la corona solo se ladea
+    ctx.restore();
+  }
+  // abolladuras y grietas sobre un gorro (coordenadas locales del gorro, centro ~ (0, -0.25r))
+  function dents(ctx, r, n) {
+    ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.ellipse(r * 0.22, -r * 0.3, r * 0.13, r * 0.09, 0.4, 0, TAU); ctx.fillStyle = 'rgba(30,30,45,0.35)'; ctx.fill(); // hundido
+    ctx.beginPath(); ctx.arc(r * 0.2, -r * 0.33, r * 0.11, Math.PI * 1.1, Math.PI * 1.7); ctx.lineWidth = r * 0.035; ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.stroke();
+    const crack = pts => { ctx.beginPath(); pts.forEach(([x, y], i) => i ? ctx.lineTo(x * r, y * r) : ctx.moveTo(x * r, y * r)); ctx.lineWidth = r * 0.04; ctx.strokeStyle = '#2B2F45'; ctx.stroke(); };
+    crack([[0.22, -0.3], [0.08, -0.42], [0.12, -0.52]]);
+    if (n >= 2) { crack([[0.22, -0.3], [0.4, -0.18], [0.36, -0.04]]); crack([[-0.35, -0.05], [-0.2, -0.2], [-0.26, -0.34], [-0.12, -0.46]]);
+      ctx.beginPath(); ctx.ellipse(-r * 0.2, -r * 0.18, r * 0.1, r * 0.07, -0.3, 0, TAU); ctx.fillStyle = 'rgba(30,30,45,0.3)'; ctx.fill(); }
     ctx.restore();
   }
   function thimble(ctx, x, y, r) {
