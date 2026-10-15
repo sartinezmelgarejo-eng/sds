@@ -251,3 +251,7 @@ export function cough(pitch = 1) { if (!ok('cough', 0.35)) return; const t = ctx
 export function splash(v = 0.6) { if (!ok('splash', 0.15)) return; const t = ctx.currentTime;
   noise(t + 0.02, 0.4, 'bandpass', 1800, 0.8, 0.3 * v, 0.35, 500);
   for (let i = 0; i < 4; i++) { const tt = t + 0.25 + i * rnd(0.08, 0.18), f = rnd(1200, 2000); tone(tt, f, 'sine', 0.06 * v, 0.07, f * 1.9); } }
+// ratón mojado que se sacude como perrito: rachas de ruido rápido ("brrrr") + gotitas que salen volando
+export function shake(pitch = 1) { if (!ok('shake', 0.4)) return; const t = ctx.currentTime;
+  for (let i = 0; i < 7; i++) noise(t + i * 0.055, 0.05, 'bandpass', (1500 + (i % 2) * 500) * pitch, 1.1, 0.07, 0.045);
+  for (let i = 0; i < 3; i++) { const tt = t + 0.15 + i * rnd(0.07, 0.14), f = rnd(1500, 2400) * pitch; tone(tt, f, 'sine', 0.035, 0.06, f * 1.8); } }

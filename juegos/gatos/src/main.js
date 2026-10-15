@@ -44,7 +44,7 @@ function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null, bruise
 }
 const hatTex = (which, r) => cached(`hat|${which}|${r}`, () => canvasTex(r * 2.2, r * 2, k => ART.hat(k, r * 1.1, r * 1.25, r, which), 1.5));
 // las 4 caras de un ratón (normal/susto sin pupilas: las pupilas van aparte y siguen al gato) para un nivel de golpes
-const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
+const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch', 'dizzy', 'dizzy2'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2, hat) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes, hat);
   return {tex: Texture.from(sp.canvas), ax: sp.ox / sp.canvas.width, ay: sp.cy / sp.canvas.height, footY: (sp.oy - sp.cy) / 2};
@@ -141,6 +141,7 @@ async function main() {
   const ground = Bodies.rectangle(LEVEL_W / 2, GROUND + 200, BOUNDS.x1 - BOUNDS.x0 + 4000, 400, {isStatic: true, friction: 1, label: 'ground'});
   Composite.add(engine.world, ground);
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
+  const shelves = []; // repisas/rampas fijas (cuerpos estáticos): ahí se quedan los charquitos
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
   const LIFE = {tnt: 2.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
   const AUTO_POWER = 1.5; // s tras el primer golpe
@@ -153,6 +154,17 @@ async function main() {
   slingFront.setChildIndex(sling.gFront, 0); // la liga delantera va bajo el brazo delantero de madera
   const trail = new Container(); behind.addChild(trail);
   const fx = new FX(front);
+  // gotas de los frascos rotos: si caen en un ratón lo mojan; en una repisa fija plana dejan charquito; en un bloque suelto solo salpican
+  fx.onDrop = p => { const x = p.s.x, y = p.s.y, spl = () => fx.burst('drop', x, y, 2, 130, {up: 150, life: 0.35, size: p.sz * 0.45, drag: 0.5});
+    for (const d of dyn) { if (d.dead || d.mat !== 'mouse') continue; const q = d.body.position;
+      if ((q.x - x) ** 2 + (q.y - y) ** 2 < (d.w * 0.5) ** 2) { wetMouse(d); spl(); return true; } }
+    const pt = {x, y};
+    for (const b of shelves) if (Matter.Bounds.contains(b.bounds, pt) && Matter.Vertices.contains(b.vertices, pt)) {
+      if (Math.abs(b.angle) < 0.09) { const bw = b.bounds.max.x - b.bounds.min.x; fx.puddle(Math.max(b.bounds.min.x + 30, Math.min(b.bounds.max.x - 30, x)), b.bounds.min.y + 1, bw / 140); }
+      spl(); return true; }
+    for (const d of dyn) { if (d.dead || d.mat === 'mouse') continue; const b = d.body; if (Matter.Bounds.contains(b.bounds, pt) && Matter.Vertices.contains(b.vertices, pt)) { spl(); return true; } }
+    return false; };
+  function wetMouse(d) { if (!(d.wet > 0)) d.hurt = Math.max(d.hurt || 0, 0.2); d.wet = Math.min(1, (d.wet || 0) + 0.3); if (!d.shakeAt && !(d.shake > 0)) d.shakeAt = time + 0.55 + Math.random() * 0.35; }
   const dizzyC = new Container(); front.addChild(dizzyC); // estrellitas de mareo
   const mDizzyC = new Container(); front.addChild(mDizzyC); // estrellitas de los ratones mareados
   // tutorial (como AB2): en el primer nivel, si nunca lo ha ganado, una manita enseña a jalar la resortera hacia atrás
@@ -632,9 +644,19 @@ async function main() {
       const p = d.body.position, R = d.w * 0.42; d.dz.forEach((st, i) => { const a = time * 5 + i * Math.PI * 2 / 3, z = Math.sin(a);
         st.position.set(p.x + Math.cos(a) * R, p.y - d.h * 0.7 + z * R * 0.24); st.scale.set((0.3 + z * 0.07) * d.w / 110); st.alpha = (0.75 + z * 0.25) * dz; st.rotation = time * 4; });
       if (d.dizzyT <= 0) { d.dz.forEach(st => st.destroy()); d.dz = null; } }
-    if (flinch || cgh > 0.2) expr = 'flinch';
+    // mojado (agua de un frasco): se pone azulito, escurre gotitas y a los ~0.6 s se sacude como perrito salpicando
+    let shk = 0; if (d.wet > 0) { d.wet = Math.max(0, d.wet - dt * 0.08);
+      if (d.shakeAt && time > d.shakeAt && !d.ride && !tumble) { d.shakeAt = 0; d.shake = 0.7; SFX.shake(d.kind === 'boss' ? 0.7 : d.kind === 'small' ? 1.2 : 1); }
+      const p = d.body.position;
+      if (d.shake > 0) { d.shake -= dt; shk = Math.sin(Math.max(0, d.shake) / 0.7 * Math.PI);
+        for (let j = 0; j < 2; j++) if (Math.random() < dt * 40 * shk) { const sd = Math.random() < 0.5 ? -1 : 1; fx.burst('drop', p.x + sd * d.w * 0.45, p.y - d.h * (0.1 + Math.random() * 0.3), 1, 420, {dir: (sd < 0 ? Math.PI : 0) - sd * 0.45, spread: 0.8, up: 140, life: 0.6, size: 0.6, drag: 0.6}); }
+        if (d.shake <= 0) d.wet *= 0.25; }
+      else if (Math.random() < dt * 3 * d.wet) fx.burst('drop', p.x + (Math.random() - 0.5) * d.w * 0.6, p.y + d.h * 0.35, 1, 20, {up: 0, life: 0.6, size: 0.32, drag: 0.5}); // escurre
+      if (!d.soot && !d.zapFlash) { const v = Math.min(1, d.wet * 1.6) * 0.5, rC = Math.round(255 - 80 * v), gC = Math.round(255 - 35 * v); d.sprite.tint = (rC << 16) | (gC << 8) | 255; }
+      if (d.wet <= 0 && !d.soot && !d.zapFlash) d.sprite.tint = 0xFFFFFF; }
+    if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
     else if (d.hurt > 0 || near || tumble || dg || (sh && sh.t > 0)) expr = 'scared';
-    else if (dz > 0) expr = 'blink';
+    else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
       if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
@@ -677,6 +699,7 @@ async function main() {
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
     if (dz > 0) d.sprite.rotation += Math.sin(time * 6.5) * 0.12 * dz; // bamboleo
+    if (shk > 0) { d.sprite.rotation += Math.sin(time * 50) * 0.22 * shk; d.sprite.scale.x *= 1 + 0.07 * Math.sin(time * 50 + 1.3) * shk; } // sacudida de perrito
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
   }
@@ -1081,7 +1104,7 @@ async function main() {
     levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair'); SFX.musicTheme(level.world || 1);
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
-    dyn.length = 0; queue.length = 0; clearDeck();
+    dyn.length = 0; shelves.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -1091,7 +1114,7 @@ async function main() {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
       // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
-      if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body);
+      if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
         const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); return; }
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
@@ -1242,6 +1265,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

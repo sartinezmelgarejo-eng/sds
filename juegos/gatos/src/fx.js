@@ -103,15 +103,16 @@ export class FX {
     this.burst('drop', x, y, n, 520, {w: w * 0.6, h: h * 0.6, up: 320, drag: 0.3, life: 2.5, size: 1.05});
     for (let i = n0; i < this.parts.length; i++) { const p = this.parts[i]; p.drop = 1; p.vr = 0; }
   }
-  puddle(x) {
+  // charquito en la barra (o sobre una repisa fija: y = su cara de arriba, maxK = no más ancho que la repisa)
+  puddle(x, y = GROUND - 2, maxK = 3.2) {
     if (!this.pudTex) this.pudTex = tex(128, 32, k => { const g = k.createRadialGradient(64, 16, 2, 64, 16, 62); g.addColorStop(0, 'rgba(215,242,255,0.95)'); g.addColorStop(0.75, 'rgba(110,180,228,0.85)'); g.addColorStop(1, 'rgba(70,140,200,0.7)'); k.fillStyle = g; k.beginPath(); k.ellipse(64, 16, 60, 12, 0, 0, 7); k.fill(); k.lineWidth = 2.5; k.strokeStyle = 'rgba(50,110,165,0.75)'; k.stroke();
       k.fillStyle = 'rgba(255,255,255,0.7)'; k.beginPath(); k.ellipse(48, 12, 16, 3, 0, 0, 7); k.fill(); });
     // las gotas que caen cerca de un charco lo agrandan en vez de hacer otro
-    const near = this.puddles.find(q => Math.abs(q.x - x) < 70 * q.k + 30);
-    if (near) { near.k = Math.min(3.2, near.k + 0.18); near.t = Math.min(near.t, 0.5); return; }
+    const near = this.puddles.find(q => Math.abs(q.x - x) < 70 * q.k + 30 && Math.abs(q.s.y - y) < 20);
+    if (near) { near.k = Math.min(near.maxK, near.k + 0.18); near.t = Math.min(near.t, 0.5); return; }
     if (this.puddles.length > 14) return;
-    const s = new Sprite(this.pudTex); s.anchor.set(0.5, 0.45); s.position.set(x, GROUND - 2); s.scale.set(0.1, 0.1); (this.under || this.root).addChild(s);
-    this.puddles.push({s, x, k: 0.55, cur: 0.1, t: 0});
+    const s = new Sprite(this.pudTex); s.anchor.set(0.5, 0.45); s.position.set(x, y); s.scale.set(0.1, 0.1); (this.under || this.root).addChild(s);
+    this.puddles.push({s, x, k: Math.min(0.55, maxK), cur: 0.1, t: 0, maxK});
   }
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
   points(x, y, value, color = '#FFFFFF', big = false, k = 1) {
@@ -130,6 +131,7 @@ export class FX {
       p.vy += p.g * dt; const d = Math.exp(-p.drag * dt); p.vx *= d; p.vy *= d;
       p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += p.vr * dt;
       if (p.drop) { p.s.rotation = Math.atan2(p.vy, p.vx) - Math.PI / 2; const v = Math.hypot(p.vx, p.vy); p.s.scale.set(p.sz * 0.85, p.sz * Math.min(1.9, 0.9 + v / 900)); // gota estirada
+        if (p.vy > 0 && this.onDrop && this.onDrop(p)) { p.s.destroy(); this.parts.splice(i, 1); continue; } // cayó sobre un ratón o una repisa (main decide)
         if (p.s.y > GROUND - 6) { this.puddle(p.s.x); this.burst('drop', p.s.x, GROUND - 8, 1, 120, {up: 160, life: 0.35, size: p.sz * 0.5, drag: 0.5}); p.s.destroy(); this.parts.splice(i, 1); continue; } }
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
