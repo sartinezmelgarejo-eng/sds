@@ -140,7 +140,7 @@ export class UI {
 
   // r = {win, stars, score, best, record, name, hasNext}
   show(r) {
-    this.hide(); this.can = null; this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
+    this.hide(); this.cans = []; this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
     const B = this.box, add = (o, x, y) => { o.position.set(x, y); B.addChild(o); return o; };
     const panel = add(new Sprite(this.T.panel), 0, 40); panel.anchor.set(0.5);
     const title = add(txt(r.final ? '¡JEFA VENCIDA!' : r.win ? '¡NIVEL SUPERADO!' : 'NIVEL FALLIDO', 104, r.win ? '#FFE27A' : '#FF8A6A'), 0, -440); title.anchor.set(0.5);
@@ -160,14 +160,15 @@ export class UI {
         // final del juego: los 3 gatos festejan brincando detrás de una pila de latas de atún
         this.cats.forEach((c, i) => { const sp = add(new Sprite(c.tex), (i - 1) * 260, 70); sp.anchor.set(c.ax, c.ay);
           A.push({o: sp, t0: 0.55 + i * 0.12, dur: 0.45, k: 'pop', s: i === 1 ? 0.42 : 0.36, cheer: i, y0: i === 1 ? 60 : 78}); });
-        [[-140, 120, 0.55, -0.2], [140, 120, 0.55, 0.2], [0, 132, 0.62, 0]].forEach(([x, y, s, rot], i) => { const t = add(new Sprite(this.T.tuna), x, y); t.anchor.set(0.5); t.rotation = rot; A.push({o: t, t0: 0.85 + i * 0.1, dur: 0.4, k: 'pop', s}); });
+        [[-140, 120, 0.55, -0.2], [140, 120, 0.55, 0.2], [0, 132, 0.62, 0]].forEach(([x, y, s, rot], i) => { const t = add(new Sprite(this.T.tuna), x, y); t.anchor.set(0.5); t.rotation = rot; A.push({o: t, t0: 0.85 + i * 0.1, dur: 0.4, k: 'pop', s});
+          this.cans.push({o: t, tOpen: 2.9 + i * 0.3, opened: false, peek: [], hearts: [], lid: null, hT: 0, s, r0: rot}); });
         this.confetti = [];
       } else {
         // la lata llega cerrada; después de las estrellas tiembla, ¡clic!, la tapa sale volando y dos gatos se asoman a olerla
         const pals = this.cats.length ? [...this.cats].sort(() => Math.random() - 0.5).slice(0, 2) : [];
         const peek = pals.map((c, i) => { const sp = add(new Sprite(c.tex), i ? 128 : -128, 30); sp.anchor.set(c.ax, c.ay); sp.c = c; sp.side = i ? 1 : -1; sp.scale.set(0); return sp; });
         const tuna = add(new Sprite(this.T.tuna), 0, 15); tuna.anchor.set(0.5); A.push({o: tuna, t0: 0.6, dur: 0.45, k: 'pop', s: 1});
-        this.can = {o: tuna, tOpen: 0.9 + r.stars * 0.55 + 0.2, opened: false, peek, hearts: [], lid: null, hT: 0};
+        this.cans.push({o: tuna, tOpen: 0.9 + r.stars * 0.55 + 0.2, opened: false, peek, hearts: [], lid: null, hT: 0, s: 1});
         const tl = add(txt('¡ATÚN RECUPERADO!', 46, '#BDEBFF'), 0, 125); tl.anchor.set(0.5); A.push({o: tl, t0: 0.75, dur: 0.3, k: 'pop'});
       }
     } else {
@@ -188,20 +189,20 @@ export class UI {
     A.forEach(a => { a.s = a.s ?? 1; if (a.k !== 'star') a.o.scale.set(0); });
     this.sparks = [];
   }
-  updateCan(t, dt) {
-    const c = this.can, u = t - c.tOpen, o = c.o;
-    if (u < 0 && u > -0.4) { const w = 1 + u / 0.4; o.rotation = Math.sin(t * 46) * 0.07 * w; o.scale.set(1 + w * 0.04, 1 - w * 0.04); } // tiembla antes de abrirse
+  updateCan(c, t, dt) {
+    const u = t - c.tOpen, o = c.o, S = c.s, r0 = c.r0 || 0;
+    if (u < 0 && u > -0.4) { const w = 1 + u / 0.4; o.rotation = r0 + Math.sin(t * 46) * 0.07 * w; o.scale.set(S * (1 + w * 0.04), S * (1 - w * 0.04)); } // tiembla antes de abrirse
     if (u >= 0 && !c.opened) {
-      c.opened = true; o.texture = this.T.tunaOpen; o.rotation = 0; SFX.canOpen(); this.burst(o.x, o.y - 40);
-      const l = new Sprite(this.T.lid); l.anchor.set(0.5); l.position.set(o.x, o.y - 50); this.box.addChild(l); c.lid = {s: l, vx: 330, vy: -1250, w: 11};
+      c.opened = true; o.texture = this.T.tunaOpen; o.rotation = r0; SFX.canOpen(); this.burst(o.x, o.y - 40 * S);
+      const l = new Sprite(this.T.lid); l.anchor.set(0.5); l.position.set(o.x, o.y - 50 * S); l.scale.set(S); this.box.addChild(l); c.lid = {s: l, vx: (o.x < 0 ? -1 : 1) * 330, vy: -1250, w: 11, sc: S};
     }
     if (!c.opened) return;
-    const k = Math.exp(-u * 7); o.scale.set(1 - Math.sin(u * 22) * 0.16 * k, 1 + Math.sin(u * 22) * 0.2 * k); // rebote elástico al abrirse
-    if (c.lid) { const L = c.lid; L.vy += 2600 * dt; L.s.x += L.vx * dt; L.s.y += L.vy * dt; L.s.rotation += L.w * dt; L.s.scale.y = Math.cos(u * 9);
+    const k = Math.exp(-u * 7); o.scale.set(S * (1 - Math.sin(u * 22) * 0.16 * k), S * (1 + Math.sin(u * 22) * 0.2 * k)); // rebote elástico al abrirse
+    if (c.lid) { const L = c.lid; L.vy += 2600 * dt; L.s.x += L.vx * dt; L.s.y += L.vy * dt; L.s.rotation += L.w * dt; L.s.scale.y = L.sc * Math.cos(u * 9);
       L.s.alpha = Math.min(1, Math.max(0, 1.3 - u)); if (u > 1.3) { L.s.destroy(); c.lid = null; } }
     // corazoncitos que suben como aroma
     if ((c.hT -= dt) <= 0 && c.hearts.length < 9) { c.hT = u < 0.5 ? 0.09 : 0.5; const h = new Sprite(this.T.heart); h.anchor.set(0.5);
-      h.position.set(o.x + (Math.random() - 0.5) * 110, o.y - 55); this.box.addChild(h); c.hearts.push({s: h, a: 0, ph: Math.random() * 6, sz: 0.45 + Math.random() * 0.35}); }
+      h.position.set(o.x + (Math.random() - 0.5) * 110 * S, o.y - 55 * S); this.box.addChild(h); c.hearts.push({s: h, a: 0, ph: Math.random() * 6, sz: 0.45 + Math.random() * 0.35}); }
     for (let i = c.hearts.length - 1; i >= 0; i--) { const h = c.hearts[i]; h.a += dt; h.s.y -= (120 + 60 * h.sz) * dt; h.s.x += Math.sin(h.a * 4 + h.ph) * 40 * dt;
       const sc = h.sz * Math.min(1, h.a * 5); h.s.scale.set(sc); h.s.rotation = Math.sin(h.a * 4 + h.ph) * 0.25; h.s.alpha = 1 - Math.max(0, (h.a - 0.6) / 0.5);
       if (h.a > 1.1) { h.s.destroy(); c.hearts.splice(i, 1); } }
@@ -250,7 +251,7 @@ export class UI {
         a.o.y = a.y0 - h * 70; const sq = c < 0.45 ? 1 + h * 0.06 : 1 - Math.sin((c - 0.45) / 0.55 * Math.PI) * 0.07; a.o.scale.set(a.s / Math.sqrt(sq), a.s * sq); a.o.rotation = h * (a.cheer - 1) * 0.12; }
       if (u > 1 && a.laugh) { a.o.rotation = Math.sin(t * 14) * 0.06; a.o.y = -90 - Math.abs(Math.sin(t * 7)) * 18; }
     }
-    if (this.can) this.updateCan(t, dt);
+    for (const c of this.cans) this.updateCan(c, t, dt);
     // puntaje cuenta de 0 al total
     const cu = clamp01((t - 0.4) / 1.1); this.scoreTxt.text = Math.round(this.r.score * (1 - Math.pow(1 - cu, 3))).toLocaleString('en-US');
     if (this.r.final && this.confetti) { // confeti que cae sin parar sobre el panel final
