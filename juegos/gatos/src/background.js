@@ -536,6 +536,66 @@ function lampLayer() {
   };
   return c;
 }
+// Murciélagos colgados de cabeza de la tubería de cobre del sótano: se mecen, parpadean, a veces estiran un ala;
+// con un estruendo se sueltan y huyen revoloteando en zigzag y ~8–12 s después regresan y se vuelven a colgar. Parallax 0.35.
+function batLayer() {
+  const {x0, x1} = BOUNDS, r = rng(77), c = new Container(), pipeY = GROUND - 1470;
+  const mk = (w, h, draw) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const k = cv.getContext('2d'); k.lineJoin = 'round'; draw(k); return Texture.from(cv); };
+  const BODY = '#3B2E45', WING = '#2A2032', EDGE = '#120C18';
+  const eyes = (k, x, y, open) => { if (open) { [-1, 1].forEach(sx => { k.fillStyle = '#FFD84A'; k.beginPath(); k.arc(x + sx * 7, y, 4.6, 0, TAU); k.fill(); k.fillStyle = '#1A1008'; k.beginPath(); k.arc(x + sx * 7, y + 0.8, 2, 0, TAU); k.fill(); }); }
+    else { k.strokeStyle = '#FFD84A'; k.lineWidth = 2.2; [-1, 1].forEach(sx => { k.beginPath(); k.moveTo(x + sx * 7 - 4, y); k.lineTo(x + sx * 7 + 4, y); k.stroke(); }); } };
+  // colgado: patitas arriba (ancla), cuerpo envuelto en las alas, cabeza abajo con orejas hacia abajo
+  const hang = (open, stretch) => mk(110, 110, k => { k.translate(55, 8); k.lineWidth = 3; k.strokeStyle = EDGE;
+    k.beginPath(); k.moveTo(-5, 0); k.lineTo(-5, 10); k.moveTo(5, 0); k.lineTo(5, 10); k.stroke(); // patitas
+    if (stretch) { k.fillStyle = WING; k.beginPath(); k.moveTo(6, 16); k.lineTo(50, 8); k.lineTo(44, 24); k.lineTo(50, 40); k.lineTo(36, 44); k.lineTo(14, 52); k.closePath(); k.fill(); k.stroke(); }
+    k.fillStyle = WING; k.beginPath(); k.moveTo(0, 8); k.bezierCurveTo(22, 12, 24, 48, 0, 62); k.bezierCurveTo(-24, 48, -22, 12, 0, 8); k.fill(); k.stroke();
+    k.strokeStyle = 'rgba(120,100,140,0.5)'; k.lineWidth = 2; k.beginPath(); k.moveTo(0, 14); k.lineTo(0, 54); k.stroke(); k.strokeStyle = EDGE; k.lineWidth = 3;
+    k.fillStyle = BODY; k.beginPath(); k.arc(0, 66, 14, 0, TAU); k.fill(); k.stroke(); // cabeza
+    k.beginPath(); [-1, 1].forEach(sx => { k.moveTo(sx * 5, 77); k.lineTo(sx * 13, 94); k.lineTo(sx * 13, 74); }); k.fill(); k.stroke(); // orejas (hacia abajo)
+    eyes(k, 0, 62, open); });
+  // volando: alas arriba / abajo
+  const fly = up => mk(150, 100, k => { k.translate(75, 50); k.lineWidth = 3; k.strokeStyle = EDGE; k.fillStyle = WING;
+    [-1, 1].forEach(sx => { k.beginPath(); k.moveTo(sx * 8, -2);
+      if (up) { k.lineTo(sx * 40, -38); k.lineTo(sx * 70, -30); k.lineTo(sx * 58, -16); k.lineTo(sx * 50, -6); k.lineTo(sx * 36, -10); k.lineTo(sx * 26, 4); }
+      else { k.lineTo(sx * 40, 4); k.lineTo(sx * 68, 30); k.lineTo(sx * 52, 30); k.lineTo(sx * 44, 38); k.lineTo(sx * 32, 26); k.lineTo(sx * 20, 12); }
+      k.closePath(); k.fill(); k.stroke(); });
+    k.fillStyle = BODY; k.beginPath(); k.ellipse(0, 4, 13, 17, 0, 0, TAU); k.fill(); k.stroke();
+    k.beginPath(); [-1, 1].forEach(sx => { k.moveTo(sx * 4, -10); k.lineTo(sx * 11, -28); k.lineTo(sx * 13, -8); }); k.fill(); k.stroke();
+    eyes(k, 0, -4, true); k.fillStyle = '#FFF'; k.beginPath(); k.moveTo(-4, 6); k.lineTo(-2, 11); k.lineTo(0, 6); k.moveTo(4, 6); k.lineTo(2, 11); k.lineTo(0, 6); k.fill(); }); // colmillitos
+  const T = {hang: hang(true), blink: hang(false), stretch: hang(true, true), up: fly(true), down: fly(false)}, items = [];
+  for (let gx = x0 + 650 + r() * 300; gx < x1 - 300; gx += 650 + r() * 700) {
+    if (LAMPS.some(L => Math.abs(L.x - gx) < 160)) continue; // no encima de los cables de los focos
+    const n = 1 + Math.floor(r() * 3);
+    for (let i = 0; i < n; i++) { const s = new Sprite(T.hang); s.anchor.set(0.5, 0.07); c.addChild(s); const hx = gx + i * (44 + r() * 26);
+      items.push({s, hx, x: hx, y: pipeY, st: 'hang', ph: r() * TAU, nx: 1 + r() * 4, ev: 0, k: 1.2 + r() * 0.35, t: 0}); }
+  }
+  c.jolt = (k = 1, x = 0) => { let any = false;
+    items.forEach(o => { if (o.st !== 'hang' && o.st !== 'land') return; const d = Math.abs(o.x - x * 0.35); any = true; // la onda llega primero a los cercanos
+      o.st = 'drop'; o.t = -Math.min(0.5, d / 6000) - Math.random() * 0.15; o.dir = Math.random() < 0.5 ? -1 : 1; o.vx = 0; o.vy = 0; o.zz = Math.random() * TAU; });
+    if (any) SFX.squeak(); };
+  c.update = dt => items.forEach(o => {
+    o.t += dt; const s = o.s;
+    if (o.st === 'hang') { o.ph += dt;
+      if ((o.nx -= dt) <= 0) { o.ev = Math.random() < 0.7 ? -0.14 : 0.9; o.nx = 1.5 + Math.random() * 4; } // parpadeo o estirón de ala
+      let tx = T.hang; if (o.ev < 0) { o.ev += dt; tx = T.blink; } else if (o.ev > 0) { o.ev -= dt; tx = T.stretch; }
+      s.texture = tx; s.position.set(o.x, pipeY); s.rotation = Math.sin(o.ph * 1.3) * 0.08; s.scale.set(o.k, o.k * (1 + Math.sin(o.ph * 2.2) * 0.02)); return;
+    }
+    if (o.st === 'drop') { if (o.t < 0) { s.rotation = Math.sin(o.t * 60) * 0.15; return; } // se sacude antes de soltarse
+      if (o.t < 0.22) { o.y += 900 * o.t * dt; s.texture = T.hang; s.position.set(o.x, o.y); s.rotation = o.dir * o.t * 14; return; } // cae y se voltea
+      o.st = 'flee'; o.t = 0; o.vx = o.dir * (300 + Math.random() * 200); o.vy = -(260 + Math.random() * 160); }
+    if (o.st === 'flee') { o.zz += dt * 7; o.x += (o.vx + Math.sin(o.zz) * 260) * dt; o.y += (o.vy + Math.cos(o.zz * 1.3) * 220) * dt; o.vy -= 60 * dt;
+      s.texture = Math.floor(o.t * 18) % 2 ? T.up : T.down; s.anchor.set(0.5); s.position.set(o.x, o.y); s.rotation = Math.sin(o.zz) * 0.3; s.scale.set(o.k, o.k);
+      if (o.t > 4) { o.st = 'away'; o.t = 0; o.wait = 4 + Math.random() * 5; s.visible = false; } return; }
+    if (o.st === 'away') { if (o.t > o.wait) { o.st = 'back'; o.t = 0; o.dir = Math.random() < 0.5 ? -1 : 1; o.x = o.hx - o.dir * (900 + Math.random() * 400); o.y = pipeY - 300 + Math.random() * 600; s.visible = true; } return; }
+    if (o.st === 'back') { o.zz += dt * 6; const dx = o.hx - o.x, dy = pipeY + 40 - o.y, d = Math.hypot(dx, dy), v = Math.min(480, 90 + d * 0.9);
+      o.x += dx / d * v * dt + Math.sin(o.zz) * 120 * dt * Math.min(1, d / 200); o.y += dy / d * v * dt;
+      s.texture = Math.floor(o.t * 16) % 2 ? T.up : T.down; s.position.set(o.x, o.y); s.rotation = Math.sin(o.zz) * 0.2;
+      if (d < 10) { o.st = 'land'; o.t = 0; o.x = o.hx; } return; }
+    if (o.st === 'land') { const u = Math.min(1, o.t / 0.3); s.texture = T.hang; s.anchor.set(0.5, 0.07); s.position.set(o.x, pipeY); s.rotation = Math.sin(u * Math.PI * 3) * 0.25 * (1 - u); s.scale.set(o.k, o.k * (1 - Math.sin(u * Math.PI) * 0.15));
+      if (u >= 1) { o.st = 'hang'; o.nx = 1 + Math.random() * 2; } }
+  });
+  return c;
+}
 // Fondo medio: cajas apiladas, frascos en anaquel, calentador de agua, telarañas, agujero de ratón iluminado. Parallax 0.65.
 const HOLES = [1000, 3400]; // agujeros de ratón en el zoclo (cratesLayer)
 function cratesLayer() {
@@ -628,10 +688,10 @@ function lairFg(side) {
 
 export function buildBackground(theme = 'kitchen') {
   if (theme === 'lair') {
-    const lamps = lampLayer(), crates = cratesLayer();
-    const layers = [{node: lairWallLayer(), f: 0.35}, {node: lamps, f: 0.35}, {node: crates, f: 0.65}, {node: concreteLayer(), f: 1}];
+    const lamps = lampLayer(), crates = cratesLayer(), bats = batLayer();
+    const layers = [{node: lairWallLayer(), f: 0.35}, {node: bats, f: 0.35}, {node: lamps, f: 0.35}, {node: crates, f: 0.65}, {node: concreteLayer(), f: 1}];
     const fg = new Container(); const fl = lairFg(-1), fr = lairFg(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); }, jolt: k => lamps.jolt(k)};
+    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); bats.update(dt); }, jolt: (k, x) => { lamps.jolt(k); bats.jolt(k, x); }, bats};
   }
   if (theme === 'garden') {
     const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer();
