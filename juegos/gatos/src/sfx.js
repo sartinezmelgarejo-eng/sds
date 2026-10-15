@@ -67,7 +67,7 @@ export function release(k) { if (!ok('rel', 0.1)) return; const t = ctx.currentT
 export function points() { if (!ok('pts', 0.04)) return; const t = ctx.currentTime; tone(t, 1320, 'sine', 0.06, 0.08); tone(t + 0.05, 1760, 'sine', 0.05, 0.1); }
 export function boom() { if (!ok('boom', 0.1)) return; const t = ctx.currentTime; noise(t, 1.0, 'lowpass', 900, 0.7, 1.0, 0.9, 120); tone(t, 110, 'sine', 0.9, 0.6, 35); noise(t, 0.15, 'highpass', 2000, 1, 0.5, 0.12); }
 export function inflate() { if (!ok('inf', 0.1)) return; const t = ctx.currentTime; tone(t, 200, 'sine', 0.4, 0.25, 900); noise(t, 0.25, 'bandpass', 700, 2, 0.4, 0.22, 2500); }
-export function deflate() { if (!ok('def', 0.1)) return; const t = ctx.currentTime; tone(t, 700, 'sawtooth', 0.06, 0.5, 120); noise(t, 0.5, 'bandpass', 1500, 3, 0.25, 0.45, 300); }
+export function deflate() { if (!ok('def', 0.1)) return; const t = ctx.currentTime; tone(t, 700, 'sawtooth', 0.06, 0.8, 120); noise(t, 0.8, 'bandpass', 1500, 3, 0.25, 0.75, 300); } // pedorreo de globo suelto (dura lo mismo que el desinflado)
 export function swoosh() { if (!ok('sw', 0.1)) return; const t = ctx.currentTime; noise(t, 0.55, 'bandpass', 500, 2, 0.7, 0.5, 3200); }
 export function slam() { if (!ok('slam', 0.1)) return; const t = ctx.currentTime; tone(t, 70, 'sine', 1.0, 0.5, 30); noise(t, 0.6, 'lowpass', 600, 0.8, 0.9, 0.5, 100); }
 // ---- fin de nivel ----

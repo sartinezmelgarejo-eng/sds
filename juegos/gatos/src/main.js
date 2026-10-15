@@ -50,7 +50,7 @@ function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2) { // se hornea al 
 
 async function main() {
   const app = new Application();
-  await app.init({resizeTo: window, background: '#2b1d14', antialias: true, resolution: Math.min(devicePixelRatio || 1, 2), autoDensity: true});
+  await app.init({resizeTo: window, background: '#2b1d14', antialias: true, resolution: Math.min(devicePixelRatio || 1, 2), autoDensity: true, textureGCActive: false}); // sin GC de texturas: en iPad la re-subida desde canvas dejaba la pantalla en negro
   document.getElementById('stage').appendChild(app.canvas);
   await Promise.all([document.fonts.load('40px "Luckiest Guy"'), document.fonts.load('40px "Lilita One"')]).catch(() => {});
 
@@ -89,8 +89,13 @@ async function main() {
   function useBg(theme) {
     if (wraps.length && theme === bgTheme) return;
     bgTheme = theme; const nb = BGS[theme] || (BGS[theme] = buildBackground(theme));
-    bgRoot.removeChildren(); curLayers = nb.layers; curBg = nb;
-    if (nb.fg !== bg.fg) { const i = app.stage.getChildIndex(bg.fg); app.stage.removeChild(bg.fg); app.stage.addChildAt(nb.fg, i); bg = nb; if (wraps.length) resize(); }
+    bgRoot.removeChildren().forEach(c => c.destroy()); curLayers = nb.layers; curBg = nb;
+    if (nb.fg !== bg.fg) { const old = bg, i = app.stage.getChildIndex(bg.fg); app.stage.removeChild(bg.fg); app.stage.addChildAt(nb.fg, i); bg = nb; if (wraps.length) resize();
+      // memoria (iPad): el fondo del mundo anterior se destruye; se vuelve a hornear si se regresa a ese mundo
+      for (const k in BGS) if (BGS[k] === old) delete BGS[k];
+      const kill = o => o.destroy({children: true, texture: true, textureSource: true});
+      old.layers.forEach(l => kill(l.node)); kill(old.fg);
+      for (const [k, t] of TEXC) if (k.startsWith('b|')) { t.destroy(true); TEXC.delete(k); } }
     wraps = nb.layers.map(l => { const c = new Container(); bgRoot.addChild(c); c.addChild(l.node); return c; });
   }
   useBg(bgTheme);
@@ -496,16 +501,29 @@ async function main() {
     const b = f.body;
     if (f.inflate) {
       const I = f.inflate; I.t += dt;
-      const target = I.t < 0.15 ? 1 + 3 * (I.t / 0.15) : I.t < 2.15 ? 4 : Math.max(1, 4 - 3 * (I.t - 2.15) / 0.35);
-      if (Math.abs(target - I.k) > 0.01) { Body.scale(b, target / I.k, target / I.k); I.k = target; }
-      if (!I.pushed && I.t >= 0.15) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.2}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
-      if (!I.deflated && I.t > 2.15) { I.deflated = true; SFX.deflate(); }
-      if (I.t > 2.6) f.inflate = null;
+      // tiempos del Bubbles original (AB/AB2): se infla de golpe con rebote elástico, aguanta inflado ~2.5 s
+      // y se desinfla como globo suelto (sale disparado haciendo zigzag mientras se encoge) hasta que truena
+      const T_IN = 0.16, T_SET = 0.42, T_HOLD = 2.6, T_DEF = 0.8;
+      let target;
+      if (I.t < T_IN) { const u = I.t / T_IN; target = 1 + 3.45 * (1 - (1 - u) * (1 - u)); }          // 1 → 4.45 muy rápido
+      else if (I.t < T_SET) { const u = (I.t - T_IN) / (T_SET - T_IN); target = 4 + 0.45 * Math.cos(u * Math.PI * 1.5) * (1 - u); } // rebote 4.45 → 3.8 → 4
+      else if (I.t < T_HOLD) target = 4 + Math.sin((I.t - T_SET) * 5) * 0.04;                         // respira inflado
+      else target = Math.max(1, 4 - 3 * Math.pow(Math.min(1, (I.t - T_HOLD) / T_DEF), 0.7));         // se desinfla
+      if (Math.abs(target - I.k) > 0.005) { Body.scale(b, target / I.k, target / I.k); I.k = target; }
+      if (!I.pushed && I.t >= T_IN * 0.6) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.2}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
+      if (!I.deflated && I.t > T_HOLD) { I.deflated = true; SFX.deflate(); I.dir = -Math.PI / 2 + (Math.random() - 0.5) * 1.2; }
+      if (I.deflated && I.t < T_HOLD + T_DEF) { // globo suelto: empuje que cambia de dirección a tirones
+        I.dir += (Math.random() - 0.5) * 9 * dt + Math.sin(I.t * 23) * 4 * dt;
+        const v = 520 / 1000 * V_UNIT; Body.setVelocity(b, {x: b.velocity.x * 0.8 + Math.cos(I.dir) * v * 0.2, y: b.velocity.y * 0.8 + Math.sin(I.dir) * v * 0.2});
+        Body.setAngularVelocity(b, 0.25);
+        if (Math.random() < 0.5) fx.burst('fur', b.position.x, b.position.y, 1, 160, {up: 0, life: 0.6, size: 0.8});
+      }
+      if (I.t > T_HOLD + T_DEF) { fx.smoke(b.position.x, b.position.y, CAT_R * 1.4, 7); SFX.pop(); cam.shake(4); f.inflate = null; } // ¡pop! y queda chiquito
       // con más de 1.6× usa la textura grande (misma proporción de ancla)
       const P = catT[f.q.name].puff, big = P && I.k > 1.6, T = big ? P : flyTex(f.q.name);
       if (f.sprite.texture !== T.tex) f.sprite.texture = T.tex;
       const r = big ? catT[f.q.name].fly.tex.width / P.tex.width : 1;
-      f.sprite.scale.set(0.5 * r * I.k * (1 + Math.sin(I.t * 30) * 0.02 * (I.k > 3.9 ? 1 : 0)));
+      f.sprite.scale.set(0.5 * r * I.k * (I.deflated ? 1 + Math.sin(I.t * 60) * 0.05 : 1), 0.5 * r * I.k * (I.deflated ? 1 - Math.sin(I.t * 60) * 0.05 : 1));
     }
     if (f.loop) {
       const L = f.loop; L.t += dt; const u = Math.min(1, L.t / L.dur);
@@ -675,7 +693,7 @@ async function main() {
           const sp = pr.collision.supports?.[0] || me.position; fx.smoke(sp.x, GROUND - 6, Math.min(70, 18 + closing * 3), Math.round(Math.min(6, 2 + closing * 0.3))); }
         if (started < 1) continue;
         const mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
-        damage(d, Math.max(0, closing - 1.2) * mf * FRAGILE[d.mat], closing);
+        damage(d, Math.max(0, closing - (d.mat === 'mouse' ? 0.6 : 1.2)) * mf * FRAGILE[d.mat], closing); // los ratones resienten hasta los golpes chicos
       }
     }
   });
@@ -954,7 +972,10 @@ async function main() {
     onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect((level.world || 1) - 1),
   });
   const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); else if (app.renderer.gl?.isContextLost?.()) reloadLevel(); });
+  // iPad: si el sistema le quita la memoria de video al juego, al volver se recarga el nivel (antes: pantalla negra)
+  const reloadLevel = () => { const q = new URLSearchParams(location.search); q.set('level', levelId); location.replace('?' + q); };
+  app.canvas.addEventListener('webglcontextrestored', () => setTimeout(reloadLevel, 50));
   // al girar la tablet a vertical aparece el aviso (CSS) y el juego se pausa
   addEventListener('resize', () => { if (matchMedia('(orientation: portrait) and (pointer: coarse)').matches) pause(); });
   // con ?level=… se entra directo al nivel (pruebas); si no, pantalla de título con el nivel 1-1 congelado detrás
@@ -981,9 +1002,19 @@ async function main() {
         SFX.motor((0.45 + 0.55 * cam.zoom / 0.9) * k * (r.stun > 0 ? 0.5 : 1), sxp * 0.8, r.stun > 0 ? 0.6 : 0.8 + 0.4 * Math.min(1, Math.abs(r.vx) / r.speed)); }
       else SFX.motor(0);
     }
-    for (const d of dyn) {
+    for (const d of [...dyn]) { // copia: destroyDyn saca elementos durante el recorrido
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
+      // fuera de la vista del nivel (salió volando o rodando por un lado / se hundió): se elimina y cuenta
+      if (dt > 0 && started > 1 && !d.enter && (p.x < -100 || p.x > LEVEL_W + 100 || p.y > GROUND + 150 || p.y < BOUNDS.y0 - 300)) { destroyDyn(d); continue; }
+      if (d.mat === 'mouse' && dt > 0 && started > 1 && !d.ride && !d.body.isSleeping) {
+        // un ratón que rueda o va cayendo se va lastimando poco a poco (los golpes se acumulan hasta que muere)
+        const sp = d.body.speed + Math.abs(d.body.angularVelocity) * d.r * 0.5;
+        if (sp > 2.5) damage(d, dt * (sp - 2.5) * 0.6);
+        // y no rueda para siempre: frenado de giro
+        if (!d.dead) Body.setAngularVelocity(d.body, d.body.angularVelocity * Math.exp(-dt * 1.5));
+      }
+      if (d.dead) continue;
       if (d.mat === 'mouse') animMouse(d, dt);
       // crujidos: una pieza que se tambalea (gira lento sin desplazarse mucho) rechina, como las torres de AB2
       else if (dt > 0 && started > 1 && !d.patrol && !d.body.isSleeping && time > (d.creakAt || 0)) {
