@@ -421,6 +421,10 @@ async function main() {
     for (let i = rockets.length - 1; i >= 0; i--) { const r = rockets[i]; r.t += dt;
       r.vy += 500 * dt; r.x += (r.vx + Math.sin(r.t * 22 + r.wig) * 140) * dt; r.y += r.vy * dt;
       fx.streak(r.x, r.y, 15, r.col); if (Math.random() < 0.5) fx.burst('zap', r.x, r.y, 1, 120, {up: 0, size: 0.5, life: 0.3, g: 400});
+      // si el cohete se mete en un bloque o ratón truena ahí: le pega y, si es otra caja de cuetes, la enciende
+      const hitD = r.t > 0.08 && dyn.find(d => !d.dead && !d.enter && d.mat !== 'robot' && Matter.Bounds.contains(d.body.bounds, r) && Matter.Vertices.contains(d.body.vertices, r));
+      if (hitD) { r.t = r.life; damage(hitD, hitD.mat === 'tnt' ? 99 : 6 * FRAGILE[hitD.mat], 10); Sleeping.set(hitD.body, false);
+        Body.setVelocity(hitD.body, {x: hitD.body.velocity.x + r.vx / 240, y: hitD.body.velocity.y + r.vy / 240}); cam.shake(8); }
       if (r.t >= r.life) { rockets.splice(i, 1);
         // trueno de cuete: chispas de color en esfera + destello
         const n0 = fx.parts.length; fx.burst('star', r.x, r.y, 22, 620, {up: 0, g: 260, drag: 1.6, life: 1.0, size: 0.55});
@@ -952,6 +956,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
