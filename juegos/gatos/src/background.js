@@ -255,6 +255,68 @@ function butterflyLayer() {
   });
   return c;
 }
+// Gorriones parados en el travesaño de la cerca (parallax 0.6, igual que la cerca): picotean, brincan, se voltean;
+// con un estruendo salen volando en desbandada (pío-pío) y ~6–10 s después regresan planeando a su lugar.
+function birdLayer() {
+  const {x0, x1} = BOUNDS, r = rng(31), c = new Container(), rail = GROUND - 302;
+  const bird = pose => { const cv = document.createElement('canvas'); cv.width = 96; cv.height = 80; const k = cv.getContext('2d'); k.translate(48, 48);
+    k.lineWidth = 3.5; k.strokeStyle = '#3B2616'; k.lineJoin = 'round';
+    const wingUp = pose === 'up', wingDn = pose === 'down';
+    if (wingUp) { k.fillStyle = '#7A5232'; k.beginPath(); k.moveTo(-4, -6); k.quadraticCurveTo(-14, -40, 4, -42); k.quadraticCurveTo(10, -22, 8, -6); k.closePath(); k.fill(); k.stroke(); }
+    // cola
+    k.fillStyle = '#6B4529'; k.beginPath(); k.moveTo(-14, 0); k.lineTo(-34, pose === 'sit' ? 10 : -4); k.lineTo(-32, pose === 'sit' ? 18 : 6); k.lineTo(-12, 8); k.closePath(); k.fill(); k.stroke();
+    // cuerpo + pancita
+    k.fillStyle = '#9A6B45'; k.beginPath(); k.ellipse(0, 2, 20, 15, -0.1, 0, TAU); k.fill(); k.stroke();
+    k.fillStyle = '#EBD7B8'; k.beginPath(); k.ellipse(5, 8, 13, 8, -0.15, 0, TAU); k.fill();
+    // cabeza
+    k.fillStyle = '#9A6B45'; k.beginPath(); k.arc(16, -10, 11, 0, TAU); k.fill(); k.stroke();
+    k.fillStyle = '#6B4529'; k.beginPath(); k.arc(14, -15, 7, Math.PI * 1.05, Math.PI * 1.95); k.fill();
+    k.fillStyle = '#F2E4CC'; k.beginPath(); k.ellipse(20, -6, 5, 4, 0, 0, TAU); k.fill();
+    k.fillStyle = '#E39A2E'; k.beginPath(); k.moveTo(25, -12); k.lineTo(34, -9); k.lineTo(25, -6); k.closePath(); k.fill(); k.lineWidth = 2; k.stroke();
+    k.fillStyle = '#1A1008'; k.beginPath(); k.arc(19, -12, 2.8, 0, TAU); k.fill(); k.fillStyle = '#FFF'; k.beginPath(); k.arc(19.8, -12.9, 1, 0, TAU); k.fill();
+    // ala
+    k.lineWidth = 3; k.fillStyle = '#7A5232';
+    if (wingDn) { k.beginPath(); k.moveTo(-6, 2); k.quadraticCurveTo(-12, 30, 4, 32); k.quadraticCurveTo(10, 16, 8, 2); k.closePath(); k.fill(); k.stroke(); }
+    else if (!wingUp) { k.beginPath(); k.ellipse(-3, 2, 13, 8, 0.25, 0, TAU); k.fill(); k.stroke(); k.strokeStyle = 'rgba(40,24,10,0.5)'; k.beginPath(); k.moveTo(-12, 4); k.lineTo(4, 6); k.stroke(); }
+    if (pose === 'sit') { k.strokeStyle = '#5A3A1E'; k.lineWidth = 2.5; k.beginPath(); k.moveTo(-2, 16); k.lineTo(-4, 26); k.moveTo(6, 16); k.lineTo(6, 26); k.stroke(); }
+    return Texture.from(cv); };
+  const T = {sit: bird('sit'), up: bird('up'), down: bird('down')}, items = [];
+  for (let gx = x0 + 500 + r() * 300; gx < x1 - 300; gx += 700 + r() * 600) {
+    const n = 1 + Math.floor(r() * 3);
+    for (let i = 0; i < n; i++) { const s = new Sprite(T.sit); s.anchor.set(0.5, 0.92); c.addChild(s); const hx = gx + i * (55 + r() * 30);
+      items.push({s, hx, x: hx, y: rail, st: 'sit', dir: r() < 0.5 ? -1 : 1, nx: 1 + r() * 4, pk: 0, hp: 0, k: 0.8 + r() * 0.14, t: 0}); }
+  }
+  // estruendo en x (mundo): huyen los que están cerca primero (la onda llega después); xl ≈ x en coords de esta capa
+  c.jolt = (k = 1, x = 0) => { const xl = x * 0.6 + x0 * 0.4; let any = false;
+    items.forEach(o => { if (o.st !== 'sit' && o.st !== 'land') return; const d = Math.abs(o.x - xl); if (d > 1500 + k * 1500) return;
+      any = true; o.st = 'flee'; o.t = -d / 3000 - Math.random() * 0.12; o.dir = Math.sign(o.x - xl) || 1; o.vx = o.dir * (380 + Math.random() * 260); o.vy = -(420 + Math.random() * 260); });
+    if (any) SFX.tweet(Math.min(1, 0.5 + k * 0.4)); };
+  c.update = dt => items.forEach(o => {
+    o.t += dt; const s = o.s;
+    if (o.st === 'sit') {
+      // picotea (se inclina rápido), da brinquitos y se voltea de vez en cuando
+      if ((o.nx -= dt) <= 0) { const m = Math.random(); if (m < 0.5) o.pk = 0.35; else if (m < 0.8) { o.hp = 0.3; o.hx += (Math.random() - 0.5) * 50; } else o.dir *= -1; o.nx = 1.2 + Math.random() * 3.5; }
+      let rot = 0, dy = 0; if (o.pk > 0) { o.pk -= dt; rot = Math.sin((1 - o.pk / 0.35) * Math.PI * 2) ** 2 * 0.55; }
+      if (o.hp > 0) { o.hp -= dt; dy = Math.sin((1 - o.hp / 0.3) * Math.PI) * 18; o.x += (o.hx - o.x) * Math.min(1, dt * 10); }
+      s.texture = T.sit; s.position.set(o.x, rail - dy); s.rotation = rot * o.dir; s.scale.set(o.k * o.dir, o.k); return;
+    }
+    if (o.st === 'flee') { if (o.t < 0) return;
+      o.vy -= 260 * dt; o.vx *= 1 + dt * 0.3; o.x += o.vx * dt; o.y += o.vy * dt;
+      s.texture = Math.floor(o.t * 16) % 2 ? T.up : T.down; s.position.set(o.x, o.y); s.rotation = Math.atan2(o.vy, Math.abs(o.vx)) * 0.5 * o.dir; s.scale.set(o.k * o.dir, o.k);
+      if (o.y < rail - 2200) { o.st = 'away'; o.t = 0; o.wait = 5 + Math.random() * 5; s.visible = false; } return;
+    }
+    if (o.st === 'away') { if (o.t > o.wait) { o.st = 'back'; o.t = 0; o.dir = Math.random() < 0.5 ? -1 : 1; o.x = o.hx - o.dir * (900 + Math.random() * 400); o.y = rail - 1200 - Math.random() * 300; s.visible = true; } return; }
+    if (o.st === 'back') { // regresa planeando (aleteo lento) y se posa en su lugar
+      const dx = o.hx - o.x, dy = rail - o.y, d = Math.hypot(dx, dy), v = Math.min(520, 120 + d * 0.9);
+      o.x += dx / d * v * dt; o.y += dy / d * v * dt; o.dir = Math.sign(dx) || o.dir;
+      s.texture = d < 140 ? T.up : (o.t * 5) % 1 < 0.35 ? (Math.floor(o.t * 14) % 2 ? T.up : T.down) : T.down;
+      s.position.set(o.x, o.y); s.rotation = 0; s.scale.set(o.k * o.dir, o.k);
+      if (d < 8) { o.st = 'land'; o.t = 0; o.x = o.hx; } return;
+    }
+    if (o.st === 'land') { const u = Math.min(1, o.t / 0.25), sq = 1 - Math.sin(u * Math.PI) * 0.18; s.texture = T.sit; s.position.set(o.x, rail); s.scale.set(o.k * o.dir / Math.sqrt(sq), o.k * sq); s.rotation = 0; if (u >= 1) { o.st = 'sit'; o.nx = 1 + Math.random() * 2; } }
+  });
+  return c;
+}
 // Árboles redondos + cerca de madera + arbustos con flores. Parallax 0.6.
 function fenceLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 1250, w = x1 - x0, h = GROUND - ty + 30;
@@ -545,10 +607,10 @@ export function buildBackground(theme = 'kitchen') {
     return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); }, jolt: k => lamps.jolt(k)};
   }
   if (theme === 'garden') {
-    const clouds = cloudLayer(), flies = butterflyLayer();
-    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
+    const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer();
+    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: birds, f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); }, jolt: (k, x) => flies.jolt(k, x)};
+    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); }, birds};
   }
   const motes = motesLayer(), tools = utensilLayer();
   const layers = [
