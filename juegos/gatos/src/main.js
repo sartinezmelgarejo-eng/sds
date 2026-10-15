@@ -172,6 +172,23 @@ async function main() {
     hand.alpha = c < 0.25 ? c / 0.25 : c > 1.8 ? Math.max(0, 1 - (c - 1.8) / 0.3) : 1;
     hand.scale.set(0.9 * (c < 0.35 ? 1.15 - 0.15 * c / 0.35 : 1)); // "presiona" al inicio
   }
+  // pista de poder (AB2): la primera vez que cada gato vuela, una manita "toca" junto a él con un anillo y ¡TOCA!, hasta que el jugador use el poder
+  const tapped = new Set((() => { try { return JSON.parse(localStorage.getItem('gatos.tapped') || '[]'); } catch (e) { return []; } })());
+  const tapHint = new Container(); tapHint.visible = false; front.addChild(tapHint);
+  const tapRing = new Graphics().circle(0, 0, 40).stroke({width: 12, color: 0x1F2240, alpha: 0.5}).circle(0, 0, 40).stroke({width: 7, color: 0xFFE27A}); tapHint.addChild(tapRing);
+  const tapHand = new Sprite(handTex); tapHand.anchor.set(0.42, 0.1); tapHint.addChild(tapHand);
+  const tapTxt = new Text({text: '¡TOCA!', style: {fontFamily: 'Luckiest Guy', fontSize: 54, fill: '#FFE27A', stroke: {color: '#1F2240', width: 10, join: 'round'}}}); tapTxt.anchor.set(0.5, 1); tapHint.addChild(tapTxt);
+  let tapT = 0;
+  function updateTapHint(dt) {
+    const f = flying, on = CARDS && f && !f.hit && !f.power && !tapped.has(f.q.name) && f.t > 0.45 && !ui.cardOpen;
+    tapHint.visible = !!on; if (!on) { tapT = 0; return; }
+    tapT += dt; const c = tapT % 0.8, p = f.body.position, k = 1 / cam.zoom, press = c > 0.3 && c < 0.45;
+    tapHint.position.set(p.x + 46 * k, p.y + 22 * k); tapHint.scale.set(k);
+    tapHint.alpha = Math.min(1, tapT / 0.2);
+    tapHand.position.set(press ? 0 : 6, press ? 2 : 12); tapHand.scale.set(press ? 0.36 : 0.42);
+    const rr = c < 0.3 ? 0 : (c - 0.3) / 0.5; tapRing.visible = c >= 0.3; tapRing.scale.set(0.3 + rr * 0.8); tapRing.alpha = 1 - rr;
+    tapTxt.position.set(48, -18); tapTxt.scale.set(0.62 + (press ? 0.12 : 0) + Math.sin(tapT * 6) * 0.03);
+  }
   const dizzyTex = canvasTex(64, 64, k => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 12 : 27; k.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } k.closePath();
     k.lineJoin = 'round'; k.lineWidth = 7; k.strokeStyle = '#2A1F3D'; k.stroke(); k.fillStyle = '#FFE14A'; k.fill(); k.fillStyle = 'rgba(255,255,255,0.7)'; k.beginPath(); k.arc(27, 25, 5, 0, 7); k.fill(); }, 2);
   fx.under = new Container(); world.addChildAt(fx.under, world.getChildIndex(actors)); // estelas detrás de los gatos
@@ -456,6 +473,7 @@ async function main() {
 
   function activatePower(f) {
     const b = f.body, p = b.position, name = f.q.name;
+    if (!f.hit && !tapped.has(name)) { tapped.add(name); try { localStorage.setItem('gatos.tapped', JSON.stringify([...tapped])); } catch (e) {} }
     // en el rastro queda una nube de puntitos donde se usó el poder (como el "puff" del Angry Birds clásico)
     if (!f.hit) { const c = new Sprite(dotTex); c.anchor.set(0.5); c.scale.set(0.7); c.position.set(p.x, p.y); trail.addChild(c);
       for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.3, d = new Sprite(dotTex); d.anchor.set(0.5); d.scale.set(0.24 + (k % 2) * 0.08); d.position.set(p.x + Math.cos(a) * 42, p.y + Math.sin(a) * 42); trail.addChild(d); } }
@@ -960,7 +978,7 @@ async function main() {
       }
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
-    updateTurn(dt); updateTutorial(rdt);
+    updateTurn(dt); updateTutorial(rdt); updateTapHint(rdt);
     cam.update(dt);
     if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
     scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
