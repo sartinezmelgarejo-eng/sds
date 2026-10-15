@@ -162,6 +162,68 @@ async function main() {
   const scoreTxt = new Text({text: '0', style: {fontFamily: 'Luckiest Guy', fontSize: 66, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 11, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
   scoreLbl.anchor.set(1, 0); scoreTxt.anchor.set(1, 0); hud.addChild(scoreLbl, scoreTxt);
   const addScore = (v, x, y, color, big, k) => { score += v; fx.points(x, y, v, color, big, k); SFX.points(); };
+  // ---------- Destructómetro (AB2): romper bloques llena la barra; al llenarse cae un GATO EXTRA a la fila ----------
+  // umbrales = 38 % y 80 % de los puntos de bloques del nivel (máx. 2 gatos extra por intento)
+  const MW = 380, MH = 38;
+  const meter = new Container(); hud.addChild(meter);
+  const meterG = new Graphics(), meterFill = new Graphics(), meterShine = new Graphics();
+  meterG.roundRect(-MW - 12, -MH / 2 - 8, MW + 24, MH + 22, 26).fill(0x1F2240);                 // base 3D
+  meterG.roundRect(-MW - 12, -MH / 2 - 12, MW + 24, MH + 24, 26).fill(0x2E3488).stroke({color: 0x1F2240, width: 7});
+  meterG.roundRect(-MW, -MH / 2, MW, MH, 18).fill(0x14163A);
+  meterShine.roundRect(-MW + 8, -MH / 2 + 5, MW - 16, 9, 5).fill({color: 0xFFFFFF, alpha: 0.35});
+  const badge = new Graphics(); badge.circle(0, 0, 50).fill(0x1F2240); badge.circle(0, -4, 50).fill(0xFFD860).stroke({color: 0x1F2240, width: 7}); badge.circle(0, -4, 38).fill(0xFFF3C4);
+  badge.x = -MW - 30; badge.y = 0;
+  const badgeCat = new Sprite(); badgeCat.anchor.set(0.5); badgeCat.position.set(badge.x, -6);
+  const meterLbl = new Text({text: 'DESTRUCCIÓN', style: {fontFamily: 'Luckiest Guy', fontSize: 26, fill: '#FFE27A', stroke: {color: '#1F2240', width: 6, join: 'round'}}}); meterLbl.anchor.set(1, 1); meterLbl.position.set(-14, -MH / 2 - 12);
+  meter.addChild(meterG, meterFill, meterShine, badge, badgeCat, meterLbl);
+  const extraTxt = new Text({text: '¡GATO EXTRA!', style: {fontFamily: 'Luckiest Guy', fontSize: 120, fill: '#FFE27A', stroke: {color: '#1F2240', width: 20, join: 'round'}, dropShadow: {color: '#1F2240', distance: 10, angle: Math.PI / 2, blur: 0, alpha: 0.95}}});
+  extraTxt.anchor.set(0.5); extraTxt.visible = false; app.stage.addChild(extraTxt);
+  const meterState = {pts: 0, shown: 0, total: 1, step: 0, next: 'omi', flash: 0, pulse: 0, extraT: -1};
+  const METER_STEPS = [0.38, 0.8];
+  function pickBonusCat() { const ns = Object.keys(CATS); meterState.next = ns[Math.floor(Math.random() * ns.length)]; const t = catT[meterState.next].calm; badgeCat.texture = t.tex; badgeCat.anchor.set(t.ax, 0.42); badgeCat.scale.set(70 / t.tex.width * 1.15); }
+  function resetMeter() {
+    meterState.total = Math.max(1, level.blocks.reduce((s, b) => s + (b.patrol ? 0 : PTS[b.t] || 0), 0));
+    Object.assign(meterState, {pts: 0, shown: 0, step: 0, flash: 0, pulse: 0, extraT: -1}); extraTxt.visible = false; meter.visible = true; pickBonusCat();
+  }
+  function wreck(v) {
+    const m = meterState; if (m.step >= METER_STEPS.length) return;
+    m.pts += v; m.pulse = 0.25;
+    if (m.pts >= m.total * METER_STEPS[m.step]) {
+      m.step++; m.flash = 0.6; m.extraT = 0; extraTxt.visible = true; giveExtraCat(m.next);
+      if (m.step < METER_STEPS.length) setTimeout(pickBonusCat, 700);
+    }
+  }
+  function meterFrac() { const m = meterState, lo = m.step ? METER_STEPS[m.step - 1] : 0, hi = METER_STEPS[Math.min(m.step, METER_STEPS.length - 1)];
+    return m.step >= METER_STEPS.length ? 1 : Math.max(0, Math.min(1, (m.shown / m.total - lo) / (hi - lo))); }
+  // el gato extra cae del cielo al final de la fila con un puf de estrellas
+  function giveExtraCat(n) {
+    const i = queue.length, x = slotX(i, i + 1), t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
+    const y1 = GROUND - t.footY; sp.position.set(x, y1 - 1100); actors.addChild(sp);
+    const q = {name: n, sprite: sp, shadow: contactShadow(x, 170), x, phase: Math.random() * 6, extra: true,
+      hop: {t: -0.35, dur: 0.55, x0: x, y0: y1 - 1100, x1: x, y1, h: 0, fall: true, onEnd: () => { fx.smoke(x, GROUND - 20, 70, 10); fx.burst('star', x, GROUND - 140, 12, 520, {up: 260, size: 1.0, life: 0.8}); SFX.pop(); SFX.meow(i); cam.shake(6); }}};
+    queue.forEach((o, j) => { const nx = slotX(j, i + 1); if (Math.abs(nx - o.x) > 1) { o.hop = {t: -j * 0.08, dur: 0.4, x0: o.sprite.x, y0: o.sprite.y, x1: nx, y1: o.sprite.y, h: 50}; o.x = nx; } });
+    queue.push(q); SFX.star(2); setTimeout(() => SFX.star(1), 120);
+    // si ya había perdido (sin gatos) pero el panel no ha salido, el turno sigue
+    if (state === 'lose' && !resultsShown) { state = 'between'; turnWait = 1.2; laughAll = 1.3; SFX.duck(0); }
+  }
+  function updateMeter(rdt) {
+    const m = meterState; if (m.shown < m.pts) m.shown = Math.min(m.pts, m.shown + Math.max(40, (m.pts - m.shown) * rdt * 5));
+    const f = meterFrac(), full = m.step >= METER_STEPS.length;
+    meterFill.clear();
+    if (f > 0.01) { const w = Math.max(MH, MW * f);
+      meterFill.roundRect(-MW, -MH / 2, w, MH, 18).fill(full ? 0x8FE05A : 0xFFB02E);
+      meterFill.roundRect(-MW, -MH / 2, w, MH * 0.5, 18).fill({color: full ? 0xC8F59A : 0xFFE27A, alpha: 0.85}); }
+    if (m.flash > 0) { m.flash -= rdt; meterFill.roundRect(-MW, -MH / 2, MW, MH, 18).fill({color: 0xFFFFFF, alpha: Math.max(0, m.flash / 0.6) * 0.9}); }
+    if (m.pulse > 0) m.pulse -= rdt;
+    const ps = 1 + Math.max(0, m.pulse) * 0.25 + (m.flash > 0 ? Math.sin(m.flash * 30) * 0.06 : 0);
+    badge.scale.set(ps); badgeCat.scale.set(ps * 70 / (badgeCat.texture.width || 1) * 1.15); badgeCat.alpha = full ? 0.35 : 1;
+    if (m.extraT >= 0) { m.extraT += rdt; const u = m.extraT;
+      const sc = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25, uin = Math.min(1, u / 0.35), uout = Math.max(0, (u - 1.5) / 0.35);
+      extraTxt.position.set(app.screen.width / 2, app.screen.height * 0.24 - uout * 60 * sc); extraTxt.scale.set(sc * (0.3 + 0.7 * backOutE(uin)) * (1 + Math.sin(u * 9) * 0.03));
+      extraTxt.rotation = Math.sin(u * 5) * 0.04; extraTxt.alpha = 1 - uout;
+      if (u > 1.85) { m.extraT = -1; extraTxt.visible = false; } }
+  }
+  const backOutE = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
   const PTS_COL = {robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
@@ -231,6 +293,7 @@ async function main() {
       if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12;
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
+      if (d.mat !== 'robot') wreck(PTS[d.mat]);
     }
   }
   const byBody = b => dyn.find(o => o.body === b);
@@ -336,7 +399,8 @@ async function main() {
   const flyTex = n => CATS[n].flyImg ? catT[n].fly : catT[n].angry;
 
   // gatos en espera (sobre la barra, a la izquierda de la resortera)
-  const slotX = i => SLING.x - 330 - i * 145;
+  // con más de 3 gatos en la fila se juntan (para que quepan todos en la vista de la resortera)
+  const slotX = (i, n = queue.length) => SLING.x - 330 - i * (n <= 3 ? 145 : Math.max(80, 290 / (n - 1)));
   const queue = [];
   let state = 'intro', onSling = null, flying = null, turnWait = 0, endT = 0;
   // el siguiente gato salta a la resortera; los demás avanzan un lugar con saltitos
@@ -499,7 +563,8 @@ async function main() {
       o.sprite.x = h.x0 + (h.x1 - h.x0) * u; o.sprite.y = h.y0 + (h.y1 - h.y0) * u - Math.sin(u * Math.PI) * h.h;
       const sq = u < 0.15 ? 1 - u / 0.15 * 0.12 : u > 0.9 ? 0.92 : 1 + Math.sin(u * Math.PI) * 0.08;
       o.sprite.scale.set(0.5 / Math.sqrt(sq), 0.5 * sq); o.sprite.rotation = h.spin ? -u * Math.PI * 2 : Math.sin(u * Math.PI * 2) * 0.15;
-      if (u >= 1) { o.hop = null; o.sprite.rotation = 0; }
+      if (h.fall) { o.sprite.y = h.y0 + (h.y1 - h.y0) * u * u; o.sprite.scale.set(0.5 * (u < 1 ? 0.92 : 1.12), 0.5 * (u < 1 ? 1.1 : 0.85)); }
+      if (u >= 1) { o.hop = null; o.sprite.rotation = 0; h.onEnd?.(); }
       return true;
     };
     if (onSling && onSling.hop) hopAnim(onSling);
@@ -609,10 +674,11 @@ async function main() {
     });
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
-      sp.position.set(slotX(i), GROUND - t.footY);
-      actors.addChild(sp); const sh = contactShadow(slotX(i), 170);
-      queue.push({name: n, sprite: sp, shadow: sh, x: slotX(i), phase: i * 1.7, hop: null});
+      const sx = slotX(i, level.cats.length); sp.position.set(sx, GROUND - t.footY);
+      actors.addChild(sp); const sh = contactShadow(sx, 170);
+      queue.push({name: n, sprite: sp, shadow: sh, x: sx, phase: i * 1.7, hop: null});
     });
+    resetMeter();
     fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
     cam.snapRest();
     ui.hideBanner();
@@ -671,7 +737,9 @@ async function main() {
     if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
     scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
     { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
-      scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62); }
+      scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62);
+      meter.position.set(app.screen.width / hs - 40, 222); }
+    updateMeter(rdt);
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
@@ -690,6 +758,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
