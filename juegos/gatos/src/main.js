@@ -138,12 +138,23 @@ async function main() {
     k.fillStyle = 'rgba(200,215,240,0.6)'; k.beginPath(); k.ellipse(84, 118, 12, 16, 0, 0, 7); k.fill();
   }, 2);
   const hand = new Sprite(handTex); hand.anchor.set(0.42, 0.1); hand.scale.set(0.9); hand.visible = false; front.addChild(hand);
-  let tutT = 0, tutDone = false;
+  let tutT = 0, tutDone = false, readyIdle = 0, swapT = 0;
+  const swappedEver = () => { try { return !!localStorage.getItem('gatos.swapped'); } catch (e) { return true; } };
   function updateTutorial(dt) {
     const want = levelId === LEVELS[0] && !tutDone && state === 'ready' && !sling.aiming && !localStorage.getItem('gatos.best.' + LEVELS[0]);
     if (sling.aiming && levelId === LEVELS[0]) tutDone = true;
     hand.visible = want;
     const letGo = () => { if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; } }; // la bolsa regresa sola con el resorte
+    // pista para elegir gato: si el jugador duda >3.5 s y nunca ha cambiado de gato, la manita toca a uno de la fila
+    readyIdle = state === 'ready' && !sling.aiming ? readyIdle + dt : 0;
+    const tq = !want && levelId !== LEVELS[0] && readyIdle > 3.5 && onSling && !swappedEver() && queue.find(q => q.name !== onSling.name && !q.hop);
+    if (tq) { hand.visible = true; swapT += dt; const c = swapT % 1.8, u = Math.min(1, c / 0.45), e = 1 - Math.pow(1 - u, 3), fy = GROUND - catT[tq.name].calm.footY;
+      hand.position.set(tq.x + 30 + (1 - e) * 90, fy + 10 + (1 - e) * 110);
+      hand.alpha = c < 0.2 ? c / 0.2 : c > 1.45 ? Math.max(0, 1 - (c - 1.45) / 0.3) : 1;
+      const press = c > 0.55 && c < 0.75; hand.scale.set(0.9 * (press ? 0.86 : 1));
+      if (press && !tq.hintHop) { tq.hintHop = true; tq.hop = {t: 0, dur: 0.3, x0: tq.sprite.x, y0: tq.sprite.y, x1: tq.sprite.x, y1: tq.sprite.y, h: 28}; }
+      if (!press) tq.hintHop = false;
+    } else swapT = 0;
     if (!want) { tutT = 0; letGo(); return; }
     tutT += dt; const c = tutT % 2.2, r = sling.rest;
     const u = c < 0.35 ? 0 : c < 1.45 ? (c - 0.35) / 1.1 : 1, e = 1 - Math.pow(1 - u, 3);
@@ -512,7 +523,7 @@ async function main() {
   }
   // como las cartas de AB2: tocar a un gato de la fila lo manda a la resortera y el que estaba ahí regresa a su lugar
   function swapCat(i) {
-    const q = queue[i], cur = onSling; if (!q || !cur || q.name === cur.name || q.hop || cur.hop || sling.aiming || sling.held) return false;
+    const q = queue[i], cur = onSling; if (!q || !cur || q.name === cur.name || (q.hop && q.hop.x0 !== q.hop.x1) || cur.hop || sling.aiming || sling.held) return false;
     q.shadow.destroy(); const ta = catT[q.name].angry; q.sprite.texture = ta.tex; q.sprite.anchor.set(ta.ax, ta.ay); q.alert = 0; q.shiver = 0; q.sprite.rotation = 0;
     actors.removeChild(q.sprite); slingCat.addChild(q.sprite);
     q.hop = {t: 0, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: sling.rest.x, y1: sling.rest.y, h: 200};
@@ -520,7 +531,7 @@ async function main() {
     slingCat.removeChild(cur.sprite); actors.addChild(cur.sprite);
     const back = {name: cur.name, sprite: cur.sprite, shadow: contactShadow(q.x, 170), x: q.x, phase: Math.random() * 6, hop: null, extra: cur.extra};
     back.hop = {t: -0.08, dur: 0.55, x0: cur.sprite.x, y0: cur.sprite.y, x1: q.x, y1: GROUND - tc.footY, h: 160};
-    queue[i] = back; onSling = q; state = 'loading';
+    queue[i] = back; onSling = q; state = 'loading'; try { localStorage.setItem('gatos.swapped', '1'); } catch (e) {}
     SFX.meow(i); SFX.pop(); return true;
   }
   function shoot(v) {
