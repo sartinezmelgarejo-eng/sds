@@ -410,6 +410,19 @@ async function main() {
     }
   });
 
+  // en cada golpe fuerte el gato suelta mechones de pelo de SU color (como las plumas de AB2)
+  Matter.Events.on(engine, 'collisionStart', ev => {
+    if (!flying || flying.exploded) return;
+    for (const pr of ev.pairs) if (pr.bodyA === flying.body || pr.bodyB === flying.body) {
+      const A = pr.bodyA, B = pr.bodyB, n = pr.collision.normal;
+      const closing = Math.abs((A.velocity.x - B.velocity.x) * n.x + (A.velocity.y - B.velocity.y) * n.y);
+      if (closing < 5 || flying.t - (flying.furT ?? -1) < 0.18) break;
+      flying.furT = flying.t; const p = flying.body.position, fur = CATS[flying.q.name].fur, n0 = fx.parts.length;
+      fx.burst('fur', p.x, p.y, Math.round(Math.min(12, 3 + closing * 0.4)), 260 + closing * 18, {up: 80, size: 0.9, life: 1.3, drag: 2.2, g: 380, w: CAT_R, h: CAT_R});
+      for (let i = n0; i < fx.parts.length; i++) fx.parts[i].s.tint = fur[i % 3];
+      break;
+    }
+  });
   function updateTurn(dt) {
     sling.update(dt);
     if (state === 'loading' && onSling && !onSling.hop) state = 'ready';
@@ -599,7 +612,9 @@ async function main() {
     });
     fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
     cam.snapRest();
-    if (fly) cam.flyover(fortX, SLING.x, () => { if (state === 'intro') { state = 'between'; turnWait = 0.2; } });
+    ui.hideBanner();
+    if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } });
+      const w = level.world || 1; ui.banner(level.name, `MUNDO ${w} · ${WORLDS[w - 1].name}`); }
     else { state = 'between'; turnWait = 0.35; }
   }
   const ui = new UI(app, {

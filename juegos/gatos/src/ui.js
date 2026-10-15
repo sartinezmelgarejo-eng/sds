@@ -93,7 +93,22 @@ export class UI {
     this.dim = new Graphics(); this.overlay.addChild(this.dim);
     this.box = new Container(); this.overlay.addChild(this.box);
     this.anims = []; this.t = 0; this.open = false;
+    // cartel del nivel al empezar (durante el sobrevuelo): listón con el nombre que cae, rebota y se va hacia arriba
+    this.ban = new Container(); this.ban.visible = false; app.stage.addChild(this.ban);
+    this.banRib = new Sprite(tex(1100, 230, k => {
+      const rib = (x, y, w, h, c1, c2) => { k.beginPath(); k.moveTo(x, y); k.lineTo(x + w, y); k.lineTo(x + w - 40, y + h / 2); k.lineTo(x + w, y + h); k.lineTo(x, y + h); k.lineTo(x + 40, y + h / 2); k.closePath(); k.fillStyle = ART.lin(k, 0, y, 0, y + h, [[0, c1], [1, c2]]); k.fill(); k.lineWidth = 10; k.strokeStyle = '#1F2240'; k.stroke(); };
+      rib(10, 70, 230, 130, '#C0392B', '#8E2418'); rib(860, 70, 230, 130, '#C0392B', '#8E2418'); // puntas del listón (atrás)
+      ART.rr(k, 140, 22, 820, 170, 30); k.fillStyle = '#1F2240'; k.fill();
+      ART.rr(k, 140, 14, 820, 166, 30); k.fillStyle = ART.lin(k, 0, 14, 0, 180, [[0, '#FF7A5A'], [0.5, '#E8452C'], [1, '#B8301C']]); k.fill(); k.lineWidth = 10; k.strokeStyle = '#1F2240'; k.stroke();
+      ART.rr(k, 165, 30, 770, 40, 18); k.fillStyle = 'rgba(255,255,255,0.22)'; k.fill();
+    }, 1.5)); this.banRib.anchor.set(0.5); this.banRib.scale.set(1 / 1.5);
+    this.banT = txt('', 92, '#FFFFFF'); this.banT.anchor.set(0.5); this.banT.y = -14;
+    this.banS = txt('', 44, '#FFE27A'); this.banS.anchor.set(0.5); this.banS.y = 112;
+    this.ban.addChild(this.banRib, this.banT, this.banS); this.banTime = -1;
   }
+  banner(title, sub) { this.banT.text = title; this.banS.text = sub || ''; this.banTime = 0; this.ban.visible = true;
+    const k = Math.min(1, 720 / this.banT.width); this.banT.scale.set(k); }
+  hideBanner() { this.banTime = -1; this.ban.visible = false; }
   // botón gordito: se hunde al presionar y rebota al soltar
   button(t, cb, base = 1) { return makeButton(t, cb, base); }
   setLevelName(s) { this.lvlName.text = s; }
@@ -155,6 +170,15 @@ export class UI {
     const sw = this.app.screen.width, sh = this.app.screen.height;
     const hs = Math.min(sw / W, sh / H) * 1.25; this.hud.scale.set(hs);
     bounceButtons(this.hud.children, dt);
+    if (this.banTime >= 0) {
+      const bt = (this.banTime += dt), s = Math.min(sw / W, sh / H) * 1.25;
+      // entra cayendo con rebote (0.2–0.65 s), se queda, y sale hacia arriba acelerando (2.4–2.8 s)
+      const uin = clamp01((bt - 0.2) / 0.45), uout = clamp01((bt - 2.4) / 0.4);
+      this.ban.scale.set(s * (0.6 + 0.4 * backOut(uin)));
+      this.ban.position.set(sw / 2, sh * 0.3 - (1 - backOut(uin, 1.2)) * sh * 0.25 - uout * uout * sh * 0.6);
+      this.ban.alpha = Math.min(1, uin * 3) * (1 - uout); this.ban.rotation = (1 - uin) * -0.08;
+      if (bt > 2.85) this.hideBanner();
+    }
     if (!this.open) return;
     this.t += dt; const t = this.t;
     this.dim.clear().rect(0, 0, sw, sh).fill({color: 0x0A0820, alpha: Math.min(0.62, t * 2)});
