@@ -143,6 +143,9 @@ async function main() {
   }, 2);
   const hand = new Sprite(handTex); hand.anchor.set(0.42, 0.1); hand.scale.set(0.9); hand.visible = false; front.addChild(hand);
   let tutT = 0, tutDone = false, readyIdle = 0, swapT = 0;
+  // cartas de GATO NUEVO: gatos ya presentados (en pruebas con ?nofly no salen, salvo ?card)
+  const metCats = new Set((() => { try { return JSON.parse(localStorage.getItem('gatos.met') || '[]'); } catch (e) { return []; } })());
+  const CARDS = /[?&]card/.test(location.search) || !/[?&]nofly/.test(location.search);
   const swappedEver = () => { try { return !!localStorage.getItem('gatos.swapped'); } catch (e) { return true; } };
   function updateTutorial(dt) {
     const want = levelId === LEVELS[0] && !tutDone && state === 'ready' && !sling.aiming && !localStorage.getItem('gatos.best.' + LEVELS[0]);
@@ -631,7 +634,7 @@ async function main() {
     ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
-  function launch(vx, vy) { if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }
+  function launch(vx, vy) { ui.closeCard(true); if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }
 
   Matter.Events.on(engine, 'collisionStart', ev => {
     for (const pr of ev.pairs) {
@@ -682,6 +685,9 @@ async function main() {
   function updateTurn(dt) {
     sling.update(dt);
     if (state === 'loading' && onSling && !onSling.hop) state = 'ready';
+    // GATO NUEVO (AB2): la primera vez que cada gato sube a la resortera sale su carta con el poder (el juego se pausa)
+    if (state === 'ready' && onSling && !onSling.hop && !ui.cardOpen && CARDS && !metCats.has(onSling.name)) {
+      metCats.add(onSling.name); try { localStorage.setItem('gatos.met', JSON.stringify([...metCats])); } catch (e) {} ui.card(onSling.name); }
     // nivel con cajas de cuetes: la primera vez que el jugador puede tirar, un ratón junto a una caja avisa (enseña la mecánica, con humor)
     if (state === 'ready' && !warnedTnt) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
       const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
@@ -796,7 +802,7 @@ async function main() {
   el.addEventListener('pointerdown', e => {
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
     if (menus.blocking) { menus.skipIntro(); return; }
-    if (ui.open) return;
+    if (ui.open || ui.cardOpen) return;
     if (cam.mode === 'flyover') { cam.skipFlyover(); return; }
     if (ptrs.size === 1) {
       const w = cam.toWorld(e.clientX, e.clientY);
@@ -815,7 +821,7 @@ async function main() {
     }
   });
   el.addEventListener('pointermove', e => {
-    const p = ptrs.get(e.pointerId); if (!p || menus.blocking || ui.open) return;
+    const p = ptrs.get(e.pointerId); if (!p || menus.blocking || ui.open || ui.cardOpen) return;
     const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
     if (e.pointerId === aimPtr) { const w = cam.toWorld(e.clientX, e.clientY); sling.aimTo({x: w.x + sling.grab.dx, y: w.y + sling.grab.dy}); SFX.stretch(sling.power); return; }
     if (ptrs.size >= 2 && pinch) {
@@ -928,7 +934,7 @@ async function main() {
   app.ticker.add(tk => {
     const rdt = Math.min(tk.deltaMS, 50) / 1000; if (slow > 0) slow -= rdt;
     // con un menú abierto (título, niveles, pausa) el mundo se congela pero se sigue dibujando
-    const dt = menus.blocking ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
+    const dt = menus.blocking || ui.cardOpen ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
     hud.visible = !menus.blocking; ui.hud.visible = !menus.blocking && !ui.open;
     ui.update(rdt); menus.update(rdt);
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;

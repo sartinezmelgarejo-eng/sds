@@ -116,7 +116,7 @@ export class UI {
     // overlay de resultados
     this.dim = new Graphics(); this.overlay.addChild(this.dim);
     this.box = new Container(); this.overlay.addChild(this.box);
-    this.anims = []; this.t = 0; this.open = false;
+    this.anims = []; this.t = 0; this.open = false; this.sparks = [];
     // cartel del nivel al empezar (durante el sobrevuelo): listón con el nombre que cae, rebota y se va hacia arriba
     this.ban = new Container(); this.ban.visible = false; app.stage.addChild(this.ban);
     this.banRib = new Sprite(tex(1100, 230, k => {
@@ -130,6 +130,63 @@ export class UI {
     this.banS = txt('', 44, '#FFE27A'); this.banS.anchor.set(0.5); this.banS.y = 112;
     this.ban.addChild(this.banRib, this.banT, this.banS); this.banTime = -1;
   }
+  // carta de GATO NUEVO (como cuando AB2 presenta un pájaro): la primera vez que un gato sube a la resortera, su cara con rayos,
+  // nombre, poder y una mini-animación del poder en bucle; tocar en cualquier lado (o el botón) la cierra.
+  card(name, onClose) {
+    const INFO = {mako: ['BOLA DE PELOS', '#FF9A5A', 'TOCA LA PANTALLA EN EL AIRE\nY ¡EXPLOTA!'], omi: ['ESPONJADO', '#7AD8FF', 'TOCA EN EL AIRE: SE INFLA\nCOMO GLOBO Y EMPUJA TODO'], miu: ['CLAVADO', '#D9A0FF', 'TOCA EN EL AIRE: DA UNA VUELTA\nY SE CLAVA EN PICADA']};
+    const ci = ['mako', 'omi', 'miu'].indexOf(name), c = this.cats[ci], info = INFO[name]; if (!c || !info) { onClose?.(); return; }
+    this.closeCard(true);
+    const R = this.cardRoot = new Container(), dim = new Graphics(), box = new Container(); R.addChild(dim, box); this.app.stage.addChild(R);
+    dim.eventMode = 'static'; dim.on('pointertap', () => this.closeCard()); this.cardDim = dim; this.cardBox = box; this.cardT = 0; this.cardOn = onClose; this.cardOpen = true;
+    if (!this.T.cardP) this.T.cardP = tex(1040, 1180, k => {
+      ART.rr(k, 14, 34, 1012, 1130, 90); k.fillStyle = '#14163A'; k.fill();
+      ART.rr(k, 14, 14, 1012, 1120, 90); k.fillStyle = ART.lin(k, 0, 14, 0, 1134, [[0, '#4B53B8'], [0.55, '#2E3488'], [1, '#232766']]); k.fill(); k.lineWidth = 16; k.strokeStyle = '#1F2240'; k.stroke();
+      ART.rr(k, 40, 40, 960, 1068, 70); k.lineWidth = 6; k.strokeStyle = 'rgba(255,255,255,0.14)'; k.stroke();
+      ART.rr(k, 90, 885, 860, 205, 46); k.fillStyle = 'rgba(10,12,40,0.45)'; k.fill(); });
+    if (!this.T.rays) this.T.rays = tex(900, 900, k => { k.translate(450, 450); k.fillStyle = ART.rad(k, 0, 0, 0, 450, [[0, 'rgba(255,224,140,0.9)'], [0.6, 'rgba(255,180,90,0.3)'], [1, 'rgba(255,150,60,0)']]);
+      for (let i = 0; i < 16; i++) { k.rotate(Math.PI / 8); if (i % 2) continue; k.beginPath(); k.moveTo(0, 0); k.lineTo(450, -62); k.lineTo(450, 62); k.closePath(); k.fill(); } });
+    const panel = new Sprite(this.T.cardP); panel.anchor.set(0.5); panel.y = 40;
+    const rays = new Sprite(this.T.rays); rays.anchor.set(0.5); rays.y = -160;
+    const face = new Sprite(c.tex); face.anchor.set(c.ax, c.ay); face.y = -150;
+    const tag = txt('¡GATO NUEVO!', 80, '#FFFFFF'); tag.anchor.set(0.5); tag.y = -505; tag.rotation = -0.04;
+    const nm = txt(name.toUpperCase(), 150, '#FFE27A'); nm.anchor.set(0.5); nm.y = 175;
+    const pw = txt(info[0], 84, info[1]); pw.anchor.set(0.5); pw.y = 295;
+    const ds = txt(info[2], 58, '#FFFFFF', 0.2); ds.anchor.set(0.5); ds.y = 455; ds.style.lineHeight = 74;
+    const ok = this.button(this.T.next, () => this.closeCard(), 0.62); ok.position.set(0, 660);
+    box.addChild(panel, rays, face, tag, nm, pw, ds, ok);
+    this.card_ = {panel, rays, face, tag, nm, pw, ds, ok, c, name}; SFX.fanfare();
+  }
+  closeCard(silent) {
+    if (!this.cardOpen) return; this.cardOpen = false; this.cardRoot.destroy({children: true}); this.cardRoot = null; this.card_ = null; this.sparks = this.sparks.filter(p => !p.s.destroyed);
+    const cb = this.cardOn; this.cardOn = null; if (!silent) cb?.();
+  }
+  updateCard(dt) {
+    const sw = this.app.screen.width, sh = this.app.screen.height, t = (this.cardT += dt), K = this.card_;
+    this.cardDim.clear().rect(0, 0, sw, sh).fill({color: 0x0A0820, alpha: Math.min(0.6, t * 2.5)});
+    const s = Math.min(sw / W, sh / H) * 0.94; this.cardBox.scale.set(s); this.cardBox.position.set(sw / 2, sh / 2 - 70 * s);
+    const pop = (o, t0, sc = 1) => o.scale.set(sc * Math.max(0, backOut(clamp01((t - t0) / 0.38))));
+    pop(K.panel, 0, 1);
+    pop(K.tag, 0.15); pop(K.nm, 0.3); pop(K.pw, 0.4); pop(K.ds, 0.5); pop(K.ok, 0.7, 0.62); if (t > 1.1) K.ok.scale.set(0.62 * (1 + Math.sin(t * 5) * 0.05));
+    K.rays.rotation = t * 0.35; K.rays.alpha = clamp01((t - 0.2) * 3) * 0.85; K.rays.scale.set(0.75 + Math.sin(t * 2) * 0.03);
+    // mini-animación del poder (ciclo de 2.4 s, la cara al centro)
+    const v = Math.max(0, t - 0.25), u = v % 2.4, base = 0.8 * Math.min(1, backOut(clamp01(v / 0.45))); let sx = 1, sy = 1, x = 0, y = -150, rot = 0;
+    if (K.name === 'mako') { // tiembla cada vez más y ¡PUF! (destello), reaparece
+      if (u < 1.2) { rot = Math.sin(u * 50) * 0.08 * u; sx = sy = 1 + u * 0.08; }
+      else if (u < 1.5) { const w = (u - 1.2) / 0.3; sx = sy = 1.1 + w * 0.6; K.face.alpha = 1 - w; if (!K.boomed) { K.boomed = true; this.burstAt(K, 0, -150); SFX.pop(); } }
+      else { K.boomed = false; K.face.alpha = clamp01((u - 1.6) / 0.3); sx = sy = 1; }
+    } else if (K.name === 'omi') { // se infla, aguanta y se desinfla
+      const g = u < 0.25 ? backOut(u / 0.25, 2.5) : u < 1.3 ? 1 : u < 1.7 ? 1 - (u - 1.3) / 0.4 : 0;
+      sx = sy = 1 + 0.55 * g; if (u > 0.25 && u < 1.3) { sx *= 1 + Math.sin(u * 20) * 0.02; sy *= 1 - Math.sin(u * 20) * 0.02; }
+    } else { // loop hacia arriba y picada
+      if (u < 0.9) { const a = u / 0.9 * Math.PI * 1.5; x = Math.sin(a) * 150; y = -150 - (1 - Math.cos(a)) * 120; rot = -a; }
+      else if (u < 1.25) { const w = (u - 0.9) / 0.35; x = -150 + 150 * w; y = -270 + 240 * w * w; rot = Math.PI * 0.5 * (1 - w); sy = 1.15; sx = 0.88; }
+      else if (u < 1.5) { const w = (u - 1.25) / 0.25; y = -150 + 120 * (1 - w); sx = 1 + 0.25 * (1 - w); sy = 1 - 0.25 * (1 - w); if (!K.slam) { K.slam = true; this.burstAt(K, 0, -20); } }
+      else { K.slam = false; }
+    }
+    K.face.position.set(x, y); K.face.rotation = rot; K.face.scale.set(base * sx, base * sy);
+    if (!this.open) this.updSparks(dt);
+  }
+  burstAt(K, x, y) { const keep = this.box; this.box = this.cardBox; this.burst(x, y); this.box = keep; }
   banner(title, sub) { this.banT.text = title; this.banS.text = sub || ''; this.banTime = 0; this.ban.visible = true;
     const k = Math.min(1, 720 / this.banT.width); this.banT.scale.set(k); }
   hideBanner() { this.banTime = -1; this.ban.visible = false; }
@@ -231,6 +288,7 @@ export class UI {
       this.ban.alpha = Math.min(1, uin * 3) * (1 - uout); this.ban.rotation = (1 - uin) * -0.08;
       if (bt > 2.85) this.hideBanner();
     }
+    if (this.cardOpen) this.updateCard(dt);
     if (!this.open) return;
     this.t += dt; const t = this.t;
     this.dim.clear().rect(0, 0, sw, sh).fill({color: 0x0A0820, alpha: Math.min(0.62, t * 2)});
@@ -261,6 +319,9 @@ export class UI {
       for (let i = this.confetti.length - 1; i >= 0; i--) { const c = this.confetti[i]; c.ph += dt * (3 + c.w); c.s.y += c.vy * dt; c.s.x += Math.sin(c.ph) * 60 * dt; c.s.rotation = c.ph * 0.7; c.s.scale.set(c.sz * Math.cos(c.ph), c.sz);
         if (c.s.y > hh + 30) { c.s.destroy(); this.confetti.splice(i, 1); } }
     }
+    this.updSparks(dt);
+  }
+  updSparks(dt) {
     for (let i = this.sparks.length - 1; i >= 0; i--) {
       const p = this.sparks[i]; p.t += dt; p.vx *= 0.93; p.vy = p.vy * 0.93 + 900 * dt; p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += dt * 6; p.s.alpha = 1 - p.t / 0.7;
       if (p.t > 0.7) { p.s.destroy(); this.sparks.splice(i, 1); }
