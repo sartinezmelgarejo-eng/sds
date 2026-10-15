@@ -531,7 +531,12 @@ async function main() {
     // AB2: si va cayendo o rodando rápido, pone cara de susto y (una vez cada tanto) chilla
     const tumble = !d.ride && !d.body.isSleeping && d.body.speed > 4.5 && started > 1;
     if (tumble && time - (d.yelpT || -9) > 2.5 && d.body.velocity.y > 4) { d.yelpT = time; SFX.squeak(); }
-    if (d.hurt > 0 || near || tumble) expr = 'scared';
+    // AB2: si algo le viene cayendo encima, mira hacia arriba con susto y se encoge (y chilla)
+    const mp0 = d.body.position, dg = !d.ride && started > 1 && !tumble ? dyn.find(o => o !== d && o.mat !== 'mouse' && !o.dead && o.body.velocity.y > 3 && mp0.y - o.body.position.y > d.h * 0.4 && mp0.y - o.body.position.y < 600 && Math.abs(o.body.position.x - mp0.x) < 60 + o.w / 2) : null;
+    d.cower = Math.max(0, Math.min(1, (d.cower || 0) + (dg ? dt * 9 : -dt * 4)));
+    if (dg && time - (d.yelpT || -9) > 2.5) { d.yelpT = time; SFX.squeak(); }
+    d.dg = dg;
+    if (d.hurt > 0 || near || tumble || dg) expr = 'scared';
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
       if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
@@ -555,10 +560,10 @@ async function main() {
     // pupilas: miran al gato en vuelo; si no, al gato de la resortera, con miradas de reojo de vez en cuando
     d.pup.normal.visible = expr === 'normal'; d.pup.scared.visible = expr === 'scared';
     if (expr === 'normal' || expr === 'scared') {
-      const mp = d.body.position; let tgt = fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
+      const mp = d.body.position; let tgt = d.dg ? d.dg.body.position : fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
       if (time > d.glanceAt) { d.glance = {x: Math.random() * 2 - 1, y: Math.random() * 1.4 - 0.9, until: time + 0.6 + Math.random() * 0.8}; d.glanceAt = time + 3 + Math.random() * 5; }
       if (d.glance && time > d.glance.until) d.glance = null;
-      if (tgt && (fc || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
+      if (tgt && (fc || d.dg || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
         lx = (dx * Math.cos(a) - dy * Math.sin(a)) / L; ly = (dx * Math.sin(a) + dy * Math.cos(a)) / L; }
       else if (d.glance) { lx = d.glance.x; ly = d.glance.y; }
       const k = Math.min(1, dt * (fc ? 14 : 6)); d.look.x += (lx - d.look.x) * k; d.look.y += (ly - d.look.y) * k;
@@ -569,7 +574,9 @@ async function main() {
       const ang = Math.atan2(d.look.y * 0.8, d.look.x), cur = d.beam.cone.rotation, da = Math.atan2(Math.sin(ang - cur), Math.cos(ang - cur)); d.beam.cone.rotation = cur + da * Math.min(1, dt * 8);
       d.beam.cone.alpha = (expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
     const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
-    d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5), B * (1 + br + sq));
+    const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
+    d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
+    d.sprite.y += cw * d.h * 0.4;
     d.sprite.y -= hop + br * d.h * 0.25;
   }
   // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
