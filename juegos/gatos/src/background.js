@@ -90,6 +90,29 @@ function wallLayer() {
   });
 }
 
+// Motas de polvo que flotan y brillan en el rayo de sol que entra por la ventana (misma capa que la pared, f 0.35)
+function motesLayer() {
+  const c = new Container(), r = rng(23);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 32; const k = cv.getContext('2d');
+  const g = k.createRadialGradient(16, 16, 0, 16, 16, 16); g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.3, 'rgba(255,245,200,0.7)'); g.addColorStop(1, 'rgba(255,240,190,0)');
+  k.fillStyle = g; k.fillRect(0, 0, 32, 32); const T = Texture.from(cv);
+  // rayo: sale de la ventana (x 900–1900, y 1030) y baja inclinado hacia la derecha
+  const beam = v => ({x: 950 + v * 380, y: 1030 + v * 760}); const items = [];
+  // el haz de luz (muy tenue, se desvanece hacia abajo) — da volumen al cuarto como en AB2
+  const bc = document.createElement('canvas'); bc.width = 330; bc.height = 200; const bk = bc.getContext('2d');
+  bk.beginPath(); bk.moveTo(5, 0); bk.lineTo(105, 0); bk.lineTo(143, 76); bk.lineTo(43, 76); bk.closePath(); // = 1000×760 u a escala 0.1
+  bk.fillStyle = lin(bk, 0, 0, 0, 76, [[0, 'rgba(255,248,215,0.3)'], [0.15, 'rgba(255,248,215,0.22)'], [1, 'rgba(255,248,215,0)']]); bk.filter = 'blur(4px)'; bk.fill();
+  const shaft = new Sprite(Texture.from(bc)); shaft.scale.set(10); shaft.position.set(900 - 50, 1030); shaft.blendMode = 'add'; shaft.alpha = 0.55; c.addChild(shaft);
+  for (let i = 0; i < 46; i++) { const s = new Sprite(T); s.anchor.set(0.5); s.blendMode = 'add'; c.addChild(s);
+    items.push({s, u: r(), v: r(), du: (r() - 0.5) * 0.02, dv: (r() - 0.6) * 0.012, ph: r() * TAU, sz: 0.3 + r() * 0.45}); }
+  c.update = dt => { shaft.alpha = 0.5 + Math.sin((items[0].ph) * 0.4) * 0.08; items.forEach(o => {
+    o.ph += dt * (0.8 + o.sz); o.u += (o.du + Math.sin(o.ph * 0.7) * 0.012) * dt; o.v += o.dv * dt;
+    if (o.u < 0) o.u += 1; if (o.u > 1) o.u -= 1; if (o.v < 0) o.v += 1; if (o.v > 1) o.v -= 1;
+    const b = beam(o.v); o.s.position.set(b.x + o.u * 900, b.y);
+    o.s.scale.set(o.sz); o.s.alpha = 0.85 * (0.2 + 0.8 * Math.abs(Math.sin(o.ph))) * (1 - o.v * 0.75) * Math.min(1, o.u * 6, (1 - o.u) * 6);
+  }); };
+  return c;
+}
 // Azulejo (backsplash) + rayos de luz. Parallax 0.75.
 function tileLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 760, w = x1 - x0, h = GROUND - ty + 30;
@@ -259,11 +282,13 @@ export function buildBackground(theme = 'kitchen') {
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
     return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); }};
   }
+  const motes = motesLayer();
   const layers = [
     {node: wallLayer(), f: 0.35},
+    {node: motes, f: 0.35},
     {node: tileLayer(), f: 0.75},
     {node: counterLayer(), f: 1},
   ];
   const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-  return {layers, fg, fl, fr};
+  return {layers, fg, fl, fr, update: dt => motes.update(dt)};
 }
