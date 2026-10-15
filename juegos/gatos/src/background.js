@@ -479,6 +479,61 @@ function gnomeLayer() {
     const bl = T0 > o.blinkAt; o.e.texture = eyesT[bl ? 1 : 0]; if (T0 > o.blinkAt + 0.14) o.blinkAt = T0 + 3 + Math.random() * 7; }); };
   return c;
 }
+// Aspersor de impacto en el pasto (f 0.6): la cabeza gira a tironcitos (tic-tic-tic) barriendo el chorro de un lado a otro
+// y regresa rápido; el chorro es un abanico de gotitas balísticas que caen al pasto. Con un estruendo la cabeza se desboca
+// girando como rehilete y escupe un borbotón, luego se calma y retoma su barrido.
+function sprinklerLayer() {
+  const c = new Container(), OL = '#22303A', X = 2000, Y = GROUND + 2, S = 1.45;
+  const cv = (w, h, draw) => { const e = document.createElement('canvas'); e.width = w; e.height = h; const k = e.getContext('2d'); k.lineJoin = 'round'; draw(k); return Texture.from(e); };
+  const baseT = cv(120, 120, k => { k.translate(60, 116);
+    k.beginPath(); k.ellipse(0, -4, 40, 8, 0, 0, TAU); k.fillStyle = 'rgba(40,60,30,0.35)'; k.fill(); // sombra
+    k.beginPath(); k.moveTo(-6, 0); k.lineTo(-4, -70); k.lineTo(4, -70); k.lineTo(6, 0); k.closePath(); k.fillStyle = lin(k, -6, 0, 6, 0, [[0, '#9AA3AA'], [0.5, '#E6ECEF'], [1, '#5C666E']]); k.fill(); k.lineWidth = 3; k.strokeStyle = OL; k.stroke(); // estaca
+    rr(k, -16, -84, 32, 18, 5); k.fillStyle = lin(k, -16, 0, 16, 0, [[0, '#C98A2B'], [0.45, '#FFE08A'], [1, '#8A5A12']]); k.fill(); k.stroke(); // tuerca de latón
+    k.beginPath(); k.moveTo(-26, -6); k.quadraticCurveTo(-40, 2, -58, 0); k.lineWidth = 9; k.strokeStyle = '#2E8A3A'; k.stroke(); // manguera que se pierde en el pasto
+  });
+  // cabeza vista de lado: cuerpo de latón + boquilla larga hacia +x; se escala en x con cos(ángulo) = giro sobre su eje
+  const headT = cv(150, 70, k => { k.translate(40, 52);
+    rr(k, -14, -34, 28, 34, 7); k.fillStyle = lin(k, -14, 0, 14, 0, [[0, '#B87A22'], [0.45, '#FFE596'], [1, '#7A4E10']]); k.fill(); k.lineWidth = 3; k.strokeStyle = OL; k.stroke();
+    k.beginPath(); k.moveTo(8, -26); k.lineTo(96, -40); k.lineTo(98, -30); k.lineTo(10, -16); k.closePath(); k.fillStyle = lin(k, 0, -40, 0, -16, [[0, '#FFE596'], [1, '#9A6416']]); k.fill(); k.stroke(); // boquilla
+    k.beginPath(); k.arc(97, -35, 5, 0, TAU); k.fillStyle = '#3A2A10'; k.fill(); });
+  const armT = cv(110, 40, k => { k.translate(10, 20); k.lineWidth = 5; k.lineCap = 'round'; k.strokeStyle = OL; k.beginPath(); k.moveTo(0, 0); k.lineTo(70, -8); k.stroke();
+    k.lineWidth = 3; k.strokeStyle = '#D9DEE2'; k.beginPath(); k.moveTo(0, 0); k.lineTo(70, -8); k.stroke(); rr(k, 66, -16, 22, 16, 4); k.fillStyle = '#C8322E'; k.fill(); k.strokeStyle = OL; k.stroke(); }); // brazo deflector con paleta roja
+  const dropT = cv(12, 18, k => { k.fillStyle = lin(k, 0, 0, 12, 0, [[0, 'rgba(70,150,215,0.95)'], [0.45, 'rgba(225,245,255,1)'], [1, 'rgba(40,110,185,0.95)']]); k.beginPath(); k.moveTo(6, 0); k.quadraticCurveTo(12, 12, 6, 17); k.quadraticCurveTo(0, 12, 6, 0); k.fill(); });
+  const mistT = cv(48, 48, k => { k.fillStyle = rad(k, 24, 24, 0, 24, [[0, 'rgba(235,248,255,0.7)'], [1, 'rgba(235,248,255,0)']]); k.fillRect(0, 0, 48, 48); });
+  const pool = new Container(); c.addChild(pool);
+  const g = new Container(); g.position.set(X, Y); g.scale.set(S); c.addChild(g);
+  const base = new Sprite(baseT); base.anchor.set(0.5, 116 / 120); g.addChild(base);
+  const head = new Container(); head.y = -84; g.addChild(head);
+  const arm = new Sprite(armT); arm.anchor.set(10 / 110, 0.5); arm.y = -30; const hs = new Sprite(headT); hs.anchor.set(40 / 150, 52 / 70);
+  head.addChild(hs, arm);
+  const drops = [], free = [];
+  const spawn = (tex, x, y, vx, vy, life, sc, mist) => { const s = free.pop() || new Sprite(); s.texture = tex; s.anchor.set(0.5); s.visible = true; pool.addChild(s);
+    drops.push({s, x, y, vx, vy, t: 0, life, sc, mist}); };
+  let phi = 0.4, dir = 1, tick = 0, armA = 0, spin = 0, burst = 0, acc = 0, kickT = 0;
+  c.jolt = (k = 1, x = null) => { const near = x == null ? 1 : Math.max(0.5, 1 - Math.abs(X - x) / 3500); kickT = -(x == null ? 0 : Math.abs(X - x) / 7000) - Math.random() * 0.1; spin = Math.max(spin, (14 + Math.random() * 6) * Math.min(1.5, k) * near); burst = 0.5; };
+  c.update = dt => {
+    if (kickT < 0) kickT += dt;
+    if (spin > 0.3 && kickT >= 0) { phi += spin * dt; spin *= Math.exp(-dt * 1.6); armA = Math.sin(phi * 3) * 0.6; } // rehilete desbocado
+    else { spin = 0; tick -= dt;
+      if (dir > 0) { if (tick <= 0) { tick = 0.16; phi += 0.13; armA = 0.75; } if (phi > Math.PI - 0.4) dir = -1; } // tic-tic-tic hacia la izquierda
+      else { phi -= 2.4 * dt; armA *= 0.9; if (phi < 0.4) { dir = 1; tick = 0.3; } } } // regreso rápido
+    armA += (0 - armA) * Math.min(1, dt * 9);
+    const cs = Math.cos(phi); hs.scale.x = cs; arm.scale.x = cs; arm.rotation = -armA * Math.sign(cs || 1) * 0.6;
+    hs.rotation = Math.sin(phi * 9) * (spin > 0.3 ? 0.06 : 0); head.y = -84 + (spin > 0.3 ? Math.sin(phi * 13) * 1.5 : 0);
+    // chorro: boquilla en coords de mundo
+    const nx = X + cs * 58 * S, ny = Y - 120 * S;
+    if (burst > 0) burst -= dt;
+    acc += dt * (burst > 0 ? 170 : 85);
+    while (acc >= 1) { acc -= 1; const V = (burst > 0 ? 460 : 640) * (0.88 + Math.random() * 0.2), el = 0.5 + (Math.random() - 0.5) * (burst > 0 ? 1 : 0.12), a = burst > 0 ? phi + (Math.random() - 0.5) * 2 : phi;
+      spawn(dropT, nx, ny, V * Math.cos(a) * Math.cos(el), -V * Math.sin(el) * (0.85 + Math.random() * 0.25), 2, 1 + Math.random() * 0.6, false); }
+    for (let i = drops.length - 1; i >= 0; i--) { const o = drops[i], s = o.s; o.t += dt;
+      if (o.mist) { s.position.set(o.x, o.y -= 12 * dt); s.scale.set(o.sc * (1 + o.t * 1.5)); s.alpha = 0.5 * (1 - o.t / o.life); }
+      else { o.vy += 900 * dt; o.x += o.vx * dt; o.y += o.vy * dt; s.position.set(o.x, o.y); s.rotation = Math.atan2(o.vy, o.vx) - Math.PI / 2; s.scale.set(o.sc * 0.8, o.sc * (1 + Math.min(1, Math.hypot(o.vx, o.vy) / 600) * 0.6)); s.alpha = 0.9;
+        if (o.y > GROUND - 6) { o.t = o.life; if (Math.random() < 0.25) spawn(mistT, o.x, GROUND - 10, 0, 0, 0.5, 0.5 + Math.random() * 0.4, true); } }
+      if (o.t >= o.life) { s.visible = false; pool.removeChild(s); free.push(s); drops.splice(i, 1); } }
+  };
+  return c;
+}
 function fenceLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 1250, w = x1 - x0, h = GROUND - ty + 30;
   return bake(x0, ty, w, h, 0.55, ctx => {
@@ -652,7 +707,8 @@ function lampLayer() {
   const drips = [500, 1700, 2900].map((x, i) => { const s = new Sprite(dropT); s.anchor.set(0.5, 0); s.scale.set(1.6); c.addChild(s); return {s, x: x + 20, y0: GROUND - 1460, t: -i * 1.3, v: 0}; });
   let T = 0;
   // estruendo (explosión, clavado, jefe que cae): los focos se columpian y parpadean un instante
-  c.jolt = (k = 1) => lamps.forEach(L => { L.sw = Math.min(0.22, (L.sw || 0) + k * (0.07 + Math.random() * 0.05)); L.swT = 0; L.jf = 0.08 + Math.random() * 0.12; });
+  c.jolt = (k = 1) => { lamps.forEach(L => { L.sw = Math.min(0.22, (L.sw || 0) + k * (0.07 + Math.random() * 0.05)); L.swT = 0; L.jf = 0.08 + Math.random() * 0.12; });
+    drips.forEach(d => { d.fast = 3 + Math.random() * 1.5; if (d.t < 1.2) d.t = Math.max(d.t, 1.2 - 0.1 - Math.random() * 0.15); }); }; // las bridas sueltan un chorrito de gotas
   c.update = dt => { T += dt;
     lamps.forEach((L, i) => { L.p.rotation = Math.sin(T * 0.9 + L.ph) * 0.035 + Math.sin(T * 0.37 + L.ph * 2) * 0.015;
       if (L.sw > 0.002) { L.swT += dt; L.p.rotation += L.sw * Math.sin(L.swT * 3.1 + 0.4); L.sw *= Math.exp(-dt * 0.8); }
@@ -663,10 +719,10 @@ function lampLayer() {
     motes.forEach(o => { o.ph += dt; o.v += o.dv * dt; if (o.v > 1) { o.v -= 1; o.u = Math.random(); }
       const x = wx + o.u * ww + o.v * 1150 + Math.sin(o.ph * 0.8) * 14, y = wy + wh * 0.4 + o.v * 1150; o.s.position.set(x, y); o.s.scale.set(o.sz);
       o.s.alpha = (0.35 + 0.65 * Math.abs(Math.sin(o.ph * 1.3))) * (1 - o.v) * Math.min(1, o.v * 8); });
-    drips.forEach(d => { d.t += dt; if (d.t < 0) { d.s.visible = false; return; }
+    drips.forEach(d => { d.t += dt; if (d.fast > 0) d.fast -= dt; if (d.t < 0) { d.s.visible = false; return; }
       if (d.t < 1.2) { d.s.visible = true; const g = d.t / 1.2; d.s.position.set(d.x, d.y0); d.s.scale.set(1.6 * g, 1.6 * g); d.v = 0; d.s.alpha = 1; return; } // la gota se forma
       d.v += 2200 * dt; d.s.y += d.v * dt; d.s.scale.set(1.3, 2); d.s.alpha = Math.max(0, 1 - (d.s.y - d.y0) / 700);
-      if (d.s.y > d.y0 + 700) { d.t = -1.5 - Math.random() * 3; SFX.drip(0.3 + Math.random() * 0.3); } });
+      if (d.s.y > d.y0 + 700) { d.t = d.fast > 0 ? 0.85 + Math.random() * 0.2 : -1.5 - Math.random() * 3; SFX.drip(0.3 + Math.random() * 0.3); } });
   };
   return c;
 }
@@ -731,22 +787,50 @@ function batLayer() {
   return c;
 }
 // Fondo medio: cajas apiladas, frascos en anaquel, calentador de agua, telarañas, agujero de ratón iluminado. Parallax 0.65.
-const HOLES = [1000, 3400]; // agujeros de ratón en el zoclo (cratesLayer)
+const HOLES = [1500, 3400]; // agujeros de ratón en el zoclo (cratesLayer)
 function cratesLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 1150, w = x1 - x0, h = GROUND - ty + 30;
   const c = new Container(); c.addChild(cratesBake(x0, x1, ty, w, h));
   // ojitos que brillan dentro de cada agujero: parpadean, miran a los lados y a veces se esconden
   const eyeT = (() => { const cv = document.createElement('canvas'); cv.width = 40; cv.height = 40; const k = cv.getContext('2d');
     k.fillStyle = rad(k, 20, 20, 0, 20, [[0, 'rgba(255,255,220,1)'], [0.35, 'rgba(255,230,120,0.9)'], [1, 'rgba(255,200,60,0)']]); k.fillRect(0, 0, 40, 40); return Texture.from(cv); })();
+  // ratoncito que se asoma del agujero (recortado con la forma del arco): sale, olfatea, mira a los lados y se mete;
+  // con un estruendo se esconde de golpe y al rato se asoma a ver qué pasó, mirando hacia el estruendo
+  const head = (look, blink) => { const cv = document.createElement('canvas'); cv.width = 130; cv.height = 120; const k = cv.getContext('2d'); k.translate(65, 64); k.lineJoin = 'round';
+    const OL = '#1E1418'; k.lineWidth = 4; k.strokeStyle = OL;
+    for (const sx of [-1, 1]) { k.beginPath(); k.arc(sx * 34, -30, 24, 0, TAU); k.fillStyle = '#8E8794'; k.fill(); k.stroke(); k.beginPath(); k.arc(sx * 34, -29, 14, 0, TAU); k.fillStyle = '#E79AAA'; k.fill(); } // orejas
+    k.beginPath(); k.ellipse(0, 0, 38, 33, 0, 0, TAU); k.fillStyle = rad(k, -10, -14, 4, 44, [[0, '#B4AEBA'], [1, '#6E6876']]); k.fill(); k.stroke(); // cabeza
+    k.beginPath(); k.ellipse(look * 8, 20, 18, 12, 0, 0, TAU); k.fillStyle = '#C9C2CC'; k.fill(); // hocico
+    for (const sx of [-1, 1]) { const ex = sx * 14 + look * 6;
+      if (blink) { k.beginPath(); k.moveTo(ex - 8, -4); k.quadraticCurveTo(ex, 2, ex + 8, -4); k.stroke(); continue; }
+      k.beginPath(); k.ellipse(ex, -6, 10, 12, 0, 0, TAU); k.fillStyle = '#FFF'; k.fill(); k.lineWidth = 3; k.stroke(); k.lineWidth = 4;
+      k.beginPath(); k.arc(ex + look * 4, -4, 5.5, 0, TAU); k.fillStyle = '#120C10'; k.fill(); k.fillStyle = '#FFF'; k.beginPath(); k.arc(ex + look * 4 - 2, -7, 2, 0, TAU); k.fill(); }
+    k.beginPath(); k.arc(look * 10, 14, 7, 0, TAU); k.fillStyle = '#F07A8E'; k.fill(); k.lineWidth = 3; k.stroke(); // nariz
+    k.strokeStyle = 'rgba(240,235,245,0.8)'; k.lineWidth = 2; for (const sx of [-1, 1]) for (const dy of [-3, 4]) { k.beginPath(); k.moveTo(look * 10 + sx * 10, 18); k.lineTo(look * 10 + sx * 40, 18 + dy * 2); k.stroke(); } // bigotes
+    return Texture.from(cv); };
+  const HT = {c: head(0, false), l: head(-1, false), r: head(1, false), b: head(0, true)};
   const pairs = HOLES.map((mx, i) => { const p = new Container(); p.position.set(mx, GROUND - 52);
     const es = [-16, 16].map(dx => { const e = new Sprite(eyeT); e.anchor.set(0.5); e.x = dx; e.scale.set(0.75); e.blendMode = 'add'; p.addChild(e); return e; });
-    c.addChild(p); return {p, es, t: 1 + i * 2.3, blink: 0, look: 0, lookT: 0, hide: 0}; });
+    const h = new Sprite(HT.c); h.anchor.set(0.5, 1); h.visible = false;
+    c.addChild(p, h); return {p, es, h, mx, t: 1 + i * 2.3, blink: 0, look: 0, lookT: 0, hide: 0, peek: 0, pk: 4 + i * 5 + Math.random() * 4, up: 0, face: 'c', fT: 0, duck: 0}; });
+  c.peekNow = () => pairs.forEach(o => { o.pk = 0; o.hide = 0; }); c.pairs = pairs; // para pruebas
+  c.jolt = (k = 1, x = 0) => pairs.forEach(o => { const side = Math.sign(x * 0.65 - o.mx) || 1;
+    if (o.peek > 0) { o.duck = 1; SFX.squeak(); } o.peek = 0; o.hide = 1.6 + Math.random(); o.pk = 2.4 + Math.random() * 1.5; o.curious = side; });
   c.update = dt => pairs.forEach(o => {
+    o.pk -= dt; if (o.pk <= 0 && o.peek <= 0 && o.hide <= 0) { o.peek = 1.8 + Math.random() * 1.6; o.fT = o.curious ? 0.9 : 0; o.face = o.curious ? (o.curious < 0 ? 'l' : 'r') : 'c'; o.curious = 0; o.pk = 7 + Math.random() * 8; }
+    if (o.peek > 0) { o.peek -= dt; o.fT -= dt;
+      if (o.fT <= 0) { const r2 = Math.random(); o.face = r2 < 0.18 ? 'b' : r2 < 0.45 ? 'l' : r2 < 0.72 ? 'r' : 'c'; o.fT = o.face === 'b' ? 0.13 : 0.4 + Math.random() * 0.5; } }
+    const want = o.peek > 0.18 ? 1 : 0; o.up += (want - o.up) * Math.min(1, dt * (want ? 6 : 14)); if (o.duck > 0) { o.duck -= dt * 4; o.up *= Math.exp(-dt * 30); }
+    const sniff = o.peek > 0 ? Math.sin(o.peek * 40) * 0.025 : 0;
+    // sale de lo oscuro del agujero hacia la luz: crece (se acerca), se aclara y se asienta en el umbral
+    const u = o.up, sc = 0.45 + 0.8 * u, lit = Math.round(70 + 150 * u); o.h.visible = u > 0.02; o.h.alpha = Math.min(1, u * 3);
+    o.h.texture = HT[o.face]; o.h.tint = (lit << 16) | (Math.round(lit * 0.93) << 8) | Math.round(lit * 0.9);
+    o.h.position.set(o.mx + (o.face === 'l' ? -4 : o.face === 'r' ? 4 : 0) * u, GROUND - 8 - 14 * (1 - u)); o.h.scale.set(sc + sniff, sc - sniff); o.h.rotation = (o.face === 'l' ? -0.08 : o.face === 'r' ? 0.08 : 0) * u;
     o.t -= dt; if (o.t <= 0) { o.t = 2 + Math.random() * 4; if (Math.random() < 0.2) o.hide = 1.5 + Math.random() * 2.5; else o.blink = 0.14; }
     o.lookT -= dt; if (o.lookT <= 0) { o.lookT = 1 + Math.random() * 2.5; o.look = (Math.random() - 0.5) * 22; }
     o.blink = Math.max(0, o.blink - dt); o.hide = Math.max(0, o.hide - dt);
-    o.p.x += ((o.look + HOLES[pairs.indexOf(o)]) - o.p.x) * Math.min(1, dt * 6);
-    const sy = o.hide > 0 ? 0 : o.blink > 0 ? 0.12 : 0.75; o.es.forEach(e => { e.scale.y += (sy - e.scale.y) * Math.min(1, dt * 25); e.alpha = 0.9; });
+    o.p.x += ((o.look + o.mx) - o.p.x) * Math.min(1, dt * 6);
+    const sy = o.hide > 0 || o.up > 0.05 ? 0 : o.blink > 0 ? 0.12 : 0.75; o.es.forEach(e => { e.scale.y += (sy - e.scale.y) * Math.min(1, dt * 25); e.alpha = 0.9; });
   });
   return c;
 }
@@ -825,13 +909,13 @@ export function buildBackground(theme = 'kitchen') {
     const lamps = lampLayer(), crates = cratesLayer(), bats = batLayer();
     const layers = [{node: lairWallLayer(), f: 0.35}, {node: bats, f: 0.35}, {node: lamps, f: 0.35}, {node: crates, f: 0.65}, {node: concreteLayer(), f: 1}];
     const fg = new Container(); const fl = lairFg(-1), fr = lairFg(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); bats.update(dt); }, jolt: (k, x) => { lamps.jolt(k); bats.jolt(k, x); }, bats};
+    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); bats.update(dt); }, jolt: (k, x) => { lamps.jolt(k); bats.jolt(k, x); crates.jolt(k, x); }, bats, crates};
   }
   if (theme === 'garden') {
-    const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer(), gnomes = gnomeLayer();
-    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: birds, f: 0.6}, {node: gnomes, f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
+    const clouds = cloudLayer(), flies = butterflyLayer(), birds = birdLayer(), gnomes = gnomeLayer(), spr = sprinklerLayer();
+    const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: birds, f: 0.6}, {node: gnomes, f: 0.6}, {node: spr, f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); gnomes.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); gnomes.jolt(k, x); }, birds, gnomes};
+    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); gnomes.update(dt); spr.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); gnomes.jolt(k, x); spr.jolt(k, x); }, birds, gnomes, spr};
   }
   const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer(), kettle = kettleLayer(), clock = catClockLayer();
   const layers = [
