@@ -656,6 +656,9 @@ async function main() {
       flying.furT = flying.t; const p = flying.body.position, fur = CATS[flying.q.name].fur, n0 = fx.parts.length;
       fx.burst('fur', p.x, p.y, Math.round(Math.min(12, 3 + closing * 0.4)), 260 + closing * 18, {up: 80, size: 0.9, life: 1.3, drag: 2.2, g: 380, w: CAT_R, h: CAT_R});
       for (let i = n0; i < fx.parts.length; i++) fx.parts[i].s.tint = fur[i % 3];
+      // squash al chocar (se recupera solo con el suavizado de escala) y, si es el piso, polvo + "tump" acolchado
+      if (!flying.inflate && closing > 7) { const k = Math.min(0.28, closing * 0.012); flying.sprite.scale.set(0.5 * (1 + k), 0.5 * (1 - k)); }
+      if ((A === ground || B === ground) && closing > 4) { fx.smoke(p.x, GROUND - 6, Math.min(90, 24 + closing * 3), Math.round(Math.min(8, 3 + closing * 0.3))); SFX.thump(Math.min(1, closing / 20)); }
       break;
     }
   });

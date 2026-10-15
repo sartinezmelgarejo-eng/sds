@@ -60,6 +60,7 @@ export function breakSfx(mat) {
 export function crackle() { if (!ok('crk', 0.1)) return; const t = ctx.currentTime; for (let i = 0; i < 14; i++) noise(t + 0.08 + i * rnd(0.03, 0.07), 0.03, 'highpass', rnd(1500, 4000), 1, rnd(0.2, 0.5), 0.025); }
 export function firework() { if (!ok('fw', 0.06)) return; const t = ctx.currentTime; noise(t, 0.25, 'lowpass', 1400, 0.8, 0.55, 0.22, 300); tone(t, rnd(180, 260), 'sine', 0.3, 0.2, 60);
   for (let i = 0; i < 8; i++) noise(t + 0.1 + i * rnd(0.03, 0.06), 0.02, 'highpass', rnd(2500, 5000), 1, 0.25, 0.02); }
+export function thump(k = 0.5) { if (!ok('thump', 0.12)) return; const t = ctx.currentTime; tone(t, rnd(85, 105), 'sine', 0.55 * (0.3 + k), 0.18, 45); noise(t, 0.12, 'lowpass', 300, 1, 0.45 * (0.3 + k), 0.1); }
 export function poof() { if (!ok('poof', 0.05)) return; const t = ctx.currentTime; noise(t, 0.3, 'bandpass', 1200, 0.9, 0.7, 0.28, 300); tone(t, 520, 'sine', 0.2, 0.18, 260); }
 export function stretch(k) { if (!ok('str', 0.09)) return; const t = ctx.currentTime; tone(t, 160 + k * 260, 'sawtooth', 0.025, 0.08); }
 export function release(k) { if (!ok('rel', 0.1)) return; const t = ctx.currentTime; noise(t, 0.35, 'bandpass', 600, 1.5, 0.5 * (0.4 + k), 0.3, 2400); tone(t, 140, 'sine', 0.4, 0.12, 70); }
