@@ -1003,13 +1003,15 @@ async function main() {
       if (b.t === 'rock') b.h = b.w;
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
-      if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, label: 'shelf'}); Composite.add(engine.world, body);
-        const sp = new Sprite(blockTex(SKIN[bgTheme].shelf, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); actors.addChild(sp); return; }
+      // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
+      if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body);
+        const sp = new Sprite(blockTex(SKIN[bgTheme].shelf, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); return; }
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
       const round = b.t === 'rock', mat = round ? 'can' : b.t;
-      const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, restitution: 0.05, label: 'can', sleepThreshold: 40})
+      const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, frictionAir: 0.0012, restitution: 0.05, label: 'can', sleepThreshold: 40})
         : Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
-      Sleeping.set(body, true);
+      // las rocas no duermen: si se les quita el tope deben rodar solas (dormidas se quedaban flotando)
+      if (round) body.sleepThreshold = Infinity; else Sleeping.set(body, true);
       const skin = SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
       const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
