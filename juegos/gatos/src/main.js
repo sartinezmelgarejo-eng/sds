@@ -111,6 +111,7 @@ async function main() {
   slingFront.setChildIndex(sling.gFront, 0); // la liga delantera va bajo el brazo delantero de madera
   const trail = new Container(); behind.addChild(trail);
   const fx = new FX(front);
+  fx.under = new Container(); world.addChildAt(fx.under, world.getChildIndex(actors)); // estelas detrás de los gatos
   let score = 0, shownScore = 0;
   const hud = new Container(); app.stage.addChild(hud);
   const scoreLbl = new Text({text: 'PUNTOS', style: {fontFamily: 'Luckiest Guy', fontSize: 34, fill: '#FFE27A', stroke: {color: '#1F2240', width: 7, join: 'round'}}});
@@ -206,6 +207,12 @@ async function main() {
       if (u >= 1) { f.loop = null; f.dive = true; Body.setVelocity(b, {x: 0, y: 2700 / 1000 * V_UNIT}); }
     }
     if (f.dive && !f.hit) f.sprite.rotation = 0;
+    // estela tipo Silver: puntos cada ~22 u durante el loop y la picada
+    if (f.loop || (f.dive && !f.hit)) {
+      const p = b.position, L = f.lastStreak || (f.lastStreak = {x: p.x, y: p.y}), d = Math.hypot(p.x - L.x, p.y - L.y);
+      for (let k = 1; k <= Math.floor(d / 22); k++) fx.streak(L.x + (p.x - L.x) * k * 22 / d, L.y + (p.y - L.y) * k * 22 / d, CAT_R * 0.85, f.dive ? 0xFFFFFF : 0xEDE4FF);
+      if (d >= 22) { L.x = p.x; L.y = p.y; }
+    }
   }
   // Ratones vivos: respiran, parpadean, se burlan (carcajada con saltitos) y se asustan si un gato pasa cerca
   let laughAll = 0;

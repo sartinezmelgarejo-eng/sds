@@ -62,6 +62,12 @@ export class FX {
     this.burst('star', x, y, 18, R * 5, {up: 200, size: 0.6, life: 0.8, drag: 1.2});
     for (let i = n1; i < this.parts.length; i++) this.parts[i].s.tint = [0xFFC030, 0xFF7A20, 0xFFE070][i % 3];
   }
+  // estela (loop y picada de Miu): bolitas suaves que se encogen y desvanecen en su lugar
+  streak(x, y, r, color = 0xEDE4FF) {
+    const s = new Sprite(this.T.smoke[0]); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; const sz = r / 46; s.scale.set(sz);
+    (this.under || this.root).addChild(s); // detrás de los gatos si hay capa trasera
+    this.parts.push({s, vx: 0, vy: 0, vr: 0, life: 0.42, t: 0, g: 0, drag: 0, grow: -0.85, sz});
+  }
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
   points(x, y, value, color = '#FFFFFF', big = false) {
     const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: big ? 84 : 58, fill: color, stroke: {color: '#1F2240', width: big ? 12 : 9, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
