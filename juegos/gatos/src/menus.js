@@ -206,6 +206,13 @@ export class Menus {
       : '¡LA RATA JEFA TE ESPERA EN SU ASPIRADORA ROBOT!';
     const w2 = this.item(txt(foot, 46, '#A8F06A'), W / 2, 1400, 3.0); w2.alpha = 0.9;
     this.soundBtn(W - 110, H - 110, 3.0);
+    // los gatos se asoman por la orilla de abajo a la izquierda, miran las casillas y se esconden (como los pájaros en el mapa de AB2);
+    // si tocas uno, maúlla y da un brinquito
+    this.o.cats.forEach((c, i) => {
+      const sp = new Sprite(c.tex); sp.anchor.set(c.ax, c.ay); sp.eventMode = 'static'; sp.cursor = 'pointer';
+      const a = this.item(sp, 120 + i * 175, H - 90 + [0, -14, 6][i], 3.1 + i * 0.25, 'peek', 230 / c.tex.height, {ph: i * 2.3, tex: c.tex, blink: c.blink, i, poke: 0});
+      sp.on('pointerdown', e => { e.stopPropagation(); SFX.unlockAudio(); SFX.meow(i); a.poke = 0.45; });
+    });
   }
 
   // ---------- pausa ----------
@@ -319,6 +326,15 @@ export class Menus {
         a.o.scale.set(a.s / Math.sqrt(br) * Math.min(1, v * 3), a.s * br * Math.min(1, v * 3));
         // parpadeo (cada gato a su ritmo)
         const bc = (t + a.ph * 2.3) % (3.1 + a.ph * 0.4), T = a.blink && bc > 0 && bc < 0.13 ? a.blink : a.tex; if (a.o.texture !== T) a.o.texture = T;
+      }
+      else if (a.k === 'peek') {
+        // ciclo de 7 s por gato: escondido → sube con rebote → mira (se inclina, parpadea) → se agacha rápido → escondido
+        const c = ((t - a.t0) + a.ph * 1.7) % 7, up = c < 0.45 ? backOut(c / 0.45, 2) : c < 4.2 ? 1 : c < 4.45 ? 1 - easeIn3((c - 4.2) / 0.25) : 0;
+        if (a.poke > 0) a.poke -= dt;
+        const pk = a.poke > 0 ? Math.sin(a.poke / 0.45 * Math.PI) * 70 : 0, sh = Math.max(up, a.poke > 0 ? 1 : 0);
+        a.o.y = a.y + 230 * (1 - sh) - pk; const br = 1 + Math.sin(t * 3 + a.ph) * 0.02;
+        a.o.scale.set(a.s / Math.sqrt(br), a.s * br); a.o.rotation = 0.14 + Math.sin(t * 0.9 + a.ph) * 0.08 * up;
+        const bc = (t + a.ph * 2.3) % (2.7 + a.i * 0.5), T = a.blink && bc < 0.13 ? a.blink : a.tex; if (a.o.texture !== T) a.o.texture = T;
       }
       else if (a.k === 'fade') a.o.alpha = clamp01(u);
       else if (a.k === 'pose') this.updatePose(a, t, dt, u);

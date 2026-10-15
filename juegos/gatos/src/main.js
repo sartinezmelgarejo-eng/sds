@@ -493,7 +493,19 @@ async function main() {
       Body.setVelocity(d.body, {x: d.body.velocity.x + ux * push * k * m, y: d.body.velocity.y + (uy - 0.35) * push * k * m});
       Body.setAngularVelocity(d.body, d.body.angularVelocity + (Math.random() - 0.5) * 0.3 * k);
       damage(d, dmg * k * FRAGILE[d.mat] * (bonus[d.mat] ?? 1), push);
+      // AB2: lo que sobrevive pegadito a la explosión queda tiznado de hollín (el ratón además echa humito un rato)
+      if (dmg > 0 && R >= 200 && !d.dead && dist < R * 0.75 && d.mat !== 'robot') { d.soot = Math.max(d.soot || 0, 1 - dist / (R * 0.75) * 0.4); d.sootT = 0; }
     }
+  }
+  // hollín: oscurece el sprite y se va limpiando despacio (los bloques se quedan un poco tiznados)
+  function updateSoot(d, dt) {
+    if (!d.soot) return; d.sootT += dt;
+    const keep = d.mat === 'mouse' ? 0 : 0.35, v = keep + (d.soot - keep) * Math.max(0, 1 - Math.max(0, d.sootT - 2.5) / 5);
+    const c = Math.round(255 - 150 * v), b = Math.round(255 - 165 * v); if (!d.zapFlash) d.sprite.tint = (c << 16) | (c << 8) | b;
+    if (d.mat === 'mouse' && d.sootT < 4.5 && Math.random() < dt * 5) { const p = d.body.position; const n0 = fx.parts.length; // humito que sube de la cabeza
+      fx.burst('smoke', p.x + (Math.random() - 0.5) * d.w * 0.4, p.y - d.h * 0.45, 1, 30, {up: 70, g: -60, drag: 1.5, life: 1.1, size: 0.22 + d.w / 900, grow: 1.5});
+      for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0x5A5560; fx.parts[i].maxA = 0.6; fx.parts[i].s.alpha = 0; } }
+    if (v <= keep + 0.001) d.soot = d.mat === 'mouse' ? 0 : d.soot;
   }
   const furTex = canvasTex(64, 64, k => { k.strokeStyle = '#F4EEE4'; k.lineWidth = 7; k.lineCap = 'round'; k.beginPath(); k.moveTo(8, 50); k.quadraticCurveTo(30, 6, 56, 20); k.stroke(); k.strokeStyle = 'rgba(120,100,80,0.8)'; k.lineWidth = 3; k.stroke(); });
   fx.T.fur = [furTex];
@@ -1149,6 +1161,7 @@ async function main() {
         if (!d.dead) Body.setAngularVelocity(d.body, d.body.angularVelocity * Math.exp(-dt * 1.5));
       }
       if (d.dead) continue;
+      if (d.soot) updateSoot(d, dt);
       if (d.mat === 'mouse') animMouse(d, dt);
       // crujidos: una pieza que se tambalea (gira lento sin desplazarse mucho) rechina, como las torres de AB2
       else if (dt > 0 && started > 1 && !d.patrol && !d.body.isSleeping && time > (d.creakAt || 0)) {
@@ -1183,6 +1196,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), boom: (x, y) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, 0); startle(x, 1); cam.shake(30); }, get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
