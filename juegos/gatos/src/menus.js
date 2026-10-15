@@ -155,6 +155,8 @@ export class Menus {
         const lk = new Sprite(this.T.lock); lk.anchor.set(0.5); lk.scale.set(1 / 1.5); lk.y = -10; tile.addChild(lk);
         if (!exists) { const p = txt('PRONTO', 34, '#E4E7F2', 0.2); p.anchor.set(0.5); p.y = 95; tile.addChild(p); }
       }
+      // nivel de jefa (el último del mundo): la Rata Jefa se asoma por la esquina de la casilla
+      if (exists && i === lv.length - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
       this.item(tile, x, y, d, 'pop', 1, {pulse: now, tile: true});
     }
     const w2 = this.item(txt('MUNDO 2 · EL JARDÍN  —  ¡PRÓXIMAMENTE!', 46, '#A8F06A'), W / 2, 1400, 3.0); w2.alpha = 0.9;

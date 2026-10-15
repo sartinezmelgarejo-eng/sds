@@ -511,7 +511,7 @@ async function main() {
     mouseTex: mouseTex('boss', 66, 'laugh'),
   });
   const menus = new Menus(app, {
-    eyeImg, cats: bigCats, levels: LEVELS,
+    eyeImg, cats: bigCats, levels: LEVELS, bossTex: mouseTex('boss', 66, 'laugh'),
     onPlay: id => buildLevel(id, true),
     onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect(),
   });
