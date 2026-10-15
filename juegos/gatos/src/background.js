@@ -198,6 +198,52 @@ function kettleLayer() {
       o.p.scale.set(o.sz * 1.3 * (0.5 + u * 1.6)); o.p.alpha = 0.85 * Math.min(1, u * 5) * (1 - u); } };
   return c;
 }
+// Reloj de gato (Kit-Cat) en la pared, a la izquierda de la ventana (f 0.35): la cola hace de péndulo y los ojos van y
+// vienen al compás (tic-tac); con un estruendo se ladea colgado del clavo y se columpia.
+function catClockLayer() {
+  const c = new Container(), CX = 330, CY = 300, OL = '#14121A';
+  const cv = (w, h, draw) => { const e = document.createElement('canvas'); e.width = w; e.height = h; const k = e.getContext('2d'); draw(k);
+    k.globalCompositeOperation = 'source-atop'; k.fillStyle = 'rgba(255,240,215,0.2)'; k.fillRect(0, 0, w, h); return Texture.from(e); };
+  const black = (k, x0, y0, x1, y1) => lin(k, x0, y0, x1, y1, [[0, '#4A4656'], [0.5, '#24222C'], [1, '#121018']]);
+  const rig = new Container(); rig.position.set(CX, CY); c.addChild(rig); // cuelga del clavo (CX, CY)
+  // cola (péndulo): pivote en la parte de abajo del cuerpo
+  const tail = new Sprite(cv(60, 230, k => { k.lineCap = 'round'; k.strokeStyle = OL; k.lineWidth = 26; k.beginPath(); k.moveTo(30, 10); k.bezierCurveTo(30, 90, 18, 150, 30, 215); k.stroke();
+    k.strokeStyle = black(k, 18, 0, 42, 0); k.lineWidth = 18; k.stroke(); }));
+  tail.anchor.set(0.5, 10 / 230); tail.position.set(0, 312); rig.addChild(tail);
+  const body = new Sprite(cv(200, 340, k => { k.translate(100, 20);
+    // orejas
+    for (const s of [-1, 1]) { k.beginPath(); k.moveTo(s * 30, 40); k.lineTo(s * 62, -14); k.lineTo(s * 74, 50); k.closePath(); k.fillStyle = black(k, -70, -10, 70, 50); k.fill(); k.lineWidth = 5; k.strokeStyle = OL; k.lineJoin = 'round'; k.stroke();
+      k.beginPath(); k.moveTo(s * 40, 40); k.lineTo(s * 60, 6); k.lineTo(s * 66, 44); k.closePath(); k.fillStyle = '#C86A84'; k.fill(); }
+    // cabeza + cuerpo
+    k.beginPath(); k.ellipse(0, 70, 78, 56, 0, 0, TAU); k.fillStyle = black(k, -80, 20, 80, 120); k.fill(); k.lineWidth = 5; k.strokeStyle = OL; k.stroke();
+    rr(k, -54, 104, 108, 200, 40); k.fillStyle = black(k, -54, 0, 54, 0); k.fill(); k.stroke();
+    // carátula del reloj en la panza
+    k.beginPath(); k.arc(0, 168, 40, 0, TAU); k.fillStyle = '#FFF8EC'; k.fill(); k.lineWidth = 5; k.strokeStyle = '#B8A890'; k.stroke();
+    k.fillStyle = OL; for (let i = 0; i < 12; i++) { const a = i * TAU / 12; k.beginPath(); k.arc(Math.cos(a) * 32, 168 + Math.sin(a) * 32, i % 3 ? 2 : 4, 0, TAU); k.fill(); }
+    k.lineCap = 'round'; k.lineWidth = 5; k.beginPath(); k.moveTo(0, 168); k.lineTo(14, 152); k.moveTo(0, 168); k.lineTo(0, 140); k.stroke();
+    // corbatín blanco y patitas
+    k.fillStyle = '#FFFFFF'; k.beginPath(); k.moveTo(0, 116); k.lineTo(-22, 104); k.lineTo(-22, 128); k.closePath(); k.moveTo(0, 116); k.lineTo(22, 104); k.lineTo(22, 128); k.closePath(); k.fill();
+    k.beginPath(); k.arc(0, 116, 6, 0, TAU); k.fill();
+    for (const s of [-1, 1]) { k.beginPath(); k.ellipse(s * 30, 290, 20, 13, 0, 0, TAU); k.fillStyle = '#FFFFFF'; k.fill(); k.lineWidth = 3; k.strokeStyle = OL; k.stroke(); }
+    // hocico, bigotes y sonrisa
+    k.fillStyle = '#FFFFFF'; k.beginPath(); k.ellipse(0, 96, 30, 16, 0, 0, TAU); k.fill();
+    k.fillStyle = '#E07890'; k.beginPath(); k.moveTo(-7, 86); k.lineTo(7, 86); k.lineTo(0, 94); k.closePath(); k.fill();
+    k.strokeStyle = OL; k.lineWidth = 3; k.beginPath(); k.moveTo(-14, 100); k.quadraticCurveTo(0, 108, 14, 100); k.stroke();
+    k.strokeStyle = 'rgba(255,255,255,0.8)'; k.lineWidth = 2.5; for (const s of [-1, 1]) for (const d of [-6, 4]) { k.beginPath(); k.moveTo(s * 28, 94 + d * 0.4); k.lineTo(s * 72, 88 + d); k.stroke(); }
+    // cuencas de los ojos (blancas; las pupilas van aparte y se mueven)
+    for (const s of [-1, 1]) { k.beginPath(); k.ellipse(s * 26, 62, 19, 15, 0, 0, TAU); k.fillStyle = '#FFFFFF'; k.fill(); k.lineWidth = 3; k.strokeStyle = OL; k.stroke(); }
+    k.fillStyle = 'rgba(255,255,255,0.22)'; k.beginPath(); k.ellipse(-36, 40, 22, 10, -0.4, 0, TAU); k.fill(); }));
+  body.anchor.set(0.5, 0); body.position.set(0, -20); rig.addChild(body);
+  // pupilas (dos ojos, recortadas a la cuenca con el mismo óvalo: el movimiento es chico para que no se salgan)
+  const pupT = cv(24, 30, k => { k.beginPath(); k.ellipse(12, 15, 9, 13, 0, 0, TAU); k.fillStyle = '#18161E'; k.fill(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.arc(9, 9, 3, 0, TAU); k.fill(); });
+  const pups = [-1, 1].map(s => { const p = new Sprite(pupT); p.anchor.set(0.5); p.position.set(s * 26, 62); rig.addChild(p); return p; });
+  let T0 = 0, sw = 0, swV = 0, tick = 0;
+  c.jolt = (k = 1) => { swV += (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.min(1.5, k) * 0.9); };
+  c.update = dt => { T0 += dt; const ph = Math.sin(T0 * Math.PI); // 1 ida/vuelta cada 2 s, como el Kit-Cat real
+    tail.rotation = ph * 0.32; pups.forEach(p => { p.x = Math.sign(p.position.x) * 26 + ph * 8; });
+    swV += (-sw * 26 - swV * 1.6) * dt; sw += swV * dt; sw = Math.max(-0.5, Math.min(0.5, sw)); rig.rotation = sw; };
+  return c;
+}
 // Motas de polvo que flotan y brillan en el rayo de sol que entra por la ventana (misma capa que la pared, f 0.35)
 function motesLayer() {
   const c = new Container(), r = rng(23);
@@ -750,16 +796,17 @@ export function buildBackground(theme = 'kitchen') {
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
     return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); }, birds};
   }
-  const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer(), kettle = kettleLayer();
+  const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer(), kettle = kettleLayer(), clock = catClockLayer();
   const layers = [
     {node: wallLayer(), f: 0.35},
     {node: jars, f: 0.35},
     {node: tools, f: 0.35},
     {node: kettle, f: 0.35},
+    {node: clock, f: 0.35},
     {node: motes, f: 0.35},
     {node: tileLayer(), f: 0.75},
     {node: counterLayer(), f: 1},
   ];
   const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); jars.update(dt); kettle.update(dt); }, jolt: k => { tools.jolt(k); jars.jolt(k); kettle.jolt(k); }, kettle};
+  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); jars.update(dt); kettle.update(dt); clock.update(dt); }, jolt: k => { tools.jolt(k); jars.jolt(k); kettle.jolt(k); clock.jolt(k); }, kettle};
 }
