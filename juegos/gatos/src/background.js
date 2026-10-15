@@ -412,8 +412,26 @@ function lampLayer() {
   return c;
 }
 // Fondo medio: cajas apiladas, frascos en anaquel, calentador de agua, telarañas, agujero de ratón iluminado. Parallax 0.65.
+const HOLES = [1000, 3400]; // agujeros de ratón en el zoclo (cratesLayer)
 function cratesLayer() {
   const {x0, x1} = BOUNDS, ty = GROUND - 1150, w = x1 - x0, h = GROUND - ty + 30;
+  const c = new Container(); c.addChild(cratesBake(x0, x1, ty, w, h));
+  // ojitos que brillan dentro de cada agujero: parpadean, miran a los lados y a veces se esconden
+  const eyeT = (() => { const cv = document.createElement('canvas'); cv.width = 40; cv.height = 40; const k = cv.getContext('2d');
+    k.fillStyle = rad(k, 20, 20, 0, 20, [[0, 'rgba(255,255,220,1)'], [0.35, 'rgba(255,230,120,0.9)'], [1, 'rgba(255,200,60,0)']]); k.fillRect(0, 0, 40, 40); return Texture.from(cv); })();
+  const pairs = HOLES.map((mx, i) => { const p = new Container(); p.position.set(mx, GROUND - 52);
+    const es = [-16, 16].map(dx => { const e = new Sprite(eyeT); e.anchor.set(0.5); e.x = dx; e.scale.set(0.75); e.blendMode = 'add'; p.addChild(e); return e; });
+    c.addChild(p); return {p, es, t: 1 + i * 2.3, blink: 0, look: 0, lookT: 0, hide: 0}; });
+  c.update = dt => pairs.forEach(o => {
+    o.t -= dt; if (o.t <= 0) { o.t = 2 + Math.random() * 4; if (Math.random() < 0.2) o.hide = 1.5 + Math.random() * 2.5; else o.blink = 0.14; }
+    o.lookT -= dt; if (o.lookT <= 0) { o.lookT = 1 + Math.random() * 2.5; o.look = (Math.random() - 0.5) * 22; }
+    o.blink = Math.max(0, o.blink - dt); o.hide = Math.max(0, o.hide - dt);
+    o.p.x += ((o.look + HOLES[pairs.indexOf(o)]) - o.p.x) * Math.min(1, dt * 6);
+    const sy = o.hide > 0 ? 0 : o.blink > 0 ? 0.12 : 0.75; o.es.forEach(e => { e.scale.y += (sy - e.scale.y) * Math.min(1, dt * 25); e.alpha = 0.9; });
+  });
+  return c;
+}
+function cratesBake(x0, x1, ty, w, h) {
   return bake(x0, ty, w, h, 0.55, ctx => {
     const r = rng(131);
     const crate = (x, y, cw, chh) => { // caja de madera (huacal) oscura
@@ -447,7 +465,7 @@ function cratesLayer() {
     // agujero de ratón en el zoclo, con luz cálida adentro
     ctx.fillStyle = lin(ctx, 0, GROUND - 90, 0, GROUND, [[0, '#4A3424'], [1, '#2A1C12']]); ctx.fillRect(x0, GROUND - 90, w, 90);
     ctx.fillStyle = 'rgba(255,220,170,0.15)'; ctx.fillRect(x0, GROUND - 90, w, 6);
-    for (const mx of [1000, 3400]) { ctx.fillStyle = rad(ctx, mx, GROUND - 30, 0, 90, [[0, '#FFC870'], [0.6, '#A0602A'], [1, '#2A1408']]); ctx.beginPath(); ctx.moveTo(mx - 55, GROUND); ctx.lineTo(mx - 55, GROUND - 60); ctx.arc(mx, GROUND - 60, 55, Math.PI, 0); ctx.lineTo(mx + 55, GROUND); ctx.fill();
+    for (const mx of HOLES) { ctx.fillStyle = rad(ctx, mx, GROUND - 30, 0, 90, [[0, '#FFC870'], [0.6, '#A0602A'], [1, '#2A1408']]); ctx.beginPath(); ctx.moveTo(mx - 55, GROUND); ctx.lineTo(mx - 55, GROUND - 60); ctx.arc(mx, GROUND - 60, 55, Math.PI, 0); ctx.lineTo(mx + 55, GROUND); ctx.fill();
       ctx.fillStyle = 'rgba(255,190,100,0.25)'; ctx.beginPath(); ctx.ellipse(mx, GROUND, 120, 22, 0, 0, TAU); ctx.fill(); }
     // oscurecer todo (está más lejos de los focos que el juego) + sombra al pie
     ctx.save(); ctx.globalCompositeOperation = 'source-atop'; ctx.fillStyle = 'rgba(30,20,40,0.38)'; ctx.fillRect(x0, ty, w, h); ctx.restore();
@@ -485,10 +503,10 @@ function lairFg(side) {
 
 export function buildBackground(theme = 'kitchen') {
   if (theme === 'lair') {
-    const lamps = lampLayer();
-    const layers = [{node: lairWallLayer(), f: 0.35}, {node: lamps, f: 0.35}, {node: cratesLayer(), f: 0.65}, {node: concreteLayer(), f: 1}];
+    const lamps = lampLayer(), crates = cratesLayer();
+    const layers = [{node: lairWallLayer(), f: 0.35}, {node: lamps, f: 0.35}, {node: crates, f: 0.65}, {node: concreteLayer(), f: 1}];
     const fg = new Container(); const fl = lairFg(-1), fr = lairFg(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => lamps.update(dt)};
+    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); }};
   }
   if (theme === 'garden') {
     const clouds = cloudLayer(), flies = butterflyLayer();
