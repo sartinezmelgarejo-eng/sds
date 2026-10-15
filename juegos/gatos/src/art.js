@@ -280,9 +280,11 @@ const ART = (() => {
     const pts = [], N = 14;
     for (let i = 0; i < N; i++) {
       const a = i / N * TAU, c = Math.cos(a), s = Math.sin(a);
-      const k = 1 / Math.max(Math.abs(c) / (w / 2), Math.abs(s) / (h / 2));
+      // en espacio normalizado (cuadrado unitario) y luego escalado: así las piedras largas/delgadas llenan su cuerpo físico
+      const k = 1 / Math.max(Math.abs(c), Math.abs(s));
       const j = 1 - R() * 0.05 - (Math.abs(c) > 0.6 && Math.abs(s) > 0.6 ? 0.1 : 0);
-      pts.push([x + w / 2 + c * k * j, y + h / 2 + s * k * j]);
+      const ij = Math.min(w, h) / 2 * (1 - j);   // la mordida de la orilla, igual en x y en y (no se estira con la pieza)
+      pts.push([x + w / 2 + c * k * (w / 2 - ij), y + h / 2 + s * k * (h / 2 - ij)]);
     }
     const shape = () => { ctx.beginPath(); pts.forEach(([a, b], i) => { const [na, nb] = pts[(i + 1) % N]; const mx = (a + na) / 2, my = (b + nb) / 2; i ? ctx.quadraticCurveTo(a, b, mx, my) : ctx.moveTo(mx, my); }); const [a, b] = pts[0], [na, nb] = pts[1]; ctx.quadraticCurveTo(a, b, (a + na) / 2, (b + nb) / 2); ctx.closePath(); };
     shape();
