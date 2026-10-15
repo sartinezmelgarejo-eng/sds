@@ -44,7 +44,7 @@ function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null, bruise
 }
 const hatTex = (which, r) => cached(`hat|${which}|${r}`, () => canvasTex(r * 2.2, r * 2, k => ART.hat(k, r * 1.1, r * 1.25, r, which), 1.5));
 // las 4 caras de un ratón (normal/susto sin pupilas: las pupilas van aparte y siguen al gato) para un nivel de golpes
-const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
+const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2, hat) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes, hat);
   return {tex: Texture.from(sp.canvas), ax: sp.ox / sp.canvas.width, ay: sp.cy / sp.canvas.height, footY: (sp.oy - sp.cy) / 2};
@@ -416,6 +416,8 @@ async function main() {
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
     if (d.mat === 'mouse') {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof(); turnKills++;
+      // los vecinos voltean asustados hacia el puf (sin mueca), como los cerdos de AB2 cuando cae uno de los suyos
+      for (const o of dyn) if (o.mat === 'mouse' && !o.dead && o !== d && !o.shock && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 700) o.shock = {x: p.x, y: p.y, t: -0.1 - Math.random() * 0.15, fl: 0, look: 1.1, side: 1};
       // un vecino que sobrevive se lamenta (de vez en cuando, con pausa entre globos para no saturar)
       if (time - (sayT.mourn || -9) > 3 && Math.random() < 0.45) { const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && !bubbles.some(b => b.d === o) && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 800);
         if (nb.length) { sayT.mourn = time; const o = nb[Math.floor(Math.random() * nb.length)]; o.hurt = 0.35;
@@ -481,6 +483,7 @@ async function main() {
   // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
   // Onda radial: empuje ~ (1 - d/R), daño ~ (1 - d/R) × fragilidad × bonus por material
   function blast(x, y, R, push, dmg, bonus = {}) {
+    if (R >= 200) shockMice(x, y, R);
     for (const d of [...dyn]) {
       const p = d.body.position, dx = p.x - x, dy = p.y - y, dist = Math.hypot(dx, dy);
       if (dist > R + Math.max(d.w, d.h) / 2) continue;
@@ -559,6 +562,13 @@ async function main() {
       if (d >= 22) { L.x = p.x; L.y = p.y; }
     }
   }
+  // AB2: los ratones cerca de una explosión aprietan los ojos y se encogen (mueca) y luego se quedan viendo el humo con susto;
+  // los más lejanos solo voltean asustados. El retraso crece con la distancia (la onda llega después).
+  function shockMice(x, y, R) {
+    for (const d of dyn) { if (d.mat !== 'mouse' || d.dead) continue;
+      const p = d.body.position, dist = Math.hypot(p.x - x, p.y - y); if (dist > R * 4) continue;
+      d.shock = {x, y, t: -dist / 2500, fl: dist < R * 2.2 ? 0.55 + 0.35 * (1 - dist / (R * 2.2)) : 0, look: 1.4, side: Math.sign(p.x - x) || 1}; }
+  }
   // Ratones vivos: respiran, parpadean, se burlan (carcajada con saltitos) y se asustan si un gato pasa cerca
   let laughAll = 0;
   function animMouse(d, dt) {
@@ -574,7 +584,11 @@ async function main() {
     d.cower = Math.max(0, Math.min(1, (d.cower || 0) + (dg ? dt * 9 : -dt * 4)));
     if (dg && time - (d.yelpT || -9) > 2.5) { d.yelpT = time; SFX.squeak(); }
     d.dg = dg;
-    if (d.hurt > 0 || near || tumble || dg) expr = 'scared';
+    const sh = d.shock; let flinch = 0;
+    if (sh) { sh.t += dt; if (sh.t > Math.max(sh.fl, sh.look)) d.shock = null; else if (sh.t > 0) flinch = sh.t < sh.fl ? 1 : 0; }
+    d.cower = Math.max(d.cower, flinch ? Math.min(1, sh.t * 14) : 0);
+    if (flinch) expr = 'flinch';
+    else if (d.hurt > 0 || near || tumble || dg || (sh && sh.t > 0)) expr = 'scared';
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
       if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
@@ -598,10 +612,10 @@ async function main() {
     // pupilas: miran al gato en vuelo; si no, al gato de la resortera, con miradas de reojo de vez en cuando
     d.pup.normal.visible = expr === 'normal'; d.pup.scared.visible = expr === 'scared';
     if (expr === 'normal' || expr === 'scared') {
-      const mp = d.body.position; let tgt = d.dg ? d.dg.body.position : fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
+      const mp = d.body.position; let tgt = d.dg ? d.dg.body.position : d.shock && d.shock.t > 0 ? d.shock : fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
       if (time > d.glanceAt) { d.glance = {x: Math.random() * 2 - 1, y: Math.random() * 1.4 - 0.9, until: time + 0.6 + Math.random() * 0.8}; d.glanceAt = time + 3 + Math.random() * 5; }
       if (d.glance && time > d.glance.until) d.glance = null;
-      if (tgt && (fc || d.dg || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
+      if (tgt && (fc || d.dg || d.shock || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
         lx = (dx * Math.cos(a) - dy * Math.sin(a)) / L; ly = (dx * Math.sin(a) + dy * Math.cos(a)) / L; }
       else if (d.glance) { lx = d.glance.x; ly = d.glance.y; }
       const k = Math.min(1, dt * (fc ? 14 : 6)); d.look.x += (lx - d.look.x) * k; d.look.y += (ly - d.look.y) * k;
@@ -615,6 +629,7 @@ async function main() {
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     d.sprite.y += cw * d.h * 0.4;
+    if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
     d.sprite.y -= hop + br * d.h * 0.25;
   }
   // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
@@ -631,7 +646,19 @@ async function main() {
   const queue = []; let qid = 0;
   // los gatos de la fila se sobresaltan con los estruendos (explosión, clavado, el jefe que cae): brinquito nervioso,
   // cara de enojo y un temblorcito; los más cercanos al estruendo reaccionan primero (como los pájaros de AB2)
+  // En La Guarida (sótano) los estruendos sacuden el techo: cae polvo y piedritas desde arriba de la vista y los focos se columpian
+  const gritTex = canvasTex(24, 24, k => { k.fillStyle = '#4A3A2C'; k.beginPath(); k.moveTo(4, 8); k.lineTo(14, 3); k.lineTo(21, 10); k.lineTo(16, 20); k.lineTo(6, 18); k.closePath(); k.fill(); k.fillStyle = '#7A6450'; k.fillRect(8, 7, 6, 4); });
+  fx.T.grit = [gritTex];
+  function ceilingDust(x, power) {
+    const top = cam.toWorld(0, 0).y - 30, w = Math.min(1600, app.screen.width / cam.zoom), n0 = fx.parts.length;
+    fx.burst('smoke', x, top, Math.round(6 + 6 * power), 60, {up: -40, g: 90, drag: 1.2, life: 2.2, size: 0.55, grow: 1.6, w, h: 40});
+    for (let i = n0; i < fx.parts.length; i++) { const p = fx.parts[i]; p.s.tint = [0xA89482, 0x8E7C6C, 0xC2B2A2][i % 3]; p.delay = 0.08 + Math.random() * 0.5; p.s.alpha = 0; p.maxA = 0.55; }
+    const n1 = fx.parts.length;
+    fx.burst('grit', x, top, Math.round(10 + 12 * power), 80, {up: -60, drag: 0.3, life: 1.8, size: 1.9, w, h: 30});
+    for (let i = n1; i < fx.parts.length; i++) { const p = fx.parts[i]; p.delay = Math.random() * 0.7; p.s.alpha = 0; p.maxA = 1; }
+  }
   function startle(x, power = 1) {
+    curBg?.jolt?.(power, x); if (bgTheme === 'lair') ceilingDust(x, power);
     queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.9 + power * 0.4); q.shiver = 0.45;
       if (!q.hop) q.hop = {t: -0.05 - Math.abs(x - q.x) / 9000 - i * 0.05, dur: 0.32, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 30 + power * 30}; });
   }
@@ -1156,6 +1183,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), boom: (x, y) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, 0); startle(x, 1); cam.shake(30); }, get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

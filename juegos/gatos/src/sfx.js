@@ -237,3 +237,6 @@ export function buzz(v = 0.5) { if (!ok('buzz', 0.2)) return; const t = ctx.curr
 // entrada del jefe: "tan-tan-TAAAN" de villano (metales graves en menor, el último con vibrato hacia abajo)
 export function villain() { if (!ctx) return; const t = ctx.currentTime;
   [[0, 196, 0.16], [0.2, 185, 0.16], [0.42, 147, 0.9]].forEach(([dt, f, d]) => { tone(t + dt, f, 'sawtooth', 0.12, d, dt > 0.4 ? f * 0.94 : 0); tone(t + dt, f / 2, 'square', 0.07, d); tone(t + dt, f * 1.19, 'sawtooth', 0.06, d); }); }
+// utensilios colgados que chocan entre sí (tintineo metálico, 3–4 golpecitos desordenados)
+export function clink(v = 0.6) { if (!ok('clink', 0.4)) return; const t = ctx.currentTime;
+  for (let i = 0; i < 4; i++) { const tt = t + 0.12 + i * rnd(0.07, 0.16), f = rnd(2100, 3400); tone(tt, f, 'sine', 0.06 * v, 0.25); tone(tt, f * 2.76, 'sine', 0.02 * v, 0.12); } }

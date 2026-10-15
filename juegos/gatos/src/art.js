@@ -416,7 +416,7 @@ const ART = (() => {
   // ---------- RATONES ----------
   // kind: 'small' | 'thimble' | 'boss'
   function mouse(ctx, cx, cy, r, kind = 'small', opt = {}) {
-    const {look = 1, grin = true, expr = 'normal', noPupils = false, bruise = 0} = opt; // expr: normal | blink | scared | laugh · bruise 0..2 (golpeado, como los cerdos de AB2)
+    const {look = 1, grin = true, expr = 'normal', noPupils = false, bruise = 0} = opt; // expr: normal | blink | scared | laugh | flinch · bruise 0..2 (golpeado, como los cerdos de AB2)
     ctx.save(); ctx.translate(cx, cy);
     const outline = '#2B2F45';
     // cola
@@ -442,6 +442,9 @@ const ART = (() => {
     const closedEye = (s, up) => { ctx.beginPath(); ctx.arc(s * r, -r * 0.1 + (up ? r * 0.06 : -r * 0.04), r * 0.17, up ? Math.PI * 1.1 : 0.2, up ? Math.PI * 1.9 : Math.PI - 0.2); ctx.lineWidth = r * 0.07; ctx.strokeStyle = outline; ctx.lineCap = 'round'; ctx.stroke(); };
     if (expr === 'blink') [-0.33, 0.33].forEach(s => closedEye(s, false));
     else if (expr === 'laugh') [-0.33, 0.33].forEach(s => closedEye(s, true));
+    else if (expr === 'flinch') [-0.33, 0.33].forEach(s => { // ojos apretados "> <" (se cubre de la explosión, como los cerdos de AB2)
+      const c = s * r, g = Math.sign(s) * r * 0.13; ctx.beginPath(); ctx.moveTo(c + g, -r * 0.25); ctx.lineTo(c - g, -r * 0.13); ctx.lineTo(c + g, -r * 0.01);
+      ctx.lineWidth = r * 0.08; ctx.strokeStyle = outline; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke(); });
     else if (expr === 'scared') [-0.33, 0.33].forEach(s => {
       ctx.beginPath(); ctx.ellipse(s * r, -r * 0.16, r * 0.26, r * 0.33, 0, 0, TAU); ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = r * 0.04; ctx.strokeStyle = outline; ctx.stroke();
       if (!noPupils) { ctx.beginPath(); ctx.arc(s * r + look * r * 0.05 - r * 0.04, -r * 0.14, r * 0.06, 0, TAU); ctx.fillStyle = '#1B1D2A'; ctx.fill(); }
@@ -455,7 +458,7 @@ const ART = (() => {
     });
     // cejas: pícaras (normal/blink/laugh) o levantadas de susto
     ctx.strokeStyle = outline; ctx.lineWidth = r * 0.08; ctx.lineCap = 'round';
-    if (expr === 'scared') { ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.55); ctx.lineTo(-r * 0.18, -r * 0.66); ctx.moveTo(r * 0.55, -r * 0.55); ctx.lineTo(r * 0.18, -r * 0.66); ctx.stroke(); }
+    if (expr === 'scared' || expr === 'flinch') { ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.55); ctx.lineTo(-r * 0.18, -r * 0.66); ctx.moveTo(r * 0.55, -r * 0.55); ctx.lineTo(r * 0.18, -r * 0.66); ctx.stroke(); }
     else { ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.47); ctx.lineTo(-r * 0.15, -r * 0.36); ctx.moveTo(r * 0.55, -r * 0.47); ctx.lineTo(r * 0.15, -r * 0.36); ctx.stroke(); }
     // nariz + bigotes
     ctx.beginPath(); ctx.ellipse(0, r * 0.18, r * 0.13, r * 0.1, 0, 0, TAU); ctx.fillStyle = rad(ctx, -r * 0.04, r * 0.14, 0, r * 0.14, [[0, '#FFB3C1'], [1, '#D9566E']]); ctx.fill();
@@ -464,6 +467,9 @@ const ART = (() => {
     // sonrisa con dientes
     if (expr === 'scared') { // boca en "O"
       ctx.beginPath(); ctx.ellipse(0, r * 0.45, r * 0.12, r * 0.15, 0, 0, TAU); ctx.fillStyle = '#3A1A26'; ctx.fill(); ctx.lineWidth = r * 0.045; ctx.strokeStyle = outline; ctx.stroke();
+    } else if (expr === 'flinch') { // dientes apretados (mueca)
+      ctx.beginPath(); ctx.ellipse(0, r * 0.44, r * 0.3, r * 0.13, 0, 0, TAU); ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = r * 0.05; ctx.strokeStyle = outline; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-r * 0.28, r * 0.44); ctx.lineTo(r * 0.28, r * 0.44); for (const dx of [-0.15, 0, 0.15]) { ctx.moveTo(r * dx, r * 0.33); ctx.lineTo(r * dx, r * 0.55); } ctx.lineWidth = r * 0.03; ctx.stroke();
     } else if (expr === 'laugh') { // carcajada: boca abierta con lengua
       ctx.beginPath(); ctx.moveTo(-r * 0.3, r * 0.3); ctx.quadraticCurveTo(0, r * 0.32, r * 0.3, r * 0.3); ctx.quadraticCurveTo(r * 0.25, r * 0.72, 0, r * 0.72); ctx.quadraticCurveTo(-r * 0.25, r * 0.72, -r * 0.3, r * 0.3); ctx.closePath();
       ctx.fillStyle = '#5A1E2E'; ctx.fill(); ctx.lineWidth = r * 0.05; ctx.strokeStyle = outline; ctx.stroke();

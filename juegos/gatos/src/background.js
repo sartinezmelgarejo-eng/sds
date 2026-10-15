@@ -91,6 +91,35 @@ function wallLayer() {
   });
 }
 
+// Riel con utensilios colgados (cucharón, espátula, batidor) entre la ventana y las alacenas; se mecen apenas y se
+// columpian con los estruendos (y tintinean). Misma capa que la pared (f 0.35).
+function utensilLayer() {
+  const c = new Container(), RX = 1985, RY = 430, RW = 330;
+  const cv = (w, h, draw) => { const e = document.createElement('canvas'); e.width = w; e.height = h; draw(e.getContext('2d')); return Texture.from(e); };
+  const rail = new Sprite(cv(RW + 40, 40, k => { k.fillStyle = 'rgba(60,40,70,0.18)'; rr(k, 20, 18, RW, 16, 8); k.fill();
+    k.fillStyle = lin(k, 0, 6, 0, 26, [[0, '#F2F2F4'], [0.5, '#A9AAB2'], [1, '#6E6F78']]); rr(k, 20, 6, RW, 18, 9); k.fill();
+    for (const x of [26, RW + 14]) { k.beginPath(); k.arc(x, 15, 13, 0, TAU); k.fillStyle = '#8E8F98'; k.fill(); k.strokeStyle = '#55565E'; k.lineWidth = 3; k.stroke(); } }));
+  rail.position.set(RX - 20, RY - 15); c.addChild(rail);
+  const steel = (k, x0, x1) => lin(k, x0, 0, x1, 0, [[0, '#8A8C96'], [0.45, '#F4F4F6'], [1, '#6A6C76']]);
+  const hook = k => { k.strokeStyle = '#6A6C76'; k.lineWidth = 5; k.beginPath(); k.arc(40, 14, 9, Math.PI, TAU * 0.95); k.stroke(); };
+  const T = [
+    cv(80, 300, k => { hook(k); k.fillStyle = steel(k, 34, 46); rr(k, 35, 22, 10, 190, 5); k.fill(); // cucharón
+      k.beginPath(); k.arc(40, 238, 34, 0, TAU); k.fillStyle = rad(k, 30, 228, 2, 36, [[0, '#FFFFFF'], [0.5, '#C9CBD2'], [1, '#6E7079']]); k.fill(); k.strokeStyle = '#4E5058'; k.lineWidth = 4; k.stroke(); }),
+    cv(80, 300, k => { hook(k); k.fillStyle = lin(k, 32, 0, 48, 0, [[0, '#7A4A22'], [0.5, '#C08550'], [1, '#6A3E1A']]); rr(k, 33, 22, 14, 150, 6); k.fill(); // espátula
+      rr(k, 14, 168, 52, 100, 12); k.fillStyle = lin(k, 14, 0, 66, 0, [[0, '#E0503E'], [0.5, '#FF7A5C'], [1, '#B8382A']]); k.fill(); k.strokeStyle = '#7A2418'; k.lineWidth = 4; k.stroke();
+      k.strokeStyle = 'rgba(120,30,20,0.6)'; k.lineWidth = 5; for (const x of [28, 40, 52]) { k.beginPath(); k.moveTo(x, 190); k.lineTo(x, 248); k.stroke(); } }),
+    cv(80, 300, k => { hook(k); k.fillStyle = steel(k, 33, 47); rr(k, 34, 22, 12, 110, 6); k.fill(); // batidor
+      k.strokeStyle = '#B9BBC4'; k.lineWidth = 4; for (const a of [-1, -0.5, 0, 0.5, 1]) { k.beginPath(); k.moveTo(40, 130); k.bezierCurveTo(40 + a * 40, 170, 40 + a * 34, 260, 40, 272); k.stroke(); }
+      k.strokeStyle = 'rgba(255,255,255,0.8)'; k.lineWidth = 2; k.beginPath(); k.moveTo(40, 130); k.bezierCurveTo(60, 170, 57, 260, 40, 272); k.stroke(); }),
+  ];
+  const items = T.map((t, i) => { const s = new Sprite(t); s.anchor.set(0.5, 14 / 300); s.scale.set(1.25); s.position.set(RX + 60 + i * 105, RY - 4); c.addChild(s);
+    return {s, ph: i * 2.1, sw: 0, swT: 0, f: 2.6 + i * 0.35}; });
+  let T0 = 0;
+  c.jolt = (k = 1) => { items.forEach(o => { o.sw = Math.min(0.5, o.sw + k * (0.18 + Math.random() * 0.12)); o.swT = Math.random() * 0.3; }); SFX.clink(Math.min(1, 0.4 + k * 0.4)); };
+  c.update = dt => { T0 += dt; items.forEach(o => { o.s.rotation = Math.sin(T0 * 0.8 + o.ph) * 0.012;
+    if (o.sw > 0.003) { o.swT += dt; o.s.rotation += o.sw * Math.sin(o.swT * o.f + 0.3); o.sw *= Math.exp(-dt * 0.9); } }); };
+  return c;
+}
 // Motas de polvo que flotan y brillan en el rayo de sol que entra por la ventana (misma capa que la pared, f 0.35)
 function motesLayer() {
   const c = new Container(), r = rng(23);
@@ -213,11 +242,14 @@ function butterflyLayer() {
   const T = ['#FFB13B', '#FF7FA8', '#8FD3FF', '#FFF07A'].map(wing), items = [];
   for (let i = 0; i < 7; i++) { const s = new Sprite(T[i % T.length]); s.anchor.set(0.5); c.addChild(s);
     items.push({s, x: x0 + 400 + r() * (x1 - x0 - 800), y: GROUND - 140 - r() * 380, a: r() * TAU, ph: r() * TAU, f: 16 + r() * 8, k: 0.75 + r() * 0.4, turn: 0}); }
+  // estruendo: salen espantadas hacia arriba y lejos de la explosión, aleteando a lo loco, y poco a poco se calman
+  c.jolt = (k = 1, x = 0) => items.forEach(o => { o.panic = Math.min(1.6, (o.panic || 0) + k * (0.6 + Math.random() * 0.6)); o.a = -Math.PI / 2 + Math.sign(o.x - x * 0.85 || 1) * (0.5 + Math.random() * 0.6); o.turn = 0.6 + Math.random() * 0.5; o.da = 0; });
   c.update = dt => items.forEach(o => {
+    const pn = o.panic > 0 ? (o.panic -= dt * 0.7, Math.max(0, o.panic)) : 0;
     o.turn -= dt; if (o.turn <= 0) { o.turn = 1 + Math.random() * 2.5; o.da = (Math.random() - 0.5) * 1.6; }
     o.a += o.da * dt; const home = GROUND - 330; o.a += ((o.y < home - 250 ? 1 : o.y > home + 170 ? -1 : 0) * Math.sign(Math.cos(o.a)) * 0.9) * dt; // no se alejan de la cerca
-    o.ph += dt * o.f; const flap = Math.abs(Math.cos(o.ph));
-    o.x += Math.cos(o.a) * 70 * dt; o.y += Math.sin(o.a) * 45 * dt + Math.sin(o.ph * 0.5) * 30 * dt * (1 - flap);
+    o.ph += dt * o.f * (1 + pn * 1.5); const flap = Math.abs(Math.cos(o.ph));
+    o.x += Math.cos(o.a) * 70 * (1 + pn * 3) * dt; o.y += Math.sin(o.a) * 45 * (1 + pn * 4) * dt + Math.sin(o.ph * 0.5) * 30 * dt * (1 - flap);
     if (o.x > x1 - 100) o.a = Math.PI - Math.abs(o.a % TAU); if (o.x < x0 + 100) o.a = 0;
     o.s.position.set(o.x, o.y); o.s.scale.set(o.k * (0.25 + 0.75 * flap) * (Math.cos(o.a) < 0 ? -1 : 1), o.k); o.s.rotation = Math.sin(o.ph * 0.3) * 0.2;
   });
@@ -396,8 +428,12 @@ function lampLayer() {
     k.fillStyle = lin(k, 0, 0, 16, 0, [[0, 'rgba(150,200,230,0.9)'], [0.4, 'rgba(240,250,255,1)'], [1, 'rgba(90,140,180,0.9)']]); k.beginPath(); k.moveTo(8, 0); k.quadraticCurveTo(16, 18, 8, 25); k.quadraticCurveTo(0, 18, 8, 0); k.fill(); return Texture.from(cv); })();
   const drips = [500, 1700, 2900].map((x, i) => { const s = new Sprite(dropT); s.anchor.set(0.5, 0); s.scale.set(1.6); c.addChild(s); return {s, x: x + 20, y0: GROUND - 1460, t: -i * 1.3, v: 0}; });
   let T = 0;
+  // estruendo (explosión, clavado, jefe que cae): los focos se columpian y parpadean un instante
+  c.jolt = (k = 1) => lamps.forEach(L => { L.sw = Math.min(0.22, (L.sw || 0) + k * (0.07 + Math.random() * 0.05)); L.swT = 0; L.jf = 0.08 + Math.random() * 0.12; });
   c.update = dt => { T += dt;
     lamps.forEach((L, i) => { L.p.rotation = Math.sin(T * 0.9 + L.ph) * 0.035 + Math.sin(T * 0.37 + L.ph * 2) * 0.015;
+      if (L.sw > 0.002) { L.swT += dt; L.p.rotation += L.sw * Math.sin(L.swT * 3.1 + 0.4); L.sw *= Math.exp(-dt * 0.8); }
+      if (L.jf > 0) { L.jf -= dt; L.glow.alpha = L.cone.alpha = Math.random() < 0.5 ? 0.15 : 0.6; return; }
       if (i === 1) { L.fl -= dt; if (L.fl <= 0) { L.fl = Math.random() < 0.25 ? 0.06 : 2 + Math.random() * 5; if (L.fl < 0.07) SFX.buzz(0.6); } } // el foco del centro parpadea de vez en cuando
       const on = i === 1 && L.fl < 0.07 ? 0.35 : 1; L.glow.alpha = (0.85 + Math.sin(T * 9 + L.ph) * 0.04) * on; L.cone.alpha = 0.5 * on; });
     shaft.alpha = 0.45 + Math.sin(T * 0.5) * 0.05;
@@ -506,21 +542,22 @@ export function buildBackground(theme = 'kitchen') {
     const lamps = lampLayer(), crates = cratesLayer();
     const layers = [{node: lairWallLayer(), f: 0.35}, {node: lamps, f: 0.35}, {node: crates, f: 0.65}, {node: concreteLayer(), f: 1}];
     const fg = new Container(); const fl = lairFg(-1), fr = lairFg(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); }};
+    return {layers, fg, fl, fr, update: dt => { lamps.update(dt); crates.update(dt); }, jolt: k => lamps.jolt(k)};
   }
   if (theme === 'garden') {
     const clouds = cloudLayer(), flies = butterflyLayer();
     const layers = [{node: skyLayer(), f: 0.15}, {node: clouds, f: 0.2}, {node: fenceLayer(), f: 0.6}, {node: flies, f: 0.85}, {node: lawnLayer(), f: 1}];
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); }};
+    return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); }, jolt: (k, x) => flies.jolt(k, x)};
   }
-  const motes = motesLayer();
+  const motes = motesLayer(), tools = utensilLayer();
   const layers = [
     {node: wallLayer(), f: 0.35},
+    {node: tools, f: 0.35},
     {node: motes, f: 0.35},
     {node: tileLayer(), f: 0.75},
     {node: counterLayer(), f: 1},
   ];
   const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-  return {layers, fg, fl, fr, update: dt => motes.update(dt)};
+  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); }, jolt: k => tools.jolt(k)};
 }
