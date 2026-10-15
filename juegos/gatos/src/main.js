@@ -414,7 +414,7 @@ async function main() {
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
       fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
-      blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3});
+      blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3, robot: 3}); // a la aspiradora le pega fuerte (premio por el timing)
       cam.shake(26); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
       const n = 3 + Math.floor(Math.random() * 2);
       for (let j = 0; j < n; j++) { const a = -Math.PI / 2 + (j - (n - 1) / 2) * 0.42 + (Math.random() - 0.5) * 0.25, v = 900 + Math.random() * 350;
