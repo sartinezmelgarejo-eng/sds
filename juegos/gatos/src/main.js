@@ -250,11 +250,20 @@ async function main() {
   const sparkT = canvasTex(32, 32, k => { k.fillStyle = '#FFF6C0'; k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 4 : 15; k.lineTo(16 + Math.cos(a) * r, 16 + Math.sin(a) * r); } k.fill(); });
   const hudStars = new Container(); hud.addChild(hudStars);
   const hStar = [0, 1, 2].map(i => { const off = new Sprite(starOffT), on = new Sprite(starOnT); for (const o of [off, on]) { o.anchor.set(0.5, 0.525); o.scale.set(0.5); o.x = (i - 2) * 66 - 30; hudStars.addChild(o); }
-    on.visible = false; return {off, on, t: -1}; });
+    // relleno parcial (AB2): la siguiente estrella se va llenando de oro desde abajo conforme suben los puntos
+    const fill = new Sprite(starOnT), mk = new Graphics(); fill.anchor.set(0.5, 0.525); fill.scale.set(0.5); fill.x = on.x; fill.alpha = 0.6; fill.tint = 0xFFE9A0;
+    hudStars.addChildAt(fill, hudStars.getChildIndex(on)); hudStars.addChild(mk); fill.mask = mk; fill.visible = false;
+    on.visible = false; return {off, on, fill, mk, fr: 0, t: -1}; });
   const hudSparks = []; let starsLit = 0;
-  function resetHudStars() { starsLit = 0; for (const s of hStar) { s.on.visible = false; s.t = -1; } for (const p of hudSparks) p.destroy(); hudSparks.length = 0; }
+  function resetHudStars() { starsLit = 0; for (const s of hStar) { s.on.visible = false; s.t = -1; s.fr = 0; s.fill.visible = false; } for (const p of hudSparks) p.destroy(); hudSparks.length = 0; }
   function updateHudStars(rdt) {
-    const st = level?.stars || [0, 1e9, 1e9], want = Math.min(3, (shownScore >= st[1]) + (shownScore >= st[2]) + (state === 'win'));
+    const st = level?.stars || [0, 1e9, 1e9];
+    { const k = (shownScore >= st[1]) + (shownScore >= st[2]), prev = k ? st[1] : 0, fr = k < 2 && starsLit < 3 ? Math.max(0, Math.min(1, (shownScore - prev) / Math.max(1, st[k + 1] - prev))) : 0;
+      hStar.forEach((s, i) => { const tgt = i === starsLit ? fr : 0; s.fr += (tgt - s.fr) * Math.min(1, rdt * 8); if (tgt === 0 && i !== starsLit) s.fr = 0;
+        s.fill.visible = s.fr > 0.01 && !s.on.visible; if (!s.fill.visible) return;
+        const h = s.fill.height, top = -h * 0.525 + h * 0.08, bot = h * 0.475 - h * 0.06, y = bot - (bot - top) * s.fr;
+        s.mk.clear().rect(s.fill.x - h / 2, y, h, bot - y + 4).fill(0xFFFFFF); }); }
+    const want = Math.min(3, (shownScore >= st[1]) + (shownScore >= st[2]) + (state === 'win'));
     if (want > starsLit && hStar[starsLit].t < 0) { const s = hStar[starsLit]; s.on.visible = true; s.t = 0; SFX.star(starsLit);
       for (let j = 0; j < 9; j++) { const p = new Sprite(sparkT), a = j / 9 * Math.PI * 2 + Math.random() * 0.4, v = 160 + Math.random() * 140; p.anchor.set(0.5); p.position.set(s.on.x, 0);
         p.vx = Math.cos(a) * v; p.vy = Math.sin(a) * v - 60; p.life = 0.5 + Math.random() * 0.2; p.t = 0; hudStars.addChild(p); hudSparks.push(p); }
