@@ -1,7 +1,7 @@
 // Gatos Furiosos — esqueleto del juego: Pixi v8 (render) + Matter 0.20 (física, global `Matter`).
 import {Application, Container, Sprite, Texture, Graphics} from '../vendor/pixi.min.mjs';
 import ART from './art.js';
-import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS, LEVELS, DEV_LEVELS} from './config.js';
+import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS, LEVELS, WORLDS} from './config.js';
 import {buildBackground} from './background.js';
 import {Camera} from './camera.js';
 import {Slingshot} from './sling.js';
@@ -46,7 +46,7 @@ async function main() {
 
   const eyes = await (await fetch('assets/cats/eyes.json')).json();
   const levels = {};
-  await Promise.all([...LEVELS, ...DEV_LEVELS].map(async id => { levels[id] = await (await fetch(`levels/${id}.json`)).json(); }));
+  await Promise.all(LEVELS.map(async id => { levels[id] = await (await fetch(`levels/${id}.json`)).json(); }));
   let levelId = new URLSearchParams(location.search).get('level'); if (!levels[levelId]) levelId = LEVELS[0];
   let level = levels[levelId];
   const imgs = {};
@@ -515,14 +515,14 @@ async function main() {
   const ui = new UI(app, {
     onRetry: () => buildLevel(levelId, false),
     onNext: () => buildLevel(LEVELS[(LEVELS.indexOf(levelId) + 1) % LEVELS.length], true),
-    onMenu: () => { ui.hide(); menus.showSelect(); },
+    onMenu: () => { ui.hide(); menus.showSelect((level.world || 1) - 1); },
     onPause: () => pause(),
     mouseTex: mouseTex('boss', 66, 'laugh'),
   });
   const menus = new Menus(app, {
-    eyeImg, cats: bigCats, levels: LEVELS, bossTex: mouseTex('boss', 66, 'laugh'),
+    eyeImg, cats: bigCats, worlds: WORLDS, bossTex: mouseTex('boss', 66, 'laugh'),
     onPlay: id => buildLevel(id, true),
-    onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect(),
+    onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect((level.world || 1) - 1),
   });
   const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });

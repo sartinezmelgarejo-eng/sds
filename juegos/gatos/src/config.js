@@ -15,9 +15,12 @@ export const CAT_R = 56;              // radio del gato (~4% del alto en la vist
 export const SLING = {x: 640, h: 320}; // resortera: base en (x, GROUND), alto h
 
 // niveles en orden (game/levels/<id>.json)
-export const LEVELS = ['1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '1-7', '1-8'];
-// Mundo 2 (Jardín) en construcción: se cargan pero aún no salen en el selector (entrar con ?level=2-1)
-export const DEV_LEVELS = ['2-1'];
+// mundos y niveles en orden (game/levels/<id>.json). El mundo 2 se abre al ganar el último nivel del mundo 1.
+export const WORLDS = [
+  {name: 'LA COCINA', levels: ['1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '1-7', '1-8']},
+  {name: 'EL JARDÍN', levels: ['2-1']},
+];
+export const LEVELS = WORLDS.flatMap(w => w.levels);
 
 export const CATS = {
   omi:  {img: 'assets/cats/omi.png',  flyImg: 'assets/cats/omi-up.png', fur: ['#FFFFFF', '#D8CFC2', '#6B5844']},

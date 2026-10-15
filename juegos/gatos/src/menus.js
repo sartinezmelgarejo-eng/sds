@@ -42,7 +42,7 @@ export class Menus {
     this.rays.anchor.set(0.5); this.rays.visible = false; this.root.addChild(this.rays);
     this.box = new Container(); this.root.addChild(this.box);  // contenido en coordenadas de diseño
     this.T = {
-      back: btnTex(150, 'blue', iconBack), menu: btnTex(170, 'blue', iconMenu), retry: btnTex(170, 'yellow', iconRetry),
+      back: btnTex(150, 'blue', iconBack), prevW: btnTex(150, 'green', iconBack), nextW: btnTex(150, 'green', (k, x, y, h) => { k.save(); k.translate(2 * x, 0); k.scale(-1, 1); iconBack(k, x, y, h); k.restore(); }), menu: btnTex(170, 'blue', iconMenu), retry: btnTex(170, 'yellow', iconRetry),
       resume: btnTex(230, 'green', iconNext), soundOn: btnTex(150, 'blue', iconSound(true)), soundOff: btnTex(150, 'grey', iconSound(false)),
       play: tex(560, 250, k => ART.button(k, 10, 10, 540, 210, '#A6EA62', '#3C9A1C', (k2, x, y, h) => {
         iconNext(k2, x - 175, y, h * 1.05); ART.strokedText(k2, 'JUGAR', x + 45, y + 6, h * 0.42);
@@ -124,21 +124,27 @@ export class Menus {
   }
 
   // ---------- selector de niveles ----------
-  showSelect() {
-    this.clear(); this.screen = 'select'; this.root.visible = true; this.t = 2.3; this.phase0 = 2.3; this.whooshed = true;
-    const lv = this.o.levels, best = id => { try { return JSON.parse(localStorage.getItem('gatos.best.' + id) || 'null'); } catch (e) { return null; } };
+  showSelect(page = this.page || 0) {
+    this.clear(); this.screen = 'select'; this.root.visible = true; this.t = 2.3; this.phase0 = 2.3; this.whooshed = true; this.page = page;
+    const WS = this.o.worlds, wd = WS[page], lv = wd.levels, best = id => { try { return JSON.parse(localStorage.getItem('gatos.best.' + id) || 'null'); } catch (e) { return null; } };
     const recs = lv.map(best);
+    // un mundo se abre al ganar el último nivel del anterior
+    const worldOpen = p => p === 0 || !!best(WS[p - 1].levels[WS[p - 1].levels.length - 1]);
+    const wOpen = worldOpen(page);
     const tStars = recs.reduce((s, r) => s + (r?.stars || 0), 0);
-    this.item(txt('MUNDO 1', 54, '#C9D2FF'), W / 2, 150, 2.3);
-    this.item(txt('LA COCINA', 120, '#FFE27A'), W / 2, 250, 2.36, 'drop');
+    this.item(txt('MUNDO ' + (page + 1), 54, '#C9D2FF'), W / 2, 150, 2.3);
+    this.item(txt(wd.name, 120, page === 1 ? '#A8F06A' : '#FFE27A'), W / 2, 250, 2.36, 'drop');
     this.btn(this.T.back, () => this.showTitle(true), 0.62, 110, 110, 2.3);
     const st = this.item(new Sprite(this.T.starBig), W - 330, 110, 2.4); st.anchor.set(0.5);
     const stt = this.item(txt(`${tStars}/${lv.length * 3}`, 64, '#FFFFFF'), W - 175, 116, 2.45); stt.anchor.set(0.5);
+    // flechas para cambiar de mundo (como las páginas de episodios de AB2)
+    if (page > 0) this.btn(this.T.prevW, () => { SFX.whoosh(); this.showSelect(page - 1); }, 0.6, 110, 770, 2.6);
+    if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));
     // 8 casillas en 2 filas: número, 3 estrellas, lata de atún si ya se recuperó; candado si no se ha ganado el anterior
-    let current = lv.findIndex((id, i) => !recs[i]); if (current < 0) current = -1;
+    let current = wOpen ? lv.findIndex((id, i) => !recs[i]) : -1;
     for (let i = 0; i < SLOTS; i++) {
       const col = i % 4, row = Math.floor(i / 4), x = W / 2 + (col - 1.5) * 380, y = 560 + row * 420;
-      const exists = i < lv.length, open = exists && (i === 0 || recs[i - 1]), now = i === current;
+      const exists = i < lv.length, open = exists && wOpen && (i === 0 || recs[i - 1]), now = i === current;
       const tile = new Container(); const d = 2.5 + i * 0.06;
       const base = new Sprite(open ? (now ? this.T.tileNow : this.T.tileOn) : this.T.tileOff); base.anchor.set(0.5, 0.47); base.scale.set(1 / 1.5 * 0.95);
       tile.addChild(base);
@@ -156,10 +162,11 @@ export class Menus {
         if (!exists) { const p = txt('PRONTO', 34, '#E4E7F2', 0.2); p.anchor.set(0.5); p.y = 95; tile.addChild(p); }
       }
       // nivel de jefa (el último del mundo): la Rata Jefa se asoma por la esquina de la casilla
-      if (exists && i === lv.length - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
+      if (exists && i === SLOTS - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
       this.item(tile, x, y, d, 'pop', 1, {pulse: now, tile: true});
     }
-    const w2 = this.item(txt('MUNDO 2 · EL JARDÍN  —  ¡PRÓXIMAMENTE!', 46, '#A8F06A'), W / 2, 1400, 3.0); w2.alpha = 0.9;
+    const foot = page === 0 ? (worldOpen(1) ? 'MUNDO 2 · EL JARDÍN  ▶' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN') : (wOpen ? '¡MÁS NIVELES DEL JARDÍN MUY PRONTO!' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN');
+    const w2 = this.item(txt(foot, 46, '#A8F06A'), W / 2, 1400, 3.0); w2.alpha = 0.9;
     this.soundBtn(W - 110, H - 110, 3.0);
   }
 
