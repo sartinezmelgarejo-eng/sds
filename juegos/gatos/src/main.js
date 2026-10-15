@@ -370,7 +370,7 @@ async function main() {
     dyn.splice(dyn.indexOf(d), 1);
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
     if (d.mat === 'mouse') {
-      fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
+      fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof(); turnKills++;
       // un vecino que sobrevive se lamenta (de vez en cuando, con pausa entre globos para no saturar)
       if (time - (sayT.mourn || -9) > 3 && Math.random() < 0.45) { const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && !bubbles.some(b => b.d === o) && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 800);
         if (nb.length) { sayT.mourn = time; const o = nb[Math.floor(Math.random() * nb.length)]; o.hurt = 0.35;
@@ -408,7 +408,7 @@ async function main() {
 
   // ---------- CAJA DE CUETES (= TNT de AB2) ----------
   // al romperse: explosión que daña y empuja alrededor (puede encadenar otras cajas) + cohetes que salen volando y truenan en el aire
-  const booms = [], rockets = []; let warnedTnt = false;
+  const booms = [], rockets = []; let warnedTnt = false, turnKills = 0;
   const FW = [0xFF4A6A, 0x4AB8FF, 0x6BE04A, 0xFFE14A, 0xD06BFF, 0xFFFFFF];
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
@@ -589,6 +589,7 @@ async function main() {
     const t = flyTex(q.name); q.sprite.texture = t.tex; q.sprite.anchor.set(t.ax, t.ay);
     slingCat.removeChild(q.sprite); actors.addChild(q.sprite);
     trail.removeChildren().forEach(c => c.destroy()); // el rastro anterior se borra al disparar el nuevo
+    turnKills = 0;
     flying = {q, body, sprite: q.sprite, t: 0, still: 0, hit: false, lastDot: {x: p.x, y: p.y}, dots: 0, power: false};
     state = 'flying'; cam.follow(body);
   }
@@ -600,6 +601,10 @@ async function main() {
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700);
       const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead); if (alive.length) say(alive[Math.floor(Math.random() * alive.length)], '¡JI JI JI!\n¡SIN ATÚN!', 3); return; }
     state = 'between'; turnWait = 0.9;
+    // tiro sin ratones caídos: uno se burla cuando la cámara regresa (la vista general muestra la fortaleza)
+    if (!turnKills && Math.random() < 0.65) { const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead && !bubbles.some(b => b.d === o));
+      if (alive.length) { const o = alive[Math.floor(Math.random() * alive.length)];
+        setTimeout(() => { if (!o.dead && dyn.includes(o)) { o.laugh = 1.4; say(o, ['¡FALLASTE!', '¡JA JA!\n¡NI CERCA!', '¡ÁNDALE,\nGATITO!', '¡AQUÍ\nSEGUIMOS!', '¡BUUU!'][Math.floor(Math.random() * 5)], 1.6, 0.85); SFX.giggle(); } }, 650); } }
   }
   let endT0 = false, resultsShown = false; // el panel sale una sola vez por intento (al ir al menú no debe reaparecer)
   function showResults(win) {
@@ -963,6 +968,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
