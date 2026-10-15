@@ -848,6 +848,9 @@ async function main() {
   // ---------- input: resortera, tap en el aire, pinch-zoom / pan (2 dedos), arrastre y rueda ----------
   const ptrs = new Map(); let pinch = null, aimPtr = null;
   const el = app.canvas; el.style.touchAction = 'none';
+  // AB2: el poder se activa tocando en CUALQUIER parte de la pantalla. Mako (Bomb) y Omi (Bubbles) también después de chocar,
+  // mientras no se hayan activado solos; Miu (Silver) solo en el aire antes del primer golpe
+  const canPower = f => !!f && !f.power && !f.exploded && !f.fade && (!f.hit || f.q.name === 'mako' || f.q.name === 'omi');
   el.addEventListener('pointerdown', e => {
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
     if (menus.blocking) { menus.skipIntro(); return; }
@@ -860,7 +863,7 @@ async function main() {
         if (cam.mode === 'user') cam.mode = 'rest';
         return;
       }
-      if (state === 'flying' && flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); return; }
+      if (state === 'flying' && canPower(flying)) { flying.power = true; activatePower(flying); return; }
       if (state === 'ready') { const R = Math.max(CAT_R * 1.5, 46 / cam.zoom), dq = q => Math.hypot(w.x - q.x, w.y - (GROUND - catT[q.name].calm.footY)), i = queue.reduce((bi, q, j) => dq(q) < R && (bi < 0 || dq(q) < dq(queue[bi])) ? j : bi, -1);
         if (i >= 0) { if (sling.held) { tutDone = true; sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; } if (swapCat(i)) { tutDone = true; return; } } }
     }
@@ -1049,6 +1052,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
