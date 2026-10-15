@@ -908,6 +908,8 @@ async function main() {
         // AB2: el ratón "gelatinea" con el golpe (se aplasta en el eje del impacto y rebota amortiguado)
         if (d.mat === 'mouse' && !d.dead && closing > 1.5) { const la = Math.atan2(n.y, n.x) - me.angle;
           const a = Math.min(0.3, 0.06 + closing * 0.025); if (!d.jig || d.jig.t > 0.15 || a > d.jig.a) d.jig = {t: 0, a, vert: Math.abs(Math.sin(la)) > 0.6}; }
+        // bloques que aguantan el golpe vibran un instante (la madera/vidrio de AB2 tiembla al recibir el impacto)
+        if (d.mat !== 'mouse' && d.mat !== 'robot' && !d.dead && closing > 2.5 && (!d.wob || d.wob.t > 0.12)) d.wob = {t: 0, a: Math.min(0.045, closing * 0.004)};
       }
     }
   });
@@ -1242,6 +1244,7 @@ async function main() {
     }
     for (const d of [...dyn]) { // copia: destroyDyn saca elementos durante el recorrido
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
+      if (d.wob) { const w = d.wob; w.t += dt; const k = w.a * Math.exp(-w.t * 9); d.sprite.rotation += k * Math.sin(w.t * 55); if (w.t > 0.45) d.wob = null; }
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
       // fuera de la vista del nivel (salió volando o rodando por un lado / se hundió): se elimina y cuenta
       if (dt > 0 && started > 1 && !d.enter && (p.x < -100 || p.x > LEVEL_W + 100 || p.y > GROUND + 150 || p.y < BOUNDS.y0 - 300)) { destroyDyn(d); continue; }
