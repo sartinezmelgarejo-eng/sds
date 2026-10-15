@@ -142,7 +142,7 @@ async function main() {
   Composite.add(engine.world, ground);
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
-  const LIFE = {tnt: 3.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
+  const LIFE = {tnt: 2.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
   const AUTO_POWER = 1.5; // s tras el primer golpe
   const FRAGILE = {tnt: 1.5, box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
   const PTS = {tnt: 500, box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
@@ -775,8 +775,9 @@ async function main() {
         if (other === ground && closing > 3 && started > 1 && time - (d.dustT || -9) > 0.3) { d.dustT = time;
           const sp = pr.collision.supports?.[0] || me.position; fx.smoke(sp.x, GROUND - 6, Math.min(70, 18 + closing * 3), Math.round(Math.min(6, 2 + closing * 0.3))); }
         if (started < 1) continue;
-        const mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
-        damage(d, Math.max(0, closing - (d.mat === 'mouse' ? 0.6 : 1.2)) * mf * FRAGILE[d.mat], closing); // los ratones resienten hasta los golpes chicos
+        let mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
+        if (d.mat === 'tnt') mf = Math.max(1, mf);   // cuetes como la TNT de AB2: una tabla que les cae encima basta para encenderlos
+        damage(d, Math.max(0, closing - (d.mat === 'mouse' ? 0.6 : d.mat === 'tnt' ? 0.5 : 1.2)) * mf * FRAGILE[d.mat], closing); // los ratones resienten hasta los golpes chicos
       }
     }
   });
