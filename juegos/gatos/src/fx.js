@@ -53,6 +53,7 @@ export class FX {
     t.anchor.set(0.5); t.position.set(x, y); t.scale.set(0.2); this.root.addChild(t);
     this.texts.push({t, t0: 0, y0: y, x});
   }
+  clear() { this.parts.forEach(p => p.s.destroy()); this.texts.forEach(o => o.t.destroy()); this.parts = []; this.texts = []; }
   update(dt) {
     for (let i = this.parts.length - 1; i >= 0; i--) {
       const p = this.parts[i]; p.t += dt;

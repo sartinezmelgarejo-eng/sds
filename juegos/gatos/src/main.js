@@ -1,13 +1,14 @@
 // Gatos Furiosos — esqueleto del juego: Pixi v8 (render) + Matter 0.20 (física, global `Matter`).
 import {Application, Container, Sprite, Texture, Graphics} from '../vendor/pixi.min.mjs';
 import ART from './art.js';
-import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS} from './config.js';
+import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS, LEVELS} from './config.js';
 import {buildBackground} from './background.js';
 import {Camera} from './camera.js';
 import {Slingshot} from './sling.js';
 import {FX} from './fx.js';
 import * as SFX from './sfx.js';
 import {Text} from '../vendor/pixi.min.mjs';
+import {UI} from './ui.js';
 
 const {Engine, Bodies, Body, Composite, Sleeping} = Matter;
 const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
@@ -18,16 +19,18 @@ function canvasTex(w, h, draw, res = 1) {
   const k = c.getContext('2d'); k.scale(res, res); draw(k); return Texture.from(c);
 }
 const PAD = 14; // margen para contorno/sombra en texturas de bloques
+const TEXC = new Map();
+const cached = (key, make) => { if (!TEXC.has(key)) TEXC.set(key, make()); return TEXC.get(key); };
 function blockTex(t, w, h, seed, damage = 0) {
-  return canvasTex(w + PAD * 2, h + PAD * 2, k => {
+  return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
     if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
     else if (t === 'jar') ART.jar(k, PAD, PAD, w, h, {seed, damage, lid: seed % 2 ? '#3D8BD8' : '#C8452F'});
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
-  }, 1.5);
+  }, 1.5));
 }
 function mouseTex(kind, r, expr = 'normal') {
   const S = r * 3.2;
-  return canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr}), 1.5);
+  return cached(`m|${kind}|${r}|${expr}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr}), 1.5));
 }
 function catTex(img, fur, eyes, expr) {
   const size = CAT_R * 2.3 * 2; // se hornea al doble para que aguante el zoom
@@ -42,7 +45,10 @@ async function main() {
   await Promise.all([document.fonts.load('40px "Luckiest Guy"'), document.fonts.load('40px "Lilita One"')]).catch(() => {});
 
   const eyes = await (await fetch('assets/cats/eyes.json')).json();
-  const level = await (await fetch('levels/1-1.json')).json();
+  const levels = {};
+  await Promise.all(LEVELS.map(async id => { levels[id] = await (await fetch(`levels/${id}.json`)).json(); }));
+  let levelId = new URLSearchParams(location.search).get('level'); if (!levels[levelId]) levelId = LEVELS[0];
+  let level = levels[levelId];
   const imgs = {};
   await Promise.all(Object.entries(CATS).map(async ([n, c]) => { imgs[n] = await loadImg(c.img); }));
   const catT = {};
@@ -70,14 +76,15 @@ async function main() {
 
   // sombras de contacto (se reutiliza una textura)
   const shadowTex = canvasTex(256, 64, k => { k.fillStyle = ART.rad(k, 128, 32, 0, 128, [[0, 'rgba(40,28,60,0.42)'], [1, 'rgba(40,28,60,0)']]); k.save(); k.translate(128, 32); k.scale(1, 0.25); k.beginPath(); k.arc(0, 0, 128, 0, Math.PI * 2); k.fill(); k.restore(); });
-  const contactShadow = (x, w) => { const s = new Sprite(shadowTex); s.anchor.set(0.5); s.width = w; s.height = w * 0.25; s.position.set(x, GROUND); behind.addChild(s); return s; };
+  const lvlBehind = new Container(); // sombras del nivel (se limpian al reiniciar)
+  const contactShadow = (x, w, parent = lvlBehind) => { const s = new Sprite(shadowTex); s.anchor.set(0.5); s.width = w; s.height = w * 0.25; s.position.set(x, GROUND); parent.addChild(s); return s; };
 
   // resortera (parte trasera detrás del gato, delantera encima)
   const slH = SLING.h, slTexW = slH * 0.9;
   const slBack = new Sprite(canvasTex(slTexW, slH + 20, k => ART.slingshotBack(k, slTexW / 2, slH + 10, slH), 2));
   const slFront = new Sprite(canvasTex(slTexW, slH + 20, k => ART.slingshotFront(k, slTexW / 2, slH + 10, slH), 2));
   [slBack, slFront].forEach(s => { s.scale.set(0.5); s.position.set(SLING.x - slTexW / 2, GROUND - slH - 10); });
-  contactShadow(SLING.x, 200);
+  contactShadow(SLING.x, 200, behind); behind.addChild(lvlBehind);
   slingBack.addChild(slBack); slingFront.addChild(slFront);
 
   // ---------- física ----------
@@ -87,30 +94,10 @@ async function main() {
   Composite.add(engine.world, ground);
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
-  const LIFE = {box: 13, jar: 7, can: 30, small: 6, thimble: 12, boss: 18};
+  const LIFE = {box: 13, jar: 7, can: 30, small: 4.5, thimble: 9, boss: 13};
   const FRAGILE = {box: 1, jar: 1.6, can: 0.55, mouse: 1};
   const PTS = {box: 500, jar: 500, can: 1000, mouse: 5000};
   const MAT = {box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}};
-  level.blocks.forEach((b, i) => {
-    const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
-    const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
-    Sleeping.set(body, true);
-    const texs = [0, 1, 2, 3].map(dmg => blockTex(b.t, b.w, b.h, i + 2, dmg));
-    const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
-    Composite.add(engine.world, body); actors.addChild(sp);
-    // vida escalada por tamaño (bloques grandes aguantan más)
-    const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
-    dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, life, max: life, texs, dmg: 0});
-  });
-  level.mice.forEach(m => {
-    const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
-    Sleeping.set(body, true);
-    const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
-    const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
-    Composite.add(engine.world, body); actors.addChild(sp);
-    dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0});
-  });
-
   let acc = 0, time = 0;
   // ---------- resortera + turnos ----------
   const sling = new Slingshot(slingBack, slingFront);
@@ -124,7 +111,7 @@ async function main() {
   scoreLbl.anchor.set(1, 0); scoreTxt.anchor.set(1, 0); hud.addChild(scoreLbl, scoreTxt);
   const addScore = (v, x, y, color, big) => { score += v; fx.points(x, y, v, color, big); SFX.points(); };
   const PTS_COL = {box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
-  let started = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
+  let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
   function damage(d, amount, k) {
     if (d.dead) return;
@@ -143,6 +130,7 @@ async function main() {
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
     if (d.mat === 'mouse') {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
+      if (!dyn.some(o => o.mat === 'mouse')) slow = 1.1; // cámara lenta breve en el último ratón
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
@@ -233,17 +221,10 @@ async function main() {
 
   // gatos en espera (sobre la barra, a la izquierda de la resortera)
   const slotX = i => SLING.x - 330 - i * 145;
-  const queue = level.cats.map((n, i) => {
-    const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
-    sp.position.set(slotX(i), GROUND - t.footY);
-    actors.addChild(sp); const sh = contactShadow(slotX(i), 170);
-    return {name: n, sprite: sp, shadow: sh, x: slotX(i), phase: i * 1.7, hop: null};
-  });
-
-  let state = 'intro', onSling = null, flying = null, turnWait = 0;
+  const queue = [];
+  let state = 'intro', onSling = null, flying = null, turnWait = 0, endT = 0;
   // el siguiente gato salta a la resortera; los demás avanzan un lugar con saltitos
   function loadNext() {
-    if (!queue.length) { state = 'out'; return; }
     const q = queue.shift(); q.shadow.destroy();
     const t = catT[q.name].angry; q.sprite.texture = t.tex; q.sprite.anchor.set(t.ax, t.ay);
     q.hop = {t: 0, dur: 0.6, x0: q.sprite.x, y0: q.sprite.y, x1: sling.rest.x, y1: sling.rest.y, h: 230};
@@ -262,6 +243,23 @@ async function main() {
     trail.removeChildren().forEach(c => c.destroy()); // el rastro anterior se borra al disparar el nuevo
     flying = {q, body, sprite: q.sprite, t: 0, still: 0, hit: false, lastDot: {x: p.x, y: p.y}, dots: 0, power: false};
     state = 'flying'; cam.follow(body);
+  }
+  // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
+  function endTurn() {
+    endT = 0;
+    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; SFX.win(); return; }
+    laughAll = 1.3;
+    if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.giggle(); setTimeout(SFX.lose, 700); return; }
+    state = 'between'; turnWait = 0.9;
+  }
+  function showResults(win) {
+    const key = 'gatos.best.' + levelId; let prev = null;
+    try { prev = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    const st = level.stars || [0, 1e9, 1e9];
+    const stars = win ? 1 + (score >= st[1]) + (score >= st[2]) : 0;
+    const record = win && (!prev || score > prev.score);
+    if (win) try { localStorage.setItem(key, JSON.stringify({score: Math.max(score, prev?.score || 0), stars: Math.max(stars, prev?.stars || 0)})); } catch (e) {}
+    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: level.name, hasNext: true});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
   function launch(vx, vy) { if (state === 'ready') shoot({x: vx, y: vy}); }
@@ -333,18 +331,29 @@ async function main() {
         f.sprite.alpha = Math.max(0, 1 - f.fade / 0.3); f.sprite.scale.set(0.5 * (1 + f.fade));
         if (f.fade > 0.3) {
           if (!f.exploded) Composite.remove(engine.world, b); f.sprite.destroy(); flying = null;
-          cam.release(); state = 'between'; turnWait = 0.9; laughAll = 1.3;
+          cam.release(); endTurn();
         }
       }
     }
     if (state === 'between') { turnWait -= dt; if (turnWait <= 0) loadNext(); }
+    if (state === 'win') {
+      // gatos sobrantes saltan uno a uno con giro: +10,000 cada uno
+      endT += dt; const i = Math.floor((endT - 0.6) / 0.6);
+      if (endT > 0.6 && i < queue.length && !queue[i].bonus) {
+        const q = queue[i]; q.bonus = true; q.sprite.texture = catT[q.name].angry.tex;
+        q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true};
+        addScore(10000, q.x, GROUND - 470, '#FFE27A', true); SFX.meow(i);
+      }
+      if (!ui.open && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
+    }
+    if (state === 'lose') { endT += dt; if (!ui.open && endT > 1.8) showResults(false); }
     // gatos en espera: respiran, dan saltitos de vez en cuando y avanzan con saltos
     const hopAnim = (o, base) => {
       const h = o.hop; h.t += dt; if (h.t < 0) return false;
       const u = Math.min(1, h.t / h.dur);
       o.sprite.x = h.x0 + (h.x1 - h.x0) * u; o.sprite.y = h.y0 + (h.y1 - h.y0) * u - Math.sin(u * Math.PI) * h.h;
       const sq = u < 0.15 ? 1 - u / 0.15 * 0.12 : u > 0.9 ? 0.92 : 1 + Math.sin(u * Math.PI) * 0.08;
-      o.sprite.scale.set(0.5 / Math.sqrt(sq), 0.5 * sq); o.sprite.rotation = Math.sin(u * Math.PI * 2) * 0.15;
+      o.sprite.scale.set(0.5 / Math.sqrt(sq), 0.5 * sq); o.sprite.rotation = h.spin ? -u * Math.PI * 2 : Math.sin(u * Math.PI * 2) * 0.15;
       if (u >= 1) { o.hop = null; o.sprite.rotation = 0; }
       return true;
     };
@@ -407,13 +416,58 @@ async function main() {
     bg.fl.scale.set(fs); bg.fr.scale.set(-fs, fs);
   };
   resize(); window.addEventListener('resize', resize);
-  cam.snapRest();
-  const fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
-  if (!new URLSearchParams(location.search).has('nofly')) cam.flyover(fortX, SLING.x, () => { if (state === 'intro') { state = 'between'; turnWait = 0.2; } });
-  else { state = 'between'; turnWait = 0.2; }
+
+  // ---------- construir / reiniciar un nivel (sin recargar la página) ----------
+  let fortX = 0;
+  function buildLevel(id, fly) {
+    levelId = id; level = levels[id];
+    Composite.clear(engine.world, false); Composite.add(engine.world, ground);
+    dyn.length = 0; queue.length = 0;
+    for (const c of [actors, lvlBehind, trail, slingCat]) c.removeChildren().forEach(o => o.destroy());
+    fx.clear(); ui.hide(); ui.setLevelName(level.name);
+    score = shownScore = 0; started = 0; slow = 0; laughAll = 0; endT = 0;
+    state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
+    level.blocks.forEach((b, i) => {
+      const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
+      const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
+      Sleeping.set(body, true);
+      const texs = [0, 1, 2, 3].map(dmg => blockTex(b.t, b.w, b.h, i + 2, dmg));
+      const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
+      Composite.add(engine.world, body); actors.addChild(sp);
+      // vida escalada por tamaño (bloques grandes aguantan más)
+      const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
+      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, life, max: life, texs, dmg: 0});
+    });
+    level.mice.forEach(m => {
+      const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
+      Sleeping.set(body, true);
+      const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
+      const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
+      Composite.add(engine.world, body); actors.addChild(sp);
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0});
+    });
+    level.cats.forEach((n, i) => {
+      const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
+      sp.position.set(slotX(i), GROUND - t.footY);
+      actors.addChild(sp); const sh = contactShadow(slotX(i), 170);
+      queue.push({name: n, sprite: sp, shadow: sh, x: slotX(i), phase: i * 1.7, hop: null});
+    });
+    fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
+    cam.snapRest();
+    if (fly) cam.flyover(fortX, SLING.x, () => { if (state === 'intro') { state = 'between'; turnWait = 0.2; } });
+    else { state = 'between'; turnWait = 0.35; }
+  }
+  const ui = new UI(app, {
+    onRetry: () => buildLevel(levelId, false),
+    onNext: () => buildLevel(LEVELS[(LEVELS.indexOf(levelId) + 1) % LEVELS.length], true),
+    mouseTex: mouseTex('boss', 66, 'laugh'),
+  });
+  buildLevel(levelId, !new URLSearchParams(location.search).has('nofly'));
 
   app.ticker.add(tk => {
-    const dt = Math.min(tk.deltaMS, 50) / 1000; time += dt;
+    const rdt = Math.min(tk.deltaMS, 50) / 1000; if (slow > 0) slow -= rdt;
+    const dt = rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
+    ui.update(rdt);
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
@@ -448,6 +502,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, engine, sling, launch, toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

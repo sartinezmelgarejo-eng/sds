@@ -53,3 +53,17 @@ export function inflate() { if (!ok('inf', 0.1)) return; const t = ctx.currentTi
 export function deflate() { if (!ok('def', 0.1)) return; const t = ctx.currentTime; tone(t, 700, 'sawtooth', 0.06, 0.5, 120); noise(t, 0.5, 'bandpass', 1500, 3, 0.25, 0.45, 300); }
 export function swoosh() { if (!ok('sw', 0.1)) return; const t = ctx.currentTime; noise(t, 0.55, 'bandpass', 500, 2, 0.7, 0.5, 3200); }
 export function slam() { if (!ok('slam', 0.1)) return; const t = ctx.currentTime; tone(t, 70, 'sine', 1.0, 0.5, 30); noise(t, 0.6, 'lowpass', 600, 0.8, 0.9, 0.5, 100); }
+// ---- fin de nivel ----
+// estrella: campanita que sube de tono con cada estrella
+export function star(i) { if (!ctx) return; const t = ctx.currentTime, f = [880, 1108, 1318][i] || 1318; tone(t, f, 'triangle', 0.35, 0.5); tone(t, f * 2, 'sine', 0.18, 0.4); tone(t + 0.07, f * 1.5, 'sine', 0.15, 0.45); noise(t, 0.2, 'highpass', 6000, 1, 0.15, 0.18); }
+// maullido sintético (hasta que Samuel grabe los reales): sube y baja de tono con formante
+export function meow(i = 0) {
+  if (!ok('meow', 0.15)) return; const t = ctx.currentTime, b = 520 + (i % 3) * 90;
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(b * 0.8, t); o.frequency.linearRampToValueAtTime(b * 1.35, t + 0.12); o.frequency.exponentialRampToValueAtTime(b * 0.7, t + 0.42);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(900, t); f.frequency.linearRampToValueAtTime(1900, t + 0.14); f.frequency.exponentialRampToValueAtTime(800, t + 0.42);
+  const g = ctx.createGain(); env(g, t, 0.04, 0.5, 0.4); o.connect(f); f.connect(g); g.connect(master); o.start(t); o.stop(t + 0.5);
+}
+export function win() { if (!ctx) return; const t = ctx.currentTime; [523, 659, 784, 1046].forEach((f, i) => { tone(t + i * 0.11, f, 'triangle', 0.3, 0.35); tone(t + i * 0.11, f * 2, 'sine', 0.08, 0.3); }); tone(t + 0.44, 1046, 'triangle', 0.3, 0.9); tone(t + 0.44, 1318, 'triangle', 0.2, 0.9); }
+export function lose() { if (!ctx) return; const t = ctx.currentTime; [392, 370, 349, 330].forEach((f, i) => tone(t + i * 0.32, f, 'sawtooth', 0.09, i === 3 ? 0.9 : 0.3, i === 3 ? 300 : 0)); }
+export function giggle() { if (!ok('gig', 0.5)) return; const t = ctx.currentTime; for (let i = 0; i < 6; i++) tone(t + i * 0.09, 1300 + Math.random() * 400 - i * 40, 'square', 0.04, 0.06, 1700); }
+export function click() { if (!ctx) return; const t = ctx.currentTime; tone(t, 660, 'sine', 0.25, 0.08, 990); }

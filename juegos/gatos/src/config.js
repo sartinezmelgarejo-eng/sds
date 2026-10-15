@@ -14,8 +14,11 @@ export const V_UNIT = 1000 / 60;      // Matter guarda la velocidad en u por 16.
 export const CAT_R = 56;              // radio del gato (~4% del alto en la vista completa)
 export const SLING = {x: 640, h: 320}; // resortera: base en (x, GROUND), alto h
 
+// niveles en orden (game/levels/<id>.json)
+export const LEVELS = ['1-1', '1-2', '1-3'];
+
 export const CATS = {
   omi:  {img: 'assets/cats/omi.png',  flyImg: 'assets/cats/omi-up.png', fur: ['#FFFFFF', '#D8CFC2', '#6B5844']},
   mako: {img: 'assets/cats/mako.png', fur: ['#FFFFFF', '#E4E4EA', '#3C3A3F']},
-  miu:  {img: 'assets/cats/miu.png',  fur: ['#E9D6BC', '#BFA07E', '#4A3628']},
+  miu:  {img: 'assets/cats/miu.png',  fur: ['#E6CFAE', '#B48E66', '#3A2A20']},
 };
