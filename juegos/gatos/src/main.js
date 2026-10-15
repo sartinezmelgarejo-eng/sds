@@ -767,6 +767,8 @@ async function main() {
       if (f.exploded) { const busy2 = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); f.still2 = busy2 ? 0 : (f.still2 || 0) + dt; }
       if ((f.exploded ? f.still2 > 1 || f.t > 10 : (f.still > 1 && !f.inflate) || f.t > 10 || gone)) {
         // el gato se va con un "puf" (escala + fade) y la cámara regresa
+        // AB2: el pájaro se deshace en plumas; aquí el gato se va en un "puf" de humito y mechones de pelo
+        if (!f.fade && !f.exploded && !gone) { const p = b.position; fx.smoke(p.x, p.y, CAT_R * 1.9, 9); fx.burst('fur', p.x, p.y, 14, 520, {up: 220, size: 1.4, life: 1, drag: 2}); SFX.poof(); }
         f.fade = (f.fade || 0) + dt;
         f.sprite.alpha = Math.max(0, 1 - f.fade / 0.3); f.sprite.scale.set(0.5 * (1 + f.fade));
         if (f.fade > 0.3) {
