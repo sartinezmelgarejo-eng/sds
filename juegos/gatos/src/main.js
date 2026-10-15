@@ -160,11 +160,13 @@ async function main() {
     // pista para elegir gato: si el jugador duda >3.5 s y nunca ha cambiado de gato, la manita toca a uno de la fila
     readyIdle = state === 'ready' && !sling.aiming ? readyIdle + dt : 0;
     const tq = !want && levelId !== LEVELS[0] && readyIdle > 3.5 && onSling && !swappedEver() && queue.find(q => q.name !== onSling.name && !q.hop);
-    if (tq) { hand.visible = true; swapT += dt; const c = swapT % 1.8, u = Math.min(1, c / 0.45), e = 1 - Math.pow(1 - u, 3), fy = GROUND - catT[tq.name].calm.footY;
-      hand.position.set(tq.x + 30 + (1 - e) * 90, fy + 10 + (1 - e) * 110);
-      hand.alpha = c < 0.2 ? c / 0.2 : c > 1.45 ? Math.max(0, 1 - (c - 1.45) / 0.3) : 1;
-      const press = c > 0.55 && c < 0.75; hand.scale.set(0.9 * (press ? 0.86 : 1));
-      if (press && !tq.hintHop) { tq.hintHop = true; tq.hop = {t: 0, dur: 0.3, x0: tq.sprite.x, y0: tq.sprite.y, x1: tq.sprite.x, y1: tq.sprite.y, h: 28}; }
+    const tcd = tq && cards.get(tq.id); cardHand.visible = !!tcd;
+    if (tcd) { swapT += dt; const c = swapT % 1.8, u = Math.min(1, c / 0.45), e = 1 - Math.pow(1 - u, 3);
+      // la manita (encima del HUD) toca la CARTA de ese gato en el mazo de abajo
+      cardHand.position.set(tcd.x + 10 + (1 - e) * 70, tcd.y - 10 + (1 - e) * 90);
+      cardHand.alpha = c < 0.2 ? c / 0.2 : c > 1.45 ? Math.max(0, 1 - (c - 1.45) / 0.3) : 1;
+      const press = c > 0.55 && c < 0.75; cardHand.scale.set(0.8 * (press ? 0.86 : 1));
+      if (press && !tq.hintHop) { tq.hintHop = true; tcd.pop = 0.3; }
       if (!press) tq.hintHop = false;
     } else swapT = 0;
     if (!want) { tutT = 0; letGo(); return; }
@@ -240,22 +242,22 @@ async function main() {
   function giveExtraCat(n) {
     const i = queue.length, x = slotX(i, i + 1), t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
     const y1 = GROUND - t.footY; sp.position.set(x, y1 - 650); actors.addChild(sp);
-    const q = {name: n, sprite: sp, shadow: contactShadow(x, 170), x, phase: Math.random() * 6, extra: true,
-      hop: {t: -0.6, dur: 0.5, x0: x, y0: y1 - 650, x1: x, y1, h: 0, fall: true, onEnd: () => { fx.smoke(x, GROUND - 20, 70, 10); fx.burst('star', x, GROUND - 140, 12, 520, {up: 260, size: 1.0, life: 0.8}); SFX.pop(); SFX.meow(i); cam.shake(6); }}};
+    const q = {name: n, sprite: sp, shadow: contactShadow(x, 170), x, phase: Math.random() * 6, extra: true, id: ++qid,
+      hop: {t: -0.6, dur: 0.5, x0: x, y0: y1 - 650, x1: x, y1, h: 0, fall: true, onEnd: () => { if (deckA > 0.5) return; fx.smoke(x, GROUND - 20, 70, 10); fx.burst('star', x, GROUND - 140, 12, 520, {up: 260, size: 1.0, life: 0.8}); SFX.pop(); SFX.meow(i); cam.shake(6); }}};
     queue.forEach((o, j) => { const nx = slotX(j, i + 1); if (Math.abs(nx - o.x) > 1) { o.hop = {t: -j * 0.08, dur: 0.4, x0: o.sprite.x, y0: o.sprite.y, x1: nx, y1: o.sprite.y, h: 50}; o.x = nx; } });
     // la carita sale de la insignia del Destructómetro y vuela en arco hacia su lugar en la fila (como la carta de AB2)
     const g0 = badge.getGlobalPosition(), card = new Sprite(badgeCat.texture); card.anchor.copyFrom(badgeCat.anchor); app.stage.addChild(card);
-    flyCards.push({sp: card, t: 0, x0: g0.x, y0: g0.y, wx: x, s0: badgeCat.scale.x * hud.scale.x});
+    flyCards.push({sp: card, t: 0, x0: g0.x, y0: g0.y, wx: x, s0: badgeCat.scale.x * hud.scale.x, qid: q.id}); sp.alpha = 1 - deckA;
     queue.push(q); SFX.star(2); setTimeout(() => SFX.star(1), 120);
     // si ya había perdido (sin gatos) pero el panel no ha salido, el turno sigue
     if (state === 'lose' && !resultsShown) { state = 'between'; turnWait = 1.2; laughAll = 1.3; SFX.duck(0); }
   }
   const flyCards = [];
   function updateMeter(rdt) {
-    for (const c of flyCards) { c.t += rdt; const u = Math.min(1, c.t / 0.55), e = u * u * (3 - 2 * u), tgt = toScreen(c.wx, GROUND - 650);
+    for (const c of flyCards) { c.t += rdt; const u = Math.min(1, c.t / 0.55), e = u * u * (3 - 2 * u), cd = deckA > 0.5 && cards.get(c.qid), tgt = cd ? cd.getGlobalPosition() : toScreen(c.wx, GROUND - 650);
       c.sp.position.set(c.x0 + (tgt.x - c.x0) * e, c.y0 + (tgt.y - c.y0) * e - Math.sin(u * Math.PI) * 140 * hud.scale.x);
       c.sp.scale.set(c.s0 * (1 + Math.sin(u * Math.PI) * 0.6)); c.sp.rotation = -u * Math.PI * 2; c.sp.alpha = u > 0.85 ? (1 - u) / 0.15 : 1;
-      if (c.t > 0.6 && !c.sp.destroyed) { fx.burst('star', c.wx, GROUND - 650, 8, 400, {size: 0.8, life: 0.5}); c.sp.destroy(); } }
+      if (c.t > 0.6 && !c.sp.destroyed) { const cd = deckA > 0.5 && cards.get(c.qid); if (cd) { cd.pop = 0.3; } else fx.burst('star', c.wx, GROUND - 650, 8, 400, {size: 0.8, life: 0.5}); c.sp.destroy(); } }
     for (let i = flyCards.length - 1; i >= 0; i--) if (flyCards[i].sp.destroyed) flyCards.splice(i, 1);
     const m = meterState; if (m.shown < m.pts) m.shown = Math.min(m.pts, m.shown + Math.max(40, (m.pts - m.shown) * rdt * 5));
     const f = meterFrac(), full = m.step >= METER_STEPS.length;
@@ -609,7 +611,7 @@ async function main() {
   // gatos en espera (sobre la barra, a la izquierda de la resortera)
   // con más de 3 gatos en la fila se juntan (para que quepan todos en la vista de la resortera)
   const slotX = (i, n = queue.length) => SLING.x - 330 - i * (n <= 3 ? 145 : Math.max(80, 290 / (n - 1)));
-  const queue = [];
+  const queue = []; let qid = 0;
   // los gatos de la fila se sobresaltan con los estruendos (explosión, clavado, el jefe que cae): brinquito nervioso,
   // cara de enojo y un temblorcito; los más cercanos al estruendo reaccionan primero (como los pájaros de AB2)
   function startle(x, power = 1) {
@@ -623,6 +625,7 @@ async function main() {
     const t = catT[q.name].angry; q.sprite.texture = t.tex; q.sprite.anchor.set(t.ax, t.ay);
     q.hop = {t: 0, dur: 0.6, x0: q.sprite.x, y0: q.sprite.y, x1: sling.rest.x, y1: sling.rest.y, h: 230};
     actors.removeChild(q.sprite); slingCat.addChild(q.sprite); // entre la liga trasera y la delantera
+    q.sprite.alpha = 1;
     onSling = q; state = 'loading';
     queue.forEach((o, i) => { o.hop = {t: -0.25 - i * 0.12, dur: 0.45, x0: o.x, y0: o.sprite.y, x1: slotX(i), y1: o.sprite.y, h: 70}; o.x = slotX(i); });
   }
@@ -630,15 +633,78 @@ async function main() {
   function swapCat(i) {
     const q = queue[i], cur = onSling; if (!q || !cur || q.name === cur.name || (q.hop && q.hop.x0 !== q.hop.x1) || cur.hop || sling.aiming || sling.held) return false;
     q.shadow.destroy(); const ta = catT[q.name].angry; q.sprite.texture = ta.tex; q.sprite.anchor.set(ta.ax, ta.ay); q.alert = 0; q.shiver = 0; q.sprite.rotation = 0;
-    actors.removeChild(q.sprite); slingCat.addChild(q.sprite);
+    actors.removeChild(q.sprite); slingCat.addChild(q.sprite); q.sprite.alpha = 1;
     q.hop = {t: 0, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: sling.rest.x, y1: sling.rest.y, h: 200};
     const tc = catT[cur.name].calm; cur.sprite.texture = tc.tex; cur.sprite.anchor.set(tc.ax, tc.ay);
     slingCat.removeChild(cur.sprite); actors.addChild(cur.sprite);
-    const back = {name: cur.name, sprite: cur.sprite, shadow: contactShadow(q.x, 170), x: q.x, phase: Math.random() * 6, hop: null, extra: cur.extra};
+    const back = {name: cur.name, sprite: cur.sprite, shadow: contactShadow(q.x, 170), x: q.x, phase: Math.random() * 6, hop: null, extra: cur.extra, id: cur.id};
     back.hop = {t: -0.08, dur: 0.55, x0: cur.sprite.x, y0: cur.sprite.y, x1: q.x, y1: GROUND - tc.footY, h: 160};
     queue[i] = back; onSling = q; state = 'loading'; try { localStorage.setItem('gatos.swapped', '1'); } catch (e) {}
     SFX.meow(i); SFX.pop(); return true;
   }
+  // ---------- MAZO DE CARTAS (AB2): abajo a la izquierda una carta por gato; tocar una manda ese gato a la resortera ----------
+  // la carta del gato que está en la resortera sube y brilla; al lanzarlo su carta sale volando y las demás se recorren.
+  // Las cartas conservan su lugar (orden de llegada); el gato extra del Destructómetro entra como carta nueva.
+  const CARD_W = 150, CARD_H = 190, CARD_GAP = 18;
+  const CARD_COL = {omi: ['#FFC566', '#E0761C'], mako: ['#8D93B4', '#3A3D58'], miu: ['#8FD6FF', '#2F72D0']};
+  const cardBg = n => cached('card.' + n, () => canvasTex(CARD_W + 16, CARD_H + 24, k => {
+    const [c1, c2] = CARD_COL[n] || CARD_COL.omi;
+    ART.rr(k, 8, 18, CARD_W, CARD_H, 26); k.fillStyle = '#1F2240'; k.fill();                       // base 3D
+    ART.rr(k, 8, 8, CARD_W, CARD_H, 26); k.fillStyle = ART.lin(k, 0, 8, 0, 8 + CARD_H, [[0, c1], [1, c2]]); k.fill();
+    k.save(); k.clip(); const g = k.createRadialGradient(8 + CARD_W / 2, 80, 6, 8 + CARD_W / 2, 80, 90); g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    k.fillStyle = g; k.fillRect(0, 0, CARD_W + 16, CARD_H); k.fillStyle = 'rgba(20,22,58,0.42)'; k.fillRect(0, CARD_H - 40, CARD_W + 16, 60); k.restore();
+    ART.rr(k, 8, 8, CARD_W, CARD_H, 26); k.lineWidth = 7; k.strokeStyle = '#1F2240'; k.stroke();
+    ART.rr(k, 17, 16, CARD_W - 18, 30, 14); k.fillStyle = 'rgba(255,255,255,0.22)'; k.fill();
+  }, 2));
+  const cardGlow = canvasTex(CARD_W + 60, CARD_H + 60, k => { k.shadowColor = '#FFE66A'; k.shadowBlur = 22; ART.rr(k, 30, 30, CARD_W, CARD_H, 28); k.lineWidth = 10; k.strokeStyle = '#FFF2A0'; k.stroke(); k.stroke(); });
+  const deck = new Container(); hud.addChild(deck);
+  const cards = new Map(); let deckHit = 0, deckA = 1;
+  const cardHand = new Sprite(handTex); cardHand.anchor.set(0.42, 0.1); cardHand.visible = false; hud.addChild(cardHand);
+  function makeCard(q) {
+    const c = new Container(), glow = new Sprite(cardGlow), bg = new Sprite(cardBg(q.name)), t = catT[q.name].calm, face = new Sprite(t.tex);
+    glow.anchor.set(0.5); glow.alpha = 0; bg.anchor.set(0.5); bg.scale.set(0.5); face.anchor.set(t.ax, t.ay); face.scale.set(CARD_W / t.tex.width * 1.3); face.position.set(0, -18);
+    const name = new Text({text: q.name.toUpperCase(), style: {fontFamily: 'Luckiest Guy', fontSize: 32, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 7, join: 'round'}}}); name.anchor.set(0.5); name.position.set(0, CARD_H / 2 - 26);
+    c.addChild(glow, bg, face, name);
+    if (q.extra) { const b = new Graphics(); b.circle(0, 2, 24).fill(0x1F2240); b.circle(0, 0, 24).fill(0xFFD860).stroke({color: 0x1F2240, width: 5});
+      b.rect(-11, -3.5, 22, 7).fill(0x1F2240); b.rect(-3.5, -11, 7, 22).fill(0x1F2240); b.position.set(CARD_W / 2 - 14, -CARD_H / 2 + 12); c.addChild(b); }
+    c.eventMode = 'static'; c.cursor = 'pointer'; c.hitArea = {contains: (x, y) => Math.abs(x) < CARD_W / 2 + 6 && Math.abs(y) < CARD_H / 2 + 10};
+    c.on('pointerdown', () => { deckHit = performance.now(); SFX.unlockAudio(); pickCard(q.id); });
+    Object.assign(c, {qid: q.id, face, glow, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0}); deck.addChild(c); return c;
+  }
+  function pickCard(id) {
+    const c = cards.get(id); if (!c || c.gone) return;
+    if (onSling && onSling.id === id) { c.wig = 0.35; return; }                        // ya está en la resortera: solo se menea
+    const i = queue.findIndex(q => q.id === id);
+    if (state !== 'ready' || i < 0) { c.wig = 0.35; return; }
+    if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; }
+    if (swapCat(i)) { tutDone = true; c.pop = 0.3; SFX.click(); } else c.wig = 0.35;
+  }
+  function updateDeck(dt) {
+    const live = [...(onSling ? [onSling] : []), ...queue], ids = new Set(live.map(q => q.id));
+    for (const q of live) if (!cards.has(q.id)) { const c = makeCard(q); c.enter = 0.001; cards.set(q.id, c); }
+    // fuera las cartas de los gatos lanzados: suben girando y se desvanecen
+    for (const [id, c] of cards) if (!ids.has(id) && !c.gone) { c.gone = 0.001; SFX.pop(); }
+    const sh = app.screen.height / hud.scale.y, order = [...cards.values()].filter(c => !c.gone).sort((a, b) => a.qid - b.qid);
+    const n = order.length, step = n > 6 ? Math.max(CARD_W * 0.55, (6 * (CARD_W + CARD_GAP)) / n) : CARD_W + CARD_GAP;
+    order.forEach((c, j) => { const tx = 40 + CARD_W / 2 + j * step; c.cx = c.cx == null ? tx : c.cx + (tx - c.cx) * Math.min(1, dt * 10); c.tx = tx; });
+    const end = state === 'win' || state === 'lose' || ui.open;
+    deckA += ((end ? 0 : 1) - deckA) * Math.min(1, dt * 6); deck.alpha = deckA; deck.visible = deckA > 0.02;
+    for (const [id, c] of cards) {
+      const sel = onSling && onSling.id === id && !c.gone, by = sh - CARD_H / 2 - 30;
+      c.lift += ((sel ? 1 : 0) - c.lift) * Math.min(1, dt * 12);
+      c.glow.alpha = c.lift * (0.75 + Math.sin(time * 5) * 0.25);
+      let sc = 0.86 + c.lift * 0.14, y = by - c.lift * 34, rot = 0;
+      if (c.enter) { c.enter += dt; const u = Math.min(1, c.enter / 0.4); sc *= Math.max(0, backOutE(u)); if (u >= 1) c.enter = 0; }   // entra con rebote
+      if (c.pop > 0) { c.pop = Math.max(0, c.pop - dt); sc *= 1 + Math.sin((1 - c.pop / 0.3) * Math.PI) * 0.12; }                       // botecito al tocarla
+      if (c.wig > 0) { c.wig -= dt; rot = Math.sin(c.wig * 40) * 0.12 * (c.wig / 0.35); }
+      if (c.gone) { c.gone += dt; const u = Math.min(1, c.gone / 0.35); y -= u * 160; sc *= 1 + u * 0.3; rot = -u * 0.6; c.alpha = 1 - u;
+        if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
+      // los que no están en la resortera respiran un poquito (como los pájaros en sus cartas)
+      if (!sel && !c.gone) c.face.scale.y = c.face.scale.x * (1 + Math.sin(time * 3 + id) * 0.025);
+      c.position.set(c.cx, y); c.scale.set(sc); c.rotation = rot;
+    }
+  }
+  function clearDeck() { for (const c of cards.values()) c.destroy({children: true}); cards.clear(); }
   function shoot(v) {
     const q = onSling; onSling = null;
     const p = sling.pouch;
@@ -823,6 +889,8 @@ async function main() {
     if (onSling && onSling.hop) hopAnim(onSling);
     queue.forEach(q => {
       q.shadow.x = q.sprite.x;
+      // con el mazo de cartas visible la fila del piso se esconde (AB2); reaparece al final para el bono de gatos sobrantes
+      q.sprite.alpha = q.shadow.alpha = 1 - deckA;
       if (q.hop && hopAnim(q)) return;
       const t = time + q.phase, hop = Math.max(0, Math.sin(t * 2.2)) ** 8 * (Math.sin(t * 0.37) > 0.3 ? 26 : 0);
       const br = 1 + Math.sin(t * 3.1) * 0.025;
@@ -855,6 +923,7 @@ async function main() {
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
     if (menus.blocking) { menus.skipIntro(); return; }
     if (ui.open || ui.cardOpen) return;
+    if (performance.now() - deckHit < 60) { ptrs.delete(e.pointerId); return; } // tocó una carta del mazo
     if (cam.mode === 'flyover') { cam.skipFlyover(); return; }
     if (ptrs.size === 1) {
       const w = cam.toWorld(e.clientX, e.clientY);
@@ -906,7 +975,7 @@ async function main() {
     levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair'); SFX.musicTheme(level.world || 1);
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
-    dyn.length = 0; queue.length = 0;
+    dyn.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -951,7 +1020,7 @@ async function main() {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
       const sx = slotX(i, level.cats.length); sp.position.set(sx, GROUND - t.footY);
       actors.addChild(sp); const sh = contactShadow(sx, 170);
-      queue.push({name: n, sprite: sp, shadow: sh, x: sx, phase: i * 1.7, hop: null});
+      queue.push({name: n, sprite: sp, shadow: sh, x: sx, phase: i * 1.7, hop: null, id: ++qid});
     });
     resetMeter();
     fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
@@ -1033,7 +1102,7 @@ async function main() {
     { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
       scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62);
       hudStars.position.set(app.screen.width / hs - 40, 172); meter.position.set(app.screen.width / hs - 40, 268); }
-    updateMeter(rdt); updateHudStars(rdt);
+    updateMeter(rdt); updateHudStars(rdt); updateDeck(rdt);
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom * cam.pz, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
@@ -1052,6 +1121,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
