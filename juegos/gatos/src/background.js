@@ -143,7 +143,86 @@ function foliage(side) {
   return s;
 }
 
-export function buildBackground() {
+// ================= MUNDO 2: EL JARDÍN =================
+// Cielo + sol + nubes + colinas lejanas azuladas (perspectiva atmosférica). Parallax 0.15, resolución baja.
+function skyLayer() {
+  const {x0, y0, x1} = BOUNDS, w = x1 - x0, h = GROUND - y0 + 100;
+  return bake(x0, y0, w, h, 0.35, ctx => {
+    ctx.fillStyle = lin(ctx, 0, y0, 0, GROUND, [[0, '#3FA7E8'], [0.55, '#9BD8F6'], [1, '#FFF1CC']]); ctx.fillRect(x0, y0, w, h);
+    // sol con halo
+    ctx.fillStyle = rad(ctx, 700, 250, 0, 700, [[0, 'rgba(255,250,210,1)'], [0.12, 'rgba(255,240,170,0.9)'], [0.4, 'rgba(255,236,170,0.25)'], [1, 'rgba(255,236,170,0)']]); ctx.fillRect(x0, y0, w, h);
+    const r = rng(41);
+    for (let i = 0; i < 9; i++) { // nubes esponjosas
+      const cx = x0 + r() * w, cy = y0 + 150 + r() * 650, k = 0.7 + r() * 0.9;
+      [[0, 0, 90], [-90, 25, 65], [95, 20, 70], [-40, -40, 70], [50, -35, 60]].forEach(([dx, dy, R]) => {
+        ctx.fillStyle = rad(ctx, cx + dx * k - R * k * 0.3, cy + dy * k - R * k * 0.4, 0, R * k * 1.3, [[0, '#FFFFFF'], [1, '#D7ECFA']]);
+        ctx.beginPath(); ctx.arc(cx + dx * k, cy + dy * k, R * k, 0, TAU); ctx.fill(); });
+    }
+    const hill = (base, amp, per, ph, top, bot) => {
+      ctx.beginPath(); ctx.moveTo(x0, GROUND + 100);
+      for (let x = x0; x <= x1 + 40; x += 40) ctx.lineTo(x, base - amp * (0.6 * Math.sin(x / per + ph) + 0.4 * Math.sin(x / (per * 0.43) + ph * 2)));
+      ctx.lineTo(x1, GROUND + 100); ctx.closePath(); ctx.fillStyle = lin(ctx, 0, base - amp, 0, GROUND, [[0, top], [1, bot]]); ctx.fill();
+    };
+    hill(GROUND - 900, 160, 420, 1.3, '#A9CFE0', '#C9E4D6');
+    hill(GROUND - 720, 130, 300, 4.1, '#8CC3A0', '#B9DDB0');
+    ctx.fillStyle = 'rgba(255,245,220,0.18)'; ctx.fillRect(x0, y0, w, h);
+  });
+}
+// Árboles redondos + cerca de madera + arbustos con flores. Parallax 0.6.
+function fenceLayer() {
+  const {x0, x1} = BOUNDS, ty = GROUND - 1250, w = x1 - x0, h = GROUND - ty + 30;
+  return bake(x0, ty, w, h, 0.55, ctx => {
+    const r = rng(77);
+    // colina cercana
+    ctx.beginPath(); ctx.moveTo(x0, GROUND + 30);
+    for (let x = x0; x <= x1 + 40; x += 40) ctx.lineTo(x, GROUND - 520 - 70 * Math.sin(x / 520 + 0.7));
+    ctx.lineTo(x1, GROUND + 30); ctx.closePath(); ctx.fillStyle = lin(ctx, 0, GROUND - 600, 0, GROUND, [[0, '#7DBE5E'], [1, '#5E9E45']]); ctx.fill();
+    // árboles (tronco + copa de 3 bolas con luz arriba-izq)
+    for (let x = x0 + 150; x < x1; x += 520 + r() * 380) {
+      const by = GROUND - 520 - 70 * Math.sin(x / 520 + 0.7) + 20, th = 260 + r() * 160, R = 150 + r() * 70;
+      ctx.fillStyle = lin(ctx, x - 25, 0, x + 25, 0, [[0, '#8A5A2E'], [1, '#5A3818']]); rr(ctx, x - 24, by - th, 48, th, 14); ctx.fill();
+      [[0, -th - R * 0.3, R], [-R * 0.7, -th + R * 0.15, R * 0.75], [R * 0.7, -th + R * 0.2, R * 0.72]].forEach(([dx, dy, rr2]) => {
+        ctx.fillStyle = rad(ctx, x + dx - rr2 * 0.35, by + dy - rr2 * 0.4, rr2 * 0.1, rr2 * 1.15, [[0, '#9AD86A'], [0.6, '#5FAE45'], [1, '#3E8436']]);
+        ctx.beginPath(); ctx.arc(x + dx, by + dy, rr2, 0, TAU); ctx.fill(); });
+    }
+    // cerca de tablas
+    const fy = GROUND - 400;
+    for (let x = x0 - 40; x < x1 + 60; x += 92) {
+      ctx.beginPath(); ctx.moveTo(x, GROUND); ctx.lineTo(x, fy + 30); ctx.lineTo(x + 38, fy); ctx.lineTo(x + 76, fy + 30); ctx.lineTo(x + 76, GROUND); ctx.closePath();
+      ctx.fillStyle = lin(ctx, x, 0, x + 76, 0, [[0, '#F6E7CF'], [0.5, '#E9D3B0'], [1, '#C9AE86']]); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = '#8B6B45'; ctx.stroke();
+    }
+    [fy + 90, fy + 270].forEach(y => { ctx.fillStyle = lin(ctx, 0, y, 0, y + 34, [[0, '#E3CBA4'], [1, '#B89670']]); ctx.fillRect(x0, y, w, 34); ctx.fillStyle = 'rgba(90,60,30,0.35)'; ctx.fillRect(x0, y + 34, w, 8); });
+    // arbustos con flores al pie de la cerca
+    for (let x = x0; x < x1; x += 160 + r() * 140) {
+      const R = 70 + r() * 50;
+      ctx.fillStyle = rad(ctx, x - R * 0.3, GROUND - R * 0.9, 0, R * 1.3, [[0, '#7CC456'], [1, '#356F2C']]); ctx.beginPath(); ctx.arc(x, GROUND - R * 0.5, R, Math.PI, 0); ctx.fill();
+      for (let i = 0; i < 5; i++) { const fx = x + (r() - 0.5) * R * 1.4, fy2 = GROUND - R * 0.5 - r() * R * 0.8; ctx.fillStyle = ['#FF6F91', '#FFD23F', '#FFFFFF', '#B983FF'][Math.floor(r() * 4)]; ctx.beginPath(); ctx.arc(fx, fy2, 9, 0, TAU); ctx.fill(); ctx.fillStyle = '#FFB000'; ctx.beginPath(); ctx.arc(fx, fy2, 3.5, 0, TAU); ctx.fill(); }
+    }
+    ctx.fillStyle = lin(ctx, 0, GROUND - 80, 0, GROUND, [[0, 'rgba(40,60,30,0)'], [1, 'rgba(40,60,30,0.3)']]); ctx.fillRect(x0, GROUND - 80, w, 80);
+  });
+}
+// Piso del jardín: borde de pasto con matitas + tierra con piedritas. Parallax 1.
+function lawnLayer() {
+  const {x0, x1, y1} = BOUNDS, top = GROUND, w = x1 - x0, h = y1 - top + 20;
+  return bake(x0, top - 40, w, h + 40, 0.8, ctx => {
+    const r = rng(93);
+    ctx.fillStyle = lin(ctx, 0, top, 0, y1, [[0, '#8A5A33'], [0.4, '#6E4426'], [1, '#4A2C17']]); ctx.fillRect(x0, top + 30, w, h);
+    for (let i = 0; i < w * h / 9000; i++) { const x = x0 + r() * w, y = top + 70 + r() * h, R = 6 + r() * 16;
+      ctx.fillStyle = lin(ctx, x, y - R, x, y + R, [[0, '#B8A48E'], [1, '#7A6655']]); ctx.beginPath(); ctx.ellipse(x, y, R * 1.3, R, r() * 3, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = lin(ctx, 0, top - 10, 0, top + 60, [[0, '#8FD85E'], [0.5, '#5FB13E'], [1, '#3E8A2C']]); ctx.fillRect(x0, top - 10, w, 70);
+    ctx.fillStyle = '#3E8A2C';
+    for (let x = x0; x < x1; x += 14) { const hh = 14 + r() * 26; ctx.beginPath(); ctx.moveTo(x, top - 5); ctx.lineTo(x + 7 + r() * 6, top - 5 - hh); ctx.lineTo(x + 14, top - 5); ctx.fill(); }
+    ctx.fillStyle = 'rgba(220,255,170,0.55)'; ctx.fillRect(x0, top - 8, w, 5);
+    ctx.fillStyle = lin(ctx, 0, top + 58, 0, top + 130, [[0, 'rgba(20,10,5,0.45)'], [1, 'rgba(20,10,5,0)']]); ctx.fillRect(x0, top + 58, w, 72);
+  });
+}
+
+export function buildBackground(theme = 'kitchen') {
+  if (theme === 'garden') {
+    const layers = [{node: skyLayer(), f: 0.15}, {node: fenceLayer(), f: 0.6}, {node: lawnLayer(), f: 1}];
+    const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
+    return {layers, fg, fl, fr};
+  }
   const layers = [
     {node: wallLayer(), f: 0.35},
     {node: tileLayer(), f: 0.75},

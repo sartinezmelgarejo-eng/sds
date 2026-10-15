@@ -1,7 +1,7 @@
 // Gatos Furiosos — esqueleto del juego: Pixi v8 (render) + Matter 0.20 (física, global `Matter`).
 import {Application, Container, Sprite, Texture, Graphics} from '../vendor/pixi.min.mjs';
 import ART from './art.js';
-import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS, LEVELS} from './config.js';
+import {LEVEL_W, GROUND, BOUNDS, X0, GRAVITY, STEP_MS, V_UNIT, CAT_R, SLING, CATS, LEVELS, DEV_LEVELS} from './config.js';
 import {buildBackground} from './background.js';
 import {Camera} from './camera.js';
 import {Slingshot} from './sling.js';
@@ -46,7 +46,7 @@ async function main() {
 
   const eyes = await (await fetch('assets/cats/eyes.json')).json();
   const levels = {};
-  await Promise.all(LEVELS.map(async id => { levels[id] = await (await fetch(`levels/${id}.json`)).json(); }));
+  await Promise.all([...LEVELS, ...DEV_LEVELS].map(async id => { levels[id] = await (await fetch(`levels/${id}.json`)).json(); }));
   let levelId = new URLSearchParams(location.search).get('level'); if (!levels[levelId]) levelId = LEVELS[0];
   let level = levels[levelId];
   const imgs = {};
@@ -65,7 +65,7 @@ async function main() {
 
   // ---------- escena ----------
   const cam = new Camera();
-  const bg = buildBackground();
+  const BGS = {}; let bgTheme = 'kitchen', bg = BGS.kitchen = buildBackground('kitchen');
   const bgRoot = new Container();
   const world = new Container();                 // capa de juego (parallax 1)
   const behind = new Container(), actors = new Container(), front = new Container();
@@ -74,6 +74,15 @@ async function main() {
   slingRoot.addChild(slingBack, slingCat, slingFront);
   world.addChild(behind, actors, slingRoot, front);
   app.stage.addChild(bgRoot, world, bg.fg);
+  let wraps = [], curLayers = null;
+  // cambia el fondo según el mundo del nivel (las capas de cada mundo se hornean una vez y se guardan)
+  function useBg(theme) {
+    if (wraps.length && theme === bgTheme) return;
+    bgTheme = theme; const nb = BGS[theme] || (BGS[theme] = buildBackground(theme));
+    bgRoot.removeChildren(); curLayers = nb.layers;
+    wraps = nb.layers.map(l => { const c = new Container(); bgRoot.addChild(c); c.addChild(l.node); return c; });
+  }
+  useBg(bgTheme);
   const vignette = new Sprite(canvasTex(512, 512, k => {
     k.fillStyle = ART.rad(k, 256, 230, 150, 380, [[0, 'rgba(20,10,40,0)'], [1, 'rgba(20,10,40,0.5)']]); k.fillRect(0, 0, 512, 512);
   }));
@@ -466,7 +475,7 @@ async function main() {
   // ---------- construir / reiniciar un nivel (sin recargar la página) ----------
   let fortX = 0;
   function buildLevel(id, fly) {
-    levelId = id; level = levels[id];
+    levelId = id; level = levels[id]; useBg(level.world === 2 ? 'garden' : 'kitchen');
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat]) c.removeChildren().forEach(o => o.destroy());
@@ -550,14 +559,13 @@ async function main() {
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
-    applyLayers(bg.layers, sw, sh, z, cx, cy);
+    applyLayers(curLayers, sw, sh, z, cx, cy);
     // primer plano: un poco de parallax inverso
     const fgx = (cx - X0) * z * 0.12;
     bg.fl.position.set(-fgx - 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y); bg.fr.position.set(sw - fgx + 140 * bg.fl.scale.y, sh + 90 * bg.fl.scale.y);
   });
 
   // cada capa es un Sprite con escala 1/res y posición en mundo: la envolvemos en un contenedor por capa
-  const wraps = bg.layers.map(l => { const c = new Container(); bgRoot.addChild(c); c.addChild(l.node); return c; });
   function applyLayers(layers, sw, sh, z, cx, cy) {
     layers.forEach((l, i) => {
       const lx = X0 + (cx - X0) * l.f;
@@ -566,6 +574,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
