@@ -545,12 +545,71 @@ const ART = (() => {
       g.restore();
     });
   }
-  function buildCatSprite(img, fur, size, expr, eyes) {
+  // ---------- SOMBREROS DE LOS GATOS (como los hats de AB2) ----------
+  // (x, y) = centro del ala (donde se apoya en la frente), w = ancho del ala. Se hornean en el sprite del gato.
+  const HATS = ['none', 'party', 'cowboy', 'sombrero', 'chef', 'crown', 'wizard'];
+  function catHat(k, x, y, w, which, ang = 0) {
+    if (!which || which === 'none') return;
+    k.save(); k.translate(x, y); k.rotate(ang); k.lineJoin = 'round'; k.lineCap = 'round';
+    const ol = Math.max(2, w * 0.045), INK = '#2A1A10';
+    const stroke = () => { k.lineWidth = ol; k.strokeStyle = INK; k.stroke(); };
+    if (which === 'party') { // gorrito de fiesta: cono a rayas con pompón
+      const h = w * 1.05, bw = w * 0.42;
+      k.beginPath(); k.moveTo(-bw, 0); k.lineTo(0, -h); k.lineTo(bw, 0); k.quadraticCurveTo(0, w * 0.1, -bw, 0); k.closePath();
+      k.fillStyle = lin(k, -bw, 0, bw, 0, [[0, '#FF7FB0'], [0.5, '#FF4F8B'], [1, '#C42A63']]); k.fill();
+      k.save(); k.clip(); for (let i = 0; i < 4; i++) { const yy = -h * (0.15 + i * 0.22); k.beginPath(); k.moveTo(-bw, yy + w * 0.12); k.lineTo(bw, yy - w * 0.02); k.lineWidth = w * 0.08; k.strokeStyle = i % 2 ? '#FFE14A' : '#6FD4FF'; k.stroke(); } k.restore();
+      k.beginPath(); k.moveTo(-bw, 0); k.lineTo(0, -h); k.lineTo(bw, 0); k.quadraticCurveTo(0, w * 0.1, -bw, 0); k.closePath(); stroke();
+      for (let i = 0; i < 9; i++) { const a = i / 9 * TAU; k.beginPath(); k.arc(Math.cos(a) * w * 0.08, -h + Math.sin(a) * w * 0.08, w * 0.07, 0, TAU); k.fillStyle = '#FFF6C0'; k.fill(); }
+      k.beginPath(); k.arc(0, -h, w * 0.12, 0, TAU); k.fillStyle = '#FFE14A'; k.fill(); stroke();
+    } else if (which === 'cowboy') { // sombrero vaquero / granjero (como el set de Silver)
+      const h = w * 0.42;
+      k.beginPath(); k.moveTo(-w * 0.3, -w * 0.02); k.bezierCurveTo(-w * 0.32, -h, -w * 0.12, -h * 1.1, 0, -h * 0.85); k.bezierCurveTo(w * 0.12, -h * 1.1, w * 0.32, -h, w * 0.3, -w * 0.02); k.closePath();
+      k.fillStyle = lin(k, 0, -h, 0, 0, [[0, '#C98A4B'], [1, '#8A5528']]); k.fill(); stroke();
+      k.beginPath(); k.rect(-w * 0.3, -w * 0.13, w * 0.6, w * 0.09); k.fillStyle = '#C0392B'; k.fill(); stroke();
+      k.beginPath(); k.moveTo(-w * 0.62, -w * 0.12); k.quadraticCurveTo(-w * 0.5, w * 0.08, 0, w * 0.06); k.quadraticCurveTo(w * 0.5, w * 0.08, w * 0.62, -w * 0.12); k.quadraticCurveTo(w * 0.4, -w * 0.02, 0, -w * 0.02); k.quadraticCurveTo(-w * 0.4, -w * 0.02, -w * 0.62, -w * 0.12); k.closePath();
+      k.fillStyle = lin(k, 0, -w * 0.1, 0, w * 0.08, [[0, '#B8783C'], [1, '#7A4820']]); k.fill(); stroke();
+    } else if (which === 'sombrero') { // sombrero de charro: ala enorme con bordado
+      const h = w * 0.5;
+      k.beginPath(); k.ellipse(0, 0, w * 0.72, w * 0.14, 0, 0, TAU); k.fillStyle = lin(k, 0, -w * 0.14, 0, w * 0.14, [[0, '#F2D27A'], [1, '#B98A2E']]); k.fill(); stroke();
+      k.beginPath(); k.ellipse(0, 0, w * 0.6, w * 0.105, 0, 0, TAU); k.setLineDash([w * 0.05, w * 0.04]); k.lineWidth = w * 0.03; k.strokeStyle = '#C0392B'; k.stroke(); k.setLineDash([]);
+      k.beginPath(); k.moveTo(-w * 0.24, -w * 0.02); k.bezierCurveTo(-w * 0.26, -h, w * 0.26, -h, w * 0.24, -w * 0.02); k.closePath();
+      k.fillStyle = lin(k, -w * 0.24, 0, w * 0.24, 0, [[0, '#E8C060'], [0.5, '#FFE7A0'], [1, '#C2952F']]); k.fill(); stroke();
+      k.beginPath(); k.rect(-w * 0.245, -w * 0.13, w * 0.49, w * 0.08); k.fillStyle = '#2E8B57'; k.fill(); stroke();
+      for (const [dx, c] of [[-0.15, '#FFFFFF'], [0, '#C0392B'], [0.15, '#FFFFFF']]) { k.beginPath(); k.arc(dx * w, -w * 0.09, w * 0.025, 0, TAU); k.fillStyle = c; k.fill(); }
+    } else if (which === 'chef') { // gorro de chef (¡es la cocina!)
+      k.beginPath(); k.rect(-w * 0.3, -w * 0.22, w * 0.6, w * 0.22); k.fillStyle = lin(k, 0, -w * 0.22, 0, 0, [[0, '#FFFFFF'], [1, '#D9DEE8']]); k.fill(); stroke();
+      k.beginPath(); for (const [dx, dy, r] of [[-0.24, -0.38, 0.2], [0, -0.52, 0.24], [0.24, -0.38, 0.2]]) { k.moveTo(dx * w + r * w, dy * w); k.arc(dx * w, dy * w, r * w, 0, TAU); }
+      k.fillStyle = '#FFFFFF'; k.fill(); stroke();
+      k.beginPath(); k.ellipse(0, -w * 0.32, w * 0.36, w * 0.12, 0, 0, TAU); k.fillStyle = '#FFFFFF'; k.fill();
+      k.beginPath(); k.arc(-w * 0.1, -w * 0.58, w * 0.08, 0, TAU); k.fillStyle = 'rgba(255,255,255,0.9)'; k.fill();
+      k.beginPath(); k.moveTo(-w * 0.12, -w * 0.2); k.lineTo(-w * 0.12, -w * 0.04); k.moveTo(w * 0.12, -w * 0.2); k.lineTo(w * 0.12, -w * 0.04); k.lineWidth = ol * 0.6; k.strokeStyle = 'rgba(40,30,20,0.35)'; k.stroke();
+    } else if (which === 'crown') { // corona dorada con gemas
+      const h = w * 0.36, bw = w * 0.36;
+      k.beginPath(); k.moveTo(-bw, 0); k.lineTo(-bw, -h * 0.7); k.lineTo(-bw * 0.5, -h * 0.35); k.lineTo(0, -h); k.lineTo(bw * 0.5, -h * 0.35); k.lineTo(bw, -h * 0.7); k.lineTo(bw, 0); k.closePath();
+      k.fillStyle = lin(k, -bw, 0, bw, 0, [[0, '#E8A41A'], [0.4, '#FFE77A'], [1, '#C9840E']]); k.fill(); stroke();
+      for (const [dx, dy, c] of [[-1, -0.7, '#FF4F6B'], [0, -1, '#4FC3FF'], [1, -0.7, '#FF4F6B']]) { k.beginPath(); k.arc(dx * bw, dy * h, w * 0.045, 0, TAU); k.fillStyle = '#FFF6C0'; k.fill(); stroke(); }
+      k.beginPath(); k.rect(-bw, -w * 0.09, bw * 2, w * 0.09); k.fillStyle = '#D9961A'; k.fill(); stroke();
+      for (const [dx, c] of [[-0.55, '#3FD08A'], [0, '#FF4F6B'], [0.55, '#4FC3FF']]) { k.beginPath(); k.arc(dx * bw, -w * 0.045, w * 0.032, 0, TAU); k.fillStyle = c; k.fill(); }
+    } else if (which === 'wizard') { // sombrero de mago con estrellas y punta doblada
+      const h = w * 1.0;
+      k.beginPath(); k.moveTo(-w * 0.3, -w * 0.04); k.quadraticCurveTo(-w * 0.12, -h * 0.6, w * 0.02, -h * 0.85); k.quadraticCurveTo(w * 0.2, -h * 1.0, w * 0.38, -h * 0.82); k.quadraticCurveTo(w * 0.16, -h * 0.72, w * 0.12, -h * 0.55); k.quadraticCurveTo(w * 0.22, -w * 0.3, w * 0.3, -w * 0.04); k.closePath();
+      k.fillStyle = lin(k, -w * 0.3, 0, w * 0.3, 0, [[0, '#7A55D8'], [1, '#3E2690']]); k.fill(); stroke();
+      for (const [sx, sy, r] of [[-0.06, -0.4, 0.06], [0.1, -0.22, 0.045], [0.06, -0.62, 0.04]]) { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = (i % 2 ? 0.45 : 1) * r * w; k.lineTo(sx * w + Math.cos(a) * rr2, sy * w + Math.sin(a) * rr2); } k.closePath(); k.fillStyle = '#FFE14A'; k.fill(); }
+      k.beginPath(); k.ellipse(0, 0, w * 0.55, w * 0.1, 0, 0, TAU); k.fillStyle = lin(k, 0, -w * 0.1, 0, w * 0.1, [[0, '#6A48C8'], [1, '#33207A']]); k.fill(); stroke();
+    }
+    k.restore();
+  }
+  // altura (fracción 0–1) del primer pixel opaco de la imagen en la columna fx: dónde empieza la frente
+  function headTop(img, fx) {
+    const W = 64, H = Math.round(64 * img.height / img.width), c = document.createElement('canvas'); c.width = W; c.height = H; const k = c.getContext('2d'); k.drawImage(img, 0, 0, W, H);
+    const d = k.getImageData(Math.max(0, Math.min(W - 1, Math.round(fx * W))), 0, 1, H).data; for (let y = 0; y < H; y++) if (d[y * 4 + 3] > 140) return y / H; return 0;
+  }
+  function buildCatSprite(img, fur, size, expr, eyes, hat) {
     // El gato ES su cabeza (como los pájaros de AB): cara real recortada + cola y patitas + contorno compartido + luz.
-    const S = size, hw = S, hh = hw * img.height / img.width, pad = S * 0.16;
-    const cw = hw + pad * 2 + S * 0.25, ch = hh + pad * 2 + S * 0.1;
+    const S = size, hw = S, hh = hw * img.height / img.width, pad = S * 0.16, hatPad = hat && hat !== 'none' ? S * 0.45 : 0;
+    const cw = hw + pad * 2 + S * 0.25, ch = hh + pad * 2 + S * 0.1 + hatPad;
     const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d');
-    const hx = pad, hy = pad, cx = hx + hw / 2, base = hy + hh;
+    const hx = pad, hy = pad + hatPad, cx = hx + hw / 2, base = hy + hh;
     const extras = (k, solid) => {
       k.save(); k.lineCap = 'round';
       // cola detrás, saliendo abajo-derecha
@@ -580,6 +639,10 @@ const ART = (() => {
     rk.drawImage(sil, 0, 0); rk.globalCompositeOperation = 'source-in'; rk.fillStyle = '#FFF4D7'; rk.fillRect(0, 0, cw, ch);
     rk.globalCompositeOperation = 'destination-out'; rk.drawImage(sil, ol * 1.3, ol * 1.5);
     g.save(); g.globalAlpha = 0.6; g.globalCompositeOperation = 'source-atop'; g.drawImage(rim, 0, 0); g.restore();
+    if (hatPad && eyes) { // sombrero sobre la frente, entre las orejas, inclinado como la línea de los ojos
+      const [[lx, ly], [rx, ry]] = eyes, fx = (lx + rx) / 2, top = headTop(img, fx);
+      catHat(g, hx + fx * hw, hy + (top + 0.1) * hh, hw * (hat === 'sombrero' ? 0.74 : hat === 'cowboy' ? 0.64 : hat === 'crown' ? 0.62 : 0.54), hat, Math.atan2((ry - ly) * hh, (rx - lx) * hw) * 0.8);
+    }
     if (expr === 'angry' && eyes) {
       g.save(); g.lineCap = 'round';
       eyes.forEach(([ex, ey], i) => {
@@ -646,7 +709,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {HATS, catHat, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;
