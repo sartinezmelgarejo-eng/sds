@@ -453,7 +453,7 @@ const ART = (() => {
     else if (opt.hat === 'miner') hatTilt(0, -r * 0.6, () => minerHat(ctx, 0, 0, r));
     else if (opt.hat === 'acorn') hatTilt(0, -r * 0.62, () => acornCap(ctx, 0, 0, r));
     else if (kind === 'thimble') hatTilt(0, -r * 0.62, () => thimble(ctx, 0, 0, r));
-    if (kind === 'boss') hatTilt(0, -r * 0.82, () => crown(ctx, 0, 0, r), false); // la corona solo se ladea
+    if (kind === 'boss' && opt.hat !== 'none') hatTilt(0, -r * 0.82, () => crown(ctx, 0, 0, r), false); // la corona solo se ladea
     ctx.restore();
   }
   // abolladuras y grietas sobre un gorro (coordenadas locales del gorro, centro ~ (0, -0.25r))
@@ -468,7 +468,7 @@ const ART = (() => {
     ctx.restore();
   }
   // solo el gorro (el que sale volando cuando un ratón queda muy golpeado), con sus abolladuras
-  function hat(ctx, x, y, r, which) { ctx.save(); ctx.translate(x, y); ({miner: minerHat, acorn: acornCap, thimble})[which](ctx, 0, 0, r); dents(ctx, r, 2); ctx.restore(); }
+  function hat(ctx, x, y, r, which) { ctx.save(); ctx.translate(x, y); ({miner: minerHat, acorn: acornCap, thimble, crown})[which](ctx, 0, 0, r); if (which !== 'crown') dents(ctx, r, 2); ctx.restore(); }
   function thimble(ctx, x, y, r) {
     ctx.save(); ctx.translate(x, y);
     ctx.beginPath(); ctx.moveTo(-r * 0.62, r * 0.18); ctx.quadraticCurveTo(-r * 0.62, -r * 0.62, 0, -r * 0.66); ctx.quadraticCurveTo(r * 0.62, -r * 0.62, r * 0.62, r * 0.18); ctx.closePath();
