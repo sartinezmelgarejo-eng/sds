@@ -61,7 +61,7 @@ async function main() {
   for (const [n, c] of Object.entries(CATS)) {
     const e = eyes[n]; const ey = [e.eyeL, e.eyeR];
     catT[n] = {calm: catTex(imgs[n], c.fur, ey, 'calm'), angry: catTex(imgs[n], c.fur, ey, 'angry'), blink: catTex(imgs[n], c.fur, ey, 'blink')};
-    if (c.flyImg) { const fe = eyes[n + '-up']; const fi = await loadImg(c.flyImg); catT[n].fly = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry');
+    if (c.flyImg) { const fe = eyes[n + '-up']; const fi = await loadImg(c.flyImg); catT[n].fly = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry'); catT[n].dizzy = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'blink');
       // Omi inflado: textura 4× más grande para que no se pixele al crecer
       if (n === 'omi') catT[n].puff = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry', CAT_R * 2.3 * 2 * 3.2); }
   }
@@ -126,6 +126,9 @@ async function main() {
   slingFront.setChildIndex(sling.gFront, 0); // la liga delantera va bajo el brazo delantero de madera
   const trail = new Container(); behind.addChild(trail);
   const fx = new FX(front);
+  const dizzyC = new Container(); front.addChild(dizzyC); // estrellitas de mareo
+  const dizzyTex = canvasTex(64, 64, k => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 12 : 27; k.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } k.closePath();
+    k.lineJoin = 'round'; k.lineWidth = 7; k.strokeStyle = '#2A1F3D'; k.stroke(); k.fillStyle = '#FFE14A'; k.fill(); k.fillStyle = 'rgba(255,255,255,0.7)'; k.beginPath(); k.arc(27, 25, 5, 0, 7); k.fill(); }, 2);
   fx.under = new Container(); world.addChildAt(fx.under, world.getChildIndex(actors)); // estelas detrás de los gatos
   let score = 0, shownScore = 0;
   const hud = new Container(); app.stage.addChild(hud);
@@ -387,6 +390,14 @@ async function main() {
           d.scale.set(big ? 0.32 : 0.2); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
         }
       } else {
+        // mareado tras el golpe (AB2): ojos cerrados + estrellitas girando sobre la cabeza
+        if (!f.dizzy && !f.inflate && !f.exploded && f.t - f.hitT > 0.15) {
+          const T = catT[f.q.name].dizzy || catT[f.q.name].blink; f.sprite.texture = T.tex; f.sprite.anchor.set(T.ax, T.ay);
+          f.dizzy = [0, 1, 2].map(i => { const st = new Sprite(dizzyTex); st.anchor.set(0.5); dizzyC.addChild(st); return st; });
+        }
+        if (f.dizzy) f.dizzy.forEach((st, i) => { const a = f.t * 5 + i * Math.PI * 2 / 3, z = Math.sin(a);
+          st.position.set(b.position.x + Math.cos(a) * CAT_R * 0.95, b.position.y - CAT_R * 1.05 + z * CAT_R * 0.22);
+          st.scale.set(0.42 + z * 0.1); st.alpha = f.inflate || f.exploded ? 0 : (0.75 + z * 0.25) * f.sprite.alpha; st.rotation = f.t * 4; });
         f.sprite.rotation = b.angle; if (!f.inflate) { f.sprite.scale.x += (0.5 - f.sprite.scale.x) * 0.2; f.sprite.scale.y += (0.5 - f.sprite.scale.y) * 0.2; }
       }
       // fin de turno: todo quieto ~1 s (o 10 s máx, o fuera del nivel)
@@ -399,7 +410,7 @@ async function main() {
         f.fade = (f.fade || 0) + dt;
         f.sprite.alpha = Math.max(0, 1 - f.fade / 0.3); f.sprite.scale.set(0.5 * (1 + f.fade));
         if (f.fade > 0.3) {
-          if (!f.exploded) Composite.remove(engine.world, b); f.sprite.destroy(); flying = null;
+          if (!f.exploded) Composite.remove(engine.world, b); f.sprite.destroy(); flying = null; dizzyC.removeChildren().forEach(o => o.destroy());
           cam.release(); endTurn();
         }
       }
@@ -504,7 +515,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     dyn.length = 0; queue.length = 0;
-    for (const c of [actors, lvlBehind, trail, slingCat]) c.removeChildren().forEach(o => o.destroy());
+    for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name);
     score = shownScore = 0; resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
