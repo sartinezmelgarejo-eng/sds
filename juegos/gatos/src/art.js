@@ -263,6 +263,51 @@ const ART = (() => {
     ctx.restore();
   }
 
+  // Aspiradora robot (jefe final): disco visto de lado, defensa, luces rojas, cepillo. damage 0..3 = abolladuras/chispas
+  function robot(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 9, led = '#FF3B3B'} = opt;
+    const r = h * 0.45;
+    ctx.save();
+    // ruedas
+    [0.24, 0.76].forEach(t => { ctx.fillStyle = '#1C1D22'; ctx.beginPath(); ctx.arc(x + w * t, y + h - h * 0.12, h * 0.17, 0, TAU); ctx.fill(); ctx.fillStyle = '#4A4C55'; ctx.beginPath(); ctx.arc(x + w * t, y + h - h * 0.12, h * 0.07, 0, TAU); ctx.fill(); });
+    // cuerpo
+    rr(ctx, x, y + h * 0.08, w, h * 0.78, r);
+    ctx.fillStyle = lin(ctx, 0, y, 0, y + h, [[0, '#6E7280'], [0.2, '#3B3E48'], [0.6, '#24262E'], [1, '#121318']]); ctx.fill();
+    ctx.save(); rr(ctx, x, y + h * 0.08, w, h * 0.78, r); ctx.clip();
+    // tapa superior brillante
+    ctx.fillStyle = lin(ctx, x, 0, x + w, 0, [[0, 'rgba(255,255,255,0.05)'], [0.3, 'rgba(255,255,255,0.35)'], [0.5, 'rgba(255,255,255,0.08)'], [1, 'rgba(255,255,255,0.02)']]);
+    ctx.fillRect(x, y + h * 0.08, w, h * 0.16);
+    // defensa (franja gris)
+    ctx.fillStyle = lin(ctx, 0, y + h * 0.42, 0, y + h * 0.66, [[0, '#9AA0AE'], [0.5, '#C9CED9'], [1, '#6B7180']]);
+    ctx.fillRect(x, y + h * 0.42, w, h * 0.22);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let i = x + 20; i < x + w; i += 26) ctx.fillRect(i, y + h * 0.44, 3, h * 0.18);
+    // "ojos" LED (mirada malvada)
+    [0.36, 0.64].forEach((t, i) => {
+      const ex = x + w * t, ey = y + h * 0.3;
+      ctx.fillStyle = rad(ctx, ex, ey, 0, h * 0.2, [[0, 'rgba(255,90,90,0.9)'], [1, 'rgba(255,40,40,0)']]); ctx.beginPath(); ctx.arc(ex, ey, h * 0.2, 0, TAU); ctx.fill();
+      ctx.fillStyle = led; ctx.save(); ctx.translate(ex, ey); ctx.rotate(i ? -0.25 : 0.25);
+      ctx.beginPath(); ctx.ellipse(0, 0, h * 0.09, h * 0.045, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#FFE0E0'; ctx.beginPath(); ctx.ellipse(-h * 0.02, -h * 0.01, h * 0.03, h * 0.015, 0, 0, TAU); ctx.fill(); ctx.restore();
+    });
+    // abolladuras y chispas según daño
+    const R = rng(seed * 13 + 5);
+    for (let i = 0; i < damage * 3; i++) {
+      const dx = x + w * (0.1 + R() * 0.8), dy = y + h * (0.15 + R() * 0.6), dr = h * (0.06 + R() * 0.08);
+      ctx.fillStyle = rad(ctx, dx - dr * 0.3, dy - dr * 0.3, 0, dr, [[0, 'rgba(0,0,0,0.55)'], [1, 'rgba(0,0,0,0)']]); ctx.beginPath(); ctx.arc(dx, dy, dr, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(220,225,235,0.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(dx, dy, dr * 0.8, 3.6, 5.2); ctx.stroke();
+    }
+    cracks(ctx, x, y + h * 0.1, w, h * 0.7, Math.max(0, damage - 1), seed, 'rgba(10,10,12,0.95)', 'rgba(200,210,230,0.5)');
+    ctx.restore();
+    rr(ctx, x, y + h * 0.08, w, h * 0.78, r); ctx.lineWidth = 4; ctx.strokeStyle = '#0B0C10'; ctx.stroke();
+    // cepillo lateral
+    ctx.strokeStyle = '#E8C14A'; ctx.lineWidth = 3;
+    for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(x + w * 0.9, y + h * 0.86); ctx.lineTo(x + w * 0.9 + i * 6, y + h); ctx.stroke(); }
+    // antena
+    ctx.strokeStyle = '#2A2C33'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + w * 0.85, y + h * 0.1); ctx.lineTo(x + w * 0.92, y - h * 0.02); ctx.stroke();
+    ctx.fillStyle = led; ctx.beginPath(); ctx.arc(x + w * 0.92, y - h * 0.02, 5, 0, TAU); ctx.fill();
+    ctx.restore();
+  }
+
   function cracks(ctx, x, y, w, h, n, seed, dark, light) {
     if (!n) return;
     const R = rng(seed * 97 + 13);
@@ -493,7 +538,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {rr, lin, rad, rng, shade, contactShadow, cardboard, jar, can, plank, pot, stone, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {rr, lin, rad, rng, shade, contactShadow, cardboard, jar, can, plank, pot, stone, robot, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;

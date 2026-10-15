@@ -26,7 +26,8 @@ const cached = (key, make) => { if (!TEXC.has(key)) TEXC.set(key, make()); retur
 const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood', jar: 'pot', can: 'stone'}};
 function blockTex(t, w, h, seed, damage = 0) {
   return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
-    if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
+    if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'stone') ART.stone(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
@@ -115,10 +116,10 @@ async function main() {
   Composite.add(engine.world, ground);
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
-  const LIFE = {box: 13, jar: 7, can: 30, small: 4.5, thimble: 9, boss: 13};
-  const FRAGILE = {box: 1, jar: 1.6, can: 0.55, mouse: 1};
-  const PTS = {box: 500, jar: 500, can: 1000, mouse: 5000};
-  const MAT = {box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}};
+  const LIFE = {box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
+  const FRAGILE = {box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
+  const PTS = {box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
+  const MAT = {box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}, robot: {density: 0.005, friction: 0.9}};
   let acc = 0, time = 0;
   // ---------- resortera + turnos ----------
   const sling = new Slingshot(slingBack, slingFront);
@@ -132,10 +133,27 @@ async function main() {
   const scoreTxt = new Text({text: '0', style: {fontFamily: 'Luckiest Guy', fontSize: 66, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 11, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
   scoreLbl.anchor.set(1, 0); scoreTxt.anchor.set(1, 0); hud.addChild(scoreLbl, scoreTxt);
   const addScore = (v, x, y, color, big, k) => { score += v; fx.points(x, y, v, color, big, k); SFX.points(); };
-  const PTS_COL = {box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
+  const PTS_COL = {robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
+  // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
+  function driveRobot(d, dt) {
+    const b = d.body, p = b.position;
+    if (d.stun > 0) d.stun -= dt;
+    else {
+      if (p.x > d.patrol[1]) d.dir = -1; else if (p.x < d.patrol[0]) d.dir = 1;
+      d.vx += (d.dir * d.speed - d.vx) * Math.min(1, dt * 2.2);
+      Body.setVelocity(b, {x: d.vx / 60, y: b.velocity.y});
+      if (Math.abs(b.angle) < 0.6) { Body.setAngularVelocity(b, 0); Body.setAngle(b, b.angle * (1 - Math.min(1, dt * 4))); } // estabilizador
+      d.dust -= dt; if (d.dust <= 0 && Math.abs(d.vx) > 60) { d.dust = 0.14; fx.smoke(p.x - Math.sign(d.vx) * d.w * 0.45, p.y + d.h * 0.4, 16, 1); }
+    }
+    // barra de vida sobre la Rata Jefa
+    const k = Math.max(0, d.life / d.max), W = 260, H = 26, x = p.x - W / 2, y = p.y - d.h / 2 - 230;
+    d.bar.clear().roundRect(x - 6, y - 6, W + 12, H + 12, 14).fill({color: 0x1F2240}).roundRect(x, y, W, H, 9).fill({color: 0x4A2030})
+      .roundRect(x, y, Math.max(H, W * k), H, 9).fill({color: k > 0.5 ? 0x6BE04A : k > 0.25 ? 0xFFC83A : 0xFF4A3A}).roundRect(x + 6, y + 4, Math.max(8, W * k - 12), 6, 3).fill({color: 0xFFFFFF, alpha: 0.4});
+  }
   function damage(d, amount, k) {
+    if (d.patrol && amount > 2) d.stun = 0.8;
     if (d.dead) return;
     d.life -= amount;
     if (d.mat !== 'mouse' && d.life > 0) {
@@ -152,7 +170,7 @@ async function main() {
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
     if (d.mat === 'mouse') {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
-      if (!dyn.some(o => o.mat === 'mouse')) slow = 1.1; // cámara lenta breve en el último ratón
+      if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; // cámara lenta breve en el último ratón
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
       queue.forEach((q, i) => { if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
@@ -161,6 +179,8 @@ async function main() {
       fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
+      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12;
+        if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
     }
   }
@@ -294,7 +314,7 @@ async function main() {
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
-    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; endT0 = false; SFX.duck(4); SFX.win(); return; }
+    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'win'; endT0 = false; SFX.duck(4); SFX.win(); return; }
     laughAll = 1.3;
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700); return; }
     state = 'between'; turnWait = 0.9;
@@ -480,8 +500,9 @@ async function main() {
   // ---------- construir / reiniciar un nivel (sin recargar la página) ----------
   let fortX = 0;
   function buildLevel(id, fly) {
-    levelId = id; level = levels[id]; useBg(level.world === 2 ? 'garden' : 'kitchen');
+    levelId = id; level = levels[id]; useBg((level.world || 1) >= 2 ? 'garden' : 'kitchen');
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
+    dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name);
@@ -491,16 +512,22 @@ async function main() {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
       Sleeping.set(body, true);
-      const skin = SKIN[bgTheme][b.t], texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
+      const skin = SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
       const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
       dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, skin, life, max: life, texs, dmg: 0});
+      // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
+      if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
+        const bar = new Graphics(); front.addChild(bar);
+        Object.assign(dyn[dyn.length - 1], {patrol: b.patrol, speed: b.speed || 160, dir: 1, vx: 0, stun: 0, bar, dust: 0}); }
     });
     level.mice.forEach(m => {
       const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
       Sleeping.set(body, true);
+      // la Rata Jefa va montada en la aspiradora: despierta, sin rodar (se desliza con la fricción)
+      if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1; }
       const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
@@ -550,6 +577,7 @@ async function main() {
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
+    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt);
     for (const d of dyn) {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
