@@ -25,9 +25,9 @@ function blockTex(t, w, h, seed, damage = 0) {
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
   }, 1.5);
 }
-function mouseTex(kind, r) {
+function mouseTex(kind, r, expr = 'normal') {
   const S = r * 3.2;
-  return canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1}), 1.5);
+  return canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr}), 1.5);
 }
 function catTex(img, fur, eyes, expr) {
   const size = CAT_R * 2.3 * 2; // se hornea al doble para que aguante el zoom
@@ -105,9 +105,10 @@ async function main() {
   level.mice.forEach(m => {
     const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
     Sleeping.set(body, true);
-    const sp = new Sprite(mouseTex(m.k, m.r)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
+    const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
+    const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
     Composite.add(engine.world, body); actors.addChild(sp);
-    dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k]});
+    dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0});
   });
 
   let acc = 0, time = 0;
@@ -152,6 +153,26 @@ async function main() {
     }
   }
   const byBody = b => dyn.find(o => o.body === b);
+  // Ratones vivos: respiran, parpadean, se burlan (carcajada con saltitos) y se asustan si un gato pasa cerca
+  let laughAll = 0;
+  function animMouse(d, dt) {
+    const t = time + d.ph, B = 1 / 1.5;
+    let expr = 'normal', hop = 0;
+    const fc = flying && !flying.fade ? flying.body : null;
+    const near = fc && Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) < 650 && fc.speed > 3;
+    if (d.hurt > 0 || near) expr = 'scared';
+    else if (d.laugh > 0 || laughAll > 0) {
+      d.laugh -= dt; expr = 'laugh';
+      if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
+    } else {
+      if (time > d.tauntAt && (state === 'ready' || state === 'loading')) { d.laugh = 1.1; d.tauntAt = time + 5 + Math.random() * 6; }
+      if (time > d.blinkAt) { expr = 'blink'; if (time > d.blinkAt + 0.13) d.blinkAt = time + 1.5 + Math.random() * 3.5; }
+    }
+    const tx = d.mt[expr]; if (d.sprite.texture !== tx) d.sprite.texture = tx;
+    const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
+    d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5), B * (1 + br + sq));
+    d.sprite.y -= hop + br * d.h * 0.25;
+  }
   const dotTex = canvasTex(40, 40, k => { k.fillStyle = 'rgba(60,40,70,0.25)'; k.beginPath(); k.arc(22, 23, 15, 0, Math.PI * 2); k.fill(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.arc(19, 19, 15, 0, Math.PI * 2); k.fill(); }, 2);
   const flyTex = n => CATS[n].flyImg ? catT[n].fly : catT[n].angry;
 
@@ -228,7 +249,7 @@ async function main() {
       if (!f.hit) {
         // en el aire: inclinación hacia la velocidad y estirón según rapidez (squash & stretch)
         const va = Math.atan2(b.velocity.y, b.velocity.x), sp = Math.min(1, b.speed / 28);
-        f.sprite.rotation = Math.max(-0.6, Math.min(0.6, va * 0.35)) + f.t * 0.6;
+        f.sprite.rotation = Math.max(-0.6, Math.min(0.6, va * 0.35)); // sin girar: la cara real se lee mejor
         f.sprite.scale.set(0.5 * (1 + sp * 0.08), 0.5 * (1 - sp * 0.06));
         // rastro de puntitos (uno grande cada 5)
         if (Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
@@ -248,7 +269,7 @@ async function main() {
         f.sprite.alpha = Math.max(0, 1 - f.fade / 0.3); f.sprite.scale.set(0.5 * (1 + f.fade));
         if (f.fade > 0.3) {
           Composite.remove(engine.world, b); f.sprite.destroy(); flying = null;
-          cam.release(); state = 'between'; turnWait = 0.9;
+          cam.release(); state = 'between'; turnWait = 0.9; laughAll = 1.3;
         }
       }
     }
@@ -331,10 +352,11 @@ async function main() {
     const dt = Math.min(tk.deltaMS, 50) / 1000; time += dt;
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    started += dt; fx.update(dt);
+    started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
     for (const d of dyn) {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
+      if (d.mat === 'mouse') animMouse(d, dt);
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
     updateTurn(dt);
