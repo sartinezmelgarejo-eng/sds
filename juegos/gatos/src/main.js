@@ -127,6 +127,27 @@ async function main() {
   const trail = new Container(); behind.addChild(trail);
   const fx = new FX(front);
   const dizzyC = new Container(); front.addChild(dizzyC); // estrellitas de mareo
+  // tutorial (como AB2): en el primer nivel, si nunca lo ha ganado, una manita enseña a jalar la resortera hacia atrás
+  const handTex = canvasTex(120, 150, k => {
+    k.lineJoin = 'round'; k.lineCap = 'round';
+    const glove = () => { k.beginPath(); k.moveTo(38, 70); k.lineTo(38, 22); k.arc(50, 22, 12, Math.PI, 0); k.lineTo(62, 62);
+      k.arcTo(98, 58, 100, 90, 18); k.lineTo(100, 108); k.quadraticCurveTo(100, 140, 66, 140); k.lineTo(52, 140); k.quadraticCurveTo(22, 140, 18, 104); k.lineTo(14, 86); k.quadraticCurveTo(12, 70, 26, 72); k.closePath(); };
+    glove(); k.lineWidth = 12; k.strokeStyle = '#2A1F3D'; k.stroke(); k.fillStyle = '#FFFFFF'; k.fill();
+    k.strokeStyle = 'rgba(42,31,61,0.35)'; k.lineWidth = 4; [[62, 66, 62, 92], [80, 62, 80, 92]].forEach(([a, b, c, d]) => { k.beginPath(); k.moveTo(a, b); k.lineTo(c, d); k.stroke(); });
+    k.fillStyle = 'rgba(200,215,240,0.6)'; k.beginPath(); k.ellipse(84, 118, 12, 16, 0, 0, 7); k.fill();
+  }, 2);
+  const hand = new Sprite(handTex); hand.anchor.set(0.42, 0.1); hand.scale.set(0.9); hand.visible = false; front.addChild(hand);
+  let tutT = 0, tutDone = false;
+  function updateTutorial(dt) {
+    const want = levelId === LEVELS[0] && !tutDone && state === 'ready' && !sling.aiming && !localStorage.getItem('gatos.best.' + LEVELS[0]);
+    if (sling.aiming && levelId === LEVELS[0]) tutDone = true;
+    hand.visible = want; if (!want) { tutT = 0; return; }
+    tutT += dt; const c = tutT % 2.2, r = sling.rest;
+    const u = c < 0.35 ? 0 : c < 1.45 ? (c - 0.35) / 1.1 : 1, e = 1 - Math.pow(1 - u, 3);
+    hand.position.set(r.x - e * 210, r.y + e * 90);
+    hand.alpha = c < 0.25 ? c / 0.25 : c > 1.8 ? Math.max(0, 1 - (c - 1.8) / 0.3) : 1;
+    hand.scale.set(0.9 * (c < 0.35 ? 1.15 - 0.15 * c / 0.35 : 1)); // "presiona" al inicio
+  }
   const dizzyTex = canvasTex(64, 64, k => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 12 : 27; k.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } k.closePath();
     k.lineJoin = 'round'; k.lineWidth = 7; k.strokeStyle = '#2A1F3D'; k.stroke(); k.fillStyle = '#FFE14A'; k.fill(); k.fillStyle = 'rgba(255,255,255,0.7)'; k.beginPath(); k.arc(27, 25, 5, 0, 7); k.fill(); }, 2);
   fx.under = new Container(); world.addChildAt(fx.under, world.getChildIndex(actors)); // estelas detrás de los gatos
@@ -595,7 +616,7 @@ async function main() {
       if (d.mat === 'mouse') animMouse(d, dt);
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
-    updateTurn(dt);
+    updateTurn(dt); updateTutorial(rdt);
     cam.update(dt);
     if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
     scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
