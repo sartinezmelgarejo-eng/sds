@@ -510,6 +510,19 @@ async function main() {
     onSling = q; state = 'loading';
     queue.forEach((o, i) => { o.hop = {t: -0.25 - i * 0.12, dur: 0.45, x0: o.x, y0: o.sprite.y, x1: slotX(i), y1: o.sprite.y, h: 70}; o.x = slotX(i); });
   }
+  // como las cartas de AB2: tocar a un gato de la fila lo manda a la resortera y el que estaba ahí regresa a su lugar
+  function swapCat(i) {
+    const q = queue[i], cur = onSling; if (!q || !cur || q.name === cur.name || q.hop || cur.hop || sling.aiming || sling.held) return false;
+    q.shadow.destroy(); const ta = catT[q.name].angry; q.sprite.texture = ta.tex; q.sprite.anchor.set(ta.ax, ta.ay); q.alert = 0; q.shiver = 0; q.sprite.rotation = 0;
+    actors.removeChild(q.sprite); slingCat.addChild(q.sprite);
+    q.hop = {t: 0, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: sling.rest.x, y1: sling.rest.y, h: 200};
+    const tc = catT[cur.name].calm; cur.sprite.texture = tc.tex; cur.sprite.anchor.set(tc.ax, tc.ay);
+    slingCat.removeChild(cur.sprite); actors.addChild(cur.sprite);
+    const back = {name: cur.name, sprite: cur.sprite, shadow: contactShadow(q.x, 170), x: q.x, phase: Math.random() * 6, hop: null, extra: cur.extra};
+    back.hop = {t: -0.08, dur: 0.55, x0: cur.sprite.x, y0: cur.sprite.y, x1: q.x, y1: GROUND - tc.footY, h: 160};
+    queue[i] = back; onSling = q; state = 'loading';
+    SFX.meow(i); SFX.pop(); return true;
+  }
   function shoot(v) {
     const q = onSling; onSling = null;
     const p = sling.pouch;
@@ -709,6 +722,8 @@ async function main() {
         return;
       }
       if (state === 'flying' && flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); return; }
+      if (state === 'ready') { const R = Math.max(CAT_R * 1.5, 46 / cam.zoom), dq = q => Math.hypot(w.x - q.x, w.y - (GROUND - catT[q.name].calm.footY)), i = queue.reduce((bi, q, j) => dq(q) < R && (bi < 0 || dq(q) < dq(queue[bi])) ? j : bi, -1);
+        if (i >= 0) { if (sling.held) { tutDone = true; sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; } if (swapCat(i)) { tutDone = true; return; } } }
     }
     if (ptrs.size === 2) {
       if (aimPtr != null) return; // mientras apunta no hay pinch
@@ -881,6 +896,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
