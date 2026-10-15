@@ -10,7 +10,7 @@ export class Camera {
     this.x = X0; this.y = GROUND - 1000; this.zoom = 0.5;   // estado actual (centro en mundo, escala)
     this.tx = this.x; this.ty = this.y; this.tz = this.zoom; // objetivo
     this.sw = 1; this.sh = 1;
-    this.mode = 'rest';      // rest | flyover | follow | user
+    this.pz = 1; this.mode = 'rest';      // rest | flyover | follow | user
     this.followTarget = null;
     this.userTimer = 0;      // tras interacción del usuario, no regresar solo durante un rato
     this.shakeT = 0; this.shakeA = 0; this.sx = 0; this.sy = 0;
@@ -51,6 +51,8 @@ export class Camera {
 
   follow(target, zk = 1.55) { this.followTarget = target; this.followZ = zk; this.mode = 'follow'; }
   release() { this.followTarget = null; this.mode = 'rest'; }
+  // "punch" (AB2): zoom-in instantáneo y breve en los estruendos grandes; se suma al zoom solo al dibujar (pz)
+  punch(a = 0.06) { this.punchA = Math.max(this.punchA || 0, a); this.punchT = 0; }
   shake(amp, dur = 0.35) { this.shakeA = Math.max(this.shakeA, amp); this.shakeT = Math.max(this.shakeT, dur); }
 
   // ---- interacción del usuario (coords de pantalla) ----
@@ -91,6 +93,7 @@ export class Camera {
       this.x += (this.tx - this.x) * kp; this.y += (this.ty - this.y) * kp;
       [this.x, this.y, this.zoom] = this.clampView(this.x, this.y, this.zoom);
     }
+    if (this.punchA) { this.punchT += dt; const u = this.punchT; this.pz = 1 + this.punchA * (u < 0.05 ? u / 0.05 : Math.max(0, 1 - (u - 0.05) / 0.35) ** 2); if (u > 0.4) { this.punchA = 0; this.pz = 1; } }
     // temblor de cámara (decae)
     if (this.shakeT > 0) {
       this.shakeT -= dt; const a = this.shakeA * Math.max(0, this.shakeT) / 0.35;

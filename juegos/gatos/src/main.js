@@ -407,7 +407,7 @@ async function main() {
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
       if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07}); // caja de cuetes: explota (en cadena, con un respiro entre cada una)
-      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
+      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
       if (d.mat !== 'robot') wreck(PTS[d.mat]);
@@ -436,7 +436,7 @@ async function main() {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
       fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
       blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3, robot: 3}); // a la aspiradora le pega fuerte (premio por el timing)
-      cam.shake(26); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
+      cam.shake(26); cam.punch(0.05); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
       const n = 3 + Math.floor(Math.random() * 2);
       for (let j = 0; j < n; j++) { const a = -Math.PI / 2 + (j - (n - 1) / 2) * 0.42 + (Math.random() - 0.5) * 0.25, v = 900 + Math.random() * 350;
         rockets.push({x: b.x, y: b.y - 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: 0.55 + Math.random() * 0.35, col: FW[(j + Math.floor(Math.random() * 6)) % FW.length], wig: Math.random() * 6}); } }
@@ -483,7 +483,7 @@ async function main() {
       screenFlash = 0.12;
       fx.burst('fur', p.x, p.y, 26, 900, {up: 120, size: 1.4, life: 1.4, drag: 1.5});
       blast(p.x, p.y, 280, 26, 34, {can: 1.6});
-      cam.shake(34, 0.5); SFX.boom(); startle(p.x, 1);
+      cam.shake(34, 0.5); cam.punch(0.07); SFX.boom(); startle(p.x, 1);
       f.exploded = true; f.sprite.visible = false; Composite.remove(engine.world, b); f.still = 99;
     } else if (name === 'omi') { // 🐡 Esponjado: se infla ~4×, empuja, se desinfla a los 2 s
       f.inflate = {t: 0, k: 1}; SFX.inflate();
@@ -686,7 +686,7 @@ async function main() {
       if (flying.dive) { // Miu: onda de choque + temblor de estructuras
         const p = flying.body.position; flying.dive = false;
         blast(p.x, p.y + CAT_R, 340, 15, 30, {can: 1.8}); dyn.forEach(o => { Sleeping.set(o.body, false); Body.setAngularVelocity(o.body, (Math.random() - 0.5) * 0.05); });
-        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 360, 0xCFEFFF, 0.45); cam.shake(30, 0.5); SFX.slam(); startle(p.x, 0.8);
+        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 360, 0xCFEFFF, 0.45); cam.shake(30, 0.5); cam.punch(0.06); SFX.slam(); startle(p.x, 0.8);
       }
       break;
     }
@@ -1001,7 +1001,7 @@ async function main() {
       hudStars.position.set(app.screen.width / hs - 40, 172); meter.position.set(app.screen.width / hs - 40, 268); }
     updateMeter(rdt); updateHudStars(rdt);
     // aplicar cámara a capas (parallax solo en x)
-    const sw = app.screen.width, sh = app.screen.height, z = cam.zoom, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
+    const sw = app.screen.width, sh = app.screen.height, z = cam.zoom * cam.pz, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
     applyLayers(curLayers, sw, sh, z, cx, cy);
     // primer plano: un poco de parallax inverso
