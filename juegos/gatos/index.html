@@ -3,6 +3,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gatos Furiosos">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/favicon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="theme-color" content="#2b1d14">
 <title>Gatos Furiosos</title>
 <style>
@@ -10,9 +16,28 @@
   @font-face{font-family:"Lilita One";src:url(assets/fonts/LilitaOne-Regular.ttf)}
   html,body{margin:0;height:100%;overflow:hidden;background:#2b1d14;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
   #stage,canvas{display:block;width:100%;height:100%}
+  /* aviso "gira la tablet" (solo en vertical, en pantallas táctiles) */
+  #rotate{display:none;position:fixed;inset:0;z-index:9;background:radial-gradient(circle at 50% 40%,#3a2a6a,#120c2a);color:#fff;font-family:"Luckiest Guy",sans-serif;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:4vh;letter-spacing:.04em}
+  #rotate .dev{width:22vw;height:32vw;max-width:180px;max-height:260px;border:1.6vw solid #fff;border-radius:3vw;box-shadow:0 1vw 0 #1f2240;animation:rot 2.2s ease-in-out infinite;position:relative}
+  #rotate .dev:after{content:"";position:absolute;left:50%;bottom:6%;width:12%;aspect-ratio:1;border-radius:50%;background:#fff;transform:translateX(-50%)}
+  #rotate p{margin:0;font-size:6vw;color:#FFE27A;text-shadow:0 .5vw 0 #1f2240,0 0 .1vw #1f2240;-webkit-text-stroke:.35vw #1f2240;paint-order:stroke fill}
+  #rotate small{font-family:"Lilita One",sans-serif;font-size:3.6vw;color:#C9D2FF}
+  @keyframes rot{0%,20%{transform:rotate(0)}50%,80%{transform:rotate(-90deg)}100%{transform:rotate(0)}}
+  @media (orientation:portrait) and (pointer:coarse){#rotate{display:flex}}
 </style>
 </head><body>
 <div id="stage"></div>
+<div id="rotate"><div class="dev"></div><p>¡Gira la tablet!</p><small>Gatos Furiosos se juega en horizontal</small></div>
 <script src="vendor/matter.min.js"></script>
 <script type="module" src="src/main.js"></script>
+<script>
+  // offline: service worker (solo en http(s), no en file://)
+  if ('serviceWorker' in navigator && location.protocol.startsWith('http')) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // pantalla completa + horizontal al primer toque en tablets (si no está instalada como app)
+  addEventListener('pointerup', function fs() {
+    if (!matchMedia('(pointer:coarse)').matches || matchMedia('(display-mode: fullscreen), (display-mode: standalone)').matches) return;
+    const d = document.documentElement, rq = d.requestFullscreen || d.webkitRequestFullscreen;
+    if (rq && !document.fullscreenElement && !document.webkitFullscreenElement) Promise.resolve(rq.call(d)).then(() => screen.orientation?.lock?.('landscape')).catch(() => {});
+  }, {once: true});
+</script>
 </body></html>

@@ -478,6 +478,8 @@ async function main() {
   });
   const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };
   document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+  // al girar la tablet a vertical aparece el aviso (CSS) y el juego se pausa
+  addEventListener('resize', () => { if (matchMedia('(orientation: portrait) and (pointer: coarse)').matches) pause(); });
   // con ?level=… se entra directo al nivel (pruebas); si no, pantalla de título con el nivel 1-1 congelado detrás
   const QS = new URLSearchParams(location.search);
   if (QS.has('level') || QS.has('nofly')) buildLevel(levelId, !QS.has('nofly'));
