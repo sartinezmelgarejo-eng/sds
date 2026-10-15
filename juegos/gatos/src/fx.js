@@ -30,6 +30,21 @@ export class FX {
       this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (opts.up ?? 250), vr: (Math.random() - 0.5) * 14, life: opts.life ?? (0.9 + Math.random() * 0.7), t: 0, g: opts.g ?? G, drag: opts.drag ?? 0.4, grow: opts.grow ?? 0, sz});
     }
   }
+  // anillo de onda expansiva (crece y se desvanece)
+  ring(x, y, R, color = 0xFFFFFF, dur = 0.38) {
+    if (!this.ringTex) this.ringTex = tex(256, 256, k => { k.lineWidth = 18; k.strokeStyle = 'rgba(255,255,255,0.95)'; k.beginPath(); k.arc(128, 128, 110, 0, 7); k.stroke(); k.lineWidth = 34; k.strokeStyle = 'rgba(255,255,255,0.35)'; k.beginPath(); k.arc(128, 128, 96, 0, 7); k.stroke(); });
+    const s = new Sprite(this.ringTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; s.scale.set(0.1); this.root.addChild(s);
+    this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R / 110});
+  }
+  // bola de fuego: núcleo blanco + capa naranja que se expande
+  fireball(x, y, R) {
+    if (!this.fireTex) this.fireTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.35, 'rgba(255,214,90,0.95)'); g.addColorStop(0.7, 'rgba(255,120,40,0.6)'); g.addColorStop(1, 'rgba(200,60,20,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
+    for (let i = 0; i < 7; i++) {
+      const s = new Sprite(this.fireTex); s.anchor.set(0.5); const a = Math.random() * 6.3, d = i ? R * 0.35 : 0;
+      s.position.set(x + Math.cos(a) * d, y + Math.sin(a) * d); const sz = (i ? 0.5 : 0.9) * R / 64; s.scale.set(sz); this.root.addChild(s);
+      this.parts.push({s, vx: Math.cos(a) * 120, vy: Math.sin(a) * 120 - 60, vr: 0, life: 0.32 + Math.random() * 0.15, t: 0, g: -100, drag: 2, grow: 0.6, sz});
+    }
+  }
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
   points(x, y, value, color = '#FFFFFF', big = false) {
     const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: big ? 84 : 58, fill: color, stroke: {color: '#1F2240', width: big ? 12 : 9, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
@@ -45,6 +60,7 @@ export class FX {
       p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += p.vr * dt;
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
+      if (p.ring) p.s.scale.set(0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)));
       const u = p.t / p.life; p.s.alpha = u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : 1;
       if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); }
     }

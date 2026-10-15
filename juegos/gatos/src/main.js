@@ -153,6 +153,61 @@ async function main() {
     }
   }
   const byBody = b => dyn.find(o => o.body === b);
+
+  // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
+  // Onda radial: empuje ~ (1 - d/R), daño ~ (1 - d/R) × fragilidad × bonus por material
+  function blast(x, y, R, push, dmg, bonus = {}) {
+    for (const d of [...dyn]) {
+      const p = d.body.position, dx = p.x - x, dy = p.y - y, dist = Math.hypot(dx, dy);
+      if (dist > R + Math.max(d.w, d.h) / 2) continue;
+      const k = Math.max(0.15, 1 - dist / R), m = Math.min(1.6, Math.sqrt(40 / d.body.mass));
+      Sleeping.set(d.body, false);
+      const ux = dist > 1 ? dx / dist : 0, uy = dist > 1 ? dy / dist : -1;
+      Body.setVelocity(d.body, {x: d.body.velocity.x + ux * push * k * m, y: d.body.velocity.y + (uy - 0.35) * push * k * m});
+      Body.setAngularVelocity(d.body, d.body.angularVelocity + (Math.random() - 0.5) * 0.3 * k);
+      damage(d, dmg * k * FRAGILE[d.mat] * (bonus[d.mat] ?? 1), push);
+    }
+  }
+  const furTex = canvasTex(64, 64, k => { k.strokeStyle = '#F4EEE4'; k.lineWidth = 7; k.lineCap = 'round'; k.beginPath(); k.moveTo(8, 50); k.quadraticCurveTo(30, 6, 56, 20); k.stroke(); k.strokeStyle = 'rgba(120,100,80,0.8)'; k.lineWidth = 3; k.stroke(); });
+  fx.T.fur = [furTex];
+  const flash = (x, y, r, color) => { fx.burst('smoke', x, y, 1, 0, {up: 0, g: 0, life: 0.25, size: r / 40, grow: 0.8}); const s = fx.parts[fx.parts.length - 1].s; s.tint = color; };
+
+  function activatePower(f) {
+    const b = f.body, p = b.position, name = f.q.name;
+    if (name === 'mako') { // 💥 Bola de pelos: explota
+      fx.fireball(p.x, p.y, 170); fx.ring(p.x, p.y, 300, 0xFFF1C8);
+      fx.burst('fur', p.x, p.y, 26, 900, {up: 120, size: 1.4, life: 1.4, drag: 1.5});
+      fx.smoke(p.x, p.y, 120, 16);
+      blast(p.x, p.y, 280, 26, 34, {can: 1.6});
+      cam.shake(34, 0.5); SFX.boom();
+      f.exploded = true; f.sprite.visible = false; Composite.remove(engine.world, b); f.still = 99;
+    } else if (name === 'omi') { // 🐡 Esponjado: se infla ~4×, empuja, se desinfla a los 2 s
+      f.inflate = {t: 0, k: 1}; SFX.inflate();
+    } else if (name === 'miu') { // ⚡ Clavado: loop de 270° hacia arriba y picada vertical
+      const a0 = Math.atan2(b.velocity.y, b.velocity.x);
+      f.loop = {t: 0, a0, a1: -1.5 * Math.PI, dur: 0.55, v: 1150}; SFX.swoosh();
+    }
+  }
+  function updatePower(f, dt) {
+    const b = f.body;
+    if (f.inflate) {
+      const I = f.inflate; I.t += dt;
+      const target = I.t < 0.15 ? 1 + 3 * (I.t / 0.15) : I.t < 2.15 ? 4 : Math.max(1, 4 - 3 * (I.t - 2.15) / 0.35);
+      if (Math.abs(target - I.k) > 0.01) { Body.scale(b, target / I.k, target / I.k); I.k = target; }
+      if (!I.pushed && I.t >= 0.15) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.2}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
+      if (!I.deflated && I.t > 2.15) { I.deflated = true; SFX.deflate(); }
+      if (I.t > 2.6) f.inflate = null;
+      f.sprite.scale.set(0.5 * I.k * (1 + Math.sin(I.t * 30) * 0.02 * (I.k > 3.9 ? 1 : 0)));
+    }
+    if (f.loop) {
+      const L = f.loop; L.t += dt; const u = Math.min(1, L.t / L.dur);
+      const a = L.a0 + (L.a1 - L.a0) * u; // gira "hacia arriba" (ángulo decreciente) hasta apuntar abajo
+      Body.setVelocity(b, {x: Math.cos(a) * L.v / 1000 * V_UNIT, y: Math.sin(a) * L.v / 1000 * V_UNIT});
+      f.sprite.rotation = a + Math.PI / 2;
+      if (u >= 1) { f.loop = null; f.dive = true; Body.setVelocity(b, {x: 0, y: 2700 / 1000 * V_UNIT}); }
+    }
+    if (f.dive && !f.hit) f.sprite.rotation = 0;
+  }
   // Ratones vivos: respiran, parpadean, se burlan (carcajada con saltitos) y se asustan si un gato pasa cerca
   let laughAll = 0;
   function animMouse(d, dt) {
@@ -228,7 +283,13 @@ async function main() {
   Matter.Events.on(engine, 'collisionStart', ev => {
     if (!flying || flying.hit) return;
     for (const pr of ev.pairs) if (pr.bodyA === flying.body || pr.bodyB === flying.body) {
-      flying.hit = true; cam.shake(Math.min(18, flying.body.speed * 0.6)); break;
+      flying.hit = true; flying.hitT = flying.t; cam.shake(Math.min(18, flying.body.speed * 0.6));
+      if (flying.dive) { // Miu: onda de choque + temblor de estructuras
+        const p = flying.body.position; flying.dive = false;
+        blast(p.x, p.y + CAT_R, 340, 15, 30, {can: 1.8}); dyn.forEach(o => { Sleeping.set(o.body, false); Body.setAngularVelocity(o.body, (Math.random() - 0.5) * 0.05); });
+        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 360, 0xCFEFFF, 0.45); cam.shake(30, 0.5); SFX.slam();
+      }
+      break;
     }
   });
 
@@ -245,30 +306,33 @@ async function main() {
     }
     if (flying) {
       const f = flying, b = f.body; f.t += dt;
+      updatePower(f, dt);
+      if (f.hit && !f.power && (f.q.name === 'mako' || f.q.name === 'omi') && f.t - f.hitT > 1) { f.power = true; activatePower(f); }
       f.sprite.position.set(b.position.x, b.position.y);
-      if (!f.hit) {
+      if (!f.hit && !f.loop) {
         // en el aire: inclinación hacia la velocidad y estirón según rapidez (squash & stretch)
         const va = Math.atan2(b.velocity.y, b.velocity.x), sp = Math.min(1, b.speed / 28);
         f.sprite.rotation = Math.max(-0.6, Math.min(0.6, va * 0.35)); // sin girar: la cara real se lee mejor
-        f.sprite.scale.set(0.5 * (1 + sp * 0.08), 0.5 * (1 - sp * 0.06));
+        if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08), 0.5 * (1 - sp * 0.06));
         // rastro de puntitos (uno grande cada 5)
         if (Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
           const d = new Sprite(dotTex); d.anchor.set(0.5); const big = ++f.dots % 5 === 0;
           d.scale.set(big ? 0.32 : 0.2); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
         }
       } else {
-        f.sprite.rotation = b.angle + 0; f.sprite.scale.x += (0.5 - f.sprite.scale.x) * 0.2; f.sprite.scale.y += (0.5 - f.sprite.scale.y) * 0.2;
+        f.sprite.rotation = b.angle; if (!f.inflate) { f.sprite.scale.x += (0.5 - f.sprite.scale.x) * 0.2; f.sprite.scale.y += (0.5 - f.sprite.scale.y) * 0.2; }
       }
       // fin de turno: todo quieto ~1 s (o 10 s máx, o fuera del nivel)
       const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4);
       f.still = (b.speed < 0.35 && !busy) ? f.still + dt : 0;
       const gone = b.position.x > BOUNDS.x1 + 300 || b.position.x < BOUNDS.x0 - 300;
-      if (f.still > 1 || f.t > 10 || gone) {
+      if (f.exploded) { const busy2 = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); f.still2 = busy2 ? 0 : (f.still2 || 0) + dt; }
+      if ((f.exploded ? f.still2 > 1 || f.t > 10 : (f.still > 1 && !f.inflate) || f.t > 10 || gone)) {
         // el gato se va con un "puf" (escala + fade) y la cámara regresa
         f.fade = (f.fade || 0) + dt;
         f.sprite.alpha = Math.max(0, 1 - f.fade / 0.3); f.sprite.scale.set(0.5 * (1 + f.fade));
         if (f.fade > 0.3) {
-          Composite.remove(engine.world, b); f.sprite.destroy(); flying = null;
+          if (!f.exploded) Composite.remove(engine.world, b); f.sprite.destroy(); flying = null;
           cam.release(); state = 'between'; turnWait = 0.9; laughAll = 1.3;
         }
       }
@@ -309,7 +373,7 @@ async function main() {
         if (cam.mode === 'user') cam.mode = 'rest';
         return;
       }
-      if (state === 'flying' && flying && !flying.hit && !flying.power) { flying.power = true; /* tarea 6: activar poder */ return; }
+      if (state === 'flying' && flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); return; }
     }
     if (ptrs.size === 2) {
       if (aimPtr != null) return; // mientras apunta no hay pinch
@@ -384,6 +448,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, engine, sling, launch, toScreen, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, engine, sling, launch, toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
