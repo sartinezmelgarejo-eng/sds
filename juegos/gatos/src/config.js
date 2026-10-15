@@ -12,7 +12,7 @@ export const STEP_MS = 1000 / 120;    // substeps fijos
 export const V_UNIT = 1000 / 60;      // Matter guarda la velocidad en u por 16.67 ms
 
 export const CAT_R = 56;              // radio del gato (~4% del alto en la vista completa)
-export const SLING = {x: 520, h: 270}; // resortera: base en (x, GROUND), alto h
+export const SLING = {x: 640, h: 320}; // resortera: base en (x, GROUND), alto h
 
 export const CATS = {
   omi:  {img: 'assets/cats/omi.png',  flyImg: 'assets/cats/omi-up.png', fur: ['#FFFFFF', '#D8CFC2', '#6B5844']},
