@@ -709,7 +709,7 @@ async function main() {
   // ---------- construir / reiniciar un nivel (sin recargar la página) ----------
   let fortX = 0;
   function buildLevel(id, fly) {
-    levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair');
+    levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair'); SFX.musicTheme(level.world || 1);
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     dyn.length = 0; queue.length = 0;

@@ -100,15 +100,47 @@ function marimba(t, f, peak, out) {
   env(g, t, 0.004, peak, 0.35); env(g2, t, 0.002, peak * 0.35, 0.05);
   o.connect(g); o2.connect(g2); g.connect(out); g2.connect(out); o.start(t); o2.start(t); o.stop(t + 0.45); o2.stop(t + 0.1);
 }
+// cada mundo su música (como AB2): 1 Cocina = marimba juguetona · 2 Jardín = silbidito alegre más rápido ·
+// 3 Guarida = menor, sigilosa, con bajo pizzicato caminando (tipo "ladrones de caricatura")
+const THEMES = {
+  1: {bpm: BPM, ch: CH, mel: MEL, lead: 'marimba', walk: false},
+  2: {bpm: 120, lead: 'whistle', walk: false,
+      ch: [[0, 4, 7], [-7, -3, 0], [-5, -1, 2], [0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2], [-5, 2, 5]],
+      mel: [16, null, 19, null, 21, 19, 16, null, 14, 16, null, 12, null, null, 9, null,
+            11, null, 14, 16, 14, null, 11, null, 7, null, 9, 11, null, null, null, null,
+            16, null, 19, null, 24, null, 21, 19, 16, null, 19, 21, null, 19, 16, null,
+            12, 14, null, 16, 14, null, 11, null, 12, null, null, null, 7, null, null, null]},
+  3: {bpm: 92, lead: 'pluck', walk: true,
+      ch: [[-3, 0, 4], [-3, 0, 4], [-7, -3, 0], [-8, -4, -1], [-3, 0, 4], [-10, -7, -3], [-8, -4, -1], [-8, -4, -1]],
+      mel: [9, null, null, 12, null, 11, 9, null, 8, null, 9, null, null, null, null, null,
+            12, null, null, 16, null, 15, 12, null, 11, null, 8, null, null, null, null, null,
+            9, null, 12, null, 16, null, 17, 16, 15, null, 16, null, 12, null, null, null,
+            14, null, 12, 11, 9, null, 8, null, 4, null, 8, null, 9, null, null, null]},
+};
+function whistle(t, f, peak, out) { // silbido: seno con vibrato y ataque suave
+  const o = ctx.createOscillator(), l = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = f * 2; l.frequency.value = 6; lg.gain.value = f * 0.012; l.connect(lg); lg.connect(o.frequency);
+  env(g, t, 0.03, peak * 0.45, 0.32); o.connect(g); g.connect(out); o.start(t); l.start(t); o.stop(t + 0.4); l.stop(t + 0.4);
+}
+function pluck(t, f, peak, out) { // pizzicato: triángulo corto con un filtro que se cierra
+  const o = ctx.createOscillator(), fl = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = 'sawtooth'; o.frequency.value = f; fl.type = 'lowpass'; fl.frequency.setValueAtTime(f * 6, t); fl.frequency.exponentialRampToValueAtTime(f * 1.2, t + 0.15);
+  env(g, t, 0.004, peak * 0.4, 0.18); o.connect(fl); fl.connect(g); g.connect(out); o.start(t); o.stop(t + 0.25);
+}
+const LEAD = {marimba, whistle, pluck};
+let theme = THEMES[1], themeNext = null;
+export function musicTheme(w) { const th = THEMES[w] || THEMES[1]; if (th !== theme) themeNext = th; }
 function tick() {
   if (!mus || !ctx) return;
   while (mus.next < ctx.currentTime + 0.4) {
-    const t = mus.next, i = mus.i % 64, bar = Math.floor(i / 8), ch = CH[bar];
-    if (MEL[i] != null) marimba(t, N(MEL[i]), 0.5, mus.out);
-    if (i % 8 === 0 || i % 8 === 5) tone2(t, N(ch[0] - 12), 0.35, 0.5, mus.out);       // bajo
-    if (i % 2 === 1) marimba(t, N(ch[(i >> 1) % 3]), 0.16, mus.out);                       // arpegio suave
+    if (themeNext && mus.i % 8 === 0) { theme = themeNext; themeNext = null; mus.i = 0; } // cambia al empezar compás
+    const th = theme, t = mus.next, i = mus.i % 64, bar = Math.floor(i / 8), ch = th.ch[bar], step = 60 / th.bpm / 2;
+    if (th.mel[i] != null) LEAD[th.lead](t, N(th.mel[i]), 0.5, mus.out);
+    if (th.walk) { if (i % 2 === 0) pluck(t, N(ch[(i >> 1) % 3] - 24), 0.6, mus.out); }    // bajo que camina (negras)
+    else if (i % 8 === 0 || i % 8 === 5) tone2(t, N(ch[0] - 12), 0.35, 0.5, mus.out);   // bajo
+    if (i % 2 === 1) (th.walk ? pluck : marimba)(t, N(ch[(i >> 1) % 3]), th.walk ? 0.12 : 0.16, mus.out); // arpegio suave
     if (i % 4 === 2) noiseTo(t, mus.out);                                                  // shaker
-    mus.next += STEP * (i % 2 ? 0.9 : 1.1); mus.i++;                                       // swing ligero
+    mus.next += step * (th.walk ? 1 : i % 2 ? 0.9 : 1.1); mus.i++;                          // swing ligero (no en la Guarida)
   }
 }
 function tone2(t, f, peak, dec, out) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f; env(g, t, 0.01, peak, dec); o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.05); }
