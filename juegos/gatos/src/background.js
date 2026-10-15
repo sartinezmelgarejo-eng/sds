@@ -60,15 +60,19 @@ function cabinets(ctx, x, y, n, w, h) {
   ctx.fillStyle = lin(ctx, 0, y + h, 0, y + h + 60, [[0, 'rgba(60,40,70,0.22)'], [1, 'rgba(60,40,70,0)']]); ctx.fillRect(x - 20, y + h, n * (w + 20) + 20, 60);
 }
 
-function shelf(ctx, x, y, w, seed) {
-  const r = rng(seed); const cols = ['#E9A23B', '#5FA8D3', '#D9534F', '#F4F1EA', '#8CC084', '#C98BD8'];
+// frascos de especias de una repisa (misma secuencia aleatoria de siempre) -> [{x, y, w, h, col}]
+function shelfJars(x, y, w, seed) {
+  const r = rng(seed), cols = ['#E9A23B', '#5FA8D3', '#D9534F', '#F4F1EA', '#8CC084', '#C98BD8'], out = [];
   let cx = x + 30;
-  while (cx < x + w - 110) {
-    const jw = 70 + r() * 50, jh = 80 + r() * 90, col = cols[Math.floor(r() * cols.length)];
-    rr(ctx, cx, y - jh, jw, jh, 16); ctx.fillStyle = lin(ctx, cx, 0, cx + jw, 0, [[0, shade(col, 30)], [1, shade(col, -40)]]); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.35)'; rr(ctx, cx + jw * 0.15, y - jh + 10, jw * 0.18, jh - 20, 6); ctx.fill();
-    cx += jw + 18 + r() * 30;
-  }
+  while (cx < x + w - 110) { const jw = 70 + r() * 50, jh = 80 + r() * 90, col = cols[Math.floor(r() * cols.length)]; out.push({x: cx, y, w: jw, h: jh, col}); cx += jw + 18 + r() * 30; }
+  return out;
+}
+function paintJar(ctx, j) {
+  rr(ctx, j.x, j.y - j.h, j.w, j.h, 16); ctx.fillStyle = lin(ctx, j.x, 0, j.x + j.w, 0, [[0, shade(j.col, 30)], [1, shade(j.col, -40)]]); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; rr(ctx, j.x + j.w * 0.15, j.y - j.h + 10, j.w * 0.18, j.h - 20, 6); ctx.fill();
+}
+// la repisa en sí (los frascos van aparte en jarLayer para que brinquen con los estruendos)
+function shelf(ctx, x, y, w) {
   rr(ctx, x, y, w, 30, 9); ctx.fillStyle = lin(ctx, 0, y, 0, y + 30, [[0, '#C98A4B'], [1, '#8E5524']]); ctx.fill();
   ctx.fillStyle = lin(ctx, 0, y + 30, 0, y + 80, [[0, 'rgba(60,40,70,0.22)'], [1, 'rgba(60,40,70,0)']]); ctx.fillRect(x, y + 30, w, 50);
 }
@@ -83,14 +87,37 @@ function wallLayer() {
     ctx.restore();
     // moldura del techo
     ctx.fillStyle = lin(ctx, 0, y0, 0, y0 + 90, [[0, '#FFFFFF'], [1, '#D8C8AA']]); ctx.fillRect(x0, y0, w, 80); ctx.fillStyle = 'rgba(90,60,30,0.35)'; ctx.fillRect(x0, y0 + 80, w, 6);
-    shelf(ctx, -150, 1050, 900, 3);
+    shelf(ctx, -150, 1050, 900);
     windowAt(ctx, 900, 250, 1000, 780, 5);
     cabinets(ctx, 2350, 80, 4, 360, 760);
-    shelf(ctx, 2400, 1200, 1300, 9);
+    shelf(ctx, 2400, 1200, 1300);
     ctx.fillStyle = 'rgba(255,240,215,0.2)'; ctx.fillRect(x0, y0, w, h); // velo atmosférico
   });
 }
 
+// Frascos de especias sobre las repisas de la pared (f 0.35): con un estruendo brincan, se ladean y castañetean
+// (cada uno con su retraso y fuerza), como la utilería del fondo de AB2.
+const SHELVES = [[-150, 1050, 900, 3], [2400, 1200, 1300, 9]];
+function jarLayer() {
+  const c = new Container(), items = [];
+  for (const [x, y, w, seed] of SHELVES) for (const j of shelfJars(x, y, w, seed)) {
+    const e = document.createElement('canvas'); e.width = Math.ceil(j.w + 8); e.height = Math.ceil(j.h + 8); const k = e.getContext('2d');
+    k.translate(4 - j.x, 4 - (j.y - j.h)); paintJar(k, j);
+    k.globalCompositeOperation = 'source-atop'; k.fillStyle = 'rgba(255,240,215,0.2)'; k.fillRect(j.x - 4, j.y - j.h - 4, j.w + 8, j.h + 8); // mismo velo que la pared
+    const sp = new Sprite(Texture.from(e)); sp.anchor.set(0.5, (j.h + 4) / (j.h + 8)); sp.position.set(j.x + j.w / 2, j.y); c.addChild(sp);
+    items.push({s: sp, x: j.x + j.w / 2, y: j.y, dy: 0, vy: 0, r: 0, vr: 0, t: 0, w: j.w});
+  }
+  c.jolt = (k = 1) => items.forEach(o => { o.t = -Math.random() * 0.18; o.kick = k * (0.5 + Math.random() * 0.7); });
+  c.update = dt => items.forEach(o => {
+    if (o.kick) { o.t += dt; if (o.t >= 0) { o.vy = -o.kick * (160 + Math.random() * 120); o.vr += (Math.random() - 0.5) * 3.2 * o.kick; o.kick = 0; } }
+    if (o.dy < 0 || o.vy < 0) { o.vy += 1500 * dt; o.dy += o.vy * dt; if (o.dy >= 0) { o.dy = 0; o.vy = o.vy > 90 ? -o.vy * 0.3 : 0; o.vr *= 0.6; } }
+    if (Math.abs(o.r) > 0.001 || Math.abs(o.vr) > 0.001) { o.vr += -o.r * (o.dy < 0 ? 4 : 70) * dt; o.vr *= Math.exp(-dt * 5); o.r += o.vr * dt; o.r = Math.max(-0.35, Math.min(0.35, o.r)); }
+    // ladeado: gira sobre la esquina de abajo que queda apoyada
+    const piv = o.dy < 0 ? 0 : Math.sign(o.r) * o.w / 2;
+    o.s.rotation = o.r; o.s.position.set(o.x + piv - piv * Math.cos(o.r), o.y + o.dy - Math.abs(piv * Math.sin(o.r)));
+  });
+  return c;
+}
 // Riel con utensilios colgados (cucharón, espátula, batidor) entre la ventana y las alacenas; se mecen apenas y se
 // columpian con los estruendos (y tintinean). Misma capa que la pared (f 0.35).
 function utensilLayer() {
@@ -612,14 +639,15 @@ export function buildBackground(theme = 'kitchen') {
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
     return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); }, birds};
   }
-  const motes = motesLayer(), tools = utensilLayer();
+  const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer();
   const layers = [
     {node: wallLayer(), f: 0.35},
+    {node: jars, f: 0.35},
     {node: tools, f: 0.35},
     {node: motes, f: 0.35},
     {node: tileLayer(), f: 0.75},
     {node: counterLayer(), f: 1},
   ];
   const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); }, jolt: k => tools.jolt(k)};
+  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); jars.update(dt); }, jolt: k => { tools.jolt(k); jars.jolt(k); }};
 }
