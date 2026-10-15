@@ -139,6 +139,8 @@ async function main() {
     if (d.mat === 'mouse') {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
       if (!dyn.some(o => o.mat === 'mouse')) slow = 1.1; // cámara lenta breve en el último ratón
+      // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
+      queue.forEach((q, i) => { if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
