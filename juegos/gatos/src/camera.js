@@ -34,14 +34,15 @@ export class Camera {
   snapRest() { const r = this.restView(); [this.x, this.y, this.zoom] = this.clampView(r.x, r.y, r.z); this.tx = this.x; this.ty = this.y; this.tz = this.zoom; this.mode = 'rest'; }
 
   // Sobrevuelo inicial: empieza cerca de la fortaleza, recorre hasta la resortera y abre a la vista completa.
-  flyover(fortX, slingX, done) {
+  // hold = segundos extra mirando la fortaleza (el jefe hace su entrada)
+  flyover(fortX, slingX, done, hold = 0) {
     const r = this.restView(), zc = this.fitZoom * 2.0;
     this.mode = 'flyover';
     this.keys = [
       {t: 0, x: fortX, y: GROUND - this.sh / zc * 0.36, z: zc},
-      {t: 1.4, x: fortX, y: GROUND - this.sh / zc * 0.36, z: zc},       // mirar a los ratones
-      {t: 3.6, x: slingX + 600, y: GROUND - this.sh / zc * 0.36, z: zc}, // recorrer hacia la resortera
-      {t: 5.0, x: r.x, y: r.y, z: r.z},                                   // abrir al nivel completo
+      {t: 1.4 + hold, x: fortX, y: GROUND - this.sh / zc * 0.36, z: zc},       // mirar a los ratones
+      {t: 3.6 + hold, x: slingX + 600, y: GROUND - this.sh / zc * 0.36, z: zc}, // recorrer hacia la resortera
+      {t: 5.0 + hold, x: r.x, y: r.y, z: r.z},                                   // abrir al nivel completo
     ];
     this.flyT = 0; this.flyDone = done;
     [this.x, this.y, this.zoom] = this.clampView(this.keys[0].x, this.keys[0].y, this.keys[0].z);

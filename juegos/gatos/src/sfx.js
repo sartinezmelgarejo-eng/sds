@@ -185,3 +185,6 @@ export function drip(v = 0.5) { if (!ok('drip', 0.25)) return; const t = ctx.cur
   tone(t, f, 'sine', 0.12 * v, 0.09, f * 2.1); tone(t + 0.11, f * 1.05, 'sine', 0.035 * v, 0.07, f * 2); noise(t, 0.03, 'bandpass', 2600, 4, 0.03 * v, 0.03); }
 export function buzz(v = 0.5) { if (!ok('buzz', 0.2)) return; const t = ctx.currentTime;
   tone(t, 120, 'sawtooth', 0.05 * v, 0.09); tone(t, 240, 'square', 0.02 * v, 0.07); noise(t, 0.05, 'highpass', 4000, 1, 0.04 * v, 0.04); }
+// entrada del jefe: "tan-tan-TAAAN" de villano (metales graves en menor, el último con vibrato hacia abajo)
+export function villain() { if (!ctx) return; const t = ctx.currentTime;
+  [[0, 196, 0.16], [0.2, 185, 0.16], [0.42, 147, 0.9]].forEach(([dt, f, d]) => { tone(t + dt, f, 'sawtooth', 0.12, d, dt > 0.4 ? f * 0.94 : 0); tone(t + dt, f / 2, 'square', 0.07, d); tone(t + dt, f * 1.19, 'sawtooth', 0.06, d); }); }

@@ -233,12 +233,50 @@ async function main() {
       extraTxt.rotation = Math.sin(u * 5) * 0.04; extraTxt.alpha = 1 - uout;
       if (u > 1.85) { m.extraT = -1; extraTxt.visible = false; } }
   }
+  // ---------- estrellas del HUD (AB2): bajo los puntos, se encienden en orden al cruzar los umbrales del nivel ----------
+  // encendidas = (puntos ≥ 2★) + (puntos ≥ 3★) + (ganó) → la 1ª se prende con el primer umbral o al caer el último ratón
+  const SR = 30, starOffT = canvasTex(80, 80, k => ART.star(k, 40, 42, SR, false), 2), starOnT = canvasTex(80, 80, k => ART.star(k, 40, 42, SR, true), 2);
+  const sparkT = canvasTex(32, 32, k => { k.fillStyle = '#FFF6C0'; k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 4 : 15; k.lineTo(16 + Math.cos(a) * r, 16 + Math.sin(a) * r); } k.fill(); });
+  const hudStars = new Container(); hud.addChild(hudStars);
+  const hStar = [0, 1, 2].map(i => { const off = new Sprite(starOffT), on = new Sprite(starOnT); for (const o of [off, on]) { o.anchor.set(0.5, 0.525); o.scale.set(0.5); o.x = (i - 2) * 66 - 30; hudStars.addChild(o); }
+    on.visible = false; return {off, on, t: -1}; });
+  const hudSparks = []; let starsLit = 0;
+  function resetHudStars() { starsLit = 0; for (const s of hStar) { s.on.visible = false; s.t = -1; } for (const p of hudSparks) p.destroy(); hudSparks.length = 0; }
+  function updateHudStars(rdt) {
+    const st = level?.stars || [0, 1e9, 1e9], want = Math.min(3, (shownScore >= st[1]) + (shownScore >= st[2]) + (state === 'win'));
+    if (want > starsLit && hStar[starsLit].t < 0) { const s = hStar[starsLit]; s.on.visible = true; s.t = 0; SFX.star(starsLit);
+      for (let j = 0; j < 9; j++) { const p = new Sprite(sparkT), a = j / 9 * Math.PI * 2 + Math.random() * 0.4, v = 160 + Math.random() * 140; p.anchor.set(0.5); p.position.set(s.on.x, 0);
+        p.vx = Math.cos(a) * v; p.vy = Math.sin(a) * v - 60; p.life = 0.5 + Math.random() * 0.2; p.t = 0; hudStars.addChild(p); hudSparks.push(p); }
+      starsLit++; }
+    for (const s of hStar) if (s.t >= 0) { s.t += rdt; const u = Math.min(1, s.t / 0.45);
+      s.on.scale.set(0.5 * (u < 1 ? Math.max(0.05, backOutE(u, 2.6)) : 1) * (1 + Math.max(0, 0.6 - s.t) * 0.5)); s.on.rotation = (1 - u) * -0.9; if (u >= 1 && s.t > 0.6) s.t = -2; }
+    for (let i = hudSparks.length - 1; i >= 0; i--) { const p = hudSparks[i]; p.t += rdt; p.x += p.vx * rdt; p.y += p.vy * rdt; p.vy += 300 * rdt; p.vx *= 0.96;
+      p.rotation += rdt * 6; p.alpha = Math.max(0, 1 - p.t / p.life); p.scale.set(0.6 + p.alpha * 0.6); if (p.t >= p.life) { p.destroy(); hudSparks.splice(i, 1); } }
+  }
   const backOutE = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
   const PTS_COL = {robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
   // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
+  // entrada del jefe (durante el sobrevuelo): la aspiradora con la Rata Jefa cae del techo, azota, rebota y la Jefa se burla
+  const ENTER_DROP = 1500, ENTER_T0 = 0.35, ENTER_FALL = 0.62;
+  function enterRobot(d, dt) {
+    const e = d.enter, r = dyn.find(o => o.ride && !o.dead); e.t += dt;
+    const skip = state !== 'intro'; // si saltan el sobrevuelo, llega de inmediato
+    let u = skip ? 1 : Math.max(0, (e.t - ENTER_T0) / ENTER_FALL), y;
+    if (u < 1) y = e.y - ENTER_DROP * (1 - u * u);       // caída acelerada
+    else { const k = Math.min(1, (e.t - ENTER_T0 - ENTER_FALL) / 0.45); y = e.y - (skip ? 0 : Math.sin(k * Math.PI) * 70 * (1 - k)); // rebotito
+      if (!e.landed) { e.landed = true; if (!skip) { cam.shake(26, 0.5); SFX.slam(); SFX.boom(); fx.smoke(d.body.position.x, GROUND - 10, d.w * 0.28, 8);
+        fx.burst('smoke', d.body.position.x, GROUND - 20, 14, 900, {dir: Math.PI, spread: 0.35, up: 40, g: -40, drag: 3, life: 1.0, size: 1.2, grow: 1.5});
+        fx.burst('smoke', d.body.position.x, GROUND - 20, 14, 900, {dir: 0, spread: 0.35, up: 40, g: -40, drag: 3, life: 1.0, size: 1.2, grow: 1.5}); }
+        if (r) { r.laugh = 1.8; setTimeout(() => { SFX.villain(); SFX.giggle(); }, skip ? 0 : 280); } }
+      if (k >= 1 || skip) { d.enter = null; if (r) r.enter = null; Body.setPosition(d.body, {x: d.body.position.x, y: e.y}); Body.setVelocity(d.body, {x: 0, y: 0}); return; } }
+    Body.setPosition(d.body, {x: d.body.position.x, y}); Body.setVelocity(d.body, {x: 0, y: 0}); Body.setAngle(d.body, u < 1 ? Math.sin(e.t * 9) * 0.05 * u : 0);
+    if (r) { Body.setPosition(r.body, {x: r.body.position.x, y: y + e.ry}); Body.setVelocity(r.body, {x: 0, y: 0}); if (u < 1) r.hurt = 0.3; }
+    d.bar.alpha = u >= 1 ? 1 : 0;
+  }
   function driveRobot(d, dt) {
+    if (d.enter) { enterRobot(d, dt); return; }
     const b = d.body, p = b.position, hp = d.life / d.max;
     if (d.stun > 0) { d.stun -= dt;
       // la Rata Jefa se recupera del susto y se burla ("¡ni me hiciste nada!")
@@ -271,6 +309,7 @@ async function main() {
       .roundRect(x, y, Math.max(H, W * k), H, 9).fill({color: k > 0.5 ? 0x6BE04A : k > 0.25 ? 0xFFC83A : 0xFF4A3A}).roundRect(x + 6, y + 4, Math.max(8, W * k - 12), 6, 3).fill({color: 0xFFFFFF, alpha: 0.4});
   }
   function damage(d, amount, k) {
+    if (d.enter) return; // el jefe es invulnerable mientras hace su entrada
     if (d.patrol && amount > 2 && !d.dead) {
       // golpe a la aspiradora: se frena en seco y la Rata Jefa se espanta y grita
       d.stun = 0.8; const r = dyn.find(o => o.ride); if (r && !r.dead) { r.hurt = 0.5; r.laugh = 0; SFX.squeak(); }
@@ -668,7 +707,7 @@ async function main() {
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name);
-    score = shownScore = 0; resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
+    score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -683,13 +722,15 @@ async function main() {
       // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
       if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
         const bar = new Graphics(); front.addChild(bar);
-        Object.assign(dyn[dyn.length - 1], {patrol: b.patrol, speed: b.speed || 160, dir: 1, vx: 0, stun: 0, bar, dust: 0}); }
+        Object.assign(dyn[dyn.length - 1], {patrol: b.patrol, speed: b.speed || 160, dir: 1, vx: 0, stun: 0, bar, dust: 0});
+        if (fly) { dyn[dyn.length - 1].enter = {t: 0, y: cy, ry: 0}; bar.alpha = 0; Body.setPosition(body, {x: b.x, y: cy - ENTER_DROP}); } }
     });
     level.mice.forEach(m => {
       const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
       Sleeping.set(body, true);
       // la Rata Jefa va montada en la aspiradora: despierta, sin rodar (se desliza con la fricción)
-      if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1; }
+      if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1;
+        const rb = dyn.find(o => o.enter); if (rb) { rb.enter.ry = body.position.y - rb.enter.y; Body.setPosition(body, {x: m.x, y: body.position.y - ENTER_DROP}); } }
       // ojos normal/susto sin pupilas: las pupilas van aparte y siguen al gato (como los cerdos de AB2)
       const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e, e === 'normal' || e === 'scared')]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
@@ -697,7 +738,7 @@ async function main() {
       for (const sx of [-0.33, 0.33]) { pup.normal.circle(sx * R, 0, R * 0.1).fill(0x1B1D2A).circle(sx * R - R * 0.03, -R * 0.05, R * 0.035).fill(0xFFFFFF); pup.scared.circle(sx * R, 0, R * 0.065).fill(0x1B1D2A); }
       sp.addChild(pup.normal, pup.scared);
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
     });
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
@@ -709,7 +750,7 @@ async function main() {
     fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
     cam.snapRest();
     ui.hideBanner();
-    if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } });
+    if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } }, dyn.some(d => d.enter) ? 1.3 : 0);
       const w = level.world || 1; ui.banner(level.name, `MUNDO ${w} · ${WORLDS[w - 1].name}`); }
     else { state = 'between'; turnWait = 0.35; }
   }
@@ -770,8 +811,8 @@ async function main() {
     scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
     { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
       scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62);
-      meter.position.set(app.screen.width / hs - 40, 222); }
-    updateMeter(rdt);
+      hudStars.position.set(app.screen.width / hs - 40, 172); meter.position.set(app.screen.width / hs - 40, 268); }
+    updateMeter(rdt); updateHudStars(rdt);
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
@@ -790,6 +831,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), hitRobot: (d, a) => damage(d, a), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
