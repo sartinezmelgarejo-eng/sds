@@ -277,6 +277,7 @@ async function main() {
   }
   // globo de diálogo de cómic sobre un ratón (cae con rebote, sigue al ratón y se desvanece)
   const bubbles = [];
+  const sayT = {};
   function say(d, text, dur, sc = 1) {
     const c = new Container(), t = new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: 64, fill: '#2B2F45', align: 'center', lineHeight: 64}}); t.anchor.set(0.5, 0.42);
     const w = t.width + 80, h = t.height + 56, g = new Graphics();
@@ -347,6 +348,10 @@ async function main() {
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
     if (d.mat === 'mouse') {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
+      // un vecino que sobrevive se lamenta (de vez en cuando, con pausa entre globos para no saturar)
+      if (time - (sayT.mourn || -9) > 3 && Math.random() < 0.45) { const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && !bubbles.some(b => b.d === o) && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 800);
+        if (nb.length) { sayT.mourn = time; const o = nb[Math.floor(Math.random() * nb.length)]; o.hurt = 0.35;
+          setTimeout(() => { if (!o.dead && dyn.includes(o)) say(o, ['¡NOOO!', '¡PACO!\n¡NOOO!', '¡SE LLEVARON\nA BETO!', '¡RETIRADA!'][Math.floor(Math.random() * 4)], 1.3, 0.72); }, 250); } }
       if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; // cámara lenta breve en el último ratón
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
       queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.8); if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
