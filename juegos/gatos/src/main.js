@@ -716,6 +716,8 @@ async function main() {
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
     if (dz > 0) d.sprite.rotation += Math.sin(time * 6.5) * 0.12 * dz; // bamboleo
+    if (d.jig) { const j = d.jig; j.t += dt; const w = j.a * Math.exp(-j.t * 7) * Math.cos(j.t * 30), sx = j.vert ? 1 : -1; // gelatina
+      d.sprite.scale.x *= 1 + w * sx; d.sprite.scale.y *= 1 - w * sx; if (j.vert) d.sprite.y += w * d.h * 0.3; if (j.t > 0.7) d.jig = null; }
     if (slp > 0) { d.sprite.rotation += (Math.sin(time * 17) * 0.2 - d.slipDir * 0.12) * slp; d.sprite.scale.x *= 1 + 0.05 * Math.sin(time * 34) * slp; } // resbalón: se echa para atrás y manotea
     if (shk > 0) { d.sprite.rotation += Math.sin(time * 50) * 0.22 * shk; d.sprite.scale.x *= 1 + 0.07 * Math.sin(time * 50 + 1.3) * shk; } // sacudida de perrito
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
@@ -903,6 +905,9 @@ async function main() {
         let mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
         if (d.mat === 'tnt') mf = Math.max(1, mf);   // cuetes como la TNT de AB2: una tabla que les cae encima basta para encenderlos
         damage(d, Math.max(0, closing - (d.mat === 'mouse' ? 0.6 : d.mat === 'tnt' ? 0.5 : 1.2)) * mf * FRAGILE[d.mat], closing); // los ratones resienten hasta los golpes chicos
+        // AB2: el ratón "gelatinea" con el golpe (se aplasta en el eje del impacto y rebota amortiguado)
+        if (d.mat === 'mouse' && !d.dead && closing > 1.5) { const la = Math.atan2(n.y, n.x) - me.angle;
+          const a = Math.min(0.3, 0.06 + closing * 0.025); if (!d.jig || d.jig.t > 0.15 || a > d.jig.a) d.jig = {t: 0, a, vert: Math.abs(Math.sin(la)) > 0.6}; }
       }
     }
   });
