@@ -154,6 +154,7 @@ async function main() {
   const trail = new Container(); behind.addChild(trail);
   const fx = new FX(front);
   const dizzyC = new Container(); front.addChild(dizzyC); // estrellitas de mareo
+  const mDizzyC = new Container(); front.addChild(mDizzyC); // estrellitas de los ratones mareados
   // tutorial (como AB2): en el primer nivel, si nunca lo ha ganado, una manita enseña a jalar la resortera hacia atrás
   const handTex = canvasTex(120, 150, k => {
     k.lineJoin = 'round'; k.lineCap = 'round';
@@ -406,11 +407,12 @@ async function main() {
       const st = Math.min(3, Math.floor((1 - d.life / d.max) * 4)); // 4 estados de grieta
       if (st !== d.dmg) { d.dmg = st; d.sprite.texture = d.texs[st]; }
     }
-    if (d.mat === 'mouse' && d.life > 0) d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto)
+    if (d.mat === 'mouse' && d.life > 0) { d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto)
+      if (amount >= d.max * 0.25 && !d.ride) d.dizzyT = 2 + Math.random() * 0.5; } // golpazo que aguantó: queda mareado (AB2)
     if (d.life <= 0) destroyDyn(d);
   }
   function destroyDyn(d) {
-    d.dead = true; const p = d.body.position;
+    d.dead = true; const p = d.body.position; if (d.dz) { d.dz.forEach(st => st.destroy()); d.dz = null; }
     Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy();
     dyn.splice(dyn.indexOf(d), 1);
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
@@ -624,8 +626,15 @@ async function main() {
         const n0 = fx.parts.length; fx.burst('smoke', p.x + mx * Math.cos(a) - my * Math.sin(a), p.y + mx * Math.sin(a) + my * Math.cos(a), 4, 260, {dir: Math.PI + a - 0.15, spread: 0.6, up: 30, g: -50, drag: 4, life: 0.9, size: 0.26 + d.w / 1000, grow: 1.6});
         for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0x3E3840; fx.parts[i].maxA = 0.8; fx.parts[i].s.alpha = 0; } }
       if (d.cough <= 0) d.coughPuff = 0; }
+    // mareado tras un golpazo (AB2): ojos cerrados, cabeza que se bambolea y 3 estrellitas girando sobre la cabeza
+    let dz = 0; if (d.dizzyT > 0) { d.dizzyT -= dt; dz = Math.min(1, d.dizzyT / 0.4);
+      if (!d.dz) d.dz = [0, 1, 2].map(() => { const st = new Sprite(dizzyTex); st.anchor.set(0.5); mDizzyC.addChild(st); return st; });
+      const p = d.body.position, R = d.w * 0.42; d.dz.forEach((st, i) => { const a = time * 5 + i * Math.PI * 2 / 3, z = Math.sin(a);
+        st.position.set(p.x + Math.cos(a) * R, p.y - d.h * 0.7 + z * R * 0.24); st.scale.set((0.3 + z * 0.07) * d.w / 110); st.alpha = (0.75 + z * 0.25) * dz; st.rotation = time * 4; });
+      if (d.dizzyT <= 0) { d.dz.forEach(st => st.destroy()); d.dz = null; } }
     if (flinch || cgh > 0.2) expr = 'flinch';
     else if (d.hurt > 0 || near || tumble || dg || (sh && sh.t > 0)) expr = 'scared';
+    else if (dz > 0) expr = 'blink';
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
       if (d.body.isSleeping) hop = Math.abs(Math.sin(t * 13)) * 9; // brinquitos de risa
@@ -667,6 +676,7 @@ async function main() {
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
+    if (dz > 0) d.sprite.rotation += Math.sin(time * 6.5) * 0.12 * dz; // bamboleo
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
   }
@@ -1072,7 +1082,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     dyn.length = 0; queue.length = 0; clearDeck();
-    for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
+    for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
