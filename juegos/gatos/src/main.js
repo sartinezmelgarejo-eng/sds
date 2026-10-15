@@ -35,9 +35,9 @@ function blockTex(t, w, h, seed, damage = 0) {
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
   }, 1.5));
 }
-function mouseTex(kind, r, expr = 'normal') {
+function mouseTex(kind, r, expr = 'normal', noPupils = false) {
   const S = r * 3.2;
-  return cached(`m|${kind}|${r}|${expr}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr}), 1.5));
+  return cached(`m|${kind}|${r}|${expr}|${noPupils}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr, noPupils}), 1.5));
 }
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes);
@@ -391,6 +391,19 @@ async function main() {
       if (time > d.blinkAt) { expr = 'blink'; if (time > d.blinkAt + 0.13) d.blinkAt = time + 1.5 + Math.random() * 3.5; }
     }
     const tx = d.mt[expr]; if (d.sprite.texture !== tx) d.sprite.texture = tx;
+    // pupilas: miran al gato en vuelo; si no, al gato de la resortera, con miradas de reojo de vez en cuando
+    d.pup.normal.visible = expr === 'normal'; d.pup.scared.visible = expr === 'scared';
+    if (expr === 'normal' || expr === 'scared') {
+      const mp = d.body.position; let tgt = fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
+      if (time > d.glanceAt) { d.glance = {x: Math.random() * 2 - 1, y: Math.random() * 1.4 - 0.9, until: time + 0.6 + Math.random() * 0.8}; d.glanceAt = time + 3 + Math.random() * 5; }
+      if (d.glance && time > d.glance.until) d.glance = null;
+      if (tgt && (fc || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
+        lx = (dx * Math.cos(a) - dy * Math.sin(a)) / L; ly = (dx * Math.sin(a) + dy * Math.cos(a)) / L; }
+      else if (d.glance) { lx = d.glance.x; ly = d.glance.y; }
+      const k = Math.min(1, dt * (fc ? 14 : 6)); d.look.x += (lx - d.look.x) * k; d.look.y += (ly - d.look.y) * k;
+      const R = d.w / 2 * 1.5, sc = expr === 'scared';
+      d.pup[expr].position.set(d.look.x * R * (sc ? 0.15 : 0.1), (sc ? -0.16 : -0.09) * R + d.look.y * R * (sc ? 0.2 : 0.13));
+    }
     const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5), B * (1 + br + sq));
     d.sprite.y -= hop + br * d.h * 0.25;
@@ -667,10 +680,14 @@ async function main() {
       Sleeping.set(body, true);
       // la Rata Jefa va montada en la aspiradora: despierta, sin rodar (se desliza con la fricción)
       if (m.ride) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, Infinity); body.friction = 1; }
-      const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e)]));
+      // ojos normal/susto sin pupilas: las pupilas van aparte y siguen al gato (como los cerdos de AB2)
+      const mt = Object.fromEntries(['normal', 'blink', 'scared', 'laugh'].map(e => [e, mouseTex(m.k, m.r, e, e === 'normal' || e === 'scared')]));
       const sp = new Sprite(mt.normal); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
+      const R = m.r * 1.5, pup = {normal: new Graphics(), scared: new Graphics()};
+      for (const sx of [-0.33, 0.33]) { pup.normal.circle(sx * R, 0, R * 0.1).fill(0x1B1D2A).circle(sx * R - R * 0.03, -R * 0.05, R * 0.035).fill(0xFFFFFF); pup.scared.circle(sx * R, 0, R * 0.065).fill(0x1B1D2A); }
+      sp.addChild(pup.normal, pup.scared);
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride});
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
     });
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);

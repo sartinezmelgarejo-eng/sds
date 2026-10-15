@@ -330,7 +330,7 @@ const ART = (() => {
   // ---------- RATONES ----------
   // kind: 'small' | 'thimble' | 'boss'
   function mouse(ctx, cx, cy, r, kind = 'small', opt = {}) {
-    const {look = 1, grin = true, expr = 'normal'} = opt; // expr: normal | blink | scared | laugh
+    const {look = 1, grin = true, expr = 'normal', noPupils = false} = opt; // expr: normal | blink | scared | laugh
     ctx.save(); ctx.translate(cx, cy);
     const outline = '#2B2F45';
     // cola
@@ -355,11 +355,12 @@ const ART = (() => {
     else if (expr === 'laugh') [-0.33, 0.33].forEach(s => closedEye(s, true));
     else if (expr === 'scared') [-0.33, 0.33].forEach(s => {
       ctx.beginPath(); ctx.ellipse(s * r, -r * 0.16, r * 0.26, r * 0.33, 0, 0, TAU); ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = r * 0.04; ctx.strokeStyle = outline; ctx.stroke();
-      ctx.beginPath(); ctx.arc(s * r + look * r * 0.05 - r * 0.04, -r * 0.14, r * 0.06, 0, TAU); ctx.fillStyle = '#1B1D2A'; ctx.fill();
+      if (!noPupils) { ctx.beginPath(); ctx.arc(s * r + look * r * 0.05 - r * 0.04, -r * 0.14, r * 0.06, 0, TAU); ctx.fillStyle = '#1B1D2A'; ctx.fill(); }
     });
     else [[-0.33], [0.33]].forEach(([s]) => {
       ctx.beginPath(); ctx.ellipse(s * r, -r * 0.12, r * 0.22, r * 0.27, 0, 0, TAU); ctx.fillStyle = '#FFFFFF'; ctx.fill();
       ctx.lineWidth = r * 0.04; ctx.strokeStyle = outline; ctx.stroke();
+      if (noPupils) return;
       ctx.beginPath(); ctx.arc(s * r + look * r * 0.08 - r * 0.06, -r * 0.08, r * 0.1, 0, TAU); ctx.fillStyle = '#1B1D2A'; ctx.fill();
       ctx.beginPath(); ctx.arc(s * r + look * r * 0.08 - r * 0.09, -r * 0.13, r * 0.035, 0, TAU); ctx.fillStyle = '#FFF'; ctx.fill();
     });
