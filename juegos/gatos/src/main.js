@@ -23,10 +23,11 @@ const PAD = 14; // margen para contorno/sombra en texturas de bloques
 const TEXC = new Map();
 const cached = (key, make) => { if (!TEXC.has(key)) TEXC.set(key, make()); return TEXC.get(key); };
 // pieles por mundo: misma física, otro material visual (Jardín: madera / maceta de barro / piedra)
-const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood', jar: 'pot', can: 'stone'}, lair: {box: 'wood', jar: 'jar', can: 'stone'}};
+const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can', rock: 'canball', shelf: 'wood'}, garden: {box: 'wood', jar: 'pot', can: 'stone', rock: 'boulder', shelf: 'stone'}, lair: {box: 'wood', jar: 'jar', can: 'stone', rock: 'boulder', shelf: 'stone'}};
 function blockTex(t, w, h, seed, damage = 0) {
   return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
-    if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
+    if (t === 'canball' || t === 'boulder') ART.ball(k, PAD, PAD, w, {seed, damage, kind: t});
+    else if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'tnt') ART.cuetes(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
@@ -240,7 +241,7 @@ async function main() {
   const METER_STEPS = [0.38, 0.8];
   function pickBonusCat() { const ns = Object.keys(CATS); meterState.next = ns[Math.floor(Math.random() * ns.length)]; const t = catT[meterState.next].calm; badgeCat.texture = t.tex; badgeCat.anchor.set(t.ax, 0.42); badgeCat.scale.set(70 / t.tex.width * 1.15); }
   function resetMeter() {
-    meterState.total = Math.max(1, level.blocks.reduce((s, b) => s + (b.patrol ? 0 : PTS[b.t] || 0), 0));
+    meterState.total = Math.max(1, level.blocks.reduce((s, b) => s + (b.patrol || b.static ? 0 : PTS[b.t === 'rock' ? 'can' : b.t] || 0), 0));
     Object.assign(meterState, {pts: 0, shown: 0, step: 0, flash: 0, pulse: 0, extraT: -1}); extraTxt.visible = false; meter.visible = true; pickBonusCat();
   }
   function wreck(v) {
@@ -999,15 +1000,22 @@ async function main() {
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
+      if (b.t === 'rock') b.h = b.w;
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
-      const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
+      // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
+      if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, label: 'shelf'}); Composite.add(engine.world, body);
+        const sp = new Sprite(blockTex(SKIN[bgTheme].shelf, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); actors.addChild(sp); return; }
+      // roca redonda (AB2): física de lata, rueda; b.w = diámetro
+      const round = b.t === 'rock', mat = round ? 'can' : b.t;
+      const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, restitution: 0.05, label: 'can', sleepThreshold: 40})
+        : Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
       Sleeping.set(body, true);
       const skin = SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
       const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
       // vida escalada por tamaño (bloques grandes aguantan más)
-      const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
-      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, skin, life, max: life, texs, dmg: 0});
+      const life = LIFE[mat] * Math.sqrt(b.w * b.h / (110 * 110));
+      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin, life, max: life, texs, dmg: 0});
       // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
       if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
         const bar = new Graphics(); front.addChild(bar);

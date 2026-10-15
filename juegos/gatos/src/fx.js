@@ -24,6 +24,7 @@ export class FX {
     this.T.zap = [tex(48, 48, k => { k.lineCap = 'round'; k.lineJoin = 'round'; k.strokeStyle = 'rgba(120,200,255,0.9)'; k.lineWidth = 9; const z = () => { k.beginPath(); k.moveTo(6, 10); k.lineTo(22, 20); k.lineTo(18, 28); k.lineTo(42, 40); k.stroke(); }; z(); k.strokeStyle = '#FFFFFF'; k.lineWidth = 4; z(); }),
       tex(32, 32, k => { const g = k.createRadialGradient(16, 16, 1, 16, 16, 15); g.addColorStop(0, '#FFFFFF'); g.addColorStop(0.35, '#FFF27A'); g.addColorStop(1, 'rgba(255,190,40,0)'); k.fillStyle = g; k.beginPath(); k.arc(16, 16, 15, 0, 7); k.fill(); })];
     this.T.tnt = shard([['#E8402A', '#4A0E08'], ['#B02418', '#3A0A05'], ['#FFE14A', '#6A5410'], ['#2F7BE0', '#1A2F55']], [[2, 16], [46, 10], [44, 28], [6, 34]]);
+    this.T.canball = this.T.can; this.T.boulder = this.T.stone;
     this.T.robot = this.T.can; // la aspiradora suelta pedacitos de metal
   }
   burst(kind, x, y, n, speed, opts = {}) {

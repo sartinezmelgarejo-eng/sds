@@ -36,7 +36,8 @@ function tone(t, freq, type, peak, dec, bendTo) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // golpe según material; k = fuerza 0..1
-export function hit(mat, k) {
+const ROUND = {canball: 'can', boulder: 'stone'}; // piezas redondas suenan como su material
+export function hit(mat, k) { mat = ROUND[mat] || mat;
   if (!ok('hit' + mat, 0.06)) return; const t = ctx.currentTime, v = 0.15 + 0.85 * Math.min(1, k);
   if (mat === 'box') { noise(t, 0.16, 'lowpass', rnd(380, 520), 1, 0.9 * v, 0.14); tone(t, rnd(90, 120), 'sine', 0.5 * v, 0.12, 60); }
   else if (mat === 'jar') { tone(t, rnd(1900, 2600), 'sine', 0.25 * v, 0.25); tone(t, rnd(3100, 3800), 'sine', 0.12 * v, 0.18); noise(t, 0.05, 'highpass', 3000, 1, 0.2 * v, 0.04); }
@@ -47,7 +48,7 @@ export function hit(mat, k) {
   else if (mat === 'mouse') { tone(t, rnd(700, 900), 'square', 0.08 * v, 0.09, 1400); }
   else { noise(t, 0.12, 'lowpass', 300, 1, 0.6 * v, 0.1); }
 }
-export function breakSfx(mat) {
+export function breakSfx(mat) { mat = ROUND[mat] || mat;
   if (!ok('brk' + mat, 0.05)) return; const t = ctx.currentTime;
   if (mat === 'box') { noise(t, 0.35, 'bandpass', 900, 0.8, 0.9, 0.3, 300); noise(t + 0.05, 0.2, 'lowpass', 400, 1, 0.6, 0.18); }
   else if (mat === 'jar') { noise(t, 0.4, 'highpass', 2500, 0.7, 0.6, 0.35); for (let i = 0; i < 6; i++) tone(t + i * 0.035 + Math.random() * 0.03, rnd(2000, 5200), 'sine', 0.12, rnd(0.1, 0.3)); }
@@ -219,7 +220,7 @@ export function fanfare() { if (!ctx) return; const t = ctx.currentTime; [523, 6
 
 // crujido de una pieza que se tambalea (k 0..1): madera/cartón = rechinido de fricción (clics cada vez más rápidos),
 // vidrio/maceta = tintineo, lata/piedra = raspón grave
-export function creak(mat, k = 0.5) {
+export function creak(mat, k = 0.5) { mat = ROUND[mat] || mat;
   if (!ok('creak', 0.35)) return; const t = ctx.currentTime, v = 0.25 + 0.75 * k;
   if (mat === 'jar' || mat === 'pot') { const f = rnd(2400, 3200); tone(t, f, 'sine', 0.05 * v, 0.12); tone(t + rnd(0.05, 0.1), f * 1.33, 'sine', 0.035 * v, 0.1); return; }
   if (mat === 'can' || mat === 'stone') { noise(t, 0.35, 'lowpass', 380, 1.5, 0.22 * v, 0.3, 160); tone(t, 75, 'triangle', 0.08 * v, 0.3, 60); return; }

@@ -545,6 +545,33 @@ const ART = (() => {
       g.restore();
     });
   }
+  // ---------- PIEZAS REDONDAS QUE RUEDAN (rocas de AB2) ----------
+  // kind 'canball' = lata de atún acostada vista de frente (cocina); 'boulder' = piedra redonda (jardín/guarida)
+  function ball(ctx, x, y, d, opt = {}) {
+    const {damage = 0, seed = 5, kind = 'boulder'} = opt, R = rng(seed * 53 + 11), r = d / 2, cx = x + r, cy = y + r;
+    ctx.save(); const circ = (rr = r) => { ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); };
+    if (kind === 'canball') {
+      circ(); ctx.fillStyle = lin(ctx, x, y, x + d, y + d, [[0, '#F4F8FB'], [0.4, '#B9C4D0'], [1, '#4A535E']]); ctx.fill();
+      for (const [k, a] of [[0.9, 0.5], [0.8, 0.35], [0.62, 0.3], [0.45, 0.25]]) { circ(r * k); ctx.lineWidth = Math.max(2, d * 0.02); ctx.strokeStyle = `rgba(40,45,55,${a})`; ctx.stroke(); }
+      circ(r * 0.78); ctx.fillStyle = lin(ctx, x, y, x + d, y + d, [[0, 'rgba(255,255,255,0.35)'], [0.6, 'rgba(255,255,255,0)'], [1, 'rgba(0,0,0,0.12)']]); ctx.fill();
+      // anillo para abrir (arrastra la vista: se nota que gira)
+      ctx.save(); ctx.translate(cx + r * 0.18, cy - r * 0.05); ctx.beginPath(); ctx.ellipse(0, 0, r * 0.32, r * 0.18, -0.4, 0, TAU); ctx.lineWidth = d * 0.05; ctx.strokeStyle = '#7A8592'; ctx.stroke(); ctx.lineWidth = d * 0.025; ctx.strokeStyle = '#E8EEF4'; ctx.stroke(); ctx.restore();
+      circ(r * 0.06); ctx.fillStyle = '#5D6773'; ctx.fill();
+      ctx.save(); circ(); ctx.clip(); cracks(ctx, x, y, d, d, damage, seed, 'rgba(30,30,40,0.9)', 'rgba(255,255,255,0.6)'); ctx.restore();
+      circ(); ctx.lineWidth = 3; ctx.strokeStyle = '#2E343C'; ctx.stroke();
+    } else {
+      circ(); ctx.fillStyle = rad(ctx, cx - r * 0.35, cy - r * 0.4, r * 0.1, r * 1.35, [[0, '#D3D0C8'], [0.5, '#9C988F'], [1, '#55524D']]); ctx.fill();
+      ctx.save(); circ(); ctx.clip();
+      for (let i = 0; i < 6; i++) { const fx = x + R() * d, fy = y + R() * d, fr = d * (0.15 + R() * 0.2);
+        ctx.fillStyle = R() < 0.5 ? 'rgba(255,255,245,0.10)' : 'rgba(40,38,35,0.14)'; ctx.beginPath(); ctx.moveTo(fx, fy - fr); ctx.lineTo(fx + fr, fy - fr * 0.2); ctx.lineTo(fx + fr * 0.4, fy + fr); ctx.lineTo(fx - fr * 0.8, fy + fr * 0.4); ctx.closePath(); ctx.fill(); }
+      for (let i = 0; i < d * d / 300; i++) { ctx.fillStyle = `rgba(${R() < 0.5 ? '40,38,35' : '240,238,230'},${0.1 + R() * 0.15})`; ctx.beginPath(); ctx.arc(x + R() * d, y + R() * d, 0.8 + R() * 1.8, 0, TAU); ctx.fill(); }
+      // vetas claras que dejan ver que rueda
+      ctx.lineWidth = d * 0.025; ctx.strokeStyle = 'rgba(235,230,215,0.45)'; ctx.beginPath(); ctx.arc(cx + r * 0.3, cy + r * 0.2, r * 0.7, 2.2, 3.6); ctx.stroke();
+      cracks(ctx, x, y, d, d, damage, seed, 'rgba(30,28,25,0.95)', 'rgba(255,255,245,0.55)'); ctx.restore();
+      circ(); ctx.lineWidth = 3; ctx.strokeStyle = '#3B3935'; ctx.stroke();
+    }
+    ctx.restore();
+  }
   // ---------- SOMBREROS DE LOS GATOS (como los hats de AB2) ----------
   // (x, y) = centro del ala (donde se apoya en la frente), w = ancho del ala. Se hornean en el sprite del gato.
   const HATS = ['none', 'party', 'cowboy', 'sombrero', 'chef', 'crown', 'wizard'];
@@ -709,7 +736,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {HATS, catHat, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;
