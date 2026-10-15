@@ -8,6 +8,11 @@ import {tex, txt, backOut, clamp01, btnTex, makeButton, bounceButtons, iconNext,
 const W = 2048, H = 1536;
 const SLOTS = 8;                             // casillas del mundo 1 (las que aún no existen salen con candado)
 const PUPIL = {x: 0.505, y: 0.415, h: 0.165}; // centro y alto de la pupila en omi-eye.jpg (normalizado)
+// SOMBREROS (AB2): orden en la pantalla, nombre y estrellas totales para desbloquear (decisión tomada: umbrales bajos para que se vean pronto)
+const HAT_LIST = [['party', 'FIESTA', 0], ['cowboy', 'VAQUERO', 0], ['sombrero', 'CHARRO', 3], ['chef', 'CHEF', 6], ['crown', 'CORONA', 12], ['wizard', 'MAGO', 20], ['none', 'SIN', 0]];
+// tamaño del ala para que cada sombrero quepa en su casilla: [ancho relativo, alto relativo]
+const HAT_BOX = {party: [0.84, 1.17], cowboy: [1.24, 0.5], sombrero: [1.44, 0.64], chef: [0.88, 0.78], crown: [0.72, 0.45], wizard: [1.1, 1.05]};
+const CAT_INFO = [['mako', 'MAKO', '¡EXPLOTA!', '#FF9A7A'], ['omi', 'OMI', '¡SE INFLA!', '#FFD860'], ['miu', 'MIU', '¡CLAVADO!', '#7CC8FF']];
 const easeIn3 = u => u * u * u, easeOut3 = u => 1 - Math.pow(1 - u, 3);
 const bounceOut = u => { const n = 7.5625, d = 2.75; if (u < 1 / d) return n * u * u; if (u < 2 / d) return n * (u -= 1.5 / d) * u + 0.75; if (u < 2.5 / d) return n * (u -= 2.25 / d) * u + 0.9375; return n * (u -= 2.625 / d) * u + 0.984375; };
 
@@ -48,6 +53,7 @@ export class Menus {
         iconNext(k2, x - 175, y, h * 1.05); ART.strokedText(k2, 'JUGAR', x + 45, y + 6, h * 0.42);
       }), 1.5),
       starOn: tex(80, 80, k => ART.star(k, 40, 42, 32, true), 1.5), starOff: tex(80, 80, k => ART.star(k, 40, 42, 32, false), 1.5),
+      starSm: tex(56, 56, k => ART.star(k, 28, 29, 22, true), 1.5),
       starBig: tex(110, 110, k => ART.star(k, 55, 57, 44, true), 1.5),
       tuna: tex(130, 120, k => ART.can(k, 15, 25, 100, 80, {tuna: true, seed: 3}), 1.5),
       lock: tex(120, 140, k => {
@@ -56,6 +62,21 @@ export class Menus {
         ART.rr(k, 18, 54, 84, 70, 16); k.fillStyle = ART.lin(k, 0, 54, 0, 124, [[0, '#FFD860'], [1, '#D48A14']]); k.fill(); k.lineWidth = 7; k.strokeStyle = '#1F2240'; k.stroke();
         k.fillStyle = '#1F2240'; k.beginPath(); k.arc(60, 82, 10, 0, 7); k.fill(); k.fillRect(56, 84, 8, 22);
       }, 1.5),
+      hatBtn: btnTex(150, 'yellow', (k, x, y, h) => ART.catHat(k, x, y + h * 0.16, h * 0.6, 'cowboy')),
+      hatTile: tex(250, 280, k => ART.button(k, 10, 10, 230, 230, '#FFF0C8', '#E7B868'), 1.5),
+      hatTileOn: tex(250, 280, k => ART.button(k, 10, 10, 230, 230, '#FFE68A', '#F2A21C'), 1.5),
+      hatTileOff: tex(250, 280, k => ART.button(k, 10, 10, 230, 230, '#AEB4C8', '#6A7088'), 1.5),
+      check: tex(90, 90, k => { k.beginPath(); k.arc(45, 45, 36, 0, 7); k.fillStyle = '#3C9A1C'; k.fill(); k.lineWidth = 7; k.strokeStyle = '#1F2240'; k.stroke();
+        k.lineCap = k.lineJoin = 'round'; k.beginPath(); k.moveTo(27, 46); k.lineTo(40, 59); k.lineTo(64, 32); k.lineWidth = 10; k.strokeStyle = '#FFFFFF'; k.stroke(); }, 1.5),
+      stage: tex(760, 300, k => { // cojín/pedestal donde posa el gato (con sombra suave)
+        k.fillStyle = ART.rad(k, 380, 200, 0, 380, [[0, 'rgba(0,0,0,0.45)'], [1, 'rgba(0,0,0,0)']]); k.save(); k.translate(380, 210); k.scale(1, 0.25); k.beginPath(); k.arc(0, 0, 380, 0, 7); k.fill(); k.restore();
+        k.beginPath(); k.ellipse(380, 150, 300, 70, 0, 0, 7); k.fillStyle = '#7A1E2E'; k.fill(); k.lineWidth = 10; k.strokeStyle = '#1F2240'; k.stroke();
+        k.beginPath(); k.ellipse(380, 120, 300, 70, 0, 0, 7); k.fillStyle = ART.lin(k, 0, 50, 0, 190, [[0, '#FF6F8A'], [1, '#C7304E']]); k.fill(); k.stroke();
+        k.beginPath(); k.ellipse(380, 112, 240, 44, 0, 0, 7); k.setLineDash([16, 12]); k.lineWidth = 6; k.strokeStyle = '#FFD860'; k.stroke(); k.setLineDash([]);
+        k.beginPath(); k.ellipse(320, 95, 120, 18, -0.05, 0, 7); k.fillStyle = 'rgba(255,255,255,0.28)'; k.fill(); }),
+      spot: tex(700, 900, k => { // foco de luz desde arriba
+        const g = k.createLinearGradient(0, 0, 0, 900); g.addColorStop(0, 'rgba(255,240,190,0.0)'); g.addColorStop(0.25, 'rgba(255,240,190,0.18)'); g.addColorStop(1, 'rgba(255,230,160,0.32)');
+        k.fillStyle = g; k.beginPath(); k.moveTo(250, 0); k.lineTo(450, 0); k.lineTo(700, 900); k.lineTo(0, 900); k.closePath(); k.fill(); }),
       tileOn: tex(300, 330, k => ART.button(k, 10, 10, 280, 280, '#FFF0C8', '#E7B868'), 1.5),
       tileNow: tex(300, 330, k => ART.button(k, 10, 10, 280, 280, '#FFE68A', '#F2A21C'), 1.5),
       tileOff: tex(300, 330, k => ART.button(k, 10, 10, 280, 280, '#AEB4C8', '#6A7088'), 1.5),
@@ -121,6 +142,7 @@ export class Menus {
     });
     this.btn(this.T.play, () => this.showSelect(), 0.66, W / 2, 1340, 3.95, true);
     this.soundBtn(W - 110, H - 110, 4.1);
+    this.btn(this.T.hatBtn, () => { SFX.whoosh(); this.showHats('title'); }, 0.55, 110, H - 110, 4.1, this.newHats().length > 0);
   }
 
   // ---------- selector de niveles ----------
@@ -136,6 +158,7 @@ export class Menus {
     this.item(txt('MUNDO ' + (page + 1), 54, '#C9D2FF'), W / 2, 150, 2.3);
     this.item(txt(wd.name, 120, page === 1 ? '#A8F06A' : page === 2 ? '#FF8A7A' : '#FFE27A'), W / 2, 250, 2.36, 'drop');
     this.btn(this.T.back, () => this.showTitle(true), 0.62, 110, 110, 2.3);
+    this.btn(this.T.hatBtn, () => { SFX.whoosh(); this.showHats('select'); }, 0.62, 300, 110, 2.35, this.newHats().length > 0);
     const st = this.item(new Sprite(this.T.starBig), W - 330, 110, 2.4); st.anchor.set(0.5);
     const stt = this.item(txt(`${tStars}/${lv.length * 3}`, 64, '#FFFFFF'), W - 175, 116, 2.45); stt.anchor.set(0.5);
     // flechas para cambiar de mundo (como las páginas de episodios de AB2)
@@ -196,6 +219,72 @@ export class Menus {
     this.btn(this.T.retry, () => { this.hide(); this.o.onRetry(); }, 0.62, W / 2, 1010, 2.55);
     this.soundBtn(W / 2 + 230, 1010, 2.6, 0.69);
   }
+  // ---------- sombreros (como el armario de hats de AB2) ----------
+  // gato posando en un cojín bajo un foco a la izquierda (pestañas para cambiar de gato) y casillas de sombreros a la derecha.
+  // Los sombreros se desbloquean con estrellas totales; el que se acaba de abrir sale con "¡NUEVO!".
+  totalStars() { let n = 0; for (const w of this.o.worlds) for (const id of w.levels) { try { n += JSON.parse(localStorage.getItem('gatos.best.' + id) || 'null')?.stars || 0; } catch (e) {} } return n; }
+  hatOpen(i, stars = this.totalStars()) { return this.o.allHats || stars >= HAT_LIST[i][2]; }
+  newHats() { let seen = []; try { seen = JSON.parse(localStorage.getItem('gatos.hatsSeen') || '[]'); } catch (e) {} const st = this.totalStars(); return HAT_LIST.filter((h, i) => HAT_LIST[i][2] > 0 && this.hatOpen(i, st) && !seen.includes(h[0])).map(h => h[0]); }
+  hatIcon(h) {
+    this.hatIcons = this.hatIcons || {}; if (this.hatIcons[h]) return this.hatIcons[h];
+    return (this.hatIcons[h] = tex(200, 200, k => {
+      if (h === 'none') { k.lineWidth = 14; k.strokeStyle = '#8A90A8'; k.beginPath(); k.arc(100, 100, 56, 0, 7); k.moveTo(60, 140); k.lineTo(140, 60); k.stroke(); return; }
+      const [bw, bh] = HAT_BOX[h], w = Math.min(165 / bw, 150 / bh); ART.catHat(k, 100, 100 + bh * w / 2 - (h === 'sombrero' || h === 'cowboy' ? 14 : 4), w, h);
+    }, 1.5));
+  }
+  // quick: 0 = entrada completa · 1 = cambio de gato (solo el gato aparece) · 2 = refresco tras ponerse un sombrero (sin animación)
+  showHats(from = 'select', cat = this.hatCat || 'omi', quick = 0) {
+    this.clear(); this.screen = 'hats'; this.root.visible = true; this.t = quick ? 3.2 : 2.3; this.phase0 = 2.3; this.whooshed = true; this.hatCat = cat;
+    const ci = CAT_INFO.findIndex(c => c[0] === cat), cats = this.o.cats, stars = this.totalStars(), fresh = new Set(this.newHats());
+    try { const seen = new Set(JSON.parse(localStorage.getItem('gatos.hatsSeen') || '[]')); fresh.forEach(h => seen.add(h)); localStorage.setItem('gatos.hatsSeen', JSON.stringify([...seen])); } catch (e) {}
+    this.item(txt('SOMBREROS', 120, '#FFE27A'), W / 2, 170, 2.3, 'drop');
+    this.btn(this.T.back, () => { SFX.whoosh(); this.o.onHatsClose?.(); from === 'title' ? this.showTitle(true) : this.showSelect(); }, 0.62, 110, 110, 2.3);
+    const st = this.item(new Sprite(this.T.starBig), W - 330, 110, 2.4); st.anchor.set(0.5);
+    this.item(txt(String(stars), 64, '#FFFFFF'), W - 210, 116, 2.45);
+    // escenario: foco, cojín y el gato posando
+    const sp0 = this.item(new Sprite(this.T.spot), 640, 290, 2.35, 'fade'); sp0.anchor.set(0.5, 0); sp0.alpha = 0;
+    const cu = this.item(new Sprite(this.T.stage), 640, 1110, 2.4); cu.anchor.set(0.5);
+    const c = cats[ci], pose = new Sprite(c.tex); pose.anchor.set(c.ax, c.ay);
+    this.item(pose, 640, 860, quick === 1 ? 3.2 : 2.5, 'pose', 560 / c.tex.width, {ci});
+    this.item(txt(CAT_INFO[ci][1], 110, CAT_INFO[ci][3]), 640, 1290, 2.55, 'drop');
+    this.item(txt(CAT_INFO[ci][2], 46, '#C9D2FF'), 640, 1390, 2.6);
+    this.hs = {pose, ci, hop: -1, swap: null, sparks: []};
+    // pestañas de los 3 gatos (columna izquierda): la del gato elegido brilla
+    CAT_INFO.forEach(([n], i) => {
+      const tab = new Container(), on = i === ci, base = new Sprite(on ? this.T.hatTileOn : this.T.hatTile); base.anchor.set(0.5, 0.47); base.scale.set(1 / 1.5 * 0.78); tab.addChild(base);
+      const f = new Sprite(cats[i].tex); f.anchor.set(cats[i].ax, cats[i].ay); f.scale.set(150 / cats[i].tex.width); f.y = 4; tab.addChild(f);
+      this.press(tab, () => { if (i !== ci && this.hs.hop === -1) { SFX.meow(i); this.showHats(from, n, 1); } });
+      this.item(tab, 150, 520 + i * 290, 2.45 + i * 0.05, 'pop', on ? 1.08 : 0.92, {pulse: on});
+    });
+    // casillas: 3 + 3 + 1 (SIN sombrero abajo al centro)
+    const cur = this.o.getHat?.(cat) || 'none';
+    HAT_LIST.forEach(([h, name, need], i) => {
+      const col = i % 3, row = Math.floor(i / 3), x = i === 6 ? 1530 : 1270 + col * 260, y = 470 + row * 300;
+      const open = this.hatOpen(i, stars), on = h === cur, tile = new Container();
+      const base = new Sprite(!open ? this.T.hatTileOff : on ? this.T.hatTileOn : this.T.hatTile); base.anchor.set(0.5, 0.47); base.scale.set(1 / 1.5); tile.addChild(base);
+      const ic = new Sprite(this.hatIcon(h)); ic.anchor.set(0.5); ic.scale.set(1 / 1.5 * 0.92); ic.y = -26; if (!open) { ic.tint = 0x2A2E48; ic.alpha = 0.55; } tile.addChild(ic);
+      if (open) { const l = txt(name, 36, on ? '#FFFFFF' : '#FFE27A'); l.anchor.set(0.5); l.y = 72; tile.addChild(l); }
+      else { const lk = new Sprite(this.T.lock); lk.anchor.set(0.5); lk.scale.set(1 / 1.5 * 0.62); lk.position.set(0, -30); tile.addChild(lk);
+        const ss = new Sprite(this.T.starSm); ss.anchor.set(0.5); ss.position.set(-30, 72); tile.addChild(ss); const l = txt(String(need), 40, '#FFFFFF'); l.anchor.set(0, 0.5); l.position.set(-2, 74); tile.addChild(l); }
+      if (on) { const ck = new Sprite(this.T.check); ck.anchor.set(0.5); ck.scale.set(1 / 1.5); ck.position.set(84, -92); tile.addChild(ck); }
+      if (fresh.has(h)) { const nw = txt('¡NUEVO!', 34, '#FF5A4A'); nw.anchor.set(0.5); nw.position.set(-40, -104); nw.rotation = -0.2; tile.addChild(nw); }
+      this.item(tile, x, y, 2.55 + i * 0.05, 'pop', 1, {pulse: fresh.has(h)}); const it = this.items[this.items.length - 1];
+      this.press(tile, () => {
+        if (!open) { it.shake = 0.4; SFX.thump(0.3); return; }
+        if (on || this.hs.hop !== -1) return;
+        this.hs.hop = 0; this.hs.swap = () => { this.o.onHat?.(cat, h); pose.texture = cats[ci].tex; pose.anchor.set(cats[ci].ax, cats[ci].ay); };
+        this.hs.after = () => this.showHats(from, cat, 2);
+        SFX.pop();
+      });
+    });
+  }
+  // presionable genérico (se hunde y responde al soltar)
+  press(o, cb) {
+    o.eventMode = 'static'; o.cursor = 'pointer';
+    o.on('pointerdown', e => { e.stopPropagation(); o.pressed = true; SFX.unlockAudio(); SFX.click(); });
+    o.on('pointerupoutside', () => { o.pressed = false; });
+    o.on('pointerup', e => { e.stopPropagation(); if (!o.pressed) return; o.pressed = false; cb(); });
+  }
   hide() { this.clear(); this.screen = null; this.root.visible = false; }
 
   update(dt) {
@@ -231,7 +320,11 @@ export class Menus {
         // parpadeo (cada gato a su ritmo)
         const bc = (t + a.ph * 2.3) % (3.1 + a.ph * 0.4), T = a.blink && bc > 0 && bc < 0.13 ? a.blink : a.tex; if (a.o.texture !== T) a.o.texture = T;
       }
+      else if (a.k === 'fade') a.o.alpha = clamp01(u);
+      else if (a.k === 'pose') this.updatePose(a, t, dt, u);
+      if (a.shake > 0) { a.shake -= dt; a.o.x = a.x + Math.sin(a.shake * 70) * 18 * (a.shake / 0.4); if (a.shake <= 0) a.o.x = a.x; }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
+      if (a.o.pressed && a.k === 'pop') a.o.scale.set(a.o.scale.x * 0.9);
     }
     for (const q of this.unlocks || []) { // candado: tiembla 0.5 s, ¡clac!, sale volando girando; la tapa se encoge y la casilla rebota
       const v = t - q.t0; if (v < 0) continue;
@@ -242,6 +335,31 @@ export class Menus {
       if (w < 0.45) { const b = Math.sin(w / 0.45 * Math.PI) * 0.14 * (1 - w / 0.45); q.tile.scale.set(q.tile.scale.x * (1 + b)); }
     }
     bounceButtons(this.buttons, dt);
+    if (this.redo) { const f = this.redo; this.redo = null; f(); }
+  }
+  // gato en el cojín: aparece con rebote, respira y parpadea; al ponerse un sombrero salta, en lo alto cambia de textura
+  // (sombrero puesto) con chispas de estrellas y aterriza aplastándose
+  updatePose(a, t, dt, u) {
+    const hs = this.hs, c = this.o.cats[hs.ci]; let y = a.y, sx = 1, sy = 1;
+    const v = clamp01(u * 0.8); sx = sy = backOut(v, 2.2);
+    const br = 1 + Math.sin(t * 3) * 0.02; sx /= Math.sqrt(br); sy *= br;
+    if (hs.hop >= 0) {
+      const h = (hs.hop += dt), up = 0.42;
+      if (h < 0.1) { const q = Math.sin(h / 0.1 * Math.PI / 2) * 0.14; sx *= 1 + q; sy *= 1 - q; } // se agacha
+      else if (h < 0.1 + up) { const w = (h - 0.1) / up; y -= Math.sin(w * Math.PI) * 190; sx *= 0.92; sy *= 1.1;
+        if (w > 0.5 && hs.swap) { hs.swap(); hs.swap = null; SFX.star(1); this.burst(a.x, a.y - 300); } }
+      else { const l = (h - 0.1 - up) / 0.3; const q = Math.sin(clamp01(l) * Math.PI) * 0.18 * (1 - clamp01(l)); sx *= 1 + q; sy *= 1 - q; if (l >= 1) hs.hop = -2; }
+    }
+    a.o.y = y; const k = a.s; a.o.scale.set(k * sx, k * sy);
+    const bc = t % 3.4, T = bc > 0 && bc < 0.13 && hs.hop < 0 && c.blink ? c.blink : c.tex; if (a.o.texture !== T) a.o.texture = T;
+    for (const p of hs.sparks) { p.vy += 1500 * dt; p.o.x += p.vx * dt; p.o.y += p.vy * dt; p.o.rotation += p.vr * dt; p.life -= dt; p.o.alpha = clamp01(p.life / 0.3); }
+    hs.sparks = hs.sparks.filter(p => { if (p.life > 0) return true; p.o.destroy(); return false; });
+    if (hs.hop === -2 && !hs.sparks.length) { hs.hop = -3; this.redo = hs.after; } // se reconstruye al terminar el cuadro (no a media iteración)
+  }
+  burst(x, y) {
+    for (let i = 0; i < 14; i++) { const o = new Sprite(this.T.starSm), a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, v = 500 + Math.random() * 600;
+      o.anchor.set(0.5); o.position.set(x, y); o.scale.set(0.5 + Math.random() * 0.7); this.box.addChild(o);
+      this.hs.sparks.push({o, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vr: (Math.random() - 0.5) * 12, life: 0.7 + Math.random() * 0.4}); }
   }
   // 0–0.4 aparece el ojo · 0.5–1.4 la pupila se dilata (¡va a atacar!) · 1.5–2.3 zoom adentro de la pupila · 2.3–2.9 se abre el iris
   updateIntro(sw, sh, t) {

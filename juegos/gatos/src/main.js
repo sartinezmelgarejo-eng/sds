@@ -77,8 +77,11 @@ async function main() {
   }
   for (const n of Object.keys(CATS)) bakeCat(n);
   // cambiar sombrero: re-hornea las caras y reconstruye el nivel (cartas, fila y resortera toman las texturas nuevas)
-  function setHat(n, h) { hats[n] = h; try { localStorage.setItem('gatos.hats', JSON.stringify(hats)); } catch (e) {} bakeCat(n);
-    const i = ['mako', 'omi', 'miu'].indexOf(n); if (i >= 0) { const b = bigCat(n); for (const k of Object.keys(bigCats[i])) delete bigCats[i][k]; Object.assign(bigCats[i], b); } }
+  // las texturas viejas se destruyen en el siguiente buildLevel (cuando ya nadie las usa; sin GC de texturas se acumularían)
+  const staleTex = [];
+  function setHat(n, h) { hats[n] = h; try { localStorage.setItem('gatos.hats', JSON.stringify(hats)); } catch (e) {} const old = bakeCat(n);
+    if (old) staleTex.push(...Object.values(old).map(o => o.tex));
+    const i = ['mako', 'omi', 'miu'].indexOf(n); if (i >= 0) { const b = bigCat(n); staleTex.push(bigCats[i].tex, bigCats[i].blink); for (const k of Object.keys(bigCats[i])) delete bigCats[i][k]; Object.assign(bigCats[i], b); } }
 
   const eyeImg = await loadImg('assets/omi-eye.jpg');
   const bigCat = n => { const e = eyes[n], h = hats[n] || 'none'; const t = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'calm', 440, h); t.blink = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'blink', 440, h).tex; return t; };
@@ -1044,6 +1047,7 @@ async function main() {
     if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } }, dyn.some(d => d.enter) ? 1.3 : 0);
       const w = level.world || 1; ui.banner(level.name, `MUNDO ${w} · ${WORLDS[w - 1].name}`); }
     else { state = 'between'; turnWait = 0.35; }
+    for (const t of staleTex.splice(0)) if (t && !t.destroyed) t.destroy(true);
   }
   const ui = new UI(app, {
     onRetry: () => buildLevel(levelId, false),
@@ -1052,10 +1056,13 @@ async function main() {
     onPause: () => pause(),
     mouseTex: mouseTex('boss', 66, 'laugh'), cats: bigCats,
   });
+  let hatDirty = false; const QS0 = new URLSearchParams(location.search);
   const menus = new Menus(app, {
     eyeImg, cats: bigCats, worlds: WORLDS, bossTex: mouseTex('boss', 66, 'laugh'),
     onPlay: id => buildLevel(id, true),
     onPage: p => { if ((level.world || 1) !== p + 1) buildLevel(WORLDS[p].levels[0], false); },
+    getHat: n => hats[n] || 'none', onHat: (n, h) => { setHat(n, h); hatDirty = true; }, allHats: QS0.has('allhats'),
+    onHatsClose: () => { if (hatDirty) { hatDirty = false; buildLevel(levelId, false); } },
     onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect((level.world || 1) - 1),
   });
   const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };
