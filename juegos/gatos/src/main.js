@@ -818,7 +818,10 @@ async function main() {
       }
       q.sprite.scale.set(0.5 / Math.sqrt(br), 0.5 * br); q.sprite.y = GROUND - catT[q.name].calm.footY - hop;
       if (q.shiver > 0) { q.shiver -= dt; const k = Math.max(0, q.shiver) / 0.45; q.sprite.x = q.x + Math.sin(time * 70) * 5 * k; q.sprite.rotation = Math.sin(time * 55) * 0.05 * k; }
-      else if (q.sprite.rotation) { q.sprite.x = q.x; q.sprite.rotation = 0; }
+      else { // AB2: los de la fila siguen con la cabeza al gato que va volando (se inclinan hacia él, más si va alto)
+        const fb = flying && !flying.fade ? flying.body.position : null, a = fb ? Math.atan2(fb.y - q.sprite.y, Math.abs(fb.x - q.x) + 200) : 0;
+        q.look = (q.look || 0) + ((fb ? Math.max(-0.05, Math.min(0.3, 0.08 - a * 0.35)) : 0) - (q.look || 0)) * Math.min(1, dt * 5);
+        q.sprite.x = q.x + q.look * 18; q.sprite.rotation = q.look; }
       q.shadow.scale.x = q.shadow.scale.y * 4 * (1 - hop / 80);
     });
     sling.draw();
