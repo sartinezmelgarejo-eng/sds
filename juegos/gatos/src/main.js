@@ -266,7 +266,7 @@ async function main() {
     let u = skip ? 1 : Math.max(0, (e.t - ENTER_T0) / ENTER_FALL), y;
     if (u < 1) y = e.y - ENTER_DROP * (1 - u * u);       // caída acelerada
     else { const k = Math.min(1, (e.t - ENTER_T0 - ENTER_FALL) / 0.45); y = e.y - (skip ? 0 : Math.sin(k * Math.PI) * 70 * (1 - k)); // rebotito
-      if (!e.landed) { e.landed = true; if (!skip) { cam.shake(26, 0.5); SFX.slam(); SFX.boom(); fx.smoke(d.body.position.x, GROUND - 10, d.w * 0.28, 8);
+      if (!e.landed) { e.landed = true; if (!skip) { cam.shake(26, 0.5); SFX.slam(); SFX.boom(); startle(d.body.position.x, 1); fx.smoke(d.body.position.x, GROUND - 10, d.w * 0.28, 8);
         fx.burst('smoke', d.body.position.x, GROUND - 20, 14, 900, {dir: Math.PI, spread: 0.35, up: 40, g: -40, drag: 3, life: 1.0, size: 1.2, grow: 1.5});
         fx.burst('smoke', d.body.position.x, GROUND - 20, 14, 900, {dir: 0, spread: 0.35, up: 40, g: -40, drag: 3, life: 1.0, size: 1.2, grow: 1.5}); }
         if (r) { r.laugh = 1.8; setTimeout(() => { SFX.villain(); SFX.giggle(); }, skip ? 0 : 280); if (!skip) say(r, '¡EL ATÚN\nES MÍO!', 2.4); } }
@@ -277,19 +277,19 @@ async function main() {
   }
   // globo de diálogo de cómic sobre un ratón (cae con rebote, sigue al ratón y se desvanece)
   const bubbles = [];
-  function say(d, text, dur) {
+  function say(d, text, dur, sc = 1) {
     const c = new Container(), t = new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: 64, fill: '#2B2F45', align: 'center', lineHeight: 64}}); t.anchor.set(0.5, 0.42);
     const w = t.width + 80, h = t.height + 56, g = new Graphics();
     g.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
     g.poly([-10, h / 2 - 6, 44, h / 2 - 6, -60, h / 2 + 62]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
     g.roundRect(-w / 2, -h / 2, w, h, 46).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9}); g.rect(-4, h / 2 - 12, 42, 14).fill(0xFFFFFF);
-    c.addChild(g, t); front.addChild(c); bubbles.push({c, d, t: 0, dur, h});
+    c.addChild(g, t); front.addChild(c); bubbles.push({c, d, t: 0, dur, h, sc});
   }
   function updateBubbles(dt) {
     for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.t += dt; const u = Math.min(1, b.t / 0.35), out = Math.max(0, (b.t - b.dur) / 0.25);
       if (b.d.dead || out >= 1) { b.c.destroy({children: true}); bubbles.splice(i, 1); continue; }
-      const p = b.d.body.position; b.c.position.set(p.x + 70, p.y - b.d.h * 0.5 - b.h / 2 - 180 + Math.sin(b.t * 3) * 6);
-      b.c.scale.set(Math.max(0.05, backOutE(u, 2.4)) * (1 - out * 0.3)); b.c.alpha = 1 - out; b.c.rotation = Math.sin(b.t * 4) * 0.03; }
+      const p = b.d.body.position; b.c.position.set(p.x + 70 * b.sc, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6);
+      b.c.scale.set(Math.max(0.05, backOutE(u, 2.4)) * (1 - out * 0.3) * b.sc); b.c.alpha = 1 - out; b.c.rotation = Math.sin(b.t * 4) * 0.03; }
   }
   function driveRobot(d, dt) {
     if (d.enter) { enterRobot(d, dt); return; }
@@ -349,14 +349,14 @@ async function main() {
       fx.smoke(p.x, p.y, d.w * 0.6, 12); SFX.poof();
       if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; // cámara lenta breve en el último ratón
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
-      queue.forEach((q, i) => { if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
+      queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.8); if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
       fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
-      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12;
+      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
       if (d.mat !== 'robot') wreck(PTS[d.mat]);
@@ -402,7 +402,7 @@ async function main() {
       screenFlash = 0.12;
       fx.burst('fur', p.x, p.y, 26, 900, {up: 120, size: 1.4, life: 1.4, drag: 1.5});
       blast(p.x, p.y, 280, 26, 34, {can: 1.6});
-      cam.shake(34, 0.5); SFX.boom();
+      cam.shake(34, 0.5); SFX.boom(); startle(p.x, 1);
       f.exploded = true; f.sprite.visible = false; Composite.remove(engine.world, b); f.still = 99;
     } else if (name === 'omi') { // 🐡 Esponjado: se infla ~4×, empuja, se desinfla a los 2 s
       f.inflate = {t: 0, k: 1}; SFX.inflate();
@@ -489,6 +489,12 @@ async function main() {
   // con más de 3 gatos en la fila se juntan (para que quepan todos en la vista de la resortera)
   const slotX = (i, n = queue.length) => SLING.x - 330 - i * (n <= 3 ? 145 : Math.max(80, 290 / (n - 1)));
   const queue = [];
+  // los gatos de la fila se sobresaltan con los estruendos (explosión, clavado, el jefe que cae): brinquito nervioso,
+  // cara de enojo y un temblorcito; los más cercanos al estruendo reaccionan primero (como los pájaros de AB2)
+  function startle(x, power = 1) {
+    queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.9 + power * 0.4); q.shiver = 0.45;
+      if (!q.hop) q.hop = {t: -0.05 - Math.abs(x - q.x) / 9000 - i * 0.05, dur: 0.32, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 30 + power * 30}; });
+  }
   let state = 'intro', onSling = null, flying = null, turnWait = 0, endT = 0;
   // el siguiente gato salta a la resortera; los demás avanzan un lugar con saltitos
   function loadNext() {
@@ -559,7 +565,7 @@ async function main() {
       if (flying.dive) { // Miu: onda de choque + temblor de estructuras
         const p = flying.body.position; flying.dive = false;
         blast(p.x, p.y + CAT_R, 340, 15, 30, {can: 1.8}); dyn.forEach(o => { Sleeping.set(o.body, false); Body.setAngularVelocity(o.body, (Math.random() - 0.5) * 0.05); });
-        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 360, 0xCFEFFF, 0.45); cam.shake(30, 0.5); SFX.slam();
+        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 360, 0xCFEFFF, 0.45); cam.shake(30, 0.5); SFX.slam(); startle(p.x, 0.8);
       }
       break;
     }
@@ -591,6 +597,11 @@ async function main() {
     }
     if (flying) {
       const f = flying, b = f.body; f.t += dt;
+      // un ratón ve venir al gato y grita (una vez por tiro, no siempre, y nunca dos globos encima)
+      if (!f.shout && !f.hit && f.t > 0.5 && b.velocity.x > 2) {
+        const sees = dyn.filter(d => d.mat === 'mouse' && !d.dead && !d.ride && !bubbles.some(o => o.d === d) && d.body.position.x > b.position.x && Math.hypot(d.body.position.x - b.position.x, d.body.position.y - b.position.y) < 1400);
+        if (sees.length) { f.shout = true; if (Math.random() < 0.7) { const d = sees.reduce((a, o) => a.body.position.x < o.body.position.x ? a : o);
+          say(d, ['¡AHÍ\nVIENE!', '¡CUIDADO!', '¡MAMÁÁÁ!', '¡AGÁCHENSE!', '¡UN GATO!'][Math.floor(Math.random() * 5)], 1.3, 0.72); d.hurt = 0.25; SFX.squeak(); } } }
       updatePower(f, dt);
       if (f.hit && !f.power && (f.q.name === 'mako' || f.q.name === 'omi') && f.t - f.hitT > 1) { f.power = true; activatePower(f); }
       f.sprite.position.set(b.position.x, b.position.y);
@@ -662,13 +673,16 @@ async function main() {
       const t = time + q.phase, hop = Math.max(0, Math.sin(t * 2.2)) ** 8 * (Math.sin(t * 0.37) > 0.3 ? 26 : 0);
       const br = 1 + Math.sin(t * 3.1) * 0.025;
       // parpadeo (a veces doble, como en AB2)
-      if (!q.bonus) {
+      if (q.alert > 0) { q.alert -= dt; if (!q.bonus && q.sprite.texture !== catT[q.name].angry.tex) q.sprite.texture = catT[q.name].angry.tex; }
+      else if (!q.bonus) {
         if (q.blinkAt == null) q.blinkAt = time + 1 + Math.random() * 3;
         const bt = time - q.blinkAt, closed = (bt > 0 && bt < 0.12) || (q.dbl && bt > 0.22 && bt < 0.33);
         const T = closed ? catT[q.name].blink : catT[q.name].calm; if (q.sprite.texture !== T.tex) q.sprite.texture = T.tex;
         if (bt > 0.4) { q.blinkAt = time + 2 + Math.random() * 3.5; q.dbl = Math.random() < 0.3; }
       }
       q.sprite.scale.set(0.5 / Math.sqrt(br), 0.5 * br); q.sprite.y = GROUND - catT[q.name].calm.footY - hop;
+      if (q.shiver > 0) { q.shiver -= dt; const k = Math.max(0, q.shiver) / 0.45; q.sprite.x = q.x + Math.sin(time * 70) * 5 * k; q.sprite.rotation = Math.sin(time * 55) * 0.05 * k; }
+      else if (q.sprite.rotation) { q.sprite.x = q.x; q.sprite.rotation = 0; }
       q.shadow.scale.x = q.shadow.scale.y * 4 * (1 - hop / 80);
     });
     sling.draw();
