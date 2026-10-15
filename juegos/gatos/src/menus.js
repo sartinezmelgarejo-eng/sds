@@ -84,7 +84,7 @@ export class Menus {
     this.buttons = []; this.root.visible = false;
   }
   get blocking() { return this.screen != null; }
-  clear() { this.box.removeChildren().forEach(c => c.destroy()); this.buttons = []; this.items = []; this.eye.visible = false; this.eyeBg.clear(); this.iris.clear(); this.t = 0; this.rays.visible = false; }
+  clear() { this.box.removeChildren().forEach(c => c.destroy()); this.buttons = []; this.items = []; this.unlocks = []; this.eye.visible = false; this.eyeBg.clear(); this.iris.clear(); this.t = 0; this.rays.visible = false; }
   btn(t, cb, s, x, y, delay = 0, pulse = false) {
     const b = makeButton(t, cb, s); b.position.set(x, y); this.box.addChild(b); this.buttons.push(b);
     this.items.push({o: b, t0: delay, dur: 0.35, k: 'pop', s, pulse}); return b;
@@ -143,6 +143,10 @@ export class Menus {
     if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));
     // 8 casillas en 2 filas: número, 3 estrellas, lata de atún si ya se recuperó; candado si no se ha ganado el anterior
     let current = wOpen ? lv.findIndex((id, i) => !recs[i]) : -1;
+    // casillas recién abiertas (AB2): la primera vez que se ven abiertas, el candado tiembla, salta y la casilla se destapa
+    let seen = null; try { seen = JSON.parse(localStorage.getItem('gatos.seenOpen') || 'null'); } catch (e) {}
+    const first = !seen; seen = new Set(seen || []);
+    if (first) WS.forEach((w, p) => w.levels.forEach((id, i) => { if (worldOpen(p) && (i === 0 || best(w.levels[i - 1]))) seen.add(id); })); // jugadores de antes: sin animación
     // mundo corto: ≤4 niveles = una fila de casillas grandes al centro; 5–6 = cuadrícula de 3×2 (la guarida); si no, 4×2
     const nS = lv.length <= 6 ? lv.length : SLOTS, solo = nS <= 4, cols = nS <= 6 ? 3 : 4;
     for (let i = 0; i < nS; i++) {
@@ -160,6 +164,10 @@ export class Menus {
         tile.on('pointerupoutside', () => { tile.pressed = false; tile.scale.set(1); });
         tile.on('pointerup', e => { e.stopPropagation(); if (!tile.pressed) return; tile.pressed = false; this.hide(); this.o.onPlay(lv[i]); });
         tile.levelId = lv[i];
+        if (!seen.has(lv[i])) { seen.add(lv[i]);
+          if (!first && lv[i] !== WS[0].levels[0]) { // tapa: casilla gris con candado encima de la abierta
+            const cv = new Sprite(this.T.tileOff); cv.anchor.set(0.5, 0.47); cv.scale.set(1 / 1.5 * 0.95); const lk = new Sprite(this.T.lock); lk.anchor.set(0.5); lk.scale.set(1 / 1.5); lk.y = -10;
+            tile.addChild(cv, lk); tile.eventMode = 'none'; this.unlocks.push({tile, cv, lk, t0: d + 0.55, done: false}); } }
       } else {
         const lk = new Sprite(this.T.lock); lk.anchor.set(0.5); lk.scale.set(1 / 1.5); lk.y = -10; tile.addChild(lk);
         if (!exists) { const p = txt('PRONTO', 34, '#E4E7F2', 0.2); p.anchor.set(0.5); p.y = 95; tile.addChild(p); }
@@ -168,6 +176,7 @@ export class Menus {
       if (exists && i === lv.length - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(nS === 1 ? 0.5 : 0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
       this.item(tile, x, y, d, 'pop', solo ? (nS > 3 ? 1.1 : 1.35) : 1, {pulse: now, tile: true});
     }
+    try { localStorage.setItem('gatos.seenOpen', JSON.stringify([...seen])); } catch (e) {}
     const prevLast = page > 0 ? WS[page - 1].levels[WS[page - 1].levels.length - 1] : '';
     const nxt = WS[page + 1], foot = !wOpen ? `GANA LA ${prevLast} PARA ABRIR ${wd.name}`
       : nxt ? (worldOpen(page + 1) ? `MUNDO ${page + 2} · ${nxt.name}  ▶` : `GANA LA ${lv[lv.length - 1]} PARA ABRIR ${nxt.name}`)
@@ -223,6 +232,14 @@ export class Menus {
         const bc = (t + a.ph * 2.3) % (3.1 + a.ph * 0.4), T = a.blink && bc > 0 && bc < 0.13 ? a.blink : a.tex; if (a.o.texture !== T) a.o.texture = T;
       }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
+    }
+    for (const q of this.unlocks || []) { // candado: tiembla 0.5 s, ¡clac!, sale volando girando; la tapa se encoge y la casilla rebota
+      const v = t - q.t0; if (v < 0) continue;
+      if (v < 0.5) { q.lk.rotation = Math.sin(v * 60) * 0.18 * (v / 0.5); q.lk.scale.set(1 / 1.5 * (1 + v * 0.3)); continue; }
+      if (!q.done) { q.done = true; q.vx = 260; q.vy = -900; SFX.canOpen(); SFX.star(2); q.tile.eventMode = 'static'; }
+      const w = v - 0.5; q.vy += 2600 * dt; q.lk.x += q.vx * dt; q.lk.y += q.vy * dt; q.lk.rotation += 9 * dt; q.lk.alpha = Math.max(0, 1 - w / 0.7);
+      const c = clamp01(w / 0.22); q.cv.scale.set(1 / 1.5 * 0.95 * (1 - c)); q.cv.alpha = 1 - c;
+      if (w < 0.45) { const b = Math.sin(w / 0.45 * Math.PI) * 0.14 * (1 - w / 0.45); q.tile.scale.set(q.tile.scale.x * (1 + b)); }
     }
     bounceButtons(this.buttons, dt);
   }
