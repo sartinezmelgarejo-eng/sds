@@ -747,6 +747,11 @@ async function main() {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
       if (d.mat === 'mouse') animMouse(d, dt);
+      // crujidos: una pieza que se tambalea (gira lento sin desplazarse mucho) rechina, como las torres de AB2
+      else if (dt > 0 && started > 1 && !d.patrol && !d.body.isSleeping && time > (d.creakAt || 0)) {
+        const av = Math.abs(d.body.angularVelocity);
+        if (av > 0.004 && av < 0.035 && d.body.speed < 3) { SFX.creak(d.skin, Math.min(1, av / 0.02) * Math.min(1, d.w * d.h / 20000)); d.creakAt = time + 0.8 + Math.random() * 0.8; }
+      }
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
     updateTurn(dt); updateTutorial(rdt);

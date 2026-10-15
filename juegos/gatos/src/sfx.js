@@ -168,3 +168,14 @@ export function squeak() { if (!ok('sqk', 0.6)) return; const t = ctx.currentTim
 // fanfarria final (jefe vencido): arpegio largo y acorde mayor sostenido
 export function fanfare() { if (!ctx) return; const t = ctx.currentTime; [523, 659, 784, 1046, 784, 1046, 1318].forEach((f, i) => { tone(t + i * 0.13, f, 'triangle', 0.28, 0.4); tone(t + i * 0.13, f * 2, 'sine', 0.07, 0.3); });
   [1046, 1318, 1568].forEach(f => tone(t + 0.95, f, 'triangle', 0.22, 1.6)); noise(t + 0.95, 0.4, 'highpass', 6000, 1, 0.12, 0.35); }
+
+// crujido de una pieza que se tambalea (k 0..1): madera/cartón = rechinido de fricción (clics cada vez más rápidos),
+// vidrio/maceta = tintineo, lata/piedra = raspón grave
+export function creak(mat, k = 0.5) {
+  if (!ok('creak', 0.35)) return; const t = ctx.currentTime, v = 0.25 + 0.75 * k;
+  if (mat === 'jar' || mat === 'pot') { const f = rnd(2400, 3200); tone(t, f, 'sine', 0.05 * v, 0.12); tone(t + rnd(0.05, 0.1), f * 1.33, 'sine', 0.035 * v, 0.1); return; }
+  if (mat === 'can' || mat === 'stone') { noise(t, 0.35, 'lowpass', 380, 1.5, 0.22 * v, 0.3, 160); tone(t, 75, 'triangle', 0.08 * v, 0.3, 60); return; }
+  const n = 10 + Math.floor(Math.random() * 8), f0 = rnd(380, 620), up = Math.random() < 0.5; let dt = 0.045;
+  for (let i = 0, tt = t; i < n; i++) { const f = f0 * (up ? 1 + i * 0.04 : 1.4 - i * 0.03); noise(tt, 0.015, 'bandpass', f, 9, 0.5 * v, 0.012); tt += dt; dt *= 0.9; }
+  tone(t, f0 * 0.25, 'sawtooth', 0.025 * v, 0.4, f0 * 0.21);
+}
