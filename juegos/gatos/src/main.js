@@ -22,9 +22,14 @@ function canvasTex(w, h, draw, res = 1) {
 const PAD = 14; // margen para contorno/sombra en texturas de bloques
 const TEXC = new Map();
 const cached = (key, make) => { if (!TEXC.has(key)) TEXC.set(key, make()); return TEXC.get(key); };
+// pieles por mundo: misma física, otro material visual (Jardín: madera / maceta de barro / piedra)
+const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood', jar: 'pot', can: 'stone'}};
 function blockTex(t, w, h, seed, damage = 0) {
   return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
-    if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
+    if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'stone') ART.stone(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
     else if (t === 'jar') ART.jar(k, PAD, PAD, w, h, {seed, damage, lid: seed % 2 ? '#3D8BD8' : '#C8452F'});
     else ART.can(k, PAD, PAD, w, h, {seed, damage});
   }, 1.5));
@@ -153,9 +158,9 @@ async function main() {
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
-      fx.burst(d.mat, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
+      fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
-      SFX.breakSfx(d.mat);
+      SFX.breakSfx(d.skin);
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
     }
   }
@@ -315,7 +320,7 @@ async function main() {
       if (closing < 1.0) continue;
       for (const [me, other] of [[A, B], [B, A]]) {
         const d = byBody(me); if (!d) continue;
-        SFX.hit(d.mat, closing / 18);
+        SFX.hit(d.skin || d.mat, closing / 18);
         if (started < 1) continue;
         const mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
         damage(d, Math.max(0, closing - 1.2) * mf * FRAGILE[d.mat], closing);
@@ -486,12 +491,12 @@ async function main() {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       const body = Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
       Sleeping.set(body, true);
-      const texs = [0, 1, 2, 3].map(dmg => blockTex(b.t, b.w, b.h, i + 2, dmg));
+      const skin = SKIN[bgTheme][b.t], texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
       const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[b.t] * Math.sqrt(b.w * b.h / (110 * 110));
-      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, life, max: life, texs, dmg: 0});
+      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat: b.t, skin, life, max: life, texs, dmg: 0});
     });
     level.mice.forEach(m => {
       const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
@@ -522,6 +527,7 @@ async function main() {
   const menus = new Menus(app, {
     eyeImg, cats: bigCats, worlds: WORLDS, bossTex: mouseTex('boss', 66, 'laugh'),
     onPlay: id => buildLevel(id, true),
+    onPage: p => { if ((level.world || 1) !== p + 1) buildLevel(WORLDS[p].levels[0], false); },
     onResume: () => {}, onRetry: () => buildLevel(levelId, false), onQuit: () => menus.showSelect((level.world || 1) - 1),
   });
   const pause = () => { if (!menus.blocking && !ui.open && state !== 'win' && state !== 'lose') menus.showPause(level.name); };

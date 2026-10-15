@@ -41,6 +41,9 @@ export function hit(mat, k) {
   if (mat === 'box') { noise(t, 0.16, 'lowpass', rnd(380, 520), 1, 0.9 * v, 0.14); tone(t, rnd(90, 120), 'sine', 0.5 * v, 0.12, 60); }
   else if (mat === 'jar') { tone(t, rnd(1900, 2600), 'sine', 0.25 * v, 0.25); tone(t, rnd(3100, 3800), 'sine', 0.12 * v, 0.18); noise(t, 0.05, 'highpass', 3000, 1, 0.2 * v, 0.04); }
   else if (mat === 'can') { [rnd(420, 480), rnd(1100, 1250), rnd(2150, 2400)].forEach((f, i) => tone(t, f, 'triangle', [0.35, 0.18, 0.1][i] * v, [0.45, 0.3, 0.2][i])); noise(t, 0.04, 'bandpass', 2500, 2, 0.3 * v, 0.03); }
+  else if (mat === 'wood') { noise(t, 0.12, 'bandpass', rnd(600, 800), 1.2, 0.8 * v, 0.1); tone(t, rnd(150, 190), 'triangle', 0.45 * v, 0.14, 90); }
+  else if (mat === 'pot') { tone(t, rnd(700, 900), 'triangle', 0.3 * v, 0.12); noise(t, 0.08, 'bandpass', 1600, 1.5, 0.35 * v, 0.06); }
+  else if (mat === 'stone') { noise(t, 0.14, 'lowpass', rnd(500, 700), 1, 0.9 * v, 0.12); tone(t, rnd(70, 95), 'sine', 0.7 * v, 0.18, 45); }
   else if (mat === 'mouse') { tone(t, rnd(700, 900), 'square', 0.08 * v, 0.09, 1400); }
   else { noise(t, 0.12, 'lowpass', 300, 1, 0.6 * v, 0.1); }
 }
@@ -48,6 +51,9 @@ export function breakSfx(mat) {
   if (!ok('brk' + mat, 0.05)) return; const t = ctx.currentTime;
   if (mat === 'box') { noise(t, 0.35, 'bandpass', 900, 0.8, 0.9, 0.3, 300); noise(t + 0.05, 0.2, 'lowpass', 400, 1, 0.6, 0.18); }
   else if (mat === 'jar') { noise(t, 0.4, 'highpass', 2500, 0.7, 0.6, 0.35); for (let i = 0; i < 6; i++) tone(t + i * 0.035 + Math.random() * 0.03, rnd(2000, 5200), 'sine', 0.12, rnd(0.1, 0.3)); }
+  else if (mat === 'wood') { noise(t, 0.4, 'bandpass', 1100, 0.9, 0.9, 0.32, 350); for (let i = 0; i < 3; i++) noise(t + i * 0.06, 0.06, 'bandpass', rnd(1500, 2500), 2, 0.4, 0.05); }
+  else if (mat === 'pot') { noise(t, 0.3, 'bandpass', 1800, 0.8, 0.7, 0.25, 500); for (let i = 0; i < 5; i++) tone(t + i * 0.04 + Math.random() * 0.03, rnd(600, 1400), 'triangle', 0.12, rnd(0.06, 0.14)); }
+  else if (mat === 'stone') { noise(t, 0.6, 'lowpass', 700, 0.8, 1.0, 0.5, 150); tone(t, 60, 'sine', 0.8, 0.4, 30); for (let i = 0; i < 4; i++) noise(t + 0.08 + i * 0.07, 0.08, 'bandpass', rnd(800, 1600), 2, 0.3, 0.06); }
   else if (mat === 'can') { [380, 960, 1870, 2900].forEach((f, i) => tone(t, f * rnd(0.95, 1.05), 'triangle', 0.3 / (i + 1), 0.7 - i * 0.12)); noise(t, 0.3, 'bandpass', 1800, 1, 0.4, 0.25, 600); }
 }
 export function poof() { if (!ok('poof', 0.05)) return; const t = ctx.currentTime; noise(t, 0.3, 'bandpass', 1200, 0.9, 0.7, 0.28, 300); tone(t, 520, 'sine', 0.2, 0.18, 260); }

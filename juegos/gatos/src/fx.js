@@ -14,6 +14,9 @@ export class FX {
       box: shard([['#D9A464', '#5A3415'], ['#B97E43', '#4A2810'], ['#E9C38A', '#6A4420']], [[4, 10], [40, 4], [44, 30], [10, 42]]),
       jar: shard([['rgba(200,235,250,0.85)', 'rgba(70,130,170,0.9)'], ['rgba(230,250,255,0.9)', 'rgba(90,150,190,0.9)']], [[24, 2], [44, 40], [6, 30]]),
       can: shard([['#C9CDD6', '#3A3F4F'], ['#2F6FB8', '#1A2F55'], ['#F2C230', '#6A5410']], [[6, 8], [42, 12], [36, 40], [4, 34]]),
+      wood: shard([['#D89A58', '#4E2A0E'], ['#B57437', '#3E200A'], ['#E8B47A', '#5A3212']], [[2, 18], [46, 12], [46, 26], [4, 32]]),
+      pot: shard([['#E07B45', '#5A220A'], ['#C8602F', '#4A1C08'], ['#F29A62', '#6A2A10'], ['#4FAE3A', '#2A5A18']], [[10, 4], [44, 14], [30, 44], [4, 30]]),
+      stone: shard([['#B5B1A8', '#3B3935'], ['#8E8A82', '#2E2C29'], ['#7FA850', '#3A5A20']], [[8, 6], [40, 4], [46, 34], [22, 46], [2, 30]]),
       smoke: [tex(96, 96, (k) => { const g = k.createRadialGradient(48, 44, 4, 48, 48, 46); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.6, 'rgba(240,235,228,0.8)'); g.addColorStop(1, 'rgba(230,225,215,0)'); k.fillStyle = g; k.beginPath(); k.arc(48, 48, 46, 0, 7); k.fill(); })],
       star: [tex(48, 48, (k) => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 9 : 22; k.lineTo(24 + Math.cos(a) * r, 24 + Math.sin(a) * r); } k.closePath(); k.fillStyle = '#FFE680'; k.fill(); })],
     };

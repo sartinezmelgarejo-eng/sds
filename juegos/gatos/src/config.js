@@ -18,7 +18,7 @@ export const SLING = {x: 640, h: 320}; // resortera: base en (x, GROUND), alto h
 // mundos y niveles en orden (game/levels/<id>.json). El mundo 2 se abre al ganar el último nivel del mundo 1.
 export const WORLDS = [
   {name: 'LA COCINA', levels: ['1-1', '1-2', '1-3', '1-4', '1-5', '1-6', '1-7', '1-8']},
-  {name: 'EL JARDÍN', levels: ['2-1']},
+  {name: 'EL JARDÍN', levels: ['2-1', '2-2', '2-3', '2-4', '2-5', '2-6', '2-7', '2-8']},
 ];
 export const LEVELS = WORLDS.flatMap(w => w.levels);
 

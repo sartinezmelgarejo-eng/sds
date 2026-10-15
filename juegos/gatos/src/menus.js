@@ -128,6 +128,7 @@ export class Menus {
     this.clear(); this.screen = 'select'; this.root.visible = true; this.t = 2.3; this.phase0 = 2.3; this.whooshed = true; this.page = page;
     const WS = this.o.worlds, wd = WS[page], lv = wd.levels, best = id => { try { return JSON.parse(localStorage.getItem('gatos.best.' + id) || 'null'); } catch (e) { return null; } };
     const recs = lv.map(best);
+    this.o.onPage?.(page); // detrás del selector se ve el mundo de la página (cocina / jardín)
     // un mundo se abre al ganar el último nivel del anterior
     const worldOpen = p => p === 0 || !!best(WS[p - 1].levels[WS[p - 1].levels.length - 1]);
     const wOpen = worldOpen(page);
@@ -165,7 +166,7 @@ export class Menus {
       if (exists && i === SLOTS - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
       this.item(tile, x, y, d, 'pop', 1, {pulse: now, tile: true});
     }
-    const foot = page === 0 ? (worldOpen(1) ? 'MUNDO 2 · EL JARDÍN  ▶' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN') : (wOpen ? '¡MÁS NIVELES DEL JARDÍN MUY PRONTO!' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN');
+    const foot = page === 0 ? (worldOpen(1) ? 'MUNDO 2 · EL JARDÍN  ▶' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN') : (wOpen ? 'PRÓXIMAMENTE: ¡LA ASPIRADORA ROBOT!' : 'GANA LA 1-8 PARA ABRIR EL JARDÍN');
     const w2 = this.item(txt(foot, 46, '#A8F06A'), W / 2, 1400, 3.0); w2.alpha = 0.9;
     this.soundBtn(W - 110, H - 110, 3.0);
   }

@@ -138,6 +138,131 @@ const ART = (() => {
     ctx.restore();
   }
 
+  // ---------- MATERIALES DEL JARDÍN (mismas físicas que cartón/frasco/lata, otra piel) ----------
+  // Madera (= cartón): tablas de huacal clavadas, vetas y nudos
+  function plank(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 1} = opt;
+    const R = rng(seed * 31 + 7), r = Math.min(w, h) * 0.07, vert = h > w * 1.4;
+    ctx.save();
+    rr(ctx, x, y, w, h, r);
+    ctx.fillStyle = lin(ctx, x, y, x + w * 0.4, y + h, [[0, '#E2A866'], [0.5, '#C07F3F'], [1, '#8A5226']]);
+    ctx.fill(); ctx.clip();
+    // tablas (franjas) con separación oscura
+    const len = vert ? h : w, thick = vert ? w : h, n = Math.max(1, Math.round(thick / 46));
+    for (let i = 0; i < n; i++) {
+      const a = i * thick / n, b = thick / n;
+      const tone = R() * 0.14 - 0.07;
+      ctx.fillStyle = tone > 0 ? `rgba(255,230,180,${tone})` : `rgba(80,40,10,${-tone})`;
+      if (vert) ctx.fillRect(x + a, y, b, h); else ctx.fillRect(x, y + a, w, b);
+      if (i) { ctx.fillStyle = 'rgba(60,30,8,0.55)'; if (vert) ctx.fillRect(x + a - 1.5, y, 3, h); else ctx.fillRect(x, y + a - 1.5, w, 3); }
+      // vetas onduladas
+      ctx.strokeStyle = 'rgba(90,48,15,0.28)'; ctx.lineWidth = 1.6;
+      for (let v = 0; v < 3; v++) {
+        const o = a + b * (0.2 + R() * 0.6), ph = R() * 6, amp = 1.5 + R() * 3;
+        ctx.beginPath();
+        for (let s = 0; s <= len; s += 8) { const q = o + Math.sin(s / 40 + ph) * amp; vert ? ctx.lineTo(x + q, y + s) : ctx.lineTo(x + s, y + q); }
+        ctx.stroke();
+      }
+      // nudo
+      if (len > 120 && R() < 0.7) {
+        const s = len * (0.2 + R() * 0.6), q = a + b * 0.5, nx = vert ? x + q : x + s, ny = vert ? y + s : y + q, nr = Math.min(b * 0.22, 9);
+        ctx.fillStyle = rad(ctx, nx, ny, 0, nr * 1.6, [[0, 'rgba(70,35,10,0.8)'], [0.5, 'rgba(110,60,20,0.5)'], [1, 'rgba(110,60,20,0)']]);
+        ctx.beginPath(); ctx.ellipse(nx, ny, vert ? nr : nr * 1.7, vert ? nr * 1.7 : nr, 0, 0, TAU); ctx.fill();
+      }
+    }
+    // travesaños con clavos en piezas grandes (huacal)
+    if (w > 120 && h > 120) {
+      ctx.fillStyle = 'rgba(70,35,10,0.35)';
+      [0.12, 0.88].forEach(t => ctx.fillRect(x, y + h * t - 10, w, 20));
+      ctx.fillStyle = 'rgba(255,220,170,0.25)';
+      [0.12, 0.88].forEach(t => ctx.fillRect(x, y + h * t - 10, w, 4));
+    }
+    const nails = [];
+    if (vert) nails.push([w / 2, 12], [w / 2, h - 12]); else nails.push([12, h / 2], [w - 12, h / 2]);
+    nails.forEach(([px, py]) => { ctx.fillStyle = '#4B4F57'; ctx.beginPath(); ctx.arc(x + px, y + py, 3.6, 0, TAU); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.arc(x + px - 1, y + py - 1, 1.3, 0, TAU); ctx.fill(); });
+    ctx.lineWidth = r * 0.9;
+    ctx.strokeStyle = lin(ctx, x, y, x + w, y + h, [[0, 'rgba(255,235,195,0.7)'], [0.5, 'rgba(255,235,195,0)'], [0.55, 'rgba(60,30,8,0)'], [1, 'rgba(60,30,8,0.6)']]);
+    rr(ctx, x + r * 0.45, y + r * 0.45, w - r * 0.9, h - r * 0.9, r * 0.7); ctx.stroke();
+    cracks(ctx, x, y, w, h, damage, seed, 'rgba(55,25,5,0.95)', 'rgba(255,215,160,0.6)');
+    ctx.restore();
+    rr(ctx, x, y, w, h, r); ctx.lineWidth = 3; ctx.strokeStyle = '#4E2A0E'; ctx.stroke();
+  }
+
+  // Maceta de barro (= frasco/vidrio): terracota con borde, se rompe fácil
+  function pot(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 3} = opt;
+    const R = rng(seed * 53 + 1), rim = Math.min(h * 0.16, 34), ins = w * 0.09;
+    ctx.save();
+    // planta que se asoma (solo en macetas paradas)
+    if (h > w * 0.9) {
+      const lc = ['#4FAE3A', '#3C8F2C', '#6CC44A'];
+      for (let i = 0; i < 5; i++) {
+        const a = -Math.PI / 2 + (i - 2) * 0.42, L = rim * (1.2 + R() * 0.5);
+        ctx.save(); ctx.translate(x + w / 2 + (i - 2) * w * 0.08, y + rim * 0.5); ctx.rotate(a + Math.PI / 2);
+        ctx.fillStyle = lc[i % 3]; ctx.beginPath(); ctx.ellipse(0, -L * 0.5, L * 0.22, L * 0.55, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = 'rgba(30,70,20,0.6)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+      }
+    }
+    // cuerpo cónico
+    const body = () => { ctx.beginPath(); ctx.moveTo(x + 2, y + rim); ctx.lineTo(x + w - 2, y + rim); ctx.lineTo(x + w - ins, y + h - 6); ctx.quadraticCurveTo(x + w - ins, y + h, x + w - ins - 6, y + h); ctx.lineTo(x + ins + 6, y + h); ctx.quadraticCurveTo(x + ins, y + h, x + ins, y + h - 6); ctx.closePath(); };
+    body();
+    ctx.fillStyle = lin(ctx, x, 0, x + w, 0, [[0, '#8E3F1E'], [0.22, '#E07B45'], [0.4, '#F29A62'], [0.7, '#C8602F'], [1, '#7A3315']]); ctx.fill();
+    ctx.save(); body(); ctx.clip();
+    for (let i = 0; i < w * h / 500; i++) { ctx.fillStyle = `rgba(${R() < 0.5 ? '90,35,12' : '255,200,160'},${0.08 + R() * 0.1})`; ctx.beginPath(); ctx.arc(x + R() * w, y + rim + R() * (h - rim), 1 + R() * 2, 0, TAU); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; ctx.fillRect(x + w * 0.22, y + rim + 6, w * 0.07, h - rim - 18);
+    ctx.fillStyle = 'rgba(70,25,8,0.18)'; ctx.fillRect(x, y + h * 0.82, w, h * 0.18);
+    cracks(ctx, x, y + rim, w, h - rim, damage, seed, 'rgba(70,25,8,0.95)', 'rgba(255,190,150,0.6)');
+    ctx.restore();
+    body(); ctx.lineWidth = 3; ctx.strokeStyle = '#5A220A'; ctx.stroke();
+    // borde grueso
+    rr(ctx, x - 3, y, w + 6, rim, 6);
+    ctx.fillStyle = lin(ctx, 0, y, 0, y + rim, [[0, '#F7A673'], [0.5, '#D86A36'], [1, '#93421C']]); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#5A220A'; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,235,210,0.5)'; rr(ctx, x + 3, y + 3, w * 0.55, 4, 2); ctx.fill();
+    if (damage) { ctx.save(); rr(ctx, x - 3, y, w + 6, rim, 6); ctx.clip(); cracks(ctx, x, y, w, rim * 2, Math.min(damage, 2), seed + 1, 'rgba(70,25,8,0.9)', 'rgba(255,190,150,0.5)'); ctx.restore(); }
+    ctx.restore();
+  }
+
+  // Piedra (= lata): bloque de piedra de río con musgo, facetado
+  function stone(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 5} = opt;
+    const R = rng(seed * 71 + 3), r = Math.min(w, h) * 0.22;
+    ctx.save();
+    // contorno irregular
+    const pts = [], N = 14;
+    for (let i = 0; i < N; i++) {
+      const a = i / N * TAU, c = Math.cos(a), s = Math.sin(a);
+      const k = 1 / Math.max(Math.abs(c) / (w / 2), Math.abs(s) / (h / 2));
+      const j = 1 - R() * 0.05 - (Math.abs(c) > 0.6 && Math.abs(s) > 0.6 ? 0.1 : 0);
+      pts.push([x + w / 2 + c * k * j, y + h / 2 + s * k * j]);
+    }
+    const shape = () => { ctx.beginPath(); pts.forEach(([a, b], i) => { const [na, nb] = pts[(i + 1) % N]; const mx = (a + na) / 2, my = (b + nb) / 2; i ? ctx.quadraticCurveTo(a, b, mx, my) : ctx.moveTo(mx, my); }); const [a, b] = pts[0], [na, nb] = pts[1]; ctx.quadraticCurveTo(a, b, (a + na) / 2, (b + nb) / 2); ctx.closePath(); };
+    shape();
+    ctx.fillStyle = lin(ctx, x, y, x + w * 0.5, y + h, [[0, '#C9C6BE'], [0.45, '#9C988F'], [1, '#5F5C57']]); ctx.fill();
+    ctx.save(); shape(); ctx.clip();
+    // facetas
+    for (let i = 0; i < 5; i++) {
+      const fx = x + R() * w, fy = y + R() * h, fr = Math.min(w, h) * (0.25 + R() * 0.3);
+      ctx.fillStyle = R() < 0.5 ? 'rgba(255,255,245,0.10)' : 'rgba(40,38,35,0.12)';
+      ctx.beginPath(); ctx.moveTo(fx, fy - fr); ctx.lineTo(fx + fr, fy - fr * 0.2); ctx.lineTo(fx + fr * 0.4, fy + fr); ctx.lineTo(fx - fr * 0.8, fy + fr * 0.4); ctx.closePath(); ctx.fill();
+    }
+    // motas
+    for (let i = 0; i < w * h / 260; i++) { ctx.fillStyle = `rgba(${R() < 0.5 ? '40,38,35' : '240,238,230'},${0.1 + R() * 0.15})`; ctx.beginPath(); ctx.arc(x + R() * w, y + R() * h, 0.8 + R() * 1.8, 0, TAU); ctx.fill(); }
+    // musgo arriba
+    for (let i = 0; i < w / 9; i++) {
+      const mx = x + R() * w, my = y + R() * Math.min(h * 0.22, 26), mr = 4 + R() * 8;
+      ctx.fillStyle = rad(ctx, mx, my, 0, mr, [[0, 'rgba(120,175,60,0.9)'], [0.7, 'rgba(85,140,45,0.6)'], [1, 'rgba(85,140,45,0)']]);
+      ctx.beginPath(); ctx.arc(mx, my, mr, 0, TAU); ctx.fill();
+    }
+    ctx.lineWidth = r * 0.5;
+    ctx.strokeStyle = lin(ctx, x, y, x + w, y + h, [[0, 'rgba(255,255,245,0.55)'], [0.5, 'rgba(255,255,245,0)'], [0.55, 'rgba(30,28,25,0)'], [1, 'rgba(30,28,25,0.55)']]);
+    shape(); ctx.stroke();
+    cracks(ctx, x, y, w, h, damage, seed, 'rgba(30,28,25,0.95)', 'rgba(255,255,245,0.55)');
+    ctx.restore();
+    shape(); ctx.lineWidth = 3; ctx.strokeStyle = '#3B3935'; ctx.stroke();
+    ctx.restore();
+  }
+
   function cracks(ctx, x, y, w, h, n, seed, dark, light) {
     if (!n) return;
     const R = rng(seed * 97 + 13);
@@ -368,7 +493,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {rr, lin, rad, rng, shade, contactShadow, cardboard, jar, can, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {rr, lin, rad, rng, shade, contactShadow, cardboard, jar, can, plank, pot, stone, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;
