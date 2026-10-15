@@ -198,15 +198,24 @@ async function main() {
   // el gato extra cae del cielo al final de la fila con un puf de estrellas
   function giveExtraCat(n) {
     const i = queue.length, x = slotX(i, i + 1), t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
-    const y1 = GROUND - t.footY; sp.position.set(x, y1 - 1100); actors.addChild(sp);
+    const y1 = GROUND - t.footY; sp.position.set(x, y1 - 650); actors.addChild(sp);
     const q = {name: n, sprite: sp, shadow: contactShadow(x, 170), x, phase: Math.random() * 6, extra: true,
-      hop: {t: -0.35, dur: 0.55, x0: x, y0: y1 - 1100, x1: x, y1, h: 0, fall: true, onEnd: () => { fx.smoke(x, GROUND - 20, 70, 10); fx.burst('star', x, GROUND - 140, 12, 520, {up: 260, size: 1.0, life: 0.8}); SFX.pop(); SFX.meow(i); cam.shake(6); }}};
+      hop: {t: -0.6, dur: 0.5, x0: x, y0: y1 - 650, x1: x, y1, h: 0, fall: true, onEnd: () => { fx.smoke(x, GROUND - 20, 70, 10); fx.burst('star', x, GROUND - 140, 12, 520, {up: 260, size: 1.0, life: 0.8}); SFX.pop(); SFX.meow(i); cam.shake(6); }}};
     queue.forEach((o, j) => { const nx = slotX(j, i + 1); if (Math.abs(nx - o.x) > 1) { o.hop = {t: -j * 0.08, dur: 0.4, x0: o.sprite.x, y0: o.sprite.y, x1: nx, y1: o.sprite.y, h: 50}; o.x = nx; } });
+    // la carita sale de la insignia del Destructómetro y vuela en arco hacia su lugar en la fila (como la carta de AB2)
+    const g0 = badge.getGlobalPosition(), card = new Sprite(badgeCat.texture); card.anchor.copyFrom(badgeCat.anchor); app.stage.addChild(card);
+    flyCards.push({sp: card, t: 0, x0: g0.x, y0: g0.y, wx: x, s0: badgeCat.scale.x * hud.scale.x});
     queue.push(q); SFX.star(2); setTimeout(() => SFX.star(1), 120);
     // si ya había perdido (sin gatos) pero el panel no ha salido, el turno sigue
     if (state === 'lose' && !resultsShown) { state = 'between'; turnWait = 1.2; laughAll = 1.3; SFX.duck(0); }
   }
+  const flyCards = [];
   function updateMeter(rdt) {
+    for (const c of flyCards) { c.t += rdt; const u = Math.min(1, c.t / 0.55), e = u * u * (3 - 2 * u), tgt = toScreen(c.wx, GROUND - 650);
+      c.sp.position.set(c.x0 + (tgt.x - c.x0) * e, c.y0 + (tgt.y - c.y0) * e - Math.sin(u * Math.PI) * 140 * hud.scale.x);
+      c.sp.scale.set(c.s0 * (1 + Math.sin(u * Math.PI) * 0.6)); c.sp.rotation = -u * Math.PI * 2; c.sp.alpha = u > 0.85 ? (1 - u) / 0.15 : 1;
+      if (c.t > 0.6 && !c.sp.destroyed) { fx.burst('star', c.wx, GROUND - 650, 8, 400, {size: 0.8, life: 0.5}); c.sp.destroy(); } }
+    for (let i = flyCards.length - 1; i >= 0; i--) if (flyCards[i].sp.destroyed) flyCards.splice(i, 1);
     const m = meterState; if (m.shown < m.pts) m.shown = Math.min(m.pts, m.shown + Math.max(40, (m.pts - m.shown) * rdt * 5));
     const f = meterFrac(), full = m.step >= METER_STEPS.length;
     meterFill.clear();
