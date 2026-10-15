@@ -244,3 +244,10 @@ export function clink(v = 0.6) { if (!ok('clink', 0.4)) return; const t = ctx.cu
 export function tweet(v = 0.7) { if (!ok('tweet', 0.6)) return; const t = ctx.currentTime;
   for (let i = 0; i < 7; i++) { const tt = t + 0.05 + i * rnd(0.05, 0.12), f = rnd(3200, 4600); tone(tt, f, 'sine', 0.05 * v, 0.07, f * rnd(1.15, 1.4)); }
   for (let i = 0; i < 5; i++) noise(t + i * 0.06, 0.05, 'bandpass', 1400, 1.5, 0.05 * v, 0.04); }
+// ratón tiznado que tose: dos "kof" (ruido de banda media con un tono que cae), más agudo en los chiquitos
+export function cough(pitch = 1) { if (!ok('cough', 0.35)) return; const t = ctx.currentTime;
+  [0, 0.16].forEach((dt, i) => { noise(t + dt, 0.11, 'bandpass', 900 * pitch, 1.4, 0.16 * (i ? 0.7 : 1), 0.09, 500 * pitch); tone(t + dt, 420 * pitch, 'triangle', 0.05 * (i ? 0.7 : 1), 0.08, 260 * pitch); }); }
+// frasco con agua que se rompe: chapoteo (ruido que baja) + gotitas "plic"
+export function splash(v = 0.6) { if (!ok('splash', 0.15)) return; const t = ctx.currentTime;
+  noise(t + 0.02, 0.4, 'bandpass', 1800, 0.8, 0.3 * v, 0.35, 500);
+  for (let i = 0; i < 4; i++) { const tt = t + 0.25 + i * rnd(0.08, 0.18), f = rnd(1200, 2000); tone(tt, f, 'sine', 0.06 * v, 0.07, f * 1.9); } }

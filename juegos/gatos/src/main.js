@@ -432,6 +432,8 @@ async function main() {
       fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
+      if (d.skin === 'jar') { fx.splash(p.x, p.y, d.w, d.h); SFX.splash(Math.min(1, d.w * d.h / 30000)); } // el frasco tenía agua: chorro de gotas que dejan charquitos
+      else if (d.skin === 'pot') fx.burst('dirt', p.x, p.y + d.h * 0.1, Math.round(n * 0.7), 300, {w: d.w * 0.6, h: d.h * 0.4, up: 200, size: 0.8}); // la maceta suelta su tierra
       if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07}); // caja de cuetes: explota (en cadena, con un respiro entre cada una)
       if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
@@ -615,7 +617,14 @@ async function main() {
     const sh = d.shock; let flinch = 0;
     if (sh) { sh.t += dt; if (sh.t > Math.max(sh.fl, sh.look)) d.shock = null; else if (sh.t > 0) flinch = sh.t < sh.fl ? 1 : 0; }
     d.cower = Math.max(d.cower, flinch ? Math.min(1, sh.t * 14) : 0);
-    if (flinch) expr = 'flinch';
+    // tiznado (AB2): el ratón tose 2–3 veces echando humito por la boca (ojos apretados, se dobla hacia adelante)
+    if (d.soot && d.sootT > 0.5 && d.sootT < 5 && !d.ride && !(d.cough > 0) && time > (d.coughAt || 0)) { d.cough = 0.42; d.coughAt = time + 1.1 + Math.random() * 0.9; SFX.cough(d.kind === 'boss' ? 0.6 : d.kind === 'small' ? 1.25 : 1); }
+    let cgh = 0; if (d.cough > 0) { d.cough -= dt; cgh = Math.max(0, d.cough) / 0.42;
+      if (cgh < 0.75 && !d.coughPuff) { d.coughPuff = 1; const p = d.body.position, a = d.body.angle, mx = -d.w * 0.12, my = d.h * 0.24; // boca (abajo al centro); la tos sale hacia los gatos (izquierda)
+        const n0 = fx.parts.length; fx.burst('smoke', p.x + mx * Math.cos(a) - my * Math.sin(a), p.y + mx * Math.sin(a) + my * Math.cos(a), 4, 260, {dir: Math.PI + a - 0.15, spread: 0.6, up: 30, g: -50, drag: 4, life: 0.9, size: 0.26 + d.w / 1000, grow: 1.6});
+        for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0x3E3840; fx.parts[i].maxA = 0.8; fx.parts[i].s.alpha = 0; } }
+      if (d.cough <= 0) d.coughPuff = 0; }
+    if (flinch || cgh > 0.2) expr = 'flinch';
     else if (d.hurt > 0 || near || tumble || dg || (sh && sh.t > 0)) expr = 'scared';
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
@@ -658,6 +667,7 @@ async function main() {
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
+    if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
   }
   // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
