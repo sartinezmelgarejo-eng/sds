@@ -197,7 +197,7 @@ export class UI {
 
   // r = {win, stars, score, best, record, name, hasNext}
   show(r) {
-    this.hide(); this.cans = []; this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
+    this.hide(); this.cans = []; this.confetti = []; this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
     const B = this.box, add = (o, x, y) => { o.position.set(x, y); B.addChild(o); return o; };
     const panel = add(new Sprite(this.T.panel), 0, 40); panel.anchor.set(0.5);
     const title = add(txt(r.final ? '¡JEFA VENCIDA!' : r.win ? '¡NIVEL SUPERADO!' : 'NIVEL FALLIDO', 104, r.win ? '#FFE27A' : '#FF8A6A'), 0, -440); title.anchor.set(0.5);
@@ -219,7 +219,6 @@ export class UI {
           A.push({o: sp, t0: 0.55 + i * 0.12, dur: 0.45, k: 'pop', s: i === 1 ? 0.42 : 0.36, cheer: i, y0: i === 1 ? 60 : 78}); });
         [[-140, 120, 0.55, -0.2], [140, 120, 0.55, 0.2], [0, 132, 0.62, 0]].forEach(([x, y, s, rot], i) => { const t = add(new Sprite(this.T.tuna), x, y); t.anchor.set(0.5); t.rotation = rot; A.push({o: t, t0: 0.85 + i * 0.1, dur: 0.4, k: 'pop', s});
           this.cans.push({o: t, tOpen: 2.9 + i * 0.3, opened: false, peek: [], hearts: [], lid: null, hT: 0, s, r0: rot}); });
-        this.confetti = [];
       } else {
         // la lata llega cerrada; después de las estrellas tiembla, ¡clic!, la tapa sale volando y dos gatos se asoman a olerla
         const pals = this.cats.length ? [...this.cats].sort(() => Math.random() - 0.5).slice(0, 2) : [];
@@ -269,6 +268,17 @@ export class UI {
       p.x = p.side * (136 - 18 * Math.min(1, v * 2)); p.y = 30 - 26 * pv - Math.abs(Math.sin(v * 3)) * 6;
       p.texture = (v % 2.4) > 1.7 && p.c.blink ? p.c.blink : p.c.tex; });
   }
+  addConfetti(x, y, vx, vy) {
+    const C = [0xFFE27A, 0xFF7A8A, 0x7AD8FF, 0xA8F06A, 0xFFB04A, 0xD9A0FF], c = new Sprite(this.T.confetti); c.anchor.set(0.5); c.tint = C[Math.floor(Math.random() * C.length)];
+    c.position.set(x, y); this.box.addChild(c); this.confetti.push({s: c, vx, vy, vt: 160 + Math.random() * 170, w: Math.random() * 6, ph: Math.random() * 6, sz: 0.8 + Math.random() * 0.8});
+  }
+  // AB2: al caer la 3.ª estrella, dos cañonazos de confeti desde las esquinas de abajo hacia el centro
+  confettiPop() {
+    this.confetti = this.confetti || []; const sw = this.app.screen.width, sh = this.app.screen.height, s = this.box.scale.x, hw = sw / 2 / s, hh = sh / 2 / s;
+    for (const side of [-1, 1]) for (let i = 0; i < 55; i++) { const a = -Math.PI / 2 - side * (0.28 + Math.random() * 0.42), v = 1500 + Math.random() * 1300;
+      this.addConfetti(side * (hw - 40), hh + 10, Math.cos(a) * v, Math.sin(a) * v); }
+    SFX.pop(); setTimeout(() => SFX.pop(), 70); SFX.whoosh?.();
+  }
   burst(x, y) {
     for (let i = 0; i < 14; i++) {
       const s = new Sprite(this.T.spark); s.anchor.set(0.5); s.position.set(x, y); const a = Math.random() * 6.28, v = 300 + Math.random() * 500;
@@ -302,7 +312,7 @@ export class UI {
         // la estrella cae grande desde arriba, se asienta con rebote, campanita y chispas
         a.o.visible = true; const v = clamp01(u);
         a.o.scale.set(a.s * (2.6 - 1.6 * backOut(v, 2.4))); a.o.alpha = Math.min(1, v * 3);
-        if (u >= 1 && !a.done) { a.done = true; SFX.star(a.i); this.burst(a.o.x, a.o.y); }
+        if (u >= 1 && !a.done) { a.done = true; SFX.star(a.i); this.burst(a.o.x, a.o.y); if (a.i === 2) this.confettiPop(); }
       }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
       if (u > 1 && a.cheer != null) { const c = (t * 1.6 + a.cheer * 0.33) % 1, h = c < 0.45 ? Math.sin(c / 0.45 * Math.PI) : 0;
@@ -312,11 +322,13 @@ export class UI {
     for (const c of this.cans) this.updateCan(c, t, dt);
     // puntaje cuenta de 0 al total
     const cu = clamp01((t - 0.4) / 1.1); this.scoreTxt.text = Math.round(this.r.score * (1 - Math.pow(1 - cu, 3))).toLocaleString('en-US');
-    if (this.r.final && this.confetti) { // confeti que cae sin parar sobre el panel final
-      const hw = sw / 2 / s, hh = sh / 2 / s, C = [0xFFE27A, 0xFF7A8A, 0x7AD8FF, 0xA8F06A, 0xFFB04A, 0xD9A0FF];
-      if (t > 0.5 && this.confetti.length < 90) for (let i = 0; i < 2; i++) { const c = new Sprite(this.T.confetti); c.anchor.set(0.5); c.tint = C[Math.floor(Math.random() * C.length)];
-        c.position.set((Math.random() - 0.5) * hw * 2, -hh - 20); this.box.addChild(c); this.confetti.push({s: c, vy: 180 + Math.random() * 160, w: Math.random() * 6, ph: Math.random() * 6, sz: 0.8 + Math.random() * 0.8}); }
-      for (let i = this.confetti.length - 1; i >= 0; i--) { const c = this.confetti[i]; c.ph += dt * (3 + c.w); c.s.y += c.vy * dt; c.s.x += Math.sin(c.ph) * 60 * dt; c.s.rotation = c.ph * 0.7; c.s.scale.set(c.sz * Math.cos(c.ph), c.sz);
+    if (this.confetti) { // confeti: cae sin parar sobre el panel final; en 3 estrellas sale disparado de las esquinas (cañones)
+      const hw = sw / 2 / s, hh = sh / 2 / s;
+      if (this.r.final && t > 0.5 && this.confetti.length < 90) for (let i = 0; i < 2; i++) this.addConfetti((Math.random() - 0.5) * hw * 2, -hh - 20, 0, 180 + Math.random() * 160);
+      for (let i = this.confetti.length - 1; i >= 0; i--) { const c = this.confetti[i]; c.ph += dt * (3 + c.w);
+        // arrastre fuerte: sube disparado, frena y baja meciéndose a velocidad terminal (como papelito)
+        c.vx *= Math.exp(-2.6 * dt); c.vy = c.vy < c.vt ? Math.min(c.vt, c.vy + 2200 * dt) : c.vy + (c.vt - c.vy) * Math.min(1, dt * 3);
+        c.s.y += c.vy * dt; c.s.x += (c.vx + Math.sin(c.ph) * 60) * dt; c.s.rotation = c.ph * 0.7; c.s.scale.set(c.sz * Math.cos(c.ph), c.sz);
         if (c.s.y > hh + 30) { c.s.destroy(); this.confetti.splice(i, 1); } }
     }
     this.updSparks(dt);

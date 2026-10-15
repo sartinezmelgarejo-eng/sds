@@ -673,6 +673,8 @@ async function main() {
     curBg?.jolt?.(power, x); if (bgTheme === 'lair') ceilingDust(x, power);
     queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.9 + power * 0.4); q.shiver = 0.45;
       if (!q.hop) q.hop = {t: -0.05 - Math.abs(x - q.x) / 9000 - i * 0.05, dur: 0.32, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 30 + power * 30}; });
+    // con el mazo visible la fila del piso está escondida: los gatos de las CARTAS se sobresaltan (brinquito, cara de enojo, temblor)
+    let j = 0; for (const c of cards.values()) if (!c.gone) c.jolt = {t: -0.06 - j++ * 0.05, p: 0.6 + power * 0.4};
   }
   let state = 'intro', onSling = null, flying = null, turnWait = 0, endT = 0;
   // el siguiente gato salta a la resortera; los demás avanzan un lugar con saltitos
@@ -757,7 +759,14 @@ async function main() {
         if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
       // los que no están en la resortera respiran un poquito (como los pájaros en sus cartas)
       if (!sel && !c.gone) c.face.scale.y = c.face.scale.x * (1 + Math.sin(time * 3 + id) * 0.025);
-      c.position.set(c.cx, y); c.scale.set(sc); c.rotation = rot;
+      // sobresalto por un estruendo: la carta da un brinquito con temblor y el gato pone cara de enojo ~1 s
+      let jx = 0; const nm = [...queue, onSling].find(q => q && q.id === id)?.name;
+      if (c.jolt && nm) { const J = c.jolt; J.t += dt; const u = J.t / 0.32, ct = catT[nm];
+        if (J.t >= 0) { if (u < 1) { y -= Math.sin(u * Math.PI) * 40 * J.p; sc *= 1 + Math.sin(u * Math.PI) * 0.06; }
+          const k = Math.max(0, 1 - J.t / 0.5); jx = Math.sin(time * 70) * 6 * k * J.p; rot += Math.sin(time * 55) * 0.06 * k;
+          if (c.face.texture !== ct.angry.tex) c.face.texture = ct.angry.tex; }
+        if (J.t > 1.1) { c.jolt = null; c.face.texture = ct.calm.tex; } }
+      c.position.set(c.cx + jx, y); c.scale.set(sc); c.rotation = rot;
     }
   }
   function clearDeck() { for (const c of cards.values()) c.destroy({children: true}); cards.clear(); }
