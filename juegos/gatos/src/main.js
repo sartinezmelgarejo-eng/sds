@@ -764,7 +764,7 @@ async function main() {
   });
   const up = e => {
     ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
-    if (e.pointerId === aimPtr) { aimPtr = null; const pw = sling.power, v = sling.release(); if (v && onSling) { SFX.release(pw); shoot(v); } }
+    if (e.pointerId === aimPtr) { aimPtr = null; const pw = sling.power, v = sling.release(); if (v && onSling) { SFX.release(pw); const nm = onSling.name; shoot(v); setTimeout(() => SFX.meow(['omi', 'mako', 'miu'].indexOf(nm)), 90); } } // grito de guerra al salir (AB2)
   };
   el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
   el.addEventListener('wheel', e => { e.preventDefault(); cam.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, {passive: false});
