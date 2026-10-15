@@ -615,6 +615,21 @@ async function main() {
   }
   // Ratones vivos: respiran, parpadean, se burlan (carcajada con saltitos) y se asustan si un gato pasa cerca
   let laughAll = 0;
+  function slipMouse(d, dt) {
+    const b = d.body, p = b.position, foot = p.y + d.r * 0.92;
+    const on = !d.ride && !b.isSleeping && fx.puddles.some(q => q.t < 6 && Math.abs(q.s.y - foot) < 22 && Math.abs(q.x - p.x) < 60 * q.cur + d.r * 0.3);
+    if (on) { if (d.fric0 == null) d.fric0 = b.friction; b.friction = 0.015; }
+    else if (d.fric0 != null) { b.friction = d.fric0; d.fric0 = null; }
+    // sobre el agua patina como en hielo: conserva casi toda su velocidad horizontal y no rueda (se desliza parado)
+    if (on && d.slipVx && Math.abs(b.velocity.x) > 0.4 && Math.sign(b.velocity.x) === Math.sign(d.slipVx) && Math.abs(b.velocity.x) < Math.abs(d.slipVx)) {
+      Body.setVelocity(b, {x: d.slipVx * Math.exp(-dt * 0.5), y: b.velocity.y}); Body.setAngularVelocity(b, b.angularVelocity * Math.exp(-dt * 12)); }
+    d.slipVx = on ? b.velocity.x : 0;
+    const vx = Math.abs(b.velocity.x);
+    if (on && vx > 0.7) { if (!(d.slip > 0)) { SFX.squeak(); SFX.splash(0.25); d.slipDir = Math.sign(b.velocity.x) || 1; } d.slip = Math.min(1, (d.slip || 0) + dt * 8);
+      if (Math.random() < dt * 30 * Math.min(1, vx / 3)) fx.burst('drop', p.x - d.slipDir * d.r * 0.3, foot - 4, 1, 200, {dir: d.slipDir > 0 ? Math.PI + 0.5 : -0.5, spread: 0.7, up: 160, life: 0.45, size: 0.5, drag: 0.6}); } // salpica con las patas
+    else if (d.slip > 0) d.slip = Math.max(0, d.slip - dt * 2.2);
+    return d.slip || 0;
+  }
   function animMouse(d, dt) {
     const t = time + d.ph, B = 1 / 1.5;
     let expr = 'normal', hop = 0;
@@ -623,6 +638,8 @@ async function main() {
     // AB2: si va cayendo o rodando rápido, pone cara de susto y (una vez cada tanto) chilla
     const tumble = !d.ride && !d.body.isSleeping && d.body.speed > 4.5 && started > 1;
     if (tumble && time - (d.yelpT || -9) > 2.5 && d.body.velocity.y > 4) { d.yelpT = time; SFX.squeak(); }
+    // charquito (agua de un frasco roto): si lo empujan y está parado sobre el agua, RESBALA (casi sin fricción) agitando los bracitos con cara de susto
+    const slp = slipMouse(d, dt);
     // AB2: si algo le viene cayendo encima, mira hacia arriba con susto y se encoge (y chilla)
     const mp0 = d.body.position, dg = !d.ride && started > 1 && !tumble ? dyn.find(o => o !== d && o.mat !== 'mouse' && !o.dead && o.body.velocity.y > 3 && mp0.y - o.body.position.y > d.h * 0.4 && mp0.y - o.body.position.y < 600 && Math.abs(o.body.position.x - mp0.x) < 60 + o.w / 2) : null;
     d.cower = Math.max(0, Math.min(1, (d.cower || 0) + (dg ? dt * 9 : -dt * 4)));
@@ -655,7 +672,7 @@ async function main() {
       if (!d.soot && !d.zapFlash) { const v = Math.min(1, d.wet * 1.6) * 0.5, rC = Math.round(255 - 80 * v), gC = Math.round(255 - 35 * v); d.sprite.tint = (rC << 16) | (gC << 8) | 255; }
       if (d.wet <= 0 && !d.soot && !d.zapFlash) d.sprite.tint = 0xFFFFFF; }
     if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
-    else if (d.hurt > 0 || near || tumble || dg || (sh && sh.t > 0)) expr = 'scared';
+    else if (d.hurt > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0)) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
@@ -699,6 +716,7 @@ async function main() {
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
     if (dz > 0) d.sprite.rotation += Math.sin(time * 6.5) * 0.12 * dz; // bamboleo
+    if (slp > 0) { d.sprite.rotation += (Math.sin(time * 17) * 0.2 - d.slipDir * 0.12) * slp; d.sprite.scale.x *= 1 + 0.05 * Math.sin(time * 34) * slp; } // resbalón: se echa para atrás y manotea
     if (shk > 0) { d.sprite.rotation += Math.sin(time * 50) * 0.22 * shk; d.sprite.scale.x *= 1 + 0.07 * Math.sin(time * 50 + 1.3) * shk; } // sacudida de perrito
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
