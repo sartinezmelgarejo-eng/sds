@@ -13,6 +13,9 @@ export function unlockAudio() {
   const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  music(true);
+  // pestaña oculta = silencio total (y no se acumulan notas)
+  document.addEventListener('visibilitychange', () => { if (document.hidden) ctx.suspend(); else ctx.resume(); });
 }
 const ok = (key, gap) => { if (!ctx) return false; const t = ctx.currentTime; if (last[key] && t - last[key] < gap) return false; last[key] = t; return true; };
 
@@ -73,3 +76,53 @@ export function click() { if (!ctx) return; const t = ctx.currentTime; tone(t, 6
 // título: zumbido grave al entrar a la pupila + "pop" al abrir el iris
 export function whoosh() { if (!ctx) return; const t = ctx.currentTime; noise(t, 0.8, 'bandpass', 300, 1.2, 0.6, 0.75, 2600); tone(t, 90, 'sine', 0.35, 0.7, 40); }
 export function pop() { if (!ok('pop', 0.04)) return; const t = ctx.currentTime; tone(t, 380 + Math.random() * 120, 'sine', 0.22, 0.09, 760); }
+
+// ---- música de fondo: marimba juguetona sintetizada (loop de 8 compases, bajito) ----
+// Programador con anticipación: cada 100 ms agenda las notas de los próximos 0.4 s.
+let mus = null;
+const BPM = 108, STEP = 60 / BPM / 2; // corcheas
+const N = s => 440 * Math.pow(2, (s - 9) / 12); // semitonos desde C4
+// acordes (I–vi–IV–V ×2 con variación) y melodía pentatónica: null = silencio
+const CH = [[0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, -1, 2], [0, 4, 7], [-3, 0, 4], [-7, -3, 0], [-5, 2, 5]];
+const MEL = [12, null, 16, 19, 16, null, 14, 12, 9, null, 12, null, 16, 14, 12, null,
+             9, null, 12, 14, 12, null, 9, 7, 7, 9, null, 11, 14, null, 11, null,
+             12, null, 16, 19, 21, 19, 16, null, 16, null, 19, 16, 12, null, 9, null,
+             9, 12, null, 9, 7, null, 4, null, 7, null, 11, 14, null, 12, null, null];
+function marimba(t, f, peak, out) {
+  const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), g2 = ctx.createGain();
+  o.type = 'sine'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 4;
+  env(g, t, 0.004, peak, 0.35); env(g2, t, 0.002, peak * 0.35, 0.05);
+  o.connect(g); o2.connect(g2); g.connect(out); g2.connect(out); o.start(t); o2.start(t); o.stop(t + 0.45); o2.stop(t + 0.1);
+}
+function tick() {
+  if (!mus || !ctx) return;
+  while (mus.next < ctx.currentTime + 0.4) {
+    const t = mus.next, i = mus.i % 64, bar = Math.floor(i / 8), ch = CH[bar];
+    if (MEL[i] != null) marimba(t, N(MEL[i]), 0.5, mus.out);
+    if (i % 8 === 0 || i % 8 === 5) tone2(t, N(ch[0] - 12), 0.35, 0.5, mus.out);       // bajo
+    if (i % 2 === 1) marimba(t, N(ch[(i >> 1) % 3]), 0.16, mus.out);                       // arpegio suave
+    if (i % 4 === 2) noiseTo(t, mus.out);                                                  // shaker
+    mus.next += STEP * (i % 2 ? 0.9 : 1.1); mus.i++;                                       // swing ligero
+  }
+}
+function tone2(t, f, peak, dec, out) { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f; env(g, t, 0.01, peak, dec); o.connect(g); g.connect(out); o.start(t); o.stop(t + dec + 0.05); }
+function noiseTo(t, out) { const s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7000; const g = ctx.createGain(); env(g, t, 0.003, 0.12, 0.05); s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random() * 0.5); s.stop(t + 0.08); }
+const MUS_VOL = 0.16;
+export function music(on) {
+  if (!ctx) return;
+  if (on && !mus) {
+    const out = ctx.createGain(); out.gain.value = 0.0001; out.connect(master);
+    out.gain.exponentialRampToValueAtTime(MUS_VOL, ctx.currentTime + 1.5);
+    mus = {out, next: ctx.currentTime + 0.1, i: 0, iv: setInterval(tick, 100)}; tick();
+  } else if (!on && mus) {
+    const m = mus; mus = null; clearInterval(m.iv);
+    m.out.gain.cancelScheduledValues(ctx.currentTime); m.out.gain.setValueAtTime(m.out.gain.value, ctx.currentTime);
+    m.out.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6); setTimeout(() => m.out.disconnect(), 800);
+  }
+}
+// baja la música un rato (fanfarrias de victoria/derrota) y la regresa
+export function duck(sec) {
+  if (!mus) return; const g = mus.out.gain, t = ctx.currentTime;
+  g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.0001, g.value), t); g.exponentialRampToValueAtTime(0.012, t + 0.25);
+  g.setValueAtTime(0.012, t + sec); g.exponentialRampToValueAtTime(MUS_VOL, t + sec + 2);
+}

@@ -117,7 +117,7 @@ export class Menus {
     cats.forEach((c, i) => {
       const sp = new Sprite(c.tex); sp.anchor.set(c.ax, c.ay); sp.rotation = cpos[i][3];
       const s = cpos[i][2] * 430 / c.tex.height;
-      this.item(sp, W / 2 + cpos[i][0], cpos[i][1] - 120, 3.55 + [1, 0, 2][i] * 0.14, 'cat', s, {ph: i * 1.3});
+      this.item(sp, W / 2 + cpos[i][0], cpos[i][1] - 120, 3.55 + [1, 0, 2][i] * 0.14, 'cat', s, {ph: i * 1.3, tex: c.tex, blink: c.blink});
     });
     this.btn(this.T.play, () => this.showSelect(), 0.66, W / 2, 1340, 3.95, true);
     this.soundBtn(W - 110, H - 110, 4.1);
@@ -204,6 +204,8 @@ export class Menus {
         const v = clamp01(u * 0.8), hop = Math.max(0, Math.sin(t * 2.2 + a.ph)) ** 10 * 40;
         a.o.y = a.y + 120 * (1 - backOut(v, 2.2)) - hop; const br = 1 + Math.sin(t * 3 + a.ph) * 0.025;
         a.o.scale.set(a.s / Math.sqrt(br) * Math.min(1, v * 3), a.s * br * Math.min(1, v * 3));
+        // parpadeo (cada gato a su ritmo)
+        const bc = (t + a.ph * 2.3) % (3.1 + a.ph * 0.4), T = a.blink && bc > 0 && bc < 0.13 ? a.blink : a.tex; if (a.o.texture !== T) a.o.texture = T;
       }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
     }

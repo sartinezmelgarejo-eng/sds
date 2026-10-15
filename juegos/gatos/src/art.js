@@ -241,6 +241,32 @@ const ART = (() => {
   // ---------- GATOS ----------
   // Construye un sprite (canvas) del gato: cuerpo procedural + cara real recortada + contorno compartido + luz.
   // img: cutout con alfa. fur: [claro, medio, oscuro]. expr: 'angry' | 'calm' | 'sleepy'
+  // Párpados cerrados sobre la foto real: se copia un parche del pelo de la frente (encima del ojo),
+  // se pega sobre el ojo con borde difuminado y se dibuja la línea curva de las pestañas.
+  function blinkLids(g, img, eyes, hx, hy, hw, hh) {
+    const [[x0, y0], [x1, y1]] = eyes, sep = Math.hypot((x1 - x0) * hw, (y1 - y0) * hh), ang = Math.atan2((y1 - y0) * hh, (x1 - x0) * hw);
+    const rx = sep * 0.25, ry = sep * 0.16, W = Math.ceil(rx * 2.6), H = Math.ceil(ry * 2.6), sx = img.width / hw, sy = img.height / hh;
+    eyes.forEach(([ex, ey]) => {
+      const pc = document.createElement('canvas'); pc.width = W; pc.height = H; const k = pc.getContext('2d');
+      // parche de la frente: mismo tamaño, desplazado hacia arriba (perpendicular a la línea de los ojos)
+      const ox = ex * hw + Math.sin(ang) * ry * 2.1, oy = ey * hh - Math.cos(ang) * ry * 2.1;
+      k.translate(W / 2, H / 2); k.rotate(-ang);
+      k.drawImage(img, (ox - W) * sx, (oy - H) * sy, W * 2 * sx, H * 2 * sy, -W, -H, W * 2, H * 2);
+      k.setTransform(1, 0, 0, 1, 0, 0);
+      // máscara elíptica difuminada
+      k.globalCompositeOperation = 'destination-in'; k.translate(W / 2, H / 2); k.scale(1, ry / rx);
+      const m = k.createRadialGradient(0, 0, 0, 0, 0, rx * 1.2); m.addColorStop(0, '#000'); m.addColorStop(0.72, '#000'); m.addColorStop(1, 'rgba(0,0,0,0)');
+      k.fillStyle = m; k.fillRect(-W, -H * 4, W * 2, H * 8);
+      // sombrita bajo el párpado (le da volumen)
+      k.setTransform(1, 0, 0, 1, 0, 0); k.globalCompositeOperation = 'source-atop';
+      k.fillStyle = lin(k, 0, H * 0.3, 0, H * 0.75, [[0, 'rgba(40,25,15,0)'], [1, 'rgba(40,25,15,0.35)']]); k.fillRect(0, 0, W, H);
+      g.save(); g.translate(hx + ex * hw, hy + ey * hh); g.rotate(ang);
+      g.drawImage(pc, -W / 2, -H / 2);
+      g.lineCap = 'round'; g.strokeStyle = 'rgba(30,18,10,0.85)'; g.lineWidth = Math.max(2, sep * 0.04);
+      g.beginPath(); g.moveTo(-rx * 0.9, ry * 0.05); g.quadraticCurveTo(0, ry * 0.7, rx * 0.9, ry * 0.05); g.stroke();
+      g.restore();
+    });
+  }
   function buildCatSprite(img, fur, size, expr, eyes) {
     // El gato ES su cabeza (como los pájaros de AB): cara real recortada + cola y patitas + contorno compartido + luz.
     const S = size, hw = S, hh = hw * img.height / img.width, pad = S * 0.16;
@@ -266,6 +292,7 @@ const ART = (() => {
     t.drawImage(sil, 0, 0); t.globalCompositeOperation = 'source-in'; t.fillStyle = '#3A2414'; t.fillRect(0, 0, cw, ch);
     for (let a = 0; a < 20; a++) g.drawImage(tint, Math.cos(a / 20 * TAU) * ol, Math.sin(a / 20 * TAU) * ol);
     g.drawImage(img, hx, hy, hw, hh); paws(g);
+    if (expr === 'blink' && eyes) blinkLids(g, img, eyes, hx, hy, hw, hh);
     // sombreado del mundo (luz arriba-izq, sombra fría abajo-der), solo sobre el sprite
     g.save(); g.globalCompositeOperation = 'source-atop';
     g.fillStyle = rad(g, hx + hw * 0.3, hy + hh * 0.25, S * 0.1, S * 0.95, [[0, 'rgba(255,238,205,0.16)'], [0.55, 'rgba(255,238,205,0)'], [1, 'rgba(45,30,80,0.42)']]); g.fillRect(0, 0, cw, ch);

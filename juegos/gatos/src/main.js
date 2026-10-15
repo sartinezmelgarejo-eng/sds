@@ -54,14 +54,14 @@ async function main() {
   const catT = {};
   for (const [n, c] of Object.entries(CATS)) {
     const e = eyes[n]; const ey = [e.eyeL, e.eyeR];
-    catT[n] = {calm: catTex(imgs[n], c.fur, ey, 'calm'), angry: catTex(imgs[n], c.fur, ey, 'angry')};
+    catT[n] = {calm: catTex(imgs[n], c.fur, ey, 'calm'), angry: catTex(imgs[n], c.fur, ey, 'angry'), blink: catTex(imgs[n], c.fur, ey, 'blink')};
     if (c.flyImg) { const fe = eyes[n + '-up']; const fi = await loadImg(c.flyImg); catT[n].fly = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry');
       // Omi inflado: textura 4× más grande para que no se pixele al crecer
       if (n === 'omi') catT[n].puff = catTex(fi, c.fur, [fe.eyeL, fe.eyeR], 'angry', CAT_R * 2.3 * 2 * 3.2); }
   }
 
   const eyeImg = await loadImg('assets/omi-eye.jpg');
-  const bigCats = ['mako', 'omi', 'miu'].map(n => { const e = eyes[n]; const t = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'calm', 440); return t; });
+  const bigCats = ['mako', 'omi', 'miu'].map(n => { const e = eyes[n]; const t = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'calm', 440); t.blink = catTex(imgs[n], CATS[n].fur, [e.eyeL, e.eyeR], 'blink', 440).tex; return t; });
 
   // ---------- escena ----------
   const cam = new Camera();
@@ -149,6 +149,19 @@ async function main() {
     }
   }
   const byBody = b => dyn.find(o => o.body === b);
+  // Aplastamiento: un ratón con algo pesado encima que se sigue moviendo (resbalando, rodando) recibe daño continuo
+  function crush(dt) {
+    for (const pr of engine.pairs.list) {
+      if (!pr.isActive) continue;
+      for (const [me, other] of [[pr.bodyA, pr.bodyB], [pr.bodyB, pr.bodyA]]) {
+        if (me.label !== 'mouse' || other.isStatic || other.position.y > me.position.y - 10) continue;
+        const d = byBody(me); if (!d) continue;
+        const heavy = other.mass / me.mass, mov = other.speed + Math.abs(other.angularVelocity) * 30;
+        if (heavy < 1.5 || mov < 0.25) continue;
+        damage(d, dt * Math.min(8, Math.sqrt(heavy) * (1 + mov) * 1.4));
+      }
+    }
+  }
 
   // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
   // Onda radial: empuje ~ (1 - d/R), daño ~ (1 - d/R) × fragilidad × bonus por material
@@ -265,9 +278,9 @@ async function main() {
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
-    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; endT0 = false; SFX.win(); return; }
+    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; endT0 = false; SFX.duck(4); SFX.win(); return; }
     laughAll = 1.3;
-    if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.giggle(); setTimeout(SFX.lose, 700); return; }
+    if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700); return; }
     state = 'between'; turnWait = 0.9;
   }
   let endT0 = false, resultsShown = false; // el panel sale una sola vez por intento (al ir al menú no debe reaparecer)
@@ -385,6 +398,13 @@ async function main() {
       if (q.hop && hopAnim(q)) return;
       const t = time + q.phase, hop = Math.max(0, Math.sin(t * 2.2)) ** 8 * (Math.sin(t * 0.37) > 0.3 ? 26 : 0);
       const br = 1 + Math.sin(t * 3.1) * 0.025;
+      // parpadeo (a veces doble, como en AB2)
+      if (!q.bonus) {
+        if (q.blinkAt == null) q.blinkAt = time + 1 + Math.random() * 3;
+        const bt = time - q.blinkAt, closed = (bt > 0 && bt < 0.12) || (q.dbl && bt > 0.22 && bt < 0.33);
+        const T = closed ? catT[q.name].blink : catT[q.name].calm; if (q.sprite.texture !== T.tex) q.sprite.texture = T.tex;
+        if (bt > 0.4) { q.blinkAt = time + 2 + Math.random() * 3.5; q.dbl = Math.random() < 0.3; }
+      }
       q.sprite.scale.set(0.5 / Math.sqrt(br), 0.5 * br); q.sprite.y = GROUND - catT[q.name].calm.footY - hop;
       q.shadow.scale.x = q.shadow.scale.y * 4 * (1 - hop / 80);
     });
@@ -512,6 +532,7 @@ async function main() {
     acc += dt * 1000;
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); if (laughAll > 0) laughAll -= dt;
+    if (started > 1 && dt > 0) crush(dt);
     for (const d of dyn) {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
@@ -543,6 +564,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
+  window.GAME = {app, cam, catT, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (flying && !flying.hit && !flying.power) { flying.power = true; activatePower(flying); } }, get score() { return score; }, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), get state() { return state; }, get flying() { return flying; }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
