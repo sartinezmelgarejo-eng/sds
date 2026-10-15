@@ -207,8 +207,12 @@ function lawnLayer() {
   return bake(x0, top - 40, w, h + 40, 0.8, ctx => {
     const r = rng(93);
     ctx.fillStyle = lin(ctx, 0, top, 0, y1, [[0, '#8A5A33'], [0.4, '#6E4426'], [1, '#4A2C17']]); ctx.fillRect(x0, top + 30, w, h);
-    for (let i = 0; i < w * h / 9000; i++) { const x = x0 + r() * w, y = top + 70 + r() * h, R = 6 + r() * 16;
-      ctx.fillStyle = lin(ctx, x, y - R, x, y + R, [[0, '#B8A48E'], [1, '#7A6655']]); ctx.beginPath(); ctx.ellipse(x, y, R * 1.3, R, r() * 3, 0, TAU); ctx.fill(); }
+    // vetas de tierra (capas horizontales suaves) + pocas piedras planas con sombra
+    for (let y = top + 90; y < y1; y += 60 + r() * 50) { ctx.fillStyle = `rgba(${r() > 0.5 ? '120,80,45' : '60,35,18'},0.25)`; ctx.beginPath(); ctx.moveTo(x0, y);
+      for (let x = x0; x <= x1 + 80; x += 80) ctx.lineTo(x, y + Math.sin(x / 210 + y) * 10); ctx.lineTo(x1, y + 18); ctx.lineTo(x0, y + 18); ctx.fill(); }
+    for (let i = 0; i < w * h / 60000; i++) { const x = x0 + r() * w, y = top + 90 + r() * (h - 60), R = 10 + r() * 18;
+      ctx.fillStyle = 'rgba(30,15,5,0.35)'; ctx.beginPath(); ctx.ellipse(x + 3, y + R * 0.35, R * 1.5, R * 0.5, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = lin(ctx, x, y - R * 0.5, x, y + R * 0.5, [[0, '#A8927A'], [1, '#6E5A48']]); ctx.beginPath(); ctx.ellipse(x, y, R * 1.5, R * 0.55, (r() - 0.5) * 0.3, 0, TAU); ctx.fill(); }
     ctx.fillStyle = lin(ctx, 0, top - 10, 0, top + 60, [[0, '#8FD85E'], [0.5, '#5FB13E'], [1, '#3E8A2C']]); ctx.fillRect(x0, top - 10, w, 70);
     ctx.fillStyle = '#3E8A2C';
     for (let x = x0; x < x1; x += 14) { const hh = 14 + r() * 26; ctx.beginPath(); ctx.moveTo(x, top - 5); ctx.lineTo(x + 7 + r() * 6, top - 5 - hh); ctx.lineTo(x + 14, top - 5); ctx.fill(); }
