@@ -391,6 +391,9 @@ async function main() {
       for (const [me, other] of [[A, B], [B, A]]) {
         const d = byBody(me); if (!d) continue;
         SFX.hit(d.skin || d.mat, closing / 18);
+        // polvo al golpear el piso (bloques y ratones que caen), una vez cada 0.3 s por cuerpo
+        if (other === ground && closing > 3 && started > 1 && time - (d.dustT || -9) > 0.3) { d.dustT = time;
+          const sp = pr.collision.supports?.[0] || me.position; fx.smoke(sp.x, GROUND - 6, Math.min(70, 18 + closing * 3), Math.round(Math.min(6, 2 + closing * 0.3))); }
         if (started < 1) continue;
         const mf = other.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * other.mass / (other.mass + me.mass)));
         damage(d, Math.max(0, closing - 1.2) * mf * FRAGILE[d.mat], closing);
