@@ -97,7 +97,7 @@ function wallLayer() {
 
 // Frascos de especias sobre las repisas de la pared (f 0.35): con un estruendo brincan, se ladean y castañetean
 // (cada uno con su retraso y fuerza), como la utilería del fondo de AB2.
-const SHELVES = [[-150, 1050, 900, 3], [2400, 1200, 1300, 9]];
+const SHELVES = [[-150, 1050, 700, 3], [2400, 1200, 1300, 9]]; // la izquierda deja lugar a la tetera
 function jarLayer() {
   const c = new Container(), items = [];
   for (const [x, y, w, seed] of SHELVES) for (const j of shelfJars(x, y, w, seed)) {
@@ -145,6 +145,57 @@ function utensilLayer() {
   c.jolt = (k = 1) => { items.forEach(o => { o.sw = Math.min(0.5, o.sw + k * (0.18 + Math.random() * 0.12)); o.swT = Math.random() * 0.3; }); SFX.clink(Math.min(1, 0.4 + k * 0.4)); };
   c.update = dt => { T0 += dt; items.forEach(o => { o.s.rotation = Math.sin(T0 * 0.8 + o.ph) * 0.012;
     if (o.sw > 0.003) { o.swT += dt; o.s.rotation += o.sw * Math.sin(o.swT * o.f + 0.3); o.sw *= Math.exp(-dt * 0.9); } }); };
+  return c;
+}
+// Tetera de peltre rojo en la repisa izquierda (f 0.35): echa vapor por el pico; de vez en cuando hierve (la tapa
+// castañetea y sale más vapor) y con un estruendo la tapa brinca girando y sale una bocanada (utilería viva de AB2).
+function kettleLayer() {
+  const c = new Container(), KX = 615, KY = 1050, S = 1.15; // base de la tetera sobre la repisa
+  const veil = (k, w, h) => { k.globalCompositeOperation = 'source-atop'; k.fillStyle = 'rgba(255,240,215,0.2)'; k.fillRect(0, 0, w, h); k.globalCompositeOperation = 'source-over'; };
+  const cv = (w, h, draw) => { const e = document.createElement('canvas'); e.width = w; e.height = h; const k = e.getContext('2d'); draw(k); veil(k, w, h); return Texture.from(e); };
+  const OL = '#5A1E1A';
+  const body = new Sprite(cv(260, 200, k => { // origen del dibujo: (130, 190) = centro de la base
+    k.translate(130, 190);
+    // asa (arco arriba)
+    k.lineCap = 'round'; k.strokeStyle = OL; k.lineWidth = 16; k.beginPath(); k.arc(0, -96, 62, Math.PI * 1.08, Math.PI * 1.92); k.stroke();
+    k.strokeStyle = '#2E2A2A'; k.lineWidth = 10; k.beginPath(); k.arc(0, -96, 62, Math.PI * 1.08, Math.PI * 1.92); k.stroke();
+    // pico (sale a la izquierda, hacia arriba)
+    k.beginPath(); k.moveTo(-52, -40); k.quadraticCurveTo(-92, -46, -112, -96); k.lineTo(-98, -104); k.quadraticCurveTo(-80, -70, -46, -70); k.closePath();
+    k.fillStyle = lin(k, 0, -104, 0, -40, [[0, '#F06A55'], [1, '#A82A22']]); k.fill(); k.lineWidth = 5; k.strokeStyle = OL; k.lineJoin = 'round'; k.stroke();
+    // cuerpo (domo)
+    k.beginPath(); k.moveTo(-78, 0); k.bezierCurveTo(-92, -40, -70, -100, 0, -104); k.bezierCurveTo(70, -100, 92, -40, 78, 0); k.closePath();
+    k.fillStyle = rad(k, -26, -70, 8, 110, [[0, '#FF9A80'], [0.45, '#E2483A'], [1, '#8E2019']]); k.fill(); k.lineWidth = 6; k.strokeStyle = OL; k.stroke();
+    k.fillStyle = 'rgba(255,255,255,0.55)'; k.beginPath(); k.ellipse(-38, -66, 11, 24, 0.5, 0, TAU); k.fill(); // brillo
+    k.fillStyle = 'rgba(255,255,255,0.85)'; k.beginPath(); k.ellipse(-46, -80, 4, 7, 0.5, 0, TAU); k.fill();
+    k.fillStyle = 'rgba(255,240,220,0.9)'; rr(k, -80, -10, 160, 10, 5); k.fill(); k.strokeStyle = OL; k.lineWidth = 4; k.stroke(); // ribete de abajo
+    // florecita blanca (peltre mexicano)
+    k.translate(26, -46); for (let i = 0; i < 5; i++) { k.rotate(TAU / 5); k.beginPath(); k.ellipse(0, -10, 6, 10, 0, 0, TAU); k.fillStyle = '#FFF6EA'; k.fill(); }
+    k.beginPath(); k.arc(0, 0, 5, 0, TAU); k.fillStyle = '#F2C230'; k.fill(); }));
+  body.anchor.set(0.5, 190 / 200); body.scale.set(S); body.position.set(KX, KY); c.addChild(body);
+  const lid = new Sprite(cv(90, 50, k => { k.translate(45, 40);
+    k.beginPath(); k.ellipse(0, 0, 38, 10, 0, Math.PI, TAU); k.fillStyle = lin(k, 0, -12, 0, 2, [[0, '#F57A62'], [1, '#B9332A']]); k.fill(); k.lineWidth = 4; k.strokeStyle = OL; k.stroke();
+    k.beginPath(); k.arc(0, -14, 9, 0, TAU); k.fillStyle = '#2E2A2A'; k.fill(); k.strokeStyle = OL; k.lineWidth = 3; k.stroke(); }));
+  const LY = KY - 103 * S; lid.anchor.set(0.5, 40 / 50); lid.scale.set(S); lid.position.set(KX, LY); c.addChild(lid);
+  const st = document.createElement('canvas'); st.width = st.height = 64; const sk = st.getContext('2d'), g = sk.createRadialGradient(32, 32, 2, 32, 32, 31);
+  g.addColorStop(0, 'rgba(255,255,255,0.9)'); g.addColorStop(0.5, 'rgba(255,255,255,0.45)'); g.addColorStop(1, 'rgba(255,255,255,0)'); sk.fillStyle = g; sk.fillRect(0, 0, 64, 64);
+  const ST = Texture.from(st), puffs = [], SPX = KX - 107 * S, SPY = KY - 102 * S; // punta del pico
+  const puff = (x, y, vx, vy, sz, life) => { const p = new Sprite(ST); p.anchor.set(0.5); p.position.set(x, y); p.alpha = 0; c.addChild(p); puffs.push({p, vx, vy, sz, life, t: 0, ph: Math.random() * TAU}); };
+  let T0 = 0, acc = 0, boilAt = 4 + Math.random() * 4, boil = 0, lv = {y: 0, vy: 0, r: 0, vr: 0};
+  c.jolt = (k = 1) => { lv.vy = -(420 + 220 * Math.min(1.5, k)); lv.vr = (Math.random() - 0.5) * 10; boil = Math.max(boil, 1.2);
+    for (let i = 0; i < 8; i++) puff(KX + (Math.random() - 0.5) * 60, LY - 10, (Math.random() - 0.5) * 80, -90 - Math.random() * 80, 1.1 + Math.random() * 0.6, 1.8); };
+  c.update = dt => { T0 += dt;
+    if ((boilAt -= dt) < 0) { boil = 1.3; boilAt = 7 + Math.random() * 6; }
+    if (boil > 0) { boil -= dt; if (lv.y >= 0 && Math.random() < dt * 14) { lv.vy = -40 - Math.random() * 50; lv.vr += (Math.random() - 0.5) * 2; } } // la tapa castañetea
+    acc += dt * (boil > 0 ? 14 : 5); while (acc > 1) { acc--; puff(SPX + (Math.random() - 0.5) * 6, SPY, -40 - Math.random() * 30 - (boil > 0 ? 40 : 0), -70 - Math.random() * 40 - (boil > 0 ? 50 : 0), boil > 0 ? 0.9 : 0.6, boil > 0 ? 1.8 : 2.4); }
+    if (boil > 0 && Math.random() < dt * 8) puff(KX + (Math.random() - 0.5) * 50, LY - 6, (Math.random() - 0.5) * 40, -60, 0.7, 1.4);
+    // tapa: brinca con gravedad, rebota apagada y se endereza
+    if (lv.y < 0 || lv.vy < 0) { lv.vy += 1500 * dt; lv.y += lv.vy * dt; if (lv.y >= 0) { lv.y = 0; lv.vy = lv.vy > 120 ? -lv.vy * 0.3 : 0; } }
+    lv.vr += -lv.r * (lv.y < 0 ? 3 : 80) * dt; lv.vr *= Math.exp(-dt * 6); lv.r += lv.vr * dt; if (lv.y >= 0) lv.r = Math.max(-0.25, Math.min(0.25, lv.r));
+    lid.position.set(KX, LY + lv.y); lid.rotation = lv.r;
+    for (let i = puffs.length - 1; i >= 0; i--) { const o = puffs[i]; o.t += dt; const u = o.t / o.life;
+      if (u >= 1) { o.p.destroy(); puffs.splice(i, 1); continue; }
+      o.vx *= Math.exp(-dt * 1.2); o.vy *= Math.exp(-dt * 0.4); o.p.x += (o.vx + Math.sin(T0 * 2 + o.ph) * 22) * dt; o.p.y += o.vy * dt;
+      o.p.scale.set(o.sz * 1.3 * (0.5 + u * 1.6)); o.p.alpha = 0.85 * Math.min(1, u * 5) * (1 - u); } };
   return c;
 }
 // Motas de polvo que flotan y brillan en el rayo de sol que entra por la ventana (misma capa que la pared, f 0.35)
@@ -699,15 +750,16 @@ export function buildBackground(theme = 'kitchen') {
     const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
     return {layers, fg, fl, fr, update: dt => { clouds.update(dt); flies.update(dt); birds.update(dt); }, jolt: (k, x) => { flies.jolt(k, x); birds.jolt(k, x); }, birds};
   }
-  const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer();
+  const motes = motesLayer(), tools = utensilLayer(), jars = jarLayer(), kettle = kettleLayer();
   const layers = [
     {node: wallLayer(), f: 0.35},
     {node: jars, f: 0.35},
     {node: tools, f: 0.35},
+    {node: kettle, f: 0.35},
     {node: motes, f: 0.35},
     {node: tileLayer(), f: 0.75},
     {node: counterLayer(), f: 1},
   ];
   const fg = new Container(); const fl = foliage(-1), fr = foliage(1); fg.addChild(fl, fr);
-  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); jars.update(dt); }, jolt: k => { tools.jolt(k); jars.jolt(k); }};
+  return {layers, fg, fl, fr, update: dt => { motes.update(dt); tools.update(dt); jars.update(dt); kettle.update(dt); }, jolt: k => { tools.jolt(k); jars.jolt(k); kettle.jolt(k); }, kettle};
 }
