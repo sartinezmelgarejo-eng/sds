@@ -12,6 +12,7 @@ export class Slingshot {
     const h = SLING.h;
     this.tipBack = {x: SLING.x + h * 0.2, y: GROUND - h + 6};
     this.tipFront = {x: SLING.x - h * 0.2, y: GROUND - h + 6};
+    this.tips0 = [{...this.tipBack}, {...this.tipFront}]; this.sway = 0; this.av = 0; // la horquilla se cimbra al soltar (pivote en la base)
     this.rest = {x: SLING.x, y: GROUND - h * 0.9};   // centro del gato en la bolsa
     this.pouch = {...this.rest}; this.pv = {x: 0, y: 0};  // posición/velocidad de la bolsa (resorte)
     this.aiming = false; this.pull = {x: 0, y: 0};
@@ -36,10 +37,14 @@ export class Slingshot {
     if (d < MIN_PULL) { this.pull = {x: 0, y: 0}; return null; }
     const k = V_MAX / MAX_PULL; const v = {x: -this.pull.x * k, y: -this.pull.y * k};
     this.pv = {x: v.x * 0.3, y: v.y * 0.3}; // la bolsa sale disparada y luego oscila (u/s)
+    this.av += 1.1 * d / MAX_PULL; // latigazo hacia adelante de la horquilla
     this.pull = {x: 0, y: 0};
     return v;
   }
   update(dt) {
+    { const n = 4, h = dt / n; for (let i = 0; i < n; i++) { this.av += (-320 * this.sway - 7 * this.av) * h; this.sway += this.av * h; }
+      const c = Math.cos(this.sway), sn = Math.sin(this.sway);
+      [this.tipBack, this.tipFront].forEach((t, i) => { const dx = this.tips0[i].x - SLING.x, dy = this.tips0[i].y - GROUND; t.x = SLING.x + dx * c - dy * sn; t.y = GROUND + dx * sn + dy * c; }); }
     if (!this.aiming && !this.held) { // resorte (held = la manita del tutorial la sostiene) amortiguado hacia el reposo (la bolsa "tiembla" tras disparar)
       const k = 420, c = 13, n = 4, h = dt / n;
       for (let i = 0; i < n; i++) {

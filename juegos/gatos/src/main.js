@@ -131,7 +131,7 @@ async function main() {
   const slH = SLING.h, slTexW = slH * 0.9;
   const slBack = new Sprite(canvasTex(slTexW, slH + 20, k => ART.slingshotBack(k, slTexW / 2, slH + 10, slH), 2));
   const slFront = new Sprite(canvasTex(slTexW, slH + 20, k => ART.slingshotFront(k, slTexW / 2, slH + 10, slH), 2));
-  [slBack, slFront].forEach(s => { s.scale.set(0.5); s.position.set(SLING.x - slTexW / 2, GROUND - slH - 10); });
+  [slBack, slFront].forEach(s => { s.scale.set(0.5); s.anchor.set(0.5, (slH + 10) / (slH + 20)); s.position.set(SLING.x, GROUND); }); // pivote en la base (se cimbra)
   contactShadow(SLING.x, 200, behind); behind.addChild(lvlBehind);
   slingBack.addChild(slBack); slingFront.addChild(slFront);
 
@@ -971,7 +971,7 @@ async function main() {
         q.sprite.x = q.x + q.look * 18; q.sprite.rotation = q.look; }
       q.shadow.scale.x = q.shadow.scale.y * 4 * (1 - hop / 80);
     });
-    sling.draw();
+    sling.draw(); slBack.rotation = slFront.rotation = sling.sway;
   }
 
   // ---------- input: resortera, tap en el aire, pinch-zoom / pan (2 dedos), arrastre y rueda ----------
