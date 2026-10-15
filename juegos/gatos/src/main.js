@@ -423,7 +423,7 @@ async function main() {
       fx.streak(r.x, r.y, 15, r.col); if (Math.random() < 0.5) fx.burst('zap', r.x, r.y, 1, 120, {up: 0, size: 0.5, life: 0.3, g: 400});
       // si el cohete se mete en un bloque o ratón truena ahí: le pega y, si es otra caja de cuetes, la enciende
       const hitD = r.t > 0.08 && dyn.find(d => !d.dead && !d.enter && d.mat !== 'robot' && Matter.Bounds.contains(d.body.bounds, r) && Matter.Vertices.contains(d.body.vertices, r));
-      if (hitD) { r.t = r.life; damage(hitD, hitD.mat === 'tnt' ? 99 : 6 * FRAGILE[hitD.mat], 10); Sleeping.set(hitD.body, false);
+      if (hitD) { r.t = r.life; damage(hitD, hitD.mat === 'tnt' ? 99 : 3 * FRAGILE[hitD.mat], 10); Sleeping.set(hitD.body, false);
         Body.setVelocity(hitD.body, {x: hitD.body.velocity.x + r.vx / 240, y: hitD.body.velocity.y + r.vy / 240}); cam.shake(8); }
       if (r.t >= r.life) { rockets.splice(i, 1);
         // trueno de cuete: chispas de color en esfera + destello
@@ -452,6 +452,9 @@ async function main() {
 
   function activatePower(f) {
     const b = f.body, p = b.position, name = f.q.name;
+    // en el rastro queda una nube de puntitos donde se usó el poder (como el "puff" del Angry Birds clásico)
+    if (!f.hit) { const c = new Sprite(dotTex); c.anchor.set(0.5); c.scale.set(0.7); c.position.set(p.x, p.y); trail.addChild(c);
+      for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.3, d = new Sprite(dotTex); d.anchor.set(0.5); d.scale.set(0.24 + (k % 2) * 0.08); d.position.set(p.x + Math.cos(a) * 42, p.y + Math.sin(a) * 42); trail.addChild(d); } }
     if (name === 'mako') { // 💥 Bola de pelos: explota
       fx.explosion(p.x, p.y, 200); fx.ring(p.x, p.y, 320, 0xFFF1C8);
       screenFlash = 0.12;
@@ -688,12 +691,13 @@ async function main() {
         const va = Math.atan2(b.velocity.y, b.velocity.x), sp = Math.min(1, b.speed / 28);
         f.sprite.rotation = Math.max(-0.6, Math.min(0.6, va * 0.35)); // sin girar: la cara real se lee mejor
         if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08), 0.5 * (1 - sp * 0.06));
-        // rastro de puntitos (uno grande cada 5)
-        if (Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
-          const d = new Sprite(dotTex); d.anchor.set(0.5); const big = ++f.dots % 5 === 0;
-          d.scale.set(big ? 0.32 : 0.2); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
-        }
-      } else {
+      }
+      // rastro de puntitos (uno grande cada 5); sigue durante el loop de Miu y su picada
+      if (!f.hit && !f.exploded && Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
+        const d = new Sprite(dotTex); d.anchor.set(0.5); const big = ++f.dots % 5 === 0;
+        d.scale.set(big ? 0.32 : 0.2); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
+      }
+      if (f.hit || f.loop) {
         // mareado tras el golpe (AB2): ojos cerrados + estrellitas girando sobre la cabeza
         if (!f.dizzy && !f.inflate && !f.exploded && f.t - f.hitT > 0.15) {
           const T = catT[f.q.name].dizzy || catT[f.q.name].blink; f.sprite.texture = T.tex; f.sprite.anchor.set(T.ax, T.ay);
