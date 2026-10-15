@@ -813,11 +813,12 @@ function cratesLayer() {
     const es = [-16, 16].map(dx => { const e = new Sprite(eyeT); e.anchor.set(0.5); e.x = dx; e.scale.set(0.75); e.blendMode = 'add'; p.addChild(e); return e; });
     const h = new Sprite(HT.c); h.anchor.set(0.5, 1); h.visible = false;
     c.addChild(p, h); return {p, es, h, mx, t: 1 + i * 2.3, blink: 0, look: 0, lookT: 0, hide: 0, peek: 0, pk: 4 + i * 5 + Math.random() * 4, up: 0, face: 'c', fT: 0, duck: 0}; });
+  // solo se asoma el del agujero cerca de la resortera (o.mx < 2500): junto a las fortalezas se confundiría con un ratón enemigo
   c.peekNow = () => pairs.forEach(o => { o.pk = 0; o.hide = 0; }); c.pairs = pairs; // para pruebas
   c.jolt = (k = 1, x = 0) => pairs.forEach(o => { const side = Math.sign(x * 0.65 - o.mx) || 1;
     if (o.peek > 0) { o.duck = 1; SFX.squeak(); } o.peek = 0; o.hide = 1.6 + Math.random(); o.pk = 2.4 + Math.random() * 1.5; o.curious = side; });
   c.update = dt => pairs.forEach(o => {
-    o.pk -= dt; if (o.pk <= 0 && o.peek <= 0 && o.hide <= 0) { o.peek = 1.8 + Math.random() * 1.6; o.fT = o.curious ? 0.9 : 0; o.face = o.curious ? (o.curious < 0 ? 'l' : 'r') : 'c'; o.curious = 0; o.pk = 7 + Math.random() * 8; }
+    o.pk -= dt; if (o.mx < 2500 && o.pk <= 0 && o.peek <= 0 && o.hide <= 0) { o.peek = 1.8 + Math.random() * 1.6; o.fT = o.curious ? 0.9 : 0; o.face = o.curious ? (o.curious < 0 ? 'l' : 'r') : 'c'; o.curious = 0; o.pk = 7 + Math.random() * 8; }
     if (o.peek > 0) { o.peek -= dt; o.fT -= dt;
       if (o.fT <= 0) { const r2 = Math.random(); o.face = r2 < 0.18 ? 'b' : r2 < 0.45 ? 'l' : r2 < 0.72 ? 'r' : 'c'; o.fT = o.face === 'b' ? 0.13 : 0.4 + Math.random() * 0.5; } }
     const want = o.peek > 0.18 ? 1 : 0; o.up += (want - o.up) * Math.min(1, dt * (want ? 6 : 14)); if (o.duck > 0) { o.duck -= dt * 4; o.up *= Math.exp(-dt * 30); }
