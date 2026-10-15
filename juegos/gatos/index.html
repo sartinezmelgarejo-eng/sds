@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Gatos Furiosos</title>
+<style>
+  html,body{margin:0;height:100%;background:#1b2a3a;overflow:hidden;touch-action:none;font-family:system-ui,-apple-system,sans-serif}
+  canvas{display:block;margin:0 auto}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  .btn{pointer-events:auto;background:#fff;border:none;border-radius:12px;padding:10px 16px;font-size:16px;font-weight:700;box-shadow:0 3px 0 #0003;cursor:pointer}
+  #top{position:absolute;top:8px;left:8px;right:8px;display:flex;justify-content:space-between;align-items:center;color:#fff;font-weight:800;font-size:18px;text-shadow:0 2px 3px #0008}
+  #overlay{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:#0008;pointer-events:auto}
+  #card{background:#fff8ec;border-radius:20px;padding:24px 28px;text-align:center;max-width:340px}
+  #card h1{margin:0 0 6px;font-size:28px}
+  #card p{margin:6px 0 16px;font-size:16px}
+  #stars{font-size:40px;letter-spacing:4px}
+  #rot{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;font-size:20px;text-align:center;background:#1b2a3a;pointer-events:auto}
+  @media (orientation:portrait) and (max-width:700px){#rot{display:flex}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div id="top"><span id="lvl"></span><span id="score"></span><button class="btn" id="reset">↻</button></div>
+  <div id="overlay"><div id="card"><h1 id="t"></h1><div id="stars"></div><p id="m"></p><button class="btn" id="go"></button></div></div>
+  <div id="rot">📱↻<br>Gira el teléfono<br>para jugar</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/matter-js@0.19.0/build/matter.min.js"></script>
+<script>
+// ====== GATOS: pon aquí las fotos (recortadas cuadradas) ======
+const CATS = [
+  // {name:'Michi', src:'cats/michi.png'},
+  {name:'Gato 1', color:'#f4a340'},
+  {name:'Gato 2', color:'#8a8a8a'},
+  {name:'Gato 3', color:'#222'},
+];
+// ===============================================================
+
+const {Engine, Bodies, Body, Composite, Events, Vector} = Matter;
+const W = 1600, H = 900, GROUND = 830, SLING = {x: 260, y: 600}, MAXPULL = 170, POWER = 0.22, R = 38;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let scale = 1;
+function fit(){
+  scale = Math.min(innerWidth / W, innerHeight / H);
+  cv.width = W * scale * devicePixelRatio; cv.height = H * scale * devicePixelRatio;
+  cv.style.width = W * scale + 'px'; cv.style.height = H * scale + 'px';
+  cv.style.marginTop = (innerHeight - H * scale) / 2 + 'px';
+}
+addEventListener('resize', fit); fit();
+
+CATS.forEach(c => { if (c.src) { c.img = new Image(); c.img.src = c.src; } });
+
+// Niveles: cajas de cartón [x,y,w,h] y pepinos [x,y] (a los gatos les dan miedo los pepinos)
+const LEVELS = [
+  {boxes: [[1100,780,40,100],[1220,780,40,100],[1160,715,180,30],[1160,650,40,100]],
+   cukes: [[1160,800],[1160,570]]},
+  {boxes: [[1000,780,40,100],[1120,780,40,100],[1060,715,180,30],[1300,760,40,140],[1420,760,40,140],[1360,675,180,30],[1360,610,40,100],[1060,650,40,100]],
+   cukes: [[1060,800],[1360,800],[1360,530],[1060,570]]},
+  {boxes: [[950,780,40,100],[1070,780,40,100],[1010,715,180,30],[950,650,40,100],[1070,650,40,100],[1010,585,180,30],
+           [1250,780,40,100],[1370,780,40,100],[1310,715,180,30],[1250,650,40,100],[1370,650,40,100],[1310,585,180,30],[1310,520,40,100]],
+   cukes: [[1010,800],[1010,670],[1310,800],[1310,670],[1310,440]]},
+];
+
+let engine, level = 0, score = 0, shots, cat, dragging = false, launched = false, settleT = 0, catIdx = 0, over = false, popups = [];
+
+function load(n){
+  level = n; engine = Engine.create(); engine.gravity.y = 1;
+  const L = LEVELS[n];
+  Composite.add(engine.world, [
+    Bodies.rectangle(W/2, GROUND + 50, W * 3, 100, {isStatic: true, label: 'ground'}),
+    Bodies.rectangle(W + 400, H/2, 100, H * 3, {isStatic: true}),
+  ]);
+  L.boxes.forEach(([x,y,w,h]) => Composite.add(engine.world, Bodies.rectangle(x, y, w, h, {label: 'box', density: 0.0008, friction: 0.8, hp: 3})));
+  L.cukes.forEach(([x,y]) => Composite.add(engine.world, Bodies.circle(x, y, 26, {label: 'cuke', density: 0.0012, hp: 1})));
+  shots = CATS.length + Math.max(0, n); catIdx = 0; over = false; score = n === 0 ? 0 : score;
+  Events.on(engine, 'collisionStart', onHit);
+  newCat(); hide(); hud();
+}
+
+function newCat(){
+  if (shots <= 0) return;
+  cat = Bodies.circle(SLING.x, SLING.y, R, {label: 'cat', density: 0.004, restitution: 0.35, friction: 0.6, isStatic: true});
+  cat.cat = CATS[catIdx % CATS.length]; catIdx++;
+  Composite.add(engine.world, cat); launched = false; settleT = 0;
+}
+
+function onHit(e){
+  e.pairs.forEach(({bodyA, bodyB}) => {
+    const v = Vector.magnitude(Vector.sub(bodyA.velocity, bodyB.velocity));
+    [bodyA, bodyB].forEach(b => {
+      if ((b.label === 'cuke' && v > 4.5) || (b.label === 'box' && v > 9)) {
+        b.hp -= b.label === 'cuke' ? 1 : (v > 14 ? 2 : 1);
+        if (b.hp <= 0) kill(b);
+      }
+    });
+  });
+}
+
+function kill(b){
+  if (b.dead) return; b.dead = true;
+  const pts = b.label === 'cuke' ? 5000 : 500; score += pts;
+  popups.push({x: b.position.x, y: b.position.y, t: 0, txt: '+' + pts, cuke: b.label === 'cuke'});
+  setTimeout(() => Composite.remove(engine.world, b), 0);
+  if (b.label === 'cuke') meow(1.4);
+  hud();
+}
+
+// --- input ---
+function pos(e){ const r = cv.getBoundingClientRect(), p = e.touches ? e.touches[0] : e; return {x: (p.clientX - r.left) / scale, y: (p.clientY - r.top) / scale}; }
+function down(e){ if (over || launched || !cat) return; const p = pos(e); if (Vector.magnitude(Vector.sub(p, cat.position)) < R * 2.2) { dragging = true; e.preventDefault(); } }
+function move(e){
+  if (!dragging) return; e.preventDefault();
+  let d = Vector.sub(pos(e), SLING); const m = Vector.magnitude(d);
+  if (m > MAXPULL) d = Vector.mult(d, MAXPULL / m);
+  Body.setPosition(cat, Vector.add(SLING, d));
+}
+function up(){
+  if (!dragging) return; dragging = false;
+  const d = Vector.sub(SLING, cat.position);
+  if (Vector.magnitude(d) < 20) { Body.setPosition(cat, SLING); return; }
+  Body.setStatic(cat, false); Body.setVelocity(cat, Vector.mult(d, POWER)); Body.setAngularVelocity(cat, 0.15);
+  launched = true; shots--; meow(1); hud();
+}
+cv.addEventListener('mousedown', down); addEventListener('mousemove', move); addEventListener('mouseup', up);
+cv.addEventListener('touchstart', down, {passive: false}); addEventListener('touchmove', move, {passive: false}); addEventListener('touchend', up);
+
+// --- sonido: maullido sintetizado ---
+let ac;
+function meow(p){
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(500 * p, t); o.frequency.linearRampToValueAtTime(900 * p, t + .12); o.frequency.linearRampToValueAtTime(420 * p, t + .35);
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.15, t + .04); g.gain.exponentialRampToValueAtTime(.0001, t + .4);
+    const f = ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 2;
+    o.connect(f); f.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + .42);
+  } catch(_) {}
+}
+
+// --- loop ---
+let last = performance.now();
+function tick(now){
+  const dt = Math.min(32, now - last); last = now;
+  Engine.update(engine, dt);
+  Composite.allBodies(engine.world).forEach(b => { if (!b.isStatic && (b.position.y > H + 300 || b.position.x < -300)) { if (b.label === 'cuke' || b.label === 'box') kill(b); } });
+  if (launched && cat && !over) {
+    settleT += dt;
+    const out = cat.position.x > W + 200 || cat.position.y > H + 200;
+    if ((cat.speed < 0.25 && settleT > 1500) || settleT > 7000 || out) {
+      const c = cat; setTimeout(() => Composite.remove(engine.world, c), 900); cat = null; check();
+    }
+  }
+  draw(dt); requestAnimationFrame(tick);
+}
+
+function cukesLeft(){ return Composite.allBodies(engine.world).filter(b => b.label === 'cuke' && !b.dead).length; }
+function check(){
+  setTimeout(() => {
+    if (over) return;
+    if (cukesLeft() === 0) {
+      over = true; score += shots * 10000; hud();
+      const stars = shots >= 2 ? 3 : shots === 1 ? 2 : 1;
+      show('¡Ganaste! 😼', '⭐'.repeat(stars) + '☆'.repeat(3 - stars), `Puntos: ${score}`, level < LEVELS.length - 1 ? 'Siguiente nivel ▶' : 'Jugar otra vez', () => load(level < LEVELS.length - 1 ? level + 1 : 0));
+    } else if (shots <= 0) {
+      over = true; show('Se acabaron los gatos 🙀', '', `Quedan ${cukesLeft()} pepinos`, 'Reintentar ↻', () => load(level));
+    } else newCat();
+  }, 600);
+}
+const $ = id => document.getElementById(id);
+function show(t, s, m, b, fn){ $('t').textContent = t; $('stars').textContent = s; $('m').textContent = m; $('go').textContent = b; $('go').onclick = fn; $('overlay').style.display = 'flex'; }
+function hide(){ $('overlay').style.display = 'none'; }
+function hud(){ $('lvl').textContent = `Nivel ${level + 1} · 🐱×${shots}`; $('score').textContent = score; }
+$('reset').onclick = () => load(level);
+
+// --- dibujo ---
+function draw(dt){
+  ctx.setTransform(scale * devicePixelRatio, 0, 0, scale * devicePixelRatio, 0, 0);
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, '#7ec8f0'); sky.addColorStop(1, '#d9f1ff');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = '#fff9'; [[300,150,60],[360,140,50],[900,110,70],[970,120,55],[1350,180,50]].forEach(([x,y,r]) => { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); });
+  ctx.fillStyle = '#6cbf4a'; ctx.fillRect(0, GROUND, W, 20); ctx.fillStyle = '#8b5a2b'; ctx.fillRect(0, GROUND + 20, W, H);
+
+  // resortera (parte trasera)
+  ctx.lineCap = 'round'; ctx.strokeStyle = '#6b3e1e'; ctx.lineWidth = 18;
+  ctx.beginPath(); ctx.moveTo(SLING.x, GROUND); ctx.lineTo(SLING.x, SLING.y + 60); ctx.lineTo(SLING.x - 30, SLING.y - 10); ctx.moveTo(SLING.x, SLING.y + 60); ctx.lineTo(SLING.x + 30, SLING.y - 10); ctx.stroke();
+  if (cat && !launched) { ctx.strokeStyle = '#3a1d0d'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(SLING.x + 30, SLING.y - 10); ctx.lineTo(cat.position.x, cat.position.y); ctx.stroke(); }
+
+  // trayectoria de ayuda
+  if (dragging) {
+    let p = {...cat.position}, v = Vector.mult(Vector.sub(SLING, cat.position), POWER);
+    ctx.fillStyle = '#fff';
+    for (let i = 0; i < 90; i++) { v.y += 0.278; v.x *= 0.99; v.y *= 0.99; p.x += v.x; p.y += v.y; if (i % 4 === 0) { ctx.globalAlpha = 1 - i / 90; ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fill(); } }
+    ctx.globalAlpha = 1;
+  }
+
+  Composite.allBodies(engine.world).forEach(b => {
+    if (b.label === 'box') drawBox(b);
+    else if (b.label === 'cuke') drawCuke(b);
+    else if (b.label === 'cat') drawCat(b.position.x, b.position.y, b.angle, b.cat);
+  });
+  if (cat && !launched) { ctx.strokeStyle = '#3a1d0d'; ctx.lineWidth = 7; ctx.beginPath(); ctx.moveTo(SLING.x - 30, SLING.y - 10); ctx.lineTo(cat.position.x, cat.position.y); ctx.stroke(); }
+
+  // gatos en espera
+  for (let i = 0; i < Math.max(0, shots - (cat && !launched ? 1 : 0)); i++) drawCat(150 - i * 70, GROUND - 28, 0, CATS[(catIdx + i) % CATS.length], 0.7);
+
+  popups = popups.filter(p => (p.t += dt) < 1000);
+  popups.forEach(p => { ctx.globalAlpha = 1 - p.t / 1000; ctx.fillStyle = p.cuke ? '#2e7d32' : '#fff'; ctx.font = '800 34px system-ui'; ctx.textAlign = 'center'; ctx.fillText(p.txt, p.x, p.y - p.t / 12); });
+  ctx.globalAlpha = 1;
+}
+
+function drawBox(b){
+  ctx.save(); ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle);
+  const w = Vector.magnitude(Vector.sub(b.vertices[1], b.vertices[0])), h = Vector.magnitude(Vector.sub(b.vertices[2], b.vertices[1]));
+  ctx.fillStyle = b.hp >= 3 ? '#c8945a' : b.hp === 2 ? '#b07c45' : '#94663a';
+  ctx.fillRect(-w/2, -h/2, w, h); ctx.strokeStyle = '#7a5130'; ctx.lineWidth = 3; ctx.strokeRect(-w/2, -h/2, w, h);
+  ctx.strokeStyle = '#e8c48a'; ctx.lineWidth = 6; ctx.beginPath(); if (w > h) { ctx.moveTo(-w/2, 0); ctx.lineTo(w/2, 0); } else { ctx.moveTo(0, -h/2); ctx.lineTo(0, h/2); } ctx.stroke();
+  ctx.restore();
+}
+
+function drawCuke(b){
+  ctx.save(); ctx.translate(b.position.x, b.position.y); ctx.rotate(b.angle);
+  ctx.fillStyle = '#3f8f3a'; ctx.beginPath(); ctx.ellipse(0, 0, 34, 24, 0, 0, 7); ctx.fill();
+  ctx.fillStyle = '#62b85a'; [[-16,-8],[0,-12],[16,-6],[-8,8],[12,10]].forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill(); });
+  ctx.fillStyle = '#fff'; [[-9,-2],[9,-2]].forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x, y, 7, 0, 7); ctx.fill(); });
+  ctx.fillStyle = '#000'; [[-7,-1],[11,-1]].forEach(([x,y]) => { ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fill(); });
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-16,-12); ctx.lineTo(-4,-8); ctx.moveTo(16,-12); ctx.lineTo(4,-8); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 12, 6, Math.PI, 0); ctx.stroke();
+  ctx.restore();
+}
+
+function drawCat(x, y, ang, c, s = 1){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(ang); ctx.scale(s, s);
+  const r = R;
+  // orejas
+  ctx.fillStyle = c.color || '#f4a340';
+  [[-1],[1]].forEach(([d]) => { ctx.beginPath(); ctx.moveTo(d * r * .85, -r * .35); ctx.lineTo(d * r * .65, -r * 1.25); ctx.lineTo(d * r * .15, -r * .8); ctx.fill(); });
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.closePath();
+  if (c.img && c.img.complete && c.img.naturalWidth) {
+    ctx.save(); ctx.clip(); const iw = c.img.naturalWidth, ih = c.img.naturalHeight, m = Math.min(iw, ih);
+    ctx.drawImage(c.img, (iw - m) / 2, (ih - m) / 2, m, m, -r, -r, r * 2, r * 2); ctx.restore();
+  } else {
+    ctx.fill();
+    ctx.fillStyle = '#fff'; [[-13],[13]].forEach(([ex]) => { ctx.beginPath(); ctx.ellipse(ex, -6, 9, 11, 0, 0, 7); ctx.fill(); });
+    ctx.fillStyle = '#1b5e20'; [[-13],[13]].forEach(([ex]) => { ctx.beginPath(); ctx.ellipse(ex, -5, 4, 9, 0, 0, 7); ctx.fill(); });
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.moveTo(-24, -20); ctx.lineTo(-6, -13); ctx.moveTo(24, -20); ctx.lineTo(6, -13); ctx.stroke();
+    ctx.fillStyle = '#f48fb1'; ctx.beginPath(); ctx.moveTo(-5, 7); ctx.lineTo(5, 7); ctx.lineTo(0, 13); ctx.fill();
+    ctx.strokeStyle = '#0008'; ctx.lineWidth = 2; ctx.beginPath(); [[-1],[1]].forEach(([d]) => { ctx.moveTo(d * 10, 12); ctx.lineTo(d * 34, 8); ctx.moveTo(d * 10, 15); ctx.lineTo(d * 34, 18); }); ctx.stroke();
+  }
+  ctx.strokeStyle = '#0006'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 0, r, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+
+load(0); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
