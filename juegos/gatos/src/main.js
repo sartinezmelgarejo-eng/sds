@@ -27,6 +27,7 @@ const SKIN = {kitchen: {box: 'box', jar: 'jar', can: 'can'}, garden: {box: 'wood
 function blockTex(t, w, h, seed, damage = 0) {
   return cached(`b|${t}|${w}|${h}|${seed}|${damage}`, () => canvasTex(w + PAD * 2, h + PAD * 2, k => {
     if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'tnt') ART.cuetes(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'stone') ART.stone(k, PAD, PAD, w, h, {seed, damage});
@@ -117,10 +118,10 @@ async function main() {
   Composite.add(engine.world, ground);
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
-  const LIFE = {box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
-  const FRAGILE = {box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
-  const PTS = {box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
-  const MAT = {box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}, robot: {density: 0.005, friction: 0.9}};
+  const LIFE = {tnt: 3.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
+  const FRAGILE = {tnt: 1.5, box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
+  const PTS = {tnt: 500, box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
+  const MAT = {tnt: {density: 0.0012, friction: 0.9}, box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}, robot: {density: 0.005, friction: 0.9}};
   let acc = 0, time = 0;
   // ---------- resortera + turnos ----------
   const sling = new Slingshot(slingBack, slingFront);
@@ -274,7 +275,7 @@ async function main() {
       p.rotation += rdt * 6; p.alpha = Math.max(0, 1 - p.t / p.life); p.scale.set(0.6 + p.alpha * 0.6); if (p.t >= p.life) { p.destroy(); hudSparks.splice(i, 1); } }
   }
   const backOutE = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
-  const PTS_COL = {robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
+  const PTS_COL = {tnt: '#FFB07A', robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
   // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
@@ -381,6 +382,7 @@ async function main() {
       fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
+      if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07}); // caja de cuetes: explota (en cadena, con un respiro entre cada una)
       if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
@@ -400,6 +402,28 @@ async function main() {
         damage(d, dt * Math.min(8, Math.sqrt(heavy) * (1 + mov) * 1.4));
       }
     }
+  }
+
+  // ---------- CAJA DE CUETES (= TNT de AB2) ----------
+  // al romperse: explosión que daña y empuja alrededor (puede encadenar otras cajas) + cohetes que salen volando y truenan en el aire
+  const booms = [], rockets = [];
+  const FW = [0xFF4A6A, 0x4AB8FF, 0x6BE04A, 0xFFE14A, 0xD06BFF, 0xFFFFFF];
+  function updateBooms(dt) {
+    for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
+      fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
+      blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3});
+      cam.shake(26); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
+      const n = 3 + Math.floor(Math.random() * 2);
+      for (let j = 0; j < n; j++) { const a = -Math.PI / 2 + (j - (n - 1) / 2) * 0.42 + (Math.random() - 0.5) * 0.25, v = 900 + Math.random() * 350;
+        rockets.push({x: b.x, y: b.y - 30, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: 0, life: 0.55 + Math.random() * 0.35, col: FW[(j + Math.floor(Math.random() * 6)) % FW.length], wig: Math.random() * 6}); } }
+    for (let i = rockets.length - 1; i >= 0; i--) { const r = rockets[i]; r.t += dt;
+      r.vy += 500 * dt; r.x += (r.vx + Math.sin(r.t * 22 + r.wig) * 140) * dt; r.y += r.vy * dt;
+      fx.streak(r.x, r.y, 15, r.col); if (Math.random() < 0.5) fx.burst('zap', r.x, r.y, 1, 120, {up: 0, size: 0.5, life: 0.3, g: 400});
+      if (r.t >= r.life) { rockets.splice(i, 1);
+        // trueno de cuete: chispas de color en esfera + destello
+        const n0 = fx.parts.length; fx.burst('star', r.x, r.y, 22, 620, {up: 0, g: 260, drag: 1.6, life: 1.0, size: 0.55});
+        for (let k = n0; k < fx.parts.length; k++) fx.parts[k].s.tint = k % 3 ? r.col : 0xFFFFFF;
+        fx.ring(r.x, r.y, 150, r.col, 0.3); SFX.firework(); } }
   }
 
   // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
@@ -789,7 +813,7 @@ async function main() {
     dyn.length = 0; queue.length = 0;
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
-    score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
+    booms.length = rockets.length = 0; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     level.blocks.forEach((b, i) => {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -874,7 +898,7 @@ async function main() {
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
-    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt);
+    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt);
     { // zumbido del motor: volumen por distancia a la cámara, paneo según el lado de la pantalla
       const r = !menus.blocking && !ui.open && dyn.find(d => d.patrol);
       if (r) { const rp = r.body.position, sxp = (rp.x - cam.x) * cam.zoom / (app.screen.width / 2), k = Math.max(0, 1 - Math.max(0, Math.abs(sxp) - 1) * 0.8);

@@ -143,9 +143,10 @@ export class Menus {
     if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));
     // 8 casillas en 2 filas: número, 3 estrellas, lata de atún si ya se recuperó; candado si no se ha ganado el anterior
     let current = wOpen ? lv.findIndex((id, i) => !recs[i]) : -1;
-    const nS = lv.length <= 4 ? lv.length : SLOTS, solo = nS <= 4; // mundo corto (la guarida): una fila de casillas grandes al centro
+    // mundo corto: ≤4 niveles = una fila de casillas grandes al centro; 5–6 = cuadrícula de 3×2 (la guarida); si no, 4×2
+    const nS = lv.length <= 6 ? lv.length : SLOTS, solo = nS <= 4, cols = nS <= 6 ? 3 : 4;
     for (let i = 0; i < nS; i++) {
-      const col = i % 4, row = Math.floor(i / 4), x = solo ? W / 2 + (i - (nS - 1) / 2) * (nS > 3 ? 440 : 460) : W / 2 + (col - 1.5) * 380, y = solo ? 760 : 560 + row * 420;
+      const col = i % cols, row = Math.floor(i / cols), x = solo ? W / 2 + (i - (nS - 1) / 2) * (nS > 3 ? 440 : 460) : W / 2 + (col - (cols - 1) / 2) * (cols === 3 ? 420 : 380), y = solo ? 760 : 560 + row * 420;
       const exists = i < lv.length, open = exists && wOpen && (i === 0 || recs[i - 1]), now = i === current;
       const tile = new Container(); const d = 2.5 + i * 0.06;
       const base = new Sprite(open ? (now ? this.T.tileNow : this.T.tileOn) : this.T.tileOff); base.anchor.set(0.5, 0.47); base.scale.set(1 / 1.5 * 0.95);

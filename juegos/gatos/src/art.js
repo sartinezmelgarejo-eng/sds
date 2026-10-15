@@ -30,6 +30,54 @@ const ART = (() => {
   }
 
   // ---------- MATERIALES ----------
+
+  // Caja de cuetes (= TNT de AB2): huacal rojo con cohetes asomando, etiqueta amarilla "CUETES" y mecha. Explota al romperse.
+  function cuetes(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 1} = opt;
+    const R = rng(seed), r = Math.min(w, h) * 0.08, top = h * 0.24;
+    ctx.save();
+    // cohetes que asoman por arriba (detrás del frente de la caja)
+    const cols = ['#2F7BE0', '#3DBE4A', '#FFC52E', '#E8459A', '#8A4DE0'];
+    const nR = Math.max(3, Math.round(w / 34));
+    for (let i = 0; i < nR; i++) {
+      const cx = x + w * (i + 0.5) / nR + (R() - 0.5) * 6, rw = Math.min(20, w / nR * 0.55), ry = y + top * (0.15 + R() * 0.35), c = cols[(i + seed) % cols.length];
+      ctx.fillStyle = lin(ctx, cx - rw / 2, 0, cx + rw / 2, 0, [[0, shade(c, 40)], [0.5, c], [1, shade(c, -60)]]);
+      ctx.fillRect(cx - rw / 2, ry + rw * 0.6, rw, top + 10);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(cx - rw / 2, ry + rw * 1.2, rw, rw * 0.35);
+      ctx.beginPath(); ctx.moveTo(cx - rw / 2 - 2, ry + rw * 0.65); ctx.lineTo(cx, ry - rw * 0.5); ctx.lineTo(cx + rw / 2 + 2, ry + rw * 0.65); ctx.closePath();
+      ctx.fillStyle = shade(c, -25); ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = '#2A1F3D'; ctx.stroke();
+      ctx.strokeRect(cx - rw / 2, ry + rw * 0.6, rw, top + 10);
+    }
+    // cuerpo: tablas pintadas de rojo
+    const by = y + top;
+    rr(ctx, x, by, w, h - top, r);
+    ctx.fillStyle = lin(ctx, x, by, x + w * 0.4, y + h, [[0, '#F0563A'], [0.5, '#C9301E'], [1, '#8A1A12']]); ctx.fill();
+    ctx.save(); ctx.clip();
+    const nP = Math.max(2, Math.round((h - top) / 46));
+    for (let i = 1; i < nP; i++) { const py = by + (h - top) * i / nP; ctx.fillStyle = 'rgba(70,10,5,0.55)'; ctx.fillRect(x, py - 2, w, 3); ctx.fillStyle = 'rgba(255,190,160,0.25)'; ctx.fillRect(x, py + 1, w, 2); }
+    for (let i = 0; i < w * h / 700; i++) { ctx.fillStyle = `rgba(90,15,5,${0.08 + R() * 0.14})`; ctx.fillRect(x + R() * w, by + R() * (h - top), 3 + R() * 8, 1.2); }
+    // etiqueta amarilla con letrero y un cohetito dibujado
+    const lw = w * 0.78, lh = Math.min((h - top) * 0.5, w * 0.36), lx = x + (w - lw) / 2, ly = by + (h - top - lh) / 2;
+    ctx.save(); ctx.translate(lx + lw / 2, ly + lh / 2); ctx.rotate((R() - 0.5) * 0.08);
+    rr(ctx, -lw / 2, -lh / 2, lw, lh, lh * 0.18); ctx.fillStyle = '#FFE14A'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#2A1F3D'; ctx.stroke();
+    ctx.fillStyle = '#C9301E'; ctx.font = `${Math.round(Math.min(lh * 0.62, lw / 4.6))}px "Luckiest Guy"`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('CUETES', 0, lh * 0.06);
+    ctx.restore();
+    // bisel interior
+    ctx.lineWidth = r * 0.9;
+    ctx.strokeStyle = lin(ctx, x, by, x + w, y + h, [[0, 'rgba(255,215,190,0.7)'], [0.5, 'rgba(255,215,190,0)'], [0.55, 'rgba(60,5,0,0)'], [1, 'rgba(60,5,0,0.6)']]);
+    rr(ctx, x + r * 0.45, by + r * 0.45, w - r * 0.9, h - top - r * 0.9, r * 0.7); ctx.stroke();
+    cracks(ctx, x, by, w, h - top, damage, seed, 'rgba(50,5,0,0.95)', 'rgba(255,200,170,0.6)');
+    ctx.restore();
+    // esquineros de lámina
+    ctx.fillStyle = '#C9CDD6'; ctx.strokeStyle = '#2A1F3D'; ctx.lineWidth = 2;
+    for (const [cx, cy] of [[x, by], [x + w, by], [x, y + h], [x + w, y + h]]) { ctx.beginPath(); ctx.arc(cx + (cx === x ? 7 : -7), cy + (cy === by ? 7 : -7), 4, 0, TAU); ctx.fill(); ctx.stroke(); }
+    rr(ctx, x, by, w, h - top, r); ctx.lineWidth = 3; ctx.strokeStyle = '#4A0E08'; ctx.stroke();
+    // mecha enroscada
+    ctx.lineCap = 'round'; ctx.strokeStyle = '#3A2A1A'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + w - 10, by + 4);
+    ctx.bezierCurveTo(x + w + 6, by - 4, x + w - 4, by - 16, x + w + 8, by - 20); ctx.stroke();
+    ctx.restore();
+  }
   // Cartón (= madera). damage 0..3
   function cardboard(ctx, x, y, w, h, opt = {}) {
     const {damage = 0, seed = 1, tape = true, label = true} = opt;
@@ -569,7 +617,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {rr, lin, rad, rng, shade, contactShadow, cardboard, jar, can, plank, pot, stone, robot, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, robot, mouse, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;

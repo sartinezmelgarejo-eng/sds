@@ -41,7 +41,7 @@ export function hit(mat, k) {
   if (mat === 'box') { noise(t, 0.16, 'lowpass', rnd(380, 520), 1, 0.9 * v, 0.14); tone(t, rnd(90, 120), 'sine', 0.5 * v, 0.12, 60); }
   else if (mat === 'jar') { tone(t, rnd(1900, 2600), 'sine', 0.25 * v, 0.25); tone(t, rnd(3100, 3800), 'sine', 0.12 * v, 0.18); noise(t, 0.05, 'highpass', 3000, 1, 0.2 * v, 0.04); }
   else if (mat === 'can' || mat === 'robot') { [rnd(420, 480), rnd(1100, 1250), rnd(2150, 2400)].forEach((f, i) => tone(t, f, 'triangle', [0.35, 0.18, 0.1][i] * v, [0.45, 0.3, 0.2][i])); noise(t, 0.04, 'bandpass', 2500, 2, 0.3 * v, 0.03); }
-  else if (mat === 'wood') { noise(t, 0.12, 'bandpass', rnd(600, 800), 1.2, 0.8 * v, 0.1); tone(t, rnd(150, 190), 'triangle', 0.45 * v, 0.14, 90); }
+  else if (mat === 'wood' || mat === 'tnt') { noise(t, 0.12, 'bandpass', rnd(600, 800), 1.2, 0.8 * v, 0.1); tone(t, rnd(150, 190), 'triangle', 0.45 * v, 0.14, 90); }
   else if (mat === 'pot') { tone(t, rnd(700, 900), 'triangle', 0.3 * v, 0.12); noise(t, 0.08, 'bandpass', 1600, 1.5, 0.35 * v, 0.06); }
   else if (mat === 'stone') { noise(t, 0.14, 'lowpass', rnd(500, 700), 1, 0.9 * v, 0.12); tone(t, rnd(70, 95), 'sine', 0.7 * v, 0.18, 45); }
   else if (mat === 'mouse') { tone(t, rnd(700, 900), 'square', 0.08 * v, 0.09, 1400); }
@@ -56,6 +56,10 @@ export function breakSfx(mat) {
   else if (mat === 'stone') { noise(t, 0.6, 'lowpass', 700, 0.8, 1.0, 0.5, 150); tone(t, 60, 'sine', 0.8, 0.4, 30); for (let i = 0; i < 4; i++) noise(t + 0.08 + i * 0.07, 0.08, 'bandpass', rnd(800, 1600), 2, 0.3, 0.06); }
   else if (mat === 'can' || mat === 'robot') { [380, 960, 1870, 2900].forEach((f, i) => tone(t, f * rnd(0.95, 1.05), 'triangle', 0.3 / (i + 1), 0.7 - i * 0.12)); noise(t, 0.3, 'bandpass', 1800, 1, 0.4, 0.25, 600); }
 }
+// caja de cuetes: tronidos sueltos tras la explosión y trueno de cohete en el aire
+export function crackle() { if (!ok('crk', 0.1)) return; const t = ctx.currentTime; for (let i = 0; i < 14; i++) noise(t + 0.08 + i * rnd(0.03, 0.07), 0.03, 'highpass', rnd(1500, 4000), 1, rnd(0.2, 0.5), 0.025); }
+export function firework() { if (!ok('fw', 0.06)) return; const t = ctx.currentTime; noise(t, 0.25, 'lowpass', 1400, 0.8, 0.55, 0.22, 300); tone(t, rnd(180, 260), 'sine', 0.3, 0.2, 60);
+  for (let i = 0; i < 8; i++) noise(t + 0.1 + i * rnd(0.03, 0.06), 0.02, 'highpass', rnd(2500, 5000), 1, 0.25, 0.02); }
 export function poof() { if (!ok('poof', 0.05)) return; const t = ctx.currentTime; noise(t, 0.3, 'bandpass', 1200, 0.9, 0.7, 0.28, 300); tone(t, 520, 'sine', 0.2, 0.18, 260); }
 export function stretch(k) { if (!ok('str', 0.09)) return; const t = ctx.currentTime; tone(t, 160 + k * 260, 'sawtooth', 0.025, 0.08); }
 export function release(k) { if (!ok('rel', 0.1)) return; const t = ctx.currentTime; noise(t, 0.35, 'bandpass', 600, 1.5, 0.5 * (0.4 + k), 0.3, 2400); tone(t, 140, 'sine', 0.4, 0.12, 70); }
