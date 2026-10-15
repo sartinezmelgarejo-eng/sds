@@ -69,8 +69,8 @@ export class FX {
     this.parts.push({s, vx: 0, vy: 0, vr: 0, life: 0.42, t: 0, g: 0, drag: 0, grow: -0.85, sz});
   }
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
-  points(x, y, value, color = '#FFFFFF', big = false) {
-    const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: big ? 84 : 58, fill: color, stroke: {color: '#1F2240', width: big ? 12 : 9, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
+  points(x, y, value, color = '#FFFFFF', big = false, k = 1) {
+    const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: (big ? 84 : 58) * k, fill: color, stroke: {color: '#1F2240', width: (big ? 12 : 9) * k, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
     // si hay otro número reciente encima, apilar hacia arriba para que no se encimen
     for (let k = 0; k < 6; k++) { const hit = this.texts.find(o => o.t0 < 0.8 && Math.abs(o.x - x) < 170 && Math.abs(o.y0 - y) < 64); if (!hit) break; y = hit.y0 - 70; }
     t.anchor.set(0.5); t.position.set(x, y); t.scale.set(0.2); this.root.addChild(t);

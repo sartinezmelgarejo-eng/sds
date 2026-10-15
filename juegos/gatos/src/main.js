@@ -117,7 +117,7 @@ async function main() {
   const scoreLbl = new Text({text: 'PUNTOS', style: {fontFamily: 'Luckiest Guy', fontSize: 34, fill: '#FFE27A', stroke: {color: '#1F2240', width: 7, join: 'round'}}});
   const scoreTxt = new Text({text: '0', style: {fontFamily: 'Luckiest Guy', fontSize: 66, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 11, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
   scoreLbl.anchor.set(1, 0); scoreTxt.anchor.set(1, 0); hud.addChild(scoreLbl, scoreTxt);
-  const addScore = (v, x, y, color, big) => { score += v; fx.points(x, y, v, color, big); SFX.points(); };
+  const addScore = (v, x, y, color, big, k) => { score += v; fx.points(x, y, v, color, big, k); SFX.points(); };
   const PTS_COL = {box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
@@ -265,12 +265,12 @@ async function main() {
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
-    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; SFX.win(); return; }
+    if (!dyn.some(d => d.mat === 'mouse')) { state = 'win'; endT0 = false; SFX.win(); return; }
     laughAll = 1.3;
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.giggle(); setTimeout(SFX.lose, 700); return; }
     state = 'between'; turnWait = 0.9;
   }
-  let resultsShown = false; // el panel sale una sola vez por intento (al ir al menú no debe reaparecer)
+  let endT0 = false, resultsShown = false; // el panel sale una sola vez por intento (al ir al menú no debe reaparecer)
   function showResults(win) {
     resultsShown = true;
     const key = 'gatos.best.' + levelId; let prev = null;
@@ -359,10 +359,12 @@ async function main() {
     if (state === 'win') {
       // gatos sobrantes saltan uno a uno con giro: +10,000 cada uno
       endT += dt; const i = Math.floor((endT - 0.6) / 0.6);
+      // la cámara se acerca a los gatos que celebran (como AB2)
+      if (queue.length && !endT0) { endT0 = true; cam.follow({position: {x: (queue[0].x + queue[queue.length - 1].x) / 2 + 140, y: GROUND - 260}}, 2.4); }
       if (endT > 0.6 && i < queue.length && !queue[i].bonus) {
         const q = queue[i]; q.bonus = true; q.sprite.texture = catT[q.name].angry.tex;
         q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true};
-        addScore(10000, q.x, GROUND - 470, '#FFE27A', true); SFX.meow(i);
+        addScore(10000, q.x, GROUND - 400, '#FFE27A', true, 1.5); fx.burst('star', q.x, GROUND - 330, 10, 600, {up: 300, size: 1.1, life: 0.8}); SFX.meow(i);
       }
       if (!resultsShown && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
     }

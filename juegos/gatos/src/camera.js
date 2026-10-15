@@ -48,7 +48,7 @@ export class Camera {
   }
   skipFlyover() { if (this.mode === 'flyover') { this.mode = 'rest'; const d = this.flyDone; this.flyDone = null; d && d(); } }
 
-  follow(target) { this.followTarget = target; this.mode = 'follow'; }
+  follow(target, zk = 1.55) { this.followTarget = target; this.followZ = zk; this.mode = 'follow'; }
   release() { this.followTarget = null; this.mode = 'rest'; }
   shake(amp, dur = 0.35) { this.shakeA = Math.max(this.shakeA, amp); this.shakeT = Math.max(this.shakeT, dur); }
 
@@ -76,7 +76,7 @@ export class Camera {
     } else {
       if (this.mode === 'follow' && this.followTarget) {
         const p = this.followTarget.position, v = this.followTarget.velocity || {x: 0, y: 0};
-        const zf = this.fitZoom * 1.55;
+        const zf = this.fitZoom * (this.followZ || 1.55);
         // mirar un poco hacia adelante del gato
         this.tx = p.x + v.x * 8; this.ty = Math.min(p.y + v.y * 4, GROUND - this.sh / zf * 0.3); this.tz = zf;
       } else if (this.mode === 'rest') {
