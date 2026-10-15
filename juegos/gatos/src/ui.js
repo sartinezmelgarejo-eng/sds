@@ -76,6 +76,30 @@ export class UI {
       spark: tex(48, 48, k => { k.fillStyle = '#FFF6C0'; k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 6 : 22; k.lineTo(24 + Math.cos(a) * r, 24 + Math.sin(a) * r); } k.fill(); }),
       confetti: tex(24, 14, k => { k.fillStyle = '#FFFFFF'; k.fillRect(0, 0, 24, 14); k.fillStyle = 'rgba(0,0,0,0.18)'; k.fillRect(0, 9, 24, 5); }),
       tuna: tex(220, 200, k => ART.can(k, 30, 40, 160, 130, {tuna: true, seed: 3})),
+      // lata abierta: copete de atún en hojuelas asomando por la boca, con el borde delantero encima
+      tunaOpen: tex(220, 200, k => {
+        ART.can(k, 30, 40, 160, 130, {tuna: true, seed: 3});
+        const cx = 110, cy = 49.6;
+        k.beginPath(); k.ellipse(cx, cy, 76, 8, 0, 0, Math.PI * 2); k.fillStyle = '#3A3F48'; k.fill();
+        k.save(); k.beginPath(); k.ellipse(cx, cy, 72, 7, 0, 0, Math.PI); k.lineTo(cx - 72, cy); k.ellipse(cx, cy, 72, 34, 0, Math.PI, Math.PI * 2); k.closePath();
+        k.fillStyle = ART.lin(k, 0, cy - 34, 0, cy + 6, [[0, '#F7C9A8'], [0.55, '#E39A78'], [1, '#B8644A']]); k.fill(); k.clip();
+        let sd = 7; const R = () => (sd = (sd * 9301 + 49297) % 233280) / 233280;
+        for (let i = 0; i < 26; i++) { const a = Math.PI + R() * Math.PI, rr = R() * 0.95, x = cx + Math.cos(a) * 70 * rr, y = cy + Math.sin(a) * 32 * rr + 3;
+          k.beginPath(); k.ellipse(x, y, 7 + R() * 7, 3 + R() * 2.5, (R() - 0.5) * 0.9, 0, Math.PI * 2); k.fillStyle = R() < 0.5 ? 'rgba(255,226,200,0.85)' : 'rgba(170,82,60,0.45)'; k.fill(); }
+        k.beginPath(); k.ellipse(cx - 18, cy - 20, 22, 6, -0.15, 0, Math.PI * 2); k.fillStyle = 'rgba(255,255,255,0.45)'; k.fill();
+        k.restore();
+        k.beginPath(); k.ellipse(cx, cy, 72, 34, 0, Math.PI, Math.PI * 2); k.lineWidth = 3; k.strokeStyle = '#7A3A2A'; k.stroke();
+        k.beginPath(); k.ellipse(cx, cy, 79, 9.6, 0, 0, Math.PI); k.lineWidth = 6; k.strokeStyle = '#DDE4EC'; k.stroke(); k.lineWidth = 2; k.strokeStyle = '#2E343C'; k.stroke();
+      }),
+      lid: tex(200, 70, k => {
+        k.beginPath(); k.ellipse(100, 40, 80, 16, 0, 0, Math.PI * 2); k.fillStyle = ART.lin(k, 20, 24, 180, 56, [[0, '#F4F8FB'], [0.5, '#C2CCD6'], [1, '#7E8996']]); k.fill();
+        k.lineWidth = 3; k.strokeStyle = '#2E343C'; k.stroke();
+        k.beginPath(); k.ellipse(100, 40, 60, 11, 0, 0, Math.PI * 2); k.lineWidth = 2; k.strokeStyle = 'rgba(60,65,75,0.5)'; k.stroke();
+        k.beginPath(); k.ellipse(100, 36, 22, 9, 0, 0, Math.PI * 2); k.lineWidth = 6; k.strokeStyle = '#2E343C'; k.stroke(); k.lineWidth = 3.5; k.strokeStyle = '#E8EEF4'; k.stroke(); // anillo
+      }),
+      heart: tex(60, 56, k => { k.beginPath(); k.moveTo(30, 50); k.bezierCurveTo(4, 32, 2, 10, 17, 7); k.bezierCurveTo(25, 5, 30, 12, 30, 17); k.bezierCurveTo(30, 12, 35, 5, 43, 7); k.bezierCurveTo(58, 10, 56, 32, 30, 50); k.closePath();
+        k.fillStyle = ART.lin(k, 0, 6, 0, 50, [[0, '#FFA6C4'], [1, '#E8457A']]); k.fill(); k.lineWidth = 4; k.strokeStyle = '#1F2240'; k.stroke();
+        k.beginPath(); k.ellipse(19, 17, 5, 3, -0.6, 0, Math.PI * 2); k.fillStyle = 'rgba(255,255,255,0.75)'; k.fill(); }),
       panel: tex(1180, 980, k => {
         ART.rr(k, 14, 34, 1152, 930, 90); k.fillStyle = '#14163A'; k.fill();                       // base 3D
         ART.rr(k, 14, 14, 1152, 920, 90); k.fillStyle = ART.lin(k, 0, 14, 0, 934, [[0, '#4B53B8'], [0.55, '#2E3488'], [1, '#232766']]); k.fill();
@@ -116,7 +140,7 @@ export class UI {
 
   // r = {win, stars, score, best, record, name, hasNext}
   show(r) {
-    this.hide(); this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
+    this.hide(); this.can = null; this.open = true; this.overlay.visible = true; this.hud.visible = false; this.t = 0; this.r = r;
     const B = this.box, add = (o, x, y) => { o.position.set(x, y); B.addChild(o); return o; };
     const panel = add(new Sprite(this.T.panel), 0, 40); panel.anchor.set(0.5);
     const title = add(txt(r.final ? '¡JEFA VENCIDA!' : r.win ? '¡NIVEL SUPERADO!' : 'NIVEL FALLIDO', 104, r.win ? '#FFE27A' : '#FF8A6A'), 0, -440); title.anchor.set(0.5);
@@ -139,7 +163,11 @@ export class UI {
         [[-140, 120, 0.55, -0.2], [140, 120, 0.55, 0.2], [0, 132, 0.62, 0]].forEach(([x, y, s, rot], i) => { const t = add(new Sprite(this.T.tuna), x, y); t.anchor.set(0.5); t.rotation = rot; A.push({o: t, t0: 0.85 + i * 0.1, dur: 0.4, k: 'pop', s}); });
         this.confetti = [];
       } else {
+        // la lata llega cerrada; después de las estrellas tiembla, ¡clic!, la tapa sale volando y dos gatos se asoman a olerla
+        const pals = this.cats.length ? [...this.cats].sort(() => Math.random() - 0.5).slice(0, 2) : [];
+        const peek = pals.map((c, i) => { const sp = add(new Sprite(c.tex), i ? 128 : -128, 30); sp.anchor.set(c.ax, c.ay); sp.c = c; sp.side = i ? 1 : -1; sp.scale.set(0); return sp; });
         const tuna = add(new Sprite(this.T.tuna), 0, 15); tuna.anchor.set(0.5); A.push({o: tuna, t0: 0.6, dur: 0.45, k: 'pop', s: 1});
+        this.can = {o: tuna, tOpen: 0.9 + r.stars * 0.55 + 0.2, opened: false, peek, hearts: [], lid: null, hT: 0};
         const tl = add(txt('¡ATÚN RECUPERADO!', 46, '#BDEBFF'), 0, 125); tl.anchor.set(0.5); A.push({o: tl, t0: 0.75, dur: 0.3, k: 'pop'});
       }
     } else {
@@ -159,6 +187,29 @@ export class UI {
     btns.forEach(([t, cb, s, x, pulse], i) => { const b = add(this.button(t, () => cb(), s), x, 625); A.push({o: b, t0: tb + i * 0.1, dur: 0.35, k: 'pop', s, pulse}); });
     A.forEach(a => { a.s = a.s ?? 1; if (a.k !== 'star') a.o.scale.set(0); });
     this.sparks = [];
+  }
+  updateCan(t, dt) {
+    const c = this.can, u = t - c.tOpen, o = c.o;
+    if (u < 0 && u > -0.4) { const w = 1 + u / 0.4; o.rotation = Math.sin(t * 46) * 0.07 * w; o.scale.set(1 + w * 0.04, 1 - w * 0.04); } // tiembla antes de abrirse
+    if (u >= 0 && !c.opened) {
+      c.opened = true; o.texture = this.T.tunaOpen; o.rotation = 0; SFX.canOpen(); this.burst(o.x, o.y - 40);
+      const l = new Sprite(this.T.lid); l.anchor.set(0.5); l.position.set(o.x, o.y - 50); this.box.addChild(l); c.lid = {s: l, vx: 330, vy: -1250, w: 11};
+    }
+    if (!c.opened) return;
+    const k = Math.exp(-u * 7); o.scale.set(1 - Math.sin(u * 22) * 0.16 * k, 1 + Math.sin(u * 22) * 0.2 * k); // rebote elástico al abrirse
+    if (c.lid) { const L = c.lid; L.vy += 2600 * dt; L.s.x += L.vx * dt; L.s.y += L.vy * dt; L.s.rotation += L.w * dt; L.s.scale.y = Math.cos(u * 9);
+      L.s.alpha = Math.min(1, Math.max(0, 1.3 - u)); if (u > 1.3) { L.s.destroy(); c.lid = null; } }
+    // corazoncitos que suben como aroma
+    if ((c.hT -= dt) <= 0 && c.hearts.length < 9) { c.hT = u < 0.5 ? 0.09 : 0.5; const h = new Sprite(this.T.heart); h.anchor.set(0.5);
+      h.position.set(o.x + (Math.random() - 0.5) * 110, o.y - 55); this.box.addChild(h); c.hearts.push({s: h, a: 0, ph: Math.random() * 6, sz: 0.45 + Math.random() * 0.35}); }
+    for (let i = c.hearts.length - 1; i >= 0; i--) { const h = c.hearts[i]; h.a += dt; h.s.y -= (120 + 60 * h.sz) * dt; h.s.x += Math.sin(h.a * 4 + h.ph) * 40 * dt;
+      const sc = h.sz * Math.min(1, h.a * 5); h.s.scale.set(sc); h.s.rotation = Math.sin(h.a * 4 + h.ph) * 0.25; h.s.alpha = 1 - Math.max(0, (h.a - 0.6) / 0.5);
+      if (h.a > 1.1) { h.s.destroy(); c.hearts.splice(i, 1); } }
+    // gatos que se asoman por los lados, se inclinan hacia la lata y husmean (parpadeo lento = cara de gusto)
+    c.peek.forEach((p, i) => { const v = u - 0.12 - i * 0.12; if (v < 0) return; const pv = backOut(clamp01(v / 0.4), 2.2);
+      const sn = Math.sin(v * 9) * 0.03 * (v > 0.4); p.scale.set(0.3 * pv * (1 - sn), 0.3 * pv * (1 + sn)); p.rotation = -p.side * (0.32 + Math.sin(v * 2.2) * 0.05);
+      p.x = p.side * (136 - 18 * Math.min(1, v * 2)); p.y = 30 - 26 * pv - Math.abs(Math.sin(v * 3)) * 6;
+      p.texture = (v % 2.4) > 1.7 && p.c.blink ? p.c.blink : p.c.tex; });
   }
   burst(x, y) {
     for (let i = 0; i < 14; i++) {
@@ -199,6 +250,7 @@ export class UI {
         a.o.y = a.y0 - h * 70; const sq = c < 0.45 ? 1 + h * 0.06 : 1 - Math.sin((c - 0.45) / 0.55 * Math.PI) * 0.07; a.o.scale.set(a.s / Math.sqrt(sq), a.s * sq); a.o.rotation = h * (a.cheer - 1) * 0.12; }
       if (u > 1 && a.laugh) { a.o.rotation = Math.sin(t * 14) * 0.06; a.o.y = -90 - Math.abs(Math.sin(t * 7)) * 18; }
     }
+    if (this.can) this.updateCan(t, dt);
     // puntaje cuenta de 0 al total
     const cu = clamp01((t - 0.4) / 1.1); this.scoreTxt.text = Math.round(this.r.score * (1 - Math.pow(1 - cu, 3))).toLocaleString('en-US');
     if (this.r.final && this.confetti) { // confeti que cae sin parar sobre el panel final
