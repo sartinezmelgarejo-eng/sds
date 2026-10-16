@@ -1215,12 +1215,12 @@ async function main() {
   // transición: listón "¡SALA DESPEJADA!", cortinilla que barre la pantalla, se arma la sala nueva y sobrevuelo corto
   let roomFx = null;
   function nextRoom() {
-    state = 'room'; roomFx = {t: 0, swapped: false}; SFX.duck(2.5); SFX.win();
+    state = 'room'; roomFx = {t: meterState.extraT >= 0 ? Math.min(0, meterState.extraT - 1.9) : 0, swapped: false, ban: false}; SFX.duck(2.5);
     queue.forEach((q, i) => { q.alert = 1; if (!q.hop) q.hop = {t: -0.1 - i * 0.12, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 150}; });
-    ui.banner('¡SALA DESPEJADA!', `SALA ${roomIdx + 2} DE ${rooms().length}`);
   }
   function updateRoom(dt) {
     const r = roomFx; if (!r) return; r.t += dt;
+    if (!r.ban && r.t >= 0) { r.ban = true; SFX.win(); ui.banner('¡SALA DESPEJADA!', `SALA ${roomIdx + 2} DE ${rooms().length}`); }
     const sw = app.screen.width, sh = app.screen.height, T0 = 1.5, TI = 0.45, TH = 0.25;
     // la cortinilla entra de izquierda a derecha, se queda un instante (aquí se cambia la sala) y sale hacia la derecha
     const uin = Math.min(1, Math.max(0, (r.t - T0) / TI)), uout = Math.min(1, Math.max(0, (r.t - T0 - TI - TH) / TI));
