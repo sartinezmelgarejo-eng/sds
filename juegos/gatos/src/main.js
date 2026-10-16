@@ -255,7 +255,8 @@ async function main() {
   const METER_STEPS = [0.38, 0.8];
   function pickBonusCat() { const ns = Object.keys(CATS); meterState.next = ns[Math.floor(Math.random() * ns.length)]; const t = catT[meterState.next].calm; badgeCat.texture = t.tex; badgeCat.anchor.set(t.ax, 0.42); badgeCat.scale.set(70 / t.tex.width * 1.15); }
   function resetMeter() {
-    meterState.total = Math.max(1, level.blocks.reduce((s, b) => s + (b.patrol || b.static ? 0 : PTS[b.t === 'rock' ? 'can' : b.t] || 0), 0));
+    // el Destructómetro cuenta TODAS las salas del nivel (AB2: se llena a lo largo del nivel, no por sala)
+    meterState.total = Math.max(1, [level, ...(level.rooms || [])].reduce((s, R) => s + R.blocks.reduce((s, b) => s + (b.patrol || b.static ? 0 : PTS[b.t === 'rock' ? 'can' : b.t] || 0), 0), 0));
     Object.assign(meterState, {pts: 0, shown: 0, step: 0, flash: 0, pulse: 0, extraT: -1}); extraTxt.visible = false; meter.visible = true; pickBonusCat();
   }
   function wreck(v) {
