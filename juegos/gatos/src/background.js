@@ -239,7 +239,9 @@ function catClockLayer() {
   const pups = [-1, 1].map(s => { const p = new Sprite(pupT); p.anchor.set(0.5); p.position.set(s * 26, 62); rig.addChild(p); return p; });
   let T0 = 0, sw = 0, swV = 0, tick = 0;
   c.jolt = (k = 1) => { swV += (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.min(1.5, k) * 0.9); };
-  c.update = dt => { T0 += dt; const ph = Math.sin(T0 * Math.PI); // 1 ida/vuelta cada 2 s, como el Kit-Cat real
+  c.update = dt => { const k0 = Math.floor(T0 + 0.5); T0 += dt; const ph = Math.sin(T0 * Math.PI); // 1 ida/vuelta cada 2 s, como el Kit-Cat real
+    // tic-tac en cada extremo de la cola (sin(πT) = ±1 en T = n + ½)
+    if (Math.floor(T0 + 0.5) !== k0) SFX.clockTick(Math.floor(T0 + 0.5) % 2 === 1, 0.8);
     tail.rotation = ph * 0.32; pups.forEach(p => { p.x = Math.sign(p.position.x) * 26 + ph * 8; });
     swV += (-sw * 26 - swV * 1.6) * dt; sw += swV * dt; sw = Math.max(-0.5, Math.min(0.5, sw)); rig.rotation = sw; };
   return c;
@@ -515,7 +517,7 @@ function sprinklerLayer() {
     if (kickT < 0) kickT += dt;
     if (spin > 0.3 && kickT >= 0) { phi += spin * dt; spin *= Math.exp(-dt * 1.6); armA = Math.sin(phi * 3) * 0.6; } // rehilete desbocado
     else { spin = 0; tick -= dt;
-      if (dir > 0) { if (tick <= 0) { tick = 0.16; phi += 0.13; armA = 0.75; } if (phi > Math.PI - 0.4) dir = -1; } // tic-tic-tic hacia la izquierda
+      if (dir > 0) { if (tick <= 0) { tick = 0.16; phi += 0.13; armA = 0.75; SFX.sprinkle(0.6); } if (phi > Math.PI - 0.4) dir = -1; } // tic-tic-tic hacia la izquierda
       else { phi -= 2.4 * dt; armA *= 0.9; if (phi < 0.4) { dir = 1; tick = 0.3; } } } // regreso rápido
     armA += (0 - armA) * Math.min(1, dt * 9);
     const cs = Math.cos(phi); hs.scale.x = cs; arm.scale.x = cs; arm.rotation = -armA * Math.sign(cs || 1) * 0.6;

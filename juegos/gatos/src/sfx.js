@@ -255,3 +255,8 @@ export function splash(v = 0.6) { if (!ok('splash', 0.15)) return; const t = ctx
 export function shake(pitch = 1) { if (!ok('shake', 0.4)) return; const t = ctx.currentTime;
   for (let i = 0; i < 7; i++) noise(t + i * 0.055, 0.05, 'bandpass', (1500 + (i % 2) * 500) * pitch, 1.1, 0.07, 0.045);
   for (let i = 0; i < 3; i++) { const tt = t + 0.15 + i * rnd(0.07, 0.14), f = rnd(1500, 2400) * pitch; tone(tt, f, 'sine', 0.035, 0.06, f * 1.8); } }
+// ambiente (utilería del fondo, MUY bajito como el ambiente de AB2): tic-tac del reloj Kit-Cat y "chk" del aspersor de impacto
+export function clockTick(tock = false, v = 1) { if (!ok(tock ? 'tock' : 'tick', 0.3)) return; const t = ctx.currentTime, f = tock ? 1700 : 2300;
+  noise(t, 0.02, 'bandpass', f, 7, 0.05 * v, 0.016); tone(t, f * 0.5, 'sine', 0.012 * v, 0.03); }
+export function sprinkle(v = 1) { if (!ok('sprk', 0.1)) return; const t = ctx.currentTime;
+  noise(t, 0.04, 'bandpass', 2600, 2, 0.035 * v, 0.03); noise(t + 0.01, 0.14, 'highpass', 5200, 0.7, 0.014 * v, 0.12); }
