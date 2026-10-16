@@ -197,6 +197,11 @@ export class Menus {
       }
       // nivel de jefa (el último del mundo): la Rata Jefa se asoma por la esquina de la casilla
       if (exists && i === lv.length - 1 && this.o.bossTex) { const bs = new Sprite(this.o.bossTex); bs.anchor.set(0.5); bs.scale.set(nS === 1 ? 0.5 : 0.36); bs.position.set(-118, -128); bs.rotation = -0.25; tile.addChild(bs); }
+      // niveles con varias SALAS (AB2): pastilla bajo la casilla con un puntito por sala (dorados si ya se ganó)
+      const nR = exists ? this.o.roomsOf?.(lv[i]) || 1 : 1;
+      if (nR > 1) { const g = new Graphics(), pw = nR * 36 + 22; g.roundRect(-pw / 2, 150, pw, 40, 20).fill(0x1F2240);
+        for (let k = 0; k < nR; k++) g.circle((k - (nR - 1) / 2) * 36, 170, 11).fill(recs[i] ? 0xFFC93C : open ? 0xFFFFFF : 0x8A90AA);
+        tile.addChild(g); }
       this.item(tile, x, y, d, 'pop', solo ? (nS > 3 ? 1.1 : 1.35) : 1, {pulse: now, tile: true});
     }
     try { localStorage.setItem('gatos.seenOpen', JSON.stringify([...seen])); } catch (e) {}

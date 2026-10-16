@@ -1259,7 +1259,7 @@ async function main() {
   });
   let hatDirty = false; const QS0 = new URLSearchParams(location.search);
   const menus = new Menus(app, {
-    eyeImg, cats: bigCats, worlds: WORLDS, bossTex: mouseTex('boss', 66, 'laugh'),
+    eyeImg, cats: bigCats, worlds: WORLDS, roomsOf: id => 1 + (levels[id]?.rooms?.length || 0), bossTex: mouseTex('boss', 66, 'laugh'),
     onPlay: id => buildLevel(id, true),
     onPage: p => { if ((level.world || 1) !== p + 1) buildLevel(WORLDS[p].levels[0], false); },
     getHat: n => hats[n] || 'none', onHat: (n, h) => { setHat(n, h); hatDirty = true; }, allHats: QS0.has('allhats'),
