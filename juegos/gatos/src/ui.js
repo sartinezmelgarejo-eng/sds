@@ -113,6 +113,8 @@ export class UI {
     this.hudRetry = this.button(this.T.retry, () => this.onRetry(), 0.54); this.hudRetry.position.set(234, 92);
     this.lvlName = txt('', 44, '#FFE27A'); this.lvlName.anchor.set(0, 0.5); this.lvlName.position.set(318, 88);
     this.hud.addChild(this.hudPause, this.hudRetry, this.lvlName);
+    // salas del nivel (AB2): puntitos junto al nombre; hecha = dorada con palomita, actual = blanca que late, siguientes = oscuras
+    this.roomDots = new Container(); this.roomDots.visible = false; this.hud.addChild(this.roomDots); this.roomPulse = 0;
     // overlay de resultados
     this.dim = new Graphics(); this.overlay.addChild(this.dim);
     this.box = new Container(); this.overlay.addChild(this.box);
@@ -193,6 +195,17 @@ export class UI {
   // botón gordito: se hunde al presionar y rebota al soltar
   button(t, cb, base = 1) { return makeButton(t, cb, base); }
   setLevelName(s) { this.lvlName.text = s; }
+  setRooms(n, i) {
+    const C = this.roomDots; C.removeChildren().forEach(c => c.destroy()); C.visible = n > 1; if (n < 2) return;
+    for (let k = 0; k < n; k++) {
+      const g = new Graphics(), r = k === i ? 24 : 19;
+      if (k > 0) g.roundRect(-58, -5, 34, 10, 5).fill(k <= i ? 0xFFC93C : 0x1F2240);
+      g.circle(0, 4, r).fill(0x1F2240); g.circle(0, 0, r).fill(k < i ? 0xFFC93C : k === i ? 0xFFFFFF : 0x3A3F66).stroke({color: 0x1F2240, width: 6});
+      if (k < i) g.moveTo(-9, 0).lineTo(-2, 8).lineTo(10, -8).stroke({color: 0x1F2240, width: 6, cap: 'round', join: 'round'});
+      g.x = k * 72; C.addChild(g); g.cur = k === i;
+    }
+    this.roomPulse = 0.6;
+  }
   hide() { this.overlay.visible = false; this.open = false; this.box.removeChildren().forEach(c => c.destroy()); this.anims = []; this.hud.visible = true; }
 
   // r = {win, stars, score, best, record, name, hasNext}
@@ -289,6 +302,8 @@ export class UI {
     const sw = this.app.screen.width, sh = this.app.screen.height;
     const hs = Math.min(sw / W, sh / H) * 1.25; this.hud.scale.set(hs);
     bounceButtons(this.hud.children, dt);
+    if (this.roomDots.visible) { this.roomDots.position.set(this.lvlName.x + this.lvlName.width + 56, 92); this.roomPulse = Math.max(0, this.roomPulse - dt); this.rt = (this.rt || 0) + dt;
+      for (const g of this.roomDots.children) g.scale.set(g.cur ? 1 + 0.08 * Math.sin(this.rt * 6) + this.roomPulse * 0.8 * Math.sin(this.roomPulse * 18) : 1); }
     if (this.banTime >= 0) {
       const bt = (this.banTime += dt), s = Math.min(sw / W, sh / H) * 1.25;
       // entra cayendo con rebote (0.2–0.65 s), se queda, y sale hacia arriba acelerando (2.4–2.8 s)

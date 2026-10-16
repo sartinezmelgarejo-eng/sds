@@ -865,6 +865,7 @@ async function main() {
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
+    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot') && roomIdx < rooms().length - 1) { nextRoom(); return; }
     if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'win'; endT0 = false; SFX.duck(levelId === LEVELS[LEVELS.length - 1] ? 6 : 4); (levelId === LEVELS[LEVELS.length - 1] ? SFX.fanfare : SFX.win)(); return; }
     laughAll = 1.3;
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700);
@@ -1016,6 +1017,7 @@ async function main() {
       }
     }
     if (state === 'between') { turnWait -= dt; if (turnWait <= 0) loadNext(); }
+    if (roomFx) updateRoom(dt);
     if (state === 'win') {
       // gatos sobrantes saltan uno a uno con giro: +10,000 cada uno
       endT += dt; const i = Math.floor((endT - 0.6) / 0.6);
@@ -1134,14 +1136,35 @@ async function main() {
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
-    level.blocks.forEach((b, i) => {
+    roomIdx = 0; roomSp.length = 0; ui.setRooms(rooms().length, 0);
+    buildRoom(level, fly);
+    level.cats.forEach((n, i) => {
+      const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
+      const sx = slotX(i, level.cats.length); sp.position.set(sx, GROUND - t.footY);
+      actors.addChild(sp); const sh = contactShadow(sx, 170);
+      queue.push({name: n, sprite: sp, shadow: sh, x: sx, phase: i * 1.7, hop: null, id: ++qid});
+    });
+    resetMeter();
+    cam.snapRest();
+    ui.hideBanner();
+    if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } }, dyn.some(d => d.enter) ? 1.3 : 0);
+      const w = level.world || 1; ui.banner(level.name, `MUNDO ${w} · ${WORLDS[w - 1].name}`); }
+    else { state = 'between'; turnWait = 0.35; }
+    for (const t of staleTex.splice(0)) if (t && !t.destroyed) t.destroy(true);
+  }
+  // SALAS (AB2): un nivel puede tener varias fortalezas seguidas (level.rooms = [{blocks, mice}, …] después de la principal).
+  // Al limpiar una sala, la siguiente entra con las cartas que quedan; el puntaje y el Destructómetro siguen.
+  let roomIdx = 0; const roomSp = [];
+  const rooms = () => [level, ...(level.rooms || [])];
+  function buildRoom(R, fly) {
+    R.blocks.forEach((b, i) => {
       if (b.t === 'rock') b.h = b.w;
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
       // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
-        const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); return; }
+        const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); roomSp.push(sp); return; }
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
       const round = b.t === 'rock', mat = round ? 'can' : b.t;
       const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, frictionAir: 0.0012, restitution: 0.05, label: 'can', sleepThreshold: 40})
@@ -1160,7 +1183,7 @@ async function main() {
         Object.assign(dyn[dyn.length - 1], {patrol: b.patrol, speed: b.speed || 160, dir: 1, vx: 0, stun: 0, bar, dust: 0});
         if (fly) { dyn[dyn.length - 1].enter = {t: 0, y: cy, ry: 0}; bar.alpha = 0; Body.setPosition(body, {x: b.x, y: cy - ENTER_DROP}); } }
     });
-    level.mice.forEach(m => {
+    R.mice.forEach(m => {
       const body = Bodies.circle(m.x, GROUND - m.y, m.r * 0.92, {density: 0.0012, friction: 0.8, restitution: 0.05, label: 'mouse'});
       Sleeping.set(body, true);
       // la Rata Jefa va montada en la aspiradora: despierta, sin rodar (se desliza con la fricción)
@@ -1180,20 +1203,51 @@ async function main() {
       Composite.add(engine.world, body); actors.addChild(sp);
       dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
     });
-    level.cats.forEach((n, i) => {
-      const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
-      const sx = slotX(i, level.cats.length); sp.position.set(sx, GROUND - t.footY);
-      actors.addChild(sp); const sh = contactShadow(sx, 170);
-      queue.push({name: n, sprite: sp, shadow: sh, x: sx, phase: i * 1.7, hop: null, id: ++qid});
-    });
-    resetMeter();
-    fortX = level.blocks.reduce((s, b) => s + b.x, 0) / level.blocks.length;
-    cam.snapRest();
-    ui.hideBanner();
-    if (fly) { cam.flyover(fortX, SLING.x, () => { ui.hideBanner(); if (state === 'intro') { state = 'between'; turnWait = 0.2; } }, dyn.some(d => d.enter) ? 1.3 : 0);
-      const w = level.world || 1; ui.banner(level.name, `MUNDO ${w} · ${WORLDS[w - 1].name}`); }
-    else { state = 'between'; turnWait = 0.35; }
-    for (const t of staleTex.splice(0)) if (t && !t.destroyed) t.destroy(true);
+    fortX = R.blocks.reduce((s, b) => s + b.x, 0) / R.blocks.length;
+  }
+  // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
+  function clearRoom() {
+    for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
+    dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = 0; roomSp.splice(0).forEach(o => o.destroy());
+    for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
+    for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
+  }
+  // transición: listón "¡SALA DESPEJADA!", cortinilla que barre la pantalla, se arma la sala nueva y sobrevuelo corto
+  let roomFx = null;
+  function nextRoom() {
+    state = 'room'; roomFx = {t: 0, swapped: false}; SFX.duck(2.5); SFX.win();
+    queue.forEach((q, i) => { q.alert = 1; if (!q.hop) q.hop = {t: -0.1 - i * 0.12, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 150}; });
+    ui.banner('¡SALA DESPEJADA!', `SALA ${roomIdx + 2} DE ${rooms().length}`);
+  }
+  function updateRoom(dt) {
+    const r = roomFx; if (!r) return; r.t += dt;
+    const sw = app.screen.width, sh = app.screen.height, T0 = 1.5, TI = 0.45, TH = 0.25;
+    // la cortinilla entra de izquierda a derecha, se queda un instante (aquí se cambia la sala) y sale hacia la derecha
+    const uin = Math.min(1, Math.max(0, (r.t - T0) / TI)), uout = Math.min(1, Math.max(0, (r.t - T0 - TI - TH) / TI));
+    const ease = u => u * u * (3 - 2 * u), lead = -sw * 0.25 + ease(uin) * sw * 1.5, tail = ease(uout) * sw * 1.5 - sw * 0.25;
+    roomWipe.visible = r.t > T0 && uout < 1;
+    if (roomWipe.visible) drawWipe(tail, lead, sw, sh);
+    if (!r.swapped && uin >= 1) { r.swapped = true; ui.hideBanner();
+      clearRoom(); roomIdx++; buildRoom(rooms()[roomIdx], true); ui.setRooms(rooms().length, roomIdx);
+      started = 0; slow = 0; lastFocus = 0; laughAll = 0; queue.forEach(q => { if (q.hop) q.sprite.position.set(q.hop.x0, q.hop.y0); q.hop = null; });
+      cam.snapRest(); state = 'intro';
+      cam.flyover(fortX, SLING.x, () => { if (state === 'intro') endTurn(); }, dyn.some(d => d.enter) ? 1.3 : 0); cam.flyT = 0.6; }
+    if (uout >= 1) { roomFx = null; roomWipe.visible = false; }
+  }
+  // debajo del HUD: las cartas y el puntaje se quedan a la vista durante el cambio de sala (como AB2)
+  const roomWipe = new Graphics(); roomWipe.visible = false; app.stage.addChildAt(roomWipe, app.stage.getChildIndex(hud));
+  const wipeTxt = new Text({text: '', style: {fontFamily: 'Luckiest Guy', fontSize: 120, fill: '#FFE27A', stroke: {color: '#1F2240', width: 20, join: 'round'}, dropShadow: {color: '#1F2240', distance: 10, angle: Math.PI / 2, blur: 0, alpha: 0.95}}});
+  wipeTxt.anchor.set(0.5); roomWipe.addChild(wipeTxt);
+  function drawWipe(x0, x1, sw, sh) {
+    // banda con orillas onduladas (como nube/cortina), del color oscuro del mundo, con rayitas de velocidad
+    const g = roomWipe, col = [0x3A2418, 0x1F3A22, 0x15142A][(level.world || 1) - 1] ?? 0x15142A, n = 9, amp = sw * 0.04;
+    g.clear(); const edge = (x, k) => Array.from({length: n + 1}, (_, i) => [x + Math.sin(i * 1.7 + k) * amp + (i % 2 ? amp : 0), sh * i / n]);
+    const L = edge(x0, 0), Rr = edge(x1, 2.1).reverse(), pts = [...L, ...Rr].flat();
+    g.poly(pts).fill(col).stroke({color: 0x1F2240, width: 22, join: 'round'}); g.poly(pts).stroke({color: 0xFFC93C, width: 8, join: 'round'});
+    const Lb = edge(x0 + amp * 0.6, 0), Rb = edge(x1 - amp * 0.6, 2.1).reverse(); g.poly([...Lb, ...Rb].flat()).fill({color: 0x000000, alpha: 0.18});
+    for (let i = 0; i < 6; i++) { const y = sh * (0.12 + i * 0.15), w = sw * 0.12; g.roundRect(x1 - w - amp * 2 - (i % 3) * 30, y, w, 8, 4).fill({color: 0xFFFFFF, alpha: 0.12}); }
+    wipeTxt.text = `SALA ${roomIdx + (roomFx && roomFx.swapped ? 1 : 2)}`; wipeTxt.scale.set(Math.min(sw, sh * 1.33) / 2048 * 1.6);
+    wipeTxt.position.set(Math.max(x0, Math.min(x1, sw / 2)) , sh / 2); wipeTxt.visible = x1 - x0 > sw * 0.5;
   }
   const ui = new UI(app, {
     onRetry: () => buildLevel(levelId, false),
@@ -1291,6 +1345,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
