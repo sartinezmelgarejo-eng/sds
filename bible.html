@@ -1,0 +1,2376 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Sagrada Biblia · Reina-Valera 1909</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Pirata+One&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink:        #2a1f10;
+    --ink-soft:   #4a3a22;
+    --rubric:     #8b1e1e;   /* red ink for verse numbers, chapter caps */
+    --gold:       #a07820;
+    --gold-deep:  #6e5212;
+    --parchment:  #f4ead0;
+    --parch-edge: #d8c69a;
+    --parch-deep: #c0a86c;
+    --leather:    #2a1410;
+    --leather-2:  #1a0a08;
+    --leather-3:  #3a1c14;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(ellipse at center, var(--leather-3) 0%, var(--leather) 60%, var(--leather-2) 100%);
+    color: var(--ink);
+    font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    background-image:
+      radial-gradient(ellipse at center, var(--leather-3) 0%, var(--leather) 60%, var(--leather-2) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.05 0 0 0 0 0.03 0 0 0 0 0.02 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/></svg>");
+    background-blend-mode: multiply;
+  }
+
+  /* ─── Header (top bar with title + book/chapter selector) ─── */
+  header {
+    flex-shrink: 0;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    border-bottom: 1px solid rgba(160,120,32,0.25);
+    background: linear-gradient(180deg, rgba(0,0,0,0.4), rgba(0,0,0,0.1));
+  }
+  .brand {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 28px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    text-shadow: 0 0 8px rgba(160,120,32,0.3), 0 1px 0 rgba(0,0,0,0.6);
+    line-height: 1;
+  }
+  .brand-sub {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--parch-edge);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+  .nav-cluster {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .nav-btn {
+    background: linear-gradient(180deg, #2a1810, #1a0a08);
+    color: var(--gold);
+    border: 1px solid var(--gold-deep);
+    padding: 8px 16px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 15px;
+    font-weight: 600;
+    font-style: italic;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.2s;
+    box-shadow: 0 1px 0 rgba(160,120,32,0.2) inset, 0 2px 6px rgba(0,0,0,0.4);
+  }
+  .nav-btn:hover {
+    background: linear-gradient(180deg, #3a2418, #2a1410);
+    color: #d4a843;
+    box-shadow: 0 1px 0 rgba(160,120,32,0.4) inset, 0 2px 10px rgba(160,120,32,0.3);
+  }
+  .nav-btn .ornament {
+    color: var(--rubric);
+    margin: 0 4px;
+  }
+  .ref-display {
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 20px;
+    color: var(--parchment);
+    text-shadow: 0 0 6px rgba(160,120,32,0.4);
+    padding: 0 8px;
+  }
+
+  /* ─── Main book area ─── */
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    min-height: 0;
+  }
+
+  /* ─── The book: a 3D open volume with leather spine + stacked page edges ─── */
+  .book-wrap {
+    width: min(1200px, 100%);
+    height: 100%;
+    max-height: 860px;
+    perspective: 2800px;
+    perspective-origin: 50% 30%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .book {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    /* No spine column — pages meet directly, gutter is created by shadows */
+    grid-template-columns: 1fr 1fr;
+    position: relative;
+    transform-style: preserve-3d;
+    /* Soft drop shadow under the whole volume */
+    filter: drop-shadow(0 32px 28px rgba(0,0,0,0.55))
+            drop-shadow(0 12px 14px rgba(0,0,0,0.35));
+  }
+  /* Each page is a stack: a thick base (the page-block) with the visible page on top */
+  .page {
+    position: relative;
+    background-color: var(--parchment);
+    background-image:
+      radial-gradient(ellipse at top, rgba(255,250,225,0.45), transparent 55%),
+      radial-gradient(ellipse 80% 60% at center, transparent 30%, rgba(150,100,40,0.10) 75%, rgba(120,75,25,0.22) 100%),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='340' height='340'><filter id='p'><feTurbulence baseFrequency='0.62' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>"),
+      linear-gradient(180deg, #f6ecd2 0%, #efe1c0 100%);
+    background-blend-mode: normal, multiply, multiply, normal;
+    /* overflow visible so the page-edge stack pseudo (::before) shows on the outside */
+    padding: 38px 52px 44px;
+    display: flex;
+    flex-direction: column;
+    transform-style: preserve-3d;
+  }
+  /* Outer edge: gilded stack of pages — gives the book actual thickness */
+  .page::before {
+    content: '';
+    position: absolute;
+    top: 6px; bottom: 6px;
+    width: 11px;
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        #d8c594 0px, #d8c594 1px,
+        #f1e3b6 1px, #f1e3b6 2px,
+        #c4a866 2px, #c4a866 3px
+      ),
+      linear-gradient(90deg, #c0a468 0%, #e8d39a 50%, #b89a5a 100%);
+    background-blend-mode: multiply;
+    box-shadow:
+      0 8px 14px -2px rgba(0,0,0,0.6),
+      0 2px 4px rgba(0,0,0,0.4);
+  }
+  /* Aged corner vignette + subtle highlight */
+  .page::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 30% 0%, rgba(255,250,230,0.35), transparent 45%),
+      radial-gradient(ellipse at center, transparent 55%, rgba(110,70,30,0.22) 100%);
+    pointer-events: none;
+  }
+  .page-left {
+    border-radius: 4px 0 0 4px;
+    /* Gutter shadow on inner edge — strong dark gradient that simulates paper
+       curving down into the central valley. Tighter ramp, deeper black. */
+    box-shadow:
+      inset -36px 0 48px -28px rgba(40,22,8,0.5),
+      inset -10px 0 16px -8px  rgba(50,28,12,0.4),
+      inset -1px 0 0 rgba(30,15,5,0.35);
+    /* Outer edge lifts toward viewer; right edge stays at 0 (pinned to gutter) */
+    transform: perspective(2400px) rotateY(2.4deg);
+    transform-origin: right center;
+  }
+  .page-left::before  { left: -11px;  border-radius: 2px 0 0 2px; box-shadow: -4px 6px 14px rgba(0,0,0,0.55); }
+  .page-right {
+    border-radius: 0 4px 4px 0;
+    box-shadow:
+      inset 36px 0 48px -28px rgba(40,22,8,0.5),
+      inset 10px 0 16px -8px  rgba(50,28,12,0.4),
+      inset 1px 0 0 rgba(30,15,5,0.35);
+    transform: perspective(2400px) rotateY(-2.4deg);
+    transform-origin: left center;
+  }
+  .page-right::before { right: -11px; border-radius: 0 2px 2px 0; box-shadow: 4px 6px 14px rgba(0,0,0,0.55); }
+
+  /* ─── Central gutter overlay: a thin dark crease where pages meet ───
+     This is what you actually see in an open book: not leather, just the
+     deepest line of shadow at the center, with the page tone fading out
+     to either side. The two pages have done most of the gradient work
+     via inset shadows; this overlay just adds the final dark seam line. */
+  .gutter {
+    position: absolute;
+    top: 6px; bottom: 6px;
+    left: 50%;
+    width: 14px;
+    transform: translateX(-50%);
+    z-index: 3;
+    pointer-events: none;
+    background:
+      /* Tiny lighter halo right at the bend, like the slight paper highlight */
+      linear-gradient(90deg, transparent 0%, rgba(180,140,80,0.10) 40%, rgba(180,140,80,0.10) 60%, transparent 100%),
+      /* A narrow soft shadow at the crease — much softer than before */
+      radial-gradient(ellipse 50% 100% at center, rgba(40,20,8,0.55) 0%, rgba(40,20,8,0.18) 40%, transparent 75%);
+  }
+  /* The actual sharp seam — 1px hairline down the middle, brown instead of black */
+  .gutter::after {
+    content: '';
+    position: absolute;
+    top: 4px; bottom: 4px;
+    left: 50%; width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, transparent 0%, rgba(50,25,10,0.45) 20%, rgba(40,18,5,0.7) 50%, rgba(50,25,10,0.45) 80%, transparent 100%);
+  }
+  /* Silk ribbon bookmark drifting out the bottom of the gutter */
+  .ribbon {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 14px;
+    height: 76px;
+    background:
+      linear-gradient(180deg, #8b1e1e 0%, #6e1414 70%, #4a0a0a 100%);
+    box-shadow:
+      inset 2px 0 3px rgba(0,0,0,0.45),
+      inset -2px 0 3px rgba(0,0,0,0.45),
+      0 4px 8px rgba(0,0,0,0.55);
+    clip-path: polygon(0 0, 100% 0, 100% 86%, 50% 100%, 0 86%);
+    z-index: 4;
+  }
+
+  /* ─── Inside-page content ─── */
+  .page-content {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;   /* keep paginated verses clipped within the page */
+  }
+  /* Page header (book name + chapter number) — shown only on left page top */
+  .page-header {
+    text-align: center;
+    margin-bottom: 18px;
+    border-bottom: 1px solid rgba(139,30,30,0.18);
+    padding-bottom: 14px;
+  }
+  .book-name {
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 30px;
+    color: var(--ink);
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+  .chapter-num {
+    display: block;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--rubric);
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+  /* Ornate flourish under header */
+  .page-header .flourish {
+    display: block;
+    color: var(--gold);
+    font-size: 14px;
+    margin-top: 8px;
+    opacity: 0.7;
+    letter-spacing: 8px;
+  }
+
+  /* Verse body — typical Bible: two columns per page, justified, tighter leading */
+  .verses {
+    font-family: 'EB Garamond', 'Cormorant Garamond', Georgia, serif;
+    font-size: 16px;
+    line-height: 1.55;
+    color: var(--ink);
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;     /* force columns to fill the full vertical space */
+    column-gap: 22px;
+    min-height: 0;
+    /* Thin vertical rule between the two columns, like a printed Bible */
+    background:
+      linear-gradient(180deg, transparent 6%, rgba(139,30,30,0.18) 6%, rgba(139,30,30,0.18) 94%, transparent 94%)
+      center / 1px 100% no-repeat;
+  }
+  .vcol {
+    overflow: hidden;
+    min-height: 0;
+  }
+  .verses p { margin: 0; display: block; }
+  /* Each verse is its own paragraph-like block — starts on a new line, number
+     at the left, text wraps under itself with hanging indent. */
+  .verse {
+    display: block;
+    text-align: justify;
+    hyphens: auto;
+    padding-left: 1.7em;
+    text-indent: -1.7em;
+    margin: 0;
+  }
+  /* Extra breathing room before the first verse of a new chapter — small
+     paragraph break, like printed Bibles do between chapters. */
+  .verse.ch-start { margin-top: 0.6em; }
+  /* The very first verse of a column should not start with a hollow indent */
+  .vcol .verse:first-child { margin-top: 0; }
+  /* Verse number — sits at the left margin of the verse block, in the hanging
+     indent space. Bold rubricated. */
+  .v-num {
+    display: inline-block;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--rubric);
+    min-width: 1.3em;
+    text-align: right;
+    margin-right: 5px;
+    letter-spacing: 0.5px;
+  }
+  /* Illuminated drop cap — first letter of chapter */
+  .drop-cap {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 58px;
+    line-height: 0.85;
+    color: var(--rubric);
+    float: left;
+    padding: 4px 8px 2px 0;
+    margin-top: 4px;
+    text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
+  }
+  /* Chapter number that opens a chapter inline — acts as the drop cap when
+     chapters flow continuously through the spreads. */
+  .ch-drop {
+    font-family: 'UnifrakturMaguntia', 'Pirata One', serif;
+    font-size: 44px;
+    line-height: 0.85;
+    color: var(--rubric);
+    float: left;
+    padding: 6px 8px 2px 0;
+    margin-top: 6px;
+    text-shadow: 1px 1px 0 rgba(160,120,32,0.3);
+  }
+  /* Tiny book title that appears once at the start of each book */
+  .book-banner {
+    display: block;
+    text-align: center;
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 22px;
+    color: var(--ink);
+    margin: 0 0 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(139,30,30,0.22);
+    letter-spacing: 1px;
+  }
+  .book-banner .ornament {
+    display: block;
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 6px;
+    margin-top: 4px;
+    opacity: 0.75;
+  }
+
+  /* ─── Annotations: highlights, note markers, popover, modals ─── */
+  .verse { cursor: pointer; transition: background 0.15s; padding: 1px 0; border-radius: 2px; }
+  .verse:hover { background: rgba(160,120,32,0.06); }
+  .verse.hl-gold {
+    background: linear-gradient(180deg, transparent 40%, rgba(212,168,67,0.42) 40%, rgba(212,168,67,0.42) 96%, transparent 96%);
+  }
+  .verse.hl-red {
+    background: linear-gradient(180deg, transparent 40%, rgba(180,40,40,0.32) 40%, rgba(180,40,40,0.32) 96%, transparent 96%);
+  }
+  .verse.hl-blue {
+    background: linear-gradient(180deg, transparent 40%, rgba(60,90,160,0.28) 40%, rgba(60,90,160,0.28) 96%, transparent 96%);
+  }
+  /* Note marker — Sacred-Heart-of-Jesus crimson heart next to verse number */
+  .note-marker {
+    display: inline-block;
+    color: #a30f0f;             /* deep sacred-heart crimson */
+    font-size: 12px;
+    margin-right: 2px;
+    cursor: pointer;
+    vertical-align: super;
+    line-height: 0;
+    text-shadow:
+      0 0 3px rgba(255,80,80,0.55),
+      0 0 6px rgba(180,30,30,0.35);
+  }
+  .note-marker:hover {
+    color: #c91818;
+    text-shadow:
+      0 0 4px rgba(255,90,90,0.7),
+      0 0 8px rgba(220,40,40,0.45);
+  }
+  /* Cross-reference marker — small dorado § next to verse number */
+  .ref-marker {
+    display: inline-block;
+    color: var(--gold);
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 2px;
+    margin-left: 1px;
+    cursor: pointer;
+    vertical-align: super;
+    line-height: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s, text-shadow 0.15s;
+  }
+  .ref-marker:hover {
+    opacity: 1;
+    text-shadow: 0 0 4px rgba(212,168,67,0.7);
+  }
+  /* Reference list inside the ref popover */
+  .ref-item {
+    padding: 6px 4px;
+    border-bottom: 1px solid rgba(139,30,30,0.12);
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .ref-item:last-child { border-bottom: none; }
+  .ref-item:hover { background: rgba(160,120,32,0.08); }
+  .ref-link {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+  }
+  .ref-snippet {
+    font-family: 'EB Garamond', serif;
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  /* Floating note viewer — shows the note text inline near the verse without
+     covering it. Tap ❦ to open, then choose Editar / Eliminar from inside. */
+  .note-popover {
+    position: fixed;
+    z-index: 200;
+    width: min(320px, calc(100vw - 24px));
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.7' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.18 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      linear-gradient(180deg, #fbf3df 0%, #f3e6c4 100%);
+    background-blend-mode: multiply, normal;
+    border: 1px solid var(--gold-deep);
+    border-radius: 4px;
+    padding: 14px 16px 12px;
+    box-shadow:
+      0 14px 30px rgba(0,0,0,0.45),
+      0 4px 8px rgba(0,0,0,0.3),
+      inset 0 0 0 1px rgba(160,120,32,0.15);
+    color: var(--ink);
+    font-family: 'EB Garamond', 'Cormorant Garamond', serif;
+  }
+  .note-popover[hidden] { display: none; }
+  /* Little folded-corner tab pointing at the verse */
+  .note-popover::before {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    background: inherit;
+    border: 1px solid var(--gold-deep);
+    transform: rotate(45deg);
+  }
+  .note-popover.np-above::before { bottom: -6px; left: 24px; border-top: none; border-left: none; }
+  .note-popover.np-below::before { top: -6px; left: 24px; border-bottom: none; border-right: none; }
+  .note-popover.np-right::before { left: -6px; top: 22px; border-right: none; border-top: none; }
+  .note-popover.np-left::before  { right: -6px; top: 22px; border-left: none;  border-bottom: none; }
+  .note-popover .np-ref {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 13px;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    line-height: 1;
+  }
+  .note-popover .np-text {
+    font-size: 14.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .note-popover .np-meta {
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.65;
+    margin-bottom: 10px;
+  }
+  .note-popover .np-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    border-top: 1px solid rgba(139,30,30,0.18);
+    padding-top: 8px;
+  }
+  .np-btn {
+    background: rgba(160,120,32,0.08);
+    border: 1px solid rgba(160,120,32,0.45);
+    color: var(--ink);
+    padding: 5px 12px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .np-btn:hover { background: rgba(160,120,32,0.18); color: var(--gold-deep); }
+  .np-btn.danger { color: #8b1e1e; border-color: rgba(139,30,30,0.45); }
+  .np-btn.danger:hover { background: rgba(139,30,30,0.12); color: #6e1414; }
+
+  /* Floating popover with annotation actions */
+  .annot-popover {
+    position: fixed;
+    z-index: 200;
+    background: linear-gradient(180deg, #2a1810, #1a0a08);
+    border: 1px solid var(--gold-deep);
+    border-radius: 6px;
+    padding: 8px;
+    display: flex;
+    gap: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .annot-popover[hidden] { display: none; }
+  .annot-btn {
+    background: none;
+    border: 1px solid var(--gold-deep);
+    color: var(--gold);
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: serif;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .annot-btn:hover {
+    background: rgba(160,120,32,0.15);
+    border-color: var(--gold);
+  }
+  .annot-btn.color-gold { background: #d4a843; border-color: #d4a843; }
+  .annot-btn.color-red  { background: #b42828; border-color: #b42828; }
+  .annot-btn.color-blue { background: #3c5aa0; border-color: #3c5aa0; }
+  .annot-btn.color-gold:hover { box-shadow: 0 0 8px #d4a843; }
+  .annot-btn.color-red:hover  { box-shadow: 0 0 8px #b42828; }
+  .annot-btn.color-blue:hover { box-shadow: 0 0 8px #3c5aa0; }
+
+  /* Note editor modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 150;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal {
+    background:
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.10 0 0 0 0.15 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"),
+      linear-gradient(180deg, #f6ecd2, #efe1c0);
+    background-blend-mode: multiply, normal;
+    color: var(--ink);
+    border: 1px solid var(--gold-deep);
+    border-radius: 6px;
+    padding: 24px;
+    width: min(520px, 100%);
+    max-height: 80vh;
+    overflow: auto;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6);
+  }
+  .modal h3 {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 22px;
+    margin-bottom: 4px;
+    font-weight: normal;
+  }
+  .modal .ref {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    color: var(--ink-soft);
+    font-size: 13px;
+    margin-bottom: 14px;
+    letter-spacing: 1px;
+  }
+  .modal textarea {
+    width: 100%;
+    min-height: 140px;
+    background: rgba(255,250,225,0.6);
+    border: 1px solid rgba(160,120,32,0.4);
+    padding: 12px;
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    color: var(--ink);
+    border-radius: 4px;
+    resize: vertical;
+  }
+  .modal textarea:focus { outline: 1px solid var(--gold); }
+  .modal input[type=text] {
+    width: 100%;
+    background: rgba(255,250,225,0.6);
+    border: 1px solid rgba(160,120,32,0.4);
+    padding: 10px 12px;
+    font-family: 'EB Garamond', serif;
+    font-size: 15px;
+    color: var(--ink);
+    border-radius: 4px;
+    margin-bottom: 12px;
+  }
+  .modal .modal-actions {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+  }
+  .modal-btn {
+    background: linear-gradient(180deg, #2a1810, #1a0a08);
+    color: var(--gold);
+    border: 1px solid var(--gold-deep);
+    padding: 8px 16px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    font-style: italic;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  .modal-btn:hover { background: linear-gradient(180deg, #3a2418, #2a1410); color: #d4a843; }
+  .modal-btn.danger { color: #c47070; border-color: #6e1414; }
+  .modal-btn.danger:hover { background: #2a0a0a; color: #e89999; }
+
+  /* Bookmarks list */
+  .bookmark-list {
+    list-style: none;
+    max-height: 50vh;
+    overflow-y: auto;
+    margin: 8px 0 4px;
+  }
+  .bookmark-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(139,30,30,0.18);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+  .bookmark-item:hover { background: rgba(160,120,32,0.1); }
+  .bookmark-item .bm-label {
+    font-family: 'EB Garamond', serif;
+    font-size: 16px;
+    color: var(--ink);
+    flex: 1;
+  }
+  .bookmark-item .bm-ref {
+    font-style: italic;
+    font-size: 12px;
+    color: var(--rubric);
+    margin-top: 2px;
+    display: block;
+  }
+  .bookmark-item .bm-del {
+    background: none;
+    border: none;
+    color: #8b1e1e;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    opacity: 0.5;
+  }
+  .bookmark-item .bm-del:hover { opacity: 1; }
+  .bookmark-empty {
+    text-align: center;
+    font-style: italic;
+    color: var(--ink-soft);
+    padding: 20px;
+    opacity: 0.7;
+  }
+
+  /* Sort toggle (used in notes list) */
+  .sort-toggle {
+    display: inline-flex;
+    border: 1px solid var(--gold-deep);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  .sort-toggle button {
+    background: rgba(160,120,32,0.04);
+    border: none;
+    padding: 6px 14px;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 13px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .sort-toggle button + button { border-left: 1px solid var(--gold-deep); }
+  .sort-toggle button:hover { background: rgba(160,120,32,0.12); }
+  .sort-toggle button.active {
+    background: rgba(139,30,30,0.18);
+    color: var(--rubric);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  /* Notes list — slightly bigger items than bookmarks, with snippet text */
+  .notes-list {
+    list-style: none;
+    max-height: 55vh;
+    overflow-y: auto;
+    margin: 4px 0;
+  }
+  .note-item {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(139,30,30,0.18);
+    cursor: pointer;
+    border-radius: 3px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .note-item:hover { background: rgba(160,120,32,0.1); }
+  .note-item .note-body { flex: 1; min-width: 0; }
+  .note-item .note-ref {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 14px;
+    letter-spacing: 1px;
+    margin-bottom: 2px;
+  }
+  .note-item .note-text {
+    font-family: 'EB Garamond', serif;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.4;
+    /* Truncate to 2 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .note-item .note-date {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 11px;
+    color: var(--ink-soft);
+    opacity: 0.6;
+    margin-top: 4px;
+  }
+  .note-item .bm-del { flex-shrink: 0; }
+
+  /* Page footer with page number + tiny ornament */
+  .page-footer {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--ink-soft);
+    opacity: 0.7;
+    padding-top: 8px;
+    border-top: 1px solid rgba(139,30,30,0.12);
+  }
+  .page-left  .page-footer .page-num { order: -1; }   /* number on outside */
+  .page-right .page-footer .page-num { margin-left: auto; }
+  .page-footer .ornament { color: var(--gold); }
+
+  /* ─── Side flippers (invisible click zones on left/right edges) ─── */
+  .flipper {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 60px;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gold);
+    font-size: 36px;
+    font-family: 'Cormorant Garamond', serif;
+    opacity: 0;
+    transition: opacity 0.3s;
+    user-select: none;
+  }
+  .flipper:hover { opacity: 0.8; }
+  .flipper.prev { left: -70px; }
+  .flipper.next { right: -70px; }
+
+  /* ─── Books drawer ─── */
+  .drawer {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: min(420px, 88%);
+    background: linear-gradient(180deg, #1f1208, #150b06);
+    box-shadow: 6px 0 30px rgba(0,0,0,0.7);
+    z-index: 100;
+    transform: translateX(-100%);
+    transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--gold-deep);
+  }
+  .drawer.open { transform: translateX(0); }
+  .drawer-header {
+    padding: 18px 22px 12px;
+    border-bottom: 1px solid rgba(160,120,32,0.25);
+    color: var(--gold);
+    font-family: 'UnifrakturMaguntia', serif;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .drawer-close {
+    background: none;
+    border: none;
+    color: var(--parch-edge);
+    font-size: 22px;
+    cursor: pointer;
+    font-family: serif;
+    padding: 0 8px;
+  }
+  .drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 0;
+  }
+  .testament-label {
+    font-family: 'UnifrakturMaguntia', serif;
+    color: var(--rubric);
+    font-size: 16px;
+    padding: 16px 22px 8px;
+    border-bottom: 1px solid rgba(139,30,30,0.25);
+    letter-spacing: 2px;
+  }
+  .book-list { list-style: none; }
+  .book-item {
+    padding: 9px 22px;
+    color: var(--parchment);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 16px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(160,120,32,0.06);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background 0.15s;
+  }
+  .book-item:hover {
+    background: rgba(160,120,32,0.1);
+    color: var(--gold);
+  }
+  .book-item.current {
+    background: rgba(139,30,30,0.18);
+    color: var(--gold);
+  }
+  .book-item .chap-count {
+    font-size: 11px;
+    color: var(--parch-edge);
+    opacity: 0.55;
+    font-style: italic;
+  }
+
+  /* Chapter picker (shown when a book is selected) */
+  .chap-picker {
+    padding: 14px 18px;
+    display: none;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-top: 1px solid rgba(160,120,32,0.18);
+    max-height: 280px;
+    overflow-y: auto;
+  }
+  .chap-picker.open { display: flex; }
+  .chap-btn {
+    width: 38px; height: 38px;
+    background: rgba(160,120,32,0.08);
+    border: 1px solid rgba(160,120,32,0.3);
+    color: var(--parchment);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: all 0.15s;
+  }
+  .chap-btn:hover {
+    background: rgba(160,120,32,0.2);
+    color: var(--gold);
+    border-color: var(--gold);
+  }
+
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .drawer-backdrop.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ─── Mobile ─── */
+  @media (max-width: 800px) {
+    header { padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+    .brand { font-size: 22px; }
+    .brand-sub { display: none; }
+    .nav-btn { padding: 6px 12px; font-size: 13px; }
+    .ref-display { font-size: 15px; padding: 0 4px; }
+
+    main { padding: 8px; }
+    .book-wrap { perspective: none; }
+    .book {
+      grid-template-columns: 1fr;   /* single page on phone */
+      max-height: none;
+      transform: none;
+    }
+    .gutter, .page-left { display: none; }
+    .page-right {
+      border-radius: 6px;
+      box-shadow: inset 0 0 12px rgba(0,0,0,0.15);
+      transform: none;
+    }
+    .page::before { display: none; }   /* drop the page-edge stack on phone */
+    .page { padding: 22px 18px 22px; }
+    .verses {
+      font-size: 15px;
+      grid-template-columns: 1fr;   /* phones: single column */
+      background: none;
+    }
+    .book-name { font-size: 24px; }
+    .drop-cap { font-size: 50px; }
+    .flipper.prev { left: 4px; opacity: 0.5; }
+    .flipper.next { right: 4px; opacity: 0.5; }
+  }
+
+  /* Loading state */
+  .loading {
+    color: var(--ink-soft);
+    text-align: center;
+    font-style: italic;
+    padding: 40px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="brand">Sagrada Biblia</div>
+    <div class="brand-sub">Reina-Valera · 1909</div>
+  </div>
+
+  <div class="nav-cluster">
+    <button class="nav-btn" id="btn-books">
+      <span class="ornament">❦</span> Libros
+    </button>
+    <button class="nav-btn" id="btn-bookmarks" title="Marcadores">🔖</button>
+    <button class="nav-btn" id="btn-notes" title="Mis Notas">📜</button>
+    <span class="ref-display" id="ref-display">Génesis I</span>
+    <button class="nav-btn" id="btn-prev" title="Capítulo anterior">‹</button>
+    <button class="nav-btn" id="btn-next" title="Capítulo siguiente">›</button>
+  </div>
+</header>
+
+<main>
+  <div class="book-wrap">
+    <div class="book" id="book">
+      <div class="page page-left" id="page-left">
+        <div class="page-content"></div>
+      </div>
+      <div class="page page-right" id="page-right">
+        <div class="page-content"></div>
+      </div>
+      <!-- Central gutter overlay: the dark crease where the two pages meet -->
+      <div class="gutter">
+        <div class="ribbon"></div>
+      </div>
+      <div class="flipper prev" id="flip-prev">‹</div>
+      <div class="flipper next" id="flip-next">›</div>
+    </div>
+  </div>
+</main>
+
+<!-- Note viewer popover (floats next to the ❦ marker, doesn't cover the verse) -->
+<div class="note-popover" id="note-popover" hidden>
+  <div class="np-ref" id="np-ref"></div>
+  <div class="np-text" id="np-text"></div>
+  <div class="np-meta" id="np-meta"></div>
+  <div class="np-actions">
+    <button class="np-btn danger" data-act="delete">Eliminar</button>
+    <button class="np-btn" data-act="edit">Editar</button>
+  </div>
+</div>
+
+<!-- Annotation popover (floats next to a tapped verse) -->
+<div class="annot-popover" id="annot-popover" hidden>
+  <button class="annot-btn color-gold" data-act="hl-gold" title="Subrayar dorado"></button>
+  <button class="annot-btn color-red"  data-act="hl-red"  title="Subrayar rojo"></button>
+  <button class="annot-btn color-blue" data-act="hl-blue" title="Subrayar azul"></button>
+  <button class="annot-btn" data-act="note" title="Añadir / editar nota">📝</button>
+  <button class="annot-btn" data-act="bookmark" title="Marcar versículo">🔖</button>
+  <button class="annot-btn" data-act="clear" title="Quitar subrayado">✕</button>
+</div>
+
+<!-- Note editor modal -->
+<div class="modal-backdrop" id="note-modal-bd">
+  <div class="modal">
+    <h3>Nota</h3>
+    <div class="ref" id="note-ref"></div>
+    <textarea id="note-text" placeholder="Escribe tu reflexión, comentario o referencia cruzada..."></textarea>
+    <div class="modal-actions">
+      <button class="modal-btn danger" id="note-delete">Eliminar</button>
+      <button class="modal-btn" id="note-cancel">Cancelar</button>
+      <button class="modal-btn" id="note-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bookmark name modal -->
+<div class="modal-backdrop" id="bm-name-bd">
+  <div class="modal">
+    <h3>Marcador</h3>
+    <div class="ref" id="bm-name-ref"></div>
+    <input type="text" id="bm-name-input" placeholder="Etiqueta (ej. Para meditar)" />
+    <div class="modal-actions">
+      <button class="modal-btn" id="bm-name-cancel">Cancelar</button>
+      <button class="modal-btn" id="bm-name-save">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bookmarks list modal -->
+<div class="modal-backdrop" id="bm-list-bd">
+  <div class="modal">
+    <h3>Mis Marcadores</h3>
+    <div class="ref">Pulsa uno para abrirlo</div>
+    <ul class="bookmark-list" id="bm-list"></ul>
+    <div class="modal-actions">
+      <button class="modal-btn" id="bm-list-close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Notes list modal -->
+<div class="modal-backdrop" id="notes-list-bd">
+  <div class="modal">
+    <h3>Mis Notas</h3>
+    <div class="ref">Pulsa una nota para abrirla, ✕ para eliminar</div>
+    <div class="sort-toggle" id="notes-sort">
+      <button data-sort="recent" class="active">Recientes</button>
+      <button data-sort="biblical">Orden bíblico</button>
+    </div>
+    <ul class="notes-list" id="notes-list"></ul>
+    <div class="modal-actions">
+      <button class="modal-btn" id="notes-list-close">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Books drawer -->
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <span>Libros Sagrados</span>
+    <button class="drawer-close" id="drawer-close">✕</button>
+  </div>
+  <div class="drawer-content" id="drawer-content"></div>
+  <div class="chap-picker" id="chap-picker"></div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   DATA — books metadata (chapter counts) + sample chapters
+   For v1 only Génesis 1-3 and Juan 1-3 are hardcoded.
+   The full Reina-Valera 1909 will be loaded from rv1909.json next.
+   ════════════════════════════════════════════════════════════ */
+
+const BOOKS_AT = [
+  // Pentateuco
+  {id:'gen', name:'Génesis',      chapters:50},
+  {id:'exo', name:'Éxodo',        chapters:40},
+  {id:'lev', name:'Levítico',     chapters:27},
+  {id:'num', name:'Números',      chapters:36},
+  {id:'deu', name:'Deuteronomio', chapters:34},
+  // Históricos
+  {id:'jos', name:'Josué',        chapters:24},
+  {id:'jue', name:'Jueces',       chapters:21},
+  {id:'rut', name:'Rut',          chapters:4},
+  {id:'1sa', name:'1 Samuel',     chapters:31},
+  {id:'2sa', name:'2 Samuel',     chapters:24},
+  {id:'1re', name:'1 Reyes',      chapters:22},
+  {id:'2re', name:'2 Reyes',      chapters:25},
+  {id:'1cr', name:'1 Crónicas',   chapters:29},
+  {id:'2cr', name:'2 Crónicas',   chapters:36},
+  {id:'esd', name:'Esdras',       chapters:10},
+  {id:'neh', name:'Nehemías',     chapters:13},
+  {id:'est', name:'Ester',        chapters:10},
+  // Poéticos / Sapienciales
+  {id:'job', name:'Job',          chapters:42},
+  {id:'sal', name:'Salmos',       chapters:150},
+  {id:'pro', name:'Proverbios',   chapters:31},
+  {id:'ecl', name:'Eclesiastés',  chapters:12},
+  {id:'can', name:'Cantares',     chapters:8},
+  // Profetas mayores
+  {id:'isa', name:'Isaías',       chapters:66},
+  {id:'jer', name:'Jeremías',     chapters:52},
+  {id:'lam', name:'Lamentaciones',chapters:5},
+  {id:'eze', name:'Ezequiel',     chapters:48},
+  {id:'dan', name:'Daniel',       chapters:12},
+  // Profetas menores
+  {id:'ose', name:'Oseas',        chapters:14},
+  {id:'joe', name:'Joel',         chapters:3},
+  {id:'amo', name:'Amós',         chapters:9},
+  {id:'abd', name:'Abdías',       chapters:1},
+  {id:'jon', name:'Jonás',        chapters:4},
+  {id:'miq', name:'Miqueas',      chapters:7},
+  {id:'nah', name:'Nahúm',        chapters:3},
+  {id:'hab', name:'Habacuc',      chapters:3},
+  {id:'sof', name:'Sofonías',     chapters:3},
+  {id:'hag', name:'Hageo',        chapters:2},
+  {id:'zac', name:'Zacarías',     chapters:14},
+  {id:'mal', name:'Malaquías',    chapters:4},
+];
+
+const BOOKS_NT = [
+  {id:'mat', name:'Mateo',        chapters:28},
+  {id:'mar', name:'Marcos',       chapters:16},
+  {id:'luc', name:'Lucas',        chapters:24},
+  {id:'jua', name:'Juan',         chapters:21},
+  {id:'hch', name:'Hechos',       chapters:28},
+  {id:'rom', name:'Romanos',      chapters:16},
+  {id:'1co', name:'1 Corintios',  chapters:16},
+  {id:'2co', name:'2 Corintios',  chapters:13},
+  {id:'gal', name:'Gálatas',      chapters:6},
+  {id:'efe', name:'Efesios',      chapters:6},
+  {id:'fil', name:'Filipenses',   chapters:4},
+  {id:'col', name:'Colosenses',   chapters:4},
+  {id:'1te', name:'1 Tesalonicenses', chapters:5},
+  {id:'2te', name:'2 Tesalonicenses', chapters:3},
+  {id:'1ti', name:'1 Timoteo',    chapters:6},
+  {id:'2ti', name:'2 Timoteo',    chapters:4},
+  {id:'tit', name:'Tito',         chapters:3},
+  {id:'flm', name:'Filemón',      chapters:1},
+  {id:'heb', name:'Hebreos',      chapters:13},
+  {id:'san', name:'Santiago',     chapters:5},
+  {id:'1pe', name:'1 Pedro',      chapters:5},
+  {id:'2pe', name:'2 Pedro',      chapters:3},
+  {id:'1jn', name:'1 Juan',       chapters:5},
+  {id:'2jn', name:'2 Juan',       chapters:1},
+  {id:'3jn', name:'3 Juan',       chapters:1},
+  {id:'jud', name:'Judas',        chapters:1},
+  {id:'apo', name:'Apocalipsis',  chapters:22},
+];
+
+const ALL_BOOKS = [...BOOKS_AT, ...BOOKS_NT];
+
+// ── Fallback sample text (used only if rv1909.json fails to load). ──
+let TEXT = {
+  'gen-1': {
+    1: 'EN el principio crió Dios los cielos y la tierra.',
+    2: 'Y la tierra estaba desordenada y vacía, y las tinieblas estaban sobre la haz del abismo, y el Espíritu de Dios se movía sobre la haz de las aguas.',
+    3: 'Y dijo Dios: Sea la luz: y fué la luz.',
+    4: 'Y vió Dios que la luz era buena: y apartó Dios la luz de las tinieblas.',
+    5: 'Y llamó Dios á la luz Día, y á las tinieblas llamó Noche: y fué la tarde y la mañana un día.',
+    6: 'Y dijo Dios: Haya expansión en medio de las aguas, y separe las aguas de las aguas.',
+    7: 'E hizo Dios la expansión, y apartó las aguas que estaban debajo de la expansión, de las aguas que estaban sobre la expansión: y fué así.',
+    8: 'Y llamó Dios á la expansión Cielos: y fué la tarde y la mañana el día segundo.',
+    9: 'Y dijo Dios: Júntense las aguas que están debajo de los cielos en un lugar, y descúbrase la seca: y fué así.',
+    10: 'Y llamó Dios á la seca Tierra, y á la reunión de las aguas llamó Mares: y vió Dios que era bueno.',
+    11: 'Y dijo Dios: Produzca la tierra hierba verde, hierba que dé simiente; árbol de fruto que dé fruto según su género, que su simiente esté en él, sobre la tierra: y fué así.',
+    12: 'Y produjo la tierra hierba verde, hierba que da simiente según su naturaleza, y árbol que da fruto, cuya simiente está en él, según su género: y vió Dios que era bueno.',
+    13: 'Y fué la tarde y la mañana el día tercero.',
+    14: 'Y dijo Dios: Sean lumbreras en la expansión de los cielos para apartar el día y la noche: y sean por señales, y para las estaciones, y para días y años;',
+    15: 'Y sean por lumbreras en la expansión de los cielos para alumbrar sobre la tierra: y fué así.',
+    16: 'E hizo Dios las dos grandes lumbreras; la lumbrera mayor para que señorease en el día, y la lumbrera menor para que señorease en la noche: hizo también las estrellas.',
+    17: 'Y púsolas Dios en la expansión de los cielos, para alumbrar sobre la tierra,',
+    18: 'Y para señorear en el día y en la noche, y para apartar la luz y las tinieblas: y vió Dios que era bueno.',
+    19: 'Y fué la tarde y la mañana el día cuarto.',
+    20: 'Y dijo Dios: Produzcan las aguas reptil de ánima viviente, y aves que vuelen sobre la tierra, en la abierta expansión de los cielos.',
+    21: 'Y crió Dios las grandes ballenas, y toda cosa viva que anda arrastrando, que las aguas produjeron según su género, y toda ave alada según su especie: y vió Dios que era bueno.',
+    22: 'Y Dios los bendijo diciendo: Fructificad y multiplicad, y henchid las aguas en los mares, y las aves se multipliquen en la tierra.',
+    23: 'Y fué la tarde y la mañana el día quinto.',
+    24: 'Y dijo Dios: Produzca la tierra seres vivientes según su género, bestias y serpientes y animales de la tierra según su especie: y fué así.',
+    25: 'E hizo Dios animales de la tierra según su género, y ganado según su género, y todo animal que anda arrastrando sobre la tierra según su especie: y vió Dios que era bueno.',
+    26: 'Y dijo Dios: Hagamos al hombre á nuestra imagen, conforme á nuestra semejanza; y señoree en los peces de la mar, y en las aves de los cielos, y en las bestias, y en toda la tierra, y en todo animal que anda arrastrando sobre la tierra.',
+    27: 'Y crió Dios al hombre á su imagen, á imagen de Dios lo crió; varón y hembra los crió.',
+    28: 'Y los bendijo Dios; y díjoles Dios: Fructificad y multiplicad, y henchid la tierra, y sojuzgadla, y señoread en los peces de la mar, y en las aves de los cielos, y en todas las bestias que se mueven sobre la tierra.',
+    29: 'Y dijo Dios: He aquí que os he dado toda hierba que da simiente, que está sobre la haz de toda la tierra; y todo árbol en que hay fruto de árbol que da simiente, seros ha para comer.',
+    30: 'Y á toda bestia de la tierra, y á todas las aves de los cielos, y á todo lo que se mueve sobre la tierra, en que hay vida, toda hierba verde les será para comer: y fué así.',
+    31: 'Y vió Dios todo lo que había hecho, y he aquí que era bueno en gran manera. Y fué la tarde y la mañana el día sexto.',
+  },
+  'jua-1': {
+    1: 'EN el principio era el Verbo, y el Verbo era con Dios, y el Verbo era Dios.',
+    2: 'Este era en el principio con Dios.',
+    3: 'Todas las cosas por él fueron hechas; y sin él nada de lo que es hecho, fué hecho.',
+    4: 'En él estaba la vida, y la vida era la luz de los hombres.',
+    5: 'Y la luz en las tinieblas resplandece; mas las tinieblas no la comprendieron.',
+    6: 'Fué un hombre enviado de Dios, el cual se llamaba Juan.',
+    7: 'Este vino por testimonio, para que diese testimonio de la luz, para que todos creyesen por él.',
+    8: 'No era él la luz, sino para que diese testimonio de la luz.',
+    9: 'Aquel era la luz verdadera, que alumbra á todo hombre que viene á este mundo.',
+    10: 'En el mundo estaba, y el mundo fué hecho por él; y el mundo no le conoció.',
+    11: 'A lo suyo vino, y los suyos no le recibieron.',
+    12: 'Mas á todos los que le recibieron, dióles potestad de ser hechos hijos de Dios, á los que creen en su nombre:',
+    13: 'Los cuales no son engendrados de sangre, ni de voluntad de carne, ni de voluntad de varón, mas de Dios.',
+    14: 'Y aquel Verbo fué hecho carne, y habitó entre nosotros (y vimos su gloria, gloria como del unigénito del Padre), lleno de gracia y de verdad.',
+  },
+};
+
+/* ════════════════════════════════════════════════════════════
+   STATE + RENDERING
+   ════════════════════════════════════════════════════════════ */
+
+const state = {
+  bookId: 'gen',
+  chapter: 1,
+  spread: 0,        // which spread of the book we are on
+  bookPlan: null,   // { columns: [HTML...], chapterStartCol: {ch: colIdx} }
+  bookPlanFor: null,// bookId the plan was built for
+};
+
+const bookMeta = (id) => ALL_BOOKS.find(b => b.id === id);
+
+function chapterText(bookId, chapter) {
+  // Loaded from rv1909.json: TEXT becomes nested {bookId: {chapter: {verse: text}}}
+  if (TEXT[bookId] && TEXT[bookId][chapter]) return TEXT[bookId][chapter];
+  // Fallback legacy flat key (only the embedded gen-1 / jua-1 demo)
+  const key = `${bookId}-${chapter}`;
+  return TEXT[key] || null;
+}
+
+// Cross-references — loaded from refs.json on startup
+let REFS = {};
+// Becomes true once rv1909.json finishes loading (success or failure)
+let DATA_READY = false;
+
+// ─────────── Book-flow rendering ────────────
+// Chapters flow continuously through the spreads. A chapter can start on any
+// column (left page top, right page bottom, etc.) — just like a real Bible.
+
+function buildBookHTMLs(bookId) {
+  const book = bookMeta(bookId);
+  const items = [];                  // inline HTML strings
+  const chapterFirstIdx = {};        // chapter# -> index in items where it starts
+  // Book banner once at the very top
+  items.push(`<span class="book-banner">${book.name}<span class="ornament">✦ ❦ ✦</span></span>`);
+
+  for (let ch = 1; ch <= book.chapters; ch++) {
+    chapterFirstIdx[ch] = items.length;
+    const verses = chapterText(bookId, ch);
+    if (!verses) continue;
+    const entries = Object.entries(verses).sort((a, b) => +a[0] - +b[0]);
+    entries.forEach(([n, t], i) => {
+      const cls = (i === 0 && ch > 1) ? 'verse ch-start' : 'verse';
+      if (i === 0) {
+        // First verse of a chapter — chapter number is a small drop cap at left
+        items.push(`<span class="${cls}" data-vk="${bookId}-${ch}-${n}"><span class="ch-drop">${ch}</span><span class="v-num">${n}</span>${t}</span>`);
+      } else {
+        items.push(`<span class="${cls}" data-vk="${bookId}-${ch}-${n}"><span class="v-num">${n}</span>${t}</span>`);
+      }
+    });
+  }
+  return { items, chapterFirstIdx };
+}
+
+// Render the page scaffolding (empty columns + footer) for the given book.
+// Done once when the book changes, so paginateBook has real columns to measure.
+function renderBookScaffolding(book) {
+  const leftContent  = document.querySelector('#page-left .page-content');
+  const rightContent = document.querySelector('#page-right .page-content');
+  leftContent.innerHTML = `
+    <div class="verses">
+      <div class="vcol" id="L1"></div>
+      <div class="vcol" id="L2"></div>
+    </div>
+    <div class="page-footer">
+      <span class="ornament">❦</span>
+      <span class="page-num" id="pgnum-left">${book.name}</span>
+    </div>`;
+  rightContent.innerHTML = `
+    <div class="verses">
+      <div class="vcol" id="R1"></div>
+      <div class="vcol" id="R2"></div>
+    </div>
+    <div class="page-footer">
+      <span class="page-num" id="pgnum-right">${book.name}</span>
+      <span class="ornament">❦</span>
+    </div>`;
+}
+
+// Paginate an entire book into a flat array of column-HTML strings, tracking
+// which column each chapter starts in.
+function paginateBook(bookId) {
+  const { items, chapterFirstIdx } = buildBookHTMLs(bookId);
+  const refCol = document.getElementById('L1');
+  if (!refCol || items.length === 0) {
+    return { columns: [items.join('')], chapterStartCol: {1: 0} };
+  }
+  const colW = refCol.clientWidth;
+  const containerH = refCol.parentElement.clientHeight;
+  const colH = Math.max(0, containerH - 4);
+  if (colW < 10 || colH < 30) {
+    // Layout not ready — retry after the next frame
+    requestAnimationFrame(() => {
+      state.bookPlan = paginateBook(state.bookId);
+      state.bookPlanFor = state.bookId;
+      goToChapter(state.chapter);  // re-locate spread
+    });
+    return { columns: [items.join('')], chapterStartCol: {1: 0} };
+  }
+
+  // Single hidden measuring container (column-width × natural flow)
+  const cs = getComputedStyle(refCol);
+  const meas = document.createElement('div');
+  meas.style.cssText = `
+    position: absolute; left: -10000px; top: 0;
+    width: ${colW}px;
+    font-family: ${cs.fontFamily}; font-size: ${cs.fontSize};
+    line-height: ${cs.lineHeight}; color: ${cs.color};
+    text-align: justify; hyphens: auto;
+  `;
+  meas.innerHTML = items.join('');
+  document.body.appendChild(meas);
+
+  // Walk every measurable item (verses + chapter-marks) and find column cuts
+  const itemEls = Array.from(meas.children);
+  const cuts = [0];
+  let nextLimit = colH;
+  for (let i = 0; i < itemEls.length; i++) {
+    const el = itemEls[i];
+    const yEnd = el.offsetTop + el.offsetHeight;
+    while (yEnd > nextLimit + 2) {
+      if (cuts[cuts.length - 1] !== i) cuts.push(i);
+      nextLimit += colH;
+    }
+  }
+  cuts.push(itemEls.length);
+  document.body.removeChild(meas);
+
+  const columns = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    columns.push(items.slice(cuts[i], cuts[i + 1]).join(''));
+  }
+
+  // Map each chapter to the column it starts in
+  const chapterStartCol = {};
+  for (const ch in chapterFirstIdx) {
+    const itemIdx = chapterFirstIdx[ch];
+    // Find column k where cuts[k] <= itemIdx < cuts[k+1]
+    let k = 0;
+    for (let c = 0; c < cuts.length - 1; c++) {
+      if (cuts[c] <= itemIdx && itemIdx < cuts[c + 1]) { k = c; break; }
+    }
+    chapterStartCol[ch] = k;
+  }
+  return { columns, chapterStartCol };
+}
+
+// Find the dominant chapter currently visible on a spread (chapter whose start
+// is closest to but not after the spread's first column)
+function chapterAtCol(col) {
+  const map = state.bookPlan && state.bookPlan.chapterStartCol;
+  if (!map) return state.chapter;
+  let best = 1;
+  for (const ch in map) {
+    if (map[ch] <= col) best = Math.max(best, +ch);
+  }
+  return best;
+}
+
+function rebuildBookPlanIfNeeded() {
+  if (state.bookPlanFor !== state.bookId) {
+    renderBookScaffolding(bookMeta(state.bookId));
+    state.bookPlan = paginateBook(state.bookId);
+    state.bookPlanFor = state.bookId;
+  }
+}
+
+function renderChapterIntoPages() {
+  const book = bookMeta(state.bookId);
+  const refEl = document.getElementById('ref-display');
+
+  // If data isn't ready, show a loading state on the scaffolding
+  const sample = chapterText(state.bookId, 1);
+  if (!sample) {
+    renderBookScaffolding(book);
+    const L1 = document.getElementById('L1');
+    if (L1) {
+      const msg = DATA_READY ? 'Capítulo no encontrado.' : 'Cargando la Sagrada Escritura...';
+      L1.innerHTML = `<div class="loading"><em>${msg}</em></div>`;
+    }
+    refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+    return;
+  }
+
+  rebuildBookPlanIfNeeded();
+  // Snap spread to current chapter's start
+  const targetCol = state.bookPlan.chapterStartCol[state.chapter] ?? 0;
+  state.spread = Math.floor(targetCol / 4);
+  renderSpread();
+  refEl.textContent = `${book.name} ${roman(state.chapter)}`;
+}
+
+function goToChapter(chapter) {
+  if (!state.bookPlan) return;
+  const col = state.bookPlan.chapterStartCol[chapter];
+  if (col == null) return;
+  state.chapter = chapter;
+  state.spread = Math.floor(col / 4);
+  renderSpread();
+}
+
+// LEGACY (no longer used) — kept for reference; superseded by paginateBook().
+function _unused_paginateChapter(verseHTMLs) {
+  // Find a real column to clone styles from
+  const refCol = document.getElementById('L1');
+  if (!refCol) return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
+
+  const colW = refCol.clientWidth;
+  // The .vcol is empty at this point so its own clientHeight is 0.
+  // The available column height = the .verses container's height (it has
+  // flex:1, so it already fills the page-content vertical space).
+  const containerH = refCol.parentElement.clientHeight;
+  // Tiny safety margin so the last line doesn't touch the page footer
+  const colH = Math.max(0, containerH - 4);
+  if (colW < 10 || colH < 30) {
+    // Layout not ready yet — render everything in column 1 and retry once
+    // after the next frame so the user still sees something immediately.
+    requestAnimationFrame(() => {
+      const recomputed = paginateChapter(verseHTMLs);
+      if (recomputed.length !== 1 || (recomputed[0].r1 || recomputed[0].l2)) {
+        state.spreads = recomputed;
+        if (state.spread >= state.spreads.length) state.spread = 0;
+        renderSpread();
+      }
+    });
+    return [{l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''}];
+  }
+  const cs   = getComputedStyle(refCol);
+
+  // Hidden measuring container — same width / typography as a single column
+  const meas = document.createElement('div');
+  meas.style.cssText = `
+    position: absolute; left: -10000px; top: 0;
+    width: ${colW}px;
+    font-family: ${cs.fontFamily}; font-size: ${cs.fontSize};
+    line-height: ${cs.lineHeight}; color: ${cs.color};
+    text-align: justify; hyphens: auto;
+  `;
+  meas.innerHTML = verseHTMLs.join('');
+  document.body.appendChild(meas);
+
+  // Walk verses, slice indices where cumulative height crosses every colH
+  const verseEls = Array.from(meas.querySelectorAll('.verse'));
+  const cuts = [0];   // indices where each new column starts
+  let nextLimit = colH;
+  for (let i = 0; i < verseEls.length; i++) {
+    const yEnd = verseEls[i].offsetTop + verseEls[i].offsetHeight;
+    while (yEnd > nextLimit + 2) {
+      // This verse spills past the current column boundary — start a new column at i
+      if (cuts[cuts.length - 1] !== i) cuts.push(i);
+      nextLimit += colH;
+    }
+  }
+  cuts.push(verseEls.length);
+  document.body.removeChild(meas);
+
+  // Build column-HTML chunks from the cut indices
+  const cols = [];
+  for (let i = 0; i < cuts.length - 1; i++) {
+    cols.push(verseHTMLs.slice(cuts[i], cuts[i + 1]).join(''));
+  }
+  // Group columns into spreads of 4
+  const spreads = [];
+  for (let i = 0; i < cols.length; i += 4) {
+    spreads.push({
+      l1: cols[i]     || '',
+      l2: cols[i + 1] || '',
+      r1: cols[i + 2] || '',
+      r2: cols[i + 3] || '',
+    });
+  }
+  // Ensure at least one spread even for a short chapter
+  if (!spreads.length) {
+    spreads.push({l1: verseHTMLs.join(''), l2: '', r1: '', r2: ''});
+  }
+  return spreads;
+}
+
+function renderSpread() {
+  if (!state.bookPlan) return;
+  const cols = state.bookPlan.columns;
+  const i = state.spread * 4;
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html || ''; };
+  set('L1', cols[i]);
+  set('L2', cols[i + 1]);
+  set('R1', cols[i + 2]);
+  set('R2', cols[i + 3]);
+  // Update current chapter based on what's actually showing on the spread
+  const visibleCh = chapterAtCol(i);
+  state.chapter = visibleCh;
+  const book = bookMeta(state.bookId);
+  const totalSpreads = Math.ceil(cols.length / 4);
+  set('pgnum-left',  `${book.name} · ${visibleCh}`);
+  set('pgnum-right', `${book.name} · pág. ${state.spread + 1} / ${totalSpreads}`);
+  const refEl = document.getElementById('ref-display');
+  if (refEl) refEl.textContent = `${book.name} ${roman(visibleCh)}`;
+}
+
+function roman(n) {
+  const M = ['','M','MM','MMM'];
+  const C = ['','C','CC','CCC','CD','D','DC','DCC','DCCC','CM'];
+  const X = ['','X','XX','XXX','XL','L','LX','LXX','LXXX','XC'];
+  const I = ['','I','II','III','IV','V','VI','VII','VIII','IX'];
+  return M[Math.floor(n/1000)] + C[Math.floor(n%1000/100)] + X[Math.floor(n%100/10)] + I[n%10];
+}
+
+/* ────── Navigation ────── */
+// Flipper arrows step ONE spread at a time within the current book.
+// At the book's edges they roll over to the previous / next book.
+function prev() {
+  if (!state.bookPlan) { renderChapterIntoPages(); return; }
+  if (state.spread > 0) {
+    state.spread--;
+    renderSpread();
+    return;
+  }
+  // First spread of this book — go to previous book's last spread
+  const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
+  if (idx > 0) {
+    state.bookId = ALL_BOOKS[idx - 1].id;
+    state.chapter = 1;
+    rebuildBookPlanIfNeeded();
+    const total = Math.ceil(state.bookPlan.columns.length / 4);
+    state.spread = Math.max(0, total - 1);
+    renderSpread();
+  }
+}
+function next() {
+  if (!state.bookPlan) { renderChapterIntoPages(); return; }
+  const total = Math.ceil(state.bookPlan.columns.length / 4);
+  if (state.spread < total - 1) {
+    state.spread++;
+    renderSpread();
+    return;
+  }
+  // Last spread of this book — go to next book
+  const idx = ALL_BOOKS.findIndex(b => b.id === state.bookId);
+  if (idx < ALL_BOOKS.length - 1) {
+    state.bookId = ALL_BOOKS[idx + 1].id;
+    state.chapter = 1;
+    state.spread = 0;
+    renderChapterIntoPages();
+  }
+}
+function goTo(bookId, chapter) {
+  state.bookId = bookId;
+  state.chapter = chapter;
+  renderChapterIntoPages();
+  closeDrawer();
+}
+// Aliases used by older handlers
+const prevChapter = prev;
+const nextChapter = next;
+
+/* ────── Books drawer ────── */
+const drawer    = document.getElementById('drawer');
+const backdrop  = document.getElementById('drawer-backdrop');
+const chapPick  = document.getElementById('chap-picker');
+
+function renderBookList() {
+  const c = document.getElementById('drawer-content');
+  const list = (label, books) => `
+    <div class="testament-label">${label}</div>
+    <ul class="book-list">
+      ${books.map(b => `
+        <li class="book-item ${b.id === state.bookId ? 'current' : ''}" data-book="${b.id}">
+          <span>${b.name}</span>
+          <span class="chap-count">${b.chapters} cap.</span>
+        </li>
+      `).join('')}
+    </ul>`;
+  c.innerHTML = list('Antiguo Testamento', BOOKS_AT) + list('Nuevo Testamento', BOOKS_NT);
+  c.querySelectorAll('.book-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const bid = item.dataset.book;
+      renderChapPicker(bid);
+    });
+  });
+}
+
+function renderChapPicker(bookId) {
+  const book = bookMeta(bookId);
+  chapPick.innerHTML = Array.from({length: book.chapters}, (_, i) =>
+    `<button class="chap-btn" data-ch="${i+1}">${i+1}</button>`
+  ).join('');
+  chapPick.classList.add('open');
+  chapPick.querySelectorAll('[data-ch]').forEach(b => {
+    b.addEventListener('click', () => goTo(bookId, +b.dataset.ch));
+  });
+}
+
+function openDrawer() {
+  drawer.classList.add('open');
+  backdrop.classList.add('show');
+  chapPick.classList.remove('open');
+}
+function closeDrawer() {
+  drawer.classList.remove('open');
+  backdrop.classList.remove('show');
+}
+
+/* ────── Wire it up ────── */
+document.getElementById('btn-books').addEventListener('click', openDrawer);
+document.getElementById('drawer-close').addEventListener('click', closeDrawer);
+backdrop.addEventListener('click', closeDrawer);
+document.getElementById('btn-prev').addEventListener('click', prevChapter);
+document.getElementById('btn-next').addEventListener('click', nextChapter);
+document.getElementById('flip-prev').addEventListener('click', prevChapter);
+document.getElementById('flip-next').addEventListener('click', nextChapter);
+
+// Keyboard navigation
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft') prevChapter();
+  if (e.key === 'ArrowRight') nextChapter();
+  if (e.key === 'Escape') closeDrawer();
+});
+
+// Re-flow on resize (column width changes, so the whole book has to re-paginate)
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    state.bookPlanFor = null;   // force rebuild
+    renderChapterIntoPages();
+  }, 120);
+});
+
+/* ════════════════════════════════════════════════════════════
+   ANNOTATIONS LAYER — highlights, notes, bookmarks, last-read
+   All persisted to localStorage. Key: 'bible-rv1909-annot'
+   ════════════════════════════════════════════════════════════ */
+
+const STORAGE_KEY = 'bible-rv1909-annot';
+
+const annot = (() => {
+  let data;
+  try {
+    data = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+  } catch (e) { data = {}; }
+  data.highlights = data.highlights || {};   // { 'gen-1-3': 'gold' | 'red' | 'blue' }
+  data.notes      = data.notes      || {};   // { 'gen-1-3': {text, updatedAt, createdAt} }
+  data.bookmarks  = data.bookmarks  || [];   // [{id, bookId, chapter, verse?, label, date}]
+  data.lastRead   = data.lastRead   || null; // {bookId, chapter, spread}
+  // Migrate any older string-format notes to the new object shape
+  for (const k in data.notes) {
+    if (typeof data.notes[k] === 'string') {
+      data.notes[k] = { text: data.notes[k], updatedAt: Date.now(), createdAt: Date.now() };
+    }
+  }
+  return data;
+})();
+
+function saveAnnot() {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(annot)); }
+  catch (e) { console.warn('Bible storage save failed:', e); }
+}
+function verseKey(bookId, chapter, verseN) {
+  return `${bookId}-${chapter}-${verseN}`;
+}
+
+// Apply stored highlights + note markers to currently rendered verses
+function applyAnnotationsToDOM() {
+  document.querySelectorAll('.verse[data-vk]').forEach(el => {
+    const vk = el.dataset.vk;
+    el.classList.remove('hl-gold', 'hl-red', 'hl-blue');
+    const hl = annot.highlights[vk];
+    if (hl) el.classList.add('hl-' + hl);
+    // Inject note marker right after the verse number (or replace existing)
+    const existingMarker = el.querySelector('.note-marker');
+    if (existingMarker) existingMarker.remove();
+    if (annot.notes[vk]) {
+      const num = el.querySelector('.v-num');
+      const marker = document.createElement('span');
+      marker.className = 'note-marker';
+      marker.textContent = '♥';
+      marker.title = 'Ver nota';
+      if (num) num.insertAdjacentElement('afterend', marker);
+    }
+  });
+}
+
+/* ────── Verse popover ────── */
+const popover = document.getElementById('annot-popover');
+let popoverTarget = null;   // {verseEl, vk, bookId, chapter, verseN}
+
+function showPopover(verseEl) {
+  const vk = verseEl.dataset.vk;
+  if (!vk) return;
+  const [bookId, chap, vn] = vk.split('-');
+  popoverTarget = { verseEl, vk, bookId, chapter: +chap, verseN: +vn };
+  // Position the popover near the verse, clamped to viewport
+  const r = verseEl.getBoundingClientRect();
+  popover.hidden = false;
+  const pw = popover.offsetWidth;
+  const ph = popover.offsetHeight;
+  let left = r.left + r.width / 2 - pw / 2;
+  let top  = r.top - ph - 8;
+  if (top < 8) top = r.bottom + 8;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  popover.style.left = left + 'px';
+  popover.style.top  = top  + 'px';
+}
+function hidePopover() {
+  popover.hidden = true;
+  popoverTarget = null;
+}
+
+// Click on a verse → show popover; click elsewhere → hide
+document.addEventListener('click', e => {
+  const noteMarker = e.target.closest('.note-marker');
+  if (noteMarker) {
+    e.stopPropagation();
+    const verseEl = noteMarker.closest('.verse');
+    if (verseEl) showNotePopover(verseEl, noteMarker);
+    return;
+  }
+  const verse = e.target.closest('.verse');
+  if (verse && verse.dataset.vk) {
+    e.stopPropagation();
+    showPopover(verse);
+    return;
+  }
+  if (!e.target.closest('.annot-popover') && !e.target.closest('.note-popover')) {
+    hidePopover();
+    hideNotePopover();
+  }
+});
+
+popover.addEventListener('click', e => {
+  const btn = e.target.closest('.annot-btn');
+  if (!btn || !popoverTarget) return;
+  const act = btn.dataset.act;
+  const t = popoverTarget;
+  if (act === 'hl-gold' || act === 'hl-red' || act === 'hl-blue') {
+    const color = act.slice(3);
+    if (annot.highlights[t.vk] === color) delete annot.highlights[t.vk];
+    else annot.highlights[t.vk] = color;
+    saveAnnot();
+    applyAnnotationsToDOM();
+    hidePopover();
+  } else if (act === 'clear') {
+    delete annot.highlights[t.vk];
+    saveAnnot();
+    applyAnnotationsToDOM();
+    hidePopover();
+  } else if (act === 'note') {
+    openNoteModal(t.verseEl);
+    hidePopover();
+  } else if (act === 'bookmark') {
+    openBookmarkNameModal(t.bookId, t.chapter, t.verseN);
+    hidePopover();
+  }
+});
+
+/* ────── Note viewer popover (in-page, doesn't cover verse) ────── */
+const notePopover = document.getElementById('note-popover');
+const npRef       = document.getElementById('np-ref');
+const npText      = document.getElementById('np-text');
+const npMeta      = document.getElementById('np-meta');
+let notePopoverVK = null;
+
+function showNotePopover(verseEl, anchor) {
+  const vk = verseEl.dataset.vk;
+  const note = annot.notes[vk];
+  if (!note) return;
+  notePopoverVK = vk;
+  const [bookId, chap, vn] = vk.split('-');
+  const book = bookMeta(bookId);
+  npRef.textContent = `${book ? book.name : bookId} ${chap}:${vn}`;
+  npText.textContent = note.text;
+  npMeta.textContent = relativeDate
+    ? `editado ${relativeDate(note.updatedAt || note.createdAt || Date.now())}`
+    : '';
+  notePopover.hidden = false;
+  notePopover.classList.remove('np-above', 'np-below', 'np-left', 'np-right');
+
+  // Anchor at the verse's COLUMN (not the verse text or marker) so the popover
+  // sits OUTSIDE the text area, never on top of the verse.
+  const colEl = verseEl.closest('.vcol') || verseEl.closest('.page') || verseEl;
+  const cr = colEl.getBoundingClientRect();
+  const vr = verseEl.getBoundingClientRect();
+  const pw = notePopover.offsetWidth;
+  const ph = notePopover.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 16;
+  const margin = 10;
+
+  // Available space OUTSIDE the column on each side
+  const roomRight = vw - cr.right - gap;
+  const roomLeft  = cr.left - gap;
+  const roomBelow = vh - vr.bottom - gap;
+  const roomAbove = vr.top - gap;
+
+  // Prefer the side that has room AND is "away" from the spine. If verse is in
+  // a column whose right edge is past viewport center, lean LEFT first.
+  const colCenter = (cr.left + cr.right) / 2;
+  const preferRight = colCenter < vw / 2;
+
+  let placement;
+  if (preferRight && roomRight >= pw)       placement = 'right';
+  else if (!preferRight && roomLeft >= pw)  placement = 'left';
+  else if (roomRight >= pw)                 placement = 'right';
+  else if (roomLeft  >= pw)                 placement = 'left';
+  else if (roomBelow >= ph)                 placement = 'below';
+  else if (roomAbove >= ph)                 placement = 'above';
+  else                                      placement = roomRight > roomLeft ? 'right' : 'left';
+
+  // Compute base position
+  let left, top;
+  if (placement === 'right') {
+    left = cr.right + gap;
+    // Align vertically with the verse line
+    top  = vr.top - 6;
+  } else if (placement === 'left') {
+    left = cr.left - pw - gap;
+    top  = vr.top - 6;
+  } else if (placement === 'below') {
+    // Drop below the COLUMN bottom (not the verse) so no following verses are covered
+    left = vr.left - 8;
+    top  = cr.bottom + 10;
+  } else { /* above */
+    left = vr.left - 8;
+    top  = cr.top - ph - 10;
+  }
+  // Clamp inside viewport
+  if (left + pw > vw - margin) left = vw - pw - margin;
+  if (left < margin)           left = margin;
+  if (top + ph > vh - margin)  top  = vh - ph - margin;
+  if (top < margin)            top  = margin;
+
+  notePopover.style.left = left + 'px';
+  notePopover.style.top  = top  + 'px';
+  notePopover.classList.add('np-' + placement);
+}
+function hideNotePopover() {
+  notePopover.hidden = true;
+  notePopoverVK = null;
+}
+notePopover.addEventListener('click', e => {
+  const btn = e.target.closest('.np-btn');
+  if (!btn || !notePopoverVK) return;
+  const act = btn.dataset.act;
+  if (act === 'edit') {
+    const verseEl = document.querySelector(`.verse[data-vk="${notePopoverVK}"]`);
+    if (verseEl) {
+      openNoteModal(verseEl);
+    }
+    hideNotePopover();
+  } else if (act === 'delete') {
+    delete annot.notes[notePopoverVK];
+    saveAnnot();
+    applyAnnotationsToDOM();
+    hideNotePopover();
+  }
+});
+
+/* ────── Note modal ────── */
+const noteBd      = document.getElementById('note-modal-bd');
+const noteRef     = document.getElementById('note-ref');
+const noteText    = document.getElementById('note-text');
+let noteEditingVK = null;
+function openNoteModal(verseEl) {
+  const vk = verseEl.dataset.vk;
+  const [bookId, chap, vn] = vk.split('-');
+  noteEditingVK = vk;
+  noteRef.textContent = `${bookMeta(bookId).name} ${chap}:${vn}`;
+  noteText.value = (annot.notes[vk] && annot.notes[vk].text) || '';
+  noteBd.classList.add('show');
+  setTimeout(() => noteText.focus(), 50);
+}
+document.getElementById('note-save').addEventListener('click', () => {
+  if (!noteEditingVK) return;
+  const txt = noteText.value.trim();
+  const now = Date.now();
+  if (txt) {
+    const existing = annot.notes[noteEditingVK];
+    annot.notes[noteEditingVK] = {
+      text: txt,
+      updatedAt: now,
+      createdAt: (existing && existing.createdAt) || now,
+    };
+  } else {
+    delete annot.notes[noteEditingVK];
+  }
+  saveAnnot();
+  applyAnnotationsToDOM();
+  noteBd.classList.remove('show');
+});
+document.getElementById('note-cancel').addEventListener('click', () => noteBd.classList.remove('show'));
+document.getElementById('note-delete').addEventListener('click', () => {
+  if (!noteEditingVK) return;
+  delete annot.notes[noteEditingVK];
+  saveAnnot();
+  applyAnnotationsToDOM();
+  noteBd.classList.remove('show');
+});
+
+/* ────── Bookmark name modal ────── */
+const bmNameBd    = document.getElementById('bm-name-bd');
+const bmNameRef   = document.getElementById('bm-name-ref');
+const bmNameInput = document.getElementById('bm-name-input');
+let bmPending = null;
+function openBookmarkNameModal(bookId, chapter, verseN) {
+  bmPending = { bookId, chapter, verseN };
+  const book = bookMeta(bookId);
+  bmNameRef.textContent = verseN
+    ? `${book.name} ${chapter}:${verseN}`
+    : `${book.name} ${chapter}`;
+  bmNameInput.value = verseN
+    ? `${book.name} ${chapter}:${verseN}`
+    : `${book.name} ${chapter}`;
+  bmNameBd.classList.add('show');
+  setTimeout(() => bmNameInput.select(), 50);
+}
+document.getElementById('bm-name-save').addEventListener('click', () => {
+  if (!bmPending) return;
+  annot.bookmarks.push({
+    id: Date.now(),
+    bookId: bmPending.bookId,
+    chapter: bmPending.chapter,
+    verse: bmPending.verseN || null,
+    label: bmNameInput.value.trim() || `${bookMeta(bmPending.bookId).name} ${bmPending.chapter}`,
+    date: new Date().toISOString(),
+  });
+  saveAnnot();
+  bmNameBd.classList.remove('show');
+});
+document.getElementById('bm-name-cancel').addEventListener('click', () => bmNameBd.classList.remove('show'));
+
+/* ────── Bookmarks list modal ────── */
+const bmListBd = document.getElementById('bm-list-bd');
+const bmList   = document.getElementById('bm-list');
+function openBookmarksList() {
+  if (!annot.bookmarks.length) {
+    bmList.innerHTML = `<li class="bookmark-empty">Aún no has guardado marcadores.<br>Toca un versículo y elige 🔖 para empezar.</li>`;
+  } else {
+    bmList.innerHTML = annot.bookmarks
+      .slice().reverse()
+      .map(bm => {
+        const book = bookMeta(bm.bookId);
+        const ref  = bm.verse ? `${book.name} ${bm.chapter}:${bm.verse}` : `${book.name} ${bm.chapter}`;
+        return `<li class="bookmark-item" data-id="${bm.id}">
+          <div>
+            <div class="bm-label">${escapeHTML(bm.label)}</div>
+            <span class="bm-ref">${ref}</span>
+          </div>
+          <button class="bm-del" data-del="${bm.id}" title="Eliminar">✕</button>
+        </li>`;
+      }).join('');
+  }
+  bmListBd.classList.add('show');
+}
+function escapeHTML(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+bmList.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    e.stopPropagation();
+    const id = +del.dataset.del;
+    annot.bookmarks = annot.bookmarks.filter(b => b.id !== id);
+    saveAnnot();
+    openBookmarksList();
+    return;
+  }
+  const item = e.target.closest('.bookmark-item');
+  if (!item) return;
+  const id = +item.dataset.id;
+  const bm = annot.bookmarks.find(b => b.id === id);
+  if (!bm) return;
+  goTo(bm.bookId, bm.chapter);
+  bmListBd.classList.remove('show');
+});
+document.getElementById('bm-list-close').addEventListener('click', () => bmListBd.classList.remove('show'));
+document.getElementById('btn-bookmarks').addEventListener('click', openBookmarksList);
+
+/* ────── Notes list modal (view / sort / edit / delete) ────── */
+const notesListBd = document.getElementById('notes-list-bd');
+const notesListEl = document.getElementById('notes-list');
+let notesSort = 'recent';   // 'recent' | 'biblical'
+
+// Book-order index for biblical sorting
+const BOOK_INDEX = {};
+ALL_BOOKS.forEach((b, i) => { BOOK_INDEX[b.id] = i; });
+
+function relativeDate(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = Date.now();
+  const diff = (now - ts) / 1000;
+  if (diff < 60)     return 'hace un momento';
+  if (diff < 3600)   return `hace ${Math.floor(diff/60)} min`;
+  if (diff < 86400)  return `hace ${Math.floor(diff/3600)} h`;
+  if (diff < 604800) return `hace ${Math.floor(diff/86400)} día(s)`;
+  return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function openNotesList() {
+  renderNotesList();
+  notesListBd.classList.add('show');
+}
+function renderNotesList() {
+  const entries = Object.entries(annot.notes).map(([vk, n]) => {
+    const [bookId, chap, vn] = vk.split('-');
+    return {
+      vk,
+      bookId,
+      chapter: +chap,
+      verse: +vn,
+      text: n.text,
+      updatedAt: n.updatedAt || 0,
+      bookIdx: BOOK_INDEX[bookId] ?? 999,
+    };
+  });
+
+  if (notesSort === 'recent') {
+    entries.sort((a, b) => b.updatedAt - a.updatedAt);
+  } else {
+    entries.sort((a, b) =>
+      a.bookIdx - b.bookIdx ||
+      a.chapter - b.chapter ||
+      a.verse   - b.verse
+    );
+  }
+
+  if (!entries.length) {
+    notesListEl.innerHTML = `<li class="bookmark-empty">Aún no has escrito notas.<br>Toca un versículo y elige 📝 para empezar.</li>`;
+    return;
+  }
+  notesListEl.innerHTML = entries.map(e => {
+    const book = bookMeta(e.bookId);
+    const ref  = book ? `${book.name} ${e.chapter}:${e.verse}` : e.vk;
+    return `<li class="note-item" data-vk="${e.vk}">
+      <div class="note-body">
+        <div class="note-ref">${ref}</div>
+        <div class="note-text">${escapeHTML(e.text)}</div>
+        <div class="note-date">${relativeDate(e.updatedAt)}</div>
+      </div>
+      <button class="bm-del" data-del="${e.vk}" title="Eliminar nota">✕</button>
+    </li>`;
+  }).join('');
+}
+
+document.getElementById('btn-notes').addEventListener('click', openNotesList);
+document.getElementById('notes-list-close').addEventListener('click', () => notesListBd.classList.remove('show'));
+
+// Sort toggle
+document.getElementById('notes-sort').addEventListener('click', e => {
+  const btn = e.target.closest('[data-sort]');
+  if (!btn) return;
+  notesSort = btn.dataset.sort;
+  document.querySelectorAll('#notes-sort button').forEach(b => b.classList.toggle('active', b === btn));
+  renderNotesList();
+});
+
+// Click on note → jump there, then open the note editor.
+// Click on ✕ → delete in place.
+notesListEl.addEventListener('click', e => {
+  const del = e.target.closest('[data-del]');
+  if (del) {
+    e.stopPropagation();
+    delete annot.notes[del.dataset.del];
+    saveAnnot();
+    renderNotesList();
+    applyAnnotationsToDOM();
+    return;
+  }
+  const item = e.target.closest('.note-item');
+  if (!item) return;
+  const vk = item.dataset.vk;
+  const [bookId, chap, vn] = vk.split('-');
+  notesListBd.classList.remove('show');
+  goTo(bookId, +chap);
+  // Wait for the chapter to render, then show the note popover near the verse
+  setTimeout(() => {
+    const verseEl = document.querySelector(`.verse[data-vk="${vk}"]`);
+    if (verseEl) {
+      verseEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      // After the scroll lands, open the popover at the ❦ marker
+      setTimeout(() => {
+        const marker = verseEl.querySelector('.note-marker');
+        showNotePopover(verseEl, marker || verseEl);
+      }, 320);
+    } else {
+      // Verse not on visible spread — fall back to the editor modal
+      noteEditingVK = vk;
+      noteRef.textContent = `${bookMeta(bookId).name} ${chap}:${vn}`;
+      noteText.value = (annot.notes[vk] && annot.notes[vk].text) || '';
+      noteBd.classList.add('show');
+      setTimeout(() => noteText.focus(), 50);
+    }
+  }, 200);
+});
+
+// Backdrop click closes any modal
+[noteBd, bmNameBd, bmListBd, notesListBd].forEach(bd => {
+  bd.addEventListener('click', e => {
+    if (e.target === bd) bd.classList.remove('show');
+  });
+});
+
+/* ────── Apply annotations after each render ────── */
+// data-vk is now baked into the verse HTML at book-build time, so we just need
+// to re-apply highlights / note markers / ref markers after each spread render.
+const _origRenderSpread = renderSpread;
+renderSpread = function() {
+  _origRenderSpread();
+  applyAnnotationsToDOM();
+  // Persist last-read position
+  annot.lastRead = { bookId: state.bookId, chapter: state.chapter, spread: state.spread };
+  saveAnnot();
+};
+
+/* ────── Restore last-read position on load ────── */
+if (annot.lastRead && bookMeta(annot.lastRead.bookId)) {
+  state.bookId = annot.lastRead.bookId;
+  state.chapter = annot.lastRead.chapter;
+  state.spread = annot.lastRead.spread || 0;
+}
+
+// Escape closes popover / modals
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    hidePopover();
+    hideNotePopover();
+    noteBd.classList.remove('show');
+    bmNameBd.classList.remove('show');
+    bmListBd.classList.remove('show');
+    notesListBd.classList.remove('show');
+  }
+});
+
+// ───────── Cross-reference (referencias cruzadas) marker + popover ─────────
+// A small dorado § appears next to verse numbers that have refs. Tap to open
+// a popover listing the references with snippets — click a reference to jump.
+
+const refPopover = document.createElement('div');
+refPopover.className = 'note-popover';
+refPopover.id = 'ref-popover';
+refPopover.hidden = true;
+refPopover.innerHTML = `
+  <div class="np-ref" id="rp-ref"></div>
+  <div class="np-text" id="rp-list" style="max-height: 240px;"></div>
+  <div class="np-actions">
+    <button class="np-btn" data-act="close">Cerrar</button>
+  </div>`;
+document.body.appendChild(refPopover);
+
+const rpRef  = document.getElementById('rp-ref');
+const rpList = document.getElementById('rp-list');
+
+function showRefPopover(verseEl, anchor) {
+  const vk = verseEl.dataset.vk;
+  const refs = REFS[vk];
+  if (!refs || !refs.length) return;
+  const [bookId, chap, vn] = vk.split('-');
+  const book = bookMeta(bookId);
+  rpRef.textContent = `Referencias · ${book.name} ${chap}:${vn}`;
+  rpList.innerHTML = refs.map(r => {
+    const [bid, ch, v] = r.split('-');
+    const b = bookMeta(bid);
+    if (!b) return '';
+    // Snippet from chapterText if loaded
+    const verseObj = chapterText(bid, +ch);
+    const snippet = (verseObj && verseObj[+v]) ? verseObj[+v].slice(0, 110) + '…' : '';
+    return `<div class="ref-item" data-r="${r}">
+      <span class="ref-link">${b.name} ${ch}:${v}</span>
+      ${snippet ? `<span class="ref-snippet"> ${escapeHTML(snippet)}</span>` : ''}
+    </div>`;
+  }).join('');
+  // Reuse the same lateral-placement logic as the note popover
+  positionFloatingNear(refPopover, verseEl, anchor);
+}
+function hideRefPopover() { refPopover.hidden = true; }
+
+refPopover.addEventListener('click', e => {
+  const item = e.target.closest('[data-r]');
+  if (item) {
+    const [bid, ch, v] = item.dataset.r.split('-');
+    hideRefPopover();
+    goTo(bid, +ch);
+    setTimeout(() => {
+      const verseEl = document.querySelector(`.verse[data-vk="${bid}-${ch}-${v}"]`);
+      if (verseEl) verseEl.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 200);
+    return;
+  }
+  if (e.target.closest('[data-act="close"]')) hideRefPopover();
+});
+
+// Generic lateral positioner — same logic as showNotePopover, factored for reuse
+function positionFloatingNear(popoverEl, verseEl, anchor) {
+  popoverEl.hidden = false;
+  popoverEl.classList.remove('np-above', 'np-below', 'np-left', 'np-right');
+  const colEl = verseEl.closest('.vcol') || verseEl.closest('.page') || verseEl;
+  const cr = colEl.getBoundingClientRect();
+  const vr = verseEl.getBoundingClientRect();
+  const pw = popoverEl.offsetWidth;
+  const ph = popoverEl.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const gap = 16, margin = 10;
+  const roomRight = vw - cr.right - gap;
+  const roomLeft  = cr.left - gap;
+  const roomBelow = vh - vr.bottom - gap;
+  const roomAbove = vr.top - gap;
+  const colCenter = (cr.left + cr.right) / 2;
+  const preferRight = colCenter < vw / 2;
+  let placement;
+  if (preferRight && roomRight >= pw)      placement = 'right';
+  else if (!preferRight && roomLeft >= pw) placement = 'left';
+  else if (roomRight >= pw)                placement = 'right';
+  else if (roomLeft  >= pw)                placement = 'left';
+  else if (roomBelow >= ph)                placement = 'below';
+  else if (roomAbove >= ph)                placement = 'above';
+  else                                     placement = roomRight > roomLeft ? 'right' : 'left';
+  let left, top;
+  if (placement === 'right')      { left = cr.right + gap; top  = vr.top - 6; }
+  else if (placement === 'left')  { left = cr.left - pw - gap; top  = vr.top - 6; }
+  else if (placement === 'below') { left = vr.left - 8; top  = cr.bottom + 10; }
+  else                            { left = vr.left - 8; top  = cr.top - ph - 10; }
+  if (left + pw > vw - margin) left = vw - pw - margin;
+  if (left < margin)           left = margin;
+  if (top + ph > vh - margin)  top  = vh - ph - margin;
+  if (top < margin)            top  = margin;
+  popoverEl.style.left = left + 'px';
+  popoverEl.style.top  = top  + 'px';
+  popoverEl.classList.add('np-' + placement);
+}
+
+// Inject ref markers (§) into rendered verses that have cross-references
+function applyRefMarkers() {
+  document.querySelectorAll('.verse[data-vk]').forEach(el => {
+    const old = el.querySelector('.ref-marker');
+    if (old) old.remove();
+    const vk = el.dataset.vk;
+    if (!REFS[vk] || !REFS[vk].length) return;
+    const num = el.querySelector('.v-num');
+    if (!num) return;
+    const m = document.createElement('span');
+    m.className = 'ref-marker';
+    m.textContent = '§';
+    m.title = `${REFS[vk].length} referencias cruzadas`;
+    // Insert after the heart marker if present, else after the verse number
+    const heart = el.querySelector('.note-marker');
+    (heart || num).insertAdjacentElement('afterend', m);
+  });
+}
+
+// Hook into existing render to also inject ref markers
+const _origApplyAnnotations = applyAnnotationsToDOM;
+applyAnnotationsToDOM = function() {
+  _origApplyAnnotations();
+  applyRefMarkers();
+};
+
+// Click handler — intercept .ref-marker clicks before the verse popover
+document.addEventListener('click', e => {
+  const rm = e.target.closest('.ref-marker');
+  if (rm) {
+    e.stopPropagation();
+    e.preventDefault();
+    const verseEl = rm.closest('.verse');
+    if (verseEl) showRefPopover(verseEl, rm);
+    return;
+  }
+  // Hide ref popover on outside click
+  if (!e.target.closest('#ref-popover') && !e.target.closest('.ref-marker')) {
+    hideRefPopover();
+  }
+}, true);
+
+// Escape closes
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') hideRefPopover();
+});
+
+// ───────── Data loading: rv1909.json + refs.json (async, with loading state) ─────────
+async function loadBibleData() {
+  // Cache-bust against any stale CDN copy
+  const v = '?v=2';
+  try {
+    const [bibleRes, refsRes] = await Promise.all([
+      fetch('bible/rv1909.json' + v, { cache: 'no-cache' }),
+      fetch('bible/refs.json'   + v, { cache: 'no-cache' }),
+    ]);
+    if (bibleRes.ok) {
+      const data = await bibleRes.json();
+      // Sanity: the loaded data should be an object keyed by book IDs
+      if (data && typeof data === 'object' && data.gen) {
+        TEXT = data;
+      } else {
+        console.warn('rv1909.json loaded but shape is unexpected:', data);
+      }
+    } else {
+      console.warn('rv1909.json fetch failed:', bibleRes.status);
+    }
+    if (refsRes.ok) REFS = await refsRes.json();
+  } catch (err) {
+    console.warn('Bible data load failed; using embedded sample.', err);
+  }
+  DATA_READY = true;
+  state.bookPlanFor = null;   // force fresh pagination with the real text
+  renderChapterIntoPages();
+}
+
+// First paint with embedded sample, then async-load full bible
+renderBookList();
+renderChapterIntoPages();
+loadBibleData();
+</script>
+</body>
+</html>
