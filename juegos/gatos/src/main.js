@@ -251,6 +251,32 @@ async function main() {
   meter.addChild(meterG, meterFill, meterShine, badge, badgeCat, meterLbl);
   const extraTxt = new Text({text: '¡GATO EXTRA!', style: {fontFamily: 'Luckiest Guy', fontSize: 120, fill: '#FFE27A', stroke: {color: '#1F2240', width: 20, join: 'round'}, dropShadow: {color: '#1F2240', distance: 10, angle: Math.PI / 2, blur: 0, alpha: 0.95}}});
   extraTxt.anchor.set(0.5); extraTxt.visible = false; app.stage.addChild(extraTxt);
+  // ---------- bono de sala (AB2 "Strike!" / "Birdie!"): despejar una sala con 1 gato = ¡CHUZA! +25,000; con 2 = ¡DOBLETE! +10,000 ----------
+  let roomShots = 0;
+  const stamp = new Container(); stamp.visible = false; app.stage.addChild(stamp);
+  const stampBurst = new Graphics(); stampBurst.star(0, 0, 18, 330, 215).fill(0xFFB02E).stroke({color: 0x1F2240, width: 14, join: 'round'}); stampBurst.star(0, 0, 18, 270, 190).fill({color: 0xFFE27A, alpha: 0.9});
+  const stampTxt = new Text({text: '', style: {fontFamily: 'Luckiest Guy', fontSize: 150, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 22, join: 'round'}, dropShadow: {color: '#1F2240', distance: 12, angle: Math.PI / 2, blur: 0, alpha: 0.95}}});
+  const stampPts = new Text({text: '', style: {fontFamily: 'Luckiest Guy', fontSize: 84, fill: '#FFE27A', stroke: {color: '#1F2240', width: 16, join: 'round'}, dropShadow: {color: '#1F2240', distance: 8, angle: Math.PI / 2, blur: 0, alpha: 0.95}}});
+  stampTxt.anchor.set(0.5); stampPts.anchor.set(0.5); stampTxt.y = -20; stampPts.y = 110; stamp.addChild(stampBurst, stampTxt, stampPts);
+  let stampT = null; // null = sin sello; < 0 = esperando turno
+  function roomBonus() {
+    const n = roomShots; roomShots = 0; if (n < 1 || n > 2) return false;
+    const v = n === 1 ? 25000 : 10000;
+    stampTxt.text = n === 1 ? '¡CHUZA!' : '¡DOBLETE!'; stampTxt.style.fill = n === 1 ? '#FFFFFF' : '#C9F0FF'; stampPts.text = '+' + v.toLocaleString('en-US');
+    // si está saliendo el ¡GATO EXTRA! del Destructómetro, el sello espera a que se vaya (no se enciman)
+    score += v; stampN = n; stampT = meterState.extraT >= 0 ? Math.min(-0.01, meterState.extraT - 1.85) : -0.01; return true;
+  }
+  let stampN = 0;
+  function updateStamp(rdt) {
+    if (stampT === null) return; const u0 = stampT, u = (stampT += rdt); stamp.visible = u >= 0; if (u < 0) return;
+    if (u0 < 0) { SFX.star(2); setTimeout(() => SFX.star(1), 110); setTimeout(() => SFX.points(), 260);
+      const w = cam.toWorld(app.screen.width / 2, app.screen.height * 0.42); fx.burst('star', w.x, w.y, stampN === 1 ? 22 : 12, 450 / cam.zoom, {up: 200, size: 1.2 / Math.max(0.4, cam.zoom), life: 1}); }
+    const sc = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.15, uin = Math.min(1, u / 0.3), uout = Math.max(0, (u - 1.45) / 0.3);
+    stamp.position.set(app.screen.width / 2, app.screen.height * 0.42 - uout * 50 * sc);
+    stamp.scale.set(sc * (2.2 - 1.2 * backOutE(uin)) * (1 + Math.sin(u * 8) * 0.025)); stamp.rotation = -0.07 + Math.sin(u * 4) * 0.025; stamp.alpha = Math.min(1, u / 0.12) * (1 - uout);
+    stampBurst.rotation = u * 0.6; stampPts.scale.set(Math.max(0, backOutE(Math.min(1, Math.max(0, (u - 0.25) / 0.3)))));
+    if (u > 1.75) { stampT = null; stamp.visible = false; }
+  }
   const meterState = {pts: 0, shown: 0, total: 1, step: 0, next: 'omi', flash: 0, pulse: 0, extraT: -1};
   const METER_STEPS = [0.38, 0.8];
   function pickBonusCat() { const ns = Object.keys(CATS); meterState.next = ns[Math.floor(Math.random() * ns.length)]; const t = catT[meterState.next].calm; badgeCat.texture = t.tex; badgeCat.anchor.set(t.ax, 0.42); badgeCat.scale.set(70 / t.tex.width * 1.15); }
@@ -859,15 +885,16 @@ async function main() {
     const t = flyTex(q.name); q.sprite.texture = t.tex; q.sprite.anchor.set(t.ax, t.ay);
     slingCat.removeChild(q.sprite); actors.addChild(q.sprite);
     trail.removeChildren().forEach(c => c.destroy()); // el rastro anterior se borra al disparar el nuevo
-    turnKills = 0;
+    turnKills = 0; roomShots++;
     flying = {q, body, sprite: q.sprite, t: 0, still: 0, hit: false, lastDot: {x: p.x, y: p.y}, dots: 0, power: false};
     state = 'flying'; cam.follow(body);
   }
   // fin de turno: ¿ganó? ¿se acabaron los gatos? si no, el siguiente
   function endTurn() {
     endT = 0;
-    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot') && roomIdx < rooms().length - 1) { nextRoom(); return; }
-    if (!dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'win'; endT0 = false; SFX.duck(levelId === LEVELS[LEVELS.length - 1] ? 6 : 4); (levelId === LEVELS[LEVELS.length - 1] ? SFX.fanfare : SFX.win)(); return; }
+    const cleared = !dyn.some(d => d.mat === 'mouse' || d.mat === 'robot'), bonus = cleared && roomBonus();
+    if (cleared && roomIdx < rooms().length - 1) { nextRoom(bonus); return; }
+    if (cleared) { state = 'win'; if (bonus) endT = stampT - 1.3; endT0 = false; SFX.duck(levelId === LEVELS[LEVELS.length - 1] ? 6 : 4); (levelId === LEVELS[LEVELS.length - 1] ? SFX.fanfare : SFX.win)(); return; }
     laughAll = 1.3;
     if (!queue.length) { state = 'lose'; laughAll = 1e9; SFX.duck(4); SFX.giggle(); setTimeout(SFX.lose, 700);
       const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead); if (alive.length) say(alive[Math.floor(Math.random() * alive.length)], '¡JI JI JI!\n¡SIN ATÚN!', 3); return; }
@@ -1137,7 +1164,7 @@ async function main() {
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
-    roomIdx = 0; roomSp.length = 0; ui.setRooms(rooms().length, 0);
+    roomIdx = 0; roomShots = 0; stampT = null; stamp.visible = false; roomSp.length = 0; ui.setRooms(rooms().length, 0);
     buildRoom(level, fly);
     level.cats.forEach((n, i) => {
       const t = catT[n].calm, sp = new Sprite(t.tex); sp.anchor.set(t.ax, t.ay); sp.scale.set(0.5);
@@ -1215,8 +1242,8 @@ async function main() {
   }
   // transición: listón "¡SALA DESPEJADA!", cortinilla que barre la pantalla, se arma la sala nueva y sobrevuelo corto
   let roomFx = null;
-  function nextRoom() {
-    state = 'room'; roomFx = {t: meterState.extraT >= 0 ? Math.min(0, meterState.extraT - 1.9) : 0, swapped: false, ban: false}; SFX.duck(2.5);
+  function nextRoom(bonus) {
+    state = 'room'; roomFx = {t: bonus ? stampT - 1.5 : meterState.extraT >= 0 ? Math.min(0, meterState.extraT - 1.9) : 0, swapped: false, ban: false}; SFX.duck(2.5);
     queue.forEach((q, i) => { q.alert = 1; if (!q.hop) q.hop = {t: -0.1 - i * 0.12, dur: 0.55, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 150}; });
   }
   function updateRoom(dt) {
@@ -1327,7 +1354,7 @@ async function main() {
     { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
       scoreLbl.position.set(app.screen.width / hs - 40, 26); scoreTxt.position.set(app.screen.width / hs - 40, 62);
       hudStars.position.set(app.screen.width / hs - 40, 172); meter.position.set(app.screen.width / hs - 40, 268); }
-    updateMeter(rdt); updateHudStars(rdt); updateDeck(rdt);
+    updateMeter(rdt); updateStamp(rdt); updateHudStars(rdt); updateDeck(rdt);
     // aplicar cámara a capas (parallax solo en x)
     const sw = app.screen.width, sh = app.screen.height, z = cam.zoom * cam.pz, cx = cam.x + cam.sx, cy = cam.y + cam.sy;
     world.scale.set(z); world.position.set(sw / 2 - cx * z, sh / 2 - cy * z);
@@ -1346,6 +1373,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
