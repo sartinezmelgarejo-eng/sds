@@ -469,6 +469,7 @@ async function main() {
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
       queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.8); if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
+      if (d.tnt) booms.push({x: p.x, y: p.y, t: 0.12});   // ¡y sus cuetes truenan! (en cadena con lo de alrededor)
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
       if (d.lamp) lampBreak(d);
@@ -740,6 +741,8 @@ async function main() {
     if (d.beam) { // la lamparita del casco alumbra hacia donde mira (sigue al gato como reflector); parpadea un poco
       const ang = Math.atan2(d.look.y * 0.8, d.look.x), cur = d.beam.cone.rotation, da = Math.atan2(Math.sin(ang - cur), Math.cos(ang - cur)); d.beam.cone.rotation = cur + da * Math.min(1, dt * 8);
       d.beam.cone.alpha = (expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
+    if (d.fuse) { const f = d.fuse, fl = 0.75 + 0.25 * Math.sin(t * 41) * Math.sin(t * 17); f.scale.set((0.35 + 0.15 * fl) * d.r / 44); f.alpha = 0.7 + 0.3 * fl;   // la mecha chisporrotea
+      if (Math.random() < dt * 9) { const g = f.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : null; if (w) fx.burst('flame', w.x, w.y, 1, 120, {up: 80, size: 0.25, life: 0.3, g: 200}); } }
     const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
@@ -2223,8 +2226,15 @@ async function main() {
       let beam = null;
       if (hat === 'miner') { beam = new Container(); beam.position.set(0, -m.r * 0.65 * 1.5); const c = new Sprite(beamTex), g = new Sprite(lampGlowTex);
         c.anchor.set(0.02, 0.5); c.scale.set(m.r * 1.5 / 40); c.blendMode = g.blendMode = 'add'; g.anchor.set(0.5); g.scale.set(m.r * 1.5 / 60); c.rotation = Math.PI; beam.addChild(c, g); beam.cone = c; sp.addChild(beam); }
+      // ratón con CUETES (los cerdos con TNT de AB2): abraza su cajita con mecha encendida; al morir truena como una caja de cuetes
+      let fuse = null;
+      if (m.tnt) { const bw = Math.round(m.r * 0.95), bh = Math.round(m.r * 0.75), K = 1.5, bx = new Sprite(blockTex('tnt', bw, bh, 5, 0)); bx.anchor.set(0.5); bx.scale.set(K);
+        const cx = -R * 0.62, cy = R * 0.5; bx.position.set(cx, cy); bx.rotation = -0.2; const fg = new Graphics(), fx0 = cx - bh * K * 0.05, fy0 = cy - bh * K * 0.5;
+        fg.moveTo(fx0, fy0).quadraticCurveTo(fx0 - R * 0.3, fy0 - R * 0.12, fx0 - R * 0.2, fy0 - R * 0.42).stroke({color: 0x2A1A10, width: 7}).stroke({color: 0xE8D6A8, width: 3.5});
+        fuse = new Sprite(lampGlowTex); fuse.anchor.set(0.5); fuse.blendMode = 'add'; fuse.position.set(fx0 - R * 0.2, fy0 - R * 0.42); fuse.tint = 0xFFB040;
+        sp.addChild(bx, fg, fuse); }
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
+      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, tnt: !!m.tnt, fuse, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
       // ratón colgado de globos (los cerdos con globos de AB2): "balloons": [f, …] y "lift" en el ratón
       if (m.balloons) m.balloons.forEach((f, n) => makeBalloon(dyn[dyn.length - 1], {x: m.x, w: m.r * 2, balloons: m.balloons, lift: m.lift}, m.y + m.r * 0.92, f, n));
     });
