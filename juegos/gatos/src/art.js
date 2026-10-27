@@ -271,6 +271,33 @@ const ART = (() => {
     ctx.restore();
   }
 
+  // Lámpara colgante de la Guarida (física de lata): casquillo, pantalla de lámina verde esmaltada y foco
+  // (damage 2 = foco estrellado, 3 = foco roto y apagado, pantalla abollada)
+  function lamp(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 5} = opt, cx = x + w / 2, capH = h * 0.2, rimY = y + h * 0.72, br = w * 0.17;
+    ctx.save();
+    // foco (detrás de la pantalla, se asoma por abajo)
+    ctx.beginPath(); ctx.arc(cx, rimY + br * 0.25, br, 0, TAU);
+    ctx.fillStyle = damage >= 3 ? rad(ctx, cx, rimY, 0, br, [[0, '#6A6250'], [1, '#2C2A24']]) : rad(ctx, cx - br * 0.3, rimY, 0, br * 1.2, [[0, '#FFFFFF'], [0.45, '#FFF2B8'], [1, '#FFC24A']]);
+    ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = damage >= 3 ? '#1E1C18' : '#C98A1E'; ctx.stroke();
+    if (damage >= 2) { ctx.strokeStyle = damage >= 3 ? 'rgba(20,18,14,0.9)' : 'rgba(150,100,30,0.8)'; ctx.lineWidth = 2; const R = rng(seed);
+      for (let i = 0; i < 5; i++) { const a = R() * TAU; ctx.beginPath(); ctx.moveTo(cx, rimY + br * 0.4); ctx.lineTo(cx + Math.cos(a) * br * 0.9, rimY + br * 0.25 + Math.sin(a) * br * 0.9); ctx.stroke(); } }
+    // casquillo
+    ctx.fillStyle = lin(ctx, cx - w * 0.1, 0, cx + w * 0.1, 0, [[0, '#2E2E34'], [0.45, '#9A9AA6'], [1, '#26262C']]); rr(ctx, cx - w * 0.09, y, w * 0.18, capH + 6, 4); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#141418'; ctx.stroke();
+    // pantalla cónica
+    const shade = () => { ctx.beginPath(); ctx.moveTo(cx - w * 0.16, y + capH); ctx.lineTo(cx + w * 0.16, y + capH); ctx.quadraticCurveTo(cx + w * 0.3, y + capH + 6, x + w - 2, rimY); ctx.lineTo(x + 2, rimY); ctx.quadraticCurveTo(cx - w * 0.3, y + capH + 6, cx - w * 0.16, y + capH); ctx.closePath(); };
+    shade(); ctx.fillStyle = lin(ctx, x, 0, x + w, 0, [[0, '#24402F'], [0.25, '#4E8A62'], [0.42, '#6FAE80'], [0.75, '#2F5A40'], [1, '#183022']]); ctx.fill();
+    ctx.save(); shade(); ctx.clip();
+    ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.beginPath(); ctx.ellipse(cx - w * 0.16, y + capH + (rimY - y - capH) * 0.45, w * 0.05, (rimY - y - capH) * 0.4, 0.5, 0, TAU); ctx.fill();
+    if (damage) { const R = rng(seed * 7 + 3); for (let i = 0; i < damage * 2; i++) { ctx.fillStyle = 'rgba(10,20,14,0.35)'; ctx.beginPath(); ctx.ellipse(x + w * (0.2 + R() * 0.6), y + capH + (rimY - y - capH) * (0.3 + R() * 0.6), 4 + R() * 6, 3 + R() * 4, R() * 3, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = 'rgba(120,70,30,0.35)'; for (let i = 0; i < damage * 4; i++) { ctx.beginPath(); ctx.arc(x + R() * w, y + capH + R() * (rimY - y - capH), 1.5 + R() * 2.5, 0, TAU); ctx.fill(); } } // abolladuras y óxido
+    ctx.restore(); shade(); ctx.lineWidth = 4; ctx.strokeStyle = '#0E1A12'; ctx.stroke();
+    // ceja del borde (por dentro se ve iluminada)
+    ctx.beginPath(); ctx.ellipse(cx, rimY, w / 2 - 1, h * 0.06, 0, 0, TAU); ctx.fillStyle = damage >= 3 ? '#3A3A2E' : '#FFE9A8'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#0E1A12'; ctx.stroke();
+    ctx.restore();
+  }
+
   // Piedra (= lata): bloque de piedra de río con musgo, facetado
   function stone(ctx, x, y, w, h, opt = {}) {
     const {damage = 0, seed = 5} = opt;
@@ -791,7 +818,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, stone, wall, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, lamp, stone, wall, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;

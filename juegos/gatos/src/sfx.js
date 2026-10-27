@@ -36,7 +36,7 @@ function tone(t, freq, type, peak, dec, bendTo) {
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 // golpe según material; k = fuerza 0..1
-const ROUND = {canball: 'can', boulder: 'stone'}; // piezas redondas suenan como su material
+const ROUND = {canball: 'can', boulder: 'stone', lamp: 'can'}; // piezas redondas suenan como su material
 export function hit(mat, k) { mat = ROUND[mat] || mat;
   if (!ok('hit' + mat, 0.06)) return; const t = ctx.currentTime, v = 0.15 + 0.85 * Math.min(1, k);
   if (mat === 'box') { noise(t, 0.16, 'lowpass', rnd(380, 520), 1, 0.9 * v, 0.14); tone(t, rnd(90, 120), 'sine', 0.5 * v, 0.12, 60); }

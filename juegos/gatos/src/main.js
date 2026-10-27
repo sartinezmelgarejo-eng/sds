@@ -31,6 +31,7 @@ function blockTex(t, w, h, seed, damage = 0) {
     else if (t === 'tnt') ART.cuetes(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'lamp') ART.lamp(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'stone') ART.stone(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'wall' || t === 'wallx') ART.wall(k, PAD, PAD, w, h, {seed, grass: t === 'wall'});   // wallx = sin pasto (Guarida)
     else if (t === 'box') ART.cardboard(k, PAD, PAD, w, h, {seed, damage, label: w > 150 && h > 150, tape: h > 100});
@@ -470,7 +471,8 @@ async function main() {
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
     } else {
       const n = Math.round(Math.min(26, 6 + d.w * d.h / 1500));
-      fx.burst(d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
+      if (d.lamp) lampBreak(d);
+      fx.burst(d.skin === 'lamp' ? 'can' : d.skin, p.x, p.y, n, 420, {w: d.w * 0.8, h: d.h * 0.8, size: d.mat === 'jar' ? 0.9 : 1.1});
       fx.smoke(p.x, p.y, Math.max(d.w, d.h) * 0.35, d.mat === 'jar' ? 3 : 6);
       SFX.breakSfx(d.skin);
       if (d.skin === 'jar') { fx.splash(p.x, p.y, d.w, d.h); SFX.splash(Math.min(1, d.w * d.h / 30000)); } // el frasco tenía agua: chorro de gotas que dejan charquitos
@@ -1553,6 +1555,7 @@ async function main() {
   }
   function drawRope(r) {
     const g = r.g; g.clear(); const A = r.A;
+    if (r.d.skin === 'lamp') return drawCord(r);
     const line = (x0, y0, x1, y1, a = 1) => { g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0x3E2A16, width: 11, alpha: a, cap: 'round'});
       g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0xB8894E, width: 6, alpha: a, cap: 'round'});
       // trenzado: rayitas diagonales a lo largo
@@ -1596,7 +1599,41 @@ async function main() {
     for (const [x, y, r] of crown) g.circle(x, y, r - 3).fill(0x4FA23A);
     for (const [x, y, r] of crown) g.circle(x - r * 0.18, y - r * 0.2, r * 0.68).fill(0x67BC48);
     for (const [x, y, r] of crown) g.circle(x - r * 0.35, y - r * 0.4, r * 0.28).fill({color: 0x9BDB6A, alpha: 0.8});
-    behind.addChildAt(g, 0); return g;
+    lvlBehind.addChildAt(g, 0); return g;
+  }
+  // LÁMPARA colgante (Guarida): el foco ilumina la pared (halo + cono de luz, aditivos, detrás de los bloques);
+  // parpadea cuando se columpia o la golpean, se apaga con el foco roto y al romperse suelta vidrio y chispas.
+  const lampGlowT = canvasTex(128, 128, k => { k.fillStyle = ART.rad(k, 64, 64, 0, 64, [[0, 'rgba(255,240,200,1)'], [0.15, 'rgba(255,210,130,0.8)'], [0.5, 'rgba(255,170,80,0.18)'], [1, 'rgba(255,150,60,0)']]); k.fillRect(0, 0, 128, 128); });
+  const lampConeT = canvasTex(200, 300, k => { k.filter = 'blur(6px)'; k.beginPath(); k.moveTo(80, 0); k.lineTo(120, 0); k.lineTo(195, 295); k.lineTo(5, 295); k.closePath();
+    k.fillStyle = ART.lin(k, 0, 0, 0, 300, [[0, 'rgba(255,215,140,0.55)'], [0.5, 'rgba(255,200,120,0.2)'], [1, 'rgba(255,190,110,0)']]); k.fill(); });
+  function lampOn(d) {
+    const glow = new Sprite(lampGlowT), cone = new Sprite(lampConeT); glow.anchor.set(0.5); cone.anchor.set(0.5, 0.02); glow.blendMode = cone.blendMode = 'add';
+    lvlBehind.addChild(cone, glow); d.lamp = {glow, cone, lit: 1, fl: 0, off: false};
+  }
+  function lampLook(d, dt) {
+    const L = d.lamp, b = d.body, a = b.angle, oy = d.h * 0.24, x = b.position.x - Math.sin(a) * oy, y = b.position.y + Math.cos(a) * oy;
+    if (!L.off && d.dmg >= 3) { L.off = true; L.fl = 0.5; SFX.buzz(0.8); fx.burst('star', x, y, 8, 380, {up: 140, size: 0.35, life: 0.45}); } // foco roto: chispazo y se apaga
+    // parpadeo: al columpiarse fuerte o tras un golpe; el foco estrellado (dmg 2) chisporrotea solo de vez en cuando
+    const shake = b.speed > 4 || Math.abs(b.angularVelocity) > 0.06;
+    if (L.fl > 0) L.fl -= dt; else if (!L.off && (shake ? Math.random() < dt * 6 : d.dmg >= 2 && Math.random() < dt * 0.5)) { L.fl = 0.08 + Math.random() * 0.18; if (Math.random() < 0.5) SFX.buzz(0.4); }
+    const tgt = L.off ? (L.fl > 0 && Math.random() < 0.5 ? 0.6 : 0) : L.fl > 0 ? (Math.random() < 0.5 ? 0.2 : 0.9) : 0.92 + Math.sin(time * 9) * 0.04;
+    L.lit += (tgt - L.lit) * Math.min(1, dt * 30);
+    L.glow.position.set(x, y); L.glow.scale.set(d.w * 5 / 128); L.glow.alpha = L.lit;
+    L.cone.position.set(x, y); L.cone.rotation = a; L.cone.scale.set(d.w * 2.6 / 200, 900 / 300); L.cone.alpha = 0.7 * L.lit;
+  }
+  function lampBreak(d) {
+    const L = d.lamp, p = d.body.position; d.lamp = null; L.glow.destroy(); L.cone.destroy();
+    fx.burst('jar', p.x, p.y + d.h * 0.2, 10, 380, {w: d.w * 0.4, h: d.h * 0.3, size: 0.6}); fx.burst('star', p.x, p.y + d.h * 0.2, 10, 420, {up: 160, size: 0.4, life: 0.5});
+    SFX.breakSfx('jar'); SFX.buzz(0.9);
+  }
+  // cable de la lámpara: negro y delgado, con florón en el techo; cortado, la punta suelta chispas un ratito
+  function drawCord(r) {
+    const g = r.g, A = r.A, cord = (x0, y0, x1, y1, a = 1) => { g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0x0C0A08, width: 7, alpha: a, cap: 'round'}); g.moveTo(x0 - 1.5, y0).lineTo(x1 - 1.5, y1).stroke({color: 0x4A4440, width: 2, alpha: 0.6 * a}); };
+    if (!r.cut) { const B = ropeEnd(r); cord(A.x, A.y, B.x, B.y); }
+    else { const c = r.cut, ex = A.x + Math.sin(c.th) * c.top, ey = A.y + Math.cos(c.th) * c.top; cord(A.x, A.y, ex, ey);
+      g.moveTo(ex, ey).lineTo(ex + Math.sin(c.th - 0.4) * 9, ey + Math.cos(c.th - 0.4) * 9).moveTo(ex, ey).lineTo(ex + Math.sin(c.th + 0.4) * 9, ey + Math.cos(c.th + 0.4) * 9).stroke({color: 0xC07A3A, width: 2.5}); // cobre pelado
+      if (c.t < 2.5 && Math.random() < 0.12) { fx.burst('star', ex, ey, 1, 160, {up: 60, size: 0.22, life: 0.35}); if (Math.random() < 0.3) SFX.buzz(0.25); } }
+    g.ellipse(A.x, A.y - 12, 26, 9).fill(0x2A2A30).stroke({color: 0x0C0C10, width: 4}); g.roundRect(A.x - 8, A.y - 12, 16, 14, 3).fill(0x55555E).stroke({color: 0x0C0C10, width: 3});
   }
   function clearRopes() { for (const r of ropes) { if (!r.cut) Composite.remove(engine.world, r.c); if (!r.g.destroyed) r.g.destroy(); } ropes.length = 0; }
   // SALAS (AB2): un nivel puede tener varias fortalezas seguidas (level.rooms = [{blocks, mice}, …] después de la principal).
@@ -1619,13 +1656,14 @@ async function main() {
         : Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
       // las rocas no duermen: si se les quita el tope deben rodar solas (dormidas se quedaban flotando)
       if (round) body.sleepThreshold = Infinity; else Sleeping.set(body, true);
-      const skin = SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
+      const skin = b.skin || SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
       const sp = new Sprite(texs[0]); sp.anchor.set(0.5); sp.scale.set(1 / 1.5);
       Composite.add(engine.world, body); actors.addChild(sp);
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[mat] * Math.sqrt(b.w * b.h / (110 * 110));
       dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin, life, max: life, texs, dmg: 0});
       if (b.hang) for (const f of b.ropes || [0]) makeRope(dyn[dyn.length - 1], b, top, f);
+      if (skin === 'lamp') lampOn(dyn[dyn.length - 1]);
       // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
       if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
         const bar = new Graphics(); front.addChild(bar);
@@ -1656,7 +1694,7 @@ async function main() {
   }
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
-    for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
+    for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
     clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
@@ -1761,6 +1799,7 @@ async function main() {
       if (d.dead) continue;
       if (d.soot) updateSoot(d, dt);
       if (d.heat) heatLook(d, dt);
+      if (d.lamp) lampLook(d, dt);
       if (d.mat === 'mouse') animMouse(d, dt);
       // crujidos: una pieza que se tambalea (gira lento sin desplazarse mucho) rechina, como las torres de AB2
       else if (dt > 0 && started > 1 && !d.patrol && !d.body.isSleeping && time > (d.creakAt || 0)) {
