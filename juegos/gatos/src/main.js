@@ -1108,7 +1108,9 @@ async function main() {
   const hotOk = d => !d.dead && !d.enter && !d.heat && !d.patrol && d.mat !== 'mouse' && d.mat !== 'robot' && d.mat !== 'tnt'; // los cuetes no: la cadena ganaría sola
   // el bloque "clave": el que tiene más ratones cerca (los duros pesan más); un poco de premio a los grandes
   function hotScore(d) { const p = d.body.position; let s = 0.15 * Math.min(1, d.w * d.h / 20000);
-    for (const m of dyn) if (m.mat === 'mouse' && !m.dead) s += Math.max(0, 1 - Math.hypot(m.body.position.x - p.x, m.body.position.y - p.y) / 420) * (m.kind === 'small' ? 1 : 1.4);
+    for (const m of dyn) if (m.mat === 'mouse' && !m.dead) { const mp = m.body.position, k = m.kind === 'small' ? 1 : 1.4;
+      s += Math.max(0, 1 - Math.hypot(mp.x - p.x, mp.y - p.y) / 420) * k;
+      if (d.hung && mp.y > p.y + 60 && Math.abs(mp.x - p.x) < d.w / 2 + 140) s += 0.7 * k; }   // colgado/con globos: al quemarse la cuerda cae encima
     return s; }
   function pickHot(taken) {
     let best = null, bs = -1;
@@ -1137,7 +1139,7 @@ async function main() {
       // el bloque ya no está (lo tumbó otra explosión) antes de que caiga su chile: busca otro bloque clave
       if (H.t < DROP && H.d.dead) { const n = pickHot(r.hots.filter(o => o !== H && !o.done).map(o => o.d)); if (n) H.d = n; else { H.done = true; H.sp.destroy(); continue; } }
       if (H.t < 0) continue;
-      const d = H.d, p = d.dead ? H : d.body.position, top = p.y - Math.max(d.w, d.h) * 0.5;
+      const d = H.d, p = d.dead ? H : d.body.position, an = d.dead ? 0 : d.body.angle, top = p.y - (Math.abs(Math.cos(an)) * d.h + Math.abs(Math.sin(an)) * d.w) * 0.5;
       if (!d.dead) { H.x = p.x; H.y = p.y; }
       if (H.t < DROP) { // cae girando desde arriba
         const u = H.t / DROP; H.sp.visible = true; H.sp.position.set(p.x + (1 - u) * 160, top - 30 - (1 - u * u) * 900); H.sp.rotation = (1 - u) * 6; H.sp.scale.set(0.65);
@@ -1173,6 +1175,19 @@ async function main() {
       for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0xEEE8F0; fx.parts[i].maxA = 0.55; fx.parts[i].s.alpha = 0; } }
     if (u > 0.3 && Math.random() < dt * 14 * u) fx.burst('flame', p.x + (Math.random() - 0.5) * d.w * 0.8, p.y + (Math.random() - 0.5) * d.h * 0.6, 1, 120, {up: 120, g: -150, drag: 2, life: 0.35, size: 0.6 + u * 0.5, grow: -0.6});
     if (H.t >= H.nx) { H.nx = H.t + 0.3 - 0.2 * u; SFX.sizzle(0.4 + 0.6 * u); }
+    if (u > 0.2) heatRopes(d, p, u, dt);
+  }
+  // el calor alcanza cuerdas y globos: los globos de cerca se hinchan y truenan; la cuerda/hilo del bloque al rojo se quema y se suelta
+  function heatRopes(d, p, u, dt) {
+    const R = Math.max(d.w, d.h) / 2 + 190;
+    for (const r of ropes) { if (r.cut) continue;
+      if (r.d === d) { if (u < 0.55 || Math.random() > dt * 3) continue; const B = ropeEnd(r), v = r.bal ? 0.82 : 0.9, x = r.A.x + (B.x - r.A.x) * v, y = r.A.y + (B.y - r.A.y) * v;
+        fx.burst('flame', x, y, 6, 160, {up: 120, g: -150, drag: 2, life: 0.4, size: 0.7}); fx.burst('smoke', x, y, 2, 40, {up: 80, g: -90, life: 0.8, size: 0.4, grow: 1.5}); SFX.sizzle(0.7);
+        cutRope(r, v); continue; }
+      if (!r.bal) continue; const dd = balDist(r, p.x, p.y); if (dd > R) continue;
+      const Q = r.bal; if (!Q.wob) { Q.wob = 0.5; SFX.stretch(0.15); }                                      // se zangolotea con el aire caliente
+      if (Math.random() < dt * 5 * u * (1 - dd / R + 0.3)) cutRope(r, 'pop');
+    }
   }
   // el gato de la resortera se baja y regresa al principio de la fila (sin gastarlo)
   function unSling() {
