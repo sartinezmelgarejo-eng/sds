@@ -715,12 +715,7 @@ async function main() {
     const bz = d.life < d.max * 0.34 ? 2 : d.life < d.max * 0.67 ? 1 : 0;
     if (bz > d.bz) { const p = d.body.position;
       // muy golpeado: el gorro (dedal / bellota / casco de minero) sale volando, como los cascos de los cerdos de AB2
-      if (bz >= 2 && (d.kind !== 'small' || d.hat) && d.hat !== 'none') {
-        const which = d.kind === 'boss' ? 'crown' : d.hat || 'thimble', a = d.body.angle - Math.PI / 2, hx = p.x + Math.cos(a) * d.r * (which === 'crown' ? 0.82 : 0.62), hy = p.y + Math.sin(a) * d.r * (which === 'crown' ? 0.82 : 0.62);
-        const side = flying && flying.body.position.x < p.x ? 1 : Math.random() < 0.5 ? -1 : 1;
-        fx.debris(hatTex(which, d.r), hx, hy, side * (180 + Math.random() * 160), -(620 + Math.random() * 260), {size: 1 / 1.5, rot: d.body.angle, vr: side * (7 + Math.random() * 5)});
-        d.hat = 'none'; if (d.beam) { d.beam.visible = false; d.beam = null; } SFX.hit('can', 0.9);
-      }
+      if (bz >= 2 && (d.kind !== 'small' || d.hat) && d.hat !== 'none') hatOff(d);
       d.bz = bz; d.mt = mouseFaces(d.kind, d.r, d.hat, bz);
       fx.burst('star', p.x, p.y - d.w * 0.5, 5 + bz * 2, 300, {up: 160, size: 0.45, life: 0.5, drag: 2}); if (d.kind !== 'small' || d.hat) SFX.hit('can', 0.4 + bz * 0.2); }
     const tx = d.mt[expr]; if (d.sprite.texture !== tx) d.sprite.texture = tx;
@@ -753,6 +748,14 @@ async function main() {
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
     if (d.infl) balloonLook(d);
+  }
+  // el gorro (dedal / bellota / casco / corona) sale volando girando; k = escala del ratón (inflado por ¡RATONES GLOBO!)
+  function hatOff(d, k = 1, up = 1) {
+    const p = d.body.position, which = d.kind === 'boss' ? 'crown' : d.hat || 'thimble', a = d.body.angle - Math.PI / 2, o = d.r * k * (which === 'crown' ? 0.82 : 0.62);
+    const side = flying && flying.body.position.x < p.x ? 1 : Math.random() < 0.5 ? -1 : 1;
+    fx.debris(hatTex(which, d.r), p.x + Math.cos(a) * o, p.y + Math.sin(a) * o, side * (180 + Math.random() * 160), -(620 + Math.random() * 260) * up, {size: 1 / 1.5, rot: d.body.angle, vr: side * (7 + Math.random() * 5)});
+    d.hat = 'none'; if (d.beam) { d.beam.visible = false; d.beam = null; } SFX.hit('can', 0.9);
+    d.mt = mouseFaces(d.kind, d.r, d.hat, d.bz);
   }
   // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
   const beamTex = canvasTex(320, 160, k => { const g = k.createLinearGradient(0, 0, 320, 0); g.addColorStop(0, 'rgba(255,240,170,0.55)'); g.addColorStop(0.35, 'rgba(255,230,150,0.22)'); g.addColorStop(1, 'rgba(255,220,140,0)');
@@ -1053,7 +1056,9 @@ async function main() {
   }
   function popBalloon(d) {
     const I = d.infl, x = d.body.position.x, y = d.body.position.y, R = d.r * I.k;
-    if (d.kind !== 'small') { I.end = true; I.e = 0; I.dir = -Math.PI / 2 + (Math.random() - 0.5) * 1.4; SFX.deflate(); return; }
+    if (d.kind !== 'small') { I.end = true; I.e = 0; I.dir = -Math.PI / 2 + (Math.random() - 0.5) * 1.4; SFX.deflate();
+      if (d.kind === 'thimble' && d.hat !== 'none') { hatOff(d, I.k, 1.2); fx.burst('star', x, y - R * 0.8, 6, 360, {up: 160, size: 0.5, life: 0.5, drag: 2}); } // ¡plinc! al estirarse la cabeza, el dedal sale disparado
+      return; }
     fx.ring(x, y, R * 2.2, 0xFFFFFF);
     const n0 = fx.parts.length; fx.burst('fur', x, y, 14, 560, {up: 120, size: 1, life: 0.9, drag: 2, g: 420, w: R, h: R});
     for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = [0xB9B2C8, 0xFFB3C8, 0x8E86A0][j % 3];   // pedacitos de "hule"
