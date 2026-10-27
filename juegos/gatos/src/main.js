@@ -1959,6 +1959,51 @@ async function main() {
       .circle(-b.h * 0.45, -b.h * 0.5, b.h * 0.16).fill({color: 0xFFFFFF, alpha: 0.55});
     sp.addChild(hub);
   }
+  // NORIA (AB2: ruedas de feria): "move": {"wheel": grados/s, "cars": n, "r": radio, "drop": cuelgue} con b.y = altura del EJE.
+  // n canastillas de b.w × b.h cuelgan del aro y NO giran (siempre planas): cada una es una repisa que viaja en círculo y acarrea
+  // lo que lleva encima con el mismo código que las plataformas. Atrás, la rueda de madera con foquitos de feria sobre caballete.
+  function makeWheel(b, i) {
+    const W = b.move, n = W.cars || 4, R = W.r || 260, drop = W.drop || 64, CX = b.x, CY = GROUND - b.y, om = W.wheel * Math.PI / 180, a0 = b.a || -Math.PI / 2;
+    const INK = 0x2A1A10, WD = 0x9A6A3A, WL = 0xC08A50;
+    // caballete en A (dos patas por lado) con travesaño
+    const g = new Graphics();
+    for (const sx of [-1, 1]) { const fx = CX + sx * R * 0.62;
+      g.poly([CX - 9, CY, CX + 9, CY, fx + 14 * sx + 9, GROUND - 4, fx + 14 * sx - 9, GROUND - 4]).fill(WD).stroke({color: INK, width: 4});
+      g.ellipse(fx + 14 * sx, GROUND - 2, 34, 9).fill(0x5A3A22).stroke({color: INK, width: 3}); }
+    const yb = CY + (GROUND - CY) * 0.55, xb = R * 0.62 * 0.55 + 6;
+    g.roundRect(CX - xb, yb - 7, xb * 2, 14, 4).fill(WL).stroke({color: INK, width: 3.5});
+    // rueda: aro doble con rayos, foquitos de colores y pernos de las canastillas (gira completa)
+    const wc = new Container(), rg = new Graphics(); wc.position.set(CX, CY); wc.addChild(rg);
+    for (let k = 0; k < n * 2; k++) { const a = Math.PI * k / n, c = Math.cos(a), sn = Math.sin(a);
+      rg.moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: INK, width: 9}).moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: WL, width: 4}); }
+    for (const [r, w] of [[R, 16], [R * 0.6, 11]]) rg.circle(0, 0, r).stroke({color: INK, width: w}).circle(0, 0, r).stroke({color: WD, width: w - 7});
+    rg.circle(0, 0, R - 2).stroke({color: 0xFFFFFF, width: 1.5, alpha: 0.25});
+    const lights = [];
+    for (let k = 0; k < n * 4; k++) { const a = Math.PI * 2 * k / (n * 4), l = new Graphics().circle(0, 0, 6).fill([0xFFD84A, 0xFF6A5A, 0x7FD4FF, 0xB8F070][k % 4]).stroke({color: INK, width: 2});
+      l.position.set(Math.cos(a) * R * 0.8, Math.sin(a) * R * 0.8); wc.addChild(l); lights.push(l); }
+    for (let k = 0; k < n; k++) { const a = Math.PI * 2 * k / n; rg.circle(Math.cos(a) * R, Math.sin(a) * R, 9).fill(0x6A6460).stroke({color: INK, width: 3}); }
+    rg.circle(0, 0, 26).fill(WD).stroke({color: INK, width: 5}).circle(0, 0, 10).fill(0xC0392B).stroke({color: INK, width: 3}).circle(-8, -9, 4).fill({color: 0xFFFFFF, alpha: 0.4});
+    actors.addChildAt(wc, 0); actors.addChildAt(g, 0); roomSp.push(g, wc);
+    for (let k = 0; k < n; k++) {
+      const ph = a0 + Math.PI * 2 * k / n, x = CX + Math.cos(ph) * R, y = CY + Math.sin(ph) * R + drop;
+      const body = Bodies.rectangle(x, y, b.w, b.h, {isStatic: true, friction: 0.9, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
+      const sp = new Container(); sp.position.set(x, y); actors.addChild(sp); roomSp.push(sp);
+      // canastilla: colgadero en V desde el perno + techito de lona a rayas + piso de madera con barandal
+      const S = 1.5, hg = new Graphics(), top = -drop * S, hw = b.w / 2 * S;
+      for (const sx of [-1, 1]) hg.moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: INK, width: 5}).moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: 0x8A8078, width: 2});
+      const cl = [0xE0483A, 0xF6EEDC][k & 1], roof = new Graphics();
+      roof.poly([-hw * 0.55, top + 34, 0, top + 8, hw * 0.55, top + 34]).fill(cl).stroke({color: INK, width: 3.5});
+      roof.moveTo(-hw * 0.55, top + 34).lineTo(hw * 0.55, top + 34).stroke({color: INK, width: 3.5});
+      for (const sx of [-1, 1]) hg.moveTo(sx * hw * 0.96, -b.h / 2 * S).lineTo(sx * hw * 0.96, -b.h / 2 * S - 26).stroke({color: INK, width: 5});
+      hg.moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: INK, width: 4}).moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: WL, width: 1.5});
+      const deck = new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor.set(0.5);
+      const inner = new Container(); inner.scale.set(1 / S); inner.addChild(hg, roof); deck.scale.set(1 / S);
+      sp.addChild(inner, deck);
+      const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}};
+      if (k === 0) { m.wc = wc; m.lights = lights; m.wa0 = a0; }
+      body.mover = m; movers.push(m);
+    }
+  }
   function moveMovers(ms) {
     const h = ms / 1000;
     for (const m of movers) {
@@ -1979,8 +2024,9 @@ async function main() {
         for (const q of ride) { Body.rotate(q, da, P); if (!q.isSleeping) { Body.setVelocity(q, {x: q.velocity.x * 0.8, y: q.velocity.y}); Body.setAngularVelocity(q, q.angularVelocity * 0.8); } }
         for (const d of dyn) { const q = d.body; if (q.isSleeping && !ride.includes(q) && q.bounds.max.x > b.bounds.min.x - 2 && q.bounds.min.x < b.bounds.max.x + 2 && q.bounds.max.y > b.bounds.min.y && q.bounds.min.y < b.bounds.max.y + 2) Sleeping.set(q, false); }
         continue; }
-      m.t += h; const half = Math.floor(m.t / m.T * 2); if (m.hoist && m.half != null && half !== m.half) SFX.clank(0.5); m.half = half;
-      const k = 0.5 - 0.5 * Math.cos(m.t / m.T * Math.PI * 2), b = m.body, nx = m.x0 + m.dx * k, ny = m.y0 + m.dy * k;
+      m.t += h; const half = Math.floor(m.t / m.T * 2); if (m.hoist && m.half != null && half !== m.half) SFX.clank(0.5); if (m.wc && m.half != null && half !== m.half && !(half & 3)) SFX.creak('wood', 0.1); m.half = half;
+      const k = 0.5 - 0.5 * Math.cos(m.t / m.T * Math.PI * 2), b = m.body, W = m.whl, wa = W && W.ph + W.om * m.t;
+      const nx = W ? W.CX + Math.cos(wa) * W.R : m.x0 + m.dx * k, ny = W ? W.CY + Math.sin(wa) * W.R + W.drop : m.y0 + m.dy * k;
       const dx = nx - b.position.x, dy = ny - b.position.y;
       // lo que va ENCIMA (y lo apilado sobre eso) viaja con ella aunque esté dormido: si no, un ratón redondo rueda en su lugar y se cae
       const ride = [], tops = [b];
@@ -2004,6 +2050,7 @@ async function main() {
       // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
       if (b.static && b.branch) { roomSp.push(drawBranch(b, cy)); return; }
       if (b.static && b.move?.spin) return makeSpinner(b, cy, i);
+      if (b.static && b.move?.wheel) return makeWheel(b, i);
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
         const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); roomSp.push(sp);
@@ -2136,7 +2183,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin) m.sp.rotation = m.body.angle; }
+    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin) m.sp.rotation = m.body.angle; if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);
