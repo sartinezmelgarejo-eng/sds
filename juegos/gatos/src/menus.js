@@ -161,6 +161,9 @@ export class Menus {
     this.btn(this.T.hatBtn, () => { SFX.whoosh(); this.showHats('select'); }, 0.62, 300, 110, 2.35, this.newHats().length > 0);
     const st = this.item(new Sprite(this.T.starBig), W - 330, 110, 2.4); st.anchor.set(0.5);
     const stt = this.item(txt(`${tStars}/${lv.length * 3}`, 64, '#FFFFFF'), W - 175, 116, 2.45); stt.anchor.set(0.5);
+    // hechizos de estambre que le quedan al jugador (AB2 muestra el inventario de hechizos en el mapa)
+    if (this.o.yarnTex && this.o.getYarn) { const ys = this.item(new Sprite(this.o.yarnTex), W - 620, 112, 2.5, 'pop', 0.8); ys.anchor.set(0.5); ys.rotation = 0.15;
+      const yt = this.item(txt('×' + this.o.getYarn(), 64, '#E2CCFF'), W - 480, 116, 2.55); yt.anchor.set(0.5); }
     // flechas para cambiar de mundo (como las páginas de episodios de AB2)
     if (page > 0) this.btn(this.T.prevW, () => { SFX.whoosh(); this.showSelect(page - 1); }, 0.6, 110, 770, 2.6);
     if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));
