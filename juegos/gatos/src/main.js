@@ -1830,20 +1830,33 @@ async function main() {
   // Va montada en un poste plantado con un engrane de motor detrás del eje; lo de encima gira con ella alrededor del eje.
   function makeSeesaw(m, b, cy) {
     m.rot = b.move.rot * Math.PI / 180; m.w = b.w; m.h = b.h; m.wheels = [];
-    const g = new Graphics();
-    for (const [c, w] of [[0x1A1410, 16], [0x6B625A, 7]]) g.moveTo(b.x, GROUND).lineTo(b.x, cy).stroke({color: c, width: w, alpha: 0.9});
-    g.roundRect(b.x - 30, GROUND - 14, 60, 16, 5).fill(0x3A342E).stroke({color: 0x1A1410, width: 4});
-    g.roundRect(b.x - 34, cy + 34, 68, 46, 8).fill(0x4A423A).stroke({color: 0x1A1410, width: 4}).circle(b.x + 18, cy + 57, 5).fill(0xE04A2A).stroke({color: 0x1A1410, width: 2});
-    for (let y = cy + 44; y < cy + 74; y += 9) g.moveTo(b.x - 26, y).lineTo(b.x + 6, y).stroke({color: 0x1A1410, width: 2.5});
-    const R = Math.max(30, b.h * 1.1), gear = new Graphics(), n = 12;
-    for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
-      gear.poly([c * R - s2 * 6, s2 * R + c * 6, c * (R + 10) - s2 * 4, s2 * (R + 10) + c * 4, c * (R + 10) + s2 * 4, s2 * (R + 10) - c * 4, c * R + s2 * 6, s2 * R - c * 6]).fill(0x5A5148).stroke({color: 0x1A1410, width: 3}); }
-    gear.circle(0, 0, R).fill(0x5A5148).stroke({color: 0x1A1410, width: 4}).circle(0, 0, R * 0.55).stroke({color: 0x1A1410, width: 3});
-    for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; gear.circle(Math.cos(a) * R * 0.78, Math.sin(a) * R * 0.78, 4).fill(0x1A1410); }
+    const g = new Graphics(), R = Math.max(30, b.h * 1.1), gear = new Graphics(), wood = bgTheme !== 'lair';
+    if (wood) {
+      // Cocina/Jardín: tabla de madera sobre un poste de madera clavado en un montoncito de tierra, con rueda de manivela
+      g.ellipse(b.x, GROUND - 2, 46, 14).fill(0x5A3A22).stroke({color: 0x2A1A10, width: 4}).ellipse(b.x - 10, GROUND - 7, 18, 5).fill({color: 0xFFFFFF, alpha: 0.12});
+      g.roundRect(b.x - 11, cy, 22, GROUND - cy - 6, 4).fill(0x8A5A32).stroke({color: 0x2A1A10, width: 4});
+      for (let y = cy + 40; y < GROUND - 30; y += 70) g.moveTo(b.x - 4, y).lineTo(b.x - 2, y + 30).stroke({color: 0x5A3A22, width: 2});
+      g.rect(b.x - 7, cy + 6, 4, GROUND - cy - 18).fill({color: 0xFFFFFF, alpha: 0.12});
+      gear.circle(0, 0, R).stroke({color: 0x2A1A10, width: 10}).circle(0, 0, R).stroke({color: 0xA8743F, width: 5});
+      for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2; gear.moveTo(0, 0).lineTo(Math.cos(a) * R, Math.sin(a) * R).stroke({color: 0x2A1A10, width: 7}).moveTo(0, 0).lineTo(Math.cos(a) * R, Math.sin(a) * R).stroke({color: 0xA8743F, width: 3}); }
+      gear.moveTo(R * 0.7, 0).lineTo(R * 0.7, -R * 0.15).stroke({color: 0x2A1A10, width: 4}).roundRect(R * 0.7 - 6, -R * 0.15 - 18, 12, 20, 5).fill(0xC0392B).stroke({color: 0x2A1A10, width: 3});
+      m.sp.texture = blockTex('wood', b.w, b.h, 7, 0);
+    } else {
+      for (const [c, w] of [[0x1A1410, 16], [0x6B625A, 7]]) g.moveTo(b.x, GROUND).lineTo(b.x, cy).stroke({color: c, width: w, alpha: 0.9});
+      g.roundRect(b.x - 30, GROUND - 14, 60, 16, 5).fill(0x3A342E).stroke({color: 0x1A1410, width: 4});
+      g.roundRect(b.x - 34, cy + 34, 68, 46, 8).fill(0x4A423A).stroke({color: 0x1A1410, width: 4}).circle(b.x + 18, cy + 57, 5).fill(0xE04A2A).stroke({color: 0x1A1410, width: 2});
+      for (let y = cy + 44; y < cy + 74; y += 9) g.moveTo(b.x - 26, y).lineTo(b.x + 6, y).stroke({color: 0x1A1410, width: 2.5});
+      const n = 12;
+      for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
+        gear.poly([c * R - s2 * 6, s2 * R + c * 6, c * (R + 10) - s2 * 4, s2 * (R + 10) + c * 4, c * (R + 10) + s2 * 4, s2 * (R + 10) - c * 4, c * R + s2 * 6, s2 * R - c * 6]).fill(0x5A5148).stroke({color: 0x1A1410, width: 3}); }
+      gear.circle(0, 0, R).fill(0x5A5148).stroke({color: 0x1A1410, width: 4}).circle(0, 0, R * 0.55).stroke({color: 0x1A1410, width: 3});
+      for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; gear.circle(Math.cos(a) * R * 0.78, Math.sin(a) * R * 0.78, 4).fill(0x1A1410); }
+      m.sp.addChild(steelDeck(b));
+    }
     gear.position.set(b.x, cy);
     actors.addChildAt(g, 0); actors.addChildAt(gear, 1); roomSp.push(g, gear); m.gear = gear;
     // perno del eje encima de la repisa
-    m.sp.addChild(steelDeck(b)); m.sp.addChild(new Graphics().circle(0, 0, 15).fill(0x8A8078).stroke({color: 0x0C0A08, width: 5}).moveTo(-8, 0).lineTo(8, 0).stroke({color: 0x0C0A08, width: 3}).circle(-4, -5, 3).fill({color: 0xFFFFFF, alpha: 0.4}));
+    m.sp.addChild(new Graphics().circle(0, 0, 15).fill(wood ? 0x6B4A2A : 0x8A8078).stroke({color: 0x0C0A08, width: 5}).moveTo(-8, 0).lineTo(8, 0).stroke({color: 0x0C0A08, width: 3}).circle(-4, -5, 3).fill({color: 0xFFFFFF, alpha: 0.4}));
   }
   function moveMovers(ms) {
     const h = ms / 1000;
