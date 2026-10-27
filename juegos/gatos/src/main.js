@@ -961,6 +961,7 @@ async function main() {
   function updateSpell(dt) {
     const r = spell.run; if (!r || dt <= 0) return; r.t += dt;
     if (r.type === 'balloon') return updateBalloon(r, dt);
+    if (r.type === 'chili') return updateChili(r, dt);
     if (r.t > 1.5 && !r.banOff) { r.banOff = true; ui.hideBanner(); }
     if (r.n < YARN_N && r.t >= r.next) { dropYarn(r); r.next = r.t + 0.07 + Math.random() * 0.08; }
     for (let i = r.balls.length - 1; i >= 0; i--) { const o = r.balls[i], b = o.body; o.age += dt;
@@ -975,7 +976,7 @@ async function main() {
     if (r.n >= YARN_N && !r.balls.length) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); r.still = busy ? 0 : r.still + dt; }
     if ((r.n >= YARN_N && !r.balls.length && r.still > 0.8) || r.t > 11) endSpell();
   }
-  function clearSpell() { const r = spell.run; if (!r) return; if (r.type === 'balloon') for (const d of r.mice) if (d.infl && !d.dead) { Body.scale(d.body, 1 / d.infl.bs, 1 / d.infl.bs); d.infl = null; d.body.sleepThreshold = 60; d.sprite.tint = 0xFFFFFF; } for (const o of r.balls) { if (!o.fade) Composite.remove(engine.world, o.body); o.sp.destroy(); } spell.run = null; }
+  function clearSpell() { const r = spell.run; if (!r) return; if (r.type === 'chili') for (const H of r.hots) { if (!H.done) H.sp.destroy(); const d = H.d; if (d.heat) { if (!d.heat.gl.destroyed) d.heat.gl.destroy(); if (!d.dead) { d.sprite.scale.set(d.heat.sx, d.heat.sy); d.sprite.tint = 0xFFFFFF; } } d.heat = null; } if (r.type === 'balloon') for (const d of r.mice) if (d.infl && !d.dead) { Body.scale(d.body, 1 / d.infl.bs, 1 / d.infl.bs); d.infl = null; d.body.sleepThreshold = 60; d.sprite.tint = 0xFFFFFF; } for (const o of r.balls) { if (!o.fade) Composite.remove(engine.world, o.body); o.sp.destroy(); } spell.run = null; }
   function endSpell() {
     clearSpell(); cam.release();
     if (dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'ready'; return; }
@@ -1063,6 +1064,104 @@ async function main() {
     d.sprite.tint = (255 << 16) | (Math.round(255 - 50 * f) << 8) | Math.round(255 - 36 * f);   // la piel estirada se pone rosita
     if (!I.end && I.t > NPUFF * PUFF) d.sprite.x += Math.sin(time * 60) * 3;            // tiembla antes de tronar
   }
+  // ---------- HECHIZO 3 (AB2: Hot Chili) — ¡CHILE PICOSO! ----------
+  // Caen 3 chiles enojados sobre los bloques "clave" (los que tienen más ratones cerca); cada bloque se calienta al rojo vivo
+  // (tiembla, se hincha, echa vapor y chispas, chisporrotea cada vez más rápido) y a los ~1.3 s EXPLOTA como un cuete.
+  // Mismas reglas que los otros (1 hechizo por nivel, no en el jefe, no gasta gato). Inventario localStorage['gatos.chili'] (empieza con 2), ?chili=n.
+  const CHILI_ID = SPELL_ID + 2, CHILI_N = 2, HEAT = 1.3, DROP = 0.42;
+  CARD_COL.chili = ['#FFB98A', '#D8361C'];
+  function drawChili(k, x, y, s) { // chile rojo con cejas de enojo (carta, selector, premio y el que cae)
+    k.save(); k.translate(x, y); k.rotate(-0.25); k.lineCap = 'round'; k.lineJoin = 'round';
+    const body = () => { k.beginPath(); k.moveTo(-0.42 * s, -0.62 * s); k.bezierCurveTo(0.4 * s, -0.78 * s, 0.82 * s, 0.05 * s, 0.5 * s, 1.0 * s);
+      k.bezierCurveTo(0.34 * s, 0.3 * s, -0.08 * s, -0.12 * s, -0.56 * s, -0.22 * s); k.quadraticCurveTo(-0.74 * s, -0.46 * s, -0.42 * s, -0.62 * s); k.closePath(); };
+    k.strokeStyle = '#1F2240'; k.lineWidth = 15; k.beginPath(); k.moveTo(-0.55 * s, -0.5 * s); k.quadraticCurveTo(-0.62 * s, -0.9 * s, -0.3 * s, -1.02 * s); k.stroke();
+    k.strokeStyle = '#4FA82E'; k.lineWidth = 8; k.stroke();                                                    // rabito
+    body(); k.fillStyle = ART.rad(k, -0.05 * s, -0.42 * s, 0.05 * s, 1.3 * s, [[0, '#FF9A7A'], [0.35, '#F0321E'], [1, '#8E0E10']]); k.fill();
+    k.save(); k.clip(); k.strokeStyle = 'rgba(255,255,255,0.6)'; k.lineWidth = 0.1 * s; k.beginPath(); k.moveTo(-0.25 * s, -0.56 * s); k.bezierCurveTo(0.3 * s, -0.6 * s, 0.6 * s, -0.1 * s, 0.56 * s, 0.4 * s); k.stroke(); k.restore();
+    body(); k.lineWidth = 5; k.strokeStyle = '#1F2240'; k.stroke();
+    k.beginPath(); k.ellipse(-0.5 * s, -0.5 * s, 0.26 * s, 0.15 * s, -0.5, 0, Math.PI * 2); k.fillStyle = '#6BCB45'; k.fill(); k.lineWidth = 4.5; k.stroke(); // corona verde
+    for (const [ex, ey] of [[-0.06, -0.28], [0.24, -0.2]]) { k.beginPath(); k.ellipse(ex * s, ey * s, 0.1 * s, 0.12 * s, 0, 0, Math.PI * 2); k.fillStyle = '#FFFFFF'; k.fill(); k.lineWidth = 3; k.stroke();
+      k.beginPath(); k.arc(ex * s + 0.03 * s, ey * s + 0.03 * s, 0.05 * s, 0, Math.PI * 2); k.fillStyle = '#1F2240'; k.fill(); }
+    k.lineWidth = 5; k.beginPath(); k.moveTo(-0.2 * s, -0.46 * s); k.lineTo(0.04 * s, -0.36 * s); k.moveTo(0.36 * s, -0.4 * s); k.lineTo(0.15 * s, -0.31 * s); k.stroke(); // cejas de enojo
+    k.restore();
+  }
+  const chiliTex = canvasTex(160, 170, k => drawChili(k, 80, 92, 62), 2);
+  const heatTex = canvasTex(128, 128, k => { k.fillStyle = ART.rad(k, 64, 64, 0, 64, [[0, 'rgba(255,220,120,1)'], [0.35, 'rgba(255,120,40,0.75)'], [1, 'rgba(255,40,0,0)']]); k.fillRect(0, 0, 128, 128); });
+  let chiInv = 2; try { const v = localStorage.getItem('gatos.chili'); if (v != null) chiInv = +v; } catch (e) {}
+  { const q = new URLSearchParams(location.search); if (q.has('chili')) chiInv = +q.get('chili'); }
+  const saveChi = () => { try { localStorage.setItem('gatos.chili', String(chiInv)); } catch (e) {} };
+  const chiAvail = () => spellOk() && chiInv > 0;
+  const makeChiliCard = () => Object.assign(spellCard('chili', chiliTex, 0.5, [[chiliTex, 0.26], [chiliTex, 0.26]], 'CHILE', chiInv, castChili), {qid: CHILI_ID, kind: 'chili'});
+  SPELLS.push({id: CHILI_ID, avail: chiAvail, make: makeChiliCard});
+  const hotOk = d => !d.dead && !d.enter && !d.heat && !d.patrol && d.mat !== 'mouse' && d.mat !== 'robot' && d.mat !== 'tnt'; // los cuetes no: la cadena ganaría sola
+  // el bloque "clave": el que tiene más ratones cerca (los duros pesan más); un poco de premio a los grandes
+  function hotScore(d) { const p = d.body.position; let s = 0.15 * Math.min(1, d.w * d.h / 20000);
+    for (const m of dyn) if (m.mat === 'mouse' && !m.dead) s += Math.max(0, 1 - Math.hypot(m.body.position.x - p.x, m.body.position.y - p.y) / 420) * (m.kind === 'small' ? 1 : 1.4);
+    return s; }
+  function pickHot(taken) {
+    let best = null, bs = -1;
+    for (const d of dyn) { if (!hotOk(d) || taken.some(o => o === d || Math.hypot(o.body.position.x - d.body.position.x, o.body.position.y - d.body.position.y) < 320)) continue;
+      const s = hotScore(d); if (s > bs) { bs = s; best = d; } }
+    return best;
+  }
+  function castChili() {
+    if (state !== 'ready' || !chiAvail() || !onSling || onSling.hop || sling.aiming || ui.cardOpen || cam.mode === 'flyover') return false;
+    const taken = []; for (let i = 0; i < CHILI_N; i++) { const d = pickHot(taken); if (d) taken.push(d); }
+    if (!taken.length) return false;
+    if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; }
+    spell.used = true; spell.kind = 'chili'; chiInv--; saveChi(); tutDone = true; state = 'spell'; roomShots += 3;
+    const hots = taken.map((d, i) => { const sp = new Sprite(chiliTex); sp.anchor.set(0.5); sp.scale.set(0.5); sp.visible = false; actors.addChild(sp); return {d, sp, t: -0.75 - i * 0.5, x: d.body.position.x, y: d.body.position.y}; });
+    spell.run = {type: 'chili', t: 0, balls: [], hots, still: 0, said: false};
+    ui.banner('¡CHILE PICOSO!', 'HECHIZO'); SFX.whoosh(); setTimeout(() => SFX.fanfare(), 120);
+    const xs = taken.map(d => d.body.position.x), ys = taken.map(d => d.body.position.y), x0 = Math.min(...xs) - 300, x1 = Math.max(...xs) + 300;
+    const zk = Math.max(1.25, Math.min(1.9, (LEVEL_W + 200) / (x1 - x0 + 500))), z = cam.fitZoom * zk;
+    cam.follow({position: {x: (x0 + x1) / 2, y: Math.min(GROUND - cam.sh / z * 0.36, Math.min(...ys) - 80)}}, zk);
+    queue.forEach(q => { q.alert = 1.2; });
+    return true;
+  }
+  function updateChili(r, dt) {
+    if (r.t > 1.5 && !r.banOff) { r.banOff = true; ui.hideBanner(); }
+    for (const H of r.hots) { if (H.done) continue; H.t += dt;
+      // el bloque ya no está (lo tumbó otra explosión) antes de que caiga su chile: busca otro bloque clave
+      if (H.t < DROP && H.d.dead) { const n = pickHot(r.hots.filter(o => o !== H && !o.done).map(o => o.d)); if (n) H.d = n; else { H.done = true; H.sp.destroy(); continue; } }
+      if (H.t < 0) continue;
+      const d = H.d, p = d.dead ? H : d.body.position, top = p.y - Math.max(d.w, d.h) * 0.5;
+      if (!d.dead) { H.x = p.x; H.y = p.y; }
+      if (H.t < DROP) { // cae girando desde arriba
+        const u = H.t / DROP; H.sp.visible = true; H.sp.position.set(p.x + (1 - u) * 160, top - 30 - (1 - u * u) * 900); H.sp.rotation = (1 - u) * 6; H.sp.scale.set(0.65);
+        fx.streak(H.sp.x, H.sp.y, 14, 0xFFB080); continue; }
+      if (!H.heat) { H.heat = true; const gl = new Sprite(heatTex); gl.anchor.set(0.5); gl.alpha = 0; actors.addChildAt(gl, Math.max(0, actors.getChildIndex(d.sprite))); d.heat = {t: 0, nx: 0, sx: d.sprite.scale.x, sy: d.sprite.scale.y, gl}; SFX.thump(0.5); SFX.pop(); Sleeping.set(d.body, false);
+        fx.burst('flame', p.x, top, 8, 260, {up: 160, g: -120, drag: 2, life: 0.5, size: 1}); fx.ring(p.x, top, 90, 0xFFB060, 0.3);
+        if (!r.said) { r.said = true; const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride).sort((a, b) => Math.hypot(a.body.position.x - p.x, a.body.position.y - p.y) - Math.hypot(b.body.position.x - p.x, b.body.position.y - p.y))[0];
+          if (nb) { nb.hurt = 0.3; say(nb, ['¡HUELE A\nQUEMADO!', '¡¿QUIÉN PIDIÓ\nPICANTE?!', '¡ESTO VA A\nTRONAR!', '¡AGUAAA!'][Math.floor(Math.random() * 4)], 1.4, 0.8); SFX.squeak(); } } }
+      const e = H.t - DROP;
+      if (e < 0.18) { const u = e / 0.18; H.sp.position.set(p.x, top - 30 + u * 40); H.sp.scale.set(0.65 * (1 + u * 0.5), 0.65 * (1 - u * 0.7)); H.sp.alpha = 1 - u; H.sp.rotation = 0; } // se "derrite" dentro del bloque
+      else H.sp.visible = false;
+      if (!d.dead) d.heat.t = e;
+      if (e >= HEAT || d.dead) { H.done = true; H.sp.destroy(); chiliBoom(d, H.x, H.y); }
+    }
+    if (r.hots.every(H => H.done)) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4) || booms.length || rockets.length; r.still = busy ? 0 : r.still + dt; }
+    if ((r.hots.every(H => H.done) && r.still > 0.8) || r.t > 12) endSpell();
+  }
+  function chiliBoom(d, x, y) {
+    if (d.heat) { d.heat.gl.destroy(); d.heat = null; } if (!d.dead) destroyDyn(d);                        // pedazos + puntos (y si era caja de cuetes, también truena)
+    fx.explosion(x, y, 190); fx.ring(x, y, 300, 0xFFB070); fx.burst('flame', x, y, 18, 620, {up: 220, g: -60, drag: 2.2, life: 0.6, size: 1.3});
+    blast(x, y, 200, 14, 8, {can: 1.2});
+    cam.shake(22); cam.punch(0.04); SFX.boom(); SFX.crackle(); screenFlash = 0.08; startle(x, 0.7);
+  }
+  // al rojo vivo: el bloque se tiñe rojo-naranja latiendo cada vez más rápido, se hincha, tiembla, echa vapor y chispas, chisporrotea
+  function heatLook(d, dt) {
+    const H = d.heat, u = Math.min(1, H.t / HEAT), p = d.body.position, f = 6 + 26 * u * u, pul = 0.5 + 0.5 * Math.sin(H.t * f);
+    const v = Math.min(1, u * 2) * (0.65 + 0.35 * pul), g = Math.round(255 - 170 * v), b = Math.round(255 - 215 * v);
+    d.sprite.tint = (255 << 16) | (g << 8) | b;
+    const sw = 1 + 0.07 * u * pul; d.sprite.scale.set(H.sx * sw, H.sy * sw); d.sprite.x += Math.sin(time * 70) * 4 * u; d.sprite.y += Math.cos(time * 63) * 2 * u;
+    if (H.gl.parent === d.sprite.parent) { H.gl.position.set(p.x, p.y); H.gl.rotation = d.body.angle; H.gl.scale.set((d.w + 120) / 128 * (1 + 0.15 * pul * u), (d.h + 120) / 128 * (1 + 0.15 * pul * u)); H.gl.alpha = Math.min(1, u * 1.6) * (0.45 + 0.35 * pul); }
+    if (Math.random() < dt * (6 + 18 * u)) { const n0 = fx.parts.length;
+      fx.burst('smoke', p.x + (Math.random() - 0.5) * d.w * 0.7, p.y - d.h * 0.4, 1, 30, {up: 90, g: -90, drag: 1.5, life: 0.9, size: 0.3 + d.w / 900, grow: 1.6});
+      for (let i = n0; i < fx.parts.length; i++) { fx.parts[i].s.tint = 0xEEE8F0; fx.parts[i].maxA = 0.55; fx.parts[i].s.alpha = 0; } }
+    if (u > 0.3 && Math.random() < dt * 14 * u) fx.burst('flame', p.x + (Math.random() - 0.5) * d.w * 0.8, p.y + (Math.random() - 0.5) * d.h * 0.6, 1, 120, {up: 120, g: -150, drag: 2, life: 0.35, size: 0.6 + u * 0.5, grow: -0.6});
+    if (H.t >= H.nx) { H.nx = H.t + 0.3 - 0.2 * u; SFX.sizzle(0.4 + 0.6 * u); }
+  }
   // el gato de la resortera se baja y regresa al principio de la fila (sin gastarlo)
   function unSling() {
     const cur = onSling; if (!cur) return; onSling = null;
@@ -1120,12 +1219,12 @@ async function main() {
     const stars = win ? 1 + (score >= st[1]) + (score >= st[2]) : 0;
     const record = win && (!prev || score > prev.score);
     // premio: +1 hechizo (el que menos tenga; empate → estambre)
-    const rk = balInv < yarnInv && balInv < YARN_MAX ? 'balloon' : yarnInv < YARN_MAX ? 'yarn' : null;
+    const rk = [['yarn', yarnInv], ['balloon', balInv], ['chili', chiInv]].filter(([, n]) => n < YARN_MAX).sort((a, b) => a[1] - b[1])[0]?.[0] || null;
     const reward = win && stars === 3 && !spell.used && !isBoss() && rk;
-    if (reward === 'yarn') { yarnInv++; saveYarn(); } else if (reward === 'balloon') { balInv++; saveBal(); }
+    if (reward === 'yarn') { yarnInv++; saveYarn(); } else if (reward === 'balloon') { balInv++; saveBal(); } else if (reward === 'chili') { chiInv++; saveChi(); }
     if (win) try { localStorage.setItem(key, JSON.stringify({score: Math.max(score, prev?.score || 0), stars: Math.max(stars, prev?.stars || 0)})); } catch (e) {}
     const final = win && levelId === LEVELS[LEVELS.length - 1]; // jefe final vencido: panel especial
-    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final, reward: reward ? (reward === 'yarn' ? yarnTex[5] : balloonTex) : null, rewardName: reward === 'balloon' ? 'GLOBOS' : 'ESTAMBRE'});
+    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final, reward: reward ? {yarn: yarnTex[5], balloon: balloonTex, chili: chiliTex}[reward] : null, rewardName: {balloon: 'GLOBOS', chili: 'CHILE'}[reward] || 'ESTAMBRE'});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
   function launch(vx, vy) { ui.closeCard(true); if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }
@@ -1498,7 +1597,7 @@ async function main() {
   });
   let hatDirty = false; const QS0 = new URLSearchParams(location.search);
   const menus = new Menus(app, {
-    eyeImg, cats: bigCats, worlds: WORLDS, roomsOf: id => 1 + (levels[id]?.rooms?.length || 0), bossTex: mouseTex('boss', 66, 'laugh'), yarnTex: yarnTex[5], getYarn: () => yarnInv, balloonTex, getBalloon: () => balInv,
+    eyeImg, cats: bigCats, worlds: WORLDS, roomsOf: id => 1 + (levels[id]?.rooms?.length || 0), bossTex: mouseTex('boss', 66, 'laugh'), yarnTex: yarnTex[5], getYarn: () => yarnInv, balloonTex, getBalloon: () => balInv, chiliTex, getChili: () => chiInv,
     onPlay: id => buildLevel(id, true),
     onPage: p => { if ((level.world || 1) !== p + 1) buildLevel(WORLDS[p].levels[0], false); },
     getHat: n => hats[n] || 'none', onHat: (n, h) => { setHat(n, h); hatDirty = true; }, allHats: QS0.has('allhats'),
@@ -1551,6 +1650,7 @@ async function main() {
       }
       if (d.dead) continue;
       if (d.soot) updateSoot(d, dt);
+      if (d.heat) heatLook(d, dt);
       if (d.mat === 'mouse') animMouse(d, dt);
       // crujidos: una pieza que se tambalea (gira lento sin desplazarse mucho) rechina, como las torres de AB2
       else if (dt > 0 && started > 1 && !d.patrol && !d.body.isSleeping && time > (d.creakAt || 0)) {
@@ -1585,6 +1685,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {castSpell, castBalloon, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

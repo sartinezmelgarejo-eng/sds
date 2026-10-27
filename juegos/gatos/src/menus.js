@@ -166,6 +166,8 @@ export class Menus {
       const yt = this.item(txt('×' + this.o.getYarn(), 64, '#E2CCFF'), W - 480, 116, 2.55); yt.anchor.set(0.5); }
     if (this.o.balloonTex && this.o.getBalloon) { const bs = this.item(new Sprite(this.o.balloonTex), W - 850, 126, 2.6, 'pop', 0.5); bs.anchor.set(0.5); bs.rotation = -0.12;
       const bt = this.item(txt('×' + this.o.getBalloon(), 64, '#FFC8DC'), W - 755, 116, 2.65); bt.anchor.set(0.5); }
+    if (this.o.chiliTex && this.o.getChili) { const cs = this.item(new Sprite(this.o.chiliTex), W - 620, 268, 2.7, 'pop', 0.5); cs.anchor.set(0.5); cs.rotation = 0.1;
+      const ct = this.item(txt('×' + this.o.getChili(), 64, '#FFC9A8'), W - 480, 272, 2.75); ct.anchor.set(0.5); }
     // flechas para cambiar de mundo (como las páginas de episodios de AB2)
     if (page > 0) this.btn(this.T.prevW, () => { SFX.whoosh(); this.showSelect(page - 1); }, 0.6, 110, 770, 2.6);
     if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));
