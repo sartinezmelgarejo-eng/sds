@@ -1704,6 +1704,10 @@ async function main() {
     const L = d.lamp, p = d.body.position; d.lamp = null; L.glow.destroy(); L.cone.destroy();
     fx.burst('jar', p.x, p.y + d.h * 0.2, 10, 380, {w: d.w * 0.4, h: d.h * 0.3, size: 0.6}); fx.burst('star', p.x, p.y + d.h * 0.2, 10, 420, {up: 160, size: 0.4, life: 0.5});
     SFX.breakSfx('jar'); SFX.buzz(0.9);
+    // el chispazo del foco roto enciende los cuetes que tenga pegaditos (cadena como la TNT de AB2)
+    for (const o of dyn) if (o.mat === 'tnt' && !o.dead && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < d.w * 0.9 + 80) {
+      fx.burst('star', o.body.position.x, o.body.position.y - o.h * 0.4, 6, 260, {up: 120, size: 0.3, life: 0.35}); SFX.crackle();
+      setTimeout(() => { if (!o.dead && dyn.includes(o)) damage(o, 99, 10); }, 280); }
   }
   // cable de la lámpara: negro y delgado, con florón en el techo; cortado, la punta suelta chispas un ratito
   function drawCord(r) {
