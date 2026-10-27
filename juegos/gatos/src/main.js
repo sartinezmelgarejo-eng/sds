@@ -825,7 +825,7 @@ async function main() {
     ART.rr(k, 17, 16, CARD_W - 18, 30, 14); k.fillStyle = 'rgba(255,255,255,0.22)'; k.fill();
   }, 2));
   const cardGlow = canvasTex(CARD_W + 60, CARD_H + 60, k => { k.shadowColor = '#FFE66A'; k.shadowBlur = 22; ART.rr(k, 30, 30, CARD_W, CARD_H, 28); k.lineWidth = 10; k.strokeStyle = '#FFF2A0'; k.stroke(); k.stroke(); });
-  const deck = new Container(); hud.addChild(deck);
+  const deck = new Container(); deck.sortableChildren = true; hud.addChild(deck); const SPELL_SC = 0.8;
   const cards = new Map(); let deckHit = 0, deckA = 1;
   const cardHand = new Sprite(handTex); cardHand.anchor.set(0.42, 0.1); cardHand.visible = false; hud.addChild(cardHand);
   function makeCard(q) {
@@ -855,15 +855,19 @@ async function main() {
     // fuera las cartas de los gatos lanzados: suben girando y se desvanecen
     for (const [id, c] of cards) if (!ids.has(id) && !c.gone) { c.gone = 0.001; SFX.pop(); }
     const sh = app.screen.height / hud.scale.y, order = [...cards.values()].filter(c => !c.gone).sort((a, b) => a.qid - b.qid);
-    const n = order.length, step = n > 6 ? Math.max(CARD_W * 0.55, (6 * (CARD_W + CARD_GAP)) / n) : CARD_W + CARD_GAP;
-    order.forEach((c, j) => { const tx = 40 + CARD_W / 2 + j * step + (c.spell ? 26 : 0); c.cx = c.cx == null ? tx : c.cx + (tx - c.cx) * Math.min(1, dt * 10); c.tx = tx; });
+    // gatos: con más de 4 se enciman en abanico (como la mano de cartas de AB2); hechizos: más chicos y en abanico, el de la izquierda encima (se ven los contadores)
+    const nc = order.filter(c => !c.spell).length, step = nc > 4 ? Math.max(CARD_W * 0.55, (4 * (CARD_W + CARD_GAP)) / nc) : CARD_W + CARD_GAP;
+    let tx = 40 + CARD_W / 2, js = 0;
+    order.forEach((c, j) => { if (c.spell) { if (!js) tx += CARD_W / 2 + 30 + CARD_W * SPELL_SC / 2; else tx += CARD_W * 0.62; c.zIndex = 100 - js++; } else { if (j) tx += step; c.zIndex = j; }
+      c.cx = c.cx == null ? tx : c.cx + (tx - c.cx) * Math.min(1, dt * 10); c.tx = tx; });
     const end = state === 'win' || state === 'lose' || ui.open;
     deckA += ((end ? 0 : 1) - deckA) * Math.min(1, dt * 6); deck.alpha = deckA; deck.visible = deckA > 0.02;
     for (const [id, c] of cards) {
       const sel = onSling && onSling.id === id && !c.gone, by = sh - CARD_H / 2 - 30;
       c.lift += ((sel ? 1 : 0) - c.lift) * Math.min(1, dt * 12);
       c.glow.alpha = c.lift * (0.75 + Math.sin(time * 5) * 0.25);
-      let sc = 0.86 + c.lift * 0.14, y = by - c.lift * 34, rot = 0;
+      let sc = (0.86 + c.lift * 0.14) * (c.spell ? SPELL_SC : 1), y = by - c.lift * 34 + (c.spell ? CARD_H * 0.86 * (1 - SPELL_SC) / 2 : 0), rot = 0;
+      if (sel) c.zIndex = 60;
       if (c.enter) { c.enter += dt; const u = Math.min(1, c.enter / 0.4); sc *= Math.max(0, backOutE(u)); if (u >= 1) c.enter = 0; }   // entra con rebote
       if (c.pop > 0) { c.pop = Math.max(0, c.pop - dt); sc *= 1 + Math.sin((1 - c.pop / 0.3) * Math.PI) * 0.12; }                       // botecito al tocarla
       if (c.wig > 0) { c.wig -= dt; rot = Math.sin(c.wig * 40) * 0.12 * (c.wig / 0.35); }
