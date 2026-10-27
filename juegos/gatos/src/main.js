@@ -526,6 +526,7 @@ async function main() {
   // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
   // Onda radial: empuje ~ (1 - d/R), daño ~ (1 - d/R) × fragilidad × bonus por material
   function blast(x, y, R, push, dmg, bonus = {}) {
+    if (push > 0) cutRopesNear(x, y, R * 0.6);
     if (R >= 200) shockMice(x, y, R);
     for (const d of [...dyn]) {
       const p = d.body.position, dx = p.x - x, dy = p.y - y, dist = Math.hypot(dx, dy);
@@ -1479,7 +1480,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     clearSpell(); spell.used = false; spell.kind = null;
-    dyn.length = 0; shelves.length = 0; queue.length = 0; clearDeck();
+    ropes.length = 0; dyn.length = 0; shelves.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -1500,6 +1501,69 @@ async function main() {
     else { state = 'between'; turnWait = 0.35; }
     for (const t of staleTex.splice(0)) if (t && !t.destroyed) t.destroy(true);
   }
+  // ---------- CUERDAS (AB2): bloques colgados de un gancho; el gato, algo que vuela rápido o una explosión revientan la cuerda ----------
+  // nivel: {"t": "can", …, "y": altura de la cara de arriba, "hang": largo de la cuerda} → gancho en (x + hx, GROUND - y - hang)
+  const ropes = [];
+  function makeRope(d, b, top) {
+    const A = {x: b.x + (b.hx || 0), y: GROUND - top - b.hang}, pB = {x: 0, y: -d.h / 2};
+    const c = Matter.Constraint.create({pointA: A, bodyB: d.body, pointB: pB, length: Math.hypot(b.hx || 0, b.hang), stiffness: 0.95, damping: 0.05});
+    Composite.add(engine.world, c); d.body.sleepThreshold = Infinity; Sleeping.set(d.body, false); d.hung = true;
+    const g = new Graphics(); actors.addChildAt(g, 0);
+    ropes.push({c, A, d, g, len: c.length, cut: null});
+  }
+  const ropeEnd = r => { const b = r.d.body, a = b.angle; return {x: b.position.x + Math.sin(a) * r.d.h / 2, y: b.position.y - Math.cos(a) * r.d.h / 2}; };
+  // distancia de un punto al segmento gancho→bloque (y en qué fracción del largo cae)
+  function segDist(r, x, y) { const B = ropeEnd(r), dx = B.x - r.A.x, dy = B.y - r.A.y, l2 = dx * dx + dy * dy || 1;
+    const u = Math.max(0, Math.min(1, ((x - r.A.x) * dx + (y - r.A.y) * dy) / l2)); return {dist: Math.hypot(r.A.x + dx * u - x, r.A.y + dy * u - y), u, x: r.A.x + dx * u, y: r.A.y + dy * u}; }
+  function cutRope(r, u = 0.5, quiet = false) {
+    if (r.cut) return; Composite.remove(engine.world, r.c); u = Math.max(0.15, Math.min(0.85, u));
+    const B = ropeEnd(r), x = r.A.x + (B.x - r.A.x) * u, y = r.A.y + (B.y - r.A.y) * u;
+    // el pedazo de arriba queda colgando del gancho y se columpia; el de abajo se va con el bloque y se desvanece
+    r.cut = {t: 0, top: r.len * u, bot: r.len * (1 - u), th: Math.atan2(B.x - r.A.x, B.y - r.A.y) + 0.5 * (Math.random() < 0.5 ? -1 : 1), w: 0};
+    if (!r.d.dead) { r.d.body.sleepThreshold = 40; r.d.hung = false; dyn.forEach(o => Sleeping.set(o.body, false)); }
+    if (quiet) return;
+    SFX.snap(); cam.shake(5); fx.burst('box', x, y, 7, 240, {up: 120, size: 0.32, life: 0.6});
+    // un ratón que está debajo voltea hacia arriba y grita (como los cerdos de AB2 cuando les va a caer algo)
+    const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && o.body.position.y > B.y && Math.abs(o.body.position.x - B.x) < 260 && !bubbles.some(bb => bb.d === o));
+    for (const o of nb) o.shock = {x: B.x, y: B.y, t: -0.05, fl: 0, look: 1.2, side: 1};
+    if (nb.length) say(nb[0], ['¡AGUAS\nARRIBA!', '¡CUIDADO!', '¡MAMÁÁÁ!'][Math.floor(Math.random() * 3)], 1.1, 0.72);
+  }
+  function cutRopesNear(x, y, R) { for (const r of ropes) if (!r.cut) { const s = segDist(r, x, y); if (s.dist < R) cutRope(r, s.u); } }
+  function updateRopes(dt) {
+    for (const r of ropes) {
+      if (!r.cut) {
+        if (r.d.dead) { cutRope(r, 0.5, true); continue; }
+        if (dt > 0) { // ¿algo atraviesa la cuerda? el gato en vuelo (aunque vaya lento) o cualquier pieza que vuele rápido
+          const cuts = []; if (flying && !flying.exploded) cuts.push([flying.body, (flying.body.circleRadius || CAT_R) * 0.9]);
+          for (const o of dyn) if (o !== r.d && !o.dead && o.body.speed > 4) cuts.push([o.body, Math.min(o.w, o.h) * 0.45]);
+          for (const [b, rad] of cuts) { const s = segDist(r, b.position.x, b.position.y); if (s.dist < rad && s.u > 0.04 && s.u < 0.97) { cutRope(r, s.u); break; } }
+        }
+      } else if (dt > 0) { const c = r.cut; c.t += dt; // péndulo amortiguado para el pedazo que queda en el gancho
+        c.w += (-Math.sin(c.th) * 765 / Math.max(40, c.top) - c.w * 1.2) * dt; c.th += c.w * dt; }
+      drawRope(r);
+    }
+  }
+  function drawRope(r) {
+    const g = r.g; g.clear(); const A = r.A;
+    const line = (x0, y0, x1, y1, a = 1) => { g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0x3E2A16, width: 11, alpha: a, cap: 'round'});
+      g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0xB8894E, width: 6, alpha: a, cap: 'round'});
+      // trenzado: rayitas diagonales a lo largo
+      const L = Math.hypot(x1 - x0, y1 - y0), ux = (x1 - x0) / (L || 1), uy = (y1 - y0) / (L || 1);
+      for (let s = 9; s < L - 4; s += 13) { const cx = x0 + ux * s, cy = y0 + uy * s; g.moveTo(cx - uy * 3 - ux * 3, cy + ux * 3 - uy * 3).lineTo(cx + uy * 3 + ux * 3, cy - ux * 3 + uy * 3); }
+      g.stroke({color: 0x6E4C26, width: 2, alpha: a}); };
+    const fray = (x, y, ang, a = 1) => { for (const k of [-0.5, 0, 0.5]) g.moveTo(x, y).lineTo(x + Math.sin(ang + k) * 12, y + Math.cos(ang + k) * 12); g.stroke({color: 0xB8894E, width: 3, alpha: a, cap: 'round'}); };
+    if (!r.cut) { const B = ropeEnd(r); line(A.x, A.y, B.x, B.y); g.circle(B.x, B.y, 9).fill(0x8E6638).stroke({color: 0x3E2A16, width: 3}); }
+    else { const c = r.cut, ex = A.x + Math.sin(c.th) * c.top, ey = A.y + Math.cos(c.th) * c.top; line(A.x, A.y, ex, ey); fray(ex, ey, c.th);
+      const a = Math.max(0, 1 - c.t / 1.4); // el cabo de abajo sigue al bloque y se desvanece
+      if (a > 0 && !r.d.dead) { const B = ropeEnd(r), v = r.d.body.velocity, sp = Math.hypot(v.x, v.y), th = sp > 1 ? Math.atan2(-v.x, -v.y) : Math.PI + r.d.body.angle, l = c.bot * 0.6;
+        const tx = B.x + Math.sin(th) * l, ty = B.y + Math.cos(th) * l; line(B.x, B.y, tx, ty, a); fray(tx, ty, th, a); } }
+    // gancho atornillado: placa de metal con tornillo y gancho
+    g.roundRect(A.x - 20, A.y - 30, 40, 22, 6).fill(0x9AA0AA).stroke({color: 0x2E3140, width: 4});
+    g.circle(A.x, A.y - 19, 4).fill(0x4A4F5C);
+    g.moveTo(A.x, A.y - 9).arc(A.x - 6, A.y + 2, 9, -Math.PI / 2 + 0.6, Math.PI * 0.9).stroke({color: 0x2E3140, width: 9, cap: 'round'});
+    g.moveTo(A.x, A.y - 9).arc(A.x - 6, A.y + 2, 9, -Math.PI / 2 + 0.6, Math.PI * 0.9).stroke({color: 0xC9CED6, width: 4, cap: 'round'});
+  }
+  function clearRopes() { for (const r of ropes) { if (!r.cut) Composite.remove(engine.world, r.c); if (!r.g.destroyed) r.g.destroy(); } ropes.length = 0; }
   // SALAS (AB2): un nivel puede tener varias fortalezas seguidas (level.rooms = [{blocks, mice}, …] después de la principal).
   // Al limpiar una sala, la siguiente entra con las cartas que quedan; el puntaje y el Destructómetro siguen.
   let roomIdx = 0; const roomSp = [];
@@ -1525,6 +1589,7 @@ async function main() {
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[mat] * Math.sqrt(b.w * b.h / (110 * 110));
       dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin, life, max: life, texs, dmg: 0});
+      if (b.hang) makeRope(dyn[dyn.length - 1], b, top);
       // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
       if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
         const bar = new Graphics(); front.addChild(bar);
@@ -1556,7 +1621,7 @@ async function main() {
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
     for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
-    dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = 0; roomSp.splice(0).forEach(o => o.destroy());
+    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
   }
@@ -1637,7 +1702,7 @@ async function main() {
     while (acc >= STEP_MS) { Engine.update(engine, STEP_MS); acc -= STEP_MS; }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
-    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt);
+    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);
     { // zumbido del motor: volumen por distancia a la cámara, paneo según el lado de la pantalla
       const r = !menus.blocking && !ui.open && dyn.find(d => d.patrol);
       if (r) { const rp = r.body.position, sxp = (rp.x - cam.x) * cam.zoom / (app.screen.width / 2), k = Math.max(0, 1 - Math.max(0, Math.abs(sxp) - 1) * 0.8);
@@ -1694,6 +1759,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead})); }, cutRopesNear, castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

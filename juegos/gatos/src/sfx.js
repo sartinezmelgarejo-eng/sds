@@ -263,3 +263,6 @@ export function sprinkle(v = 1) { if (!ok('sprk', 0.1)) return; const t = ctx.cu
 export function bang(v = 1) { if (!ok('bang', 0.06)) return; const t = ctx.currentTime; noise(t, 0.09, 'highpass', 1200, 0.7, 0.9 * v, 0.08); noise(t, 0.2, 'lowpass', 600, 0.8, 0.5 * v, 0.16); tone(t, 210, 'sine', 0.35 * v, 0.1, 70); } // ¡pum! de globo que truena
 export function sizzle(v = 0.6) { if (!ok('sizz', 0.08)) return; const t = ctx.currentTime; noise(t, 0.28, 'highpass', 3800, 0.7, 0.16 * v, 0.26);
   for (let i = 0; i < 5; i++) noise(t + i * rnd(0.02, 0.06), 0.015, 'bandpass', rnd(2200, 5200), 3, 0.22 * v, 0.012); } // chisporroteo del chile (bloque al rojo vivo)
+// cuerda que revienta: chasquido seco + "twang" que baja
+export function snap(v = 0.8) { if (!ok('snap', 0.1)) return; const t = ctx.currentTime; noise(t, 0.06, 'highpass', 2500, 0.8, 0.5 * v, 0.05);
+  tone(t, 620, 'triangle', 0.22 * v, 0.28, 150); tone(t + 0.01, 1240, 'sine', 0.06 * v, 0.12, 400); }
