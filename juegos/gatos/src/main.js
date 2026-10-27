@@ -1571,6 +1571,33 @@ async function main() {
     g.moveTo(A.x, A.y - 9).arc(A.x - 6, A.y + 2, 9, -Math.PI / 2 + 0.6, Math.PI * 0.9).stroke({color: 0x2E3140, width: 9, cap: 'round'});
     g.moveTo(A.x, A.y - 9).arc(A.x - 6, A.y + 2, 9, -Math.PI / 2 + 0.6, Math.PI * 0.9).stroke({color: 0xC9CED6, width: 4, cap: 'round'});
   }
+  // RAMA de árbol en el plano de juego (Jardín, para colgar cosas): "branch": -1/1 = de qué lado está el tronco.
+  // Todo es decorado detrás del plano de juego (no choca): solo sirve de gancho. Con colisión, la rama se comía los tiros bombeados.
+  function drawBranch(b, cy) {
+    const g = new Graphics(), s = b.branch, tx = b.x + s * (b.w / 2 + 10), x1 = b.x - s * (b.w / 2), top = cy - b.h / 2, bot = cy + b.h / 2;
+    const BARK = 0x8A5A30, DARK = 0x3E2A16, LITE = 0xB07A44;
+    // tronco: ancho con raíces abajo, se adelgaza hacia la rama, un poco chueco
+    g.moveTo(tx - 95, GROUND + 6).quadraticCurveTo(tx - 52, GROUND - 20, tx - 50, GROUND - 120).bezierCurveTo(tx - 40, GROUND - 420, tx - 46, top + 160, tx - 30, top - 150)
+     .lineTo(tx + 30, top - 150).bezierCurveTo(tx + 44, top + 200, tx + 38, GROUND - 380, tx + 52, GROUND - 120).quadraticCurveTo(tx + 56, GROUND - 20, tx + 100, GROUND + 6).closePath().fill(BARK).stroke({color: DARK, width: 7, join: 'round'});
+    g.moveTo(tx + 14, GROUND - 60).bezierCurveTo(tx + 24, GROUND - 400, tx + 8, top + 260, tx + 14, top - 80).stroke({color: LITE, width: 8, alpha: 0.45, cap: 'round'});
+    g.moveTo(tx - 22, GROUND - 30).bezierCurveTo(tx - 26, GROUND - 300, tx - 30, top + 300, tx - 20, top - 60).stroke({color: DARK, width: 5, alpha: 0.25, cap: 'round'});
+    for (let k = 0; k < 8; k++) { const y = GROUND - 140 - k * (GROUND - top) / 9, o = (k % 2 ? 10 : -12); g.moveTo(tx - 16 + o, y).quadraticCurveTo(tx - 4 + o, y - 20, tx + 10 + o, y - 6).stroke({color: DARK, width: 3, alpha: 0.4, cap: 'round'}); }
+    g.ellipse(tx - 2, top + 260, 9, 13).fill(DARK).stroke({color: LITE, width: 3, alpha: 0.5});   // hueco de nudo
+    // rama: de grueso (pegada al tronco) a delgada en la punta, con una ramita hacia arriba
+    const r0 = b.h * 0.8, r1 = b.h * 0.42;
+    g.moveTo(tx, top - 6).lineTo(x1, cy - r1).quadraticCurveTo(x1 - s * 16, cy, x1, cy + r1).lineTo(tx, bot + 14 + r0 * 0.2).closePath().fill(BARK).stroke({color: DARK, width: 6, join: 'round'});
+    g.moveTo(tx - s * 10, top + 3).lineTo(x1 + s * 10, cy - r1 + 4).stroke({color: LITE, width: 4, alpha: 0.6, cap: 'round'});
+    const mx = b.x - s * b.w * 0.15; g.moveTo(mx, top + 4).quadraticCurveTo(mx - s * 30, top - 50, mx - s * 70, top - 80).stroke({color: DARK, width: 13, cap: 'round'}).moveTo(mx, top + 4).quadraticCurveTo(mx - s * 30, top - 50, mx - s * 70, top - 80).stroke({color: BARK, width: 7, cap: 'round'});
+    // copa: racimos de hojas con contorno, sombra abajo y brillo arriba-izquierda (luz del mundo)
+    const blob = (x, y, r) => { g.circle(x, y, r).fill(0x3F8A2E).stroke({color: 0x1F4A18, width: 6}); };
+    const crown = [[tx - s * 40, top - 280, 175], [tx - s * 230, top - 200, 125], [tx + s * 150, top - 230, 140], [tx + s * 300, top - 120, 95],
+      [tx - s * 330, top - 90, 80], [tx - s * 120, top - 120, 120], [mx - s * 60, top - 95, 70], [x1 - s * 10, cy - 40, 46], [tx + s * 90, top - 70, 70]];
+    for (const [x, y, r] of crown) blob(x, y, r);
+    for (const [x, y, r] of crown) g.circle(x, y, r - 3).fill(0x4FA23A);
+    for (const [x, y, r] of crown) g.circle(x - r * 0.18, y - r * 0.2, r * 0.68).fill(0x67BC48);
+    for (const [x, y, r] of crown) g.circle(x - r * 0.35, y - r * 0.4, r * 0.28).fill({color: 0x9BDB6A, alpha: 0.8});
+    behind.addChildAt(g, 0); return g;
+  }
   function clearRopes() { for (const r of ropes) { if (!r.cut) Composite.remove(engine.world, r.c); if (!r.g.destroyed) r.g.destroy(); } ropes.length = 0; }
   // SALAS (AB2): un nivel puede tener varias fortalezas seguidas (level.rooms = [{blocks, mice}, …] después de la principal).
   // Al limpiar una sala, la siguiente entra con las cartas que quedan; el puntaje y el Destructómetro siguen.
@@ -1582,6 +1609,7 @@ async function main() {
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
       // plataforma fija flotante (AB2): no se rompe ni se mueve; no cuenta para el Destructómetro
       // (b.a = ángulo en radianes → rampa; b.y es la altura del CENTRO de la cara superior)
+      if (b.static && b.branch) { roomSp.push(drawBranch(b, cy)); return; }
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
         const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); roomSp.push(sp); return; }
