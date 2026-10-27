@@ -1744,6 +1744,8 @@ async function main() {
   function makeMover(body, sp, b, cy) {
     const m = {body, sp, x0: b.x, y0: cy, dx: b.move.dx || 0, dy: -(b.move.dy || 0), T: b.move.T || 4, t: (b.move.ph || 0) * (b.move.T || 4)};
     body.mover = m; movers.push(m);
+    if (b.move.rot) return makeSeesaw(m, b, cy);
+    if (Math.abs(m.dy) > Math.abs(m.dx) && (b.move.hoist ?? bgTheme === 'lair')) return makeHoist(m, b, cy);
     const oy = b.h * 0.3 + 14, g = new Graphics(), x1 = b.x + m.dx, y1 = cy + oy + m.dy, L = Math.hypot(m.dx, m.dy) || 1, ux = m.dx / L, uy = m.dy / L;
     // elevador: el poste baja hasta el suelo con su base, para que se lea plantado
     if (Math.abs(m.dy) > Math.abs(m.dx)) { const yb = Math.max(cy + oy, y1);
@@ -1767,10 +1769,91 @@ async function main() {
     }
     sp.addChildAt(cart, 0); m.wheels = wh;
   }
+  // MONTACARGAS (La Guarida): el elevador cuelga de una cadena que pasa por una polea en una viga del techo, con contrapeso
+  // del otro lado que sube cuando la plataforma baja; la plataforma lleva eslinga de cadenas a un aro. Rechina y golpea en los topes.
+  const chainLine = (g, x0, y0, x1, y1, off = 0) => { const L = Math.hypot(x1 - x0, y1 - y0); if (L < 1) return; const ux = (x1 - x0) / L, uy = (y1 - y0) / L, P = 13;
+    g.moveTo(x0, y0).lineTo(x1, y1).stroke({color: 0x0C0A08, width: 3, alpha: 0.6});
+    for (let k = Math.floor(-off / P) - 1; k * P + off < L; k++) { const a = Math.max(0, k * P + off), e = Math.min(L, k * P + off + P - 2); if (e - a < 2) continue;
+      const odd = k & 1, ax = x0 + ux * a, ay = y0 + uy * a, ex = x0 + ux * e, ey = y0 + uy * e;
+      if (odd) g.moveTo(ax, ay).lineTo(ex, ey).stroke({color: 0x0C0A08, width: 4, cap: 'round'});
+      else g.moveTo(ax, ay).lineTo(ex, ey).stroke({color: 0x0C0A08, width: 9, cap: 'round'}).moveTo(ax, ay).lineTo(ex, ey).stroke({color: 0x7A726A, width: 3.5, cap: 'round'}); } };
+  function makeHoist(m, b, cy) {
+    const R = 26, HR = b.move.ring || 150, yTop = cy + Math.min(0, m.dy) - b.h / 2, PY = yTop - HR - (b.move.hook || 420), bx = b.x;
+    const g = new Graphics(), ix = bx + R;
+    // tirantes al techo + viga de fierro con remaches + horquilla de la polea
+    for (const sx of [-34, 2 * R + 34]) g.moveTo(bx + sx, PY - 1600).lineTo(bx + sx, PY - R - 30).stroke({color: 0x0C0A08, width: 8}).moveTo(bx + sx - 1.5, PY - 1600).lineTo(bx + sx - 1.5, PY - R - 30).stroke({color: 0x5A524A, width: 2});
+    g.rect(bx - 70, PY - R - 44, 2 * R + 140, 20).fill(0x3A342E).stroke({color: 0x0C0A08, width: 4}).rect(bx - 66, PY - R - 41, 2 * R + 132, 4).fill({color: 0xFFFFFF, alpha: 0.12});
+    for (let x = bx - 58; x < bx + 2 * R + 66; x += 24) g.circle(x, PY - R - 34, 2.6).fill(0x8A8078);
+    g.poly([ix - 12, PY - R - 24, ix + 12, PY - R - 24, ix + 7, PY, ix - 7, PY]).fill(0x4A423A).stroke({color: 0x0C0A08, width: 3});
+    const pul = new Graphics().circle(0, 0, R).fill(0x3A342E).stroke({color: 0x0C0A08, width: 5}).circle(0, 0, R - 7).stroke({color: 0x1A1410, width: 2});
+    for (let k = 0; k < 4; k++) { const a = k * Math.PI / 2; pul.moveTo(0, 0).lineTo(Math.cos(a) * (R - 7), Math.sin(a) * (R - 7)).stroke({color: 0x6B625A, width: 4}); }
+    pul.circle(0, 0, 6).fill(0xC9BFB4).stroke({color: 0x0C0A08, width: 2}).circle(-R * 0.45, -R * 0.45, 3).fill({color: 0xFFFFFF, alpha: 0.3});
+    pul.position.set(ix, PY);
+    // contrapeso: pesas de fierro apiladas con gancho
+    const cw = new Graphics().roundRect(-20, 14, 40, 74, 6).fill(0x2E2A26).stroke({color: 0x0C0A08, width: 4});
+    for (const y of [36, 60]) cw.moveTo(-18, y).lineTo(18, y).stroke({color: 0x0C0A08, width: 2.5});
+    cw.rect(-16, 18, 6, 66).fill({color: 0xFFFFFF, alpha: 0.1}).circle(0, 6, 7).stroke({color: 0x0C0A08, width: 4}).moveTo(0, 13).lineTo(0, 16).stroke({color: 0x0C0A08, width: 4});
+    const ch = new Graphics();
+    actors.addChildAt(g, 0); actors.addChildAt(ch, 1); actors.addChildAt(cw, 2); actors.addChildAt(pul, 3); roomSp.push(g, ch, cw, pul);
+    // eslinga: dos cadenas de las esquinas de la plataforma a un aro (coords de textura ×1.5); armellas en las esquinas
+    const S = 1.5, sl = new Graphics(), rx = b.w * 0.42, top = -b.h / 2;
+    for (const sx of [-1, 1]) chainLine(sl, sx * rx * S, top * S, 0, (top - HR) * S, 0);
+    for (const sx of [-1, 1]) sl.circle(sx * rx * S, top * S, 7).stroke({color: 0x0C0A08, width: 4}).fill(0x6B625A);
+    sl.circle(0, (top - HR) * S, 13).stroke({color: 0x0C0A08, width: 7}).circle(0, (top - HR) * S, 13).stroke({color: 0x8A8078, width: 2.5});
+    m.sp.addChild(steelDeck(b)); m.sp.addChildAt(sl, 0);
+    m.wheels = []; m.hoist = {R, HR, PY, ch, cw, pul, bx, ix, ringMax: cy + Math.max(0, m.dy) - b.h / 2 - HR};
+    drawHoist(m);
+  }
+  // charola de fierro con franja de peligro amarilla y negra (se lee "máquina", no repisa); coords de textura ×1.5
+  function steelDeck(b) {
+    const S = 1.5, W = b.w * S, Hh = b.h * S, dk = new Graphics().roundRect(-W / 2, -Hh / 2, W, Hh, 6).fill(0x4A4744);
+    for (let x = -W / 2 + 4; x < W / 2 - 4; x += 22) dk.poly([x, Hh * 0.05, x + 11, Hh * 0.05, x + 1, Hh / 2 - 3, x - 10, Hh / 2 - 3].map((v, i) => i & 1 ? v : Math.max(-W / 2 + 3, Math.min(W / 2 - 3, v)))).fill(0xF2B92B);
+    dk.rect(-W / 2 + 3, -Hh / 2 + 3, W - 6, 6).fill({color: 0xFFFFFF, alpha: 0.18});
+    for (const sx of [-0.4, -0.13, 0.13, 0.4]) dk.circle(sx * W, -Hh * 0.2, 3).fill(0x8A8078);
+    return dk.roundRect(-W / 2, -Hh / 2, W, Hh, 6).stroke({color: 0x0C0A08, width: 5});
+  }
+  function drawHoist(m) {
+    const H = m.hoist, q = m.body.position;
+    const ry = q.y - (m.body.bounds.max.y - m.body.bounds.min.y) / 2 - H.HR, cwy = H.PY + 70 + (H.ringMax - ry), g = H.ch.clear();
+    chainLine(g, H.bx, H.PY, H.bx, ry - 11, (ry - H.PY) % 26);
+    chainLine(g, H.bx + 2 * H.R, H.PY, H.bx + 2 * H.R, cwy - 1, (cwy - H.PY) % 26);
+    H.cw.position.set(H.bx + 2 * H.R, cwy - 1); H.pul.rotation = -(ry - H.ringMax) / H.R;
+  }
+  // BALANCÍN MOTORIZADO: "move": {"rot": grados, "T": s, "ph"} → la repisa se ladea ±rot alrededor de su centro (seno).
+  // Va montada en un poste plantado con un engrane de motor detrás del eje; lo de encima gira con ella alrededor del eje.
+  function makeSeesaw(m, b, cy) {
+    m.rot = b.move.rot * Math.PI / 180; m.w = b.w; m.h = b.h; m.wheels = [];
+    const g = new Graphics();
+    for (const [c, w] of [[0x1A1410, 16], [0x6B625A, 7]]) g.moveTo(b.x, GROUND).lineTo(b.x, cy).stroke({color: c, width: w, alpha: 0.9});
+    g.roundRect(b.x - 30, GROUND - 14, 60, 16, 5).fill(0x3A342E).stroke({color: 0x1A1410, width: 4});
+    g.roundRect(b.x - 34, cy + 34, 68, 46, 8).fill(0x4A423A).stroke({color: 0x1A1410, width: 4}).circle(b.x + 18, cy + 57, 5).fill(0xE04A2A).stroke({color: 0x1A1410, width: 2});
+    for (let y = cy + 44; y < cy + 74; y += 9) g.moveTo(b.x - 26, y).lineTo(b.x + 6, y).stroke({color: 0x1A1410, width: 2.5});
+    const R = Math.max(30, b.h * 1.1), gear = new Graphics(), n = 12;
+    for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2, c = Math.cos(a), s2 = Math.sin(a);
+      gear.poly([c * R - s2 * 6, s2 * R + c * 6, c * (R + 10) - s2 * 4, s2 * (R + 10) + c * 4, c * (R + 10) + s2 * 4, s2 * (R + 10) - c * 4, c * R + s2 * 6, s2 * R - c * 6]).fill(0x5A5148).stroke({color: 0x1A1410, width: 3}); }
+    gear.circle(0, 0, R).fill(0x5A5148).stroke({color: 0x1A1410, width: 4}).circle(0, 0, R * 0.55).stroke({color: 0x1A1410, width: 3});
+    for (let k = 0; k < 3; k++) { const a = k / 3 * Math.PI * 2; gear.circle(Math.cos(a) * R * 0.78, Math.sin(a) * R * 0.78, 4).fill(0x1A1410); }
+    gear.position.set(b.x, cy);
+    actors.addChildAt(g, 0); actors.addChildAt(gear, 1); roomSp.push(g, gear); m.gear = gear;
+    // perno del eje encima de la repisa
+    m.sp.addChild(steelDeck(b)); m.sp.addChild(new Graphics().circle(0, 0, 15).fill(0x8A8078).stroke({color: 0x0C0A08, width: 5}).moveTo(-8, 0).lineTo(8, 0).stroke({color: 0x0C0A08, width: 3}).circle(-4, -5, 3).fill({color: 0xFFFFFF, alpha: 0.4}));
+  }
   function moveMovers(ms) {
     const h = ms / 1000;
     for (const m of movers) {
-      m.t += h; const k = 0.5 - 0.5 * Math.cos(m.t / m.T * Math.PI * 2), b = m.body, nx = m.x0 + m.dx * k, ny = m.y0 + m.dy * k;
+      if (m.rot) { m.t += h; const b = m.body, P = b.position, A = b.angle, a = m.rot * Math.sin(m.t / m.T * Math.PI * 2), da = a - A, c = Math.cos(-A), sn = Math.sin(-A);
+        const half = Math.floor(m.t / m.T * 2 + 0.5); if (m.half != null && half !== m.half) SFX.creak('can', 0.25); m.half = half;
+        const ride = [], tops = [];
+        const onDeck = q => { const rx = q.position.x - P.x, ry = q.position.y - P.y, lx = rx * c - ry * sn, ly = rx * sn + ry * c, hh = (q.bounds.max.y - q.bounds.min.y) / 2;
+          return Math.abs(lx) < m.w / 2 + 6 && ly + hh > -m.h / 2 - 9 && ly + hh < -m.h / 2 + 14 && ly < 0; };
+        for (let pass = 0; pass < 3; pass++) for (const d of dyn) { const q = d.body; if (d.dead || ride.includes(q) || d.enter) continue; const cx = q.position.x;
+          if (onDeck(q) || tops.some(t => cx > t.bounds.min.x - 6 && cx < t.bounds.max.x + 6 && q.bounds.max.y > t.bounds.min.y - 7 && q.bounds.max.y < t.bounds.min.y + 12 && q.position.y < t.position.y)) { ride.push(q); tops.push(q); } }
+        Body.setAngle(b, a);
+        for (const q of ride) { Body.rotate(q, da, P); if (!q.isSleeping) { Body.setVelocity(q, {x: q.velocity.x * 0.8, y: q.velocity.y}); Body.setAngularVelocity(q, q.angularVelocity * 0.8); } }
+        for (const d of dyn) { const q = d.body; if (q.isSleeping && !ride.includes(q) && q.bounds.max.x > b.bounds.min.x - 2 && q.bounds.min.x < b.bounds.max.x + 2 && q.bounds.max.y > b.bounds.min.y && q.bounds.min.y < b.bounds.max.y + 2) Sleeping.set(q, false); }
+        continue; }
+      m.t += h; const half = Math.floor(m.t / m.T * 2); if (m.hoist && m.half != null && half !== m.half) SFX.clank(0.5); m.half = half;
+      const k = 0.5 - 0.5 * Math.cos(m.t / m.T * Math.PI * 2), b = m.body, nx = m.x0 + m.dx * k, ny = m.y0 + m.dy * k;
       const dx = nx - b.position.x, dy = ny - b.position.y;
       // lo que va ENCIMA (y lo apilado sobre eso) viaja con ella aunque esté dormido: si no, un ratón redondo rueda en su lugar y se cae
       const ride = [], tops = [b];
@@ -1925,7 +2008,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); }
+    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);

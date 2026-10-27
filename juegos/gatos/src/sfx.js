@@ -266,3 +266,10 @@ export function sizzle(v = 0.6) { if (!ok('sizz', 0.08)) return; const t = ctx.c
 // cuerda que revienta: chasquido seco + "twang" que baja
 export function snap(v = 0.8) { if (!ok('snap', 0.1)) return; const t = ctx.currentTime; noise(t, 0.06, 'highpass', 2500, 0.8, 0.5 * v, 0.05);
   tone(t, 620, 'triangle', 0.22 * v, 0.28, 150); tone(t + 0.01, 1240, 'sine', 0.06 * v, 0.12, 400); }
+// montacargas que llega al tope: "clonc" metálico grave + traqueteo de cadena + rechinido de la polea al arrancar de vuelta
+export function clank(v = 0.5) { if (!ok('clank', 0.5)) return; const t = ctx.currentTime;
+  tone(t, 140, 'triangle', 0.16 * v, 0.25, 95); tone(t, 860, 'sine', 0.05 * v, 0.3); tone(t, 1337, 'sine', 0.03 * v, 0.22); noise(t, 0.08, 'lowpass', 700, 1, 0.25 * v, 0.07);
+  for (let i = 0; i < 5; i++) noise(t + 0.05 + i * rnd(0.03, 0.06), 0.02, 'bandpass', rnd(2500, 3800), 5, 0.12 * v, 0.018);
+  const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(1150, t + 0.4); o.frequency.linearRampToValueAtTime(980, t + 0.75);
+  g.gain.setValueAtTime(0.0001, t + 0.4); g.gain.exponentialRampToValueAtTime(0.018 * v, t + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.78);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 3; o.connect(f); f.connect(g); g.connect(master); o.start(t + 0.4); o.stop(t + 0.8); }
