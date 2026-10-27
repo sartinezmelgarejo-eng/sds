@@ -1967,12 +1967,16 @@ async function main() {
   // lo que lleva encima con el mismo código que las plataformas. Atrás, la rueda de madera con foquitos de feria sobre caballete.
   function makeWheel(b, i) {
     const W = b.move, n = W.cars || 4, R = W.r || 260, drop = W.drop || 64, CX = b.x, CY = GROUND - b.y, om = W.wheel * Math.PI / 180, a0 = b.a || -Math.PI / 2;
-    const INK = 0x2A1A10, WD = 0x9A6A3A, WL = 0xC08A50;
+    // La Guarida: rueda de FIERRO (vigas grises, placas atornilladas al piso, foquitos de alarma ámbar/rojo, charolas de fierro sin toldo)
+    const lair = bgTheme === 'lair', INK = lair ? 0x0C0A08 : 0x2A1A10, WD = lair ? 0x4A4542 : 0x9A6A3A, WL = lair ? 0x8A8078 : 0xC08A50;
     // caballete en A (dos patas por lado) con travesaño
     const g = new Graphics();
     for (const sx of [-1, 1]) { const fx = CX + sx * R * 0.62;
       g.poly([CX - 9, CY, CX + 9, CY, fx + 14 * sx + 9, GROUND - 4, fx + 14 * sx - 9, GROUND - 4]).fill(WD).stroke({color: INK, width: 4});
-      g.ellipse(fx + 14 * sx, GROUND - 2, 34, 9).fill(0x5A3A22).stroke({color: INK, width: 3}); }
+      if (lair) { g.roundRect(fx + 14 * sx - 32, GROUND - 12, 64, 14, 3).fill(0x3A342E).stroke({color: INK, width: 3});
+        for (const k of [-20, 20]) g.circle(fx + 14 * sx + k, GROUND - 5, 3).fill(0x8A8078);
+        for (let t = 0.2; t < 0.95; t += 0.25) { const ax = CX + (fx + 14 * sx - CX) * t, ay = CY + (GROUND - CY) * t; g.circle(ax, ay, 2.6).fill(0xC9BFB4); } }
+      else g.ellipse(fx + 14 * sx, GROUND - 2, 34, 9).fill(0x5A3A22).stroke({color: INK, width: 3}); }
     const yb = CY + (GROUND - CY) * 0.55, xb = R * 0.62 * 0.55 + 6;
     g.roundRect(CX - xb, yb - 7, xb * 2, 14, 4).fill(WL).stroke({color: INK, width: 3.5});
     // rueda: aro doble con rayos, foquitos de colores y pernos de las canastillas (gira completa)
@@ -1982,7 +1986,7 @@ async function main() {
     for (const [r, w] of [[R, 16], [R * 0.6, 11]]) rg.circle(0, 0, r).stroke({color: INK, width: w}).circle(0, 0, r).stroke({color: WD, width: w - 7});
     rg.circle(0, 0, R - 2).stroke({color: 0xFFFFFF, width: 1.5, alpha: 0.25});
     const lights = [];
-    for (let k = 0; k < n * 4; k++) { const a = Math.PI * 2 * k / (n * 4), l = new Graphics().circle(0, 0, 6).fill([0xFFD84A, 0xFF6A5A, 0x7FD4FF, 0xB8F070][k % 4]).stroke({color: INK, width: 2});
+    for (let k = 0; k < n * 4; k++) { const a = Math.PI * 2 * k / (n * 4), l = new Graphics().circle(0, 0, 6).fill((lair ? [0xFFB020, 0xFF3A2A] : [0xFFD84A, 0xFF6A5A, 0x7FD4FF, 0xB8F070])[k % (lair ? 2 : 4)]).stroke({color: INK, width: 2});
       l.position.set(Math.cos(a) * R * 0.8, Math.sin(a) * R * 0.8); wc.addChild(l); lights.push(l); }
     for (let k = 0; k < n; k++) { const a = Math.PI * 2 * k / n; rg.circle(Math.cos(a) * R, Math.sin(a) * R, 9).fill(0x6A6460).stroke({color: INK, width: 3}); }
     rg.circle(0, 0, 26).fill(WD).stroke({color: INK, width: 5}).circle(0, 0, 10).fill(0xC0392B).stroke({color: INK, width: 3}).circle(-8, -9, 4).fill({color: 0xFFFFFF, alpha: 0.4});
@@ -1993,13 +1997,15 @@ async function main() {
       const sp = new Container(); sp.position.set(x, y); actors.addChild(sp); roomSp.push(sp);
       // canastilla: colgadero en V desde el perno + techito de lona a rayas + piso de madera con barandal
       const S = 1.5, hg = new Graphics(), top = -drop * S, hw = b.w / 2 * S;
-      for (const sx of [-1, 1]) hg.moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: INK, width: 5}).moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: 0x8A8078, width: 2});
+      for (const sx of [-1, 1]) if (lair) chainLine(hg, 0, top + 18, sx * hw * 0.9, -b.h / 2 * S);
+        else hg.moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: INK, width: 5}).moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: 0x8A8078, width: 2});
       const cl = [0xE0483A, 0xF6EEDC][k & 1], roof = new Graphics();
-      roof.poly([-hw * 0.55, top + 34, 0, top + 8, hw * 0.55, top + 34]).fill(cl).stroke({color: INK, width: 3.5});
-      roof.moveTo(-hw * 0.55, top + 34).lineTo(hw * 0.55, top + 34).stroke({color: INK, width: 3.5});
+      if (lair) roof.circle(0, top + 10, 9).stroke({color: INK, width: 7}).circle(0, top + 10, 9).stroke({color: 0x7A726A, width: 3});   // aro de la eslinga
+      else { roof.poly([-hw * 0.55, top + 34, 0, top + 8, hw * 0.55, top + 34]).fill(cl).stroke({color: INK, width: 3.5});
+        roof.moveTo(-hw * 0.55, top + 34).lineTo(hw * 0.55, top + 34).stroke({color: INK, width: 3.5}); }
       for (const sx of [-1, 1]) hg.moveTo(sx * hw * 0.96, -b.h / 2 * S).lineTo(sx * hw * 0.96, -b.h / 2 * S - 26).stroke({color: INK, width: 5});
       hg.moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: INK, width: 4}).moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: WL, width: 1.5});
-      const deck = new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor.set(0.5);
+      const deck = lair ? steelDeck(b) : new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor?.set(0.5);
       const inner = new Container(); inner.scale.set(1 / S); inner.addChild(hg, roof); deck.scale.set(1 / S);
       sp.addChild(inner, deck);
       const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}};
@@ -2016,12 +2022,13 @@ async function main() {
     const cw = b.bounds.max.x - b.bounds.min.x, ch = b.bounds.max.y - b.bounds.min.y, mass = 0.0012 * cw * ch;
     Body.setStatic(b, false); b.density = 0.0012; b.mass = mass; b.inverseMass = 1 / mass; b.inertia = 4 * mass * (cw * cw + ch * ch) / 12; b.inverseInertia = 1 / b.inertia;
     b.friction = 0.9; b.restitution = 0.05; b.frictionAir = 0.004;
+    Sleeping.set(b, false);   // de estática acumuló sleepCounter: sin esto se duerme al instante y se queda flotando
     Body.setVelocity(b, {x: -Math.sin(wa) * v + Math.max(-4, Math.min(4, kx)), y: Math.cos(wa) * v - 1.5}); Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.06 + kx * 0.004);
     for (const d of dyn) { const q = d.body; if (q.bounds.max.x > b.bounds.min.x - 6 && q.bounds.min.x < b.bounds.max.x + 6 && q.bounds.max.y > b.bounds.min.y - 40 && q.bounds.min.y < b.bounds.max.y) { Sleeping.set(q, false);
       // el pasajero se da cuenta de que se cae (cara de susto + grito)
       if (d.mat === 'mouse' && !d.dead) { d.hurt = 0.5; say(d, ['¡AAAAH!', '¡MI JUEGO!', '¡ME BAJOOO!'][Math.floor(Math.random() * 3)], 1.3, 0.85); SFX.squeak(); } } }
-    const P = b.position, hy = P.y - W.drop; SFX.snap(0.9); SFX.creak('wood', 0.5);
-    fx.burst('box', P.x, hy, 7, 320, {up: 120, size: 0.5, life: 1.0, g: 900, w: 20, h: 20}); fx.smoke(P.x, hy, 40, 3);
+    const P = b.position, hy = P.y - W.drop; SFX.snap(0.9); const lair = bgTheme === 'lair'; if (lair) SFX.clank(0.6); else SFX.creak('wood', 0.5);
+    fx.burst(lair ? 'can' : 'box', P.x, hy, 7, 320, {up: 120, size: 0.5, life: 1.0, g: 900, w: 20, h: 20}); fx.smoke(P.x, hy, 40, 3);
   }
   function moveMovers(ms) {
     const h = ms / 1000;
@@ -2044,7 +2051,7 @@ async function main() {
         for (const q of ride) { Body.rotate(q, da, P); if (!q.isSleeping) { Body.setVelocity(q, {x: q.velocity.x * 0.8, y: q.velocity.y}); Body.setAngularVelocity(q, q.angularVelocity * 0.8); } }
         for (const d of dyn) { const q = d.body; if (q.isSleeping && !ride.includes(q) && q.bounds.max.x > b.bounds.min.x - 2 && q.bounds.min.x < b.bounds.max.x + 2 && q.bounds.max.y > b.bounds.min.y && q.bounds.min.y < b.bounds.max.y + 2) Sleeping.set(q, false); }
         continue; }
-      m.t += h; const half = Math.floor(m.t / m.T * 2); if (m.hoist && m.half != null && half !== m.half) SFX.clank(0.5); if (m.wc && m.half != null && half !== m.half && !(half & 3)) SFX.creak('wood', 0.1); m.half = half;
+      m.t += h; const half = Math.floor(m.t / m.T * 2); if (m.hoist && m.half != null && half !== m.half) SFX.clank(0.5); if (m.wc && m.half != null && half !== m.half && !(half & 3)) SFX.creak(bgTheme === 'lair' ? 'can' : 'wood', 0.1); m.half = half;
       const k = 0.5 - 0.5 * Math.cos(m.t / m.T * Math.PI * 2), b = m.body, W = m.whl, wa = W && W.ph + W.om * m.t;
       const nx = W ? W.CX + Math.cos(wa) * W.R : m.x0 + m.dx * k, ny = W ? W.CY + Math.sin(wa) * W.R + W.drop : m.y0 + m.dy * k;
       const dx = nx - b.position.x, dy = ny - b.position.y;
