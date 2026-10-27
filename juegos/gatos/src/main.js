@@ -1293,6 +1293,13 @@ async function main() {
     }
   });
 
+  // plataformas con máquina (carrito, montacargas, balancín): un golpe fuerte las cimbra y suena el fierro
+  Matter.Events.on(engine, 'collisionStart', ev => {
+    for (const pr of ev.pairs) { const A = pr.bodyA, B = pr.bodyB, m = A.mover || B.mover; if (!m) continue;
+      const n = pr.collision.normal, closing = Math.abs((A.velocity.x - B.velocity.x) * n.x + (A.velocity.y - B.velocity.y) * n.y);
+      if (closing < 4) continue; const k = Math.min(1, closing / 18);
+      if (k > (m.jolt || 0) + 0.15) { m.jolt = k; SFX.clank(0.25 + 0.5 * k); } }
+  });
   // en cada golpe fuerte el gato suelta mechones de pelo de SU color (como las plumas de AB2)
   Matter.Events.on(engine, 'collisionStart', ev => {
     if (!flying || flying.exploded) return;
@@ -2008,7 +2015,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } }
+    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);
