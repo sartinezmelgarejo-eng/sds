@@ -2020,12 +2020,13 @@ async function main() {
   // Lo que cae ENCIMA sale rebotado con MÁS fuerza (e hasta 1.15 gatos, 0.85 lo demás; de lado ~0.45), "boing" y el sprite gelatinea.
   function makeBumper(b, cy) {
     const w = b.w, h = b.h, shroom = (b.bump === 'shroom') || (b.bump === true && bgTheme === 'garden'), INK = 0x2A1A10;
-    const body = Bodies.rectangle(b.x, cy, w, h, {isStatic: true, friction: 0.4, label: 'bumper', chamfer: {radius: [h * 0.85, h * 0.85, 6, 6]}});
+    const bed = (b.bump === 'spring') || (b.bump === true && bgTheme === 'lair'), ch = bed ? Math.min(h * 0.3, 22) : h * 0.85;
+    const body = Bodies.rectangle(b.x, cy, w, h, {isStatic: true, friction: 0.4, label: 'bumper', chamfer: {radius: [ch, ch, 6, 6]}});
     Composite.add(engine.world, body); shelves.push(body);
     const base = cy + h / 2, g = new Graphics(), sp = new Container(); sp.position.set(b.x, base); sp.addChild(g);
     if (shroom) {
       // tallo hasta el piso (también sólido; no rebota)
-      const sh = GROUND - base;
+      const sh = b.stem ?? GROUND - base;   // `stem`: tallo corto (hongo que nace en una repisa/piedra alta)
       if (sh > 8) { const sw = w * 0.3, st = Bodies.rectangle(b.x, base + sh / 2, sw * 0.9, sh, {isStatic: true, friction: 0.9, label: 'shelf'}); Composite.add(engine.world, st); shelves.push(st);
         const sg = new Graphics(); sg.poly([-sw * 0.42, 0, sw * 0.42, 0, sw * 0.55, sh, -sw * 0.55, sh]).fill(0xF4E9D2).stroke({color: INK, width: 5});
         sg.poly([sw * 0.12, 4, sw * 0.38, 4, sw * 0.48, sh - 4, sw * 0.2, sh - 4]).fill({color: 0xC9B48E, alpha: 0.6});
@@ -2038,6 +2039,28 @@ async function main() {
       for (const [x, y, r] of [[-0.28, -0.35, 0.09], [0.05, -0.7, 0.11], [0.3, -0.3, 0.08], [-0.05, -0.22, 0.06], [-0.38, -0.08, 0.05], [0.4, -0.06, 0.05]])
         g.ellipse(x * w, y * h, r * w, r * w * 0.8).fill(0xFFF6E8).stroke({color: 0xC9B8A0, width: 2});
       g.ellipse(-w * 0.22, -h * 0.72, w * 0.12, h * 0.12).fill({color: 0xFFFFFF, alpha: 0.55});
+    } else if (bed) {
+      // La Guarida: COLCHÓN de resortes viejo (rayas de cotí, manchas, un resorte zafado) sobre su base de resortes y una tarima
+      const mh = h * 0.5, kh = h - mh - 12, top = -h;
+      g.rect(-w / 2 - 6, -12, w + 12, 12).fill(0x5A3E26).stroke({color: 0x0C0A08, width: 4});                                    // tarima
+      for (let k = -2; k <= 2; k++) g.rect(k * w * 0.2 - 4, -12, 8, 12).fill({color: 0x2A1A10, alpha: 0.5});
+      const ns = Math.max(3, Math.round(w / 55)), sw = w / ns;
+      for (let k = 0; k < ns; k++) { const cx = -w / 2 + sw * (k + 0.5), pts = []; const turns = 4;                        // resortes en zigzag
+        for (let j = 0; j <= turns * 2; j++) pts.push(cx + (j % 2 ? 1 : -1) * sw * 0.32, -12 - kh * j / (turns * 2));
+        g.poly(pts, false).stroke({color: 0x1A1612, width: 7}); g.poly(pts, false).stroke({color: 0xA8A49C, width: 3.5}); }
+      g.roundRect(-w / 2, top, w, mh, Math.min(22, mh * 0.45)).fill(0xE6D9B8).stroke({color: 0x0C0A08, width: 5});         // colchón
+      for (let x = -w / 2 + 14; x < w / 2 - 6; x += 22) g.rect(x, top + 5, 7, mh - 10).fill({color: 0x3E6A9E, alpha: 0.75});   // rayas de cotí
+      g.ellipse(-w * 0.18, top + mh * 0.55, w * 0.14, mh * 0.22).fill({color: 0x8A6A2A, alpha: 0.35});                      // manchas
+      g.ellipse(w * 0.24, top + mh * 0.35, w * 0.08, mh * 0.16).fill({color: 0x6A4A1A, alpha: 0.3});
+      for (let k = 1; k < 4; k++) { const tx = -w / 2 + w * k / 4; g.circle(tx, top + mh * 0.5, 4).fill(0x3A2A1A); }        // botones del capitonado
+      g.moveTo(-w / 2 + 6, top + mh - 8).lineTo(w / 2 - 6, top + mh - 8).stroke({color: 0x8A7A5A, width: 3});            // costura
+      g.roundRect(-w / 2 + 8, top + 4, w - 16, mh * 0.22, 8).fill({color: 0xFFFFFF, alpha: 0.25});
+      const hx = -w * 0.3, hy = top + mh * 0.3;                                                                                   // rasgadura con relleno
+      g.ellipse(hx, hy, w * 0.07, mh * 0.16).fill(0x2A1A10); g.circle(hx - 4, hy - 2, mh * 0.12).fill(0xF2EEE2).circle(hx + 6, hy + 3, mh * 0.09).fill(0xE0D8C4);
+      g.roundRect(-w / 2, top, w, mh, Math.min(22, mh * 0.45)).stroke({color: 0x0C0A08, width: 5});
+      const rx = w * 0.32; g.moveTo(rx, top + 6).bezierCurveTo(rx + 6, top - 22, rx - 22, top - 20, rx - 10, top - 8)          // resorte zafado
+        .bezierCurveTo(rx, top - 2, rx + 12, top - 30, rx + 4, top - 34).stroke({color: 0x1A1612, width: 6});
+      g.moveTo(rx, top + 6).bezierCurveTo(rx + 6, top - 22, rx - 22, top - 20, rx - 10, top - 8).bezierCurveTo(rx, top - 2, rx + 12, top - 30, rx + 4, top - 34).stroke({color: 0xB8B4AC, width: 3});
     } else {
       // gelatina de molde (verde limón translúcida, con estrías) en su plato, con cereza arriba
       g.ellipse(0, 4, w * 0.62, 14).fill(0xF4F2EC).stroke({color: INK, width: 4}); g.ellipse(0, 1, w * 0.48, 8).fill(0xE2DED4);
@@ -2049,19 +2072,21 @@ async function main() {
       g.circle(0, -h - 12, 15).fill(0xD81E2C).stroke({color: INK, width: 4}).circle(-5, -h - 17, 5).fill({color: 0xFFFFFF, alpha: 0.6});
     }
     actors.addChild(sp); roomSp.push(sp);
-    const bp = {body, sp, wob: 0, t: 0}; body.bumper = bp; bumpers.push(bp);
+    const bp = {body, sp, wob: 0, t: 0, bed}; body.bumper = bp; bumpers.push(bp);
   }
   Matter.Events.on(engine, 'collisionStart', ev => {
     for (const pr of ev.pairs) { const A = pr.bodyA, B = pr.bodyB, bp = A.bumper || B.bumper; if (!bp) continue;
       const o = A.bumper ? B : A; if (o.isStatic) continue;
       let nx = pr.collision.normal.x, ny = pr.collision.normal.y; if ((o.position.x - bp.body.position.x) * nx + (o.position.y - bp.body.position.y) * ny < 0) { nx = -nx; ny = -ny; }
+      bp.dbg = [Math.round(nx * 100) / 100, Math.round(ny * 100) / 100, Math.round(o.velocity.x * 10) / 10, Math.round(o.velocity.y * 10) / 10];
+      if (-ny > 0.5) { nx *= 0.35; const l = Math.hypot(nx, ny); nx /= l; ny /= l; }   // desde arriba: trampolín (casi vertical; la cúpula no lo regresa)
       const vn = o.velocity.x * nx + o.velocity.y * ny; if (vn > -1.5) continue;   // sólo lo que llega de frente
       const again = o.bumpT != null && time - o.bumpT < 1.2; o.bumpT = time;   // rebotes seguidos se apagan (si no, trampolín infinito)
       const up = Math.max(0, -ny), cat = o.label === 'cat', e = again ? 0.5 : 0.45 + (cat ? 0.7 : 0.4) * up, out = Math.max(-vn * e, up > 0.5 && !again ? (cat ? 7 : 3) : 0), dv = out - vn;   // de arriba: trampolín; de lado: rebote suave
       Sleeping.set(o, false); Body.setVelocity(o, {x: o.velocity.x + nx * dv, y: o.velocity.y + ny * dv});
       const k = Math.min(1, -vn / 16); if (k > bp.wob * 0.6) { bp.wob = 0.12 + 0.2 * k; bp.t = 0; }
-      bp.n = (bp.n || 0) + 1; SFX.boing(0.35 + 0.6 * k); const sp = pr.collision.supports?.[0] || o.position;
-      fx.burst('star', sp.x, sp.y, Math.round(3 + 5 * k), 260, {up: 120, size: 0.5, life: 0.6, g: 500}); if (k > 0.4) cam.shake(4 + 6 * k);
+      bp.n = (bp.n || 0) + 1; (bp.bed ? SFX.spring : SFX.boing)(0.35 + 0.6 * k); const sp = pr.collision.supports?.[0] || o.position;
+      fx.burst('star', sp.x, sp.y, Math.round(3 + 5 * k), 260, {up: 120, size: 0.5, life: 0.6, g: 500}); if (bp.bed) fx.burst('smoke', sp.x, sp.y, Math.round(2 + 4 * k), 160, {up: 40, size: 0.6, life: 0.9, g: -30});   // polvo viejo del colchón if (k > 0.4) cam.shake(4 + 6 * k);
       if (o.label === 'cat' && flying && o === flying.body && k > 0.3) flying.sprite.scale.set(0.5 * 1.25, 0.5 * 0.75);   // squash del gato
     }
   });
@@ -2349,6 +2374,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

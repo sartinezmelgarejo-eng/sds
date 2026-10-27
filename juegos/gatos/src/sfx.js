@@ -279,3 +279,11 @@ export function clank(v = 0.5) { if (!ok('clank', 0.5)) return; const t = ctx.cu
 // ¡boing! del hongo/gelatina rebotadora: resorte que sube y tiembla
 export function boing(v = 0.7) { if (!ok('boing', 0.12)) return; const t = ctx.currentTime;
   tone(t, 150, 'sine', 0.5 * v, 0.42, 520); tone(t + 0.04, 300, 'triangle', 0.16 * v, 0.3, 760); tone(t + 0.16, 420, 'sine', 0.12 * v, 0.25, 260); noise(t, 0.06, 'lowpass', 500, 1, 0.3 * v, 0.05); }
+// colchón de resortes viejo de La Guarida: "boiiing" metálico con vibrato + rechinido de resortes oxidados
+export function spring(v = 0.7) { if (!ok('boing', 0.12)) return; const t = ctx.currentTime;
+  const o = ctx.createOscillator(), l = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain(); o.type = 'triangle';
+  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(420, t + 0.35); l.frequency.value = 22; lg.gain.value = 40;
+  l.connect(lg); lg.connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32 * v, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+  o.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + 0.55); l.stop(t + 0.55);
+  noise(t, 0.05, 'lowpass', 400, 1, 0.3 * v, 0.05);
+  for (let i = 0; i < 3; i++) noise(t + 0.06 + i * rnd(0.05, 0.09), 0.05, 'bandpass', rnd(1800, 2600), 9, 0.1 * v, 0.05); }
