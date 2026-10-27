@@ -1745,16 +1745,27 @@ async function main() {
     const m = {body, sp, x0: b.x, y0: cy, dx: b.move.dx || 0, dy: -(b.move.dy || 0), T: b.move.T || 4, t: (b.move.ph || 0) * (b.move.T || 4)};
     body.mover = m; movers.push(m);
     const oy = b.h * 0.3 + 14, g = new Graphics(), x1 = b.x + m.dx, y1 = cy + oy + m.dy, L = Math.hypot(m.dx, m.dy) || 1, ux = m.dx / L, uy = m.dy / L;
+    // elevador: el poste baja hasta el suelo con su base, para que se lea plantado
+    if (Math.abs(m.dy) > Math.abs(m.dx)) { const yb = Math.max(cy + oy, y1);
+      for (const [c, w] of [[0x1A1410, 10], [0x6B625A, 4]]) g.moveTo(b.x, GROUND).lineTo(b.x, yb).stroke({color: c, width: w, alpha: 0.85});
+      g.roundRect(b.x - 22, GROUND - 12, 44, 14, 5).fill(0x3A342E).stroke({color: 0x1A1410, width: 4}); }
     for (const [c, w] of [[0x1A1410, 10], [0x6B625A, 4]]) g.moveTo(b.x - ux * 14, cy + oy - uy * 14).lineTo(x1 + ux * 14, y1 + uy * 14).stroke({color: c, width: w, cap: 'round', alpha: 0.85});
     for (let k = 1; k < L / 46; k++) g.circle(b.x + ux * k * 46, cy + oy + uy * k * 46, 2.2).fill({color: 0x1A1410, alpha: 0.6});
     for (const [x, y] of [[b.x, cy + oy], [x1, y1]]) g.circle(x, y, 11).fill(0x3A342E).stroke({color: 0x1A1410, width: 4}).circle(x - 3, y - 3, 3).fill({color: 0xFFFFFF, alpha: 0.35});
     actors.addChildAt(g, 0); roomSp.push(g);
     // carrito de dos ruedas abajo de la plataforma, montado en el riel (las ruedas giran al avanzar)
-    const cart = new Container(), S = 1.5, wh = [];
-    cart.addChild(new Graphics().roundRect(-b.w * 0.32 * S, b.h * 0.3 * S, b.w * 0.64 * S, 12 * S, 5 * S).fill(0x4A423A).stroke({color: 0x1A1410, width: 3 * S}));
-    for (const sx of [-0.24, 0.24]) { const w = new Graphics().circle(0, 0, 10 * S).fill(0x2A2622).stroke({color: 0x1A1410, width: 3 * S}).rect(-1.5 * S, -8 * S, 3 * S, 16 * S).fill(0x8A8078).circle(0, 0, 3 * S).fill(0xC9BFB4);
-      w.position.set(sx * b.w * S, (b.h * 0.3 + 14) * S); cart.addChild(w); wh.push(w); }
-    sp.addChild(cart); m.wheels = wh;
+    // (elevador vertical: en vez del carrito, una abrazadera con dos ruedas que muerden el poste y giran en sentidos opuestos)
+    const cart = new Container(), S = 1.5, wh = [], vert = Math.abs(m.dy) > Math.abs(m.dx);
+    const wheel = () => new Graphics().circle(0, 0, 10 * S).fill(0x2A2622).stroke({color: 0x1A1410, width: 3 * S}).rect(-1.5 * S, -8 * S, 3 * S, 16 * S).fill(0x8A8078).circle(0, 0, 3 * S).fill(0xC9BFB4);
+    if (vert) {
+      cart.addChild(new Graphics().roundRect(-30 * S, b.h * 0.3 * S, 60 * S, 10 * S, 4 * S).fill(0x4A423A).stroke({color: 0x1A1410, width: 3 * S})
+        .roundRect(-9 * S, (b.h * 0.3 + 6) * S, 18 * S, 22 * S, 4 * S).fill(0x5A5148).stroke({color: 0x1A1410, width: 3 * S}));
+      for (const sx of [-1, 1]) { const w = wheel(); w.position.set(sx * 17 * S, (b.h * 0.3 + 16) * S); w.dir = sx; cart.addChild(w); wh.push(w); }
+    } else {
+      cart.addChild(new Graphics().roundRect(-b.w * 0.32 * S, b.h * 0.3 * S, b.w * 0.64 * S, 12 * S, 5 * S).fill(0x4A423A).stroke({color: 0x1A1410, width: 3 * S}));
+      for (const sx of [-0.24, 0.24]) { const w = wheel(); w.position.set(sx * b.w * S, (b.h * 0.3 + 14) * S); cart.addChild(w); wh.push(w); }
+    }
+    sp.addChildAt(cart, 0); m.wheels = wh;
   }
   function moveMovers(ms) {
     const h = ms / 1000;
@@ -1914,7 +1925,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + q.y - m.py) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); }
+    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);
