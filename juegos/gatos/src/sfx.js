@@ -220,6 +220,9 @@ export function fanfare() { if (!ctx) return; const t = ctx.currentTime; [523, 6
 
 // crujido de una pieza que se tambalea (k 0..1): madera/cartón = rechinido de fricción (clics cada vez más rápidos),
 // vidrio/maceta = tintineo, lata/piedra = raspón grave
+// ventilador: "fuup" suave de aire por cada aspa que pasa + un zumbidito de motor
+export function fan(v = 0.5) { if (!ok('fan', 0.1)) return; const t = ctx.currentTime;
+  noise(t, 0.16, 'bandpass', 650, 1.4, 0.07 * v, 0.14, 1100); tone(t, 118, 'triangle', 0.018 * v, 0.14); }
 export function creak(mat, k = 0.5) { mat = ROUND[mat] || mat;
   if (!ok('creak', 0.35)) return; const t = ctx.currentTime, v = 0.25 + 0.75 * k;
   if (mat === 'jar' || mat === 'pot') { const f = rnd(2400, 3200); tone(t, f, 'sine', 0.05 * v, 0.12); tone(t + rnd(0.05, 0.1), f * 1.33, 'sine', 0.035 * v, 0.1); return; }

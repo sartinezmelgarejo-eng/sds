@@ -1833,7 +1833,12 @@ async function main() {
     const g = new Graphics(), R = Math.max(30, b.h * 1.1), gear = new Graphics(), wood = bgTheme !== 'lair';
     if (wood) {
       // Cocina/Jardín: tabla de madera sobre un poste de madera clavado en un montoncito de tierra, con rueda de manivela
-      g.ellipse(b.x, GROUND - 2, 46, 14).fill(0x5A3A22).stroke({color: 0x2A1A10, width: 4}).ellipse(b.x - 10, GROUND - 7, 18, 5).fill({color: 0xFFFFFF, alpha: 0.12});
+      if (bgTheme === 'kitchen') {
+        // en la Cocina no hay tierra: el poste se atornilla a un pie de madera con dos escuadras
+        for (const sx of [-1, 1]) g.poly([b.x + sx * 10, GROUND - 70, b.x + sx * 10, GROUND - 14, b.x + sx * 46, GROUND - 14]).fill(0x7A4E2A).stroke({color: 0x2A1A10, width: 4});
+        g.roundRect(b.x - 58, GROUND - 18, 116, 18, 5).fill(0x9A6A3A).stroke({color: 0x2A1A10, width: 4}).rect(b.x - 52, GROUND - 15, 104, 4).fill({color: 0xFFFFFF, alpha: 0.18});
+        for (const sx of [-40, 40]) g.circle(b.x + sx, GROUND - 9, 3.5).fill(0x6A6460).stroke({color: 0x2A1A10, width: 1.5});
+      } else g.ellipse(b.x, GROUND - 2, 46, 14).fill(0x5A3A22).stroke({color: 0x2A1A10, width: 4}).ellipse(b.x - 10, GROUND - 7, 18, 5).fill({color: 0xFFFFFF, alpha: 0.12});
       g.roundRect(b.x - 11, cy, 22, GROUND - cy - 6, 4).fill(0x8A5A32).stroke({color: 0x2A1A10, width: 4});
       for (let y = cy + 40; y < GROUND - 30; y += 70) g.moveTo(b.x - 4, y).lineTo(b.x - 2, y + 30).stroke({color: 0x5A3A22, width: 2});
       g.rect(b.x - 7, cy + 6, 4, GROUND - cy - 18).fill({color: 0xFFFFFF, alpha: 0.12});
@@ -1862,6 +1867,7 @@ async function main() {
   // que dan vueltas sin parar sobre un eje (b.a = ángulo inicial). Cuerpo compuesto estático con velocidad angular, así lo que
   // golpean sale barrido (gato incluido). Cocina/Jardín: molino de madera con velas de tela; La Guarida: hélice de fierro con motor.
   function makeSpinner(b, cy, i) {
+    if (b.move.fan ?? bgTheme === 'kitchen') return makeFan(b, cy);
     const n = b.move.arms || 4, a0 = b.a || 0, parts = [];
     for (let k = 0; k < n; k++) { const a = Math.PI * k / n; parts.push(Bodies.rectangle(b.x, cy, b.w, b.h, {angle: a, chamfer: {radius: b.h * 0.3}})); }
     const body = Body.create({parts, isStatic: true, friction: 0.6, label: 'shelf'}); Body.setAngle(body, a0);
@@ -1904,13 +1910,62 @@ async function main() {
     hub.circle(0, 0, b.h * 0.32).fill(wood ? 0xC0392B : 0x8A8078).stroke({color: 0x0C0A08, width: 3}).circle(-b.h * 0.3, -b.h * 0.35, 4).fill({color: 0xFFFFFF, alpha: 0.35});
     sp.addChild(hub);
   }
+  // VENTILADOR DE PEDESTAL (Cocina): mismas aspas que giran, pero con skin de ventilador retro visto de frente: "blades" aspas
+  // de plástico (default 3, b.w = diámetro, b.h = grueso físico), rejilla trasera de alambre, poste cromado y base con botones.
+  // Cuerpo compuesto: una tabla por aspa (del cubo a la punta) + el cubo redondo. Barre lo que toca, como el molino.
+  function makeFan(b, cy) {
+    const n = b.move.blades || 3, a0 = b.a || 0, R = b.w / 2, r0 = b.h * 0.5, parts = [Bodies.circle(b.x, cy, b.h * 0.95)];
+    for (let k = 0; k < n; k++) { const a = Math.PI * 2 * k / n, L = R - r0, o = r0 + L / 2;
+      parts.push(Bodies.rectangle(b.x + Math.cos(a) * o, cy + Math.sin(a) * o, L, b.h, {angle: a, chamfer: {radius: b.h * 0.3}})); }
+    const body = Body.create({parts, isStatic: true, friction: 0.4, label: 'shelf'}); Body.setPosition(body, {x: b.x, y: cy}); Body.setAngle(body, a0);
+    Composite.add(engine.world, body); shelves.push(body);
+    const sp = new Container(); sp.position.set(b.x, cy); sp.rotation = a0;
+    const m = {body, sp, x0: b.x, y0: cy, spin: b.move.spin * Math.PI / 180, a0, t: 0, wheels: [], arms: n, fan: true};
+    body.mover = m; for (const q of body.parts) q.mover = m; movers.push(m);
+    const CH = 0xD8DEE4, INK = 0x1C2A30, MINT = 0x8ED6C6, MINTD = 0x5BAE9E, CREAM = 0xF4EAD2;
+    // poste cromado telescópico + base redonda con teclas de velocidad (la "2" hundida y con foquito)
+    const g = new Graphics(), Rg = R + 16, yb = GROUND - 8;
+    g.ellipse(b.x, yb + 2, 96, 20).fill({color: 0x000000, alpha: 0.18});
+    g.ellipse(b.x, yb - 6, 92, 24).fill(CREAM).stroke({color: INK, width: 5}).ellipse(b.x - 22, yb - 14, 40, 7).fill({color: 0xFFFFFF, alpha: 0.45});
+    for (const [k, c] of [[-1, 0xE8DCC0], [0, 0xE05A3A], [1, 0xE8DCC0]]) { const x = b.x + k * 30, dn = k === 0 ? 4 : 0;
+      g.roundRect(x - 11, yb - 2 + dn, 22, 13 - dn, 4).fill(c).stroke({color: INK, width: 3}); }
+    const yc = cy + Rg + 40;   // collar donde el tubo grueso recibe al delgado
+    for (const [x0, x1, w] of [[yc, yb - 20, 24], [cy, yc, 15]]) {
+      g.roundRect(b.x - w / 2, x0, w, x1 - x0, 5).fill(CH).stroke({color: INK, width: 4}).rect(b.x - w / 2 + 4, x0 + 4, w * 0.22, x1 - x0 - 8).fill({color: 0xFFFFFF, alpha: 0.7}).rect(b.x + w / 2 - 6, x0 + 4, 3, x1 - x0 - 8).fill({color: 0x6A7880, alpha: 0.6}); }
+    g.roundRect(b.x - 18, yc - 8, 36, 16, 6).fill(0xB8C2CA).stroke({color: INK, width: 4}).circle(b.x + 26, yc, 7).fill(0x9AA6AE).stroke({color: INK, width: 3});
+    // rejilla trasera: aro, aro interior y alambres radiales (se ve detrás de las aspas)
+    const gr = new Graphics(); gr.position.set(b.x, cy);
+    gr.circle(0, 0, Rg).fill({color: 0x2A3A40, alpha: 0.10});
+    for (let k = 0; k < 24; k++) { const a = k / 24 * Math.PI * 2; gr.moveTo(Math.cos(a) * b.h * 1.2, Math.sin(a) * b.h * 1.2).lineTo(Math.cos(a) * Rg, Math.sin(a) * Rg).stroke({color: 0x8A969E, width: 2, alpha: 0.75}); }
+    for (const [r, w] of [[Rg * 0.42, 2.5], [Rg * 0.72, 2.5]]) gr.circle(0, 0, r).stroke({color: 0x8A969E, width: w, alpha: 0.75});
+    gr.circle(0, 0, Rg).stroke({color: INK, width: 8}).circle(0, 0, Rg).stroke({color: CH, width: 4}).circle(0, 0, Rg - 1).stroke({color: 0xFFFFFF, width: 1.5, alpha: 0.6});
+    actors.addChildAt(gr, 0); actors.addChildAt(g, 0); actors.addChild(sp); roomSp.push(g, gr, sp);
+    // aspas de plástico menta, en forma de remo barrido; detrás de cada una, una estela translúcida (se lee que va rápido)
+    const dir = Math.sign(m.spin) || 1, wR = b.h * 0.75, wT = b.h * 1.5;
+    for (let k = 0; k < n; k++) { const arm = new Container(); arm.rotation = Math.PI * 2 * k / n; sp.addChild(arm);
+      const bl = new Graphics();
+      for (let j = 1; j <= 3; j++) bl.moveTo(0, 0).arc(0, 0, R - 4, -0.14 * j - 0.12, -0.14 * j + 0.12, false).lineTo(0, 0).fill({color: MINT, alpha: 0.16});
+      const blade = (o, c, al) => bl.moveTo(r0, -wR / 2 * o).bezierCurveTo(r0 + (R - r0) * 0.45, -wR / 2 * o, R - wT * 0.7, -wT / 2 * o, R - wT * 0.4, -wT / 2 * o)
+        .bezierCurveTo(R + 4, -wT / 2 * o, R + 4, wT / 2 * o - 4, R - wT * 0.35, wT / 2 * o).bezierCurveTo(r0 + (R - r0) * 0.5, wT * 0.32 * o, r0 + (R - r0) * 0.2, wR / 2 * o, r0, wR / 2 * o).closePath().fill({color: c, alpha: al});
+      blade(1, MINT, 0.95); bl.stroke({color: INK, width: 4});
+      // canto de atrás más oscuro y brillo en el canto de adelante (el plástico curvo)
+      bl.moveTo(r0 + 6, wR * 0.12).bezierCurveTo(r0 + (R - r0) * 0.5, wT * 0.22, R - wT * 0.6, wT * 0.34, R - wT * 0.3, wT * 0.38).stroke({color: MINTD, width: 6, alpha: 0.8});
+      bl.moveTo(r0 + 10, -wR * 0.28).bezierCurveTo(r0 + (R - r0) * 0.45, -wR * 0.3, R - wT * 0.75, -wT * 0.36, R - wT * 0.45, -wT * 0.36).stroke({color: 0xFFFFFF, width: 4, alpha: 0.55, cap: 'round'});
+      if (dir < 0) bl.scale.y = -1;
+      arm.addChild(bl); }
+    // cubo: tapa crema con aro cromado y perilla al centro
+    const hub = new Graphics().circle(0, 0, b.h * 1.0).fill(CREAM).stroke({color: INK, width: 5}).circle(0, 0, b.h * 0.72).stroke({color: CH, width: 4});
+    hub.circle(0, 0, b.h * 0.34).fill(0xC9D2D8).stroke({color: INK, width: 3}).circle(-b.h * 0.12, -b.h * 0.12, b.h * 0.1).fill({color: 0xFFFFFF, alpha: 0.9})
+      .circle(-b.h * 0.45, -b.h * 0.5, b.h * 0.16).fill({color: 0xFFFFFF, alpha: 0.55});
+    sp.addChild(hub);
+  }
   function moveMovers(ms) {
     const h = ms / 1000;
     for (const m of movers) {
       if (m.spin) { m.t += h; const b = m.body, a = m.a0 + m.spin * m.t;
         // velocidad angular de verdad: lo que toca un aspa sale barrido en vez de quedar atravesado
         Body.setAngle(b, a, true);
-        const turn = Math.floor(Math.abs(m.spin) * m.t / (Math.PI * 2 / m.arms)); if (m.half != null && turn !== m.half) SFX.creak(bgTheme === 'lair' ? 'can' : 'wood', 0.12); m.half = turn;
+        const turn = Math.floor(Math.abs(m.spin) * m.t / (Math.PI * 2 / m.arms)); if (m.half != null && turn !== m.half) { if (m.fan) SFX.fan(0.5); else SFX.creak(bgTheme === 'lair' ? 'can' : 'wood', 0.12); } m.half = turn;
         for (const d of dyn) { const q = d.body; if (q.isSleeping && q.bounds.max.x > b.bounds.min.x - 4 && q.bounds.min.x < b.bounds.max.x + 4 && q.bounds.max.y > b.bounds.min.y - 4 && q.bounds.min.y < b.bounds.max.y + 4) Sleeping.set(q, false); }
         continue; }
       if (m.rot) { m.t += h; const b = m.body, P = b.position, A = b.angle, a = m.rot * Math.sin(m.t / m.T * Math.PI * 2), da = a - A, c = Math.cos(-A), sn = Math.sin(-A);
