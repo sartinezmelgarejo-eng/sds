@@ -1583,8 +1583,7 @@ async function main() {
     if (!r.cut) {
       if (dt > 0) {
         const B = ropeEnd(r);
-        // el globo se acomoda solo encima de lo que carga (con retraso) y se ladea hacia donde lo jala el hilo
-        r.A.x += (B.x + Q.dx - r.A.x) * Math.min(1, dt * 0.7);
+        // el globo se ladea hacia donde lo jala el hilo (el ancla NO persigue al bloque: así se iban caminando de lado)
         Q.lean += (Math.atan2(r.A.x - B.x, B.y - r.A.y) * 0.5 + Math.sin(Q.t * 1.1 + Q.ph) * 0.05 + Math.sin(Q.wob * 30) * Q.wob * 0.6 - Q.lean) * Math.min(1, dt * 5);
         const C = balPos(r), hits = []; if (flying && !flying.exploded) hits.push([flying.body, (flying.body.circleRadius || CAT_R) * 0.95, true]);
         for (const o of dyn) if (o !== r.d && !o.dead && o.body.speed > 4) hits.push([o.body, Math.min(o.w || o.r * 2, o.h || o.r * 2) * 0.45]);
