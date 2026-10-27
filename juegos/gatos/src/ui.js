@@ -246,7 +246,7 @@ export class UI {
     }
     // AB2: premio ganado (hechizo de estambre por 3 estrellas sin usar hechizo) — sale al lado de la lata con chispas y se mece
     if (r.win && r.reward) { const g = add(new Container(), 400, 40), y = new Sprite(r.reward); y.anchor.set(0.5); y.scale.set(0.95); y.rotation = 0.15;
-      const p1 = txt('+1', 64, '#FFE27A'); p1.anchor.set(0.5); p1.position.set(62, -52); const nm = txt('ESTAMBRE', 34, '#E2CCFF'); nm.anchor.set(0.5); nm.position.set(0, 92);
+      const p1 = txt('+1', 64, '#FFE27A'); p1.anchor.set(0.5); p1.position.set(62, -52); const nm = txt(r.rewardName || 'ESTAMBRE', 34, r.rewardName === 'GLOBOS' ? '#FFC8DC' : '#E2CCFF'); nm.anchor.set(0.5); nm.position.set(0, 92);
       g.addChild(y, p1, nm); A.push({o: g, t0: 0.9 + r.stars * 0.55 + 0.45, dur: 0.45, k: 'pop', s: 1, reward: true}); }
     // puntaje que cuenta
     this.scoreTxt = add(txt('0', 110, '#FFFFFF'), 0, 262); this.scoreTxt.anchor.set(0.5); A.push({o: this.scoreTxt, t0: 0.35, dur: 0.3, k: 'pop'});

@@ -440,7 +440,7 @@ async function main() {
       // golpe a la aspiradora: se frena en seco y la Rata Jefa se espanta y grita
       d.stun = 0.8; const r = dyn.find(o => o.ride); if (r && !r.dead) { r.hurt = 0.5; r.laugh = 0; SFX.squeak(); }
     }
-    if (d.dead) return;
+    if (d.dead || d.infl || time < (d.grace || 0)) return;   // inflado / recién desinflado: inmune
     d.life -= amount;
     if (d.mat !== 'mouse' && d.life > 0) {
       const st = Math.min(3, Math.floor((1 - d.life / d.max) * 4)); // 4 estados de grieta
@@ -700,7 +700,8 @@ async function main() {
       else if (Math.random() < dt * 3 * d.wet) fx.burst('drop', p.x + (Math.random() - 0.5) * d.w * 0.6, p.y + d.h * 0.35, 1, 20, {up: 0, life: 0.6, size: 0.32, drag: 0.5}); // escurre
       if (!d.soot && !d.zapFlash) { const v = Math.min(1, d.wet * 1.6) * 0.5, rC = Math.round(255 - 80 * v), gC = Math.round(255 - 35 * v); d.sprite.tint = (rC << 16) | (gC << 8) | 255; }
       if (d.wet <= 0 && !d.soot && !d.zapFlash) d.sprite.tint = 0xFFFFFF; }
-    if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
+    if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
+    else if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
     else if (d.hurt > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0)) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
@@ -751,6 +752,7 @@ async function main() {
     if (shk > 0) { d.sprite.rotation += Math.sin(time * 50) * 0.22 * shk; d.sprite.scale.x *= 1 + 0.07 * Math.sin(time * 50 + 1.3) * shk; } // sacudida de perrito
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
     d.sprite.y -= hop + br * d.h * 0.25;
+    if (d.infl) balloonLook(d);
   }
   // haz de la lámpara de minero (cono que apunta a +x, se desvanece) y resplandor del foquito
   const beamTex = canvasTex(320, 160, k => { const g = k.createLinearGradient(0, 0, 320, 0); g.addColorStop(0, 'rgba(255,240,170,0.55)'); g.addColorStop(0.35, 'rgba(255,230,150,0.22)'); g.addColorStop(1, 'rgba(255,220,140,0)');
@@ -849,7 +851,7 @@ async function main() {
     const live = [...(onSling ? [onSling] : []), ...queue], ids = new Set(live.map(q => q.id));
     for (const q of live) if (!cards.has(q.id)) { const c = makeCard(q); c.enter = 0.001; cards.set(q.id, c); }
     // carta del hechizo: al final del mazo mientras no se use (sale cuando ya hay gato en la resortera)
-    if (spellAvail() && (onSling || cards.has(SPELL_ID)) && state !== 'win' && state !== 'lose') { ids.add(SPELL_ID); if (!cards.has(SPELL_ID)) { const c = makeSpellCard(); c.enter = 0.001; cards.set(SPELL_ID, c); } }
+    for (const S of SPELLS) if (S.avail() && (onSling || cards.has(S.id)) && state !== 'win' && state !== 'lose') { ids.add(S.id); if (!cards.has(S.id)) { const c = S.make(); c.enter = 0.001; cards.set(S.id, c); } }
     // fuera las cartas de los gatos lanzados: suben girando y se desvanecen
     for (const [id, c] of cards) if (!ids.has(id) && !c.gone) { c.gone = 0.001; SFX.pop(); }
     const sh = app.screen.height / hud.scale.y, order = [...cards.values()].filter(c => !c.gone).sort((a, b) => a.qid - b.qid);
@@ -866,7 +868,7 @@ async function main() {
       if (c.pop > 0) { c.pop = Math.max(0, c.pop - dt); sc *= 1 + Math.sin((1 - c.pop / 0.3) * Math.PI) * 0.12; }                       // botecito al tocarla
       if (c.wig > 0) { c.wig -= dt; rot = Math.sin(c.wig * 40) * 0.12 * (c.wig / 0.35); }
       if (c.spell && state === 'ready' && !c.gone) c.glow.alpha = 0.35 + Math.sin(time * 3) * 0.2;           // el hechizo brilla suave: "úsame"
-      if (c.gone && c.spell && spell.used) { c.gone += dt; const u = Math.min(1, c.gone / 0.5); y -= u * 320; sc *= 1 + u * 0.8; rot = u * 0.4; c.alpha = 1 - u * u; // se usa: sube grande
+      if (c.gone && c.spell && spell.kind === c.kind) { c.gone += dt; const u = Math.min(1, c.gone / 0.5); y -= u * 320; sc *= 1 + u * 0.8; rot = u * 0.4; c.alpha = 1 - u * u; // se usa: sube grande
         if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
       else if (c.gone) { c.gone += dt; const u = Math.min(1, c.gone / 0.35); y -= u * 160; sc *= 1 + u * 0.3; rot = -u * 0.6; c.alpha = 1 - u;
         if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
@@ -911,26 +913,29 @@ async function main() {
   let yarnInv = 3; try { const v = localStorage.getItem('gatos.yarn'); if (v != null) yarnInv = +v; } catch (e) {}
   { const q = new URLSearchParams(location.search); if (q.has('yarn')) yarnInv = +q.get('yarn'); }
   const saveYarn = () => { try { localStorage.setItem('gatos.yarn', String(yarnInv)); } catch (e) {} };
-  const spell = {used: false, run: null};
+  const spell = {used: false, run: null, kind: null};
   const isBoss = () => rooms().some(R => R.blocks.some(b => b.patrol));
-  const spellAvail = () => !spell.used && yarnInv > 0 && !isBoss();
+  const spellOk = () => !spell.used && !isBoss();
+  const spellAvail = () => spellOk() && yarnInv > 0;
   CARD_COL.spell = ['#D9B8FF', '#6A34C8'];
-  function makeSpellCard() {
-    const c = new Container(), glow = new Sprite(cardGlow), bg = new Sprite(cardBg('spell')), face = new Sprite(yarnTex[5]);
-    glow.anchor.set(0.5); glow.alpha = 0; bg.anchor.set(0.5); bg.scale.set(0.5); face.anchor.set(0.5); face.scale.set(0.5); face.position.set(-2, -24);
-    const mini = [0, 3].map((j, i) => { const m = new Sprite(yarnTex[j]); m.anchor.set(0.5); m.scale.set(0.3); m.position.set(i ? 46 : -46, i ? 8 : 14); return m; });
-    const name = new Text({text: 'ESTAMBRE', style: {fontFamily: 'Luckiest Guy', fontSize: 25, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 6, join: 'round'}}}); name.anchor.set(0.5); name.position.set(0, CARD_H / 2 - 26);
+  // carta de hechizo (morada = estambre, rosa = globos): dibujo grande + 2 mini, nombre y contador del inventario
+  function spellCard(kind, faceTex, faceSc, minis, label, inv, cast) {
+    const c = new Container(), glow = new Sprite(cardGlow), bg = new Sprite(cardBg(kind)), face = new Sprite(faceTex);
+    glow.anchor.set(0.5); glow.alpha = 0; bg.anchor.set(0.5); bg.scale.set(0.5); face.anchor.set(0.5); face.scale.set(faceSc); face.position.set(-2, -24);
+    const mini = minis.map(([tx, sc], i) => { const m = new Sprite(tx); m.anchor.set(0.5); m.scale.set(sc); m.position.set(i ? 46 : -46, i ? 8 : 14); return m; });
+    const name = new Text({text: label, style: {fontFamily: 'Luckiest Guy', fontSize: 25, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 6, join: 'round'}}}); name.anchor.set(0.5); name.position.set(0, CARD_H / 2 - 26);
     const b = new Graphics(); b.circle(0, 3, 22).fill(0x1F2240); b.circle(0, 0, 22).fill(0xFFE27A).stroke({color: 0x1F2240, width: 5}); b.position.set(CARD_W / 2 - 14, -CARD_H / 2 + 12);
-    const cnt = new Text({text: String(yarnInv), style: {fontFamily: 'Luckiest Guy', fontSize: 28, fill: '#1F2240'}}); cnt.anchor.set(0.5, 0.42); b.addChild(cnt);
+    const cnt = new Text({text: String(inv), style: {fontFamily: 'Luckiest Guy', fontSize: 28, fill: '#1F2240'}}); cnt.anchor.set(0.5, 0.42); b.addChild(cnt);
     c.addChild(glow, bg, mini[0], face, mini[1], name, b);
     c.eventMode = 'static'; c.cursor = 'pointer'; c.hitArea = {contains: (x, y) => Math.abs(x) < CARD_W / 2 + 6 && Math.abs(y) < CARD_H / 2 + 10};
-    c.on('pointerdown', () => { deckHit = performance.now(); SFX.unlockAudio(); if (!castSpell()) c.wig = 0.35; });
-    Object.assign(c, {qid: SPELL_ID, face, glow, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0, spell: true}); deck.addChild(c); return c;
+    c.on('pointerdown', () => { deckHit = performance.now(); SFX.unlockAudio(); if (!cast()) c.wig = 0.35; });
+    Object.assign(c, {face, glow, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0, spell: true, kind}); deck.addChild(c); return c;
   }
+  const makeSpellCard = () => Object.assign(spellCard('spell', yarnTex[5], 0.5, [[yarnTex[0], 0.3], [yarnTex[3], 0.3]], 'ESTAMBRE', yarnInv, castSpell), {qid: SPELL_ID, kind: 'yarn'});
   function castSpell() {
     if (state !== 'ready' || !spellAvail() || !onSling || onSling.hop || sling.aiming || ui.cardOpen || cam.mode === 'flyover') return false;
     if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; }
-    spell.used = true; yarnInv--; saveYarn(); tutDone = true; state = 'spell'; roomShots += 3; // con hechizo la sala ya no da ¡CHUZA!/¡DOBLETE!
+    spell.used = true; spell.kind = 'yarn'; yarnInv--; saveYarn(); tutDone = true; state = 'spell'; roomShots += 3; // con hechizo la sala ya no da ¡CHUZA!/¡DOBLETE!
     const live = dyn.filter(d => !d.dead), xs = live.map(d => d.body.position.x);
     const mice = live.filter(d => d.mat === 'mouse').map(d => d.body.position.x);
     spell.run = {t: 0, balls: [], x0: Math.min(...xs) - 70, x1: Math.max(...xs) + 70, mice, n: 0, next: 0.55, still: 0};
@@ -955,6 +960,7 @@ async function main() {
   }
   function updateSpell(dt) {
     const r = spell.run; if (!r || dt <= 0) return; r.t += dt;
+    if (r.type === 'balloon') return updateBalloon(r, dt);
     if (r.t > 1.5 && !r.banOff) { r.banOff = true; ui.hideBanner(); }
     if (r.n < YARN_N && r.t >= r.next) { dropYarn(r); r.next = r.t + 0.07 + Math.random() * 0.08; }
     for (let i = r.balls.length - 1; i >= 0; i--) { const o = r.balls[i], b = o.body; o.age += dt;
@@ -969,11 +975,93 @@ async function main() {
     if (r.n >= YARN_N && !r.balls.length) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); r.still = busy ? 0 : r.still + dt; }
     if ((r.n >= YARN_N && !r.balls.length && r.still > 0.8) || r.t > 11) endSpell();
   }
-  function clearSpell() { const r = spell.run; if (!r) return; for (const o of r.balls) { if (!o.fade) Composite.remove(engine.world, o.body); o.sp.destroy(); } spell.run = null; }
+  function clearSpell() { const r = spell.run; if (!r) return; if (r.type === 'balloon') for (const d of r.mice) if (d.infl && !d.dead) { Body.scale(d.body, 1 / d.infl.bs, 1 / d.infl.bs); d.infl = null; d.body.sleepThreshold = 60; d.sprite.tint = 0xFFFFFF; } for (const o of r.balls) { if (!o.fade) Composite.remove(engine.world, o.body); o.sp.destroy(); } spell.run = null; }
   function endSpell() {
     clearSpell(); cam.release();
     if (dyn.some(d => d.mat === 'mouse' || d.mat === 'robot')) { state = 'ready'; return; }
     unSling(); endTurn();                                                  // limpió la sala: el gato de la resortera regresa a la fila
+  }
+  // ---------- HECHIZO 2 (AB2: Pig Inflater) — ¡RATONES GLOBO! ----------
+  // Todos los ratones se inflan a bocanadas (3 "puf" con rebote elástico), flotan temblando y TRUENAN como globos; el tronido
+  // empuja lo de alrededor (puede tirar la torre). Los duros (dedal y Rata con corona) no truenan: se desinflan como globo suelto y
+  // quedan lastimados (-50 % de vida) y mareados — así el hechizo ayuda mucho pero no gana solo el nivel. Mismas reglas que el estambre (1 hechizo por nivel, no en el jefe, no gasta gato).
+  // Inventario localStorage['gatos.balloon'] (empieza con 2; el premio de 3★ da el hechizo del que tengas menos). ?balloon=n lo fija.
+  const BAL_ID = SPELL_ID + 1, BAL_K = {small: 2.5, thimble: 2.3, boss: 2.0}, PUFF = 0.42, NPUFF = 3;
+  CARD_COL.balloon = ['#FFC0D8', '#D2386E'];
+  function drawBalloonMouse(k, x, y, r) { // ratón-globo (carta, selector, premio)
+    k.lineCap = 'round'; k.lineJoin = 'round';
+    k.strokeStyle = '#1F2240'; k.lineWidth = 6; k.beginPath(); k.moveTo(x, y + r * 1.1); k.bezierCurveTo(x - r * 0.4, y + r * 1.4, x + r * 0.4, y + r * 1.65, x - r * 0.05, y + r * 2.0); k.stroke();
+    k.strokeStyle = '#F4F0FF'; k.lineWidth = 2.5; k.stroke();                                                  // hilo rizado
+    k.fillStyle = '#8E8AA6'; k.strokeStyle = '#1F2240'; k.lineWidth = 4; k.beginPath(); k.moveTo(x - r * 0.16, y + r * 1.18); k.lineTo(x + r * 0.16, y + r * 1.18); k.lineTo(x, y + r * 0.98); k.closePath(); k.fill(); k.stroke(); // nudito
+    k.save(); k.translate(x, y); k.scale(1.12, 1.05); ART.mouse(k, 0, 0, r, 'small', {look: -1, expr: 'scared'}); k.restore();
+    k.fillStyle = 'rgba(255,255,255,0.5)'; k.beginPath(); k.ellipse(x - r * 0.52, y - r * 0.3, r * 0.14, r * 0.28, 0.5, 0, Math.PI * 2); k.fill(); // brillo de globo
+  }
+  const balloonTex = canvasTex(150, 190, k => drawBalloonMouse(k, 75, 78, 40), 2);
+  let balInv = 2; try { const v = localStorage.getItem('gatos.balloon'); if (v != null) balInv = +v; } catch (e) {}
+  { const q = new URLSearchParams(location.search); if (q.has('balloon')) balInv = +q.get('balloon'); }
+  const saveBal = () => { try { localStorage.setItem('gatos.balloon', String(balInv)); } catch (e) {} };
+  const balAvail = () => spellOk() && balInv > 0;
+  const makeBalloonCard = () => Object.assign(spellCard('balloon', balloonTex, 0.5, [[balloonTex, 0.26], [balloonTex, 0.26]], 'GLOBOS', balInv, castBalloon), {qid: BAL_ID, kind: 'balloon'});
+  const SPELLS = [{id: SPELL_ID, avail: spellAvail, make: makeSpellCard}, {id: BAL_ID, avail: balAvail, make: makeBalloonCard}];
+  const elasticOut = u => u >= 1 ? 1 : Math.pow(2, -10 * u) * Math.sin((u * 10 - 0.75) * Math.PI * 2 / 3) + 1;
+  function castBalloon() {
+    if (state !== 'ready' || !balAvail() || !onSling || onSling.hop || sling.aiming || ui.cardOpen || cam.mode === 'flyover') return false;
+    const mice = dyn.filter(d => d.mat === 'mouse' && !d.dead && !d.ride).sort((a, b) => a.body.position.x - b.body.position.x);
+    if (!mice.length) return false;
+    if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; }
+    spell.used = true; spell.kind = 'balloon'; balInv--; saveBal(); tutDone = true; state = 'spell'; roomShots += 3;
+    mice.forEach((d, i) => { d.infl = {t: -0.7 - i * 0.22, k: 1, from: 1, bs: 1, puff: 0, max: BAL_K[d.kind] || 2.3}; Sleeping.set(d.body, false); d.body.sleepThreshold = Infinity; d.laugh = 0; });
+    spell.run = {type: 'balloon', t: 0, balls: [], mice, still: 0};
+    ui.banner('¡RATONES GLOBO!', 'HECHIZO'); SFX.whoosh(); setTimeout(() => SFX.fanfare(), 120);
+    const xs = mice.map(d => d.body.position.x), ys = mice.map(d => d.body.position.y), x0 = Math.min(...xs) - 350, x1 = Math.max(...xs) + 350;
+    const zk = Math.max(1, Math.min(1.7, (LEVEL_W + 200) / (x1 - x0 + 700))), z = cam.fitZoom * zk;
+    cam.follow({position: {x: (x0 + x1) / 2, y: Math.min(GROUND - cam.sh / z * 0.36, Math.min(...ys) - 60)}}, zk);
+    queue.forEach(q => { q.alert = 1.2; });
+    setTimeout(() => { const o = mice[Math.floor(Math.random() * mice.length)]; // uno se da cuenta de lo que le pasa
+      if (o && !o.dead && dyn.includes(o)) { say(o, ['¡ME SIENTO\nRARO!', '¡¿QUÉ ME\nPASA?!', '¡AY, MI\nPANCITA!'][Math.floor(Math.random() * 3)], 1.3, 0.8); SFX.squeak(); } }, 350);
+    return true;
+  }
+  function updateBalloon(r, dt) {
+    if (r.t > 1.5 && !r.banOff) { r.banOff = true; ui.hideBanner(); }
+    for (const d of r.mice) { const I = d.infl; if (!I || d.dead) continue; I.t += dt; if (I.t < 0) continue;
+      const b = d.body;
+      if (!I.end) {
+        const n = Math.min(NPUFF, Math.floor(I.t / PUFF) + 1), u = Math.min(1, (I.t - (n - 1) * PUFF) / 0.3);
+        if (n > I.puff) { I.puff = n; I.from = I.k; SFX.inflate(); }                  // cada bocanada: "fuuu" y rebote
+        if (I.t < NPUFF * PUFF) I.k = I.from + (1 + (I.max - 1) * n / NPUFF - I.from) * elasticOut(u);
+        else { I.k = I.max * (1 + Math.sin(I.t * 38) * 0.025 * Math.min(1, (I.t - NPUFF * PUFF) / 0.4));   // ya inflado: flota y tiembla
+          Body.setVelocity(b, {x: b.velocity.x * 0.9, y: b.velocity.y + (-1.5 - b.velocity.y) * Math.min(1, dt * 4)});
+          Body.setAngularVelocity(b, b.angularVelocity * 0.85 + Math.sin(I.t * 9) * 0.003);
+          if (I.t > NPUFF * PUFF + 0.75) { popBalloon(d); continue; } }
+      } else { // la grandota se desinfla como globo suelto (zigzag) y queda lastimada
+        I.e += dt; const u = Math.min(1, I.e / 0.8), a = I.dir + Math.sin(I.e * 25) * 0.8; I.k = I.max + (1 - I.max) * u;
+        Body.setVelocity(b, {x: Math.cos(a) * 4 * (1 - u), y: Math.sin(a) * 4 * (1 - u) + b.velocity.y * 0.3}); Body.setAngularVelocity(b, Math.sin(I.e * 20) * 0.08 * (1 - u));
+        if (Math.random() < dt * 30) fx.burst('smoke', b.position.x, b.position.y + d.r * I.k * 0.8, 1, 60, {up: -20, life: 0.5, size: 0.25, drag: 3});
+        if (u >= 1) { Body.scale(b, 1 / I.bs, 1 / I.bs); d.infl = null; b.sleepThreshold = 60; d.sprite.tint = 0xFFFFFF; damage(d, d.max * 0.5); d.grace = time + 1.2; Body.setVelocity(b, {x: 0, y: Math.max(0, b.velocity.y)}); Body.setAngularVelocity(b, 0); if (!d.dead) { d.dizzyT = 2.5; say(d, '¡ME LAS\nPAGARÁN!', 1.4, 0.8); } continue; }
+      }
+      // el cuerpo crece con el dibujo (un poco menos) y empuja lo que tenga alrededor
+      const pk = 1 + (I.k - 1) * 0.8; if (Math.abs(pk - I.bs) > 0.005) { Body.scale(b, pk / I.bs, pk / I.bs); I.bs = pk; }
+    }
+    r.mice = r.mice.filter(d => d.infl && !d.dead);
+    if (!r.mice.length) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); r.still = busy ? 0 : r.still + dt; }
+    if ((!r.mice.length && r.still > 0.8) || r.t > 12) endSpell();
+  }
+  function popBalloon(d) {
+    const I = d.infl, x = d.body.position.x, y = d.body.position.y, R = d.r * I.k;
+    if (d.kind !== 'small') { I.end = true; I.e = 0; I.dir = -Math.PI / 2 + (Math.random() - 0.5) * 1.4; SFX.deflate(); return; }
+    fx.ring(x, y, R * 2.2, 0xFFFFFF);
+    const n0 = fx.parts.length; fx.burst('fur', x, y, 14, 560, {up: 120, size: 1, life: 0.9, drag: 2, g: 420, w: R, h: R});
+    for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = [0xB9B2C8, 0xFFB3C8, 0x8E86A0][j % 3];   // pedacitos de "hule"
+    fx.burst('star', x, y, 6, 420, {up: 160, size: 0.5, life: 0.6, drag: 1.5});
+    SFX.bang(); cam.shake(9);
+    d.infl = null; destroyDyn(d);                        // puf + 5,000 + los vecinos voltean
+    blast(x, y, R * 2.4, 6, 0);                           // el tronido solo empuja lo de alrededor (sin daño: no detona cuetes)
+  }
+  function balloonLook(d) {
+    const I = d.infl, f = Math.min(1, (I.k - 1) / 1.5);
+    d.sprite.scale.x *= I.k; d.sprite.scale.y *= I.k * (I.end ? 1 : 1 + 0.04 * f);    // un pelín más alto: forma de globo
+    d.sprite.tint = (255 << 16) | (Math.round(255 - 50 * f) << 8) | Math.round(255 - 36 * f);   // la piel estirada se pone rosita
+    if (!I.end && I.t > NPUFF * PUFF) d.sprite.x += Math.sin(time * 60) * 3;            // tiembla antes de tronar
   }
   // el gato de la resortera se baja y regresa al principio de la fila (sin gastarlo)
   function unSling() {
@@ -1031,11 +1119,13 @@ async function main() {
     const st = level.stars || [0, 1e9, 1e9];
     const stars = win ? 1 + (score >= st[1]) + (score >= st[2]) : 0;
     const record = win && (!prev || score > prev.score);
-    const reward = win && stars === 3 && !spell.used && yarnInv < YARN_MAX && !isBoss();
-    if (reward) { yarnInv++; saveYarn(); }   // premio: +1 hechizo de estambre
+    // premio: +1 hechizo (el que menos tenga; empate → estambre)
+    const rk = balInv < yarnInv && balInv < YARN_MAX ? 'balloon' : yarnInv < YARN_MAX ? 'yarn' : null;
+    const reward = win && stars === 3 && !spell.used && !isBoss() && rk;
+    if (reward === 'yarn') { yarnInv++; saveYarn(); } else if (reward === 'balloon') { balInv++; saveBal(); }
     if (win) try { localStorage.setItem(key, JSON.stringify({score: Math.max(score, prev?.score || 0), stars: Math.max(stars, prev?.stars || 0)})); } catch (e) {}
     const final = win && levelId === LEVELS[LEVELS.length - 1]; // jefe final vencido: panel especial
-    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final, reward: reward ? yarnTex[5] : null});
+    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final, reward: reward ? (reward === 'yarn' ? yarnTex[5] : balloonTex) : null, rewardName: reward === 'balloon' ? 'GLOBOS' : 'ESTAMBRE'});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
   function launch(vx, vy) { ui.closeCard(true); if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }
@@ -1280,7 +1370,7 @@ async function main() {
     levelId = id; level = levels[id]; useBg(['kitchen', 'garden', 'lair'][(level.world || 1) - 1] || 'lair'); SFX.musicTheme(level.world || 1);
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
-    clearSpell(); spell.used = false;
+    clearSpell(); spell.used = false; spell.kind = null;
     dyn.length = 0; shelves.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
@@ -1408,7 +1498,7 @@ async function main() {
   });
   let hatDirty = false; const QS0 = new URLSearchParams(location.search);
   const menus = new Menus(app, {
-    eyeImg, cats: bigCats, worlds: WORLDS, roomsOf: id => 1 + (levels[id]?.rooms?.length || 0), bossTex: mouseTex('boss', 66, 'laugh'), yarnTex: yarnTex[5], getYarn: () => yarnInv,
+    eyeImg, cats: bigCats, worlds: WORLDS, roomsOf: id => 1 + (levels[id]?.rooms?.length || 0), bossTex: mouseTex('boss', 66, 'laugh'), yarnTex: yarnTex[5], getYarn: () => yarnInv, balloonTex, getBalloon: () => balInv,
     onPlay: id => buildLevel(id, true),
     onPage: p => { if ((level.world || 1) !== p + 1) buildLevel(WORLDS[p].levels[0], false); },
     getHat: n => hats[n] || 'none', onHat: (n, h) => { setHat(n, h); hatDirty = true; }, allHats: QS0.has('allhats'),
@@ -1495,6 +1585,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {castSpell, get spell() { return {used: spell.used, running: !!spell.run, inv: yarnInv, avail: spellAvail(), balls: spell.run ? spell.run.balls.length : 0}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {castSpell, castBalloon, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

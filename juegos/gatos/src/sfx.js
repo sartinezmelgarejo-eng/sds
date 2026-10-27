@@ -260,3 +260,4 @@ export function clockTick(tock = false, v = 1) { if (!ok(tock ? 'tock' : 'tick',
   noise(t, 0.02, 'bandpass', f, 7, 0.05 * v, 0.016); tone(t, f * 0.5, 'sine', 0.012 * v, 0.03); }
 export function sprinkle(v = 1) { if (!ok('sprk', 0.1)) return; const t = ctx.currentTime;
   noise(t, 0.04, 'bandpass', 2600, 2, 0.035 * v, 0.03); noise(t + 0.01, 0.14, 'highpass', 5200, 0.7, 0.014 * v, 0.12); }
+export function bang(v = 1) { if (!ok('bang', 0.06)) return; const t = ctx.currentTime; noise(t, 0.09, 'highpass', 1200, 0.7, 0.9 * v, 0.08); noise(t, 0.2, 'lowpass', 600, 0.8, 0.5 * v, 0.16); tone(t, 210, 'sine', 0.35 * v, 0.1, 70); } // ¡pum! de globo que truena
