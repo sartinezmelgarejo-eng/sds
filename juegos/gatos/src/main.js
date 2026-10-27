@@ -1504,14 +1504,16 @@ async function main() {
   // ---------- CUERDAS (AB2): bloques colgados de un gancho; el gato, algo que vuela rápido o una explosión revientan la cuerda ----------
   // nivel: {"t": "can", …, "y": altura de la cara de arriba, "hang": largo de la cuerda} → gancho en (x + hx, GROUND - y - hang)
   const ropes = [];
-  function makeRope(d, b, top) {
-    const A = {x: b.x + (b.hx || 0), y: GROUND - top - b.hang}, pB = {x: 0, y: -d.h / 2};
+  // "ropes": [f, …] → varias cuerdas en la cara de arriba (f = fracción del ancho desde el centro; [-0.4, 0.4] = columpio de dos cuerdas)
+  function makeRope(d, b, top, f = 0) {
+    const px = f * b.w, A = {x: b.x + px + (b.hx || 0), y: GROUND - top - b.hang}, pB = {x: px, y: -d.h / 2};
     const c = Matter.Constraint.create({pointA: A, bodyB: d.body, pointB: pB, length: Math.hypot(b.hx || 0, b.hang), stiffness: 0.95, damping: 0.05});
     Composite.add(engine.world, c); d.body.sleepThreshold = Infinity; Sleeping.set(d.body, false); d.hung = true;
     const g = new Graphics(); actors.addChildAt(g, 0);
-    ropes.push({c, A, d, g, len: c.length, cut: null});
+    ropes.push({c, A, d, g, px, len: c.length, cut: null});
   }
-  const ropeEnd = r => { const b = r.d.body, a = b.angle; return {x: b.position.x + Math.sin(a) * r.d.h / 2, y: b.position.y - Math.cos(a) * r.d.h / 2}; };
+  const ropeEnd = r => { const b = r.d.body, a = b.angle, c = Math.cos(a), s = Math.sin(a), h = r.d.h / 2;
+    return {x: b.position.x + r.px * c + h * s, y: b.position.y + r.px * s - h * c}; };
   // distancia de un punto al segmento gancho→bloque (y en qué fracción del largo cae)
   function segDist(r, x, y) { const B = ropeEnd(r), dx = B.x - r.A.x, dy = B.y - r.A.y, l2 = dx * dx + dy * dy || 1;
     const u = Math.max(0, Math.min(1, ((x - r.A.x) * dx + (y - r.A.y) * dy) / l2)); return {dist: Math.hypot(r.A.x + dx * u - x, r.A.y + dy * u - y), u, x: r.A.x + dx * u, y: r.A.y + dy * u}; }
@@ -1520,13 +1522,19 @@ async function main() {
     const B = ropeEnd(r), x = r.A.x + (B.x - r.A.x) * u, y = r.A.y + (B.y - r.A.y) * u;
     // el pedazo de arriba queda colgando del gancho y se columpia; el de abajo se va con el bloque y se desvanece
     r.cut = {t: 0, top: r.len * u, bot: r.len * (1 - u), th: Math.atan2(B.x - r.A.x, B.y - r.A.y) + 0.5 * (Math.random() < 0.5 ? -1 : 1), w: 0};
-    if (!r.d.dead) { r.d.body.sleepThreshold = 40; r.d.hung = false; dyn.forEach(o => Sleeping.set(o.body, false)); }
+    // con dos cuerdas, al reventar una el bloque se ladea y se columpia de la otra (sigue sin dormirse)
+    const still = ropes.some(o => o !== r && o.d === r.d && !o.cut);
+    if (!r.d.dead) { if (!still) { r.d.body.sleepThreshold = 40; r.d.hung = false; } dyn.forEach(o => Sleeping.set(o.body, false)); }
     if (quiet) return;
     SFX.snap(); cam.shake(5); fx.burst('box', x, y, 7, 240, {up: 120, size: 0.32, life: 0.6});
     // un ratón que está debajo voltea hacia arriba y grita (como los cerdos de AB2 cuando les va a caer algo)
     const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && o.body.position.y > B.y && Math.abs(o.body.position.x - B.x) < 260 && !bubbles.some(bb => bb.d === o));
     for (const o of nb) o.shock = {x: B.x, y: B.y, t: -0.05, fl: 0, look: 1.2, side: 1};
     if (nb.length) say(nb[0], ['¡AGUAS\nARRIBA!', '¡CUIDADO!', '¡MAMÁÁÁ!'][Math.floor(Math.random() * 3)], 1.1, 0.72);
+    // los que van montados en el columpio se agarran: miran al cabo roto y gritan
+    const bp = r.d.body.position, on = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && o.body.position.y < bp.y && Math.abs(o.body.position.x - bp.x) < r.d.w / 2 + 20 && bp.y - o.body.position.y < 200);
+    for (const o of on) o.shock = {x, y, t: -0.05, fl: 0, look: 1.4, side: 1};
+    if (on.length && still) say(on[0], ['¡SE ROMPIÓ!', '¡AGÁRRENSE!', '¡NOS VAMOS!'][Math.floor(Math.random() * 3)], 1.1, 0.72);
   }
   function cutRopesNear(x, y, R) { for (const r of ropes) if (!r.cut) { const s = segDist(r, x, y); if (s.dist < R) cutRope(r, s.u); } }
   function updateRopes(dt) {
@@ -1589,7 +1597,7 @@ async function main() {
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[mat] * Math.sqrt(b.w * b.h / (110 * 110));
       dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin, life, max: life, texs, dmg: 0});
-      if (b.hang) makeRope(dyn[dyn.length - 1], b, top);
+      if (b.hang) for (const f of b.ropes || [0]) makeRope(dyn[dyn.length - 1], b, top, f);
       // jefe final: la aspiradora patrulla de lado a lado (nunca se duerme) y lleva barra de vida
       if (b.patrol) { body.sleepThreshold = Infinity; Sleeping.set(body, false); Body.setInertia(body, body.inertia * 6);
         const bar = new Graphics(); front.addChild(bar);
