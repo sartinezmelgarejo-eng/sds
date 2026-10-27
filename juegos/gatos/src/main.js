@@ -1031,10 +1031,11 @@ async function main() {
     const st = level.stars || [0, 1e9, 1e9];
     const stars = win ? 1 + (score >= st[1]) + (score >= st[2]) : 0;
     const record = win && (!prev || score > prev.score);
-    if (win && stars === 3 && !spell.used && yarnInv < YARN_MAX) { yarnInv++; saveYarn(); }   // premio: +1 hechizo de estambre
+    const reward = win && stars === 3 && !spell.used && yarnInv < YARN_MAX && !isBoss();
+    if (reward) { yarnInv++; saveYarn(); }   // premio: +1 hechizo de estambre
     if (win) try { localStorage.setItem(key, JSON.stringify({score: Math.max(score, prev?.score || 0), stars: Math.max(stars, prev?.stars || 0)})); } catch (e) {}
     const final = win && levelId === LEVELS[LEVELS.length - 1]; // jefe final vencido: panel especial
-    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final});
+    ui.show({win, stars, score, best: Math.max(win ? score : 0, prev?.score || 0), record, name: final ? '¡RECUPERARON TODO EL ATÚN!' : level.name, hasNext: !final, final, reward: reward ? yarnTex[5] : null});
   }
   // compat. con la prueba anterior: GAME.launch(vx, vy) dispara el gato que esté en la resortera
   function launch(vx, vy) { ui.closeCard(true); if (state === 'ready') { tutDone = true; sling.held = false; sling.pouch = {...sling.rest}; shoot({x: vx, y: vy}); } }

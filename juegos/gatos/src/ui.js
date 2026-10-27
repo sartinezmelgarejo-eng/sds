@@ -244,6 +244,10 @@ export class UI {
       const m = add(new Sprite(this.mouseTex), 0, -90); m.anchor.set(0.5); A.push({o: m, t0: 0.3, dur: 0.4, k: 'pop', s: 1.45, laugh: true});
       const tl = add(txt('¡Los ratones se quedan con el atún!', 46, '#FFFFFF'), 0, 115); tl.anchor.set(0.5); A.push({o: tl, t0: 0.5, dur: 0.3, k: 'pop'});
     }
+    // AB2: premio ganado (hechizo de estambre por 3 estrellas sin usar hechizo) — sale al lado de la lata con chispas y se mece
+    if (r.win && r.reward) { const g = add(new Container(), 400, 40), y = new Sprite(r.reward); y.anchor.set(0.5); y.scale.set(0.95); y.rotation = 0.15;
+      const p1 = txt('+1', 64, '#FFE27A'); p1.anchor.set(0.5); p1.position.set(62, -52); const nm = txt('ESTAMBRE', 34, '#E2CCFF'); nm.anchor.set(0.5); nm.position.set(0, 92);
+      g.addChild(y, p1, nm); A.push({o: g, t0: 0.9 + r.stars * 0.55 + 0.45, dur: 0.45, k: 'pop', s: 1, reward: true}); }
     // puntaje que cuenta
     this.scoreTxt = add(txt('0', 110, '#FFFFFF'), 0, 262); this.scoreTxt.anchor.set(0.5); A.push({o: this.scoreTxt, t0: 0.35, dur: 0.3, k: 'pop'});
     this.bestTxt = add(txt(r.record ? '¡NUEVO RÉCORD!' : `MEJOR: ${r.best.toLocaleString('en-US')}`, 42, r.record ? '#A8F06A' : '#C9D2FF'), 0, 392); this.bestTxt.anchor.set(0.5);
@@ -329,6 +333,7 @@ export class UI {
         a.o.scale.set(a.s * (2.6 - 1.6 * backOut(v, 2.4))); a.o.alpha = Math.min(1, v * 3);
         if (u >= 1 && !a.done) { a.done = true; SFX.star(a.i); this.burst(a.o.x, a.o.y); if (a.i === 2) this.confettiPop(); }
       }
+      if (u >= 1 && a.reward) { if (!a.done) { a.done = true; SFX.pop(); SFX.star(2); this.burst(a.o.x, a.o.y); } a.o.rotation = Math.sin((t - a.t0) * 2.6) * 0.07; a.o.y = 40 - Math.abs(Math.sin((t - a.t0) * 2.6)) * 10; }
       if (u > 1 && a.pulse) a.o.scale.set(a.s * (1 + Math.sin((t - a.t0) * 5) * 0.045));
       if (u > 1 && a.cheer != null) { const c = (t * 1.6 + a.cheer * 0.33) % 1, h = c < 0.45 ? Math.sin(c / 0.45 * Math.PI) : 0;
         a.o.y = a.y0 - h * 70; const sq = c < 0.45 ? 1 + h * 0.06 : 1 - Math.sin((c - 0.45) / 0.55 * Math.PI) * 0.07; a.o.scale.set(a.s / Math.sqrt(sq), a.s * sq); a.o.rotation = h * (a.cheer - 1) * 0.12; }
