@@ -531,6 +531,7 @@ async function main() {
     if (push > 0) cutRopesNear(x, y, R * 0.6);
     if (R >= 200) shockMice(x, y, R);
     if (push > 0) for (const m of movers) if (m.whl && !m.fall) { const q = m.body.position; if (Math.hypot(q.x - x, q.y - y) < R * 0.7) dropCar(m, Math.sign(q.x - x) * 3); }
+    if (dmg > 0) for (const m of movers) if (m.fall && !m.broke) { const q = m.body.position, dd = Math.hypot(q.x - x, q.y - y); if (dd < R) { Sleeping.set(m.body, false); hurtCar(m, dmg * (1 - dd / R) * (bgTheme === 'lair' ? 0.55 : 1)); } }
     for (const d of [...dyn]) {
       const p = d.body.position, dx = p.x - x, dy = p.y - y, dist = Math.hypot(dx, dy);
       if (dist > R + Math.max(d.w, d.h) / 2) continue;
@@ -1298,6 +1299,7 @@ async function main() {
   Matter.Events.on(engine, 'collisionStart', ev => {
     for (const pr of ev.pairs) { const A = pr.bodyA, B = pr.bodyB, m = A.mover || B.mover; if (!m) continue;
       const n = pr.collision.normal, closing = Math.abs((A.velocity.x - B.velocity.x) * n.x + (A.velocity.y - B.velocity.y) * n.y);
+      if (m.fall) { const o = m === A.mover ? B : A; if (closing > 2.5 && started >= 1) hurtCar(m, (closing - 2.5) * (o.isStatic ? 1.15 : Math.min(1.35, Math.sqrt(2 * o.mass / (o.mass + m.body.mass)))) * 0.9); continue; }
       if (closing < 4) continue; const k = Math.min(1, closing / 18);
       if (k > (m.jolt || 0) + 0.15) { m.jolt = k; SFX.clank(0.25 + 0.5 * k); }
       // AB2: un buen golpe a una canastilla de la noria le zafa el perno y se cae con todo y pasajeros
@@ -2008,7 +2010,7 @@ async function main() {
       const deck = lair ? steelDeck(b) : new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor?.set(0.5);
       const inner = new Container(); inner.scale.set(1 / S); inner.addChild(hg, roof); deck.scale.set(1 / S);
       sp.addChild(inner, deck);
-      const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}};
+      const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}, deck, dtex: !lair && [b.w, b.h, i + 3 + k]};
       if (k === 0) { m.wc = wc; m.lights = lights; m.wa0 = a0; }
       body.mover = m; movers.push(m);
     }
@@ -2023,12 +2025,34 @@ async function main() {
     Body.setStatic(b, false); b.density = 0.0012; b.mass = mass; b.inverseMass = 1 / mass; b.inertia = 4 * mass * (cw * cw + ch * ch) / 12; b.inverseInertia = 1 / b.inertia;
     b.friction = 0.9; b.restitution = 0.05; b.frictionAir = 0.004;
     Sleeping.set(b, false);   // de estática acumuló sleepCounter: sin esto se duerme al instante y se queda flotando
+    // ya suelta es una pieza más: se agrieta por etapas y se rompe con golpes fuertes (la de fierro aguanta más)
+    m.life = m.max = bgTheme === 'lair' ? 16 : 7; m.dmg = 0; m.fallT = time;
     Body.setVelocity(b, {x: -Math.sin(wa) * v + Math.max(-4, Math.min(4, kx)), y: Math.cos(wa) * v - 1.5}); Body.setAngularVelocity(b, (Math.random() - 0.5) * 0.06 + kx * 0.004);
     for (const d of dyn) { const q = d.body; if (q.bounds.max.x > b.bounds.min.x - 6 && q.bounds.min.x < b.bounds.max.x + 6 && q.bounds.max.y > b.bounds.min.y - 40 && q.bounds.min.y < b.bounds.max.y) { Sleeping.set(q, false);
       // el pasajero se da cuenta de que se cae (cara de susto + grito)
       if (d.mat === 'mouse' && !d.dead) { d.hurt = 0.5; say(d, ['¡AAAAH!', '¡MI JUEGO!', '¡ME BAJOOO!'][Math.floor(Math.random() * 3)], 1.3, 0.85); SFX.squeak(); } } }
     const P = b.position, hy = P.y - W.drop; SFX.snap(0.9); const lair = bgTheme === 'lair'; if (lair) SFX.clank(0.6); else SFX.creak('wood', 0.5);
     fx.burst(lair ? 'can' : 'box', P.x, hy, 7, 320, {up: 120, size: 0.5, life: 1.0, g: 900, w: 20, h: 20}); fx.smoke(P.x, hy, 40, 3);
+  }
+  function hurtCar(m, amount) {
+    if (!m.fall || m.broke || time - m.fallT < 0.12 || amount <= 0) return;
+    m.life -= amount; m.jolt = Math.max(m.jolt || 0, Math.min(1, amount / 6));
+    const st = Math.min(3, Math.floor((1 - m.life / m.max) * 4));
+    if (st !== m.dmg && m.life > 0) { m.dmg = st;
+      if (m.dtex) { m.deck.texture = blockTex('wood', ...m.dtex, st); SFX.creak('wood', 0.35); }
+      else { m.deck.tint = [0xFFFFFF, 0xD8D0C6, 0xB4AAA0, 0x908680][st]; SFX.creak('can', 0.35); } }   // fierro: se va abollando/oscureciendo
+    if (m.life <= 0) breakCar(m);
+  }
+  // la canastilla suelta se hace pedazos: astillas (o fierros), techito de lona que sale volando, puntos de bloque
+  function breakCar(m) {
+    m.broke = true; const b = m.body, P = b.position, lair = bgTheme === 'lair', w = b.bounds.max.x - b.bounds.min.x;
+    Composite.remove(engine.world, b); m.sp.visible = false;
+    fx.burst(lair ? 'can' : 'box', P.x, P.y, 16, 460, {w: w * 0.8, h: 40, size: 1.0}); fx.smoke(P.x, P.y, w * 0.4, 6);
+    if (!lair) { const n0 = fx.parts.length; fx.burst('fur', P.x, P.y - 40, 6, 300, {up: 200, size: 1.1, life: 1.4, drag: 1.8, g: 420});   // jirones del toldo
+      for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = j & 1 ? 0xE0483A : 0xF6EEDC; }
+    SFX.breakSfx(lair ? 'can' : 'box'); if (lair) SFX.clank(0.8); cam.shake(8);
+    dyn.forEach(o => Sleeping.set(o.body, false));
+    const v = lair ? PTS.can : PTS.box; addScore(v, P.x, P.y - 30, lair ? PTS_COL.can : PTS_COL.box); wreck(v);
   }
   function moveMovers(ms) {
     const h = ms / 1000;
@@ -2271,6 +2295,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
