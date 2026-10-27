@@ -164,7 +164,7 @@ export class Menus {
     // hechizos de estambre que le quedan al jugador (AB2 muestra el inventario de hechizos en el mapa)
     if (this.o.yarnTex && this.o.getYarn) { const ys = this.item(new Sprite(this.o.yarnTex), W - 620, 112, 2.5, 'pop', 0.8); ys.anchor.set(0.5); ys.rotation = 0.15;
       const yt = this.item(txt('×' + this.o.getYarn(), 64, '#E2CCFF'), W - 480, 116, 2.55); yt.anchor.set(0.5); }
-    if (this.o.balloonTex && this.o.getBalloon) { const bs = this.item(new Sprite(this.o.balloonTex), W - 860, 122, 2.6, 'pop', 0.6); bs.anchor.set(0.5); bs.rotation = -0.12;
+    if (this.o.balloonTex && this.o.getBalloon) { const bs = this.item(new Sprite(this.o.balloonTex), W - 850, 126, 2.6, 'pop', 0.5); bs.anchor.set(0.5); bs.rotation = -0.12;
       const bt = this.item(txt('×' + this.o.getBalloon(), 64, '#FFC8DC'), W - 755, 116, 2.65); bt.anchor.set(0.5); }
     // flechas para cambiar de mundo (como las páginas de episodios de AB2)
     if (page > 0) this.btn(this.T.prevW, () => { SFX.whoosh(); this.showSelect(page - 1); }, 0.6, 110, 770, 2.6);
