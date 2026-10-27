@@ -276,3 +276,6 @@ export function clank(v = 0.5) { if (!ok('clank', 0.5)) return; const t = ctx.cu
   const o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(1150, t + 0.4); o.frequency.linearRampToValueAtTime(980, t + 0.75);
   g.gain.setValueAtTime(0.0001, t + 0.4); g.gain.exponentialRampToValueAtTime(0.018 * v, t + 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.78);
   const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1100; f.Q.value = 3; o.connect(f); f.connect(g); g.connect(master); o.start(t + 0.4); o.stop(t + 0.8); }
+// ¡boing! del hongo/gelatina rebotadora: resorte que sube y tiembla
+export function boing(v = 0.7) { if (!ok('boing', 0.12)) return; const t = ctx.currentTime;
+  tone(t, 150, 'sine', 0.5 * v, 0.42, 520); tone(t + 0.04, 300, 'triangle', 0.16 * v, 0.3, 760); tone(t + 0.16, 420, 'sine', 0.12 * v, 0.25, 260); noise(t, 0.06, 'lowpass', 500, 1, 0.3 * v, 0.05); }

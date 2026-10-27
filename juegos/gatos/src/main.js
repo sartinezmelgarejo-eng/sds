@@ -1509,7 +1509,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     clearSpell(); spell.used = false; spell.kind = null;
-    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; queue.length = 0; clearDeck();
+    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -1752,7 +1752,7 @@ async function main() {
   // PLATAFORMAS QUE SE MUEVEN (AB2): repisa fija con b.move = {dx, dy, T} (recorrido desde su lugar y periodo en s; ph = desfase 0–1).
   // Va y viene con vaivén suave (seno); se mueve dentro de cada paso de física con velocidad, así lo que lleva encima viaja con ella.
   // Atrás se dibuja su riel con topes para que se lea el recorrido.
-  const movers = [];
+  const movers = [], bumpers = [];
   function makeMover(body, sp, b, cy) {
     const m = {body, sp, x0: b.x, y0: cy, dx: b.move.dx || 0, dy: -(b.move.dy || 0), T: b.move.T || 4, t: (b.move.ph || 0) * (b.move.T || 4)};
     body.mover = m; movers.push(m);
@@ -2015,6 +2015,58 @@ async function main() {
       body.mover = m; movers.push(m);
     }
   }
+  // ---------- REBOTADORES (AB2: hongos/cosas que rebotan) ----------
+  // repisa `static` con `"bump": true`: Jardín = HONGO rojo con puntos (con tallo hasta el piso), Cocina/Guarida = GELATINA en su plato.
+  // Lo que cae ENCIMA sale rebotado con MÁS fuerza (e hasta 1.15 gatos, 0.85 lo demás; de lado ~0.45), "boing" y el sprite gelatinea.
+  function makeBumper(b, cy) {
+    const w = b.w, h = b.h, shroom = (b.bump === 'shroom') || (b.bump === true && bgTheme === 'garden'), INK = 0x2A1A10;
+    const body = Bodies.rectangle(b.x, cy, w, h, {isStatic: true, friction: 0.4, label: 'bumper', chamfer: {radius: [h * 0.85, h * 0.85, 6, 6]}});
+    Composite.add(engine.world, body); shelves.push(body);
+    const base = cy + h / 2, g = new Graphics(), sp = new Container(); sp.position.set(b.x, base); sp.addChild(g);
+    if (shroom) {
+      // tallo hasta el piso (también sólido; no rebota)
+      const sh = GROUND - base;
+      if (sh > 8) { const sw = w * 0.3, st = Bodies.rectangle(b.x, base + sh / 2, sw * 0.9, sh, {isStatic: true, friction: 0.9, label: 'shelf'}); Composite.add(engine.world, st); shelves.push(st);
+        const sg = new Graphics(); sg.poly([-sw * 0.42, 0, sw * 0.42, 0, sw * 0.55, sh, -sw * 0.55, sh]).fill(0xF4E9D2).stroke({color: INK, width: 5});
+        sg.poly([sw * 0.12, 4, sw * 0.38, 4, sw * 0.48, sh - 4, sw * 0.2, sh - 4]).fill({color: 0xC9B48E, alpha: 0.6});
+        sg.ellipse(0, sh, sw * 0.9, 12).fill({color: 0x2E5A1A, alpha: 0.5}); sg.position.set(b.x, base); actors.addChild(sg); roomSp.push(sg); }
+      const pts = []; for (let k = 0; k <= 24; k++) { const a = Math.PI + Math.PI * k / 24; pts.push(Math.cos(a) * w / 2, Math.sin(a) * h * 1.05 + h * 0.08); }
+      g.ellipse(0, h * 0.06, w * 0.46, h * 0.16).fill(0xEADBB8).stroke({color: INK, width: 4});                       // laminillas de abajo
+      for (let k = -4; k <= 4; k++) g.moveTo(k * w * 0.045, h * 0.0).lineTo(k * w * 0.075, h * 0.17).stroke({color: 0xB8A47E, width: 2});
+      g.poly(pts).fill(0xE0372C).stroke({color: INK, width: 6});
+      g.ellipse(w * 0.06, -h * 0.25, w * 0.36, h * 0.5).fill({color: 0xFF7A5A, alpha: 0.35});
+      for (const [x, y, r] of [[-0.28, -0.35, 0.09], [0.05, -0.7, 0.11], [0.3, -0.3, 0.08], [-0.05, -0.22, 0.06], [-0.38, -0.08, 0.05], [0.4, -0.06, 0.05]])
+        g.ellipse(x * w, y * h, r * w, r * w * 0.8).fill(0xFFF6E8).stroke({color: 0xC9B8A0, width: 2});
+      g.ellipse(-w * 0.22, -h * 0.72, w * 0.12, h * 0.12).fill({color: 0xFFFFFF, alpha: 0.55});
+    } else {
+      // gelatina de molde (verde limón translúcida, con estrías) en su plato, con cereza arriba
+      g.ellipse(0, 4, w * 0.62, 14).fill(0xF4F2EC).stroke({color: INK, width: 4}); g.ellipse(0, 1, w * 0.48, 8).fill(0xE2DED4);
+      const tw = w * 0.42;
+      g.poly([-w / 2, 0, -tw, -h * 0.92, -tw * 0.7, -h, tw * 0.7, -h, tw, -h * 0.92, w / 2, 0]).fill({color: 0x7BD84A, alpha: 0.88}).stroke({color: 0x2E6A1A, width: 5});
+      for (let k = -2; k <= 2; k++) g.moveTo(k * w * 0.19, -4).lineTo(k * tw * 0.42, -h * 0.94).stroke({color: 0x4FA82A, width: 4, alpha: 0.8});
+      g.poly([-w * 0.36, -8, -tw * 0.8, -h * 0.84, -tw * 0.55, -h * 0.88, -w * 0.24, -10]).fill({color: 0xFFFFFF, alpha: 0.4});
+      g.moveTo(4, -h - 18).quadraticCurveTo(14, -h - 40, 26, -h - 44).stroke({color: 0x5A3A1A, width: 4});
+      g.circle(0, -h - 12, 15).fill(0xD81E2C).stroke({color: INK, width: 4}).circle(-5, -h - 17, 5).fill({color: 0xFFFFFF, alpha: 0.6});
+    }
+    actors.addChild(sp); roomSp.push(sp);
+    const bp = {body, sp, wob: 0, t: 0}; body.bumper = bp; bumpers.push(bp);
+  }
+  Matter.Events.on(engine, 'collisionStart', ev => {
+    for (const pr of ev.pairs) { const A = pr.bodyA, B = pr.bodyB, bp = A.bumper || B.bumper; if (!bp) continue;
+      const o = A.bumper ? B : A; if (o.isStatic) continue;
+      let nx = pr.collision.normal.x, ny = pr.collision.normal.y; if ((o.position.x - bp.body.position.x) * nx + (o.position.y - bp.body.position.y) * ny < 0) { nx = -nx; ny = -ny; }
+      const vn = o.velocity.x * nx + o.velocity.y * ny; if (vn > -1.5) continue;   // sólo lo que llega de frente
+      const again = o.bumpT != null && time - o.bumpT < 1.2; o.bumpT = time;   // rebotes seguidos se apagan (si no, trampolín infinito)
+      const up = Math.max(0, -ny), cat = o.label === 'cat', e = again ? 0.5 : 0.45 + (cat ? 0.7 : 0.4) * up, out = Math.max(-vn * e, up > 0.5 && !again ? (cat ? 7 : 3) : 0), dv = out - vn;   // de arriba: trampolín; de lado: rebote suave
+      Sleeping.set(o, false); Body.setVelocity(o, {x: o.velocity.x + nx * dv, y: o.velocity.y + ny * dv});
+      const k = Math.min(1, -vn / 16); if (k > bp.wob * 0.6) { bp.wob = 0.12 + 0.2 * k; bp.t = 0; }
+      bp.n = (bp.n || 0) + 1; SFX.boing(0.35 + 0.6 * k); const sp = pr.collision.supports?.[0] || o.position;
+      fx.burst('star', sp.x, sp.y, Math.round(3 + 5 * k), 260, {up: 120, size: 0.5, life: 0.6, g: 500}); if (k > 0.4) cam.shake(4 + 6 * k);
+      if (o.label === 'cat' && flying && o === flying.body && k > 0.3) flying.sprite.scale.set(0.5 * 1.25, 0.5 * 0.75);   // squash del gato
+    }
+  });
+  function animBumpers(dt) { for (const bp of bumpers) { if (bp.wob <= 0.002) { bp.sp.scale.set(1); continue; } bp.t += dt; const s = Math.sin(bp.t * 34) * bp.wob;
+    bp.sp.scale.set(1 + s * 0.8, 1 - s); bp.wob *= Math.exp(-dt * 5); } }
   // la canastilla se zafa: deja de ser repisa fija y cae como pieza suelta (con el impulso de la rueda + el del golpe),
   // chasquido del perno, astillas y un crujido; el ratón que iba arriba cae con ella
   function dropCar(m, kx = 0) {
@@ -2102,6 +2154,7 @@ async function main() {
       if (b.static && b.branch) { roomSp.push(drawBranch(b, cy)); return; }
       if (b.static && b.move?.spin) return makeSpinner(b, cy, i);
       if (b.static && b.move?.wheel) return makeWheel(b, i);
+      if (b.static && b.bump) return makeBumper(b, cy);
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
         const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); roomSp.push(sp);
@@ -2155,7 +2208,7 @@ async function main() {
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
     for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
-    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = 0; roomSp.splice(0).forEach(o => o.destroy());
+    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
   }
@@ -2234,6 +2287,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
+    animBumpers(dt);
     for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle; if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
@@ -2295,6 +2349,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
