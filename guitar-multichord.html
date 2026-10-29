@@ -17,7 +17,10 @@
     // Tableta (cualquier táctil con lado corto ≥ 520 CSS px). El layout
     // desktop forzado sigue pidiendo ≥ 600; el modo atril usa esta bandera.
     window._isTablet = !!(coarse && minDim >= 520 && Math.max(screen.width, screen.height) >= 800);
-    if (coarse && minDim >= 600 && !/[?&]mobile=1/.test(location.search)) {
+    // 2026-10-29 (Samuel): las tabletas YA NO se fuerzan a vista de computadora —
+    // en horizontal usan la vista táctil (standby + overlay + modo atril), como
+    // la versión de junio. Para la vista de computadora en tableta: ?desktop=1.
+    if (coarse && minDim >= 600 && /[?&]desktop=1/.test(location.search)) {
       window._tabletDesktop = true;
       var vp = document.querySelector('meta[name="viewport"]');
       if (vp) vp.setAttribute('content', 'width=1100, viewport-fit=cover');
@@ -6079,6 +6082,27 @@ body.practica-on #landscape-play .lp-info-practica {
   cursor: pointer;
 }
 </style>
+<script>
+// Pantalla completa automática en teléfono/tableta (Samuel, 2026-10-29).
+// Los navegadores solo la permiten tras un toque: se pide en el PRIMER toque
+// de la sesión y cada vez que se le da play. iPhone (Safari) no la soporta:
+// ahí solo aplica instalada como app. Sin botón.
+(function () {
+  try {
+    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) return;
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+    const go = () => { if (isFs()) return; try { const r = req.call(el, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
+    let first = true;
+    document.addEventListener('pointerup', (e) => {
+      const playBtn = e.target && e.target.closest && e.target.closest('#d-tx-play, #m-tx-play, #lp-play, #ls-play, #at-play, #pp-start, #ls-practica-play');
+      if (first || playBtn) { first = false; go(); }
+    }, true);
+  } catch (e) {}
+})();
+</script>
 </head>
 <body class="keypad-open">
 
