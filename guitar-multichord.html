@@ -28452,8 +28452,13 @@ if ('serviceWorker' in navigator) {
   #first-count .fc-dots i { width: 2.4vh; height: 2.4vh; border-radius: 50%; border: 2px solid #1a1a1a; display: block; }
   #first-count .fc-dots i.on { background: #d9a300; border-color: #d9a300; }
   #first-count.out { opacity: 0; transition: opacity .25s; }
+  #first-count .fc-first { margin-top: 4vh; text-align: center; }
+  #first-count .fc-lbl { font: 600 1.6vh system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #8a805f; }
+  #first-count .fc-chord { font: italic 700 9vh Georgia, serif; margin-top: .6vh; }
+  #first-count .fc-chord span { font-size: .5em; color: #0b8a5c; margin-left: .3em; }
 </style>
-<div id="first-count" aria-hidden="true"><div class="fc-n" id="fc-n">1</div><div class="fc-dots"><i></i><i></i><i></i><i></i></div></div>
+<div id="first-count" aria-hidden="true"><div class="fc-n" id="fc-n">1</div><div class="fc-dots"><i></i><i></i><i></i><i></i></div>
+  <div class="fc-first" id="fc-first" hidden><div class="fc-lbl">primer acorde</div><div class="fc-chord" id="fc-chord"></div></div></div>
 <script>
 (function () {
   try {
@@ -28472,6 +28477,29 @@ if ('serviceWorker' in navigator) {
       const bpm = (typeof metronome !== 'undefined' && metronome.bpm) || 100;
       const beat = Math.min(800, Math.max(350, 60000 / bpm));
       ov.classList.remove('out'); ov.classList.add('on');
+      // Pre-genera la canción para poder mostrar el PRIMER acorde durante la
+      // cuenta; start() usará exactamente esa canción (una sola vez).
+      try {
+        const orig = player._generateSong;
+        const pre = orig.call(player);
+        player._generateSong = function () { player._generateSong = orig; return pre; };
+        const sec = pre && pre[0];
+        const steps = (sec && sec.progression && sec.progression.steps) || [];
+        const st = steps.find(x => x && x.chord && !x._silent);
+        const ton = (sec && sec.tonality) || state.tonality;
+        const kp = (sec && sec.keyPc !== undefined) ? sec.keyPc : state.keyPc;
+        const ch = st && (CHORD_MAP[ton] || currentMap()).chordDefs[st.chord];
+        if (ch) {
+          const q = (st.qualityOverride && QUALITIES[st.qualityOverride]) ? st.qualityOverride : ch.quality;
+          const root = (kp + ch.deg) % 12;
+          const nm = nameOf(root, useFlatsFor(kp)) + QUALITIES[q].sfx;
+          const rest = steps.indexOf(st) > 0 && steps.slice(0, steps.indexOf(st)).some(x => x && x._silent);
+          document.getElementById('fc-chord').innerHTML = (typeof symbolizeChordName === 'function' ? symbolizeChordName(nm) : nm)
+            + `<span>${ch.roman || ''}</span>`;
+          document.querySelector('#first-count .fc-lbl').textContent = rest ? 'primer acorde (tras un silencio)' : 'primer acorde';
+          document.getElementById('fc-first').hidden = false;
+        }
+      } catch (_) {}
       let k = 0;
       const tick = () => {
         num.textContent = String(k + 1);
