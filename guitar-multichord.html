@@ -28436,5 +28436,68 @@ if ('serviceWorker' in navigator) {
 })();
 </script>
 
+
+<!-- Cuenta inicial del PRIMER play en teléfono/tableta (Samuel, 2026-10-29):
+     al entrar a pantalla completa + arrancar la música todo a la vez, la
+     tableta se congelaba con la pantalla negra. Ahora el primer play pinta
+     al instante una cuenta 1-2-3-4 al tempo, deja que la pantalla completa
+     se acomode, y arranca la música al terminar la cuenta. -->
+<style>
+  #first-count { position: fixed; inset: 0; z-index: 10100; display: none; align-items: center; justify-content: center;
+    flex-direction: column; background: #fdfcf3; color: #1a1a1a; font-family: Georgia, serif; }
+  #first-count.on { display: flex; }
+  #first-count .fc-n { font-size: min(34vh, 34vw); line-height: 1; font-weight: 700; transition: transform .12s ease-out, opacity .12s; }
+  #first-count .fc-n.pop { transform: scale(1.12); }
+  #first-count .fc-dots { margin-top: 2vh; display: flex; gap: 2.2vw; }
+  #first-count .fc-dots i { width: 2.4vh; height: 2.4vh; border-radius: 50%; border: 2px solid #1a1a1a; display: block; }
+  #first-count .fc-dots i.on { background: #d9a300; border-color: #d9a300; }
+  #first-count.out { opacity: 0; transition: opacity .25s; }
+</style>
+<div id="first-count" aria-hidden="true"><div class="fc-n" id="fc-n">1</div><div class="fc-dots"><i></i><i></i><i></i><i></i></div></div>
+<script>
+(function () {
+  try {
+    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) return;
+    const SEL = '#d-tx-play, #m-tx-play, #lp-play, #ls-play';
+    let used = false, bypass = false;
+    const ov = document.getElementById('first-count'), num = document.getElementById('fc-n');
+    const dots = ov.querySelectorAll('.fc-dots i');
+    document.addEventListener('click', (e) => {
+      if (bypass || used) return;
+      const btn = e.target && e.target.closest && e.target.closest(SEL);
+      if (!btn || typeof player === 'undefined' || player.playing || player.paused) return;
+      used = true;
+      e.preventDefault(); e.stopImmediatePropagation();
+      try { if (typeof ensureAudio === 'function') ensureAudio(); } catch (_) {}   // desbloquea audio dentro del toque
+      const bpm = (typeof metronome !== 'undefined' && metronome.bpm) || 100;
+      const beat = Math.min(800, Math.max(350, 60000 / bpm));
+      ov.classList.remove('out'); ov.classList.add('on');
+      let k = 0;
+      const tick = () => {
+        num.textContent = String(k + 1);
+        dots.forEach((d, i) => d.classList.toggle('on', i <= k));
+        num.classList.add('pop'); setTimeout(() => num.classList.remove('pop'), 110);
+        k++;
+        if (k < 4) { setTimeout(tick, beat); return; }
+        setTimeout(() => {
+          bypass = true; try { btn.click(); } finally { bypass = false; }
+          // Quitar la cuenta cuando ya hay algo pintado (o a los 2 s, lo que pase primero).
+          const t0 = performance.now();
+          const done = () => {
+            const ready = document.body.classList.contains('player-active')
+              && (!document.body.classList.contains('atril-on') || (document.getElementById('at-page') || {}).childElementCount);
+            if (ready || performance.now() - t0 > 2000) {
+              ov.classList.add('out'); setTimeout(() => ov.classList.remove('on', 'out'), 260);
+            } else requestAnimationFrame(done);
+          };
+          requestAnimationFrame(() => requestAnimationFrame(done));
+        }, beat);
+      };
+      requestAnimationFrame(tick);
+    }, true);
+  } catch (e) {}
+})();
+</script>
+
 </body>
 </html>
