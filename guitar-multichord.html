@@ -28456,9 +28456,11 @@ if ('serviceWorker' in navigator) {
   #first-count .fc-lbl { font: 600 1.6vh system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #8a805f; }
   #first-count .fc-chord { font: italic 700 9vh Georgia, serif; margin-top: .6vh; }
   #first-count .fc-chord span { font-size: .5em; color: #0b8a5c; margin-left: .3em; }
+  #first-count .fc-staff { margin: 1.5vh auto 0; width: min(46vw, 420px); }
+  #first-count .fc-staff svg { width: 100%; height: auto; display: block; }
 </style>
 <div id="first-count" aria-hidden="true"><div class="fc-n" id="fc-n">1</div><div class="fc-dots"><i></i><i></i><i></i><i></i></div>
-  <div class="fc-first" id="fc-first" hidden><div class="fc-lbl">primer acorde</div><div class="fc-chord" id="fc-chord"></div></div></div>
+  <div class="fc-first" id="fc-first" hidden><div class="fc-lbl">primer acorde</div><div class="fc-chord" id="fc-chord"></div><div class="fc-staff" id="fc-staff"></div></div></div>
 <script>
 (function () {
   try {
@@ -28498,6 +28500,27 @@ if ('serviceWorker' in navigator) {
             + `<span>${ch.roman || ''}</span>`;
           document.querySelector('#first-count .fc-lbl').textContent = rest ? 'primer acorde (tras un silencio)' : 'primer acorde';
           document.getElementById('fc-first').hidden = false;
+          // Voicing EXACTO: lo elegimos aquí y lo publicamos en state.playerVoicing;
+          // el plan del primer compás lo respeta (ancla de bar 0), así que lo que
+          // se ve en la cuenta es lo que suena. Solo si el compás 1 es ese acorde.
+          if (steps.indexOf(st) === 0 && typeof player._pickShape === 'function') {
+            const segType = st.composedType || sec.voicingType || player.voicingType || 'drop2';
+            const fType = (typeof _voicingTypeForChord === 'function') ? _voicingTypeForChord(segType, ch.tag, 0, 0, 0) : segType;
+            const opts = { progName: sec.progression && sec.progression.name, sectionLabel: sec.label, rotateVoicing: false, topStagnation: 0 };
+            const shape = st.composedShape || player._pickShape(q, root, fType, null, opts) || player._pickShape(q, root, 'drop2', null, opts);
+            if (shape) {
+              const pianoShape = (Array.isArray(st.composedPianoShape) && st.composedPianoShape.length) ? st.composedPianoShape.slice()
+                : (shape.__pianoShape && shape.__pianoShape.length ? shape.__pianoShape.slice() : null);
+              state.playerVoicing = { chord: st.chord, shape, type: fType, pianoShape };
+              const flats = useFlatsFor(kp);
+              const svg = state.instrument === 'piano'
+                ? renderChordStaff(shape, root, ch.quality, flats, { W: 300, H: 180, showClef: true, keyPc: kp, tonality: ton, firstOfRow: true, pianoShape })
+                : renderMini(shape, root, ch.quality, flats, { W: 170, H: 170, r: 11, bwNotes: true });
+              const box = document.getElementById('fc-staff');
+              box.style.width = state.instrument === 'piano' ? '' : 'min(20vw, 26vh, 200px)';
+              box.innerHTML = svg || '';
+            }
+          }
         }
       } catch (_) {}
       let k = 0;
