@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LEEME — Guía de archivos</title>
+<link rel="manifest" href="pwa/manifest-LEEME.json"><meta name="theme-color" content="#64748b"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="pwa/icon-LEEME-192.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0a0f;
+    color: #d4d4d4;
+    line-height: 1.7;
+    padding: 40px 20px;
+  }
+  .container { max-width: 780px; margin: 0 auto; }
+  h1 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+    color: #c8a960;
+    font-size: 32px;
+    margin-bottom: 8px;
+    font-weight: 400;
+  }
+  .subtitle {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid #222;
+    padding-bottom: 20px;
+  }
+  h2 {
+    color: #c8a960;
+    font-size: 18px;
+    font-weight: 600;
+    margin: 36px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3 {
+    color: #e0d5b8;
+    font-size: 15px;
+    font-weight: 600;
+    margin: 20px 0 6px;
+  }
+  p { margin-bottom: 12px; font-size: 14.5px; }
+  .file-card {
+    background: #111118;
+    border: 1px solid #222;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 12px 0;
+  }
+  .file-card .name {
+    font-weight: 700;
+    color: #e8e0cc;
+    font-size: 15px;
+  }
+  .file-card .desc {
+    color: #999;
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .file-card .meta {
+    color: #666;
+    font-size: 11.5px;
+    margin-top: 8px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .tag-activo { background: rgba(72,187,120,0.15); color: #48bb78; }
+  .tag-backup { background: rgba(200,169,96,0.12); color: #c8a960; }
+  .tag-ref { background: rgba(99,140,210,0.15); color: #638cd2; }
+  .tag-beta { background: rgba(251,146,60,0.18); color: #fb923c; }
+  .connection {
+    background: #0d0d14;
+    border-left: 3px solid #c8a960;
+    padding: 10px 16px;
+    margin: 8px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 13px;
+    color: #aaa;
+  }
+  .connection strong { color: #e0d5b8; }
+  .diagram {
+    background: #0d0d14;
+    border: 1px solid #1a1a24;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 16px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.9;
+    color: #bbb;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .diagram .gold { color: #c8a960; }
+  .diagram .green { color: #48bb78; }
+  .diagram .dim { color: #555; }
+  .diagram .blue { color: #638cd2; }
+  .warn {
+    background: rgba(200,169,96,0.06);
+    border: 1px solid rgba(200,169,96,0.2);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+    font-size: 13px;
+  }
+  .warn-title { color: #c8a960; font-weight: 700; margin-bottom: 4px; }
+  a { color: #638cd2; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  ul { padding-left: 20px; margin: 8px 0; }
+  li { font-size: 13.5px; margin: 4px 0; color: #bbb; }
+  .footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid #222;
+    color: #555;
+    font-size: 12px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Guía de archivos</h1>
+<p class="subtitle">Qué es cada cosa, cómo se conectan, y qué no tocar. Actualizado: 26 de junio de 2026.</p>
+
+<div class="connection">
+  <strong>Para agentes de IA (Claude Code / opencode / Cursor):</strong> hay un archivo <code>AGENTS.md</code> en este folder que es la versión condensada de operating rules — se auto-carga al iniciar cada sesión. Este LEEME es la referencia profunda (historia, arquitectura técnica). Empezar por <code>AGENTS.md</code>; venir aquí cuando se necesite contexto histórico o detalle de un sistema específico.
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📂 Estructura general</h2>
+
+<p>Todo vive en una carpeta de Google Drive que se sincroniza entre computadoras, y se despliega automáticamente a GitHub Pages:</p>
+
+<div class="diagram"><span class="gold">Google Drive / Other computers / My Mac /</span>
+├── <span class="green">htmls/</span>                    ← esta carpeta (aplicaciones web)
+│   ├── index.html              ← menú principal / launcher
+│   ├── monitoring.html         ← Sala de Situación (dashboard)
+│   ├── BUSCADOR-MANANERAS.html ← buscador de mañaneras
+│   ├── libreria.html ← biblioteca interactiva
+│   ├── sacred-texts.html       ← Biblia y Corán
+│   ├── Iglesia-contra-Mexico.html
+│   ├── china-trip-planner-enhanced.html
+│   ├── guitar.html             ← práctica de guitarra jazz (Music 2.0 — rediseño brutalist + per-sound illustrations + audio CPU diet)
+│   ├── guitar-1.0.html         ← versión anterior de guitar.html (archivo, accesible en paralelo)
+│   ├── schedules.html          ← tabla de tareas programadas
+│   ├── LEEME.html              <span class="dim">← este archivo</span>
+│   ├── feed.json               <span class="dim">← feed de traducciones publicadas</span>
+│   ├── tg-feed.json            <span class="dim">← posts recientes de @resisres (widget en index)</span>
+│   ├── <span class="green">translations/</span>         ← traducciones EN para mexicosolidarity.com
+│   │   ├── index.html          <span class="dim">← lista de todas las traducciones (con outlet icons)</span>
+│   │   ├── viewer.html         <span class="dim">← Compare & Edit + Copy to WP</span>
+│   │   ├── manifest.json       <span class="dim">← índice usado por index.html y widget sidebar</span>
+│   │   └── &lt;slug&gt;/            <span class="dim">← una carpeta por artículo (article.html, original.json, meta.json, img/)</span>
+│   ├── <span class="green">inbox/</span>                ← bot de Telegram (ver sección abajo)
+│   ├── <span class="green">pwa/</span>                  ← manifests, iconos, service worker
+│   │   ├── sw.js               <span class="dim">← network-first, cachea CDNs</span>
+│   │   ├── manifest*.json      <span class="dim">← uno por app</span>
+│   │   └── icon-*-{192,512}.png
+│   └── <span class="green">backups/</span>              ← respaldos (máx 4 por documento)
+│
+└── <span class="green">Books/</span>                    ← biblioteca de PDFs y EPUBs (560+ archivos, incl. Books/INEHRM/)
+    ├── Marx/
+    ├── Engels/
+    ├── Enrique-Dussel/
+    ├── <span class="dim">... (26 subcarpetas por autor)</span>
+    └── <span class="dim">... (archivos sueltos)</span>
+
+<span class="gold">GitHub Pages:</span> <span class="blue">sartinezmelgarejo-eng.github.io/sds/</span>
+└── repo: sartinezmelgarejo-eng/sds (branch: gh-pages)
+    └── se actualiza automáticamente con cada tarea programada</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📄 Los archivos</h2>
+
+<div class="file-card">
+  <div class="name">index.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Menú principal / launcher con feed Telegram unificado. <strong>Desktop:</strong> grid de apps + sidebar derecho (resizable por drag, 240px–50vw, persiste en localStorage) con el feed unificado — chips de categoría (All/Mañanera/Noticias/Internacional/📖 Translations); posts con <code>task: "dragon"</code> caen bajo la chip Internacional vía <code>TASK_META[t].group</code> pero su stripe lateral usa jade <code>#3a8a78</code> (sub-tono del teal <code>#235B4E</code> de onmexico) para distinguirse visualmente sin spawnar chip propia. Cards Telegram-style con stripe lateral del color de su categoría, tap-to-expand individual, view-toggle ▦/☰. Headlines (primera línea wrapped por <code>boldFirstLine()</code> en <code>&lt;b class="hd"&gt;</code>) llevan tipografía propia — cream brillante <code>#f8e9c4</code>, peso 700, tamaño escalado por modo (13/14.5/15.5px sidebar, 15/17/19px mobile) — para que cada post tenga jerarquía visible. En sidebar ≥480px (CSS container queries) el expanded view usa magazine layout (imagen left col, body right). <strong>Fullscreen reader (sidebar arrastrado &gt;70% viewport):</strong> ahora una <strong>portada editorial dinámica</strong> en lugar de scroll vertical. Hero spread (60%) de la sección con batch más reciente + mosaico de hasta 4 supports debajo; rail (40%) con las otras 2 secciones como mini-paneles. Per-section flavor: dailyt Bodoni italic guinda (pull-quote), scant Playfair sans (wire-photo), onmexico Bodoni roman (geopolitical). Batches detectadas con gap >30 min entre sends. Click section header drilla a scroll filtrado; chip "All" renombrado a "Portada" para volver. <strong>Mobile:</strong> 2-page swipe (Telegram feed ↔ Apps). Floating refresh ⟳ top-right. Bottom-strip "peek" en cada página. La More overlay marca con <code>.mobile-hide</code> los items ya presentes en el m-apps-grid (Schedules, Guitarra) para evitar duplicados en mobile; en desktop siguen visibles ahí. Paleta Pantone institucional: guinda 7420C/7421C, cream 468C, teal 626C, oro 465C; body bg cream cálido <code>#f4f1ea</code> + search-forms cream <code>#fefcf8</code> con focus oro. Paragraph newlines preservados, body text en compact clamped 6 líneas con thumb 56px source preview lateral. Telegram-blue (<code>#0088cc</code>) reservado solo para el "Open in Telegram" pill.</div>
+  <div class="meta">~38 KB · CSS container queries + view-toggle + draggable resize</div>
+</div>
+
+<div class="file-card">
+  <div class="name">monitoring.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Sala de Situación — Dashboard interactivo de indicadores económicos y sociales de México. Construido con React y Recharts. Cubre salario mínimo, pobreza, PIB, comercio exterior, empleo, energía, seguridad, presupuesto federal, comparaciones OCDE/LatAm, y más. Incluye gráficas interactivas con datos históricos, desglose del PEF/LIF 2026, modo Monitor (slots rotatorios) y modo Explorar (navegación por categoría con drill-down). Se actualiza automáticamente vía 8 tareas programadas.</div>
+  <div class="meta">201 KB · React 18 + Recharts + Babel standalone · ~100 gráficas en 7 categorías</div>
+</div>
+
+<div class="file-card">
+  <div class="name">BUSCADOR-MANANERAS.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Buscador de todas las conferencias mañaneras (AMLO y Sheinbaum). Busca por tema, fecha, o texto. Datos comprimidos en base64→gzip→JSON en línea 681. Se actualiza diariamente a las 19:03 vía tarea programada.</div>
+  <div class="meta">55 MB · Independiente · Actualización automática diaria</div>
+</div>
+
+<div class="file-card">
+  <div class="name">libreria.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Wiki-explorador interactivo de toda la biblioteca. 276 libros organizados en 6 estantes temáticos, con citas, conexiones entre libros, línea de tiempo (4596 eventos), atlas de conceptos, y rutas de lectura. Cada libro tiene un botón "Abrir archivo" que abre el PDF/EPUB directamente desde la carpeta Books.</div>
+  <div class="meta">6.2 MB · 276 libros · 267 vinculados a archivos · 367 citas con link directo a página del PDF</div>
+</div>
+
+<div class="connection">
+  <strong>Conexión con Books/</strong> — El MAPA tiene la ruta de cada archivo (ej: <code>Marx/El-Capital-Vol1.pdf</code>). Al hacer click en "📂 Abrir archivo", construye una URL <code>file:///</code> usando la ruta base configurada. Las citas con "📄 Ver en PDF" abren el PDF en la página exacta con <code>#page=X</code>.
+</div>
+
+<div class="file-card">
+  <div class="name">sacred-texts.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Explorador de textos sagrados: Biblia y Corán. Header scrollable en móvil, filtro por tradición, libros en dos columnas.</div>
+  <div class="meta">13 MB · Independiente</div>
+</div>
+
+<div class="file-card">
+  <div class="name">Iglesia-contra-Mexico.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">500 años de historia de la Iglesia contra México.</div>
+  <div class="meta">100 KB · Independiente</div>
+</div>
+
+<div class="file-card">
+  <div class="name">guitar.html <span class="tag tag-beta">BETA LOCAL</span> <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc"><strong>⚠️ Dos versiones coexistiendo:</strong> el archivo local (<code>htmls/guitar.html</code>) es la beta en desarrollo activo — tiene todo el sistema de popups, chord map rediseñado, navegación con flechas, y las últimas mejoras de UX. El deployed en GitHub Pages (<code>sartinezmelgarejo-eng.github.io/sds/guitar.html</code>) sigue siendo la versión estable anterior (commit <code>9a84944</code>, ~557 KB) porque hubo un push accidental que se revirtió. <strong>Cuando la beta esté lista: copiar <code>htmls/guitar.html</code> a <code>/tmp/sds/guitar.html</code>, commit, push a origin gh-pages — manual, no via inbox.</strong><br><br>Práctica visual e interactiva de guitarra jazz. Mapa de acordes diatónicos (mayor + menor con extensiones: secundarios, modal interchange, tritone subs, Picardy) con flechas de resolución que aparecen al focus. <strong>Layout function-flow:</strong> columnas izq=predominantes (descending-fifths chain vertical), medio=dominantes (V y satélites V/V, bII7, vii7), der=tónica (I hub) — la sentencia ii–V–I se dibuja sola como una L. Satélites (secundarios/borrowed) sentados junto a su target. Filtro Chords scope: All / Diatónico / +Borrowed / +Secondaries — esconde acordes y restringe progresiones del AI. Voicings drop-2 / shells / triads, picker compartido entre AI y previa para evitar drift. <strong>Other Voicings panel ahora comping-live:</strong> click en voicing alterna → cachea en progressionVoicings y re-triggea el acorde actual si está sonando; en compose mode reemplaza la voicing del último acorde tipeado. Neck hiperrealista (mother-of-pearl inlays, wood grain, fret metal) panning sobre el acorde actual con highlight box anticipando el siguiente 2 compases antes (quintic ease). Halos de "stays" en notas/dedos comunes entre acordes. Detección real de barres según pedagogía jazz (Mickey Baker, Ted Greene). AI player: AABA generation con repeticiones sesgadas a 4s/2s, modulaciones tipo "truck driver" (½ paso / 4ta / 5ta / paralela / relativa), traveling entre canciones (~15% prob), key cycling vía loop+cycle button — todo determinístico vía voicingType pre-asignado por sección. Page-plan caching con bar-0 anchor + composedShape priority para eliminar voicing drift entre strip mostrado y audio. Strip Real Book con 4 celdas (chord names + mini chord-diagrams) — en mobile mientras compones, layout interleaved 4-por-fila (chord row + tab row alternando), cap a 2 sets visibles + auto-scroll al último acorde. Mezcla por canal: chords / bass / drums / tónica. Sonidos: piano (default), Rhodes, Jazz Gtr (Karplus-Strong con body formants + tube saturation + plate reverb), Pad, Organ. Ritmo: hi-hat 2&amp;4 estilo brushed-snare (bandpass 3.5kHz + ping metálico) con pinkNoise compartido. <strong>Compose mode (calculator-style):</strong> con el AI parado, tipea 1–7 para construir una progresión (hasta 16 acordes); Shift+número cicla inversión del último; mismo número dos veces repite voicing idéntica; click en una carta del mapa = lo mismo que tipear ese acorde (map ES el dialer). Voicing picker compose usa smoothestVoicing (movimiento + sweet-spot 5–9 + setPref) idéntico al mapa. Backspace borra, Esc limpia, Enter toca. Cuando das play con composed: AI toma composed como sección A de AABA; si llenas 16 cells (8+8), full AABA con A+B del usuario. Después de AABA composed, AI "wanders" a territorio random. <strong>Mobile (≤800px):</strong> chord map oculto inline pero accesible vía toggle bar pinned al bottom ("🗺 Map" ↔ "⌨ Keys") que abre el mapa en el mismo slot del keypad, escala-to-fit el contenido real (mide offsetLeft/Width de todas las cards para evitar clipping). Phone-dialer keypad 3×4 pinned arriba del toggle. Spacebar = pause universal. <strong>Popovers viewport-clamped</strong> (sound/voicing/scope/rhythm/mixer) — ya no se cortan en el borde de la pantalla. Installable como PWA.</div>
+  <div class="meta">~5000 líneas · Vanilla JS + Web Audio API · PWA con manifest propio · pwa/thumb-guitar.svg</div>
+</div>
+
+<div class="file-card">
+  <div class="name">schedules.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Visualizador "Clockwork" de tareas programadas. Tiras de tareas cayendo hacia el horizonte con estética de cielo cinético (estrellas, sol, nubes animadas). Tres carriles: Telegram (dorado), Datos (verde), Monitor (carmín). Tres vistas: día, semana, mes. Time scrubber en header (◂◂ ◂ ▸ ▸▸) para desplazar el tiempo ±15 min o ±1h con hold-to-repeat; botón "ahora" para volver al tiempo real. Teclado: flechas / Shift+flechas, Esc/n para reset.</div>
+  <div class="meta">65 KB · 1527 líneas · Independiente</div>
+</div>
+
+<div class="file-card">
+  <div class="name">translations/viewer.html <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Visor de traducciones para publicar en mexicosolidarity.com. Recibe slug por query string (<code>?slug=...</code>), muestra el artículo traducido con título, body, categoría sugerida y tags. Vista Compare &amp; Edit muestra el original ES al lado del EN para refinamiento. Botones de copy para title, body, category, tags — pegás cada uno en el editor Gutenberg de WP. Las imágenes ya vienen con URLs de mexicosolidarity (subidas por el bot al traducir), no de GitHub.</div>
+  <div class="meta">22 KB · Lee de translations/&lt;slug&gt;/{article.html,original.json,meta.json}</div>
+</div>
+
+<div class="file-card">
+  <div class="name">feed.json <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Índice JSON de traducciones publicadas. Lo consume el viewer y cualquier futura UI de listado. Se actualiza cuando el bot termina una traducción nueva.</div>
+  <div class="meta">~19 KB</div>
+</div>
+
+<div class="file-card">
+  <div class="name">tg-feed.json <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Feed legacy de top-10 posts recientes del canal @resisres (formato simple: <code>{id, text, date, img}</code>). Mantenido por compatibilidad pero la fuente de verdad es <code>sends.ndjson</code>. <code>update-tg-feed.py</code> escribe ambos en cada call.</div>
+  <div class="meta">~2 KB · top 10 posts</div>
+</div>
+
+<div class="file-card">
+  <div class="name">sends.ndjson <span class="tag tag-activo">ACTIVO</span></div>
+  <div class="desc">Canonical log append-only de cada Telegram send. Una línea JSON por send: <code>{ts, task, chat, chat_label, chat_id, thread_id, msg_id, text (body verbatim), img (post-attached), url (deep link), source: {url, title, img, desc, domain}}</code>. Lo consume el feed unificado de <code>index.html</code> (desktop sidebar + mobile Page A). <code>update-tg-feed.py</code> hace append automático tras cada send exitoso de las tareas. El campo <code>source</code> se llena con auto-fetch de OG metadata (og:image, og:title, og:description) cuando la task pasa <code>--source-url</code>.</div>
+  <div class="meta">~10 KB y creciendo · sin cap (idéntico al canal)</div>
+</div>
+
+<div class="file-card">
+  <div class="name">LEEME.html <span class="tag tag-ref">REFERENCIA</span></div>
+  <div class="desc">Este archivo. Guía de qué es cada cosa, reglas, y arquitectura técnica. Fuente de verdad para sesiones de Claude.</div>
+  <div class="meta">26 KB</div>
+</div>
+
+<div class="file-card">
+  <div class="name">backups/ <span class="tag tag-backup">RESPALDOS</span></div>
+  <div class="desc">Respaldos creados antes de modificaciones mayores. Máximo 4 por documento — al crear un quinto, se elimina el más antiguo.</div>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🔗 Cómo se conectan</h2>
+
+<div class="diagram"><span class="gold">libreria.html</span>
+         │
+         │  cada libro tiene <span class="green">filePath</span>: "Autor/Archivo.pdf"
+         │  ej: filePath: "Marx/El-Capital-Vol1.pdf"
+         │
+         ▼
+<span class="gold">Books/</span><span class="green">Marx/El-Capital-Vol1.pdf</span>
+         │
+         │  115 citas tienen <span class="blue">QUOTE_PAGES</span> con la página exacta
+         │  ej: "marxcapital1::0" → página 31
+         │
+         ▼
+    Se abre el PDF en <span class="blue">#page=31</span>
+
+
+<span class="gold">Tareas programadas en launchd</span> (14 tareas en ~/Library/LaunchAgents/com.resisres.*.plist)
+         │
+         ├── actualizan <span class="green">monitoring.html</span> (8 tareas: inegi, banxico, fiscal, energy, security, trimestral, general, mananera-datos, datos-gob-scan)
+         ├── actualizan <span class="green">BUSCADOR-MANANERAS.html</span> (1 tarea: actualizar-mananeras)
+         ├── publican en <span class="blue">Telegram @resisres</span> (3 tareas: dailyt, scant, onmexico)
+         │
+         └── todas hacen <span class="green">git push</span> a GitHub Pages al terminar
+              └── <span class="blue">sartinezmelgarejo-eng.github.io/sds/</span></div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📱 PWA y GitHub Pages</h2>
+
+<p>Todos los HTMLs son <strong>Progressive Web Apps (PWA)</strong> — se pueden instalar como apps en Android/Huawei desde el navegador (Chrome → "Añadir a pantalla de inicio"). Abren en pantalla completa sin barra de Chrome.</p>
+
+<p>Cada app tiene su propio manifest en <code>pwa/manifest-{nombre}.json</code> con nombre, icono, y colores propios. El service worker (<code>pwa/sw.js</code>) usa estrategia network-first y cachea los CDNs de React/Recharts/Babel.</p>
+
+<p><strong>GitHub Pages</strong> — Todo se despliega en <code>sartinezmelgarejo-eng.github.io/sds/</code>. El repo es público (<code>sartinezmelgarejo-eng/sds</code>, branch <code>gh-pages</code>). Las tareas programadas hacen push automáticamente después de cada actualización. El directorio local de deploy es <code>/tmp/sds</code>.</p>
+
+<p><strong>Telegram</strong> — El bot <code>@Resisresbot</code> (token: 8618148491:AAG...) publica en el canal <code>@resisres</code> (chat_id: -1003717332318). Tres tareas publican contenido: dailyt (mañanera+noticias+Mañanera Breakdown), scant (scan de medios mexicanos 3x/día), onmexico (cobertura de EEUU sobre México). Además, el sistema inbox permite a Samuel enviar mensajes al bot para editar archivos y ejecutar operaciones vía sesiones persistentes de Claude Code.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>⏰ Sistema de tareas programadas (launchd)</h2>
+
+<p>Todas las tareas programadas (excepto inbox.py) corren via <strong>launchd</strong> en macOS, no desde Claude Code. Esto significa que <strong>el app de Claude Code no necesita estar abierto</strong> — la Mac solo tiene que estar prendida y logueada. Cada tarea es un par script + plist.</p>
+
+<div class="warn">
+  <div class="warn-title">🗂 Estructura de archivos</div>
+  <ul>
+    <li><strong>Wrapper genérico:</strong> <code>~/.local/bin/run-claude-task.sh &lt;task-name&gt; [model]</code> — usado por casi todas las tareas, levanta <code>claude --model X --permission-mode bypassPermissions -p "Execute the &lt;task-name&gt; scheduled task by following ~/.claude/scheduled-tasks/&lt;task-name&gt;/SKILL.md exactly"</code>.</li>
+    <li><strong>Wrappers especializados:</strong> <code>~/.local/bin/run-onmexico.sh</code>, <code>~/.local/bin/run-dailyt.sh</code>, <code>~/.local/bin/run-scant.sh</code> — tienen lógica adicional (sentinel, transcript check, retries).</li>
+    <li><strong>Plists:</strong> <code>~/Library/LaunchAgents/com.resisres.&lt;task-name&gt;.plist</code> — definen el horario via <code>StartCalendarInterval</code> y los args al wrapper.</li>
+    <li><strong>Logs:</strong> <code>~/.local/share/&lt;task-name&gt;/.&lt;task-name&gt;-launchd.log</code> y <code>stdout.log</code> / <code>stderr.log</code>.</li>
+    <li><strong>Notificación de errores:</strong> si una tarea falla, manda alerta al DM privado del bot (<code>chat_id 6855761084</code>).</li>
+  </ul>
+</div>
+
+<h3>Tabla de tareas activas en launchd</h3>
+
+<table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace">
+<thead><tr style="border-bottom:1px solid #444"><th style="text-align:left;padding:4px">Tarea</th><th style="text-align:left;padding:4px">Modelo</th><th style="text-align:left;padding:4px">Schedule</th><th style="text-align:left;padding:4px">Output</th></tr></thead>
+<tbody>
+<tr><td style="padding:3px 4px"><code>onmexico</code></td><td>Opus</td><td>diario 10:03</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>dailyt</code></td><td>Opus</td><td>L-V 13:30 (con sentinel + check de transcripción)</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>scant</code></td><td>Opus</td><td>diario 7:15 / 20:15</td><td>Canal @resisres</td></tr>
+<tr><td style="padding:3px 4px"><code>datos-gob-scan</code></td><td>Sonnet</td><td>diario 9:30</td><td>DM privado (notificaciones de datasets nuevos)</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-inegi</code></td><td>Sonnet</td><td>L/M/V 8:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-banxico</code></td><td>Sonnet</td><td>L/M/V 8:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-security</code></td><td>Sonnet</td><td>Mar 9:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-fiscal</code></td><td>Sonnet</td><td>1° y 15, 11:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-energy</code></td><td>Sonnet</td><td>1° y 15, 11:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-trimestral</code></td><td>Sonnet</td><td>1° y 15, 12:00</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>mananera-datos</code></td><td>Opus</td><td>Mar/Vie 11:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>update-monitoring-general</code></td><td>Opus</td><td>día 10, 12:30</td><td>monitoring.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>actualizar-mananeras</code></td><td>Sonnet</td><td>diario 19:00</td><td>BUSCADOR-MANANERAS.html + git push</td></tr>
+<tr><td style="padding:3px 4px"><code>inbox</code></td><td>Opus (CLI)</td><td>cada 5 min (launchd StartInterval)</td><td>Procesa mensajes de Telegram → sesión persistente de Claude Code</td></tr>
+</tbody>
+</table>
+
+<h3>Tareas desactivadas en Claude Code</h3>
+
+<p>Las versiones originales en <code>~/.claude/scheduled-tasks/&lt;name&gt;/SKILL.md</code> de todas las tareas migradas tienen <code>[DISABLED — migrated to launchd com.resisres.&lt;name&gt;]</code> en su descripción para evitar duplicación. <strong>No las re-actives sin desactivar la versión de launchd primero.</strong></p>
+
+<p>Tareas eliminadas/consolidadas:</p>
+<ul>
+  <li><code>scannight</code> — era duplicado de <code>scant</code> a las 20:15. Marcada disabled.</li>
+  <li><code>resument</code> — integrada al final del skill <code>/dailyt</code> (el "Mañanera Breakdown" via Telegraph se publica al final de dailyt). Marcada disabled.</li>
+  <li><code>com.resisres.daily.plist</code> — versión vieja del launchd, reemplazada por <code>com.resisres.dailyt.plist</code>. Plist eliminado.</li>
+</ul>
+
+<h3>Autenticación</h3>
+
+<p>El CLI <code>claude</code> que corre desde launchd usa la <strong>misma cuenta que la app de Claude Code</strong> (suscripción, no API). Para que funcione desde launchd hay que loguearse explícitamente desde Terminal con <code>claude /login</code> al menos una vez — esto guarda credenciales accesibles al CLI standalone, separadas del Keychain de la app. Si en algún momento las tareas empiezan a fallar con "Not logged in", repetí ese login desde Terminal.</p>
+
+<h3>Cómo agregar/editar/desactivar una tarea</h3>
+
+<p>No editar plists a mano salvo cuando sea necesario. La forma normal es decirle a Claude Code en lenguaje natural: <em>"cambia el horario de scant a las 8 PM"</em>, <em>"crea una tarea nueva que corra X cada lunes"</em>, <em>"desactiva mananera-datos"</em>. Claude conoce los paths y formatos.</p>
+
+<p>Si querés hacerlo manualmente:</p>
+<ul>
+  <li><strong>Listar:</strong> <code>launchctl list | grep resisres</code></li>
+  <li><strong>Disparar manualmente:</strong> <code>launchctl start com.resisres.&lt;name&gt;</code></li>
+  <li><strong>Recargar después de editar el plist:</strong> <code>launchctl unload ~/Library/LaunchAgents/com.resisres.&lt;name&gt;.plist &amp;&amp; launchctl load ~/Library/LaunchAgents/com.resisres.&lt;name&gt;.plist</code></li>
+  <li><strong>Ver log:</strong> <code>cat ~/.local/share/&lt;name&gt;/.&lt;name&gt;-launchd.log</code></li>
+</ul>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📲 Sistema Inbox de Telegram</h2>
+
+<p>Sistema que permite enviar mensajes, imágenes y archivos HTML desde el teléfono al bot <code>@Resisresbot</code> y que Claude los procese automáticamente. Usa <strong>sesiones persistentes de Claude Code</strong> — cada mensaje se envía a una sesión con <code>claude --resume</code> que mantiene contexto completo entre turnos. Corre vía launchd (cada 5 min).</p>
+
+<div class="warn">
+  <div class="warn-title">🔑 Credenciales y paths clave</div>
+  <p style="margin-bottom:8px"><strong>Importante:</strong> el script y su estado viven <strong>fuera</strong> de Google Drive (en <code>~/scripts/inbox/</code>) — ver explicación de TCC abajo. Los docs y credenciales que <strong>Claude</strong> lee durante una sesión sí viven en <code>htmls/inbox/</code>.</p>
+  <p style="margin-bottom:4px"><strong>Bot side</strong> (lo que ejecuta launchd; NO en Google Drive):</p>
+  <ul>
+    <li><strong>Script:</strong> <code>~/scripts/inbox/inbox-v2.py</code> ← canónico. NO editar la copia en <code>htmls/inbox/</code>, está marcada como stale.</li>
+    <li><strong>State file:</strong> <code>~/scripts/inbox/.inbox-v2-state.json</code> (offset de Telegram y session ID)</li>
+    <li><strong>Fallback API key:</strong> <code>~/scripts/inbox/.api-key</code> (perms 600)</li>
+    <li><strong>Instrucciones de sesión:</strong> <code>~/scripts/inbox/INBOX_SYSTEM.md</code> (path que la sesión nueva recibe en el prompt)</li>
+    <li><strong>Venv Python:</strong> <code>~/inbox-venv/bin/python3</code> → symlink a <code>/usr/local/opt/python@3.14/bin/python3.14</code> (alias estable de Homebrew; sobrevive upgrades)</li>
+    <li><strong>Log:</strong> <code>~/inbox.log</code> y <code>~/inbox-error.log</code></li>
+    <li><strong>Launchd:</strong> <code>com.resisres.inbox</code> (cada 5 min, RunAtLoad=true, <code>SoftResourceLimits NumberOfFiles=65536</code> para que Claude CLI no truene)</li>
+  </ul>
+  <p style="margin:8px 0 4px"><strong>Session side</strong> (lo que Claude lee/escribe durante una sesión; SÍ en Google Drive):</p>
+  <ul>
+    <li><strong>Protocolo de traducciones:</strong> <code>htmls/inbox/TRANSLATIONS_PROTOCOL.md</code> (activado por <code>traduce: &lt;URL&gt;</code>; flow de descarga, traducción, subida a WP, y mensaje al topic)</li>
+    <li><strong>Referencia de bloques WP:</strong> <code>htmls/inbox/WP_BLOCKS_REFERENCE.md</code> (Gutenberg + Kadence blocks disponibles para el HTML de las traducciones)</li>
+    <li><strong>Credenciales WordPress:</strong> <code>htmls/inbox/.wp-creds.json</code> (site, username, app_password, user_id — gitignored, perms 600)</li>
+    <li><strong>Deploy dir:</strong> <code>/tmp/sds</code> (git clone con SSH auth, push a gh-pages)</li>
+  </ul>
+  <p style="margin:8px 0 4px"><strong>Telegram:</strong></p>
+  <ul>
+    <li><strong>Chat privado:</strong> <code>TG_PRIVATE_CHAT_ID = 6855761084</code> (DM de Samuel con @Resisresbot)</li>
+    <li><strong>Canal público:</strong> <code>@resisres</code> (para publicaciones)</li>
+    <li><strong>Bot token:</strong> <code>TELEGRAM_BOT_TOKEN</code> (en el plist de launchd y <code>~/.zshrc</code>)</li>
+    <li><strong>Auth Claude:</strong> Claude Code subscription (no API key) — zero API cost</li>
+  </ul>
+  <p style="margin:8px 0 0;font-size:12px;color:#888"><strong>Por qué fuera de Google Drive:</strong> macOS TCC restringe lectura de carpetas de iCloud/GoogleDrive. Procesos lanzados por launchd no heredan permisos del Terminal, y un binario nuevo (ej: después de un upgrade de Homebrew Python) no tiene entrada en la base TCC → "Operation not permitted". Manteniendo el script en <code>~/scripts/inbox/</code> el problema desaparece para siempre. Los docs en <code>htmls/inbox/</code> son leídos por el binario <code>claude</code>, que sí tiene permiso TCC propio.</p>
+</div>
+
+<h3>Cómo funciona</h3>
+
+<p>Cada mensaje de Telegram se pasa a una sesión persistente de Claude Code (<code>claude --resume &lt;session-id&gt;</code>). La sesión lee LEEME.html e INBOX_SYSTEM.md al inicio y mantiene contexto completo — puede hacer edits, responder preguntas, ejecutar comandos, todo sin routing ni modos separados. Las sesiones expiran después de 6 horas de inactividad.</p>
+
+<div class="tree">
+Samuel envía a @Resisresbot: "Desempleo feb 2026: 2.4%" + screenshot INEGI
+         │
+         ├── launchd corre inbox-v2.py (cada 5 min)
+         ├── inbox-v2.py pide updates a Telegram API con offset guardado
+         ├── Pasa el mensaje a <span class="green">Claude Code (sesión persistente)</span>
+         │   └── Claude tiene acceso completo: Read, Edit, Bash, etc.
+         │   └── Hace backup → edita monitoring.html → valida → git push
+         ├── Responde al DM privado: "✅ ..."
+         └── Si es data update, publica en @resisres</div>
+
+<h3>Diferencias con inbox v1 (inbox.py)</h3>
+
+<ul>
+  <li>v1 usaba la API de Anthropic (Sonnet para routing/patches, Opus para free mode) — cada mensaje era stateless</li>
+  <li>v2 usa Claude Code CLI con sesiones persistentes — tiene memoria entre turnos, acceso a herramientas del sistema, y cero costo de API</li>
+  <li>v1 tenía modos explícitos (normal, free, question, command) — v2 entiende todo naturalmente por contexto</li>
+  <li>El viejo <code>inbox.py</code> sigue en la carpeta como referencia pero no está activo</li>
+</ul>
+
+<h3>Setup en nueva máquina</h3>
+
+<div class="warn">
+  <div class="warn-title">📦 Dependencias y configuración</div>
+  <ol>
+    <li>Crear virtualenv: <code>python3 -m venv ~/inbox-venv</code> (apunta el symlink interno a <code>/usr/local/opt/python@3.14/bin/python3.14</code> para que sobreviva upgrades de Homebrew)</li>
+    <li>Instalar deps: <code>~/inbox-venv/bin/pip install requests</code></li>
+    <li>Crear carpeta local del bot: <code>mkdir -p ~/scripts/inbox</code> y copiar <code>inbox-v2.py</code>, <code>.api-key</code>, <code>.inbox-v2-state.json</code>, <code>INBOX_SYSTEM.md</code> ahí (FUERA de Google Drive — ver TCC arriba)</li>
+    <li>Loguearse en Claude CLI: <code>claude /login</code> desde Terminal</li>
+    <li>Setup SSH key para git push: <code>ssh-keygen -t ed25519</code> y agregar la public key a GitHub</li>
+    <li>Cambiar remote a SSH: <code>git -C /tmp/sds remote set-url origin git@github.com:sartinezmelgarejo-eng/sds.git</code></li>
+    <li>El plist debe incluir <code>SoftResourceLimits → NumberOfFiles → 65536</code> (default launchd de 256 no le alcanza a Claude CLI)</li>
+    <li>Cargar el plist: <code>launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.resisres.inbox.plist</code></li>
+  </ol>
+</div>
+
+<h3>Debugging</h3>
+
+<ul>
+  <li><strong>Ver log:</strong> <code>cat ~/inbox.log</code> y <code>cat ~/inbox-error.log</code></li>
+  <li><strong>Correr manualmente:</strong> <code>~/inbox-venv/bin/python3 -u ~/scripts/inbox/inbox-v2.py</code></li>
+  <li><strong>Disparar via launchd:</strong> <code>launchctl kickstart -k gui/$UID/com.resisres.inbox</code></li>
+  <li><strong>Recargar plist (después de editar):</strong> <code>launchctl bootout gui/$UID/com.resisres.inbox; launchctl bootstrap gui/$UID ~/Library/LaunchAgents/com.resisres.inbox.plist</code></li>
+  <li><strong>Ver state:</strong> <code>cat ~/scripts/inbox/.inbox-v2-state.json</code></li>
+  <li><strong>Resetear sesión (forzar sesión nueva):</strong> poner <code>session_id: null</code> en el state file</li>
+  <li><strong>Ver mensajes pendientes en Telegram:</strong> <code>curl -s "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/getUpdates"</code></li>
+  <li><strong>Skipear mensajes viejos:</strong> editar <code>~/scripts/inbox/.inbox-v2-state.json</code> y poner offset alto</li>
+  <li><strong>Ver status launchd:</strong> <code>launchctl list | grep inbox</code> (col 2 = último exit code; 78 = config error)</li>
+  <li><strong>Lock fantasma:</strong> el lock vive en <code>/tmp/inbox-v2.lock</code> (FUERA de Google Drive para evitar deadlocks de FUSE). Si el inbox parece colgado, revisar: <code>cat /tmp/inbox-v2.lock</code> y <code>ps -p $(cat /tmp/inbox-v2.lock)</code>. Si el PID está muerto, borrar el archivo.</li>
+</ul>
+
+<h3>Modos de autenticación de Claude CLI</h3>
+
+<p>El inbox usa Claude Code CLI con la suscripción del usuario. Si el login expira, hay un fallback automático a API key:</p>
+<ol>
+  <li><strong>Default:</strong> usa CLI con <code>claude /login</code> (suscripción, cero costo)</li>
+  <li><strong>Fallback automático:</strong> si claude devuelve "Not logged in", lee el API key desde <code>$HTMLS_DIR/inbox/.api-key</code> y reintenta. Te manda notificación al DM privado avisando del fallback (que consume créditos de API).</li>
+</ol>
+<p>Si recibís <code>⚠️ CLI login expirado</code> en el DM, hay que correr <code>claude /login</code> desde Terminal cuando puedas. Mientras tanto el fallback te mantiene funcionando.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🌐 Sistema de traducciones a mexicosolidarity.com</h2>
+
+<p>Flow completo end-to-end para traducir artículos de prensa mexicana al inglés y publicarlos en <a href="https://mexicosolidarity.com">mexicosolidarity.com</a> (WordPress + Gutenberg + Kadence Blocks).</p>
+
+<div class="warn">
+  <div class="warn-title">🔑 Credenciales WordPress</div>
+  <ul>
+    <li><strong>Sitio:</strong> <code>https://mexicosolidarity.com</code></li>
+    <li><strong>Usuario:</strong> <code>Samuel</code> (user_id 35)</li>
+    <li><strong>App Password:</strong> en <code>htmls/inbox/.wp-creds.json</code> (gitignored, perms 600). Es una WordPress Application Password creada en Profile → Application Passwords, nombre "photos". Se puede revocar desde WP en cualquier momento si se compromete.</li>
+    <li><strong>Endpoints usados:</strong> <code>POST /wp-json/wp/v2/media</code> (upload imagen), <code>DELETE /wp-json/wp/v2/media/&lt;id&gt;?force=true</code> (limpieza si falla)</li>
+    <li><strong>Auth:</strong> Basic Auth <code>username:app_password</code> en header <code>Authorization</code></li>
+  </ul>
+</div>
+
+<h3>Flow</h3>
+
+<div class="diagram">Samuel envía a topic Traducciones: <span class="green">traduce: &lt;URL&gt;</span>
+         │
+         ├── inbox-v2.py pasa el mensaje a sesión persistente de Claude Code
+         ├── Sesión lee <span class="green">TRANSLATIONS_PROTOCOL.md</span> al inicio
+         │
+         ├── 1. WebFetch del artículo original (ES)
+         ├── 2. Crea slug = <span class="blue">YYYY-MM-DD-keywords</span>
+         ├── 3. Descarga imágenes a <span class="green">translations/&lt;slug&gt;/img/</span>
+         ├── 4. <span class="gold">Sube imágenes a WP Media Library</span> (REST API, en paralelo)
+         │       └── recibe <span class="blue">source_url</span> de mexicosolidarity para cada imagen
+         ├── 5. Genera <span class="green">article.html</span> con esas URLs en &lt;img src&gt; (NO GitHub)
+         ├── 6. Guarda <span class="green">original.json</span> (párrafos ES) y <span class="green">meta.json</span> (slug, title, author, outlet, category, tags)
+         ├── 7. Git push (backup + /tmp/sds + commit + push)
+         └── 8. Postea card en topic con link al viewer
+
+Samuel abre viewer.html?slug=&lt;slug&gt;
+         │
+         ├── Compare &amp; Edit (ES ↔ EN lado a lado) para refinamiento
+         ├── Click 📋 Copy body → <span class="gold">instantáneo</span> (URLs ya son de WP)
+         ├── Pega en WP Gutenberg editor → WP reconoce las imágenes como suyas
+         └── Publish</div>
+
+<h3>Reglas críticas</h3>
+<ul>
+  <li><strong>URLs en article.html son de mexicosolidarity, NO de GitHub.</strong> El swap ocurre en step 4, antes de escribir el HTML. Cero rastro de GitHub en el output final pegado en WP.</li>
+  <li><strong>Si la subida falla (timeout, 401, 5xx):</strong> aborta la traducción, reporta el error en el topic con detalle, borra las imágenes que sí subieron para no dejar huérfanos. NO mezcles URLs de WP y GitHub en el mismo artículo.</li>
+  <li><strong>Imágenes locales en <code>img/</code> se mantienen</strong> como backup y como preview si WP cae.</li>
+  <li><strong>Refinamiento:</strong> si Samuel responde al card en el topic ("cambia X por Y", "rehaz el primer párrafo"), edita <code>article.html</code> y <code>meta.json</code> directo, push, responde con un <code>✅ Editado: ...</code>. NO regeneres todo.</li>
+  <li><strong>Status posted:</strong> cuando Samuel diga "publicado" o "ya lo postee", edita <code>meta.json</code> → <code>"status": "posted"</code>, push.</li>
+</ul>
+
+<h3>Template HTML del artículo</h3>
+<p>El HTML usa clases Gutenberg/Kadence (<code>wp-block-*</code>) sin CSS inline. WP convierte el HTML pegado en bloques nativos. Estructura básica:</p>
+<ul>
+  <li><strong>Featured image:</strong> primera <code>&lt;figure&gt;</code> con <code>&lt;img&gt;</code> + <code>&lt;figcaption&gt;</code> con crédito de foto</li>
+  <li><strong>Attribution paragraph:</strong> en <code>&lt;em&gt;</code>, con link al original embebido en el formato "the &lt;Month Day, Year&gt; edition of &lt;Outlet Name&gt;"</li>
+  <li><strong>Body:</strong> párrafos simples. Quotes inline (no <code>&lt;blockquote&gt;</code>) salvo cuando sintetizan la tesis del artículo (máx 1-2 por pieza)</li>
+  <li><strong>Inline images:</strong> distribuidas en puntos naturales de pausa narrativa, no agrupadas al principio o al final</li>
+  <li><strong>NO:</strong> drop caps, subheads forzados, translator credit</li>
+</ul>
+<p>Para bloques complejos (galerías, pullquotes, columnas, embeds de YouTube/X, listas estructuradas), consultar <code>inbox/WP_BLOCKS_REFERENCE.md</code>.</p>
+
+<h3>Categorías y tags</h3>
+<p>Categorías válidas: <strong>Analysis, News Briefs</strong> (default), <strong>Labor, Mañaneras, Interviews, Historical, Photos, Compañeros</strong>.</p>
+<p>Tags estilo hashtag con <code>#</code>, 2-4 por artículo. Ejemplos: <code>#Cuba</code>, <code>#EZLN</code>, <code>#CNTE</code>, <code>#US Imperialism</code>, <code>#Mexican Sovereignty</code>, <code>#AMLO</code>, <code>#Sheinbaum</code>, <code>#Pemex</code>.</p>
+
+<h3>Topic de Telegram</h3>
+<p>El bot postea en grupo <code>-1003957818672</code>, thread <code>289</code> (topic "Traducciones"). El card del bot incluye headline traducido, autor/fecha/outlet, link al viewer, link al original, y category + tags sugeridos como <code>&lt;code&gt;</code> para copy fácil.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>💻 En otra computadora</h2>
+
+<p>La carpeta htmls/ está en Google Drive y se sincroniza automáticamente. La única cosa que puede cambiar entre máquinas es la ruta base a la carpeta Books (para el MAPA):</p>
+
+<div class="warn">
+  <div class="warn-title">⚠️ Configurar ruta de Books</div>
+  <p>La primera vez que abras libreria en una computadora nueva, haz click en el botón 📂 en la barra de navegación y pon la ruta a tu carpeta Books en esa máquina. Se guarda en localStorage del navegador.</p>
+  <p style="margin-top:8px;">La ruta por defecto es:<br>
+  <code>/Users/samuelmartinez/Library/Mobile Documents/com~apple~CloudDocs/Documents/Books</code></p>
+  <p style="margin-top:8px;">Si en la otra compu el usuario es diferente, solo cambia el nombre de usuario en la ruta.</p>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🎨 Atlas — sistema de diseño del detalle de cada concepto</h2>
+
+<p>Cuando abres un concepto en la pestaña Atlas de <code>libreria.html</code>, la vista de detalle no es un template fijo — se compone dinámicamente con varios sistemas que dan a cada concepto su propia personalidad visual. Estado al 26 de junio de 2026:</p>
+
+<h3>Per-concept color combo (group × modo)</h3>
+<ul>
+  <li><strong><code>--accent</code></strong> viene de <code>c.group</code> (8 grupos: América=terracota, Eurasia=teal, Ideas=dorado, México=verde, Recursos=cobre, Sistemas=violeta, África=ochre, Global=plata).</li>
+  <li><strong><code>--accent-2</code></strong> viene de <code>c.modo</code> (5 modos: comunal=verde, imperial=rojo, colonial=violeta, socialista=azul, soberanista=dorado).</li>
+  <li>Combinaciones: <em>Olmecas</em> (América+comunal) = terracota+verde; <em>Imperio Mexica</em> (América+imperial) = terracota+rojo. ~40 combos únicos.</li>
+  <li>Drop-cap, glifo, hover y dots usan <code>--accent</code>. Period rule, gradient secundario del featured-quote y meta de book cards usan <code>--accent-2</code>.</li>
+</ul>
+
+<h3>Background tint por era</h3>
+<p>Auto-detectado por <code>getConceptEra(c)</code> a partir de <code>c.periodo</code> o el primer evento del timeline. Prehispánica (sepia cálido), colonial (vellum violeta), decimonónica (dorado), contemporánea (azul+verde). Aplica una clase <code>atlas-era-X</code> al wrapper con radial-gradients sutiles.</p>
+
+<h3>Glifo SVG por grupo (badge)</h3>
+<p>En lugar del emoji del campo <code>c.icon</code>, el badge muestra un glifo line-art SVG según <code>c.group</code>: pirámide escalonada para América, círculos concéntricos para Eurasia, espiral para Ideas, sol radiante para México, diamante facetado para Recursos, nodos conectados para Sistemas, creciente+punto para África, globo con meridiano para Global. Heredan <code>currentColor</code> del <code>--accent</code>.</p>
+
+<h3>Layouts variantes (despachados por <code>pickConceptLayout</code>)</h3>
+<ul>
+  <li><strong>editorial</strong> (default) — 2 columnas: historia + featured + timeline a la izquierda, libros + más citas en sticky rail a la derecha.</li>
+  <li><strong>cronologico</strong> — cuando <code>timeline.length &gt;= 4</code>. Timeline-hero ocupa ancho completo arriba (eventos 150-200px wide, dots con halo doble), abajo grid 1.8:1 con narrativa amplia y rail compacto. Aplica a ~15 conceptos (civilizaciones + procesos largos).</li>
+  <li><strong>dossier</strong> y <strong>dialéctico</strong> — pendientes de construir.</li>
+</ul>
+
+<h3>Mini-glifos en eventos del timeline</h3>
+<p><code>getEventGlyph(text)</code> matchea keywords contra 12 íconos SVG line-art: batalla (X), tratado (líneas), revolución (flama), corona, barco, documento, fundación, construcción, comercio (balanza), muerte (cruz), libro, descubrimiento (lupa). Cuando hay match, reemplaza el dot del timeline con un círculo que contiene el ícono. Hace la línea cronológica escaneable visualmente.</p>
+
+<div class="connection">
+  <strong>Helpers todos viven al tope de <code>openConcepto()</code> en libreria.html.</strong> Si agregas un nuevo layout, edita <code>pickConceptLayout</code> + agrega el branch en el dispatcher de bodyHTML + agrega CSS bajo selector <code>.atlas-layout-X</code>. Si agregas un nuevo grupo/modo/era, edita el respectivo helper.
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🎬 Pipeline de slides (NotebookLM)</h2>
+
+<p>Estado a julio de 2026: <strong>206 decks completados</strong> (de 276 libros; ~70 restantes). El conteo real vive en <code>htmls/decks/registry.json</code>.</p>
+
+<ul>
+  <li><strong>Launchd job</strong>: <code>com.user.notebooklm-retry.plist</code> — dispara 6×/día (01:17, 07:11, 11:13, 15:23, 19:29, 22:37).</li>
+  <li><strong>Wrapper</strong>: <code>~/scripts/notebooklm/retry-pending-decks.wrapper.sh</code>.</li>
+  <li><strong>Worker</strong>: <code>~/scripts/notebooklm/process-queue.sh</code> — procesa pares en paralelo, se detiene en rate-limit de Google, 7-min cool-down entre pares.</li>
+  <li><strong>Deployer</strong>: <code>~/scripts/notebooklm/deploy-new-decks.sh</code> — inyecta <code>deck:</code> en libreria.html, cp+commit+push.</li>
+  <li><strong>Logs</strong>: <code>~/scripts/notebooklm/last-run.log</code> y <code>deploy.log</code>.</li>
+  <li><strong>Queue</strong>: <code>/tmp/process-queue.json</code> — array de <code>{bookId, filePath, title, lang, existing_notebook}</code>. El campo <code>lang</code> es crítico (alimenta <code>--language</code>).</li>
+</ul>
+
+<p>Google usa quota rolling-24h, así que bursts se rate-limitean rápido. Día típico = 1-2 fires producen decks, el resto throttled.</p>
+
+<p><strong>Fire manual</strong>:
+<pre style="margin:4px 0"><code>launchctl start com.user.notebooklm-retry</code></pre>
+</p>
+
+<p><strong>Fix del cp aplicado 2026-06-26</strong>: <code>retry_cp()</code> en <code>deploy-new-decks.sh</code> ahora hace cat-stream + mv en lugar de cp directo, con 12×60s de retry budget. Bypassa el lock semantics de Drive FUSE. Cubre ~99% de syncs; si aún así falla, ver "Rescate manual de decks" en la sección del protocolo de libros.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📊 Estado actual del MAPA v2</h2>
+
+<p><strong>180 libros</strong> en 6 estantes: México Profundo, Transformaciones, Economía y Poder, Fundamentos, Revoluciones, Filosofía.</p>
+
+<p>Casi todos vinculados a un archivo PDF o EPUB en la carpeta Books. Los que aparecen como "broken" suelen ser archivos en iCloud no descargados localmente (se descargan automáticamente cuando das click en "Abrir archivo").</p>
+
+<p><strong>367 citas de tarjeta</strong> tienen link directo "📄 Ver en PDF" a la página exacta (registradas en <code>QUOTE_PAGES</code>). Las que no lo tienen son de PDFs escaneados (imágenes) sin texto extraíble. Aparte, la línea de tiempo trae 5898 citas verbatim ligadas a eventos.</p>
+
+<p><strong>El buscador</strong> funciona sin acentos: puedes buscar "filosofia" y encuentra "Filosofía", o "mexico" y encuentra "México".</p>
+
+<p><strong>En móvil</strong> los botones de "Abrir archivo" y "Ver en PDF" se ocultan automáticamente (detecta Android, iOS, Huawei). El MAPA funciona como wiki de consulta en el teléfono.</p>
+
+<p><strong>Sistema de retroalimentación:</strong> eliminado. La curación de citas se hace manualmente.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>⚖️ Reglas (para humanos y para Claude)</h2>
+
+<p>Este documento es la fuente de verdad para cualquier persona o sesión de IA que trabaje con estos archivos. Si estás leyendo esto desde Claude, Cowork, o cualquier otro asistente: sigue estas reglas antes de tocar nada.</p>
+
+<h3>Regla 1 — No inventar datos</h3>
+<p>Nunca agregar citas, páginas, o información que no venga directamente del PDF o del texto original. Si no se puede verificar una página exacta (por ejemplo en un PDF escaneado), es mejor dejarlo sin link que poner una página falsa. Lo mismo aplica para descripciones, tesis, o contextos históricos: si no estás seguro, pregunta.</p>
+
+<h3>Regla 2 — No romper el archivo</h3>
+<p>El MAPA es un archivo HTML de 8600+ líneas con JavaScript embebido. Una coma fuera de lugar lo mata. Antes de guardar cualquier cambio, <strong>siempre</strong> validar la sintaxis con <code>node --check</code> extrayendo el bloque <code>&lt;script&gt;</code>. Si no pasa el check, no se guarda. Sin excepciones.</p>
+
+<h3>Regla 3 — Siempre hacer respaldo</h3>
+<p>Antes de cualquier modificación significativa al MAPA, crear una copia con sufijo descriptivo (ej: <code>.pre-quotes-backup</code>). Los respaldos se pueden limpiar después, pero nunca antes de verificar que todo funciona.</p>
+
+<h3>Regla 4 — No mover ni renombrar archivos en Books/</h3>
+<p>El MAPA tiene las rutas exactas de cada PDF/EPUB (ej: <code>Marx/El-Capital-Vol1.pdf</code>). Si renombras una carpeta o archivo en Books/, el botón "Abrir archivo" deja de funcionar. Si necesitas reorganizar, hay que actualizar también el <code>filePath</code> correspondiente en el MAPA.</p>
+
+<h3>Regla 5 — Los dos formatos de libros</h3>
+<p>Hay 276 libros y conviven dos formatos: expandido (multi-línea, una propiedad por línea) y compacto (una sola línea con todas las propiedades). Los scripts que modifican el array <code>books</code> deben detectar ambos formatos. Esto ya causó un bug grave — no asumir que todos los libros tienen el mismo formato.</p>
+
+<h3>Regla 6 — QUOTE_PAGES solo con páginas verificadas</h3>
+<p>El objeto <code>QUOTE_PAGES</code> mapea citas a páginas exactas del PDF. Solo agregar entradas cuando la página fue encontrada buscando el texto exacto de la cita en el PDF con una herramienta como <code>pdfplumber</code> o <code>pdftotext</code>. Nunca calcular páginas por offset o estimación — los libros tienen introducciones, prólogos, y numeración inconsistente.</p>
+
+<h3>Regla 7 — Reportar cambios en este documento</h3>
+<p>Cualquier modificación a los archivos que afecte algo documentado aquí — estructura, reglas, conexiones, conteos, o funcionalidad — <strong>debe reflejarse en este LEEME antes de terminar la sesión</strong>. Este documento es la fuente de verdad. Si no se actualiza, la siguiente sesión (humana o de IA) trabajará con información incorrecta. Sin excepciones.</p>
+
+<h3>Regla 8 — Orden en la carpeta htmls/</h3>
+<p>La carpeta <code>htmls/</code> debe mantenerse organizada. Los archivos de respaldo (<code>.backup</code>, <code>.bak</code>, <code>.pre-*-backup</code>) van en una subcarpeta <code>backups/</code>, no sueltos junto a los archivos activos. Además, <strong>no debe haber más de 4 respaldos por documento</strong> — al crear un quinto, se elimina el más antiguo. Esto evita que la carpeta se llene de archivos muertos.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🆕 Protocolo para agregar un libro nuevo</h2>
+
+<p>Cuando aparece un PDF nuevo en <code>Books/</code> y queremos que aparezca en la librería con tratamiento completo, el flujo es de <strong>diez pasos</strong>. Ninguno se puede saltar sin perder algo (citas inventadas, slides faltantes, links que no llevan a la página correcta, conexiones rotas, o portadas que muestran otro libro).</p>
+
+<ol>
+  <li>
+    <strong>Tirar el PDF a <code>Books/</code></strong> (o a una subcarpeta de autor). El nombre del archivo se preserva tal cual — no renombrar. Preservar apóstrofos curly <code>'</code> (U+2019) si los tiene; normalizarlos a straight <code>'</code> rompe el link en gh-pages.
+  </li>
+  <li>
+    <strong>Curación con subagente</strong>. Claude lanza un subagente que <em>lee el PDF directamente</em> (no de memoria) y devuelve JSON con: <code>id</code>, <code>estante</code>, <code>title</code>, <code>author</code>, <code>year</code>, <code>desc</code>, <code>tesis</code> (5-8 oraciones), <code>ideas</code> (5-8 ideas específicas), <code>contexto</code>, <code>porqueLeer</code>, <code>tags</code> (de la taxonomía existente), <code>alerta</code> (opcional — caveats traducción, sesgos, etc.), y <code>quotes</code> (3+ citas <strong>verbatim</strong> con número de página impresa). El JSON queda en <code>/tmp/curated/&lt;bookId&gt;.json</code>.
+  </li>
+  <li>
+    <strong>Verificación de páginas con PyMuPDF</strong>. Cada cita se busca verbatim dentro del PDF y se captura su <em>PDF page real</em> (no la printed page). Esto resuelve offsets de front matter (índices, prefacios) que pueden ser de -14 a +6 páginas según el libro. Las páginas verificadas se guardan en <code>QUOTE_PAGES</code> con clave <code>"&lt;bookId&gt;::&lt;quoteIndex&gt;"</code>.
+  </li>
+  <li>
+    <strong>Buscar y VERIFICAR la portada</strong>. Orden de preferencia: (a) sitio del editor (UTexas Press, FCE, Siglo XXI, etc.), (b) BiblioVault, (c) Google Books thumbnail, (d) Amazon en último lugar (ASINs colisionan entre ediciones).
+    <br><br>
+    <strong>Antes de commitear la URL: descarga el JPG y ábrelo visualmente para confirmar que sí es el libro correcto</strong>:
+    <pre style="margin:4px 0"><code>curl -sL -o /tmp/check-cover.jpg "&lt;URL&gt;" && open /tmp/check-cover.jpg</code></pre>
+    Lección 2026-06-25: <code>tutino2</code> traía cover de un fantasy novel de John Gwynne ("El Hambre de los Dioses") durante semanas porque nadie validó visualmente. Cinco segundos de verificación = no embarrassment.
+  </li>
+  <li>
+    <strong>Construir <code>conexiones[]</code></strong> con libros relacionados. Cada entrada es <code>{bookId: "otro-id", razon: "..."}</code>. La razón debe explicar <em>qué tipo de relación</em>: contrapunto, continuación, refutación, aplica-la-teoría. Ejemplos concretos, no genéricos ("interesting read" no es razón).
+    <pre style="margin:4px 0"><code>conexiones: [
+  { bookId: "marxcapital", razon: "Marx teorizó la acumulación originaria; Galeano la narra con nombres y lugares." },
+  { bookId: "wallerstein1", razon: "Wallerstein da el marco macro; este libro hace el micro de la misma dinámica." }
+]</code></pre>
+  </li>
+  <li>
+    <strong>Agregar refs al Atlas (<code>ref-concept</code> links)</strong> en <code>tesis</code>, <code>desc</code>, <code>contexto</code>, <code>porqueLeer</code> cuando el texto mencione un concepto que existe en <code>conceptos[]</code>. Pattern:
+    <pre style="margin:4px 0"><code>&lt;a class='ref-concept' onclick='event.stopPropagation();
+  showView("conceptos");
+  setTimeout(function(){openConcepto("sistema_mundo");},80);'&gt;sistema-mundo&lt;/a&gt;</code></pre>
+    <strong>Texto visible = nombre exacto del concepto.</strong> Máximo 1-2 refs por párrafo (regla anti-clutter del user, ver <code>feedback_no_meta_links</code>). No linkear palabras genéricas si no corresponden al nombre exacto del nodo del Atlas.
+  </li>
+  <li>
+    <strong>Citas del libro en timeline del Atlas (opcional)</strong>. Si una de las citas del libro comenta directamente un evento histórico que ya está en el <code>timeline[]</code> de algún concepto del Atlas, agrégala como cita de ese evento:
+    <pre style="margin:4px 0"><code>{ year: '1521', text: 'Cae Tenochtitlan', citas: [
+    { autor: 'Bernal Díaz', texto: 'verbatim quote...', libro: 'diazcastillo', pagina: 'p. 412' }
+  ]
+}</code></pre>
+    El formato de <code>pagina</code> es <code>"p. N"</code>; <code>getQuotePageLink()</code> extrae el número y aplica <code>PDF_PAGE_OFFSET[libroId]</code> para construir el deep link al PDF.
+  </li>
+  <li>
+    <strong>Inyectar la entrada</strong> al array <code>books</code> en <code>libreria.html</code>. Añadir <strong>coma</strong> después del cierre <code>}</code> de la entrada anterior. Validar JS:
+    <pre style="margin:4px 0"><code>/usr/local/bin/python3 -c "import re; src=open('libreria.html').read(); m=re.findall(r'&lt;script&gt;(.*?)&lt;/script&gt;',src,re.DOTALL); open('/tmp/lib.js','w').write('\n'.join(m))"
+/System/Library/Frameworks/JavaScriptCore.framework/Versions/A/Helpers/jsc -e "try{new Function(read('/tmp/lib.js'));print('PARSE OK')}catch(e){print('PARSE ERROR: '+e)}"</code></pre>
+    Debe imprimir <code>PARSE OK</code>. Si <code>PARSE ERROR</code>, NO continuar.
+  </li>
+  <li>
+    <strong>Encolar slides en el pipeline</strong>. Editar <code>/tmp/process-queue.json</code> y agregar:
+    <pre style="margin:4px 0"><code>{
+  "bookId": "yourbookid",
+  "filePath": "Author/File-Name.pdf",
+  "title": "Public-facing Title",
+  "lang": "es",          // ⚠️ crítico: 'es' o 'en' según idioma DEL LIBRO
+  "existing_notebook": null
+}</code></pre>
+    El campo <code>lang</code> alimenta <code>notebooklm generate slide-deck --language $LANG</code>. Si está mal, los slides salen en idioma equivocado y hay que regenerar manualmente. Los próximos fires de <code>launchctl start com.user.notebooklm-retry</code> lo agarran automáticamente (6 fires/día: 01:17, 07:11, 11:13, 15:23, 19:29, 22:37).
+  </li>
+  <li>
+    <strong>Deploy</strong>. Copiar a <code>/tmp/sds/</code>, <code>git add libreria.html</code>, commit, <code>git push origin gh-pages</code>. Los slides se deployean solos cuando el pipeline los termine (el <code>deploy-new-decks.sh</code> inyecta el field <code>deck:</code> automáticamente). Si hubo cambios al Atlas (refs al concepto, citas en timeline), también van en este push.
+  </li>
+</ol>
+
+<div class="warn">
+  <div class="warn-title">⚠️ Gotchas conocidos</div>
+  <ul>
+    <li><strong>Apóstrofos curly vs straight</strong>: si el filename del PDF tiene <code>'</code> (U+2019 curly), preservarlo en <code>filePath</code> exacto. No normalizar.</li>
+    <li><strong>Paths con espacios</strong> (Google Drive paths): nunca <code>for d in $NEW_DIRS</code> en bash — el word-split rompe la ruta. Usar <code>while IFS= read -r line</code> o iterar por <code>bookId</code>.</li>
+    <li><strong>Quotes verbatim</strong> (Regla 1): no parafrasear ni "limpiar" em-dashes ni signos. La regla de "evitar em-dashes en prosa" aplica a <code>tesis/ideas/contexto/porqueLeer</code>, <strong>no</strong> a <code>quotes</code>.</li>
+    <li><strong>cp a Google Drive trabado</strong> (actualizado 2026-06-26): el archivo da "Operation not permitted" cuando Drive está syncando. El script <code>deploy-new-decks.sh</code> ahora hace <code>cat src &gt; tmp && mv tmp dst</code> (bypassa el lock semantics de FUSE) con retry budget <strong>12×60s = 12 min</strong> (era 5×30s = 2.5 min). Si aún así falla, hay rescate manual — ver §6 abajo.</li>
+    <li><strong>Subagentes en paralelo</strong>: para 5+ libros nuevos, lanzar en paralelo via Agent tool. Para 1-2, secuencial está bien.</li>
+    <li><strong>Cover wrong-book</strong> (lección tutino2): siempre verificar visualmente el JPG antes de commitear el <code>coverUrl</code>.</li>
+    <li><strong>Atlas refs</strong> (regla del user): máximo 1-2 <code>ref-concept</code> por párrafo; texto visible debe ser el nombre EXACTO del concepto, no paráfrasis. Otherwise se vuelve confuso y "slop".</li>
+  </ul>
+</div>
+
+<h3>Rescate manual de decks (cp-failure)</h3>
+
+<p>Si en <code>deploy.log</code> ves <code>cp permanently failed</code> después de un round exitoso de generación, los decks están en local pero no en gh-pages. Rescate:</p>
+
+<pre><code>SRC="/Users/samuelmartinez/Library/CloudStorage/GoogleDrive-sartinezmelgarejo@gmail.com/Other computers/My Mac/htmls"
+DST="/tmp/sds"
+cp "$SRC/libreria.html" "$DST/libreria.html"
+cp "$SRC/decks/registry.json" "$DST/decks/registry.json"
+for bid in &lt;list-from-log&gt;; do
+  mkdir -p "$DST/decks/$bid"
+  cp "$SRC/decks/$bid/"slide-*.jpg "$DST/decks/$bid/"
+done
+cd "$DST" && git add libreria.html decks/registry.json decks/&lt;bid&gt; ...
+git commit -m "libreria: deploy missing decks (cp-failure rescue)"
+git push origin gh-pages
+</code></pre>
+
+<p>Pasó dos veces (2026-06-25, 2026-06-26) antes del fix al script — bumpear retry a 12×60s + switch a cat-stream debería evitarlo, pero el patrón de rescate queda documentado.</p>
+
+<p>Scripts existentes que componen el pipeline:</p>
+<ul>
+  <li><code>~/scripts/notebooklm/regenerate-existing-decks.sh</code> — pasos 4 (generate slide deck) reutilizando un notebook ya creado.</li>
+  <li><code>~/scripts/notebooklm/deploy-new-decks.sh</code> — pasos 5-6 (inyectar deck field, copiar JPGs con retry, commit y push). Idempotente.</li>
+  <li><code>~/scripts/notebooklm/retry-pending-decks.sh</code> — re-disparar gens fallidos sin doble-quemar cuota.</li>
+</ul>
+
+<p>Para curación + verificación de páginas se hace con un subagente Claude (Read tool sobre el PDF) + script Python con <code>fitz</code> (PyMuPDF) que busca cada cita verbatim. El pipeline completo se puede orquestar desde Claude con el patrón:</p>
+
+<pre><code># 1. Claude lanza subagentes en paralelo (uno por PDF)
+# 2. Claude corre un script que verifica páginas con PyMuPDF y produce /tmp/curated/quote_pdf_pages.json
+# 3. Claude inyecta a libreria.html actualizando books[] + QUOTE_PAGES{}
+# 4. Si hay cuota NotebookLM, encola gen de slides; si no, los marca como pendientes
+# 5. cp + commit + push a gh-pages
+</code></pre>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🔄 Cuándo actualizar este documento</h2>
+
+<p>Este LEEME debe actualizarse cada vez que ocurra cualquiera de estas cosas:</p>
+
+<ul>
+  <li><strong>Se agrega o elimina un archivo HTML</strong> en la carpeta — actualizar la sección "Los archivos" y el diagrama de estructura.</li>
+  <li><strong>Se agregan libros al MAPA</strong> — actualizar los conteos en "Estado actual" (libros, vinculados, citas).</li>
+  <li><strong>Se agregan entradas a QUOTE_PAGES</strong> — actualizar el conteo de citas con link directo.</li>
+  <li><strong>Se crea una nueva conexión entre archivos</strong> — por ejemplo si sacred-texts.html empieza a conectar con Books/, documentarlo en "Cómo se conectan".</li>
+  <li><strong>Cambia la estructura de carpetas</strong> — si Books/ se reorganiza o se agrega una tercera carpeta, actualizar el diagrama.</li>
+  <li><strong>Se descubre un bug o una regla nueva</strong> — agregarla a la sección de Reglas para que no se repita.</li>
+  <li><strong>Se hace un cambio significativo al MAPA</strong> — nueva funcionalidad, cambio en la estructura de datos, etc.</li>
+</ul>
+
+<div class="warn">
+  <div class="warn-title">📌 Para sesiones de Claude / Cowork</div>
+  <p>Si estás trabajando con estos archivos desde una sesión nueva: lee este documento completo antes de hacer cambios. Si tu trabajo modifica algo de lo documentado aquí, actualiza este LEEME antes de terminar. El usuario confía en que este documento refleja el estado real de los archivos.</p>
+</div>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🛑 Qué no tocar</h2>
+
+<ul>
+  <li>No renombres ni muevas la carpeta <strong>Books/</strong> ni sus subcarpetas de autor — el MAPA tiene las rutas exactas.</li>
+  <li>Los respaldos van en <strong>backups/</strong> — máximo 4 por documento, al crear un quinto se borra el más antiguo.</li>
+  <li>Si agregas libros nuevos a Books/, el MAPA no los detecta automáticamente — hay que agregarlos al array <code>const books = [...]</code> dentro del HTML.</li>
+  <li>No borres ni renombres la carpeta <strong>pwa/</strong> — todos los HTMLs dependen de ella para funcionar como app instalable.</li>
+  <li>No modifiques el repo <strong>/tmp/sds</strong> manualmente — las tareas programadas lo usan para deploy automático.</li>
+  <li>En monitoring.html, <strong>COMPRESSED_DATA</strong> del buscador de mañaneras está en la línea 681 — no mover esa línea.</li>
+  <li>Si agregas o eliminas un HTML, actualizar también <strong>index.html</strong> (menú) y <strong>schedules.html</strong> si aplica.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>🔧 Arquitectura técnica del MAPA</h2>
+
+<p>El MAPA es un solo archivo HTML (~6.2 MB) con CSS, JavaScript, y todos los datos embebidos. No hay servidor, no hay base de datos. Todo corre en el navegador.</p>
+
+<h3>Estructura de datos</h3>
+<p>Los libros están en un array <code>const books = [...]</code> que empieza alrededor de la línea 6801. Son 276 objetos con estas propiedades: <code>id, estante, coverId, coverUrl, filePath, pdfUrl, title, author, year, desc, tesis, ideas, contexto, porqueLeer, conexiones, tags, quotes, deck</code>. Conviven dos formatos: expandido (multi-línea, una propiedad por línea) y compacto (todo en una línea). Cualquier script que modifique el array debe detectar ambos.</p>
+
+<p>Las citas con link a página exacta viven en <code>QUOTE_PAGES</code> (línea ~6768), con la clave <code>"bookId::quoteIndex"</code> y el valor es el número de página física del PDF. Los eventos de la línea de tiempo viven en <code>const eras = timelineEras = [...]</code> (~línea 17671); su esquema y orden se documentan abajo.</p>
+
+<h3>Funciones clave</h3>
+<p><code>getQuotePageLink(book, quoteText, quoteIndex)</code> — Genera el link "📄 Ver en PDF" para una cita. Recibe el libro, el texto de la cita, y opcionalmente el índice. Si no recibe índice explícito, busca el texto en <code>book.quotes</code> para encontrarlo. Devuelve cadena vacía en móvil o si no hay entrada en QUOTE_PAGES.</p>
+
+<p><code>getFileButtonHTML(book)</code> — Genera el botón "📂 Abrir archivo". Devuelve cadena vacía en móvil.</p>
+
+<p><code>normalizeSearch(str)</code> — Quita acentos para búsqueda: normaliza a NFD y elimina caracteres combinantes. Así "mexico" encuentra "México".</p>
+
+<p><code>IS_MOBILE</code> — Variable global que detecta Android, iOS, Huawei, HarmonyOS, o ancho ≤768px. Controla qué elementos se muestran.</p>
+
+<h3>Línea de tiempo: esquema y orden de eventos</h3>
+<p>Los eventos viven en el literal <code>const eras = timelineEras = [...]</code> (JSON minificado en una sola línea, ~línea 17671). Cada evento: <code>year, text, scope</code> (<code>mexico</code> / <code>mundo</code> / <code>internacional</code>), <code>lugar</code> (para el mapa), <code>detalle</code>, <code>citas[]</code>, y dos campos ocultos de orden: <code>ordMes</code> y <code>ordDia</code>. Para editar el literal con seguridad: extraer con escaneo de corchetes balanceados → <code>JSON.parse</code> → mutar → <code>JSON.stringify</code> → volver a insertar, y <strong>siempre verificar que no queden <code>null</code></strong> (JSON.stringify convierte los huecos del array en null y eso revienta el render).</p>
+
+<p><strong>Orden intra-año (<code>ordMes</code>/<code>ordDia</code>):</strong> el render ordena por (año, mes, día). Un evento que solo trae año (sin mes) se iría al 1 de enero y saldría <em>antes</em> de los eventos fechados, dando impresión cronológica falsa. Por eso el sort usa <code>mes || ordMes || 99</code> y <code>día || ordDia || 0</code>: sin <code>ordMes</code>, el evento año-solo cae al <em>final</em> de su año (99), no al principio. Unos 2,579 eventos año-solo traen <code>ordMes</code> (1-12) que los coloca en su mes real o aproximado según los eventos vecinos y del mismo libro. <code>ordMes</code>/<code>ordDia</code> solo ordenan, no se muestran como fecha. Al añadir un evento año-solo a un año que ya tiene eventos fechados, ponle <code>ordMes</code> para que no se vaya al final.</p>
+
+<p><strong>Audit de redundancias:</strong> como cada libro aporta sus propios eventos, el mismo hecho suele aparecer varias veces (otro libro, otra redacción, o bilingüe inglés/español: "February Revolution overthrows tsarism" = "Febrero 1917: caída del zarismo"). Para depurar: fusionar los duplicados en un evento y <strong>unir sus citas</strong> (dedup por libro+texto), sin perder ninguna. Se fusiona solo el <em>mismo hecho</em>; interpretaciones distintas del mismo tema (Dussel, Fidel, Semo…) se quedan como eventos propios — las lecturas materialistas son el valor de la biblioteca, no ruido. Última pasada (jul 2026): 249 fusiones, de 4845 a 4596 eventos.</p>
+
+<h3>Las 4 vistas principales</h3>
+<p>El MAPA tiene 4 vistas: <strong>Estantes</strong> (libros agrupados por tema), <strong>Explorador</strong> (detalle de un libro con citas y conexiones), <strong>Línea de tiempo</strong> (cronología con citas destacadas), y <strong>Atlas de conceptos</strong> (mapa visual de ideas con citas aleatorias). Cada una llama a <code>getQuotePageLink</code> de manera diferente — en Estantes pasa índice 0, en Explorador pasa el <code>idx</code> del map, y en Atlas/Timeline pasa solo el texto para que la función busque el índice.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📊 Arquitectura técnica de monitoring.html</h2>
+
+<p>Es el archivo más complejo y el que más se actualiza. Single-file React app con Babel transpilation en el navegador.</p>
+
+<h3>Stack</h3>
+<p>React 18 + Recharts + Babel standalone, todo desde CDN. Sin build, sin servidor. El HTML tiene un solo <code>&lt;script type="text/babel"&gt;</code> con todo el código React.</p>
+
+<h3>Datos</h3>
+<p>Todos los datos están embebidos como constantes al inicio del script. El array <code>UPDATES</code> contiene las actualizaciones recientes con fecha, fuente, texto, tag, y gráficas relacionadas (<code>rel</code>). Las gráficas se definen como objetos con <code>id, t (título), th (tema), s (fuente), d (descripción), r (función render)</code>. Hay ~100 gráficas organizadas en 7 categorías/temas: <code>w</code> (trabajo), <code>r</code> (bienestar), <code>s</code> (seguridad), <code>e</code> (economía), <code>f</code> (fiscal), <code>n</code> (energía), <code>d</code> (desarrollo).</p>
+
+<h3>Responsive</h3>
+<p>Usa <code>cols</code> state (1-5 columnas según ancho de ventana). <code>_isMob()</code> función fuera del componente para estilos de márgenes y ejes. Patrones Proxy/getter para que <code>mg</code> (margins), <code>ax</code> (axis tick style), <code>lgS</code> (legend style) se recalculen en cada render. <code>yH</code> reduce el ancho del YAxis a 25px en móvil.</p>
+
+<h3>Modos</h3>
+<p><strong>Monitor:</strong> Slots rotatorios con auto-advance (30s escalonado). Cada slot muestra 1-3 gráficas que rotan. Barra UPDATES arriba con swipe en móvil.</p>
+<p><strong>Explorar:</strong> Navegación libre. Filtro por categoría (dropdown en móvil, botones en desktop), ordenar por recientes, drill-down con gráficas de pie interactivas. En desktop las gráficas se agrupan por categoría en filas.</p>
+
+<h3>Cómo agregar datos</h3>
+<p>Las tareas programadas actualizan los datos automáticamente. Cada tarea: (1) lee monitoring.html, (2) busca/actualiza las constantes de datos relevantes, (3) agrega entrada a UPDATES con la fecha y fuente, (4) guarda, (5) hace backup, (6) push a GitHub Pages. Regla importante: <strong>un entry de UPDATES por cada cambio individual</strong>, nunca combinar múltiples indicadores en uno solo.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📖 Cómo agregar un libro nuevo</h2>
+
+<p>Paso a paso para no romper nada:</p>
+
+<h3>1. Preparar el archivo</h3>
+<p>Pon el PDF o EPUB en <code>Books/</code>, dentro de una subcarpeta del autor (ej: <code>Books/Marx/Nuevo-Libro.pdf</code>). Si el autor ya tiene carpeta, úsala. Si no, crea una con el formato <code>Nombre-Apellido</code>.</p>
+
+<h3>2. Decidir el formato</h3>
+<p>Usa el formato <strong>expandido</strong> (multi-línea) — es el estándar y el más legible. El formato compacto existe por herencia pero no se recomienda para libros nuevos. Ejemplo mínimo:</p>
+
+<div class="diagram">{
+  id: "miid",
+  estante: "mexico_profundo",  <span class="dim">// o: transformaciones, economia_poder, fundamentos, revoluciones, filosofia</span>
+  coverId: "miid",
+  filePath: "Autor/Archivo.pdf",
+  title: "Título del Libro",
+  author: "Nombre del Autor",
+  year: "2020",
+  desc: "Descripción breve del libro.",
+  tesis: "Tesis principal.",
+  ideas: ["Idea 1", "Idea 2", "Idea 3"],
+  contexto: "Contexto histórico.",
+  porqueLeer: "Por qué importa este libro.",
+  conexiones: ["otroid1", "otroid2"],
+  tags: ["tag1", "tag2"],
+  quotes: [
+    { text: "Texto exacto de la cita tal cual aparece en el PDF.", page: "p.45" }
+  ]
+}</div>
+
+<h3>3. Agregar al array books</h3>
+<p>Busca <code>const books = [</code> en el HTML (~línea 6801). Agrega el objeto nuevo <strong>al final</strong>, antes del cierre <code>];</code>. No olvides la coma después del libro anterior. El <code>id</code> debe ser único — usa minúsculas sin espacios ni acentos (ej: <code>"dusseletica"</code>, <code>"marxcapital1"</code>).</p>
+
+<h3>4. Agregar entrada a QUOTE_PAGES (opcional pero recomendado)</h3>
+<p>Si el libro tiene citas y el PDF tiene texto extraíble, busca la cita en el PDF para obtener la página física. Agrega al objeto <code>QUOTE_PAGES</code> (línea ~6768):</p>
+
+<div class="diagram"><span class="dim">// formato: "bookId::quoteIndex": páginaFísicaDelPDF</span>
+"miid::0": 45,  <span class="dim">// primera cita del libro, página 45</span>
+"miid::1": 112  <span class="dim">// segunda cita, página 112</span></div>
+
+<h3>5. Validar</h3>
+<p>Extraer el bloque <code>&lt;script&gt;</code> y correr <code>node --check</code>. Si falla, hay un error de sintaxis — revisar comas, comillas, y llaves. Este paso es <strong>obligatorio</strong> antes de guardar.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📝 Cómo agregar o verificar citas</h2>
+
+<p>La calidad de las citas es lo más importante. Estas son las lecciones aprendidas:</p>
+
+<h3>Extraer texto del PDF</h3>
+<p>Usar <code>pdfplumber</code> (Python) para extraer texto. Ejemplo:</p>
+<div class="diagram">import pdfplumber
+with pdfplumber.open("Books/Autor/Libro.pdf") as pdf:
+    for i, page in enumerate(pdf.pages):
+        text = page.extract_text()
+        if text and "fragmento de la cita" in text:
+            print(f"Página {i+1}: encontrado")</div>
+
+<p>El número de página en <code>QUOTE_PAGES</code> es la página <strong>física</strong> del PDF (la que muestra el lector), no la numeración impresa del libro. <code>pdfplumber</code> empieza en 0, así que <code>page[41]</code> corresponde a la página 42 del PDF.</p>
+
+<h3>Criterios de calidad para citas</h3>
+<p>Una buena cita cumple <strong>todos</strong> estos criterios:</p>
+<ul>
+  <li>Es una oración o párrafo completo con sentido propio (no un fragmento cortado).</li>
+  <li>Expresa una idea sustancial del libro — no es un encabezado, título de capítulo, dato bibliográfico, ni dedicatoria.</li>
+  <li>Tiene entre 20 y 200 palabras aproximadamente — ni tan corta que no diga nada, ni tan larga que abrume.</li>
+  <li>Es legible (no es OCR basura con caracteres rotos).</li>
+  <li>No es una cita que el autor hace de otro autor (a menos que sea particularmente notable).</li>
+</ul>
+
+<h3>Errores comunes que evitar</h3>
+<ul>
+  <li><strong>Citas del índice o tabla de contenido</strong> — parecen texto pero son solo encabezados con números de página.</li>
+  <li><strong>Información editorial</strong> — "Primera edición, 1975. ISBN..." no es una cita.</li>
+  <li><strong>Texto garbled de OCR</strong> — si ves "lvi est0 es un t3xto", el PDF es imagen y no sirve para extraer citas automáticamente.</li>
+  <li><strong>Páginas estimadas</strong> — nunca calcular la página por offset. Los PDFs tienen portadas, prólogos, páginas en blanco. Siempre buscar el texto exacto.</li>
+  <li><strong>Comillas dentro de la cita</strong> — si la cita contiene comillas dobles (<code>"</code>), hay que escaparlas en el JS como <code>\"</code>, o usar comillas simples en el string del array.</li>
+</ul>
+
+<h3>PDFs escaneados (imágenes)</h3>
+<p>Algunos PDFs son imágenes sin texto extraíble. <code>pdfplumber</code> devolverá cadenas vacías o basura. Para estos libros, las citas se pueden agregar manualmente (copiando del libro físico o de otra fuente verificada), pero <strong>no</strong> se agrega entrada a QUOTE_PAGES — el link "Ver en PDF" no serviría porque el visor no puede navegar a texto dentro de una imagen.</p>
+
+<!-- ═══════════════════════════════════════ -->
+<h2>📜 Historial de cambios</h2>
+
+<ul>
+  <li><strong>Julio 2026 (6) — libreria: 116 portadas nuevas + fixes de visualización</strong> — pasada grande: 116 portadas agregadas a libros que no tenían (82 extraídas de página 1 de sus PDFs, 3 de epubs, 31 de la web verificadas visualmente una por una con subagentes: Open Library, archive.org, editores; la portada errónea de Knowlton para el libro de Bazant se detectó y eliminó sin vincularse; `crookeresistance` duplicado cubierto). Quedan 6 sin portada: `richards` y `taiboaura` (entradas fantasma, el libro no existe en bibliografía ni hay PDF), y `tutino5`/`misericordia`/`bienesnacion` (PDFs aún como placeholders de iCloud). Además: corrección de 105 campos `tesis` que venían como array literal (`['...', '...']` → prosa, artefacto de la ingesta INEHRM); la tarjeta featured de la línea del tiempo ahora sangra a todo el ancho de la sección de citas; las placas del año se rediseñaron por material (remaches en metal, marco de carpintero con tarugos en madera, talla 3D en piedra) para que no se vea mismo-material-sobre-mismo; botones de navegación temáticos y rótulo redundante eliminado del paginador.</li>
+  <li><strong>Julio 2026 (5) — kimi bridge migrado de opencode a Kimi Code CLI</strong> — <code>~/scripts/inbox/kimi-bridge.sh</code> ahora invoca <code>~/.kimi-code/bin/kimi -p</code> (modelo default <code>kimi-code/k3</code>) en lugar de <code>opencode run</code>, conservando la interfaz: sesión pineada en <code>~/.kimi-session-id</code>, lock, setsid-detach, timeout de 30 min, <code>k reset</code> igual. Backup de la versión opencode en <code>kimi-bridge.sh.bak-opencode-20260723</code>. Quirks documentados en AGENTS.md §6 (<code>--session</code> antes de <code>-p</code>, strip del prefijo <code>• </code>, session id desde stderr). Verificado end-to-end: pin + resume con memoria entre mensajes. INBOX_SYSTEM.md actualizado.</li>
+  <li><strong>Julio 2026 (4) — kimi runner swap para tareas de Telegram (créditos de Claude agotados)</strong> — las tres tareas de contenido (<code>scant</code>, <code>dailyt</code>, <code>onmexico</code>) ahora corren con Kimi Code CLI headless (<code>kimi -p</code>, modelo <code>kimi-code/k3</code>) vía wrappers gemelos <code>~/.local/bin/run-kimi-*.sh</code> y plists <code>com.kimi.*</code>; los plists <code>com.resisres.*</code> de esas tres quedaron descargados pero intactos para revertir. Mismo SKILL.md, mismos horarios, misma mecánica de sentinel/dedup/feed. Detalle y reversa en AGENTS.md §5.1. Además: scant manual desde Kimi demostró el flujo completo (6 posts con headline subrayado, <code>link_preview_options</code> y duplicado al topic 📰 Scan del grupo).</li>
+  <li><strong>Julio 2026 (3) — libreria: orden intra-año de eventos (ordMes/ordDia)</strong> — los eventos que solo traían año se amontonaban todos al 1 de enero y salían <em>antes</em> que los eventos fechados, dando impresión cronológica falsa (feedback del usuario: "si al principio del año dice que x persona se muere, y luego 3 meses después una batalla, no tiene sentido"). <strong>Solución:</strong> dos campos ocultos de orden, <code>ordMes</code> (1-12) y <code>ordDia</code> (1-31), usados como fallback en el sort (<code>mes || ordMes || 99</code>, <code>día || ordDia || 0</code>). Sin <code>ordMes</code> un evento año-solo cae al <em>final</em> de su año, no al principio. Una pasada de agentes historiadores asignó <code>ordMes</code> a ~2,579 eventos año-solo, ubicándolos en su mes real o aproximado según los eventos vecinos y del mismo libro. Validado jsc PARSE OK + 0 nulls. Ver sección "Línea de tiempo: esquema y orden de eventos".</li>
+  <li><strong>Julio 2026 (2) — libreria: audit general de redundancias en la línea de tiempo</strong> — como cada libro aporta sus propios eventos, el mismo hecho aparecía varias veces (otro libro, otra redacción, o bilingüe inglés/español: "February Revolution overthrows tsarism" = "Febrero 1917: caída del zarismo"). Pasada de agentes sobre las 23 tandas de años que fusionó <strong>249 eventos duplicados</strong> en su evento canónico, uniendo las citas (dedup por libro+texto), sin perder ninguna. Conservador: solo el <em>mismo hecho</em>; las interpretaciones distintas (Dussel, Fidel, Semo…) se quedan como eventos propios. Eventos 4845 → 4596. Validado jsc PARSE OK + 0 nulls.</li>
+  <li><strong>Julio 2026 (1) — libreria: ingesta INEHRM (olas 1-2) + audit de fechas</strong> — onboarding de ~23 libros del INEHRM (Historia Antigua + Independencia/Reforma) con tarjeta, portada (página 1 del PDF), citas verbatim, conexiones, y <code>pdfUrl</code> al link permanente del INEHRM (las citas abren la página exacta también en modo online). Se descubrieron eventos leyendo cada libro completo (no de lista fija), con contexto de sujeto y lugar. Dashboard de progreso en <code>htmls/inehrm-ingesta.html</code>. Nuevos campos en <code>books[]</code>: <code>coverUrl</code>, <code>pdfUrl</code>, <code>conexiones</code> explícitas; <code>inject-books.py</code> los emite.</li>
+  <li><strong>Junio 2026 (4) — index.html portada anti-glitch + carga rápida de imágenes</strong> — feedback del usuario sobre el v2: "muy glitcheado, tarda en cargar las imágenes, a veces no jalan". Causa raíz: cada auto-advance (8s) hacía <code>el.innerHTML = renderCellContent(...)</code> que rebuilda el cell entero, destruyendo el &lt;img&gt; y forzando refetch. Aunque el browser cacheara, había flash de unstyled + layout shift cada tick. <strong>Solución: DOM persistente con paintCell.</strong> Nueva arquitectura: <code>renderCellShell()</code> emite un esqueleto vacío una sola vez (con .mag-cell-head, .mag-noticias-tabs, .mag-hero-wrap > .mag-hero-img, .mag-headline, .mag-body-text, .mag-cell-foot). <code>paintCell(el, group, kind)</code> muta los slots del esqueleto en su lugar — solo cambia textContent + el src del img + classList. El elemento &lt;img&gt; vive across cycles, así que imágenes cacheadas aparecen instantáneamente sin flash. <strong>Image preload pipeline:</strong> nuevo <code>preloadCache</code> Set + <code>preloadImagesFor(batch)</code> que warm-fetch todas las URLs de imagen del batch (top-img + source.img) tan pronto el magazine carga. Cuando una cell auto-advance, el browser ya tiene la imagen en cache → 0ms perceived load. Al cambiar batch de noticias (tab click) se warm-fetch el nuevo batch también. <strong>Fade-in en lugar de pop-in:</strong> <code>.mag-hero-img</code> arranca con <code>opacity:0; transition:opacity .35s</code>; <code>onload</code> agrega clase <code>.loaded</code> que sube opacity a 1. Mientras carga, el wrapper <code>.mag-hero-wrap</code> muestra un gradient placeholder tinteado con la sección color — calma, no parece roto. <strong>Robust error handling:</strong> <code>onerror</code> en el img ahora agrega <code>.no-hero-img</code> a la section (que dispara el tratamiento text-only headline 52px) en lugar de dejar un broken-image icon o un gap. Pre se usaba <code>this.style.display='none'</code> que dejaba el slot ocupando espacio. <strong>Timer reset on manual interaction:</strong> nuevo <code>bumpCellTimer(g)</code> reinicia el setInterval de esa cell. Llamado desde dot click + tab click → si manualmente saltás a slide 3, no avanza a slide 4 en 0.5s porque el viejo timer iba a expirar. Cada interacción te da los 8s frescos. <strong>Refactor de startMagCycling:</strong> ahora delega a bumpCellTimer por cada grupo, eliminando código duplicado. <strong>:has() reemplazado por clase:</strong> <code>.mag-stage:has(.mag-hero-empty)</code> se cambió a <code>.mag-stage.no-hero-img</code> manejado desde JS — mejor compat + más performante (no requiere container queries / :has() polyfill). <strong>Dots minimal-rebuild:</strong> en lugar de rebuild todo el strip de dots cada paint, solo se reconstruye si <code>batch.length</code> cambió; si no, solo toggle <code>.active</code> entre dots existentes. Validado con jsc PARSE OK.</li>
+  <li><strong>Junio 2026 (3) — index.html portada v2: Featured + 2 Satellites, cycling, no scroll, more elegante</strong> — el primer intento del magazine (Junio 2 below) terminó scrolleando + faltando imágenes en los heroes + sintiéndose "como de niño adolescente" según feedback de usuario. Esta versión hace reset y rediseña desde cero. <strong>Layout Featured + 2 Satellites:</strong> grid 1.7fr (izquierda) / 1fr (derecha, dos filas). El stage izquierdo es la sección destacada (whoever tiene la batch más reciente al cargar); los 2 satellites son cells compactas de las otras secciones. <strong>NO scroll:</strong> todo cabe en el viewport (grid-template-rows:1fr 1fr en el rail, overflow:hidden en cells, line-clamp en headlines + body). <strong>Auto-cycling cada 8s (hover-to-pause):</strong> cada cell tiene su propio setInterval que avanza <code>magState.slideIdx[group]</code> dentro de la batch. Hovering una cell pausea SOLO esa cell (las otras siguen). Click en un dot salta a ese slide. <strong>Day labels y time:</strong> nuevo helper <code>fmtBatchDay(ts)</code> retorna "Hoy" / "Ayer" / nombre del día / "DD mes". El header de cada cell muestra kicker (sección) + día + hora del slide actual. <strong>Noticias time-of-day tabs:</strong> cuando scant está en el stage Y hay >1 batch hoy, se muestran tabs Mañana/Tarde/Noche con la batch activa subrayada. <code>todayBatchesFor(group)</code> + <code>batchTimeBucket(ts)</code> (h<12 mañana, 12-17 tarde, >17 noche). Click tab cambia <code>magState.noticiasBatchIdx</code> y resetea slideIdx a 0. <strong>Image fix:</strong> el hero usa <code>slide.img || slide.source.img || null</code> (era solo top-level antes — por eso La Jornada que viene con source.img no se veía). Si ninguno existe → text-only fallback con <code>:has(.mag-hero-empty)</code> que infla el headline a 52px en color de sección. <strong>Click satellite → spotlight swap:</strong> click en una satellite (fuera de sus botones internos) hace <code>magState.featured=g</code> y re-renderiza el magazine completo, con la satellite anterior moviéndose al spot derecho. Keyboard: Enter/Space sobre satellite focused hace lo mismo. <strong>Elegance pass:</strong> sin border-radius en las cells, sin shadows app-y. Hairline dividers de 1px <code>#e6dfc8</code> entre stage y rail. Background cream <code>#fdfcf3</code>. Tipografía: Bodoni Moda 36px stage / 18px satellite para headlines (con italic guinda para dailyt, Playfair sans 32px para scant, Bodoni roman 34px para onmexico). Day labels SF Mono 11px tracked. Dots con color de sección (active expandido a 18×3 pill). Counter "3 / 8" tracked SF Mono. Drill button "Ver todas →" SF Mono color de sección, opacity .6 → 1 hover. <strong>"All" chip relabeled "Portada":</strong> en sidebar-fullscreen el chip muestra "Portada" para que sea claro como volver al magazine después de drillear. <strong>renderMobile branching:</strong> tres ramas — translations (__tl), magazine (fullscreen + activeFilter null + dentro de .sidebar), o flat scroll (fallback). startMagCycling/stopMagCycling se llaman en las transiciones. <strong>applyFullscreen</strong> trackea was/now y solo re-rendera al cambio (no en cada mousemove del drag). <strong>Responsive:</strong> <1100px el rail colapsa debajo del stage en grid 1.6fr/1fr/1fr; <800px display:none defensivo. Validado con jsc PARSE OK. Backup en <code>backups/index.pre-magazine-v2-rollback-20260616.html</code> (estado del v1 antes de revert) + el pre-magazine original sigue en <code>backups/index.pre-magazine-20260616.html</code>.</li>
+  <li><strong>Junio 2026 (2) — index.html fullscreen reader → editorial hero-spread</strong> — el fullscreen reader (sidebar arrastrado >70% del viewport) dejó de ser un scroll vertical tipo Twitter y se convirtió en una <strong>portada editorial</strong>. <strong>Layout hero spread + rail:</strong> el grupo cuya última batch es más reciente reclama el "stage" izquierdo (60%) con hero card grande + mosaico de hasta 4 supports debajo; los otros dos grupos se acomodan en el "rail" derecho (40%) como rail-cells compactas con su mini hero. Sin top-down de tres tiras: el orden es dinámico, lo último dropeado se sube al stage. <strong>Sabor por sección en el hero:</strong> data-group="dailyt" usa Bodoni Moda italic 44px en color guinda (pull-quote feel para mañanera), data-group="scant" usa Playfair Display 32px sans-weight (wire-photo feel), data-group="onmexico" usa Bodoni Moda roman 36px (geopolitical magazine feel). <strong>Batch detection:</strong> nuevo helper <code>groupIntoBatches(items)</code> con regla "gap >30 min entre sends marca nueva batch" (cadencias empíricas: dailyt 7-9 posts/segundos, scant 3-4× al día/1-5 min span, onmexico ~10:15 daily/1-3 min span). <code>latestBatchFor(group)</code> devuelve la primera batch (la más reciente). <code>fmtBatchTime(ts)</code> formatea como Hoy/Ayer/<Día abr>/<DD MMM> + HH:MM. <strong>Item template extraído:</strong> el template inline de la tarjeta se refactoreó a <code>renderItem(x, variant)</code> con variants 'flat' | 'hero' | 'support' | 'mini'. Cada variant agrega clase magaonema para el CSS. Cards mantienen el mismo DOM para que lightbox + selectors + boldFirstLine sigan funcionando. <strong>Image fallback (27% de posts no traen ni x.img ni source.img):</strong> hero recibe <code>.mag-hero-text</code> con gradient cream→Pantone tint + border-left 5px + headline Bodoni Moda 52px black en color de sección — el headline ES el visual. Rail minis sin imagen muestran cuadrado tinteado vía <code>::before</code>. <strong>Click section header → drill into scroll filtrado:</strong> el delegator de chips ahora también matchea <code>.mag-head</code> (ambos exponen data-filter). Para que el botón "All" sea una ruta clara de regreso, se renombra a <strong>"Portada"</strong> condicionalmente cuando body lleva sidebar-fullscreen. Keyboard accessibility con Enter/Space sobre .mag-head. <strong>Re-render on threshold cross:</strong> <code>applyFullscreen</code> ahora compara was/now state y llama renderMobile() solo al cambio (no en cada mousemove del drag). <strong>Magazine cards no expanden:</strong> el global click-to-expand handler hace short-circuit con <code>card.closest('.mag-front')</code>. <strong>Branching en renderMobile:</strong> magazine se activa solo cuando body.sidebar-fullscreen + activeFilter===null + el list está dentro de .sidebar (mobile lists no están en .sidebar, mantienen flat scroll). <strong>Responsive:</strong> <1100px colapsa rail debajo del stage (1 columna) y mosaico a 2×2 (cap a 2 cards). <800px display:none defensivo (mobile usa 2-page swipe). Validado con jsc PARSE OK. Backup en <code>backups/index.pre-magazine-20260616.html</code>.</li>
+  <li><strong>Junio 2026 (1) — index.html polish pass</strong> — sesión de polish enfocada en legibilidad y consolidación. <strong>Dragon → sub-categoría de Internacional:</strong> <code>TASK_META</code> ahora lleva campo <code>group</code> que permite que varios task names compartan una chip. Posts con <code>task: "dragon"</code> caen bajo la chip Internacional (label + filter compartido con onmexico) pero su stripe lateral usa jade <code>#3a8a78</code> en vez del teal <code>#235B4E</code> de onmexico — lee como sub-tono del padre, no como categoría aparte. <code>groupOf(task)</code> nuevo helper; chip build itera grupos únicos en lugar de tasks únicos; filter compara group en lugar de task crudo. <strong>Bot side:</strong> cuando un post de la skill <code>dragon</code> se envíe vía <code>update-tg-feed.py</code>, pasar <code>--task dragon</code> (la flag ya existe en el script, línea 97) — el index lo bucketiza automáticamente. <strong>Telegram feed legibility:</strong> regla nueva para <code>b.hd</code> (la primera línea wrapped por <code>boldFirstLine()</code>) en sidebar compact (13px), expanded (14.5px), spacious (15.5px) y en mobile compact (15px), expanded (17px), spacious (19px). Color cream brillante <code>#f8e9c4</code>, display block, letter-spacing tight, margin-bottom controlado. Body text bumped line-height 1.45→1.5 y color <code>#e8d8b0</code>→<code>#ebe0bb</code> (brillito sutil pero mejora contraste). Headlines ya no se confunden con el body — cada post tiene jerarquía visible. <strong>Mobile More overlay dedup:</strong> Schedules y Guitarra ya estaban en el m-apps-grid; ahora llevan clase <code>.mobile-hide</code> y se ocultan en la overlay vía media query (en desktop siguen visibles porque el main grid desktop no las incluye). Link roto a <code>guitar-beta.html</code> eliminado (el archivo no existe — la beta vive en <code>guitar-multichord.html</code>). <strong>Visual polish:</strong> body bg <code>#f0f2f5</code> → <code>#f4f1ea</code> (cream cálido que conecta con la paleta editorial del sidebar); search-form bg <code>#fff</code> → <code>#fefcf8</code>, border <code>#e2e8f0</code> → <code>#e8e0c8</code>, focus-within border <code>#94a3b8</code> → oro Pantone 465 <code>#BC955C</code> con halo dorado; footer color a <code>#a08a5a</code> (tono cream que coordina con sidebar). <strong>Cleanup:</strong> eliminadas 4 líneas "Legacy ... removed" que ya no señalaban a nada vivo. Script validado con <code>jsc --check</code> (PARSE OK). Backup en <code>backups/index.pre-polish-20260615.html</code>.</li>
+  <li><strong>Marzo 2026 (1)</strong> — Creación del LEEME. libreria creado a partir del original: se agregaron filePaths a 207 libros, botón "Abrir archivo", QUOTE_PAGES con 45 citas vinculadas a páginas exactas, botón "Ver en PDF" en citas, y búsqueda sin acentos.</li>
+  <li><strong>Marzo 2026 (2)</strong> — QUOTE_PAGES expandido de 45 a 115 entradas (70 páginas verificadas de citas existentes + 12 citas nuevas extraídas de PDFs). Se eliminó el sistema de retroalimentación/likes de citas. Detección de móvil agregada: oculta botones de archivo y PDF en teléfonos. sacred-texts.html actualizado: header scrollable en móvil, categorías greyed-out al filtrar por tradición, libros en dos columnas.</li>
+  <li><strong>Marzo 2026 (3)</strong> — LEEME ampliado con arquitectura técnica del MAPA (funciones clave, estructura de datos, vistas), guía paso a paso para agregar libros nuevos, y guía para agregar/verificar citas con criterios de calidad y errores comunes.</li>
+  <li><strong>Marzo 2026 (4)</strong> — Agregado monitoring.html (Sala de Situación): dashboard interactivo de indicadores de México con React + Recharts. Independiente, sin conexión con otros archivos. LEEME actualizado con ficha y diagrama.</li>
+  <li><strong>Abril 2026 (1)</strong> — monitoring.html: mejoras de visualización móvil (centrado de gráficas, YAxis compacto, leyendas responsive), modo Explorar con categorías agrupadas en desktop y dropdown de filtros en móvil, ordenar por fecha, swipe en UPDATES, drill-down con gráficas de pie interactivas.</li>
+  <li><strong>Abril 2026 (2)</strong> — PWA: todos los HTMLs convertidos a Progressive Web Apps con manifests individuales, iconos, y service worker. Carpeta pwa/ creada. Se pueden instalar como apps en Android/Huawei.</li>
+  <li><strong>Abril 2026 (3)</strong> — GitHub Pages: repo sartinezmelgarejo-eng/sds en branch gh-pages. Todas las tareas programadas ahora hacen git push automático después de actualizar. URL: sartinezmelgarejo-eng.github.io/sds/</li>
+  <li><strong>Abril 2026 (4)</strong> — Telegram: bot @Resisresbot conectado al canal @resisres. 3 tareas publican contenido diariamente (dailyt, scant, onmexico). scannight consolidado en scant, resument integrado en dailyt.</li>
+  <li><strong>Abril 2026 (5)</strong> — index.html: menú principal con tarjetas de todas las apps. schedules.html: simplificado a tabla semanal. Eliminados: chosen-s4-viewer.html, MAPA-DIALECTICO.html (v1), Iglesia-contra-Mexico.md. Migración de iCloud a Google Drive.</li>
+  <li><strong>Abril 2026 (6)</strong> — monitoring.html y sacred-texts.html: modo claro/oscuro con toggle discreto (dot). monitoring usa Object.assign para swap de paletas; sacred-texts usa CSS custom properties (var(--st-xxx)). Preferencia guardada en localStorage.</li>
+  <li><strong>Abril 2026 (7)</strong> — MAPA: agregado libro #220 — W. E. B. Du Bois "Black Reconstruction in America, 1860-1880" (1935). 6 citas verificadas contra PDF con pdfplumber, QUOTE_PAGES actualizados, portada de Open Library. Estante: fundamentos.</li>
+  <li><strong>Abril 2026 (8)</strong> — MAPA: auditoría de citas en Línea de Tiempo y Atlas. Se eliminaron 16 citas genéricas o fuera de lugar en la línea de tiempo (2 misplaced, 14 genéricas). Se agregó link "📄 Ver en PDF" a las citas de la línea de tiempo — ahora usan <code>getQuotePageLink</code> igual que las citas de los libros. Se refinaron keywords del Atlas de Conceptos: eliminados términos genéricos que causaban falsos positivos (<code>'capital '</code>, <code>'negro'</code>, <code>'papa '</code>, <code>'cura '</code>, <code>'colonia'</code>, <code>'pueblo'</code>, <code>'clásico'</code>, <code>'domina'</code>, etc.) y reemplazados por términos más específicos.</li>
+  <li><strong>Abril 2026 (9)</strong> — Inbox v2: sistema inbox migrado de inbox.py (stateless, API-based con modos explícitos) a inbox-v2.py (sesiones persistentes de Claude Code CLI, zero API cost). Migrado de cron a launchd (<code>com.resisres.inbox</code>, cada 5 min). china-trip-planner renombrado a china-trip-planner-enhanced.html. LEEME actualizado con nueva arquitectura de inbox y conteos corregidos.</li>
+  <li><strong>Mayo 2026 (15) — Inbox sacado de Google Drive (fix TCC + venv tras upgrade de Homebrew)</strong> — el sistema inbox estuvo caído ~3 días tras un upgrade automático de Homebrew Python (3.14.4_1 → 3.14.5). El symlink interno del venv (<code>~/inbox-venv/bin/python3.14</code>) apuntaba al path versionado viejo en <code>Cellar/3.14.4_1/</code> que dejó de existir → launchd caía a otro Python sin entrada TCC para Google Drive → <code>Operation not permitted</code> leyendo <code>inbox-v2.py</code>. Adicional: <code>~/.local/bin/inbox-watchdog.sh</code> había perdido bit ejecutable (también exit 78). <strong>Fix:</strong> (1) symlink del venv repointado a <code>/usr/local/opt/python@3.14/bin/python3.14</code> (alias estable que Homebrew mantiene al día); (2) <code>chmod +x</code> al watchdog; (3) script y estado movidos a <code>~/scripts/inbox/</code> (<code>inbox-v2.py</code>, <code>.inbox-v2-state.json</code>, <code>.api-key</code>, <code>INBOX_SYSTEM.md</code>) para escapar de la trampa TCC para siempre — TCC trackea binarios y procesos lanzados por launchd no heredan permisos del Terminal, así que un binario nuevo siempre arranca sin acceso a iCloud/GoogleDrive; (4) plist actualizado con <code>SoftResourceLimits NumberOfFiles=65536</code> (default 256 hacía que Claude CLI tronara con "low max file descriptors"); (5) backup del plist en <code>~/Library/LaunchAgents/com.resisres.inbox.plist.bak-20260531</code>. Los docs y credenciales que la sesión de Claude lee durante su trabajo (<code>TRANSLATIONS_PROTOCOL.md</code>, <code>WP_BLOCKS_REFERENCE.md</code>, <code>.wp-creds.json</code>) siguen en <code>htmls/inbox/</code> porque Claude tiene su propia entrada TCC. Marker <code>STALE-MOVED.txt</code> dejado en <code>htmls/inbox/</code> para que nadie edite la copia vieja del script por error.</li>
+  <li><strong>Mayo 2026 (14) — Beta polish: mobile aspect fixes, now-playing card redesign, index reader, MIDI hardening</strong> — sesión grande de polish desplegada continuamente al beta URL (<code>guitar-beta.html</code> en gh-pages, stable <code>guitar.html</code> sigue en commit <code>9a84944</code>). <strong>Mobile portrait play tab strip:</strong> el strip de tabs en play mode (vw ancho × 4 cells) tenía altura fija 150/140px sin importar el ancho — chord diagrams 1:1 quedaban con bandas blancas y el staff piano 130:148 se estiraba. Fix con explicit cell width via <code>flex: 0 0 calc((100vw - 15px)/4)</code> + <code>aspect-ratio: 1/1</code> (guitarra) o <code>130/148</code> (piano) + <code>min-height: 0</code> para resetear el clamp 220px que se filtraba de desktop. <strong>Desktop now-playing chord block rediseño (Real Book frame):</strong> el chord block left-column ahora es un card con borde negro 1.5px + fondo paper warm-white (<code>#fffdf5</code>, no <code>#ffffff</code> puro que se ve azul por contraste) + esquinas a 90° + márgenes negativos top/bottom que comen el padding del player-info para que el frame toque los green borders del card padre. Dentro: chord name 42px Bodoni-ish + <code>color: var(--ct)</code> por tag (tonic verde, dom rojo, predom ámbar, borrowed morado, secondary marrón), context italic 19px centrado vertical, roman 104px dark — todo con <code>justify-content: space-between</code> + selector compuesto <code>.pi-block.pi-block-chord</code> (4 clases) para vencer specificity de <code>.pi-block</code> base. Roman muestra <code>curCh.roman</code> (V/V con slash) en lugar de <code>curStep.chord</code> (V_V con underscore). <strong>Compose card mirrors play vertically:</strong> <code>renderComposeInfo</code> reescrito para emitir el mismo <code>pi-grid</code> que play mode pero stack vertical en el 220px sidebar (relocate ya existía vía <code>relocatePlayerInfo</code> entre <code>.rb-area</code> ↔ <code>.map-wrap</code>). Init order swap — <code>relocatePlayerInfo</code> AHORA corre antes de <code>renderAll</code> para que el auto-fit del chord-name/roman mida contra los 220px finales, no contra <code>.rb-area</code> origin (sin esto el card cargaba con tipografía gigante hasta que el usuario hacía resize). Incluye voicing icon (VOICE_ICONS bank), prog pills <strong>strict 4-per-row grid</strong> con <code>repeat(4, minmax(0,1fr))</code> + ellipsis (eran flex-wrap variable que daba 3/row con nombres largos), MIDI slot, y meta key. <strong>MIDI export hardening:</strong> menu cambiado a <code>position: fixed</code> con coords desde <code>getBoundingClientRect</code> right-anchored al botón — escapa <code>overflow: hidden</code> del rb-area que lo recortaba en play mode. Pattern de rescue+reattach del <code>midi-wrap</code> añadido a <code>renderComposeInfo</code> + a <code>player.stop()</code> (el wipe de <code>player-info.innerHTML</code> destruía el wrap; ahora se rescata a body antes para que el siguiente play+_updateVisuals lo encuentre). <code>_updateMidiBtn</code> ahora se llama desde <code>renderComposeInfo</code> para limpiar el <code>style="display:none"</code> inline después del reattach. Nueva opción <strong>ZIP bundle</strong> ("◇ Composed — all (zip)" / "♫ Full song — all (zip)") con mini ZIP encoder inline (~85 líneas, método STORE sin compresión, CRC-32 table) que empaca <code>chords.mid</code> + <code>bass.mid</code> en una carpeta <code>guitarra-{key}-{tonality}-{bpm}bpm-{label}/</code>. <strong>BPM en nombres de archivo</strong> MIDI (single + zip). <strong>Chord map menu-bridge guard:</strong> en <code>mousemove</code> del wrap, si el cursor está dentro de un buffer de 28px alrededor de cualquier popup visible, no se dispara un hover nuevo — soluciona el bug del usuario clickeando un popup y agarrando otro de un chord adjacent que calculó la misma grid cell. <strong>Weighted-random starting key:</strong> reemplazo de <code>keyPc: 0, tonality: 'major'</code> hardcoded por dos helpers <code>_pickStartKeyPc</code> (weights [3,1,1,...] → C ~21%) y <code>_pickStartTonality</code> (major:minor 2:1 → ~67% major). Cada reload re-rolla; el key-row UI sigue overrideando para la sesión. <strong>BPM al top-right del header desktop</strong> via <code>order: 999 + margin-left: auto</code> dentro del flex header. <strong>guitar-beta.html agregado al More Apps</strong> del index. <strong>Index fullscreen reader (drag-to-fullscreen):</strong> el resize del sidebar del index (<code>htmls/index.html</code>) ahora va hasta 100vw; cuando rebasa 70% del viewport activa <code>body.sidebar-fullscreen</code> que oculta la grid de apps y aplica estilos de reader — cards 50/50 split con imagen izquierda (35vw → 24vw tras feedback) + contenido derecha en paper card cream/blanco con tinte por task color (10% mix), headlines en Bodoni Moda 31px, body 12px, arrow keys ↑/↓ navegan entre posts con smooth scroll. Bold en headlines del feed via <code>boldFirstLine()</code> helper que envuelve la primera línea en <code>&lt;b class="hd"&gt;</code> conservando <code>&lt;u&gt;</code> originales. <strong>PWA icon redesign:</strong> reemplazo del wordmark "SdS" + emojis viejo por tricolor mexicano abstracto — tres barras verticales redondeadas (verde <code>#006847</code>, off-white <code>#f5f5f0</code>, rojo <code>#ce1126</code>) centradas en fondo wine gradient. SVG source en <code>pwa/icon-index.svg</code>, renders PNG en 192/512 via <code>qlmanage -t -s {size}</code> (no rsvg-convert disponible en el sistema). <strong>FDA discovery + backfill:</strong> los crons launchd (scant, onmexico, dailyt) fallaban al escribir <code>tg-feed.json</code> en la carpeta de Google Drive con <code>PermissionError</code> porque macOS TCC bloquea procesos background sin Full Disk Access otorgado explícitamente. Solución: agregar <code>/usr/local/bin/python3</code> a System Settings → Privacy & Security → Full Disk Access (el symlink resuelve al Homebrew cellar; cuando Python actualice puede romperse y hay que re-agregar). <strong>Backfill manual</strong> de 10 mensajes perdidos (msg_ids 2122-2133 cubriendo scant morning + onmexico) via Python script que itera <code>update-tg-feed.py</code> — texto scrapeado desde <code>https://t.me/s/resisres/{id}</code> (URL pública del canal renderea el body server-side).</li>
+  <li><strong>Mayo 2026 (13) — Music 2.1 beta: popup filtering, chord map UX, arrow navigation, desktop layout fix</strong> — sesión de pulido de la beta local (sin push a producción). <strong>Popup connection filtering:</strong> cuando un popup V chord (ej. E7/viiø) está en foco, <code>_renderHoverPopups</code> ahora recibe un <code>allowedIds</code> Set que restringe qué approaches se muestran al de la conexión directa. Antes se mostraban TODOS los approaches al target (ej. vi) incluyendo bII7/vi que no tiene conexión con viiø. Nueva función <code>_findSiiVChordId(siiChordId)</code> localiza el popup V chord por su propiedad <code>sii</code>. Estado <code>_hoverAllowedIds</code> trackea si el render actual es restringido; el mousemove guard usa <code>!_hoverAllowedIds</code> para permitir re-render completo al hacer hover directo sobre el resolution target (Am7/vi). <strong>Chord map visual redesign:</strong> cards inactivos dimmed (opacity 0.45 / saturate 0.4) en idle, conectados en el mapa bright + clean (background var(--panel), sin tint), popup cards con tint funcional sutil (0.055 alpha) — verde tonic, amber predom, rojo dom, púrpura borrowed, naranja secondary. Tint reduce de 0.09–0.10 a 0.055 tras feedback de usuario. Compose mode hierarchy vía CSS <code>:has()</code>: cuando hay un focused card no-hub, los chords sin relación bajan a 0.38 opacity, los relacionados y hover-targets se muestran al 100%. <strong>Arrow key navigation en compose:</strong> ←/→ mientras el AI está parado navega el composed progression, audita cada acorde con su shape guardada, actualiza <code>state._composeFocusedIdx</code>, y llama <code>ringFocusedChord()</code>. Clampea en los extremos (no hace wrap). <strong>Desktop play mode layout:</strong> <code>@media (min-width: 801px)</code> agrega <code>flex-shrink:0 + overflow:hidden + min-height: clamp(220px, 18vw, 320px)</code> a <code>.rb-area</code> en <code>body.player-active:not(.lp-on)</code>. Esto contiene el player-info card para que no desborde visualmente hacia <code>&lt;main&gt;</code> (donde vive el chord map + guitar neck), y el min-height garantiza que player-info y tab strip tengan la misma altura via <code>align-items:stretch</code>. Guitar/piano neck (<code>.map-side-panel</code>) permanece visible a la derecha del chord map como antes.</li>
+  <li><strong>Mayo 2026 (12) — Music 2.1: Popup chord system + catálogo expandido</strong> — guitar.html sesión grande de expansión harmónica + UX. <strong>⚠️ ESTADO: NO PUSHED A PRODUCCIÓN.</strong> El gh-pages remote (sartinezmelgarejo-eng.github.io/sds/guitar.html) sigue sirviendo la versión anterior (commit <code>9a84944</code> "Revert guitar.html to previous deployed version", ~557KB) porque hubo un push accidental que fue revertido. La versión nueva con TODO esto vive solo en local (<code>htmls/guitar.html</code>, ~672KB) — estamos refinando UX (especialmente el popup placement y los hover/hold gestures) antes de hacer push oficial. Backup del estado actual en <code>htmls/backups/guitar.20260528-prerevert-restore.html</code> + telegram send a sambot. <strong>Cuando esté listo para deploy:</strong> copiar <code>htmls/guitar.html</code> a <code>/tmp/sds/guitar.html</code>, commit, push a origin gh-pages. NO usar la tarea automática de inbox para esto — manual. <strong>Catálogo 57 → 74 progresiones:</strong> 17 progresiones nuevas curadas con sources documentados (Hooktheory, mDecks, jazzguitar.be, Wikipedia, learnjazzstandards). Popup-exercising (5): Apple turnaround V/iii, Sweet Georgia Brown turn (V/iii+V/vi), V/IV tonification, Tritone sub turnaround (bII7/V), Modal interchange cycle (bIIImaj7+bVImaj7), iiø borrow ballad. Iconic pop/folk (2): 50s doo-wop I-vi-IV-V, Pachelbel I-V-vi-iii-IV-I-IV-V. Blues family (4): 12-bar blues mayor, 12-bar quick-change, Jazz blues con ii-V subs, Minor 12-bar blues. Country/folk (2): I-IV-I-V, Train beat I7-IV7-V7. Bossa (1): Jobim Imaj7-bII7#11. Modal (2): Stella opening (iiø-V7alt-iv), So What modal vamp. <strong>Quality override en step schema:</strong> <code>{chord:'X', bars:N, qualityOverride:'7#11'}</code> permite que una progresión pida una calidad alterada en un step sin tocar el chord ID. Helper <code>effectiveQuality(step, chordDef)</code> resuelve canonical vs override. Aplicado en <code>_triggerChord</code>, <code>_buildPagePlan</code>, strip names, dashboard chord name. Habilita Jobim 7#11, Bird Blues con 7alt, jazz blues con dominantes alterados. <strong>5 qualities nuevas en QUALITIES:</strong> <code>7#11</code> (Lydian dominant), <code>9sus4</code> (Maiden Voyage/quartal sus), <code>7alt</code> (b9+#11 bebop), <code>m9</code> (neo-soul/modal), <code>maj9</code> (bossa tonic). <strong>13 nuevos chord IDs popup-only:</strong> en major chordDefs (sin nodes en el map) — V_iii, V_IV, V_vi, V_bVII, bII7_V, bII7_ii, bII7_vi, bIIImaj7, bVImaj7, iiø; en minor — V_bVI, V_bVII, V_bIII, bII7_V. Tagged con <code>popup:true</code> y <code>resolvesTo</code> / <code>borrowedFrom</code> metadata. <strong>Sistema de popup cards:</strong> chords con <code>popup:true</code> no aparecen como cuadrados permanentes en el chord map; en su lugar, durante playback o hover en compose, se materializa un popup card temporal junto al target chord (resolvesTo) con connector arrow. <code>_renderPopupCards</code> maneja playback (curId + nxtId), <code>_renderHoverPopups</code> maneja compose hover/touch, <code>_redrawPersistentPopup</code> maneja la versión post-click sticky. <strong>Grid-based placement:</strong> el chord map se trata como un grid lógico 5 filas × 4 columnas (líneas invisibles). Cada chord ocupa una celda en <code>CHORD_GRID_CELL[tonality]</code>. Popups se ubican en la celda VACÍA más cercana al target (búsqueda en anillos concéntricos con distancia Manhattan). Todos los popups del mismo tamaño (96×104). z-index 50+ siempre arriba de otros cards. <strong>Arrows también para approaches ya visibles:</strong> <code>_findApproachesTo</code> devuelve TODOS los chords con <code>resolvesTo===chord</code> incluyendo los que ya tienen card permanente. Al hover, si el approach es popup-only se crea el popup; si ya está en el map (ej. V/ii cuando hover ii), solo se dibuja el arrow desde su card existente al target. <strong>Hover desktop / hold mobile:</strong> en desktop, mover el mouse encima de un cuadrado por 450ms revela los popups con arrows. En mobile, tap rápido = add normal; hold 450ms = popups aparecen con vibración + el dedo puede arrastrar a un popup específico (highlight gold), release = ese chord se agrega. Touch-action: none + user-select: none + tap-highlight transparent en .map-card para que el browser no robe el gesture con scroll/zoom. Click directo limpia popups inmediatamente. <strong>Persistent popup verde post-click:</strong> al click en un popup (V/iii etc) se agrega al strip de compose Y el popup queda visible con pulse verde estilo .playing (border var(--tag-tonic), background #e8f7ef, keyframe persistentPopupPulse 0.85s). Sobrevive renderChordMap wipe via re-render desde <code>_persistentPopupChordId</code> + <code>_persistentPopupNode</code>. Se limpia cuando el usuario agrega OTRO chord (cualquier path). <strong>Functional labels:</strong> cada popup muestra label arriba con mono caps — SECONDARY DOM / TRITONE SUB / MODAL INTERCHANGE / APPROACH — derivado de <code>ch.tag</code> y <code>ch.borrowedFrom</code>. <strong>BLUES y JAZZ_BLUES como song structures:</strong> nuevo concepto de "self-contained form" (<code>formType: 'blues'</code> / <code>'jazz-blues'</code>) que no usa AABA — single section que cyclea 4 veces. Roles blues progressions tagged como <code>['blues']</code> / <code>['jazz-blues']</code> exclusivos (fuera del pool A/B/C regular para que no caigan en AABA). RANDOM picker incluye BLUES (weight 2) y JAZZ_BLUES (weight 1) en pool común (~20% del tiempo). Dashboard muestra "BLUES" / "JAZZ BLUES" como section name + iter counter. <strong>Now-playing dashboard rebuild (desktop):</strong> reemplazo del flat row por bento grid de 4 bloques + meta strip. Hero block: roman numeral italic serif gigante (130px en compose, auto-fit a 96×96 square) + chord name (Dm7) en verde tonic 26px + context line ("ii of C major" via FUNC_LABEL). Voicing block: SVG icon centrado 124×74 (de VOICE_ICONS) + family name italic serif + variant detail mono caps (DROP-3 · MID set · 2nd inv). Progression block: nombre cleaneado (strippea chord sequence repetitivo) + time-aware pills (flex-grow proporcional a step.bars) + step counter. Meta strip: KEY · SONG-AABA picker · iter · MIDI button (relocated via DOM move). Click en SONG abre popover con 12 estructuras (AABA, ABAB, ABABCB, AABB, ABA, BLUES, JAZZ_BLUES, AABACA rare, ABAC rare, ABBA rare, ABCA rare, ABCB rare, ABACA rare, ABCD rare) + opción ↻ RANDOM al top (weighted picker: AABA y ABAB con peso 4, ABABCB y BLUES con peso 2, otros con peso 1). <strong>Tab strip height match:</strong> en play mode, los rb-tab-cells crecen verticalmente para igualar la altura del now-playing card via flex:1 1 0 en el row 2 de rb-stack. Solo en play, no en compose. Loop button del strip oculto en play (hay loop en transport). <strong>Auto-fit chord row:</strong> el roman + chord name auto-escalan si el chord ID es largo (bIII7, vii°7, Cmaj7) — measure scrollWidth vs block width, escala uniforme con piso 0.5×. <strong>Arrow key navigation en pause:</strong> ←/→ navega el playback strip por celdas mientras está paused. Cruza páginas automáticamente (rebuild plan al cambiar de página). Snap completo: songIdx/sectionIter/currentStepIdx/barsRemaining/totalBars + previousShape + playerVoicing + chordDrone audition + focused chord + renderAll + _updateVisuals + _renderRealBook. Helper <code>_walkSongToBar</code> para left-arrow al start de página. <code>_applyStripNavTarget</code> compartido con paused-click handler (refactor DRY que eliminó ~50 líneas duplicadas). <strong>Audition timer guard:</strong> <code>_updateVisuals</code> ya no resetea state.focusedChord/userVoicing mientras <code>_auditionRevertTimer</code> está activo. Así el click en un chord card durante play deja la visualization en ese chord por 3.5s antes de revertir al chord vivo. <strong>Strum sub-variants:</strong> family strum (renombrada de barre) ahora tiene 4 variantes — barre 7th, barre triad (pop/rock no-7th), open cowboy (solo para keys E/A/D/G/C en mayor + posiciones específicas), power chord R-5-R (sin 3 ni 7). Tagged con <code>__variant</code> property non-enumerable. Scoring bias por género: progresiones con strum weight alto favorecen triad y open; heavy-rock progressions (i-bVI-bVII-i epic, Andalusian etc) favorecen power. <strong>Voice-leading top-note penalty:</strong> en <code>_pickShape</code>, agregado factor <code>topPenalty</code> que penaliza saltos en la voz superior (~topMove^1.4 × 1.2). Antes solo era un booleano para la regla Goodrick; ahora pesa proporcional al salto. Resultado: la melodía de la voz superior se mueve más conjunta. <strong>Section key change visualization fix:</strong> <code>_lookAheadBars</code> ahora trackea <code>simTonality</code> y <code>simKeyPc</code> que se actualizan al cruzar a una sección modulada (parallel minor, truck-driver lift). <code>_buildPagePlan</code> resuelve chord-defs desde <code>CHORD_MAP[segTonality]</code> en lugar del live currentMap(). Esto arregló que el primer chord de una sección modulada se renderaba con el chord-id del map ANTERIOR (Dm en lugar de Cm, etc.). <strong>PROGRESSION_ROLES tagging:</strong> cada progresión tiene roles [A, B, C, blues, jazz-blues]. <code>_pickProgression(avoidName, role)</code> filtra por role. _generateSong asigna A→'A', B→'B', C/D/etc→'C'. Para letters específicas de bridge (B) y departure (C), AI escoge progresiones tagged apropiadamente. <strong>PROGRESSION_VOICING weights:</strong> cada progresión tiene un mapa {drop2, drop3, shell, triad, sus, strum} con weights por género. Pop/rock/folk = strum alto, jazz puro = strum 0. Continuidad de section bonus: bonus por usar la misma family que la sección previa. <strong>Otras voicings panel highlights:</strong> alt-row card que es la voicing actualmente sonando recibe class <code>.playing</code> (border verde con halo) + auto-scroll horizontal centrado en ella (raf animation ~180ms easeOutQuad). Card del player follows AUTO pick si state.userVoicing es null. <strong>Tonality flip in _buildPagePlan:</strong> reset prevShape también en flip de tonality (no solo keyPc) para parallel-key modulations. <strong>strip dashboard refresh:</strong> al click una cell en pause o al navegar con flechas, _updateVisuals corre además de _renderRealBook para que el dashboard (chord roman, voicing family, progression pills, AABA letters) reflejen el chord al que se snapped.</li>
+  <li><strong>Mayo 2026 (11) — Music 2.0</strong> — rediseño visual masivo de guitar.html + optimizaciones de audio. La versión anterior está archivada en <code>guitar-1.0.html</code> (deploy paralelo, accesible directamente). <strong>Brutalist sound panel:</strong> rediseño completo del top bar — emojis fuera, paneles VISUAL y SOUND como tiras brutalistas con borde negro 2px, fondo amarillo (VISUAL) / durazno (SOUND) con grano fractal SVG, JetBrains Mono uppercase. Active state rojo ladrillo soviético (<code>#a8231b</code>) solo en VISUAL (GTR/PNO toggle). <strong>Per-sound illustrations:</strong> cada KEYS sound (piano de cola side-view con tapa angulada + 3 patas, Rhodes con tonebars, jazz guitar headstock vintage Ibanez con clavijas doradas + maple neck con trastes + cuerdas steel, pad con 3 sines superpuestas, organ con pipes en gradiente cobre/brass + base oscura) tiene su propio SVG line-art con paleta real de madera/metal; el cell muestra el dibujo correspondiente al sonido seleccionado. Mismo tratamiento en RHYTHM (ride cymbal de costado, drum kit con bombo + snare + ride, dos baquetas cruzadas para drums con tips bead cream/dorado y butt brown oscuro, números 2 y 4 grandes mono para twofour, metrónomo trapezoidal amber brillante para click, pause symbol para off). MIXER queda como glyph ≡. BASS = palabra grande blanca con glow neon-tube cream/dorado sobre el panel. <strong>GTR realistic on active:</strong> cuando GTR está seleccionado, el diapasón del icon swap a colores realistas (rosewood plank + bone nut + nickel-silver frets + warm steel strings + pearl marker) sobre el fondo rojo — mismo lenguaje que el chord-neck grande que activa. PNO en active muestra teclas blancas reales con negras encima sobre el rojo. <strong>Menus picker brutalist:</strong> los popovers de KEYS y RHYTHM ahora usan los mismos SVGs que el cell (no emojis) — cada opción es dibujo + label + check. <strong>Drag-and-drop reorder (desktop):</strong> celdas del compose strip son draggable; soltar en otra celda duplica el acorde ahí; soltar en celda vacía rellena el gap con silencios automáticamente y aterriza al final. Cmd/Ctrl+Z revierte vía <code>_composeUndoStack</code>. Touch handlers protegidos para que el drag no robe los pointer events del subdiv badge. <strong>Pointerdown audio para chord buttons:</strong> los botones 1-7 del keypad disparan en pointerdown (no en click) — como tocar una tecla real, no espera el lift del dedo. ~50ms menos de latency perceptual. Click suprimido vía flag para evitar doble disparo. Flash visual con duración mínima 110ms garantiza que taps ultra-rápidos pinten al menos un frame amarillo. <strong>Card now-playing relocates:</strong> el <code>#player-info</code> se mueve via JS entre <code>.rb-area</code> (durante play/pause, izquierda del partitura, oculto en compose) y <code>.map-wrap</code> (durante compose, sidebar izquierdo del chord map de 220×460px). En mobile vive en el header como antes. Hook en <code>_refreshAutoPlayUI</code> + resize listener para re-evaluar. <strong>D-transport bar (desktop unified):</strong> nuevo transport unificado en el header desktop con cycle/loop/play/stop/edit + keypad-toggle. Reemplaza el ▶ AI + ⏹ + ↩ Edit dispersos. Mismo brutalist DNA que m-transport pero scaled para header (46px altura match con SOUND panel). Iconos SVG (no emoji), color-coded states (play verde Logic-style, stop rojo, loop amber/orange section/song, cycle indigo). Spacer en header eliminado para que d-transport y BPM ocupen el lado derecho compacto. <strong>Atajos Enter/Escape playback:</strong> durante play o pause, Enter = stop (2-stage rewind→clear), Escape = edit (sale a compose). En compose Enter = play, Escape = deselect → clear. <strong>Startup randomizer:</strong> cada carga de la app rolla defaults — chord sound (60% piano, 15% jazz, 10% pad, 10% organ, 5% rhodes), rhythm (50% ride, 25% 2&4, 15% drums, 5% click, 5% off), instrument view (65% gtr, 35% piano), BPM (30% 90-110, 40% 110-130, 20% 130-150, 10% 150-170). Voicing pref + bass fijos. Sin localStorage — nueva sesión = nuevo roll. <strong>Audio CPU diet (jazz guitar + organ):</strong> KS buffers de jazz guitar ahora se cachean en <code>_ksCache</code> por <code>(sr,freq,duration,brightness,damping)</code> con LRU bounded a 120 entries — elimina ~95% del costo per-voice (308k operaciones sincrónicas por voz eran la causa del click/stuttering en mobile). Duración del buffer KS bajada de 7s a 4s. Body formants (3 peaking filters) movidas de per-voice al shared FX bus (una vez por chord, no N veces). LP cascade reducido a un solo LP + highshelf por voz (de 6 a 2 filtros). ConvolverNode del reverb reemplazado por feedback delay (delayTime 85ms, fb 0.45, lowpass tone) — ~10x más barato. WaveShaper oversample de <code>'4x'</code> a <code>'none'</code> (curve es tan suave que no se nota). Total: ~25 BiquadFilters menos por chord, sin clicks audibles. <strong>Mobile layout polish:</strong> labels Key / Tonality / BPM eliminados (solo iconos). Major/Minor toggle vertical en mobile (saves ~70px horizontal). BPM <code>position:absolute</code> al top-right del header (fuera del flex flow, no causa wrap). rb-cycle + rb-loop ocultos durante play en mobile (m-transport ya los cubre); también el contenedor <code>.right-btn-stack</code> de piano mode para que el staff/tabs tomen ancho completo. Cells de los paneles fijados con height explícita 34px outer para que VISUAL y SOUND siempre alineen en mobile. <strong>BPM revertido:</strong> al sacarlo del panel brutalist (vivía como una celda más), regresó a su look pill original — sin borde, sin background, solo el número, color-shift a ochre en hover/dragging. Más slim y directo. <strong>Swipe instrument toggle:</strong> swipe horizontal en <code>.map-side-panel</code> alterna GTR/PNO en mobile (uses <code>instrumentBtn.click()</code> proxy ya que el DOM <code>#instrument-btn</code> fue reemplazado por los vs-cells). <strong>Other voicings target fix:</strong> al picar un voicing del bottom row, ahora aplica al cell seleccionado / focused / last-matching en vez de siempre al tail del progression. Auto-scroll del row a 180ms easeOutQuad (era 400-500ms del browser smooth nativo) — cambios de acorde no se sienten lentos. <strong>Sus weights cleanup:</strong> 5 progresiones sus-heavy (<code>V7sus–V–I</code>, <code>ii–V7sus–V–I</code>, <code>I–V7sus–IV</code>, <code>V7sus–V7–i</code>, <code>iiø–V7sus–V7–i</code>) bajadas de sus:50 a sus:0 — el V7sus suena sus por su quality, no necesita forzar voicing sus en los otros chords (I7sus4 forzado sonaba feo). Redistribuido a drop2/drop3/shell. <strong>Compose strip first-chord delete:</strong> primer acorde se comporta como los demás — chord → silent rest, silent → splice. Permite empezar canciones en silencio. Drag-drop más allá del current length rellena gaps con silencios automáticamente.</li>
+  <li><strong>Mayo 2026 (10)</strong> — guitar.html sesión de player controls + landscape polish. <strong>Play/pause/stop refactor:</strong> el toggle play/AI se partió en 3 estados — start (botón verde ▶), pause (⏸ negro, preserva songIdx/currentStepIdx/sectionIter/barsRemaining), resume (▶ verde con clase <code>.paused</code>, re-engancha al próximo downbeat del metrónomo). Nuevo método <code>player.pause()</code> mata el scheduler y los audios, recuerda <code>_metronomeWasOn</code>; <code>player.resume()</code> reanima desde la posición exacta usando <code>metronome.nextDownbeatTime()</code> + <code>forceTriggerAtNextBar</code> para que el chord pausado vuelva a entrar limpio. <strong>Stop button de 2 etapas:</strong> botón ⏹ separado solo visible cuando playing/paused. 1er tap = <code>player.rewind()</code> (songIdx=0, currentStepIdx=0, totalBars=0) + pausa; el botón empieza a pulsar rojo (<code>.armed</code>). 2do tap = full <code>player.stop()</code> con limpieza completa (devuelve a vista compose). Click en play/pause desarma el armed automáticamente. <strong>Pause keeps visualization:</strong> el strip de playback ya no se oculta cuando <code>!playing</code> — el check es <code>!playing && !paused</code>, así la visualización se queda congelada en el bar pausado. Mismo trato a <code>renderComposeInfo</code> (no toma la barra verde mientras hay paused). <strong>Click-to-jump on pause:</strong> con <code>player.paused</code>, click en cualquier celda del playback strip (data-pb-cell-idx) audita el acorde con su propia <code>cell.shape</code> (vía <code>chordDrone.start</code> directo, NO <code>focusedShape()</code> que rompía los highlights) y mueve el playback head a esa celda — actualiza songIdx/stepIdx/sectionIter/barsRemaining/totalBars + ancla <code>previousShape</code> a la shape clickeada para que resume use la misma inversión sin re-picking. <code>_lookAheadBars</code> y <code>_buildPagePlan</code> extendidos para propagar <code>{songIdx, stepIdx, sectionIter, barIdxInChord}</code> a cada cell del cached page. <strong>Loop button distinción visual:</strong> 3 estados claros — off (sin badge), section loop (fondo amarillo, badge "A"/"B"/etc. con la sección actual via <code>attr(data-section)</code> sincronizado por nuevo <code>syncLoopSectionBadge()</code>), song loop (fondo naranja, ícono rojo-anaranjado con glow más cálido, badge "S"). <strong>Tabs en play mode:</strong> los rb-tab-cells reservan ahora <code>padding-bottom: 14px</code> en play mode (gated por <code>:not(.lp-on)</code>) para que la subdiv-bar tenga su strip propio sin overlapping al diagrama; mobile play row sube de 85 a 100px para más respiración. <strong>Landscape v2:</strong> 4to botón ⏹ stop agregado al strip de controles, layout cambió a grid 2×3 (cycle full-width row 1, loop full-width row 2, play+stop side-by-side row 3 separados por divisor negro vertical; usa <code>:has(#lp-stop:not([hidden]))</code> para que play span full-width cuando stop está oculto). Botones de controles ampliados a 200px (de 160). Botón play verde por default, negro cuando playing, rojo pulsante cuando armed. <strong>Realistic guitar fills landscape pane:</strong> <code>CHORD_NECK_GEO</code> se sobreescribe temporalmente en <code>lp_enter('guitar')</code> con W=2400, visibleFrets=10 (en vez de W=1440, visibleFrets=7) para que el viewBox aspect (~3.75:1) iguale al pane landscape — el chord-neck llena la caja sin estiramiento ni distorsión, mostrando 3 trastes más. Restaurado al original en lp_exit. <strong>Tab cells overlap fix:</strong> taller strip en mobile play (120→100px iterado), padding-bottom en play mode para reservar zona de subdiv-bar (no overlay). <strong>Toggle popover subdivisiones:</strong> segundo tap en el mismo badge cierra ahora.</li>
+  <li><strong>Mayo 2026 (9)</strong> — guitar.html sesión de partitura ritmica + landscape mobile follow-along. <strong>Notación rítmica en el piano staff:</strong> el SVG del pentagrama ahora dibuja notas con plicas reales (single shared stem cruzando treble + bass como grand staff, dirección por nota más alta vs E4 — arriba de E4 cuelga hacia abajo), banderas individuales para slot único, y beams horizontales que conectan plicas consecutivas cuando hay ≥2 slots en el run. Tuplet brackets (3, 5, 6, 7) con número italic en gris medio (<code>#6b6b6b</code>) que se posiciona dinámicamente: pegado al techo (justo encima del pentagrama) por default, pero sigue al elemento más alto del acorde hacia abajo cuando los acordes están bajos. Reescritura iterada hasta encontrar el balance: padding 1.2·lineSp arriba del topmost element (plica end si stems up, top notehead si stems down). <strong>Accidentales solo en primera ocurrencia por compás:</strong> Set tracking de <code>#@y</code> / <code>b@y</code> evita re-dibujar sostenidos/bemoles después de la primera vez (convención clásica). <strong>Click en slot del staff:</strong> con N>1 toggle mute del slot; con N=1 (whole note) audita el acorde inline (no debe mute la única nota — eso es lo que hace delete). <strong>Toggle popover subdivisiones:</strong> segundo tap en el mismo badge cierra el popover. <strong>Landscape follow-along view (mobile, auto-trigger en rotación):</strong> overlay fullscreen <code>#landscape-play</code> que aparece cuando body tiene <code>player-active</code> + <code>lp-on</code> (la última gated por <code>matchMedia('(orientation: landscape) and (pointer: coarse)')</code>). Layout en grid de 2 filas: arriba el strip/staff (tabs en guitar mode con grid 4×4 de cells, staff strip en piano mode), abajo bottom-row split en dos columnas: instrumento (chord-neck en guitar, chord-piano en piano) + controles brutalist (160px wide). <strong>Reparenting en vez de cloning:</strong> los elementos vivos <code>#chord-neck</code> / <code>#chord-piano</code> / <code>#real-book-tabs</code> se MUEVEN al overlay via <code>lp_park/lp_restore</code> (guardan parent+nextSibling originales) — los renderers existentes siguen pintándolos en place sin saber que cambiaron de padre. <code>lp_exit</code> los devuelve a su home original al salir + rescata <code>#lp-controls</code> al overlay root antes de wipear body.innerHTML (si no, los controles se destruyen). <strong>Brutalist controls:</strong> sin border-radius, sin shadows/blur, bordes negros gruesos de 2px, monospace bold uppercase, divisores duros entre botones. 3 botones (cycle / loop / play) que proxy a los buttons reales del toolbar principal (<code>#cycle-toggle</code> / <code>#loop-toggle</code> / <code>#auto-play</code>); estados visuales sincronizados via <code>lp_syncControls()</code>. <strong>Performance fixes:</strong> el staff y los tabs del overlay se cachean por firma (chord+shape para staff, innerHTML+children.length para tabs) — sin caché, cada tick del player reconstruía 16+ SVGs vía <code>innerHTML</code> y bloqueaba el thread de audio (chord stutter audible en iPhone). Bug encontrado en passing wrong param a renderChordStaff (objeto en vez de string key). <strong>Cache-busting global:</strong> agregadas meta tags <code>Cache-Control: no-cache, no-store</code> + <code>Pragma: no-cache</code> + <code>Expires: 0</code> al head del HTML para que los refresh siempre traigan la versión más nueva sin necesidad de hard-reload manual.</li>
+  <li><strong>Mayo 2026 (8)</strong> — guitar.html sesión de ritmo + interactividad pesada. <strong>Ties / continuations en compose:</strong> click en slot vacío extiende el acorde anterior; delete reemplaza por tie; renderizado con símbolo <code>%</code> tipo simile. <strong>Subdivisiones rítmicas por celda:</strong> cada tab cell del compose lleva un badge pill chiquito colgando del borde inferior con el número de subdivisiones (default 1) — click abre popover dark flat moderno (1-8 acomodados en grid 2-col simétrico: 1 cap arriba, 8 cap abajo, [2 4 6] / [3 5 7] en columnas pares/impares); drag vertical sobre el badge (cualquier dirección) cambia el count basado en distancia desde el punto inicial (1 anclado al centro, no en el valor previo); right-click resetea a 1; barra de segmentos thicker (18px en compose, 9px en playback) toggleable mute con click. Mobile: implementación con <code>pointer events</code> + <code>setPointerCapture</code> + <code>body.dragging-subdiv { touch-action: none }</code> para que el drag no se lo robe el scroll del navegador. <strong>Audio scheduled sample-accurate:</strong> <code>Drone.start(notes, vol, force, startAt)</code> acepta tiempo absoluto del audioCtx; <code>_triggerChord(chordId, barStartTime)</code> programa slot 0 en <code>nextBarTime</code> exacto y N-1 re-strikes adicionales en <code>barStart + (s/N)*barDur</code> via setTimeout disparando Drone.start con startAt preciso. Resultado: ritmo Swiss-clock sin drift, sin importar lookahead del scheduler ni jitter de timers. <strong>Animación rítmica en playback strip:</strong> bar de subdivisiones visible en TODAS las cells (estático) pero animación de slot pulsing (<code>.pb-on</code> con keyframe <code>subdivPulse</code>) solo en la cell que realmente está sonando (no en preview/peek, no en count-in). Bloque dorado con glow box-shadow + scaleY bounce 180ms al pegar cada slot. <strong>Master voicing catalog + estrategias:</strong> botón "auto" en alternatives ahora cicla 4 estrategias (smoothest / lowest position / highest position / random) via <code>pickByStrategy(cands, prevShape)</code> compartido entre compose y playback; cycle de Shift+número usa <code>allDistinctVoicings</code> deduplicado. <strong>Playback unificado:</strong> chord-name embedded en el SVG del tab via <code>renderMini(... {chordName, roman, tag})</code> con label italic serif arriba; <code>body.player-active .rb-row:first-child { display: none }</code> esconde la fila separada de chord-names (antes solo en piano, ahora también en guitar) — cada tab cell es UNA unidad visual con nombre + diagrama. <strong>Hover-pair en compose:</strong> eventos <code>mouseover/mouseout</code> burbujeantes (no <code>mouseenter</code> que no burbujea) sincronizan <code>.compose-hover</code> entre chord-name cell y su tab cell; CSS sin <code>:hover</code> bare ni <code>transition: background</code> para evitar lag-flicker; color sólido <code>#f5ecd0</code> sin alpha para que las dos celdas se vean como un solo rectángulo. <strong>Transpose preserva voicing:</strong> cada celda del compose guarda <code>{voicingType, stringSetIdx, inversion, stringSet}</code>; al cambiar key/tonality, <code>rebuildComposedShapesForCurrentKey()</code> busca el voicing equivalente en el nuevo root (mismo tipo + mismo set + misma inversión) en vez de re-pickear por idx — así C drop-2 MID 1st se vuelve D drop-2 MID 1st al transponer, solo cambian los trastes. <strong>Rhythm picker non-auto-start:</strong> seleccionar drums/click en el dropdown ya no arranca el metrónomo solo (era molesto); solo cambia el mode, y el player.start() lo enciende cuando le piques play. <strong>Compose mobile rework:</strong> par chord-name + tab unificados visualmente (borde divisorio solo entre pares, no dentro); chord-name con <code>justify-content: flex-end</code> + <code>margin-bottom: -2px</code> para pegarse al tab sin whitespace; font del chord-name usa <code>clamp(17px, 6.2vw, 32px)</code> con <code>vw</code> (no <code>cqw</code>) para que el 5° acorde no recalcule fonts de los anteriores; <code>grid-auto-rows: min-content</code> para que las filas mantengan su tamaño natural cuando agregas más; scroll INTERNO del strip via <code>el.scrollTo()</code> (no <code>scrollIntoView</code> que también scrolleaba el body); subdivisiones segments con <code>min-width: 0</code> en mobile para no overflow horizontal cuando hay 7-8. Numero 7 (vii°) reubicado al centro de la fila de inversiones (entre ▼ y ▲) en el keypad mobile.</li>
+  <li><strong>Mayo 2026 (7)</strong> — guitar.html sesión de pulido pesado. <strong>Vocabulario de acordes:</strong> agregado vii° diatónico en mayor (nodo en columna dominante, arrows IV→vii°→I tipo Bach, ahora mapeado a número 7 — bVII queda accesible solo desde el mapa). Familia sus completa en <code>QUALITIES</code> (sus4, sus2, 7sus4) + chord def V7sus en mayor y menor con node arriba del tonic hub. 8 progresiones nuevas en el catálogo del AI: IV–vii°–I (Bach), I–vii°–vi–V, ii–vii°–I, V7sus–V–I, ii–V7sus–V–I, I–V7sus–IV, V7sus–V7–i (minor), iiø–V7sus–V7–i. Sus añadido como técnica de voicing en el dropdown — convierte cualquier acorde en 7sus4. <strong>Cycle de voicings unificado:</strong> nuevo <code>allDistinctVoicings(quality, root)</code> devuelve catálogo master deduplicado por pitches (drop-2 → shells → triads → guides → sus), ordenado por traste ascendente dentro de cada familia. <code>composeAddChord</code> y el cycle de Shift+número durante playback usan ese catálogo (default pick sigue prefiriendo drop-2 con penalty +60 a no-drop-2). <strong>Partitura piano mode:</strong> clave de fa (𝄢) agregada con sizing iterado mobile/desktop, posicionada con shift Y para anclar el dot en F3. Treble + bass clefs dibujados ahora SOLO en el primer compás del song (durante los primeros 3 bars de totalBars en playback, y solo en cell 0 del compose strip) — el ojo carga las claves hacia adelante. Color de claves cambiado a warm dark brown <code>#2a2014</code> con opacity 0.72 para que se integren al pentagrama sin dominar. Líneas del pentagrama corren al borde izquierdo, brace bar pegado al filo — claves overlay encima como en grabado clásico. Notas huecas (whole notes) ahora son stroke-only sin relleno, las líneas del pentagrama y ledger lines pasan visibles por el centro hueco. Middle-C ledger se ilumina dorado cuando C4 está sonando. <strong>Re-strike de acordes consecutivos:</strong> <code>Drone.start</code> acepta <code>forceRestart</code> — <code>_triggerChord</code> lo pasa siempre, así que I→I→V se golpea dos veces; continuations (bars: 2+) siguen sin re-disparar y dejan sonar. <strong>Audition al click:</strong> mientras el AI toca, click en una map card suena ese acorde pero NO hace jumpTo permanente — el scheduler retoma el acorde planeado al siguiente bar boundary, y el focus visual revierte a <code>player.currentChord</code> a los 3.5s. <strong>Compose interactivo:</strong> click en cualquier celda del compose strip suena ese acorde con su voicing guardada y la selecciona (highlight naranja) como "edit target" — siguientes acciones (picar un acorde del mapa, número, ▲/▼) REEMPLAZAN esa celda en vez de agregar al final. Backspace borra la celda seleccionada; Esc primero deselecciona, segundo Esc limpia todo. <strong>Barra info verde en compose:</strong> nuevo <code>renderComposeInfo</code> llena el <code>#player-info</code> cuando el AI no toca — pill de tonalidad, nombre del acorde enfocado, grado roman, tipo de voicing (DROP-2 / SHELLS / TRIAD / GUIDE / SUS), inversión/string-set, fret promedio, y contador <code>4/12</code> mostrando posición dentro de la familia actual del catálogo. Map voicing reconciliado con click voicing (mismo picker, sin desempates divergentes). Flechas inversion del overlay del mapa móvil: ▲ arriba, ▼ abajo (estaban al revés). Otras voicings panel (alternatives row) — se intentó migrar al catálogo master con dividers pero rompió el layout dos veces (el bottom-bar se descuadra y el fretboard se sale de pantalla), revertido al grid drop-2 original; pendiente investigar con devtools por qué min-width:0 + overflow:hidden no contiene el alt-row a 48%.</li>
+  <li><strong>Mayo 2026 (6)</strong> — index.html paleta institucional Pantone: <code>7420C</code> guinda frambuesa (Mañanera), <code>468C</code> cream papel (Noticias), <code>626C</code> teal verde (Internacional), <code>7421C</code> vino profundo (Dragon), <code>465C</code> oro caramelo (Translations) con gradient distintivo. Fondo sidebar wine oscuro derivado de 7421. Cada card tintado en su color de categoría con stripe lateral 3px. Telegram-blue (<code>#0088cc</code>) conservado solo para el pill "Open in Telegram".</li>
+  <li><strong>Mayo 2026 (5)</strong> — index.html sidebar desktop rediseñado como feed unificado (reemplaza widgets separados). Mismo componente que el mobile feed: chips de categoría (All / Mañanera / Noticias / Internacional / Dragon / 📖 Translations), cards con stripe de color, tap-to-expand individual, view-toggle ▦/☰ (compact ⇄ spacious). Sidebar <strong>resizable por drag</strong> (handle en el borde izquierdo, min 240px / max 50vw, persiste en localStorage). En sidebar ≥480px, expanded view usa <strong>magazine layout</strong>: imagen/source-card en columna izquierda (220-280px), body a la derecha (via CSS container queries). Scrollbar oculto. Paleta cambió de azul navy a guinda/wine.</li>
+  <li><strong>Mayo 2026 (4)</strong> — index.html mobile 2-page swipe layout (Telegram ↔ Apps). Página A: feed de @resisres con chips de filtrado por tarea + 📖 Translations chip, cards Telegram-style (en compact: thumb pequeño + body fluído clamped a 6 líneas; en expanded/spacious: image banner full-width). Página B: grid de apps + Google search. Tap empty strip area = swipe, tap item = abrir. Floating refresh button ⟳ (top right). Page dots tracking. View-toggle ▦/☰. Pull-to-refresh deshabilitado por overflow:hidden — refresh button es el método.</li>
+  <li><strong>Mayo 2026 (3.5)</strong> — Infrastructure de telemetría + feed unificado: <code>~/.local/bin/log-task-event.sh</code> append-only para lifecycle events (start/end/skip) en <code>~/.local/share/task-telemetry/events.ndjson</code>. <code>htmls/sends.ndjson</code> es la canonical log per-send (extendido desde tg-feed.json): <code>{ts, task, chat, msg_id, text, img, url, source:{url,title,img,desc,domain}}</code>. <code>update-tg-feed.py</code> extendido con <code>--source-url</code> que auto-fetcha og:image/og:title/og:description del artículo (regex sobre HTML, SSL permisivo). Skills (dailyt/scant/dragon/onmexico) actualizadas para pasar el body verbatim de Telegram + URL del artículo. schedules.html lee <code>task-log.ndjson</code> para colorear past stars por outcome (ok/failed/skipped/running). Feed sheet con horizon-lift cinematográfico para diving-under.</li>
+  <li><strong>Mayo 2026 (3)</strong> — schedules.html rediseñado como visualizador "Clockwork": tiras de tareas cayendo hacia el horizonte con cielo cinético (estrellas, sol, nubes animadas). Tres carriles de categoría (Telegram, Datos, Monitor) visibles en vistas semana/mes. Time scrubber en header para navegar ±15 min / ±1h con hold-to-repeat y reset "ahora". Teclado: flechas, Shift+flechas, Esc.</li>
+  <li><strong>Mayo 2026 (2)</strong> — index.html rediseñado: eliminado header y textos de tarjetas (solo thumbnails con tooltip on hover, sin gradientes). Sidebar ampliado a 360px con dos widgets (Telegram arriba + Translations abajo) cada uno con fondo texturizado propio. Widget Telegram lee de <code>tg-feed.json</code> y muestra posts con thumbnails de 48px. Widget Translations tiene banner clickeable con textura de madera y texto 3D gold, lista con iconos de outlet (letra con gradiente de color de marca). Botón "More Apps" ahora abre launchpad full-screen con backdrop blur y tarjetas grandes con thumbnail (solo apps no en pantalla principal). Google search con autofocus. <code>translations/index.html</code> actualizado con los mismos outlet icons (40px).</li>
+  <li><strong>Mayo 2026 (1)</strong> — Sistema de traducciones para mexicosolidarity.com: nuevo trigger <code>traduce: &lt;URL&gt;</code> en el topic Traducciones de Telegram. El bot descarga el artículo ES, lo traduce al EN, sube las imágenes a WordPress Media Library vía REST API (<code>POST /wp-json/wp/v2/media</code> con Basic Auth + App Password), y genera <code>article.html</code> con las URLs de mexicosolidarity directamente (cero rastro de GitHub). Carpeta <code>translations/&lt;slug&gt;/</code> con article.html + original.json + meta.json + img/. Nuevo <code>viewer.html</code> para Compare &amp; Edit lado a lado y copy-to-WP. Protocolo en <code>inbox/TRANSLATIONS_PROTOCOL.md</code>, referencia de blocks Gutenberg/Kadence en <code>inbox/WP_BLOCKS_REFERENCE.md</code>. Credenciales WP en <code>inbox/.wp-creds.json</code> (gitignored, perms 600). Si falla un upload, aborta y limpia imágenes ya subidas — nunca mezcla URLs WP+GitHub en un mismo artículo.</li>
+</ul>
+
+<div class="footer">
+  Samuel Martínez · Última actualización: 31 mayo 2026
+</div>
+
+</div>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('pwa/sw.js').catch(()=>{})</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Feed — @resisres</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --verde:#006847;--verde-d:#004d35;--verde-l:rgba(0,104,71,.10);
+  --blanco:#f5f1eb;--crema:#ece5d8;
+  --rojo:#ce1126;--rojo-d:#a80d1e;--rojo-l:rgba(206,17,38,.08);
+  --oro:#c8a960;--oro-l:rgba(200,169,96,.12);
+  --txt:#1a1a1a;--txt2:#555;--txt3:#999;
+  --card-bg:#fff;--card-bdr:#ddd8ce;
+}
+body{background:var(--blanco);color:var(--txt);font-family:'Inter',system-ui,sans-serif;min-height:100vh}
+
+/* Flag bar */
+.flag{height:6px;display:flex;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.flag span{flex:1}
+.flag .fg{background:var(--verde)}
+.flag .fw{background:#fff}
+.flag .fr{background:var(--rojo)}
+
+.header{padding:24px 20px 0;max-width:860px;margin:0 auto;text-align:center}
+.header h1{font-size:26px;font-weight:800;color:var(--verde-d);letter-spacing:-0.5px}
+.header .sub{font-size:10px;color:var(--txt3);margin-top:2px;letter-spacing:2px;text-transform:uppercase}
+
+.search-bar{max-width:860px;margin:18px auto 0;padding:0 20px}
+.search-bar input{
+  width:100%;padding:9px 14px;
+  background:var(--card-bg);border:2px solid var(--card-bdr);border-radius:8px;
+  color:var(--txt);font-size:13px;font-family:inherit;outline:none;transition:border-color .2s;
+}
+.search-bar input:focus{border-color:var(--verde)}
+.search-bar input::placeholder{color:#bbb}
+
+.filters{max-width:860px;margin:12px auto 0;padding:0 20px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.filter-btn{
+  padding:5px 14px;border-radius:6px;font-size:10px;font-weight:600;
+  border:2px solid var(--card-bdr);background:var(--card-bg);color:var(--txt2);cursor:pointer;
+  transition:all .15s;text-transform:uppercase;letter-spacing:.5px;
+}
+.filter-btn:hover{border-color:var(--verde);color:var(--verde)}
+.filter-btn.active{background:var(--verde);color:#fff;border-color:var(--verde)}
+
+.date-nav{max-width:860px;margin:8px auto 0;padding:0 20px;display:flex;gap:4px;flex-wrap:wrap;justify-content:center}
+.date-btn{
+  padding:3px 10px;border-radius:4px;font-size:9px;font-weight:600;
+  border:1px solid var(--card-bdr);background:transparent;color:var(--txt3);cursor:pointer;transition:all .15s;
+}
+.date-btn:hover{border-color:var(--rojo);color:var(--rojo)}
+.date-btn.active{background:var(--rojo);color:#fff;border-color:var(--rojo)}
+
+.stats{max-width:860px;margin:10px auto 0;padding:0 20px;font-size:9px;color:var(--txt3);letter-spacing:.5px;text-align:center}
+
+/* Feed */
+.feed{max-width:860px;margin:14px auto;padding:0 20px 40px}
+
+/* === Card with optional Telegram-style preview === */
+.card{
+  background:var(--card-bg);border:1px solid var(--card-bdr);border-radius:10px;
+  margin-bottom:10px;overflow:hidden;
+  transition:box-shadow .15s;
+  display:flex;flex-direction:row;
+}
+.card:hover{box-shadow:0 3px 16px rgba(0,0,0,.07)}
+
+/* Left accent bar */
+.card-bar{width:5px;flex-shrink:0}
+
+/* Text section */
+.card-text{padding:12px 14px;flex:1;min-width:0}
+
+.card-meta{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap}
+.card-emoji{font-size:14px}
+.card-task{
+  font-size:7px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;
+  padding:2px 7px;border-radius:3px;white-space:nowrap;
+}
+.card-date{font-size:8px;color:var(--txt3);margin-left:auto;white-space:nowrap}
+
+.card-headline{font-size:13px;font-weight:800;color:var(--txt);line-height:1.35;margin-bottom:3px}
+.card-sub{font-size:10px;color:var(--txt2);line-height:1.5;margin-bottom:4px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card.expanded .card-sub{-webkit-line-clamp:unset;overflow:visible}
+
+.card-footer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.card-src-badge{
+  font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  padding:2px 6px;border-radius:3px;background:var(--verde-l);color:var(--verde);
+}
+.card-link{font-size:9px;color:var(--verde);text-decoration:none;font-weight:600}
+.card-link:hover{color:var(--rojo);text-decoration:underline}
+.card-expand{font-size:9px;color:var(--verde);cursor:pointer;font-weight:600;margin-left:auto}
+.card-expand:hover{text-decoration:underline}
+
+/* Preview image (Telegram-style) */
+.card-img{
+  width:140px;flex-shrink:0;
+  background-size:cover;background-position:center;
+  border-left:1px solid var(--card-bdr);
+}
+
+/* Task colors */
+.task-dragon .card-bar{background:var(--rojo)}
+.task-dragon .card-task{background:var(--rojo-l);color:var(--rojo)}
+.task-dragon .card-src-badge{background:var(--rojo-l);color:var(--rojo)}
+.task-scant .card-bar,.task-scan .card-bar{background:var(--verde)}
+.task-scant .card-task,.task-scan .card-task{background:var(--verde-l);color:var(--verde)}
+.task-dailyt .card-bar,.task-daily .card-bar,.task-mananera .card-bar{background:var(--oro)}
+.task-dailyt .card-task,.task-daily .card-task,.task-mananera .card-task{background:var(--oro-l);color:#8a7030}
+.task-dailyt .card-src-badge,.task-daily .card-src-badge,.task-mananera .card-src-badge{background:var(--oro-l);color:#8a7030}
+.task-onmexico .card-bar,.task-gringo .card-bar,.task-espejo .card-bar{background:#555}
+.task-onmexico .card-task,.task-gringo .card-task,.task-espejo .card-task{background:rgba(0,0,0,.05);color:#555}
+.task-onmexico .card-src-badge,.task-gringo .card-src-badge,.task-espejo .card-src-badge{background:rgba(0,0,0,.05);color:#555}
+.task-data .card-bar{background:var(--verde)}
+.task-data .card-task{background:var(--verde-l);color:var(--verde)}
+
+.empty{text-align:center;padding:60px 20px;color:var(--txt3);font-size:13px}
+.footer{text-align:center;padding:12px;font-size:8px;color:var(--txt3);letter-spacing:1px;border-top:1px solid var(--card-bdr);max-width:860px;margin:0 auto}
+
+@media(max-width:640px){
+  .header{padding:18px 12px 0}
+  .header h1{font-size:20px}
+  .search-bar,.filters,.date-nav,.stats,.feed{padding-left:12px;padding-right:12px}
+  .card-img{width:100px}
+  .card-text{padding:10px 12px}
+  .card-headline{font-size:12px}
+  .filter-btn{padding:4px 10px;font-size:9px}
+}
+</style></head><body>
+
+<div class="flag"><span class="fg"></span><span class="fw"></span><span class="fr"></span></div>
+
+<div class="header">
+  <h1>RESISRES</h1>
+  <div class="sub">Feed Archive</div>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="search" placeholder="Search headlines, text, sources…">
+</div>
+
+<div class="filters" id="filters"></div>
+<div class="date-nav" id="dateNav"></div>
+<div class="stats" id="stats"></div>
+<div class="feed" id="feed"></div>
+<div class="footer">sartinezmelgarejo-eng.github.io/sds</div>
+
+<script>
+const TASK_LABELS={
+  dragon:'🐉',scan:'Noticias MX',scant:'Noticias MX',
+  dailyt:'Mañanera',daily:'Mañanera',mananera:'Mañanera',
+  onmexico:'Intl Coverage',gringo:'Intl Coverage',espejo:'Intl Coverage',
+  data:'Datos'
+};
+const FILTER_GROUPS=[
+  {key:'mananera',label:'Mañanera',tasks:['dailyt','daily','mananera']},
+  {key:'news',label:'Noticias MX',tasks:['scan','scant']},
+  {key:'intl',label:'Intl Coverage',tasks:['onmexico','gringo','espejo']},
+  {key:'dragon',label:'🐉',tasks:['dragon']},
+  {key:'data',label:'Datos',tasks:['data']},
+];
+const BUSCADOR='BUSCADOR-MANANERAS.html';
+
+let DATA=[],activeTask='all',activeDate='all',query='';
+
+async function init(){
+  try{const r=await fetch('feed.json?t='+Date.now());DATA=await r.json();}catch(e){DATA=[];}
+  DATA.sort((a,b)=>(b.date+b.time).localeCompare(a.date+a.time));
+  buildFilters();buildDates();render();
+}
+
+function buildFilters(){
+  const p=new Set(DATA.map(d=>d.task));
+  const el=document.getElementById('filters');
+  let h='<button class="filter-btn active" data-group="all">All</button>';
+  FILTER_GROUPS.forEach(g=>{
+    if(g.tasks.some(t=>p.has(t)))
+      h+=`<button class="filter-btn" data-group="${g.key}">${g.label}</button>`;
+  });
+  el.innerHTML=h;
+  el.addEventListener('click',e=>{
+    if(!e.target.matches('.filter-btn'))return;
+    el.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeTask=e.target.dataset.group;render();
+  });
+}
+
+function buildDates(){
+  const dates=[...new Set(DATA.map(d=>d.date))].sort().reverse();
+  const el=document.getElementById('dateNav');
+  let h='<button class="date-btn active" data-date="all">All</button>';
+  dates.forEach(d=>{
+    const dt=new Date(d+'T12:00:00');
+    h+=`<button class="date-btn" data-date="${d}">${dt.toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'})}</button>`;
+  });
+  el.innerHTML=h;
+  el.addEventListener('click',e=>{
+    if(!e.target.matches('.date-btn'))return;
+    el.querySelectorAll('.date-btn').forEach(b=>b.classList.remove('active'));
+    e.target.classList.add('active');
+    activeDate=e.target.dataset.date;render();
+  });
+}
+
+function render(){
+  let items=DATA;
+  if(activeTask!=='all'){
+    const g=FILTER_GROUPS.find(g=>g.key===activeTask);
+    if(g)items=items.filter(d=>g.tasks.includes(d.task));
+  }
+  if(activeDate!=='all')items=items.filter(d=>d.date===activeDate);
+  if(query){
+    const q=query.toLowerCase();
+    items=items.filter(d=>
+      (d.headline||'').toLowerCase().includes(q)||
+      (d.body||'').toLowerCase().includes(q)||
+      (d.source_name||'').toLowerCase().includes(q)
+    );
+  }
+  const days=new Set(items.map(d=>d.date));
+  document.getElementById('stats').textContent=
+    items.length+' post'+(items.length!==1?'s':'')+' · '+days.size+' day'+(days.size!==1?'s':'');
+
+  const el=document.getElementById('feed');
+  if(!items.length){el.innerHTML='<div class="empty">No posts match.</div>';return;}
+
+  el.innerHTML=items.map((d,i)=>{
+    const dt=new Date(d.date+'T12:00:00');
+    const dl=dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const tc='task-'+(d.task||'');
+    const tl=TASK_LABELS[d.task]||d.task;
+
+    /* Source link: mañanera → Buscador, others → source_url */
+    let linkHtml='';
+    if(['dailyt','daily','mananera'].includes(d.task)){
+      linkHtml=`<a class="card-link" href="${BUSCADOR}" target="_blank">Open in Buscador ↗</a>`;
+    } else if(d.source_url){
+      linkHtml=`<a class="card-link" href="${d.source_url}" target="_blank">Read source ↗</a>`;
+    }
+
+    /* OG image preview */
+    const imgHtml=d.og_image?
+      `<div class="card-img" style="background-image:url('${d.og_image}')"></div>`:'';
+
+    /* Body snippet */
+    const hasBody=d.body&&d.body.length>0;
+    const snippet=hasBody?d.body.split('\n')[0]:'';
+
+    return `
+      <div class="card ${tc}" id="c${i}">
+        <div class="card-bar"></div>
+        <div class="card-text">
+          <div class="card-meta">
+            <span class="card-emoji">${d.emojis||''}</span>
+            <span class="card-task">${tl}</span>
+            <span class="card-date">${dl} · ${d.time||''}</span>
+          </div>
+          <div class="card-headline">${esc(d.headline||'')}</div>
+          ${hasBody?`<div class="card-sub">${esc(d.body)}</div>`:''}
+          <div class="card-footer">
+            ${d.source_name?`<span class="card-src-badge">${esc(d.source_name)}</span>`:''}
+            ${linkHtml}
+            ${hasBody?`<span class="card-expand" onclick="this.closest('.card').classList.toggle('expanded')">more ▾</span>`:''}
+          </div>
+        </div>
+        ${imgHtml}
+      </div>`;
+  }).join('');
+}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+document.getElementById('search').addEventListener('input',e=>{query=e.target.value;render();});
+init();
+</script>
+</body></html>
