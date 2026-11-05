@@ -131,7 +131,7 @@ body.night .dc{background:linear-gradient(160deg,rgba(201,143,143,.22),rgba(201,
 #bar .loc b{display:block;font-weight:500;font-size:17px;color:var(--walnut);font-variant:small-caps;letter-spacing:.06em;white-space:nowrap}
 #bar .loc small{font-size:12px;color:var(--gold);letter-spacing:.08em}
 #bar .dockonly{display:none}
-#bar.rail{flex-direction:column;justify-content:space-between;border-radius:22px;padding:10px 3px;gap:0}
+#bar.rail{flex-direction:column;justify-content:space-between;border-radius:0;padding:8px 0;gap:0;background:transparent;border:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
 #bar.rail.hidden{opacity:1;transform:none;pointer-events:auto}
 #bar.rail .grp{display:flex;flex-direction:column;align-items:center;gap:4px}
 #bar.rail button{padding:7px 2px;min-width:0;width:100%;border-radius:14px}
@@ -335,13 +335,17 @@ function computeGeometry(){
   const hSeg=mm('(horizontal-viewport-segments: 2)')||(segs&&Math.abs(segs[0].y-segs[1].y)<2&&segs[1].x>segs[0].x);
   const vSeg=mm('(vertical-viewport-segments: 2)')||(segs&&Math.abs(segs[0].x-segs[1].x)<2&&segs[1].y>segs[0].y);
   let mode=Q.get('mode')||(vSeg?'tabletop':hSeg?'spread':(post==='folded'&&H>W*1.2)?'tabletop':(W/H>1.2?'spread':'single'));
-  const m=Math.round(clamp(Math.min(W,H)*.012,5,13));
+  let m=Math.round(clamp(Math.min(W,H)*.012,5,13));
   // HIG iPhone Duo: cerrado (pantalla exterior) y abierto en horizontal → controles en franja vertical DERECHA;
   // abierto en vertical → barra abajo; medio doblado → controles en la mitad de abajo.
   const rq=Q.get('rail'); const rail=rq?rq==='1':(mode==='spread'||(mode==='single'&&Math.min(W,H)<520));
-  const RW=rail?Math.round(clamp(Math.min(W,H)*.075,54,66)):0;
-  const box={x:sa.l+m,y:sa.t+m,w:W-sa.l-sa.r-2*m-(rail?RW+m:0),h:H-sa.t-sa.b-2*m};
-  const railBox=rail?{x:box.x+box.w+m,y:box.y,w:RW,h:box.h}:null;
+  // Con riel: la página llena la pantalla (margen mínimo) y el riel vive en la franja derecha que iOS ya reserva
+  // (safe-area-inset-right, bajo el estado/Dynamic Island). Si el navegador no reporta franja, se usa una de 48 px.
+  if(rail) m=3;
+  const sysR=sa.r>=36, RW=rail?(sysR?sa.r:Math.round(clamp(Math.min(W,H)*.11,44,52))):0;
+  const box={x:sa.l+m,y:sa.t+m,w:W-sa.l-(sysR?sa.r:0)-2*m-(rail&&!sysR?RW-m:0),h:H-sa.t-sa.b-2*m};
+  const railTop=sysR?Math.round(Math.max(sa.t,H*.14)):box.y;
+  const railBox=rail?{x:W-(sysR?sa.r:RW),y:railTop,w:RW,h:H-sa.b-m-railTop}:null;
   const pages=[];let spine=null,dock=null;
   if(mode==='spread'){
     let foldL=W/2,foldR=W/2;
@@ -349,15 +353,16 @@ function computeGeometry(){
     const gm=Math.round(clamp(W*.011,8,16));   // canal: el texto nunca toca el pliegue
     let lw=foldL-gm-box.x, rw=box.x+box.w-(foldR+gm);
     let pw=Math.min(lw,rw);
-    if(!segs){ pw=Math.min(pw,box.h*.80); }       // fuera del Duo: mantener proporción de página
-    pages.push({x:foldL-gm-pw,y:box.y,w:pw,h:box.h,side:'L'},{x:foldR+gm,y:box.y,w:pw,h:box.h,side:'R'});
+    if(!segs&&!railBox){ pw=Math.min(pw,box.h*.80); }       // fuera del Duo: mantener proporción de página
+    if(railBox){ pages.push({x:box.x,y:box.y,w:lw,h:box.h,side:'L'},{x:foldR+gm,y:box.y,w:rw,h:box.h,side:'R'}); } // cada página llena su mitad; el texto mide igual (ver sizePages)
+    else pages.push({x:foldL-gm-pw,y:box.y,w:pw,h:box.h,side:'L'},{x:foldR+gm,y:box.y,w:pw,h:box.h,side:'R'});
     spine={x:foldL-gm-6,y:box.y,w:(foldR-foldL)+2*gm+12,h:box.h};
   }else if(mode==='tabletop'){
     let split=H/2,gapB=split; if(segs&&vSeg){split=segs[0].y+segs[0].h;gapB=segs[1].y;}
     pages.push({x:box.x,y:box.y,w:box.w,h:split-m-box.y,side:''});
     dock={x:box.x,y:gapB+m,w:box.w,h:H-sa.b-m-(gapB+m)};
   }else{
-    let pw=box.w; if(pw/box.h>.8) pw=box.h*.75;
+    let pw=box.w; if(!railBox&&pw/box.h>.8) pw=box.h*.75;
     pages.push({x:railBox?box.x+box.w-pw:box.x+(box.w-pw)/2,y:box.y,w:pw,h:box.h,side:''});
   }
   pages.forEach(p=>{p.x=Math.round(p.x);p.y=Math.round(p.y);p.w=Math.floor(p.w);p.h=Math.floor(p.h)});
@@ -439,18 +444,19 @@ function buildPages(){
 }
 
 function sizePages(){
-  const pw=G.pages[0].w, ph=G.pages[0].h;
+  const pw=Math.min(...G.pages.map(g=>g.w)), ph=G.pages[0].h;
   const base=clamp(Math.min(pw/30,ph/(G.mode==='tabletop'?20:42)),16,24);
   G.fs=Math.round(base*S.scale*10)/10;
   document.documentElement.style.setProperty('--fs',G.fs+'px');
   const inset=Math.round(clamp(pw*.02,9,15))+Math.round(clamp(pw*.009,4,7));
-  const padX=Math.round(clamp(pw*.075,16,54)), top=inset+Math.round(G.fs*2.5), bot=inset+Math.round(G.fs*2.4);
+  const padX=G.rail?Math.round(clamp(pw*.05,12,40)):Math.round(clamp(pw*.075,16,54)), top=inset+Math.round(G.fs*2.5), bot=inset+Math.round(G.fs*2.4);
   P.cw=Math.floor(pw-2*inset-2*padX); P.ch=Math.floor(ph-top-bot); P.gap=Math.round(padX*2);
-  P.els.forEach(el=>{
+  P.els.forEach((el,i)=>{
     const vp=el.querySelector('.vp'), fl=el.querySelector('.flow'), ec=el.querySelector('.endcap');
-    Object.assign(vp.style,{left:(inset+padX)+'px',top:top+'px',width:P.cw+'px',height:P.ch+'px'});
+    const g=G.pages[i]||G.pages[0], extra=g.w-pw, lx=inset+padX+(g.side==='L'?extra:Math.round(extra/2));
+    Object.assign(vp.style,{left:lx+'px',top:top+'px',width:P.cw+'px',height:P.ch+'px'});
     Object.assign(fl.style,{width:P.cw+'px',height:P.ch+'px',columnWidth:P.cw+'px',columnGap:P.gap+'px'});
-    Object.assign(ec.style,{left:(inset+padX)+'px',top:top+'px',width:P.cw+'px',height:P.ch+'px'});
+    Object.assign(ec.style,{left:lx+'px',top:top+'px',width:P.cw+'px',height:P.ch+'px'});
     el.querySelector('.rh').style.top=(inset+Math.round(G.fs*.75))+'px';
     el.querySelector('.folio').style.bottom=(inset+Math.round(G.fs*.7))+'px';
   });
