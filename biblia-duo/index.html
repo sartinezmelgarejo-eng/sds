@@ -338,14 +338,17 @@ function computeGeometry(){
   let m=Math.round(clamp(Math.min(W,H)*.012,5,13));
   // HIG iPhone Duo: cerrado (pantalla exterior) y abierto en horizontal → controles en franja vertical DERECHA;
   // abierto en vertical → barra abajo; medio doblado → controles en la mitad de abajo.
-  const rq=Q.get('rail'); const rail=rq?rq==='1':(mode==='spread'||(mode==='single'&&Math.min(W,H)<520));
+  const rq=Q.get('rail'); const rail=rq?rq==='1':(mode==='spread'||(mode==='single'&&Math.max(W,H)<760));
   // Con riel: la página llena la pantalla (margen mínimo) y el riel vive en la franja derecha que iOS ya reserva
   // (safe-area-inset-right, bajo el estado/Dynamic Island). Si el navegador no reporta franja, se usa una de 48 px.
   if(rail) m=3;
   const sysR=sa.r>=36, RW=rail?(sysR?sa.r:Math.round(clamp(Math.min(W,H)*.11,44,52))):0;
   const box={x:sa.l+m,y:sa.t+m,w:W-sa.l-(sysR?sa.r:0)-2*m-(rail&&!sysR?RW-m:0),h:H-sa.t-sa.b-2*m};
-  const railTop=sysR?Math.round(Math.max(sa.t,H*.14)):box.y;
-  const railBox=rail?{x:W-(sysR?sa.r:RW),y:railTop,w:RW,h:H-sa.b-m-railTop}:null;
+  // Foto real de Samuel (5-nov): en la pantalla exterior la franja derecha trae cámara arriba y hora+wifi debajo (~primer 28%);
+  // el hueco libre de la franja empieza ahí. Abajo la esquina es muy redondeada → se deja aire.
+  const railTop=sysR?Math.round(Math.max(sa.t,H*(mode==='single'?.30:.16))):box.y;
+  const railBot=H-sa.b-(sysR?Math.round(RW*.45):m);
+  const railBox=rail?{x:W-(sysR?sa.r:RW),y:railTop,w:RW,h:railBot-railTop}:null;
   const pages=[];let spine=null,dock=null;
   if(mode==='spread'){
     let foldL=W/2,foldR=W/2;
