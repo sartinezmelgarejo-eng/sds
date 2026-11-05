@@ -679,17 +679,22 @@ function voiceSheetClick(t){
   const a=t.dataset.tts;
   if(a==='play'){ if(TTS.on&&!TTS.paused)pauseTTS(); else if(TTS.on)resumeTTS(); else startTTS(P.id,P.c,S.v); openSheet('voz'); }
   else if(a==='stop'){stopTTS();openSheet('voz')}
-  else if(a==='test'){SS.cancel();TTS.token++;const u=new SpeechSynthesisUtterance('Jehová es mi pastor; nada me faltará.');const v=currentVoice();if(v){u.voice=v;u.lang=v.lang}u.rate=S.rate;SS.speak(u);if(TTS.on&&!TTS.paused){u.onend=()=>speakVerse()}}
+  else if(a==='test'){unlockTTS();TTS.token++;const go=()=>{const u=new SpeechSynthesisUtterance('Jehová es mi pastor; nada me faltará.');const v=currentVoice();if(v){u.voice=v;u.lang=v.lang}else u.lang='es-MX';u.rate=S.rate;SS.speak(u);if(TTS.on&&!TTS.paused){u.onend=()=>speakVerse()}};safeSpeak(go)}
   else if(t.dataset.sleep!==undefined){const k=t.dataset.sleep;TTS.sleepMode=k==='ch'?'ch':+k;TTS.sleepAt=(k!=='ch'&&+k)?Date.now()+k*60000:0;openSheet('voz')}
 }
 document.addEventListener('change',e=>{if(e.target.id==='vsel'){S.voice=e.target.value;save()}});
 document.addEventListener('input',e=>{if(e.target.id==='rate'){S.rate=+e.target.value;save();$('#rateo').textContent=S.rate.toFixed(2).replace('.',',')+'×'}});
 if(SS) SS.onvoiceschanged=()=>{if(curSheet==='voz')openSheet('voz')};
 
+/* iOS: desbloquea el motor dentro del gesto del usuario y evita el bug de WebKit
+   (cancel() seguido de speak() en el mismo instante = la frase se pierde en silencio) */
+let ttsUnlocked=false;
+function unlockTTS(){ if(!SS||ttsUnlocked)return; try{SS.resume();const u=new SpeechSynthesisUtterance(' ');u.volume=0;u.lang='es-MX';SS.speak(u);}catch(e){} ttsUnlocked=true; }
+function safeSpeak(fn){ if(!SS)return; try{SS.resume()}catch(e){} if(SS.speaking||SS.pending){SS.cancel();setTimeout(fn,220)} else fn(); }
 function startTTS(id,c,v){
   if(!SS)return; TTS.on=true;TTS.paused=false;TTS.id=id;TTS.c=c;TTS.v=v||1;TTS.announce=(TTS.v===1);
   try{navigator.wakeLock&&navigator.wakeLock.request('screen').then(w=>TTS.wake=w).catch(()=>{})}catch(e){}
-  SS.cancel(); speakVerse(); updatePlayer();   // primera locución dentro del gesto del usuario (iOS)
+  unlockTTS(); safeSpeak(speakVerse); updatePlayer();   // primera locución dentro del gesto del usuario (iOS)
 }
 function speakVerse(){
   const tok=++TTS.token; clearTimeout(TTS.wd);
@@ -701,6 +706,7 @@ function speakVerse(){
   u.rate=S.rate;
   u.onend=()=>{if(tok===TTS.token)afterVerse()};
   u.onerror=e=>{if(tok!==TTS.token)return;if(e.error==='interrupted'||e.error==='canceled')return;afterVerse()};
+  try{SS.resume()}catch(e){}
   SS.speak(u);
   // vigilante: iOS a veces no dispara onend
   const est=(txt.length/(13*S.rate))*1000+5000;
@@ -726,7 +732,7 @@ function afterVerse(){
   TTS.id=n[0];TTS.c=n[1];TTS.v=1;TTS.announce=true;speakVerse();
 }
 function pauseTTS(){TTS.paused=true;TTS.token++;clearTimeout(TTS.wd);SS.cancel();updatePlayer()}
-function resumeTTS(){TTS.paused=false;wasVisible=true;speakVerse()}
+function resumeTTS(){TTS.paused=false;wasVisible=true;unlockTTS();safeSpeak(speakVerse)}
 function stopTTS(){TTS.on=false;TTS.paused=false;TTS.token++;clearTimeout(TTS.wd);SS&&SS.cancel();TTS.sleepAt=0;TTS.sleepMode=0;
   try{TTS.wake&&TTS.wake.release()}catch(e){} TTS.wake=null; markReading();updatePlayer();if(curSheet==='voz')openSheet('voz')}
 function markReading(){
@@ -742,7 +748,7 @@ function updatePlayer(){
 $('#player').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const p=b.dataset.p;
   if(p==='pp'){TTS.paused?resumeTTS():pauseTTS()}
   else if(p==='stop')stopTTS();
-  else if(p==='nextv'||p==='prevv'){const n=TTS.v+(p==='nextv'?1:-1);if(n>=1&&n<=verseCount(TTS.id,TTS.c)){TTS.v=n;TTS.paused=false;wasVisible=true;SS.cancel();speakVerse()}}});
+  else if(p==='nextv'||p==='prevv'){const n=TTS.v+(p==='nextv'?1:-1);if(n>=1&&n<=verseCount(TTS.id,TTS.c)){TTS.v=n;TTS.paused=false;wasVisible=true;TTS.token++;safeSpeak(speakVerse)}}});
 setInterval(()=>{if(TTS.on&&TTS.sleepAt)updatePlayer()},30000);
 
 /* ═══════════ Arranque ═══════════ */
