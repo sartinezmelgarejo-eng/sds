@@ -81,6 +81,8 @@ body.night .page{background-image:var(--noise),
 .vn{font-family:var(--display);font-size:.6em;font-weight:600;color:var(--gold);vertical-align:.5em;line-height:0;
   margin:0 .2em 0 .12em;font-variant-numeric:lining-nums;letter-spacing:.02em}
 .add{font-style:italic;color:var(--ink2)}
+.verses .v{display:block;margin-bottom:.42em;text-align:left}
+.verses .v .vn{margin-left:0}
 .poem .v{display:block;padding-left:1.1em;text-indent:-1.1em;text-align:left;margin-bottom:.32em;hyphens:manual;-webkit-hyphens:manual}
 .poem .v .vn{display:inline-block;min-width:1.1em;text-indent:0;margin-left:0}
 .poem .v.first{padding-left:0;text-indent:0}
@@ -278,7 +280,7 @@ const ALIAS={sl:'sal',salmo:'sal',ps:'sal',jn:'jua',mt:'mat',mc:'mar',mr:'mar',l
 
 /* ═══════════ Estado persistente ═══════════ */
 const LS='lector-sagrado-duo-v1';
-const S=Object.assign({book:'gen',ch:1,v:1,scale:1,theme:'day',voice:'',rate:1,sleep:0},(()=>{try{return JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){return{}}})());
+const S=Object.assign({book:'gen',ch:1,v:1,scale:1,theme:'day',vlayout:'lines',voice:'',rate:1,sleep:0},(()=>{try{return JSON.parse(localStorage.getItem(LS)||'{}')}catch(e){return{}}})());
 const save=()=>{try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}};
 const Q=new URLSearchParams(location.search);
 if(Q.get('theme')) S.theme=Q.get('theme')==='night'?'night':'day';
@@ -386,7 +388,7 @@ function chapterHTML(id,c){
   if(c===1&&b.n>1) h+=`<header class="chead"><div class="bk">${esc(b.name)}</div><div class="cn">${id==='sal'?'Salmo I':'Capítulo I'}</div><svg class="divider" viewBox="0 0 240 30"><use href="#fil"/></svg></header>`;
   else if(b.n===1) h+=`<header class="chead"><div class="bk">${esc(b.name)}</div><svg class="divider" viewBox="0 0 240 30"><use href="#fil"/></svg></header>`;
   else h+=`<header class="chead minor"><div class="cn">${id==='sal'?'Salmo':'Capítulo'} ${ROMAN(c)}</div><svg class="divider" viewBox="0 0 240 30"><use href="#fil"/></svg></header>`;
-  h+=`<div class="${POETRY.has(id)?'poem':'prose'}"><p>`;
+  h+=`<div class="${POETRY.has(id)?'poem':(S.vlayout==='para'?'prose':'prose verses')}"><p>`;
   keys.forEach((n,ix)=>{
     let t=vs[n];
     if(ix===0){
@@ -607,6 +609,7 @@ function openSheet(kind){
     h=`<div class="sh-head"><h2>Letra y ambiente</h2><button data-x aria-label="Cerrar">×</button></div><div class="sh-body">
       <h3>Tamaño de letra</h3><div class="fsz"><button data-fs="-1">A−</button><output>${Math.round(S.scale*100)}%</output><button data-fs="1" style="font-size:1.25em">A+</button></div>
       <p class="sample">Lámpara es á mis pies tu palabra, y lumbrera á mi camino.</p>
+      <h3>Versículos</h3><div class="row"><button class="chip ${S.vlayout!=='para'?'on':''}" data-vl="lines">Uno por renglón</button><button class="chip ${S.vlayout==='para'?'on':''}" data-vl="para">En párrafo</button></div>
       <h3>Ambiente</h3><div class="row"><button class="chip ${S.theme!=='night'?'on':''}" data-th="day">Atelier · día</button><button class="chip ${S.theme==='night'?'on':''}" data-th="night">Luz de vela</button></div></div>`;
   }else if(kind==='voz'){ h=voiceSheetHTML(); }
   sh.innerHTML=h; sh.classList.add('show');
@@ -623,6 +626,7 @@ $('#sheet').addEventListener('click',e=>{
   if(t.dataset.ch){goTo(tocBook,+t.dataset.ch,1);closeSheet();return}
   if(t.dataset.fs){S.scale=clamp(Math.round((S.scale+.1*t.dataset.fs)*10)/10,.7,1.7);save();layout();openSheet('aa');return}
   if(t.dataset.th){setTheme(t.dataset.th);return}
+  if(t.dataset.vl){S.vlayout=t.dataset.vl;save();layout();openSheet('aa');return}
   voiceSheetClick(t);
 });
 $('#sheet').addEventListener('submit',e=>{e.preventDefault();const r=parseRef($('#q').value);
