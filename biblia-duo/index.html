@@ -673,10 +673,30 @@ function voiceSheetHTML(){
     <div class="row" style="flex-wrap:nowrap"><span class="small">lenta</span><input type="range" id="rate" min="0.6" max="1.5" step="0.05" value="${S.rate}"><span class="small">rápida</span><output id="rateo" style="min-width:3.2em;text-align:right;font-family:var(--display);color:var(--walnut)">${S.rate.toFixed(2).replace('.',',')}×</output></div>
     <h3>Temporizador para dormir</h3>
     <div class="row">${sleeps.map(([k,l])=>`<button class="chip ${String(TTS.sleepMode)===String(k)?'on':''}" data-sleep="${k}">${l}</button>`).join('')}</div>
-    ${TTS.sleepAt?`<p class="small">Se detendrá en ${left} min.</p>`:''}</div>`;
+    ${TTS.sleepAt?`<p class="small">Se detendrá en ${left} min.</p>`:''}
+    <h3>Diagnóstico de voz</h3>
+    <div class="row"><button class="chip" data-tts="diag">Prueba básica de sonido</button></div>
+    <p class="small" id="diag" style="white-space:pre-line">${diagText()}</p></div>`;
+}
+const APPV="1.2";
+const DIAG={last:'—'};
+function diagText(){
+  const sa=!!window.speechSynthesis, all=sa?speechSynthesis.getVoices():[], es=all.filter(v=>/^es/i.test(v.lang));
+  const mode=(navigator.standalone||matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches)?'ícono de inicio (app)':'pestaña de Safari';
+  return `Versión ${APPV} · abierto desde: ${mode}\nVoz web disponible: ${sa?'sí':'NO'} · voces: ${all.length} (español: ${es.length})\nÚltimo evento: ${DIAG.last}`;
+}
+function diagLog(x){DIAG.last=x;const d=document.getElementById('diag');if(d)d.textContent=diagText()}
+function basicTest(){
+  if(!window.speechSynthesis){diagLog('no hay speechSynthesis');return}
+  const u=new SpeechSynthesisUtterance('Hola. Esta es una prueba de sonido.'); u.lang='es-MX'; u.volume=1; u.rate=1;
+  u.onstart=()=>diagLog('empezó a hablar ✓'); u.onend=()=>diagLog('terminó ✓');
+  u.onerror=e=>diagLog('error: '+(e.error||'desconocido'));
+  diagLog('enviado… (si no suena: modo silencio o volumen)');
+  speechSynthesis.speak(u);
 }
 function voiceSheetClick(t){
   const a=t.dataset.tts;
+  if(a==='diag'){basicTest();return}
   if(a==='play'){ if(TTS.on&&!TTS.paused)pauseTTS(); else if(TTS.on)resumeTTS(); else startTTS(P.id,P.c,S.v); openSheet('voz'); }
   else if(a==='stop'){stopTTS();openSheet('voz')}
   else if(a==='test'){unlockTTS();TTS.token++;const go=()=>{const u=new SpeechSynthesisUtterance('Jehová es mi pastor; nada me faltará.');const v=currentVoice();if(v){u.voice=v;u.lang=v.lang}else u.lang='es-MX';u.rate=S.rate;SS.speak(u);if(TTS.on&&!TTS.paused){u.onend=()=>speakVerse()}};safeSpeak(go)}
@@ -704,8 +724,9 @@ function speakVerse(){
   const u=new SpeechSynthesisUtterance(txt), voice=currentVoice();
   if(voice){u.voice=voice;u.lang=voice.lang}else u.lang='es-MX';
   u.rate=S.rate;
+  u.onstart=()=>diagLog('leyendo ✓');
   u.onend=()=>{if(tok===TTS.token)afterVerse()};
-  u.onerror=e=>{if(tok!==TTS.token)return;if(e.error==='interrupted'||e.error==='canceled')return;afterVerse()};
+  u.onerror=e=>{diagLog('error: '+(e.error||'?'));if(tok!==TTS.token)return;if(e.error==='interrupted'||e.error==='canceled')return;afterVerse()};
   try{SS.resume()}catch(e){}
   SS.speak(u);
   // vigilante: iOS a veces no dispara onend
