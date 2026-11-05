@@ -131,6 +131,15 @@ body.night .dc{background:linear-gradient(160deg,rgba(201,143,143,.22),rgba(201,
 #bar .loc b{display:block;font-weight:500;font-size:17px;color:var(--walnut);font-variant:small-caps;letter-spacing:.06em;white-space:nowrap}
 #bar .loc small{font-size:12px;color:var(--gold);letter-spacing:.08em}
 #bar .dockonly{display:none}
+#bar.rail{flex-direction:column;justify-content:space-between;border-radius:22px;padding:10px 3px;gap:0}
+#bar.rail.hidden{opacity:1;transform:none;pointer-events:auto}
+#bar.rail .grp{display:flex;flex-direction:column;align-items:center;gap:4px}
+#bar.rail button{padding:7px 2px;min-width:0;width:100%;border-radius:14px}
+#bar.rail button span{font-size:9.5px;letter-spacing:.06em}
+#bar.rail .loc{border:0;border-top:1px solid rgba(184,147,90,.4);border-bottom:1px solid rgba(184,147,90,.4);margin:4px 0;padding:8px 0;min-width:0;width:100%}
+#bar.rail .loc b{font-size:13px;white-space:normal;line-height:1.05}
+#bar.rail .loc small{font-size:10.5px;display:block;margin-top:3px}
+#bar .grp{display:contents}
 #bar.dock{border-radius:18px;flex-wrap:wrap;justify-content:center}
 #bar.dock .dockonly{display:flex}
 
@@ -238,11 +247,11 @@ input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;bac
 
 <nav id="bar" class="hidden" aria-label="Menú">
   <button class="dockonly" data-act="prev" aria-label="Página anterior"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>atrás</span></button>
-  <button data-act="toc" aria-label="Índice"><svg viewBox="0 0 24 24"><path d="M5 4.5h9.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h9.5"/><path d="M9 8h5"/></svg><span>índice</span></button>
-  <div class="loc"><b id="locB">—</b><small id="locS"></small></div>
-  <button data-act="aa" aria-label="Letra"><svg viewBox="0 0 24 24"><path d="M3 19l5.5-14L14 19M5.2 14h6.6"/><path d="M15.5 12.5a3 3 0 0 1 5.5 1.5V19M21 16.2c-1-.6-5.2-.9-5.2 1.3 0 2 3.6 1.9 5.2-.4"/></svg><span>letra</span></button>
+  <div class="grp"><button data-act="toc" aria-label="Índice"><svg viewBox="0 0 24 24"><path d="M5 4.5h9.5a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h9.5"/><path d="M9 8h5"/></svg><span>índice</span></button>
+  <div class="loc"><b id="locB">—</b><small id="locS"></small></div></div>
+  <div class="grp"><button data-act="aa" aria-label="Letra"><svg viewBox="0 0 24 24"><path d="M3 19l5.5-14L14 19M5.2 14h6.6"/><path d="M15.5 12.5a3 3 0 0 1 5.5 1.5V19M21 16.2c-1-.6-5.2-.9-5.2 1.3 0 2 3.6 1.9 5.2-.4"/></svg><span>letra</span></button>
   <button data-act="night" aria-label="Luz de vela"><svg viewBox="0 0 24 24"><path d="M9 21h6M9.5 21V11.5h5V21M12 11.5V9"/><path d="M12 2.8c1.8 1.9 1.8 3.8 0 5.2-1.8-1.4-1.8-3.3 0-5.2z"/><path d="M7 21h10"/></svg><span id="nightLbl">vela</span></button>
-  <button data-act="voz" aria-label="Escuchar"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>escuchar</span></button>
+  <button data-act="voz" aria-label="Escuchar"><svg viewBox="0 0 24 24"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></svg><span>escuchar</span></button></div>
   <button class="dockonly" data-act="next" aria-label="Página siguiente"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg><span>adelante</span></button>
 </nav>
 
@@ -327,7 +336,12 @@ function computeGeometry(){
   const vSeg=mm('(vertical-viewport-segments: 2)')||(segs&&Math.abs(segs[0].x-segs[1].x)<2&&segs[1].y>segs[0].y);
   let mode=Q.get('mode')||(vSeg?'tabletop':hSeg?'spread':(post==='folded'&&H>W*1.2)?'tabletop':(W/H>1.2?'spread':'single'));
   const m=Math.round(clamp(Math.min(W,H)*.012,5,13));
-  const box={x:sa.l+m,y:sa.t+m,w:W-sa.l-sa.r-2*m,h:H-sa.t-sa.b-2*m};
+  // HIG iPhone Duo: cerrado (pantalla exterior) y abierto en horizontal → controles en franja vertical DERECHA;
+  // abierto en vertical → barra abajo; medio doblado → controles en la mitad de abajo.
+  const rq=Q.get('rail'); const rail=rq?rq==='1':(mode==='spread'||(mode==='single'&&Math.min(W,H)<520));
+  const RW=rail?Math.round(clamp(Math.min(W,H)*.075,54,66)):0;
+  const box={x:sa.l+m,y:sa.t+m,w:W-sa.l-sa.r-2*m-(rail?RW+m:0),h:H-sa.t-sa.b-2*m};
+  const railBox=rail?{x:box.x+box.w+m,y:box.y,w:RW,h:box.h}:null;
   const pages=[];let spine=null,dock=null;
   if(mode==='spread'){
     let foldL=W/2,foldR=W/2;
@@ -344,10 +358,10 @@ function computeGeometry(){
     dock={x:box.x,y:gapB+m,w:box.w,h:H-sa.b-m-(gapB+m)};
   }else{
     let pw=box.w; if(pw/box.h>.8) pw=box.h*.75;
-    pages.push({x:box.x+(box.w-pw)/2,y:box.y,w:pw,h:box.h,side:''});
+    pages.push({x:railBox?box.x+box.w-pw:box.x+(box.w-pw)/2,y:box.y,w:pw,h:box.h,side:''});
   }
   pages.forEach(p=>{p.x=Math.round(p.x);p.y=Math.round(p.y);p.w=Math.floor(p.w);p.h=Math.floor(p.h)});
-  return{mode,pages,spine,dock,sa,W,H};
+  return{mode,pages,spine,dock,sa,W,H,rail:railBox};
 }
 
 /* ═══════════ Marco de boiserie (SVG generado al tamaño exacto) ═══════════ */
@@ -524,6 +538,10 @@ function placeChrome(){
   const bar=$('#bar'),pl=$('#player'),sh=$('#sheet'),hint=$('#hint');
   const tgt=G.mode==='spread'?G.pages[1]:G.pages[0];
   bar.classList.toggle('dock',G.mode==='tabletop');
+  bar.classList.toggle('rail',!!G.rail);
+  if(G.rail){
+    Object.assign(bar.style,{left:G.rail.x+'px',top:G.rail.y+'px',bottom:'auto',width:G.rail.w+'px',height:G.rail.h+'px'});
+  }else{ bar.style.width='';bar.style.height=''; }
   const place=(el,area,bottomOff)=>{
     el.style.left='0';el.style.top='auto';
     const w=el.offsetWidth;
@@ -535,6 +553,10 @@ function placeChrome(){
     const d=G.dock; place(bar,d,Math.max(8,d.h*.12));
     place(pl,{x:d.x,y:d.y,w:d.w,h:d.h-bar.offsetHeight-24},Math.max(8,d.h*.12));
     Object.assign(sh.style,{left:d.x+'px',top:d.y+'px',width:d.w+'px',height:d.h+'px'});
+  }else if(G.rail){
+    place(pl,tgt,Math.round(tgt.h*.045));
+    const sp=G.pages[0], ins=G.mode==='spread'?10:Math.round(clamp(sp.w*.04,10,26));
+    Object.assign(sh.style,{left:(sp.x+ins)+'px',top:(sp.y+ins)+'px',width:(sp.w-2*ins)+'px',height:(sp.h-2*ins)+'px'});
   }else{
     const off=Math.round(tgt.h*.055);
     place(bar,tgt,off); place(pl,tgt,off+(bar.classList.contains('hidden')?0:bar.offsetHeight+10));
@@ -547,6 +569,7 @@ function placeChrome(){
 function updateLoc(){
   if(!P.id) return;
   $('#locB').textContent=bookOf(P.id).name+' '+P.c;
+  if(G.rail){$('#locS').textContent=G.perView>1?`${P.page+1}–${Math.min(P.page+2,P.count)} / ${P.count}`:`${P.page+1} / ${P.count}`;return}
   $('#locS').textContent=G.perView>1?`págs. ${P.page+1}–${Math.min(P.page+2,P.count)} de ${P.count}`:`pág. ${P.page+1} de ${P.count}`;
 }
 
@@ -575,7 +598,7 @@ addEventListener('keydown',e=>{if(e.target.closest('input,select'))return;
   else if(e.key==='Escape')closeSheet();});
 
 function toggleBar(force){
-  if(G.mode==='tabletop')return;
+  if(G.mode==='tabletop'||G.rail)return;
   const bar=$('#bar'); const hide=force===undefined?!bar.classList.contains('hidden'):!force;
   bar.classList.toggle('hidden',hide); $('#hint').classList.add('gone'); placeChrome();
 }
