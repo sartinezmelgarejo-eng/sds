@@ -3,7 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Línea del tiempo — Librería Samuel</title>
+<title>Línea del tiempo — Librería</title>
+<script>
+/* Una sola librería: abierta directamente, esta página es un alias → libreria-v2.html#/tiempo/… (la línea del tiempo
+   vive dentro de la app, en un marco). Dentro del marco llega con ?embed=1 y no redirige. */
+(function(){var inFrame=false;try{inFrame=window.self!==window.top;}catch(e){inFrame=true;}
+if(!inFrame&&!/(^|[?&])solo=1/.test(location.search)){var h=(location.hash||'').replace(/^#\/?/,'');location.replace('libreria-v2.html#/tiempo'+(h?'/'+h:''));}
+else if(inFrame)document.documentElement.className+=' embed';})();
+</script>
 <meta name="description" content="10,717 eventos de la historia de México y el mundo, con las citas de los libros de la biblioteca.">
 <meta name="theme-color" content="#07070d">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -3011,6 +3018,11 @@ a{ color:inherit; }
   .tlp-shuffle span{ display: inline !important; }
   .tlp-zone-lib{ order: 7; } .tlp-zone-rutas{ order: 8; } .tlp-zone-terms{ order: 9; } .tlp-rail{ order: 10; }
 }
+
+/* ── Dentro de la librería (marco): sin barra propia; la v2 pone encabezado y pestañas ── */
+html.embed{ --bar-h:0px !important; }
+html.embed .tt-bar{ display:none !important; }
+html.embed body{ overscroll-behavior:contain; }
 </style>
 </head>
 <body>
@@ -7825,6 +7837,29 @@ a{ color:inherit; }
       if (a && !a.__obs) { a.__obs = true; azarObs.observe(a, { attributes: true, attributeFilter: ['data-ev'] }); marcaEra(); }
     }).observe(view, { childList: true, subtree: true });
   })();
+/* ── Puente con la librería (libreria-v2.html#/tiempo/…): libros, autores y atlas se abren en la app;
+   el hash de la línea del tiempo se refleja en el de la librería para que Atrás funcione. ── */
+(function(){
+  if(!document.documentElement.classList.contains('embed'))return;
+  var P=null;try{P=window.parent;if(!P.location.href)P=null;}catch(e){P=null;}
+  if(!P)return;
+  function toApp(h){try{if(window.__tlStopNarration)window.__tlStopNarration();}catch(e){}P.location.hash=h;}
+  // enlaces a la v2 o a la v1 → navegan en la librería, no dentro del marco
+  document.addEventListener('click',function(e){
+    var a=e.target.closest&&e.target.closest('a[href]');if(!a)return;var href=a.getAttribute('href')||'';
+    var m=href.match(/^libreria-v2\.html(#.*)?$/);
+    if(m){e.preventDefault();e.stopPropagation();toApp(m[1]||'#/estantes');return;}
+    if(/^libreria(-v1)?\.html#atlas/.test(href)){e.preventDefault();e.stopPropagation();toApp('#/atlas');return;}
+    if(/^tiempo\.html(#|$)/.test(href)){e.preventDefault();var hh=href.split('#')[1]||'/';location.hash=hh;}
+  },true);
+  window.openBook=function(id){toApp('#/libro/'+encodeURIComponent(id));};
+  // hash del marco → hash de la librería (#/tiempo/<lo mismo>)
+  function sync(){try{if(P.__tiempoSync)P.__tiempoSync(location.hash);}catch(e){}}
+  ['pushState','replaceState'].forEach(function(k){var o=history[k];history[k]=function(){var r=o.apply(this,arguments);sync();return r;};});
+  window.addEventListener('hashchange',sync);
+  // teclas: Escape con el marco enfocado no debe perderse
+  sync();
+})();
 </script>
 </body>
 </html>
