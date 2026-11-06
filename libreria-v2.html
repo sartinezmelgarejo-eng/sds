@@ -18,7 +18,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 :root,[data-theme=day]{
   --bg:#F4EFE6;--paper:#FBF8F2;--ink:#1F1B16;--ink2:#6B6157;--rule:#D8CDBD;--acc:#8C1C2B;--on-acc:#FFFFFF;--field:#FFFFFF;
   --wood:#6d4b2d;--wood-hi:#7a5536;--wood-lo:#5a3c22;--case-a:#6a482b;--case-b:#4a321d;--bay-a:#e9dfcc;--bay-b:#f3ecdf;--plate:#c9a467;
-  --d0:#cbbfae;--d1:#b07a6c;
+  --d0:#cbbfae;--d1:#b07a6c;--land:#ece4d6;--landbd:#cdbfaa;--mex:#f7f1e6;--mexbd:#a99a85;--stbd:#d6c9b6;
   --c1:#2F6F6A;--c2:#5B7F3A;--c3:#8C1C2B;--c4:#5E4B8B;--c5:#2E5A87;--c6:#A0526E;
   --serif:'EB Garamond',Georgia,serif;--k:1;
   --glow:none;--head-bg:rgba(251,248,242,.94);
@@ -28,7 +28,7 @@ document.documentElement.setAttribute('data-theme',t);})();
 [data-theme=night]{
   --bg:#15110D;--paper:#1E1914;--ink:#EDE3D2;--ink2:#A8987F;--rule:#3A3026;--acc:#C49A5A;--on-acc:#1a130b;--field:#120f0c;
   --wood:#4a3320;--wood-hi:#5a3f28;--wood-lo:#2c1f14;--case-a:#3b2817;--case-b:#22170d;--bay-a:#120e0a;--bay-b:#1b1510;--plate:#b8914f;
-  --d0:#3b3228;--d1:#8a6a3c;
+  --d0:#3b3228;--d1:#8a6a3c;--land:#211b15;--landbd:#3d332a;--mex:#2a221b;--mexbd:#6b5a45;--stbd:#3f352b;
   --c1:#7FB3A8;--c2:#9DB57A;--c3:#C4664F;--c4:#A08CC8;--c5:#7FA2C8;--c6:#C98AA5;
   --serif:'Cormorant Garamond',Georgia,serif;--k:1.1;
   --glow:radial-gradient(1200px 520px at 50% -140px,rgba(230,170,90,.15),transparent 70%);--head-bg:rgba(21,17,13,.88);
@@ -284,13 +284,19 @@ mark{background:transparent;color:var(--acc);font-weight:600}
 .mapw .seg2 button.on{background:var(--acc);color:var(--on-acc)}
 .mapbox{position:relative}
 .mapbox svg{width:100%;height:auto;display:block}
+.bm-land{fill:var(--land);stroke:var(--landbd);stroke-width:.7}
+.bm-mex{fill:var(--mex);stroke:var(--mexbd);stroke-width:1.1}
+.bm-st{fill:none;stroke:var(--stbd);stroke-width:.6}
+.bm-stl{font:500 8.5px Inter,sans-serif;fill:var(--ink2);opacity:.55;text-anchor:middle;pointer-events:none}
+.bm-ctl{font:600 10px Inter,sans-serif;letter-spacing:.14em;fill:var(--ink2);opacity:.45;text-anchor:middle;pointer-events:none}
+.bm-ctl.sea{font-style:italic;font-weight:400;letter-spacing:.04em;font-family:'EB Garamond',serif;font-size:13px}
 .dots0{stroke:var(--d0);stroke-linecap:round;fill:none}
 .dots1{stroke:var(--d1);stroke-linecap:round;fill:none}
 .pin{fill:var(--acc);stroke:var(--paper);stroke-width:2;cursor:pointer}
 .pin.on{stroke-width:3}
 .plbl{font-family:Inter,sans-serif;font-size:15px;font-weight:600;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:4px;stroke-linejoin:round}
 .graticule{stroke:var(--rule);stroke-width:.6;fill:none;stroke-dasharray:2 4}
-.evcard{position:absolute;left:0;bottom:0;width:min(370px,50%);background:var(--bg);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;box-shadow:var(--sh-card);display:grid;grid-template-columns:64px 1fr;gap:14px}
+.evcard{position:relative;margin-top:12px;background:var(--bg);border:1px solid var(--rule);border-radius:4px;padding:16px 18px;display:grid;grid-template-columns:64px 1fr;gap:14px}
 .evcard.nocov{grid-template-columns:1fr}
 .evcard .cv{width:64px;height:94px}
 .evcard .d{font-family:Inter,sans-serif;font-size:11px;letter-spacing:.14em;color:var(--acc);text-transform:uppercase;font-weight:600}
@@ -922,6 +928,16 @@ function startPlay(){if(T.play)return;T.play=setInterval(()=>{if(T.sel>=T.list.l
 function stopPlay(){if(T.play){clearInterval(T.play);T.play=null;}const b=$('#tplay');if(b){b.innerHTML=ICON.play+'<span>Recorrer'+(T.book?'':(' '+(D.idx?esc(D.idx.eras[T.era].short):'')))+'</span>';b.setAttribute('aria-pressed','false');}}
 let allPathCache={};
 function dotsPath(pts,f,skipEra){let s='';for(let ei=0;ei<pts.length;ei++){if(ei===skipEra)continue;const a=pts[ei];for(let i=0;i<a.length;i++){const p=a[i];if(!p)continue;const xy=f(p[0],p[1]);s+='M'+xy[0].toFixed(1)+' '+xy[1].toFixed(1)+'h0';}}return s;}
+let BASEMAP=null,BASEMAP_L=false;
+const SMALL_ST=new Set(['Ciudad de México','Distrito Federal','Tlaxcala','Morelos','Aguascalientes','Colima','Querétaro','Querétaro de Arteaga','México','Hidalgo']);
+function basemapSVG(view){
+  if(!BASEMAP){if(!BASEMAP_L){BASEMAP_L=true;fetch('libreria-data/geo/basemap.json').then(r=>r.json()).then(j=>{BASEMAP=j;drawMap();}).catch(()=>{});}return '';}
+  const b=BASEMAP[view];if(!b)return '';
+  let h=`<path class="bm-land" d="${b.land}"/><path class="bm-mex" d="${b.mex}"/>`;
+  if(b.states){h+=`<path class="bm-st" d="${b.states}"/>`;h+=b.stl.filter(x=>!SMALL_ST.has(x[0])).map(x=>`<text class="bm-stl" x="${x[1]}" y="${x[2]}">${esc(x[0])}</text>`).join('');}
+  if(b.ctl)h+=b.ctl.map(x=>`<text class="bm-ctl${/Golfo|Océano/.test(x[0])?' sea':''}" x="${x[1]}" y="${x[2]}">${esc(x[0])}</text>`).join('');
+  return h;
+}
 function drawMap(){
   if(!T.mounted)return;
   const P=proj(T.view),f=P.f,svg=$('#map');
@@ -944,11 +960,12 @@ function drawMap(){
   for(let k=k0;k<k1;k++){const e=T.list[k];if(!e||!e.l||e.l.la==null)continue;const xy=f(e.l.la,e.l.ln);if(xy[0]<0||xy[0]>P.W||xy[1]<0||xy[1]>P.H)continue;if(k===T.sel)continue;pins+=`<circle class="pin" data-k="${k}" cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="5"><title>${esc(e.t)}</title></circle>`;}
   const s=T.list[T.sel];
   if(s&&s.l&&s.l.la!=null){const xy=f(s.l.la,s.l.ln);if(xy[0]>=0&&xy[0]<=P.W&&xy[1]>=0&&xy[1]<=P.H){pins+=`<circle class="pin on" cx="${xy[0].toFixed(1)}" cy="${xy[1].toFixed(1)}" r="9"/>`;const name=placeName(s.l);const right=xy[0]<P.W-160;lbl=`<text class="plbl" x="${(xy[0]+(right?15:-15)).toFixed(1)}" y="${(xy[1]+5).toFixed(1)}" text-anchor="${right?'start':'end'}">${esc(name)}</text>`;}}
-  svg.innerHTML=`${grat?`<path class="graticule" d="${grat}"/>`:''}<path class="dots0" stroke-width="${r0}" d="${allPathCache[key].a}"/><path class="dots1" stroke-width="${r1}" d="${allPathCache[key].c||bookDots}"/>${pins}${lbl}`;
+  svg.innerHTML=`${basemapSVG(T.view)}${grat?`<path class="graticule" d="${grat}"/>`:''}<path class="dots0" stroke-width="${r0}" d="${allPathCache[key].a}"/><path class="dots1" stroke-width="${r1}" d="${allPathCache[key].c||bookDots}"/>${pins}${lbl}`;
   $('#mapt').textContent=T.view==='mx'?'Dónde pasó · cada punto es un evento citado':'Vista mundial · el recuadro marca México';
 }
 $('#v-tiempo').addEventListener('click',e=>{const p=e.target.closest('circle.pin[data-k]');if(p)select(+p.dataset.k,true,true);});
-function placeName(l){if(!l)return '';let n=l.n||'';if(/^[A-Z]{2}-[A-Z]{2,3}$/.test(n))n=n.split('-')[1];return n;}
+const MXST={AGU:'Aguascalientes',BCN:'Baja California',BCS:'Baja California Sur',CAM:'Campeche',CHP:'Chiapas',CHH:'Chihuahua',CMX:'Ciudad de México',DIF:'Ciudad de México',COA:'Coahuila',COL:'Colima',DUR:'Durango',GUA:'Guanajuato',GRO:'Guerrero',HID:'Hidalgo',JAL:'Jalisco',MEX:'Estado de México',MIC:'Michoacán',MOR:'Morelos',NAY:'Nayarit',NLE:'Nuevo León',OAX:'Oaxaca',PUE:'Puebla',QUE:'Querétaro',ROO:'Quintana Roo',SLP:'San Luis Potosí',SIN:'Sinaloa',SON:'Sonora',TAB:'Tabasco',TAM:'Tamaulipas',TLA:'Tlaxcala',VER:'Veracruz',YUC:'Yucatán',ZAC:'Zacatecas'};
+function placeName(l){if(!l)return '';let n=l.n||'';if(/^[A-Z]{2}-[A-Z]{2,3}$/.test(n)){const c=n.split('-')[1];n=(n.startsWith('MX-')&&MXST[c])||c;}return n;}
 function drawCard(){
   const e=T.list[T.sel],card=$('#evcard');if(!e){card.hidden=true;return;}
   const c=(e.c||[])[0],b=c&&D.B[c.b];
