@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Librería Samuel — La biblioteca de la historia de México</title>
+<title>Librería — La biblioteca de la historia de México</title>
 <meta name="description" content="390 libros en seis estantes, del México profundo a la Cuarta Transformación, con sus ideas, sus citas y su lugar en el tiempo.">
 <script>
 (function(){var t;try{t=localStorage.getItem('v2-theme')}catch(e){}
@@ -102,6 +102,15 @@ a.chip:hover,button.chip:hover{border-color:var(--acc);color:var(--acc)}
 .feat .fq .kick{display:block;font-style:normal;margin-bottom:10px}
 .feat .fq small{display:block;font-style:normal;font-family:Inter,sans-serif;font-size:12px;color:var(--ink2);margin-top:10px;line-height:1.4}
 .feat .fq a:hover{color:var(--acc)}
+.feat .ft{display:block;font-style:normal;font-weight:500;font-size:calc(26px*var(--k));line-height:1.15;margin:2px 0 10px}
+.feat .bl{display:block;font-style:normal;font-size:calc(17px*var(--k));line-height:1.45;color:var(--ink2)}
+.feat .face{width:210px;height:250px;flex:0 0 auto;border-radius:3px;overflow:hidden;box-shadow:0 12px 26px -12px rgba(0,0,0,.5)}
+.feat .face img{width:100%;height:100%;object-fit:cover;display:block}
+.feat .mini{display:flex;gap:8px;margin-top:12px}.feat .mini .cv{width:46px;height:68px}
+.feat .otro{display:inline-block;margin-top:14px;font-family:Inter,sans-serif;font-size:12px;letter-spacing:.06em;color:var(--ink2);border:1px solid var(--rule);border-radius:999px;padding:5px 12px;background:none;cursor:pointer}
+.feat .otro:hover{color:var(--acc);border-color:var(--acc)}
+#destacado{min-height:330px;display:flex;align-items:center}
+
 .est{padding:44px 56px 20px;border-bottom:1px solid var(--rule)}
 .est .hd{display:flex;align-items:baseline;gap:16px;margin-bottom:6px;flex-wrap:wrap}
 .est h2{font-size:36px;margin:0;font-weight:500;line-height:1.1}
@@ -356,7 +365,9 @@ mark{background:transparent;color:var(--acc);font-weight:600}
   .hero{grid-template-columns:1fr;padding:30px 18px 32px;gap:28px}
   .hero h1{font-size:46px}[data-theme=night] .hero h1{font-size:52px}
   .hero .lead{font-size:calc(18px*var(--k))}
-  .feat{justify-content:flex-start;gap:18px;align-items:center}
+  .feat{justify-content:flex-start;gap:16px;align-items:flex-start;flex-direction:column}
+  #destacado{min-height:0}
+  .feat .face{width:140px;height:170px}
   .feat .cv{width:112px;height:168px}
   .feat .fq{font-size:calc(16px*var(--k))}
   .est{padding:30px 18px 14px}
@@ -414,7 +425,7 @@ mark{background:transparent;color:var(--acc);font-weight:600}
 <body>
 <a class="sr" href="#view">Saltar al contenido</a>
 <header class="top">
-  <a class="brand" href="#/estantes" aria-label="Librería Samuel — inicio">Librería <small>Samuel</small></a>
+  <a class="brand" href="#/estantes" aria-label="Librería — inicio">Librería</a>
   <nav class="main" aria-label="Principal">
     <a href="#/estantes" data-nav="estantes">Estantes</a>
     <a href="#/librero" data-nav="librero">Librero completo</a>
@@ -447,7 +458,7 @@ mark{background:transparent;color:var(--acc);font-weight:600}
 <script>
 'use strict';
 /* ══════════════════════════════════════════════════════════════════
-   Librería Samuel · v2
+   Librería · v2
    Datos: libreria-data/ (generados por ~/scripts/library/build-v2-data.py)
    Rutas: #/estantes · #/estante/<id> · #/librero[/portadas|/anio] · #/libro/<id>
           #/tiempo[/<era>] · #/tiempo/evento/<era>-<i> · #/tiempo/libro/<id> · #/tiempo/ruta/<id>
@@ -562,8 +573,8 @@ async function route(){
   if(r!=='tiempo') stopPlay();
   try{
     await loadCore();
-    if(r==='estantes'||r===''){setNav('estantes');renderHome();show('home');restore('home');document.title='Librería Samuel — Estantes';}
-    else if(r==='librero'){setNav('librero');renderLibrero(p[1]||'lomos');show('librero');restore('librero');document.title='Librero completo — Librería Samuel';}
+    if(r==='estantes'||r===''){setNav('estantes');renderHome();show('home');restore('home');document.title='Librería — Estantes';}
+    else if(r==='librero'){setNav('librero');renderLibrero(p[1],p[2]);show('librero');restore('librero');document.title='Librero completo — Librería';}
     else if(r==='libro'){setNav('');show('page');await renderFicha(p[1]);}
     else if(r==='estante'){setNav('estantes');show('page');renderEstante(p[1]);}
     else if(r==='autor'){setNav('');show('page');renderAutor(p.slice(1).join('/'));}
@@ -594,18 +605,42 @@ function renderHome(){
   <p class="lead">${fmtN(s.books)} libros en seis estantes, del México profundo a la Cuarta Transformación, con sus ideas, sus citas y su lugar en el tiempo.</p>
   <div class="stats">${fmtN(s.books)} libros · ${s.estantes} estantes · ${fmtN(s.events)} eventos · ${s.rutas} recorridos</div>
   <form class="bigsearch" role="search" onsubmit="event.preventDefault();location.hash='#/buscar/'+encodeURIComponent(this.q.value.trim())"><label class="sr" for="bq">Buscar</label><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="bq" name="q" type="search" autocomplete="off" placeholder="Buscar libro, autor, idea o evento…"></form></div>`;
+  h+=`<div id="destacado">`;
   if(fb) h+=`<div class="feat"><a href="#/libro/${encodeURIComponent(fb.id)}" aria-label="${esc(fb.t)}">${cover(fb,{eager:1,tf:22})}</a><div class="fq"><span class="kick">Para empezar</span>“${esc(f.q)}”<small>— ${esc(fb.a)}, <a href="#/libro/${encodeURIComponent(fb.id)}"><i>${esc(fb.t)}</i></a>${f.p?' · '+(/^\d/.test(f.p)?'p. ':'')+esc(f.p):''}</small></div></div>`;
-  h+='</section>';
+  h+='</div></section>';
   c.estantes.forEach((e,i)=>{
     const bs=booksOf(e.id);
     h+=`<section class="est" id="est-${e.id}" style="--c:${estCol(e)}"><div class="hd"><span class="num">${e.num}</span><h2>${esc(e.name)}</h2><span class="cnt">${bs.length} libros</span><a class="more" href="#/estante/${e.id}">Ver el estante →</a></div>
-    <p class="desc">${esc(e.desc)}</p><div class="rowscroll"><div class="track">${goodFirst(bs).map(b=>bookLink(b)).join('')}</div></div></section>`;
+    <p class="desc">${esc(e.desc)}</p><div class="rowscroll"><div class="track">${shuffleGood(bs).map(b=>bookLink(b)).join('')}</div></div></section>`;
     if(i===0) h+=tlBand();
   });
-  h+=`<footer class="foot"><span>Librería Samuel · v2</span><a href="libreria-v1.html">Versión anterior (v1)</a><a href="#/librero">Librero completo</a><a href="#/atlas">Atlas</a></footer>`;
+  h+=`<footer class="foot"><span>Librería · v2</span><a href="libreria-v1.html">Versión anterior (v1)</a><a href="#/librero">Librero completo</a><a href="#/atlas">Atlas</a></footer>`;
   $('#v-home').innerHTML=h;
+  pickDestacado();
   $('#bq').addEventListener('input',e=>{clearTimeout(qT);const v=e.target.value;qT=setTimeout(()=>{if(v.trim().length>1)location.hash='#/buscar/'+encodeURIComponent(v.trim());},450);});
 }
+function shuffleGood(bs){const ok=b=>b.c&&!b.bad&&!b.pg;const a=bs.filter(ok),r=bs.filter(b=>!ok(b));for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a.concat(r);}
+let DEST=null;
+const rndOf=a=>a[Math.floor(Math.random()*a.length)];
+async function pickDestacado(){
+  try{if(!DEST)DEST=await (await fetch('libreria-data/destacados.json')).json();}catch(e){return;}
+  const box=$('#destacado');if(!box)return;
+  const k=rndOf(['evento','evento','personaje','autor','cita','libro']);let h='';
+  const more=`<button class="otro" type="button" onclick="pickDestacado()">Otro ↻</button>`;
+  if(k==='evento'&&DEST.eventos.length){const e=rndOf(DEST.eventos),b=D.B[e.b];if(b){const pl=placeName({n:e.pl});
+    h=`<div class="feat"><a href="#/tiempo/evento/${e.era}-${e.i}">${cover(b,{eager:1,tf:22})}</a><div class="fq"><span class="kick">Un día en la historia · ${esc(String(e.y).slice(0,10))}${pl?' · '+esc(pl):''}</span><b class="ft">${esc(e.t)}</b>“${esc(e.x)}”<small>— <a href="#/libro/${encodeURIComponent(b.id)}"><i>${esc(b.t)}</i></a>, ${esc(e.p)} · <a href="#/tiempo/evento/${e.era}-${e.i}">Ver en el tiempo →</a></small>${more}</div></div>`;}}
+  if(!h&&k==='personaje'&&DEST.personajes.length){const p=rndOf(DEST.personajes);
+    h=`<div class="feat"><a href="#/buscar/${encodeURIComponent(p.n)}" class="face">${p.img?`<img src="${esc(p.img)}" alt="${esc(p.n)}">`:''}</a><div class="fq"><span class="kick">Un personaje · ${fmtN(p.m)} menciones</span><b class="ft">${esc(p.n)}</b><span class="bl">${esc(p.bl)}</span><small><a href="#/buscar/${encodeURIComponent(p.n)}">Dónde aparece en la librería →</a></small>${more}</div></div>`;}
+  if(!h&&k==='autor'&&DEST.autores.length){const pool=DEST.autores.filter(x=>x.img);const a=rndOf(pool.length?pool:DEST.autores);
+    h=`<div class="feat"><a href="#/autor/${encodeURIComponent(a.n)}" class="face">${a.img?`<img src="${esc(a.img)}" alt="${esc(a.n)}">`:''}</a><div class="fq"><span class="kick">Un autor${a.yrs?' · '+esc(a.yrs):''}</span><b class="ft">${esc(a.n)}</b><span class="bl">${esc(a.bio)}</span><div class="mini">${a.bs.map(id=>D.B[id]?`<a href="#/libro/${encodeURIComponent(id)}">${cover(D.B[id],{tf:6})}</a>`:'').join('')}</div>${more}</div></div>`;}
+  if(!h&&k==='libro'){const g=D.core.books.filter(b=>b.c&&!b.bad&&b.nq);const b=rndOf(g.length?g:D.core.books);let tes='';try{const d=await loadLibro(b.id);tes=String(d.tesis||d.desc||'').replace(/<[^>]+>/g,'');}catch(e){}
+    if(tes.length>260)tes=tes.slice(0,tes.lastIndexOf(' ',257))+'…';
+    h=`<div class="feat"><a href="#/libro/${encodeURIComponent(b.id)}">${cover(b,{eager:1,tf:22})}</a><div class="fq"><span class="kick">Un libro para hoy</span><b class="ft">${esc(b.t)}</b><span class="bl">${esc(tes)}</span><small>— ${esc(b.a)}${b.y!==''?' · '+esc(b.y):''} · <a href="#/libro/${encodeURIComponent(b.id)}">Abrir la ficha →</a></small>${more}</div></div>`;}
+  if(!h){const feats=D.core.featured.filter(f=>D.B[f.id]);const f=rndOf(feats),fb=D.B[f.id];
+    h=`<div class="feat"><a href="#/libro/${encodeURIComponent(fb.id)}">${cover(fb,{eager:1,tf:22})}</a><div class="fq"><span class="kick">Una cita</span>“${esc(f.q)}”<small>— ${esc(fb.a)}, <a href="#/libro/${encodeURIComponent(fb.id)}"><i>${esc(fb.t)}</i></a>${f.p?' · '+(/^\d/.test(f.p)?'p. ':'')+esc(f.p):''}</small>${more}</div></div>`;}
+  box.innerHTML=h;
+}
+
 function tlBand(){
   const eras=D.core.eras;
   return `<section class="tlband"><h2>Línea del tiempo</h2><p>Cada libro, en su momento. ${fmtN(D.core.stats.events)} eventos citados de los propios libros, con mapa.</p>
@@ -616,7 +651,7 @@ function tlBand(){
 function renderEstante(id){
   const e=D.E[id];if(!e){location.replace('#/estantes');return;}
   const bs=booksOf(id);
-  document.title=e.name+' — Librería Samuel';
+  document.title=e.name+' — Librería';
   $('#v-page').innerHTML=`<div class="page" style="--c:${estCol(e)}"><div class="kick">Estante ${e.num} · ${bs.length} libros</div><h1>${esc(e.name)}</h1>
   <p class="essay">${esc(e.essay||e.desc)}</p><p class="ui" style="font-size:13px"><a class="more" href="#/librero" data-jump="${e.id}">Verlo en el librero completo →</a></p>
   <div class="grid-bk">${bs.map(b=>bookLink(b)).join('')}</div></div>`;
@@ -624,15 +659,15 @@ function renderEstante(id){
 }
 
 /* ══════════ LIBRERO COMPLETO ══════════ */
-let LB={mode:null,w:0};
+let LB={mode:null,ord:null,w:0};
 function spineHTML(b){
   const max=Math.max(8,Math.floor((b.sh-46)/6.6));
   const t=b.t.length>max?b.t.slice(0,max-1).trim()+'…':b.t;
   return `<a class="sp${b.lt?' lt':''}" href="#/libro/${encodeURIComponent(b.id)}" data-id="${b.id}" style="width:${b.sw}px;height:${b.sh}px;--sc:${b.col}" title="${esc(b.t)} — ${esc(b.a)} (${esc(b.y)})"><span class="t">${esc(t)}</span><span class="au">${esc(surname(b.a))}</span></a>`;
 }
 function faceHTML(b){return `<a class="fc" href="#/libro/${encodeURIComponent(b.id)}" data-id="${b.id}" title="${esc(b.t)} — ${esc(b.a)}">${cover(b,{tf:13})}</a>`;}
-function groupsFor(mode){
-  if(mode==='anio'){
+function groupsFor(ord){
+  if(ord==='cronologico'){
     const B=[['Antes de 1800',-1e12,1799],['Siglo XIX',1800,1899],['1900 – 1949',1900,1949],['1950 – 1999',1950,1999],['2000 – 2014',2000,2014],['2015 – hoy',2015,9998],['Sin fecha',9999,1e9]];
     return B.map((g,i)=>({id:'y'+i,num:'',name:g[0],books:D.core.books.filter(b=>b.yn>=g[1]&&b.yn<=g[2]).sort(sortYear)})).filter(g=>g.books.length);
   }
@@ -643,19 +678,22 @@ function packRows(items,avail,wOf,gap){
   items.forEach(b=>{const bw=wOf(b)+gap;if(row.length&&w+bw>avail){rows.push(row);row=[];w=0;}row.push(b);w+=bw;});
   if(row.length)rows.push(row);return rows;
 }
-function renderLibrero(mode){
-  if(!['lomos','portadas','anio'].includes(mode))mode='lomos';
+function renderLibrero(mode,ord){
+  if(mode==='anio'){mode='portadas';ord='cronologico';}
+  if(!['lomos','portadas'].includes(mode))mode='portadas';
+  if(!['estante','cronologico'].includes(ord))ord='estante';
   const host=$('#v-librero');
   const mobile=window.innerWidth<=760;
   const avail=mobile?Math.max(640,window.innerWidth*2.1):Math.max(400,Math.min(window.innerWidth,1920)-48*2-14*2-12*2-12);
-  if(LB.mode===mode&&Math.abs(LB.w-avail)<4&&host.innerHTML) return;
-  LB={mode,w:avail};
-  const gs=groupsFor(mode);
+  if(LB.mode===mode&&LB.ord===ord&&Math.abs(LB.w-avail)<4&&host.innerHTML) return;
+  LB={mode,ord,w:avail};
+  const gs=groupsFor(ord);
   const face=mode==='portadas';
   const wOf=face?()=>112:b=>b.sw, gap=face?12:2;
-  let h=`<div class="subbar"><div class="jump" aria-label="Ir a sección">${gs.map((g,i)=>`${i?'<i>·</i>':''}<a href="#/librero/${mode}" data-jump="${g.id}">${g.num?`<b>${g.num}</b>`:''}${esc(g.name)}</a>`).join('')}</div>
+  let h=`<div class="subbar"><div class="jump" aria-label="Ir a sección">${gs.map((g,i)=>`${i?'<i>·</i>':''}<a href="#/librero/${mode}/${ord}" data-jump="${g.id}">${g.num?`<b>${g.num}</b>`:''}${esc(g.name)}</a>`).join('')}</div>
   <span class="total">${fmtN(D.core.books.length)} libros</span>
-  <div class="tabs" role="tablist" aria-label="Vista">${[['lomos','Lomos'],['portadas','Portadas'],['anio','Por año']].map(([k,l])=>`<button role="tab" aria-selected="${k===mode}" class="${k===mode?'on':''}" data-mode="${k}">${l}</button>`).join('')}</div></div>
+  <div class="tabs" role="tablist" aria-label="Vista">${[['portadas','Portadas'],['lomos','Lomos']].map(([k,l])=>`<button role="tab" aria-selected="${k===mode}" class="${k===mode?'on':''}" data-mode="${k}">${l}</button>`).join('')}</div>
+  <div class="tabs" role="tablist" aria-label="Orden">${[['estante','Por estante'],['cronologico','Cronológico']].map(([k,l])=>`<button role="tab" aria-selected="${k===ord}" class="${k===ord?'on':''}" data-ord="${k}">${l}</button>`).join('')}</div></div>
   <div class="wrap"><div class="case">`;
   gs.forEach(g=>{
     h+=`<div class="bay" id="sec-${g.id}"><div class="plate">${g.num?g.num+' · ':''}${esc(g.name)} <i>${g.books.length} libros</i></div>`;
@@ -667,7 +705,9 @@ function renderLibrero(mode){
 }
 document.addEventListener('click',e=>{
   const m=e.target.closest('[data-mode]');
-  if(m){location.hash='#/librero/'+m.dataset.mode;return;}
+  if(m){location.hash='#/librero/'+m.dataset.mode+'/'+(LB.ord||'estante');return;}
+  const o=e.target.closest('[data-ord]');
+  if(o){location.hash='#/librero/'+(LB.mode||'portadas')+'/'+o.dataset.ord;return;}
   const j=e.target.closest('[data-jump]');
   if(j){e.preventDefault();const id=j.dataset.jump;const go=()=>{const el=$('#sec-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});};
     if(curView!=='librero'){location.hash='#/librero';setTimeout(go,120);}else go();return;}
@@ -675,7 +715,7 @@ document.addEventListener('click',e=>{
   if(sp&&!e.metaKey&&!e.ctrlKey&&!e.shiftKey){e.preventDefault();sp.classList.add('lift');setTimeout(()=>{location.hash='#/libro/'+encodeURIComponent(sp.dataset.id);},190);}
 });
 let rzT=null;
-window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(curView==='librero'&&LB.mode){const y=window.scrollY;renderLibrero(LB.mode);window.scrollTo(0,y);}if(curView==='tiempo'&&T.mounted)drawMap();},180);});
+window.addEventListener('resize',()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(curView==='librero'&&LB.mode){const y=window.scrollY;renderLibrero(LB.mode,LB.ord);window.scrollTo(0,y);}if(curView==='tiempo'&&T.mounted)drawMap();},180);});
 
 /* ══════════ FICHA DEL LIBRO ══════════ */
 async function renderFicha(id){
@@ -740,7 +780,7 @@ function narrStop(){LBX.narr=false;try{speechSynthesis.cancel();}catch(e){}$('#l
 /* ══════════ AUTOR ══════════ */
 function renderAutor(name){
   const bs=D.core.books.filter(b=>b.a===name||(b.a||'').includes(name)).sort(sortYear);const au=D.core.autores[name]||{};
-  document.title=name+' — Librería Samuel';
+  document.title=name+' — Librería';
   $('#v-page').innerHTML=`<div class="page"><div class="kick">Autor${au.years?' · '+esc(au.years):''} · ${bs.length} libro${bs.length===1?'':'s'}</div><h1>${esc(name)}</h1>${au.bio?`<p class="essay">${esc(au.bio)}</p>`:''}<div class="grid-bk">${bs.map(b=>bookLink(b)).join('')}</div></div>`;
   window.scrollTo(0,0);
 }
@@ -751,7 +791,7 @@ let searchSeq=0;
 function renderBuscar(q){
   q=(q||'').trim();const nq=norm(q);const seq=++searchSeq;
   if($('#q')&&document.activeElement!==$('#q'))$('#q').value=q;
-  document.title=(q?q+' — ':'')+'Buscar — Librería Samuel';
+  document.title=(q?q+' — ':'')+'Buscar — Librería';
   const host=$('#v-page');
   if(!host.querySelector('.search-page')){
     host.innerHTML=`<div class="page search-page"><div class="kick">Buscar</div><form class="bigsearch" role="search" style="margin-top:12px" onsubmit="event.preventDefault()"><label class="sr" for="sq">Buscar</label><svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="sq" type="search" autocomplete="off" placeholder="Libro, autor, idea, lugar o evento…"></form><div id="sres"></div></div>`;
@@ -795,7 +835,7 @@ async function renderAtlas(id){
     h+=`</div><p class="ui" style="margin-top:40px;font-size:13px"><a class="more" href="libreria-v1.html">Mapa interactivo del Atlas en la versión anterior ${ICON.ext}</a></p></div>`;
     host.innerHTML=h;window.scrollTo(0,0);return;
   }
-  document.title='Atlas — Librería Samuel';
+  document.title='Atlas — Librería';
   const groups=[...new Set(A.map(c=>c.group))];
   let h=`<div class="page"><div class="kick">Atlas · ${A.length} civilizaciones, sistemas e ideas</div><h1>Atlas</h1><p class="essay">Las civilizaciones, los imperios, los recursos y las ideas que atraviesan los libros: cada ficha resume su historia con citas de la propia biblioteca.</p>
   <div class="chips" style="margin-top:18px">${groups.map(g=>`<a class="chip" href="#/atlas" data-ag="${esc(g)}" style="font-size:13px;padding:7px 14px">${esc(g)}</a>`).join('')}<a class="chip" href="libreria-v1.html" style="font-size:13px;padding:7px 14px">Mapa del Atlas (v1) ${ICON.ext}</a></div>`;
@@ -843,7 +883,7 @@ async function renderTiempo(p){
   else if(p[0]==='ruta'&&p[1]){ruta=p[1];}
   else if(p[0]!==undefined&&p[0]!==''&&!isNaN(+p[0])){era=+p[0];}
   if(!(era>=0&&era<D.idx.eras.length))era=13;
-  document.title='Línea del tiempo — Librería Samuel';
+  document.title='Línea del tiempo — Librería';
   const changed=(book!==T.book)||(!book&&era!==T.era)||!T.list.length;
   T.era=era;T.book=book;
   if(changed){T.q='';T.fb='';$('#tq').value='';stopPlay();await loadList();}
