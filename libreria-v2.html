@@ -577,7 +577,10 @@ button.otro:hover{color:var(--acc);border-color:var(--acc)}
   .case{padding:8px;gap:10px}
   .bay{padding:10px 0 2px}
   .plate{margin-left:10px;font-size:13px}
-  .shelfrow{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:16px 10px 0;margin-bottom:12px}
+  .shelfrow{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:16px 10px 0;margin-bottom:12px;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;-webkit-mask-image:linear-gradient(90deg,#000 82%,transparent);mask-image:linear-gradient(90deg,#000 82%,transparent)}
+  .shelfrow.face{scroll-snap-type:x proximity}.shelfrow.face>*{scroll-snap-align:start}
+  .shelfrow.atend{-webkit-mask-image:none;mask-image:none}
+  .bay .swipe{display:block;font-family:Inter,sans-serif;font-size:11px;letter-spacing:.08em;color:var(--ink2);margin:-4px 0 8px 4px}
   .shelfrow::-webkit-scrollbar{display:none}
   .det{grid-template-columns:1fr;gap:22px;padding:24px 18px 60px}
   .det .side{position:static;display:flex;gap:18px;align-items:flex-end}
@@ -1079,7 +1082,7 @@ function renderLibrero(mode,ord){
   if(!ORDS.some(o=>o[0]===ord))ord='estante';
   const host=$('#v-librero');
   const mobile=window.innerWidth<=760;
-  const avail=mobile?Math.max(640,window.innerWidth*2.1):Math.max(400,Math.min(window.innerWidth,1920)-48*2-14*2-12*2-12);
+  const avail=mobile?1e9:Math.max(400,Math.min(window.innerWidth,1920)-48*2-14*2-12*2-12);
   if(LB.mode===mode&&LB.ord===ord&&Math.abs(LB.w-avail)<4&&host.innerHTML) return;
   LB={mode,ord,w:avail};
   const gs=groupsFor(ord);
@@ -1102,6 +1105,8 @@ function renderLibrero(mode,ord){
   });
   h+='</div></div>';
   host.innerHTML=h;
+  if(mobile){$$('#v-librero .bay').forEach(bay=>{const r=bay.querySelector('.shelfrow');if(r&&r.scrollWidth>r.clientWidth+20){const t=document.createElement('span');t.className='swipe';t.textContent='Desliza para ver los '+bay.querySelectorAll('.fc,.sp').length+' →';r.before(t);}});
+    $$('#v-librero .shelfrow').forEach(r=>r.addEventListener('scroll',()=>r.classList.toggle('atend',r.scrollLeft+r.clientWidth>=r.scrollWidth-8),{passive:true}));}
   $('#ordsel').onchange=e=>{location.hash='#/librero/'+mode+'/'+e.target.value;};
   /* nacimiento estelar (v1): la primera vez en la visita, los libros aparecen escalonados */
   if(!LBORN&&!(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){LBORN=true;const c=$('.case',host);c.classList.add('born');
