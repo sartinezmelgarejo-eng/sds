@@ -3019,10 +3019,18 @@ a{ color:inherit; }
   .tlp-zone-lib{ order: 7; } .tlp-zone-rutas{ order: 8; } .tlp-zone-terms{ order: 9; } .tlp-rail{ order: 10; }
 }
 
+/* filtro activo visible en el celular */
+.tlm-chips{ display:flex; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; gap:6px; margin:8px 12px 0; }
+.tlm-chips::-webkit-scrollbar{ display:none; }
+.tlm-chips:empty{ display:none; }
+.tlm-chips .tag-chip{ flex:0 0 auto; max-width:82vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12.5px; padding:6px 4px 6px 12px; }
+.tlm-chips .tag-chip button{ min-width:32px; min-height:28px; font-size:16px; }
+
 /* ── Dentro de la librería (marco): sin barra propia; la v2 pone encabezado y pestañas ── */
 html.embed{ --bar-h:0px !important; }
 html.embed .tt-bar{ display:none !important; }
 html.embed body{ overscroll-behavior:contain; }
+@media (max-width:760px){ html.embed .tlm-lcd-brand{ display:none; } }
 </style>
 </head>
 <body>
@@ -3080,7 +3088,9 @@ html.embed body{ overscroll-behavior:contain; }
         books = idx.books; estantes = idx.estantes; rutas = idx.rutas;
         tlPersonajes = idx.personajes; tlTerminos = idx.terminos; autorFotos = idx.autorFotos || {};
         PDF_PAGE_OFFSET = idx.pdfOffset || {}; PDF_PAGE_MULT = idx.pdfMult || {};
-        books.forEach(function(b) { BOOK_BY_ID[b.id] = b; });
+        books.forEach(function(b) { BOOK_BY_ID[b.id] = b;
+          // miniatura (covers/th/, ver build-v2-thumbs.py); la completa queda en coverFull por si falta
+          if (b.coverUrl && /^covers\/[^\/]+\.jpg$/.test(b.coverUrl)) { b.coverFull = b.coverUrl; b.coverUrl = b.coverUrl.replace(/^covers\//, 'covers/th/'); } });
         TL_BOOK_LABEL = {};
         books.forEach(function(b) {
           var auth = b.author ? (' — ' + b.author.split(' ').slice(-2).join(' ')) : '';
@@ -3198,6 +3208,7 @@ html.embed body{ overscroll-behavior:contain; }
   }
   window.coverFallback = function(img, bookId, size) {
     var b = BOOK_BY_ID[bookId];
+    if (b && b.coverFull && img.getAttribute('src') !== b.coverFull) { img.src = b.coverFull; return; }
     if (b) img.outerHTML = getPlaceholderCover(b, size);
   };
   // Época que el libro TRATA: la era donde cae la mayoría de sus citas.
@@ -3249,18 +3260,18 @@ html.embed body{ overscroll-behavior:contain; }
     next:   tlSvg('<path d="M9 5l7 7-7 7"/>'),
     play:   tlSvg('<path d="M8 5.5v13l11-6.5z" fill="currentColor" stroke="none"/>'),
     pause:  tlSvg('<path d="M8 5h3v14H8zM13 5h3v14h-3z" fill="currentColor" stroke="none"/>'),
-    voz:    tlSvg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/>'),
+    voz:    tlSvg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/>'),
     mudo:   tlSvg('<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>'),
-    voces:  tlSvg('<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0013 0M12 18v2.5"/>'),
+    voces:  tlSvg('<rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5"/>'),
     mundo:  tlSvg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.6 2.6 2.6 14.4 0 17M12 3.5c-2.6 2.6-2.6 14.4 0 17"/>'),
     pantalla: tlSvg('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>'),
     filtro: tlSvg('<path d="M4 6h16M7 12h10M10 18h4"/>'),
     azar:   tlSvg('<rect x="4" y="4" width="16" height="16" rx="3.5"/><circle cx="9" cy="9" r="1.2" fill="currentColor"/><circle cx="15" cy="15" r="1.2" fill="currentColor"/><circle cx="15" cy="9" r="1.2" fill="currentColor"/><circle cx="9" cy="15" r="1.2" fill="currentColor"/>'),
-    rehacer: tlSvg('<path d="M19 12a7 7 0 11-2.05-4.95M19 4.5V8h-3.5"/>'),
+    rehacer: tlSvg('<path d="M19 12a7 7 0 1 1 -2.05 -4.95M19 4.5V8h-3.5"/>'),
     libros: tlSvg('<path d="M5 4.5h4v15H5zM10.5 4.5h4v15h-4zM16 5.5l3.2-.8 3 14.5-3.2.8z"/>'),
     cerrar: tlSvg('<path d="M6 6l12 12M18 6L6 18"/>'),
     flecha: tlSvg('<path d="M5 12h14M13 6l6 6-6 6"/>'),
-    pin:    tlSvg('<path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0113 0c0 4.8-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/>')
+    pin:    tlSvg('<path d="M12 21s-6.5 -6.2 -6.5 -11a6.5 6.5 0 0 1 13 0c0 4.8 -6.5 11 -6.5 11z"/><circle cx="12" cy="10" r="2.3"/>')
   };
   // Nombres cortos de época para la barra (el nombre completo va en el tooltip).
   var TL_ERA_SHORT = {
@@ -3580,7 +3591,7 @@ html.embed body{ overscroll-behavior:contain; }
           '<div class="tl-tooltip-cita-text">“' + escHTML(c.texto) + '”</div>' +
           '<div class="tl-tooltip-cita-attr" data-book="' + c.libro + '">' +
             '— ' + attrInner +
-            (c.pagina ? ', ' + escHTML(c.pagina) : '') +
+            (c.pagina && !/\?/.test(c.pagina) ? ', ' + escHTML(c.pagina) : '') +
             pdfPageLink +
           '</div>' +
         '</div>';
@@ -4379,6 +4390,14 @@ html.embed body{ overscroll-behavior:contain; }
           '<button class="tlm-filter-fab' + (filterEmpty ? '' : ' has-filter') + '" ' +
             'id="tlm-filter-btn" title="Filtros" aria-label="Filtros" type="button">' + TL_IC.filtro + '</button>' +
         '</div>' +
+        // filtro activo visible también en el celular (p. ej. al llegar desde la ficha de un libro)
+        '<div class="tl-filter-chips tlm-chips">' +
+          lugarChipHTML() +
+          renderChips(tlFilter.fuentes || new Set(), 'fuentes') +
+          renderChips(tlFilter.paises, 'paises') +
+          (tlRuta ? rutaChipHTML() : renderChips(tlFilter.libros, 'libros')) +
+          renderChips(tlFilter.autores, 'autores') +
+        '</div>' +
         '<div class="tlm-lcd-wrap">' +
           '<div class="tlm-lcd">' +
             '<div class="tlm-screen" id="tlm-screen">' +
@@ -4526,7 +4545,8 @@ html.embed body{ overscroll-behavior:contain; }
     var popBtn = container.querySelector('#tl-filter-btn');
     var popInput = container.querySelector('#tl-filter-q');
     var popResults = container.querySelector('#tl-filter-results');
-    var chipsWrap = container.querySelector('.tl-filter-chips');
+    var chipsWraps = Array.prototype.slice.call(container.querySelectorAll('.tl-filter-chips'));
+    var chipsWrap = chipsWraps[0];
     var popKbSel = -1;
     var popHeavyTimer = null;
 
@@ -4621,12 +4641,13 @@ html.embed body{ overscroll-behavior:contain; }
       var cnt = tlFilter.libros.size + tlFilter.paises.size + tlFilter.autores.size + (tlFilter.fuentes ? tlFilter.fuentes.size : 0);
       var cntEl = popBtn.querySelector('.tl-filter-count');
       if (cntEl) cntEl.textContent = cnt || '';
-      if (chipsWrap) chipsWrap.innerHTML =
+      var chipsH =
         lugarChipHTML() +
         renderChips(tlFilter.fuentes || new Set(), 'fuentes') +
         renderChips(tlFilter.paises, 'paises') +
         (tlRuta ? rutaChipHTML() : renderChips(tlFilter.libros, 'libros')) +
         renderChips(tlFilter.autores, 'autores');
+      chipsWraps.forEach(function(w){ w.innerHTML = chipsH; });
       var cb = container.querySelector('#tl-mapa-clear');
       if (cb) cb.disabled = filterIsEmpty(tlFilter);
     }
@@ -4680,7 +4701,7 @@ html.embed body{ overscroll-behavior:contain; }
         toggleSel(row.getAttribute('data-kind'), row.getAttribute('data-val'));
       });
     }
-    if (chipsWrap) {
+    chipsWraps.forEach(function(chipsWrap) {
       chipsWrap.addEventListener('click', function(e) {
         var rm = e.target.closest('.tag-chip button');
         if (!rm) return;
@@ -4690,7 +4711,7 @@ html.embed body{ overscroll-behavior:contain; }
         else tlFilter[chip.getAttribute('data-kind')].delete(chip.getAttribute('data-val'));
         rerenderFromFilter();
       });
-    }
+    });
 
     // Wire interactions — single tracked handler. The detail panel lives on the map now,
     // so column clicks just select the event. Detail panel handles its own toggle + links.
@@ -5358,7 +5379,7 @@ html.embed body{ overscroll-behavior:contain; }
               ? '<a href="#" data-book="' + esc(c.libro) + '" class="tlm-book-link">' + esc(bookLabel) + '</a>'
               : esc(bookLabel));
           }
-          if (c.pagina) {
+          if (c.pagina && !/\?/.test(c.pagina)) {
             if (pageLink) metaParts.push('<a href="' + esc(pageLink) + '" target="_blank" rel="noopener">' + esc(c.pagina) + '</a>');
             else metaParts.push(esc(c.pagina));
           }
