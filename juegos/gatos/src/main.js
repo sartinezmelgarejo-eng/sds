@@ -29,6 +29,7 @@ function blockTex(t, w, h, seed, damage = 0) {
     if (t === 'canball' || t === 'boulder') ART.ball(k, PAD, PAD, w, {seed, damage, kind: t});
     else if (t === 'robot') ART.robot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'tnt') ART.cuetes(k, PAD, PAD, w, h, {seed, damage});
+    else if (t === 'rocket') ART.rocket(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'wood') ART.plank(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'pot') ART.pot(k, PAD, PAD, w, h, {seed, damage});
     else if (t === 'lamp') ART.lamp(k, PAD, PAD, w, h, {seed, damage});
@@ -144,11 +145,11 @@ async function main() {
   const dyn = []; // {body, sprite, shadow, mat, life, max, ...}
   const shelves = []; // repisas/rampas fijas (cuerpos estáticos): ahí se quedan los charquitos
   // Daño (research): vida base × material; daño = velocidad de cierre × factor de masa × fragilidad
-  const LIFE = {tnt: 2.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
+  const LIFE = {rocket: 3, tnt: 2.5, box: 13, jar: 7, can: 30, robot: 16, small: 4.5, thimble: 9, boss: 13};
   const AUTO_POWER = 1.5; // s tras el primer golpe
-  const FRAGILE = {tnt: 1.5, box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
-  const PTS = {tnt: 500, box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
-  const MAT = {tnt: {density: 0.0012, friction: 0.9}, box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}, robot: {density: 0.005, friction: 0.9}};
+  const FRAGILE = {rocket: 1.5, tnt: 1.5, box: 1, jar: 1.6, can: 0.55, robot: 0.8, mouse: 1};
+  const PTS = {rocket: 500, tnt: 500, box: 500, jar: 500, can: 1000, robot: 20000, mouse: 5000};
+  const MAT = {rocket: {density: 0.0012, friction: 0.8}, tnt: {density: 0.0012, friction: 0.9}, box: {density: 0.0012, friction: 0.9}, jar: {density: 0.0016, friction: 0.35}, can: {density: 0.004, friction: 0.8}, robot: {density: 0.005, friction: 0.9}};
   let acc = 0, time = 0;
   // ---------- resortera + turnos ----------
   const sling = new Slingshot(slingBack, slingFront);
@@ -363,7 +364,7 @@ async function main() {
       p.rotation += rdt * 6; p.alpha = Math.max(0, 1 - p.t / p.life); p.scale.set(0.6 + p.alpha * 0.6); if (p.t >= p.life) { p.destroy(); hudSparks.splice(i, 1); } }
   }
   const backOutE = (u, s = 1.9) => 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2);
-  const PTS_COL = {tnt: '#FFB07A', robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
+  const PTS_COL = {rocket: '#FFB07A', tnt: '#FFB07A', robot: '#FF9A8A', box: '#FFD08A', jar: '#BDEBFF', can: '#E6E9F0', mouse: '#A8F06A'};
   let started = 0, slow = 0, lastFocus = 0; // segundos desde que arrancó el nivel (el primer segundo no hay daño)
 
   // aspiradora robot: patrulla entre patrol[0] y patrol[1] con aceleración suave; un golpe fuerte la aturde 0.8 s
@@ -441,7 +442,7 @@ async function main() {
       // golpe a la aspiradora: se frena en seco y la Rata Jefa se espanta y grita
       d.stun = 0.8; const r = dyn.find(o => o.ride); if (r && !r.dead) { r.hurt = 0.5; r.laugh = 0; SFX.squeak(); }
     }
-    if (d.dead || d.infl || time < (d.grace || 0)) return;   // inflado / recién desinflado: inmune
+    if (d.dead || d.infl || d.lit || time < (d.grace || 0)) return;   // inflado / recién desinflado / cohete encendido: inmune
     d.life -= amount;
     if (d.mat !== 'mouse' && d.life > 0) {
       const st = Math.min(3, Math.floor((1 - d.life / d.max) * 4)); // 4 estados de grieta
@@ -449,7 +450,7 @@ async function main() {
     }
     if (d.mat === 'mouse' && d.life > 0) { d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto)
       if (amount >= d.max * 0.25 && !d.ride) d.dizzyT = 2 + Math.random() * 0.5; } // golpazo que aguantó: queda mareado (AB2)
-    if (d.life <= 0) destroyDyn(d);
+    if (d.life <= 0) { if (d.mat === 'rocket') igniteRocket(d); else destroyDyn(d); }
   }
   function destroyDyn(d) {
     d.dead = true; const p = d.body.position; if (d.dz) { d.dz.forEach(st => st.destroy()); d.dz = null; }
@@ -478,7 +479,8 @@ async function main() {
       SFX.breakSfx(d.skin);
       if (d.skin === 'jar') { fx.splash(p.x, p.y, d.w, d.h); SFX.splash(Math.min(1, d.w * d.h / 30000)); } // el frasco tenía agua: chorro de gotas que dejan charquitos
       else if (d.skin === 'pot') fx.burst('dirt', p.x, p.y + d.h * 0.1, Math.round(n * 0.7), 300, {w: d.w * 0.6, h: d.h * 0.4, up: 200, size: 0.8}); // la maceta suelta su tierra
-      if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07}); // caja de cuetes: explota (en cadena, con un respiro entre cada una)
+      if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07});
+      if (d.mat === 'rocket') { booms.push({x: p.x, y: p.y, t: 0.01, rk: true}); if (d.lit?.fl) d.lit.fl.destroy(); } // caja de cuetes: explota (en cadena, con un respiro entre cada una)
       if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
@@ -486,6 +488,8 @@ async function main() {
     }
   }
   const byBody = b => dyn.find(o => o.body === b);
+  // algo se sigue moviendo (o hay un cohete con la mecha prendida): el turno no termina
+  const restless = () => dyn.some(d => d.lit || (!d.body.isSleeping && d.body.speed > 0.4));
   // Aplastamiento: un ratón con algo pesado encima que se sigue moviendo (resbalando, rodando) recibe daño continuo
   function crush(dt) {
     for (const pr of engine.pairs.list) {
@@ -506,6 +510,10 @@ async function main() {
   const FW = [0xFF4A6A, 0x4AB8FF, 0x6BE04A, 0xFFE14A, 0xD06BFF, 0xFFFFFF];
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
+      if (b.rk) { // cohete: estallido más chico que la caja (AB2), con chispas de colores y sin cohetitos sueltos
+        fx.explosion(b.x, b.y, 160); fx.ring(b.x, b.y, 250, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 10, 600, {up: 200, size: 0.9});
+        const n0 = fx.parts.length; fx.burst('star', b.x, b.y, 18, 560, {up: 60, g: 300, drag: 1.4, life: 0.9, size: 0.5}); for (let k = n0; k < fx.parts.length; k++) fx.parts[k].s.tint = FW[k % FW.length];
+        blast(b.x, b.y, 230, 20, 20, {can: 1.2, tnt: 3, robot: 2}); cam.shake(18); cam.punch(0.04); SFX.boom(); SFX.firework(); screenFlash = 0.07; startle(b.x, 0.6); continue; }
       fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
       blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3, robot: 3}); // a la aspiradora le pega fuerte (premio por el timing)
       cam.shake(26); cam.punch(0.05); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
@@ -524,6 +532,41 @@ async function main() {
         const n0 = fx.parts.length; fx.burst('star', r.x, r.y, 22, 620, {up: 0, g: 260, drag: 1.6, life: 1.0, size: 0.55});
         for (let k = n0; k < fx.parts.length; k++) fx.parts[k].s.tint = k % 3 ? r.col : 0xFFFFFF;
         fx.ring(r.x, r.y, 150, r.col, 0.3); SFX.firework(); } }
+  }
+
+  // ---------- COHETES (AB2): un golpe lo enciende → la mecha chisporrotea, despega hacia donde apunta su punta y truena al chocar ----------
+  // nivel: {"t": "rocket", "x", "y", "w": largo, "h": grosor, "a": ángulo de la punta en radianes (0 = derecha, -1.57 = arriba)}
+  const R_FUSE = 0.55, R_VMAX = 1500 / V_UNIT, R_FLY = 2.2;
+  const rktLog = []; // depuración: cuándo/dónde se encendió y tronó cada cohete
+  function igniteRocket(d) {
+    if (d.lit || d.dead) return; d.life = 0.01; rktLog.push({lit: +time.toFixed(2), x: Math.round(d.body.position.x)});
+    const fl = new Sprite(lampGlowTex); fl.anchor.set(0.5); fl.blendMode = 'add'; fl.tint = 0xFFB040; fl.alpha = 0; actors.addChild(fl);
+    d.lit = {t: 0, fly: false, hit: false, fl}; d.body.sleepThreshold = Infinity; Sleeping.set(d.body, false); SFX.fuse();
+    // los ratones de alrededor ven la mecha prendida y se espantan
+    const p = d.body.position, nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 600);
+    for (const o of nb) o.shock = {x: p.x, y: p.y, t: -0.05, fl: 0, look: 1.3, side: 1};
+    if (nb.length && time - (sayT.rkt || -9) > 2) { sayT.rkt = time; say(nb[0], ['¡EL COHETE!', '¡AL SUELO!', '¡YA SE\nPRENDIÓ!'][Math.floor(Math.random() * 3)], 1.1, 0.72); SFX.squeak(); }
+  }
+  function updateLitRockets(dt) {
+    for (const d of [...dyn]) { const L = d.lit; if (!L || d.dead) continue; L.t += dt;
+      const b = d.body, p = b.position, a = b.angle, ux = Math.cos(a), uy = Math.sin(a), tx = p.x - ux * d.w * 0.5, ty = p.y - uy * d.w * 0.5;
+      L.fl.position.set(tx, ty);
+      if (L.t < R_FUSE) { // mecha: chispitas en la cola, el cohete tiembla y la flama crece
+        const u = L.t / R_FUSE; L.fl.alpha = 0.5 + u * 0.5; L.fl.scale.set((0.5 + u * 0.6) * (0.85 + Math.random() * 0.3));
+        if (Math.random() < dt * 40) fx.burst('zap', tx, ty, 1, 260, {up: 140, size: 0.5, life: 0.35, g: 600});
+        continue; }
+      if (!L.fly) { L.fly = true; SFX.rocket(); cam.shake(8); fx.smoke(tx, ty, 60, 8); fx.burst('flame', tx, ty, 10, 380, {up: 0, g: -100, drag: 2, life: 0.4, size: 1});
+        Body.setAngularVelocity(b, 0); d.fireT = 0; }
+      const T = L.t - R_FUSE;
+      // empuje: acelera por su eje hasta R_VMAX en ~0.35 s, anula casi todo lo lateral y casi no gira (vuela derecho, con un meneíto)
+      const v = b.velocity, along = v.x * ux + v.y * uy, side = -v.x * uy + v.y * ux, s = Math.min(R_VMAX, Math.max(along, 0) + R_VMAX * dt / 0.35);
+      Body.setVelocity(b, {x: ux * s - uy * side * 0.6, y: uy * s + ux * side * 0.6});
+      Body.setAngularVelocity(b, b.angularVelocity * 0.6 + Math.sin(L.t * 17) * 0.004);
+      L.fl.alpha = 1; L.fl.scale.set(1.3 + Math.random() * 0.5);
+      fx.burst('flame', tx, ty, 2, 260, {up: 0, g: -80, drag: 3, life: 0.3, size: 0.9}); for (let k = fx.parts.length - 2; k < fx.parts.length; k++) { const q = fx.parts[k]; if (q) { q.vx = (q.vx || 0) - ux * 300; q.vy = (q.vy || 0) - uy * 300; } }
+      if ((d.fireT += dt) > 0.035) { d.fireT = 0; fx.burst('smoke', tx - ux * 20, ty - uy * 20, 1, 40, {up: 20, g: -40, drag: 2, life: 0.9, size: 0.5, grow: 1.6}); }
+      if (L.hit || T > R_FLY) { const lg = rktLog.find(o => o.x != null && !o.boom); if (lg) Object.assign(lg, {boom: +time.toFixed(2), bx: Math.round(p.x), by: Math.round(GROUND - p.y), hit: L.hit}); destroyDyn(d); cam.punch(0.05); }   // destroyDyn quita la flama y pone la explosión
+    }
   }
 
   // ---------- PODERES (tap en el aire una sola vez, antes del primer contacto) ----------
@@ -999,7 +1042,7 @@ async function main() {
         for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = o.col; if (i % 3 === 0) SFX.poof(); }
       if (o.fade) { o.fade += dt; o.sp.alpha = Math.max(0, 1 - o.fade / 0.2); o.sp.scale.set(0.5 * (1 + o.fade * 2)); if (o.fade > 0.2) { o.sp.destroy(); r.balls.splice(i, 1); } }
     }
-    if (r.n >= YARN_N && !r.balls.length) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); r.still = busy ? 0 : r.still + dt; }
+    if (r.n >= YARN_N && !r.balls.length) { const busy = restless(); r.still = busy ? 0 : r.still + dt; }
     if ((r.n >= YARN_N && !r.balls.length && r.still > 0.8) || r.t > 11) endSpell();
   }
   function clearSpell() { const r = spell.run; if (!r) return; if (r.type === 'chili') for (const H of r.hots) { if (!H.done) H.sp.destroy(); const d = H.d; if (d.heat) { if (!d.heat.gl.destroyed) d.heat.gl.destroy(); if (!d.dead) { d.sprite.scale.set(d.heat.sx, d.heat.sy); d.sprite.tint = 0xFFFFFF; } } d.heat = null; } if (r.type === 'balloon') for (const d of r.mice) if (d.infl && !d.dead) { Body.scale(d.body, 1 / d.infl.bs, 1 / d.infl.bs); d.infl = null; d.body.sleepThreshold = 60; d.sprite.tint = 0xFFFFFF; } for (const o of r.balls) { if (!o.fade) Composite.remove(engine.world, o.body); o.sp.destroy(); } spell.run = null; }
@@ -1070,7 +1113,7 @@ async function main() {
       const pk = 1 + (I.k - 1) * 0.8; if (Math.abs(pk - I.bs) > 0.005) { Body.scale(b, pk / I.bs, pk / I.bs); I.bs = pk; }
     }
     r.mice = r.mice.filter(d => d.infl && !d.dead);
-    if (!r.mice.length) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); r.still = busy ? 0 : r.still + dt; }
+    if (!r.mice.length) { const busy = restless(); r.still = busy ? 0 : r.still + dt; }
     if ((!r.mice.length && r.still > 0.8) || r.t > 12) endSpell();
   }
   function popBalloon(d) {
@@ -1170,7 +1213,7 @@ async function main() {
       if (!d.dead) d.heat.t = e;
       if (e >= HEAT || d.dead) { H.done = true; H.sp.destroy(); chiliBoom(d, H.x, H.y); }
     }
-    if (r.hots.every(H => H.done)) { const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4) || booms.length || rockets.length; r.still = busy ? 0 : r.still + dt; }
+    if (r.hots.every(H => H.done)) { const busy = restless() || booms.length || rockets.length; r.still = busy ? 0 : r.still + dt; }
     if ((r.hots.every(H => H.done) && r.still > 0.8) || r.t > 12) endSpell();
   }
   function chiliBoom(d, x, y) {
@@ -1279,6 +1322,7 @@ async function main() {
       if (closing < 1.0) continue;
       for (const [me, other] of [[A, B], [B, A]]) {
         const d = byBody(me); if (!d) continue;
+        if (d.lit?.fly && closing > 2.5) d.lit.hit = true;   // cohete en vuelo que choca: ¡truena!
         SFX.hit(d.skin || d.mat, closing / 18);
         // polvo al golpear el piso (bloques y ratones que caen), una vez cada 0.3 s por cuerpo
         if (other === ground && closing > 3 && started > 1 && time - (d.dustT || -9) > 0.3) { d.dustT = time;
@@ -1391,10 +1435,10 @@ async function main() {
         f.sprite.rotation = b.angle; if (!f.inflate) { f.sprite.scale.x += (0.5 - f.sprite.scale.x) * 0.2; f.sprite.scale.y += (0.5 - f.sprite.scale.y) * 0.2; }
       }
       // fin de turno: todo quieto ~1 s (o 10 s máx, o fuera del nivel)
-      const busy = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4);
+      const busy = restless();
       f.still = (b.speed < 0.35 && !busy) ? f.still + dt : 0;
       const gone = b.position.x > BOUNDS.x1 + 300 || b.position.x < BOUNDS.x0 - 300;
-      if (f.exploded) { const busy2 = dyn.some(d => !d.body.isSleeping && d.body.speed > 0.4); f.still2 = busy2 ? 0 : (f.still2 || 0) + dt; }
+      if (f.exploded) { const busy2 = restless(); f.still2 = busy2 ? 0 : (f.still2 || 0) + dt; }
       if ((f.exploded ? f.still2 > 1 || f.t > 10 : (f.still > 1 && !f.inflate) || f.t > 10 || gone)) {
         // el gato se va con un "puf" (escala + fade) y la cámara regresa
         // AB2: el pájaro se deshace en plumas; aquí el gato se va en un "puf" de humito y mechones de pelo
@@ -2202,7 +2246,7 @@ async function main() {
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
       const round = b.t === 'rock', mat = round ? 'can' : b.t;
       const body = round ? Bodies.circle(b.x, cy, b.w / 2, {...MAT.can, friction: 0.6, frictionStatic: 1.2, frictionAir: 0.0012, restitution: 0.05, label: 'can', sleepThreshold: 40})
-        : Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40});
+        : Bodies.rectangle(b.x, cy, b.w, b.h, {...MAT[b.t], restitution: 0, chamfer: {radius: Math.min(b.w, b.h) * 0.08}, label: b.t, sleepThreshold: 40, angle: b.t === 'rocket' ? b.a || 0 : 0});
       // las rocas no duermen: si se les quita el tope deben rodar solas (dormidas se quedaban flotando)
       if (round) body.sleepThreshold = Infinity; else Sleeping.set(body, true);
       const skin = b.skin || SKIN[bgTheme][b.t] || b.t, texs = [0, 1, 2, 3].map(dmg => blockTex(skin, b.w, b.h, i + 2, dmg));
@@ -2210,7 +2254,7 @@ async function main() {
       Composite.add(engine.world, body); actors.addChild(sp);
       // vida escalada por tamaño (bloques grandes aguantan más)
       const life = LIFE[mat] * Math.sqrt(b.w * b.h / (110 * 110));
-      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin, life, max: life, texs, dmg: 0});
+      dyn.push({body, sprite: sp, shadow: contactShadow(b.x, b.w * 1.3), w: b.w, h: b.h, mat, skin: mat === 'rocket' ? 'tnt' : skin, life, max: life, texs, dmg: 0});
       if (b.hang) for (const f of b.ropes || [0]) makeRope(dyn[dyn.length - 1], b, top, f);
       if (b.balloons) b.balloons.forEach((f, k) => makeBalloon(dyn[dyn.length - 1], b, top, f, k));
       if (skin === 'lamp') lampOn(dyn[dyn.length - 1]);
@@ -2253,7 +2297,7 @@ async function main() {
   }
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
-    for (const d of dyn) { d.dead = true; if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
+    for (const d of dyn) { d.dead = true; if (d.lit?.fl) d.lit.fl.destroy(); if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
     clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
@@ -2337,7 +2381,7 @@ async function main() {
     for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle; if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
-    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) updateBooms(dt); updateRopes(dt);
+    if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) { updateBooms(dt); updateLitRockets(dt); } updateRopes(dt);
     { // zumbido del motor: volumen por distancia a la cámara, paneo según el lado de la pantalla
       const r = !menus.blocking && !ui.open && dyn.find(d => d.patrol);
       if (r) { const rp = r.body.position, sxp = (rp.x - cam.x) * cam.zoom / (app.screen.width / 2), k = Math.max(0, 1 - Math.max(0, Math.abs(sxp) - 1) * 0.8);
@@ -2348,6 +2392,7 @@ async function main() {
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.wob) { const w = d.wob; w.t += dt; const k = w.a * Math.exp(-w.t * 9); d.sprite.rotation += k * Math.sin(w.t * 55); if (w.t > 0.45) d.wob = null; }
       if (d.hurt > 0) { d.hurt -= dt; d.sprite.x += Math.sin(d.hurt * 90) * 6 * d.hurt / 0.35; }
+      if (d.lit && !d.lit.fly) { const u = Math.min(1, d.lit.t / R_FUSE); d.sprite.x += Math.sin(time * 80) * 3 * u; d.sprite.y += Math.sin(time * 67) * 1.5 * u; } // cohete con la mecha prendida: tiembla
       // fuera de la vista del nivel (salió volando o rodando por un lado / se hundió): se elimina y cuenta
       if (dt > 0 && started > 1 && !d.enter && (p.x < -100 || p.x > LEVEL_W + 100 || p.y > GROUND + 150 || p.y < BOUNDS.y0 - 300)) { destroyDyn(d); continue; }
       if (d.mat === 'mouse' && dt > 0 && started > 1 && !d.ride && !d.body.isSleeping) {
@@ -2395,6 +2440,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

@@ -287,3 +287,6 @@ export function spring(v = 0.7) { if (!ok('boing', 0.12)) return; const t = ctx.
   o.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + 0.55); l.stop(t + 0.55);
   noise(t, 0.05, 'lowpass', 400, 1, 0.3 * v, 0.05);
   for (let i = 0; i < 3; i++) noise(t + 0.06 + i * rnd(0.05, 0.09), 0.05, 'bandpass', rnd(1800, 2600), 9, 0.1 * v, 0.05); }
+// cohete (AB2): la mecha sisea al encenderse y el motor ruge con un silbido que sube al despegar
+export function fuse() { if (!ok('fuse', 0.3)) return; const t = ctx.currentTime; noise(t, 0.45, 'highpass', 4200, 0.8, 0.3, 0.4); for (let i = 0; i < 8; i++) noise(t + i * rnd(0.03, 0.06), 0.02, 'bandpass', rnd(2500, 5000), 2, rnd(0.15, 0.35), 0.02); }
+export function rocket() { if (!ok('rkt', 0.2)) return; const t = ctx.currentTime; noise(t, 1.2, 'bandpass', 400, 0.9, 0.8, 1.1, 2200); noise(t, 0.9, 'lowpass', 300, 1, 0.6, 0.8); tone(t, 420, 'sawtooth', 0.05, 1.0, 1400); }

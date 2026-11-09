@@ -78,6 +78,47 @@ const ART = (() => {
     ctx.bezierCurveTo(x + w + 6, by - 4, x + w - 4, by - 16, x + w + 8, by - 20); ctx.stroke();
     ctx.restore();
   }
+  // COHETE (los cohetes de AB2): acostado con la punta hacia +x. Cuerpo de cartón rojo con franjas en espiral, punta azul,
+  // aletas amarillas y tobera de lámina con su mecha. w = largo, h = alto total (aletas incluidas).
+  function rocket(ctx, x, y, w, h, opt = {}) {
+    const {damage = 0, seed = 1} = opt;
+    const R = rng(seed), cy = y + h / 2, d = h * 0.6, b0 = x + w * 0.16, b1 = x + w * 0.74, ink = '#2A1F3D';
+    ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    // aletas (arriba y abajo, atrás) y la de en medio vista de frente
+    const fin = s => { ctx.beginPath(); ctx.moveTo(b0 + w * 0.02, cy + s * d * 0.3); ctx.lineTo(x + w * 0.02, cy + s * h * 0.49); ctx.lineTo(x + w * 0.13, cy + s * h * 0.49);
+      ctx.lineTo(b0 + w * 0.2, cy + s * d * 0.3); ctx.closePath(); ctx.fillStyle = lin(ctx, 0, cy + s * d * 0.3, 0, cy + s * h * 0.5, s < 0 ? [[0, '#FFD84A'], [1, '#FFF0A0']] : [[0, '#E0A020'], [1, '#A86A10']]); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = ink; ctx.stroke(); };
+    fin(-1); fin(1);
+    // tobera de lámina
+    rr(ctx, x + w * 0.05, cy - d * 0.34, w * 0.13, d * 0.68, d * 0.12);
+    ctx.fillStyle = lin(ctx, 0, cy - d * 0.34, 0, cy + d * 0.34, [[0, '#D8DCE4'], [0.45, '#8E95A6'], [1, '#4A4F60']]); ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = ink; ctx.stroke();
+    // cuerpo (cilindro) con luz de arriba
+    rr(ctx, b0, cy - d / 2, b1 - b0 + 6, d, d * 0.14);
+    ctx.fillStyle = lin(ctx, 0, cy - d / 2, 0, cy + d / 2, [[0, '#FF7A5E'], [0.3, '#E8402C'], [0.75, '#B02414'], [1, '#741208']]); ctx.fill();
+    ctx.save(); ctx.clip();
+    // franjas blancas en espiral
+    const nS = Math.max(3, Math.round((b1 - b0) / (d * 0.55)));
+    for (let i = 0; i < nS; i++) { const sx = b0 + (b1 - b0) * (i + 0.3) / nS; ctx.beginPath(); ctx.moveTo(sx, cy - d / 2 - 2); ctx.lineTo(sx + d * 0.22, cy - d / 2 - 2); ctx.lineTo(sx + d * 0.42, cy + d / 2 + 2); ctx.lineTo(sx + d * 0.2, cy + d / 2 + 2); ctx.closePath();
+      ctx.fillStyle = lin(ctx, 0, cy - d / 2, 0, cy + d / 2, [[0, '#FFFFFF'], [0.6, '#E8E2E8'], [1, '#A89AA8']]); ctx.fill(); }
+    // estrella amarilla en medio y brillo de cilindro
+    const sx = (b0 + b1) / 2, sr = d * 0.26; ctx.beginPath();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? sr * 0.45 : sr; ctx.lineTo(sx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2); }
+    ctx.closePath(); ctx.fillStyle = '#FFE14A'; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = ink; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.fillRect(b0, cy - d * 0.36, b1 - b0 + 6, d * 0.1);
+    ctx.fillStyle = 'rgba(40,0,20,0.25)'; ctx.fillRect(b0, cy + d * 0.3, b1 - b0 + 6, d * 0.2);
+    for (let i = 0; i < w * d / 600; i++) { ctx.fillStyle = `rgba(90,15,5,${0.06 + R() * 0.1})`; ctx.fillRect(b0 + R() * (b1 - b0), cy - d / 2 + R() * d, 3 + R() * 6, 1.2); }
+    cracks(ctx, b0, cy - d / 2, b1 - b0, d, damage, seed, 'rgba(50,5,0,0.95)', 'rgba(255,200,170,0.6)');
+    ctx.restore();
+    rr(ctx, b0, cy - d / 2, b1 - b0 + 6, d, d * 0.14); ctx.lineWidth = 3.5; ctx.strokeStyle = ink; ctx.stroke();
+    // punta cónica azul
+    ctx.beginPath(); ctx.moveTo(b1, cy - d / 2); ctx.quadraticCurveTo(x + w * 0.92, cy - d * 0.42, x + w - 2, cy); ctx.quadraticCurveTo(x + w * 0.92, cy + d * 0.42, b1, cy + d / 2); ctx.closePath();
+    ctx.fillStyle = lin(ctx, 0, cy - d / 2, 0, cy + d / 2, [[0, '#7CC0FF'], [0.35, '#2F7BE0'], [1, '#163C80']]); ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = ink; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(b1 + w * 0.07, cy - d * 0.22, w * 0.05, d * 0.06, -0.15, 0, TAU); ctx.fill();
+    // aro de lámina entre cuerpo y punta
+    ctx.fillStyle = '#C9CDD6'; ctx.fillRect(b1 - 3, cy - d / 2 + 1, 7, d - 2); ctx.lineWidth = 2; ctx.strokeRect(b1 - 3, cy - d / 2 + 1, 7, d - 2);
+    // mecha que sale de la tobera
+    ctx.strokeStyle = '#3A2A1A'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x + w * 0.06, cy); ctx.bezierCurveTo(x - 2, cy - 2, x + w * 0.04, cy - d * 0.35, x, cy - d * 0.45); ctx.stroke();
+    ctx.restore();
+  }
   // Cartón (= madera). damage 0..3
   function cardboard(ctx, x, y, w, h, opt = {}) {
     const {damage = 0, seed = 1, tape = true, label = true} = opt;
@@ -818,7 +859,7 @@ const ART = (() => {
     ctx.lineWidth = r * 0.14; ctx.strokeStyle = '#1F2240'; ctx.stroke(); ctx.restore();
   }
 
-  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, jar, can, plank, pot, lamp, stone, wall, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
+  return {HATS, catHat, ball, rr, lin, rad, rng, shade, contactShadow, cardboard, cuetes, rocket, jar, can, plank, pot, lamp, stone, wall, robot, mouse, hat, buildCatSprite, slingshotBack, slingshotFront, band, strokedText, button, star, TAU};
 })();
 
 export default ART;
