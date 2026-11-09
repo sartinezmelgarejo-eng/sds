@@ -706,9 +706,14 @@ async function main() {
       else if (Math.random() < dt * 3 * d.wet) fx.burst('drop', p.x + (Math.random() - 0.5) * d.w * 0.6, p.y + d.h * 0.35, 1, 20, {up: 0, life: 0.6, size: 0.32, drag: 0.5}); // escurre
       if (!d.soot && !d.zapFlash) { const v = Math.min(1, d.wet * 1.6) * 0.5, rC = Math.round(255 - 80 * v), gC = Math.round(255 - 35 * v); d.sprite.tint = (rC << 16) | (gC << 8) | 255; }
       if (d.wet <= 0 && !d.soot && !d.zapFlash) d.sprite.tint = 0xFFFFFF; }
+    // ratón con cuetes (AB2: el cerdo con TNT): si un gato pasa cerca o algo le cae, entra en PÁNICO: voltea a su mecha y al gato, suda y tiembla
+    if (d.tnt) { const pn = near || dg || tumble || (sh && sh.t > 0);
+      d.panic = Math.max(0, Math.min(1, (d.panic || 0) + (pn ? dt * 6 : -dt * 1.5)));
+      if (pn && !d.panicked) { d.panicked = 1; if (time - (d.yelpT || -9) > 1) { d.yelpT = time; SFX.squeak(); } }
+      if (!pn && d.panic <= 0) d.panicked = 0; }
     if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
     else if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
-    else if (d.hurt > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0)) expr = 'scared';
+    else if (d.hurt > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
@@ -730,8 +735,10 @@ async function main() {
     if (expr === 'normal' || expr === 'scared') {
       const mp = d.body.position; let tgt = d.dg ? d.dg.body.position : d.shock && d.shock.t > 0 ? d.shock : fc ? fc.position : onSling ? onSling.sprite.position : null, lx = -1, ly = 0;
       if (time > d.glanceAt) { d.glance = {x: Math.random() * 2 - 1, y: Math.random() * 1.4 - 0.9, until: time + 0.6 + Math.random() * 0.8}; d.glanceAt = time + 3 + Math.random() * 5; }
+      if (d.tnt && d.glance && !d.glance.fz && Math.random() < 0.5) Object.assign(d.glance, {x: -0.95, y: -0.15, fz: 1}); // de reojo a su mecha, nervioso
       if (d.glance && time > d.glance.until) d.glance = null;
-      if (tgt && (fc || d.dg || d.shock || !d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
+      if (d.panic > 0.3 && (time * 2.6 + d.ph) % 1 < 0.45) { tgt = null; d.glance = {x: -0.97, y: -0.1, until: time + 0.05, fz: 1}; } // pánico: mecha → gato → mecha
+      if (tgt && (fc || d.dg || d.shock || !d.glance) && !(d.panic > 0.3 && d.glance)) { const dx = tgt.x - mp.x, dy = tgt.y - mp.y, L = Math.hypot(dx, dy) || 1, a = -d.body.angle;
         lx = (dx * Math.cos(a) - dy * Math.sin(a)) / L; ly = (dx * Math.sin(a) + dy * Math.cos(a)) / L; }
       else if (d.glance) { lx = d.glance.x; ly = d.glance.y; }
       const k = Math.min(1, dt * (fc ? 14 : 6)); d.look.x += (lx - d.look.x) * k; d.look.y += (ly - d.look.y) * k;
@@ -742,12 +749,16 @@ async function main() {
       const ang = Math.atan2(d.look.y * 0.8, d.look.x), cur = d.beam.cone.rotation, da = Math.atan2(Math.sin(ang - cur), Math.cos(ang - cur)); d.beam.cone.rotation = cur + da * Math.min(1, dt * 8);
       d.beam.cone.alpha = (expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
     if (d.fuse) { const f = d.fuse, fl = 0.75 + 0.25 * Math.sin(t * 41) * Math.sin(t * 17); f.scale.set((0.35 + 0.15 * fl) * d.r / 44); f.alpha = 0.7 + 0.3 * fl;   // la mecha chisporrotea
-      if (Math.random() < dt * 9) { const g = f.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : null; if (w) fx.burst('flame', w.x, w.y, 1, 120, {up: 80, size: 0.25, life: 0.3, g: 200}); } }
+      if (d.panic > 0) { f.scale.x *= 1 + 0.5 * d.panic; f.scale.y *= 1 + 0.5 * d.panic; }
+      if (d.panic > 0.3 && Math.random() < dt * 7) { const p = d.body.position, sd = Math.random() < 0.5 ? -1 : 1; // gotas de sudor que salen volando de la frente
+        fx.burst('drop', p.x + sd * d.w * 0.3, p.y - d.h * 0.42, 1, 170, {dir: -Math.PI / 2 + sd * 0.9, spread: 0.4, up: 60, life: 0.45, size: 0.3, drag: 0.8}); }
+      if (Math.random() < dt * (9 + 25 * (d.panic || 0))) { const g = f.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : null; if (w) fx.burst('flame', w.x, w.y, 1, 120, {up: 80, size: 0.25, life: 0.3, g: 200}); } }
     const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
+    if (d.panic > 0.05) { d.sprite.x += Math.sin(time * 63) * 2.2 * d.panic; d.sprite.y += Math.sin(time * 47) * 1.2 * d.panic; } // tiembla de miedo
     if (dz > 0) d.sprite.rotation += Math.sin(time * 6.5) * 0.12 * dz; // bamboleo
     if (d.jig) { const j = d.jig; j.t += dt; const w = j.a * Math.exp(-j.t * 7) * Math.cos(j.t * 30), sx = j.vert ? 1 : -1; // gelatina
       d.sprite.scale.x *= 1 + w * sx; d.sprite.scale.y *= 1 - w * sx; if (j.vert) d.sprite.y += w * d.h * 0.3; if (j.t > 0.7) d.jig = null; }
