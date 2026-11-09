@@ -556,7 +556,8 @@ async function main() {
         if (Math.random() < dt * 40) fx.burst('zap', tx, ty, 1, 260, {up: 140, size: 0.5, life: 0.35, g: 600});
         continue; }
       if (!L.fly) { L.fly = true; SFX.rocket(); cam.shake(8); fx.smoke(tx, ty, 60, 8); fx.burst('flame', tx, ty, 10, 380, {up: 0, g: -100, drag: 2, life: 0.4, size: 1});
-        Body.setAngularVelocity(b, 0); d.fireT = 0; }
+        Body.setAngularVelocity(b, 0); d.fireT = 0;
+        if (cam.mode === 'follow' && (!flying || flying.hit)) { cam.follow(b, 1.3); lastFocus = 0; } } // la cámara acompaña al cohete (AB2)
       const T = L.t - R_FUSE;
       // empuje: acelera por su eje hasta R_VMAX en ~0.35 s, anula casi todo lo lateral y casi no gira (vuela derecho, con un meneíto)
       const v = b.velocity, along = v.x * ux + v.y * uy, side = -v.x * uy + v.y * ux, s = Math.min(R_VMAX, Math.max(along, 0) + R_VMAX * dt / 0.35);
@@ -1164,7 +1165,7 @@ async function main() {
   const chiAvail = () => spellOk() && chiInv > 0;
   const makeChiliCard = () => Object.assign(spellCard('chili', chiliTex, 0.5, [[chiliTex, 0.26], [chiliTex, 0.26]], 'CHILE', chiInv, castChili), {qid: CHILI_ID, kind: 'chili'});
   SPELLS.push({id: CHILI_ID, avail: chiAvail, make: makeChiliCard});
-  const hotOk = d => !d.dead && !d.enter && !d.heat && !d.patrol && d.mat !== 'mouse' && d.mat !== 'robot' && d.mat !== 'tnt'; // los cuetes no: la cadena ganaría sola
+  const hotOk = d => !d.dead && !d.enter && !d.heat && !d.patrol && d.mat !== 'mouse' && d.mat !== 'robot' && d.mat !== 'tnt' && d.mat !== 'rocket'; // los cuetes no: la cadena ganaría sola
   // el bloque "clave": el que tiene más ratones cerca (los duros pesan más); un poco de premio a los grandes
   function hotScore(d) { const p = d.body.position; let s = 0.15 * Math.min(1, d.w * d.h / 20000);
     for (const m of dyn) if (m.mat === 'mouse' && !m.dead) { const mp = m.body.position, k = m.kind === 'small' ? 1 : 1.4;
