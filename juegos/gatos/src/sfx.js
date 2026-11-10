@@ -294,3 +294,7 @@ export function rocket() { if (!ok('rkt', 0.2)) return; const t = ctx.currentTim
 export function warp() { if (!ok('warp', 0.12)) return; const t = ctx.currentTime;
   tone(t, 260, 'sine', 0.22, 0.32, 1300); tone(t + 0.04, 520, 'triangle', 0.08, 0.3, 2600); noise(t, 0.3, 'bandpass', 1200, 2.5, 0.16, 0.26, 5200);
   tone(t + 0.16, 1980, 'sine', 0.06, 0.25); tone(t + 0.22, 2640, 'sine', 0.05, 0.25); }
+// portal cercano: zumbido mágico suave (dos senos desafinados que "laten" + un brillito), v = 0..1 según la distancia
+export function portHum(v = 1) { if (!ok('phum', 0.4)) return; const t = ctx.currentTime, p = 0.035 * v;
+  tone(t, 392, 'sine', p, 0.5); tone(t, 396.5, 'sine', p, 0.5); tone(t + 0.02, 784, 'triangle', p * 0.35, 0.4);
+  if (Math.random() < 0.5) tone(t + rnd(0.05, 0.25), rnd(2200, 3200), 'sine', p * 0.5, 0.18); }

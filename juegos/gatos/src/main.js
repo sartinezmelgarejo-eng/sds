@@ -2320,6 +2320,9 @@ async function main() {
     });
   }
   function animPortals(dt) {
+    // zumbido suave cuando el gato en vuelo pasa cerca de un aro (más fuerte entre más cerca)
+    if (flying && !flying.fade && portals.length) { const q = flying.body.position; let dm = Infinity; for (const P of portals) dm = Math.min(dm, Math.hypot(q.x - P.x, q.y - P.y));
+      if (dm < 650) SFX.portHum(1 - dm / 650 * 0.8); }
     for (const P of portals) { P.pulse = Math.max(0, P.pulse - dt * 2.2); const pu = Math.sin(P.pulse * Math.PI) * P.pulse;
       P.rot.rotation -= dt * (2.2 + P.pulse * 9); P.eye.alpha = 0.55 + Math.sin(time * 4 + P.i) * 0.15 + P.pulse * 0.45; P.gl.alpha = 0.5 + Math.sin(time * 2.3 + P.i) * 0.08 + P.pulse * 0.5;
       P.ov.scale.y = 1 + pu * 0.18; P.ov.scale.x = P.rx / P.r * (1 + pu * 0.3);
@@ -2504,7 +2507,10 @@ async function main() {
     acc += dt * 1000;
     while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); portalStep(); acc -= STEP_MS; }
     animBumpers(dt); animPortals(dt);
-    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle; if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
+    for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle;
+      // canastillas/tazas de noria: se columpian un poquito desde su perno (solo visual; más fuerte tras un golpe)
+      if (m.whl) { const D = m.whl.drop; if (m.fall) { if (m.sp.pivot.y) { m.sp.pivot.set(0, 0); } }
+        else { m.sp.pivot.set(0, -D); m.sp.position.y -= D; m.sw = Math.max((m.sw || 0) - dt * 0.6, m.jolt || 0); m.sp.rotation = (0.035 + m.sw * 0.2) * Math.sin(time * (2.1 + m.sw * 2) + m.whl.ph * 1.7); } } if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) { updateBooms(dt); updateLitRockets(dt); } updateRopes(dt);
