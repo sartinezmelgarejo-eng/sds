@@ -2388,14 +2388,15 @@ async function main() {
       g.ellipse(r * 0.66, 0, r * 0.16, r * 0.58).fill(0x5A0A2E).stroke({color: INK, width: 4});   // garganta
       for (const ly of [-0.25, 0, 0.25]) g.moveTo(r * 0.6, ly * r).lineTo(r * 0.82, ly * r * 1.3).stroke({color: 0xFFE14A, width: 3}).circle(r * 0.84, ly * r * 1.3, 4.5).fill(0xFFD23A).stroke({color: INK, width: 2});   // estambres
       // ojitos (parpadean, se cierran al tragar) y cachetes que se inflan
-      const eyes = new Graphics(), lids = new Graphics(), cheeks = new Graphics();
-      for (const ex of [-0.38, -0.02]) { eyes.ellipse(ex * r, -r * 0.06, r * 0.13, r * 0.16).fill(0xFFFFFF).stroke({color: INK, width: 3.5}).circle(ex * r + r * 0.05, -r * 0.05, r * 0.065).fill(0x1B1D2A).circle(ex * r + r * 0.03, -r * 0.09, r * 0.025).fill(0xFFFFFF);
+      const eyes = new Graphics(), pup = new Graphics(), lids = new Graphics(), cheeks = new Graphics();
+      for (const ex of [-0.38, -0.02]) { eyes.ellipse(ex * r, -r * 0.06, r * 0.13, r * 0.16).fill(0xFFFFFF).stroke({color: INK, width: 3.5});
+        pup.circle(ex * r, -r * 0.05, r * 0.065).fill(0x1B1D2A).circle(ex * r - r * 0.02, -r * 0.09, r * 0.025).fill(0xFFFFFF);
         lids.ellipse(ex * r, -r * 0.06, r * 0.14, r * 0.17).fill(0xD83A88).moveTo(ex * r - r * 0.12, -r * 0.04).quadraticCurveTo(ex * r, r * 0.06, ex * r + r * 0.12, -r * 0.04).stroke({color: INK, width: 3.5}); }
       eyes.moveTo(-r * 0.5, -r * 0.3).lineTo(-r * 0.28, -r * 0.24).stroke({color: INK, width: 4, cap: 'round'}).moveTo(-r * 0.12, -r * 0.27).lineTo(r * 0.08, -r * 0.33).stroke({color: INK, width: 4, cap: 'round'});   // cejas pícaras
       for (const sy of [-1, 1]) cheeks.circle(r * 0.18, sy * r * 0.42, r * 0.26).fill(0xF25AA6).stroke({color: INK, width: 4}).circle(r * 0.12, sy * r * 0.42 - r * 0.08, r * 0.07).fill({color: 0xFFFFFF, alpha: 0.5});
-      lids.visible = false; cheeks.scale.set(0); bell.addChild(cheeks, eyes, lids);
+      lids.visible = false; cheeks.scale.set(0); bell.addChild(cheeks, eyes, pup, lids);
       actors.addChildAt(st, 0); actors.addChild(sp); roomSp.push(st, sp);
-      flowers.push({x, y, r, a, v: F.v || 21, sp, bell, lids, cheeks, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i});
+      flowers.push({x, y, r, a, v: F.v || 21, sp, bell, pup, lids, cheeks, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i});
     });
   }
   function animFlowers(dt) {
@@ -2404,6 +2405,9 @@ async function main() {
       F.bell.rotation = Math.sin(time * 1.3 + F.i * 2) * 0.05 + (F.hold ? Math.sin(time * 40) * 0.03 : 0);
       F.bell.scale.set((1 + Math.sin(time * 2.2 + F.i) * 0.02 - q * 0.18 + w * 0.35), (1 + q * 0.2 - w * 0.22));
       F.cheeks.scale.set(q * (1 + Math.sin(time * 30) * 0.05));
+      // pupilas: miran al gato en vuelo (o al que está en la resortera); en coordenadas locales de la campanilla
+      const tg = flying?.body.position || onSling?.sprite?.position; if (tg) { let dx = tg.x - F.x, dy = tg.y - F.y; const c = Math.cos(F.a), s2 = Math.sin(F.a), fy = F.sp.scale.y;
+        const lx = dx * c + dy * s2, ly = (-dx * s2 + dy * c) * fy, l = Math.hypot(lx, ly) || 1, k = F.r * 0.05; F.pup.position.x += (lx / l * k - F.pup.position.x) * 0.2; F.pup.position.y += (ly / l * k - F.pup.position.y) * 0.2; }
       F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || F.blinkAt < 0.12; }
   }
   // en cada paso de física: atrapa lo que le entra a la boca, lo sostiene y lo escupe
