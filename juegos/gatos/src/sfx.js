@@ -313,3 +313,13 @@ export function kettleWhistle(dur = 0.75) { if (!ok('whis', 0.3)) return; const 
   noise(t, dur, 'lowpass', 300, 1, 0.1, dur, 1000); }   // borboteo
 export function steamJet() { if (!ok('jet', 0.15)) return; const t = ctx.currentTime;
   tone(t, 2300, 'sine', 0.09, 0.18, 2600); noise(t, 0.6, 'highpass', 1800, 0.7, 0.35, 0.55, 5000); noise(t, 0.25, 'bandpass', 700, 1.2, 0.25, 0.22, 2000); }
+// caldera tragona (La Guarida): sirena de vapor grave (acorde de 3 voces que sube y CRECE, como silbato de tren) y el bocanadón al escupir
+export function boilerHorn(dur = 0.8) { if (!ok('horn', 0.3)) return; const t = ctx.currentTime;
+  const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(700, t); lp.frequency.exponentialRampToValueAtTime(2200, t + dur); lp.Q.value = 2; lp.connect(master);
+  for (const [f, p] of [[233, 0.05], [294, 0.04], [349, 0.035]]) { const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.92, t); o.frequency.exponentialRampToValueAtTime(f * 1.08, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(p * 0.35, t + 0.1); g.gain.exponentialRampToValueAtTime(p, t + dur); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.15);
+    o.connect(g); g.connect(lp); o.start(t); o.stop(t + dur + 0.2); }
+  noise(t, dur, 'bandpass', 1400, 0.8, 0.08, dur, 2600); noise(t, dur, 'lowpass', 200, 1, 0.12, dur, 600); }   // siseo + borboteo grave
+export function boilerBoom() { if (!ok('bboom', 0.15)) return; const t = ctx.currentTime;
+  tone(t, 110, 'sine', 0.45, 0.35, 40); noise(t, 0.4, 'lowpass', 900, 1, 0.5, 0.35, 200); noise(t, 0.5, 'highpass', 1500, 0.7, 0.25, 0.45, 4000); }

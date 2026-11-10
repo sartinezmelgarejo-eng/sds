@@ -1396,7 +1396,7 @@ async function main() {
     // nivel con FLOR TRAGONA: un ratón avisa (y la flor se relame: aprieta los cachetes)
     if (state === 'ready' && !warnedFl && flowers.length && readyIdle > 2.2) { warnedFl = true;
       const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...flowers.map(F => Math.hypot(F.x - o.body.position.x, F.y - o.body.position.y)));
-      if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, flowers.some(F => F.kind === 'kettle') ? ['¡CUIDADO, LA\nTETERA HIERVE!', '¡NO TOQUEN\nLA TETERA!'][Math.floor(Math.random() * 2)] : ['¡NO ALIMENTEN\nA LA FLOR!', '¡ESA FLOR\nMUERDE!'][Math.floor(Math.random() * 2)], 2.4, 0.8); SFX.squeak();
+      if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, flowers.some(F => F.kind === 'boiler') ? ['¡NO TOQUEN\nLA CALDERA!', '¡ESA CALDERA\nESTÁ QUE ARDE!'][Math.floor(Math.random() * 2)] : flowers.some(F => F.kind === 'kettle') ? ['¡CUIDADO, LA\nTETERA HIERVE!', '¡NO TOQUEN\nLA TETERA!'][Math.floor(Math.random() * 2)] : ['¡NO ALIMENTEN\nA LA FLOR!', '¡ESA FLOR\nMUERDE!'][Math.floor(Math.random() * 2)], 2.4, 0.8); SFX.squeak();
         for (const F of flowers) F.kick = 1; } }
     if (state === 'ready' && !warnedPort && portals.length > 1 && readyIdle > 2.2) { warnedPort = true;
       const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...portals.map(P => Math.hypot(P.x - o.body.position.x, P.y - o.body.position.y)));
@@ -2418,9 +2418,76 @@ async function main() {
     const mx = x + sx * tx, my = y + ty;
     flowers.push({kind: 'kettle', x, y, r, a, v: F.v || 23, sp, bell, pup, lids, cheeks, lid, hot, flame, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i, mx, my, hl: 0.75, lidY: lid.position.y, lv: {y: 0, vy: 0, r: 0, vr: 0}, steam: 0});
   }
+  // CALDERA TRAGONA (versión de La Guarida): caldera de cobre remachada sobre su fogón de carbón, con chimenea, manómetro y
+  // válvula roja. Lo que le cae por la escotilla se lo traga, la aguja se va al rojo, la válvula gira, ruge la sirena de vapor
+  // y lo escupe por el TUBO con un bocanadón de hollín (el ratón sale tiznado y tosiendo).
+  // "flowers": [{kind: 'boiler', x, y (altura del CENTRO del tanque), r (~90), a (ángulo del tubo), v}]
+  function makeBoiler(F, i) {
+    const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a ?? -0.4, INK = 0x24130A, sx = Math.cos(a) < 0 ? -1 : 1;
+    const la = Math.atan2(Math.sin(a), Math.abs(Math.cos(a)));
+    const sp = new Container(); sp.position.set(x, y); sp.scale.x = sx;
+    const bell = new Container(), g = new Graphics(); bell.position.set(0, r * 0.78); bell.addChild(g); sp.addChild(bell);
+    const Y = v => v - r * 0.78;
+    // fogón de fierro con rejilla de brasas (la "flama" = brasas que se avivan)
+    const base = new Graphics(); base.roundRect(-r * 0.78, r * 0.6, r * 1.56, r * 0.4, r * 0.06).fill(0x2A2622).stroke({color: 0x0E0C0A, width: 5});
+    for (const k of [-0.62, 0.62]) base.rect(k * r - r * 0.08, r * 0.96, r * 0.16, r * 0.06).fill(0x1A1714).stroke({color: 0x0E0C0A, width: 3});   // patitas
+    base.roundRect(-r * 0.5, r * 0.68, r * 1.0, r * 0.24, r * 0.04).fill(0x120E0B).stroke({color: 0x0E0C0A, width: 3}); sp.addChildAt(base, 0);
+    const flame = new Graphics(); for (let k = -4; k <= 4; k++) flame.roundRect(k * r * 0.105 - r * 0.035, r * 0.71, r * 0.07, r * 0.18, r * 0.03).fill({color: k % 2 ? 0xFF6A1A : 0xFFB02A, alpha: 0.9});
+    flame.alpha = 0; flame.blendMode = 'add'; flame.pivot.y = flame.position.y = r * 0.9; sp.addChild(flame);   // crece desde la rejilla
+    const grate = new Graphics(); for (let k = -3; k <= 3; k++) grate.moveTo(k * r * 0.14, r * 0.68).lineTo(k * r * 0.14, r * 0.92).stroke({color: 0x2A2622, width: 4}); sp.addChild(grate);
+    // chimenea (atrás, a la izquierda): echa humo negro
+    g.roundRect(-r * 0.62, Y(-r * 1.3), r * 0.22, r * 0.75, r * 0.04).fill(0x3A3530).stroke({color: INK, width: 5});
+    g.roundRect(-r * 0.68, Y(-r * 1.38), r * 0.34, r * 0.13, r * 0.04).fill(0x4A443E).stroke({color: INK, width: 4});
+    // tubo de salida: sale del costado, con bridas, y termina en boquilla acampanada (en la dirección del tiro)
+    const ox = r * 0.6, oy = r * 0.05, L = r * 0.95, tx = ox + Math.cos(la) * L, ty = oy + Math.sin(la) * L, nx = -Math.sin(la), ny = Math.cos(la), cl = Math.cos(la), sl = Math.sin(la);
+    const P = (u, w) => [ox + cl * u + nx * w, Y(oy + sl * u + ny * w)];
+    g.poly([...P(0, r * 0.15), ...P(L - r * 0.18, r * 0.15), ...P(L - r * 0.18, -r * 0.15), ...P(0, -r * 0.15)]).fill(0x8A8F96).stroke({color: INK, width: 5, join: 'round'});
+    g.poly([...P(r * 0.1, r * 0.06), ...P(L - r * 0.25, r * 0.06), ...P(L - r * 0.25, r * 0.0), ...P(r * 0.1, r * 0.0)]).fill({color: 0xD8DDE2, alpha: 0.7});   // brillo del tubo
+    for (const u of [r * 0.15, L * 0.55]) g.poly([...P(u - r * 0.05, r * 0.2), ...P(u + r * 0.05, r * 0.2), ...P(u + r * 0.05, -r * 0.2), ...P(u - r * 0.05, -r * 0.2)]).fill(0xB0782A).stroke({color: INK, width: 3.5});   // bridas de latón
+    g.poly([...P(L - r * 0.2, r * 0.16), ...P(L, r * 0.26), ...P(L, -r * 0.26), ...P(L - r * 0.2, -r * 0.16)]).fill(0xC8903A).stroke({color: INK, width: 4.5, join: 'round'});   // boquilla
+    g.poly(Array.from({length: 16}, (_, k) => P(L + Math.cos(k * Math.PI / 8) * r * 0.06, Math.sin(k * Math.PI / 8) * r * 0.22)).flat()).fill(0x120A06).stroke({color: INK, width: 3});   // boca del tubo
+    // tanque de cobre (barril con tapas redondeadas)
+    const tank = (gg, c) => gg.moveTo(-r * 0.8, Y(r * 0.6)).lineTo(-r * 0.82, Y(-r * 0.45)).bezierCurveTo(-r * 0.8, Y(-r * 0.78), r * 0.8, Y(-r * 0.78), r * 0.82, Y(-r * 0.45)).lineTo(r * 0.8, Y(r * 0.6)).closePath().fill(c);
+    tank(g, 0xC4703A); g.stroke({color: INK, width: 6});
+    g.moveTo(-r * 0.62, Y(-r * 0.45)).lineTo(-r * 0.62, Y(r * 0.5)).stroke({color: 0xF0A870, width: r * 0.1, alpha: 0.6, cap: 'round'});   // brillo
+    g.moveTo(r * 0.64, Y(-r * 0.4)).lineTo(r * 0.64, Y(r * 0.5)).stroke({color: 0x7A3A18, width: r * 0.12, alpha: 0.55, cap: 'round'});   // sombra
+    for (const bv of [-0.42, 0.38]) { g.rect(-r * 0.83, Y(bv * r - r * 0.06), r * 1.66, r * 0.12).fill(0xD8A84A).stroke({color: INK, width: 3.5});   // cinchos de latón con remaches
+      for (let k = -5; k <= 5; k++) g.circle(k * r * 0.145, Y(bv * r), r * 0.025).fill(0x7A5418); }
+    // válvula roja (gira al hervir) y manómetro (la aguja se va al rojo)
+    const wheel = new Graphics(); wheel.circle(0, 0, r * 0.17).stroke({color: INK, width: r * 0.075}).circle(0, 0, r * 0.17).stroke({color: 0xD8301E, width: r * 0.045});
+    for (let k = 0; k < 3; k++) { const q = k * Math.PI / 3; wheel.moveTo(Math.cos(q) * r * 0.16, Math.sin(q) * r * 0.16).lineTo(-Math.cos(q) * r * 0.16, -Math.sin(q) * r * 0.16).stroke({color: 0xB02418, width: r * 0.04}); }
+    wheel.circle(0, 0, r * 0.045).fill(0xFFE14A).stroke({color: INK, width: 2.5});
+    g.rect(-r * 0.03, Y(-r * 0.92), r * 0.06, r * 0.2).fill(0x6A6E74).stroke({color: INK, width: 3}); wheel.position.set(0, Y(-r * 0.98));
+    const gx = r * 0.5, gy = Y(-r * 0.62); g.moveTo(gx, gy + r * 0.05).lineTo(gx - r * 0.08, Y(-r * 0.5)).stroke({color: 0x6A6E74, width: r * 0.06});
+    g.circle(gx, gy, r * 0.2).fill(0xD8A84A).stroke({color: INK, width: 4}).circle(gx, gy, r * 0.155).fill(0xFBF4E2);
+    g.moveTo(gx + Math.cos(-0.35) * r * 0.12, gy + Math.sin(-0.35) * r * 0.12).arc(gx, gy, r * 0.12, -0.35, 0.75).stroke({color: 0xE0301E, width: r * 0.05});   // zona roja
+    for (let k = 0; k <= 6; k++) { const q = Math.PI * 0.8 + k * Math.PI * 0.233; g.moveTo(gx + Math.cos(q) * r * 0.1, gy + Math.sin(q) * r * 0.1).lineTo(gx + Math.cos(q) * r * 0.14, gy + Math.sin(q) * r * 0.14).stroke({color: INK, width: 2}); }
+    const ndl = new Graphics(); ndl.moveTo(0, 0).lineTo(r * 0.13, 0).stroke({color: 0xC0201A, width: 3.5, cap: 'round'}).circle(0, 0, r * 0.03).fill(INK); ndl.position.set(gx, gy); ndl.rotation = Math.PI * 0.85;
+    // escotilla de arriba (por ahí se traga lo que cae; brinca y castañetea)
+    g.ellipse(0, Y(-r * 0.74), r * 0.4, r * 0.08).fill(0x1A0E08).stroke({color: INK, width: 3});
+    const lid = new Graphics(); lid.ellipse(0, 0, r * 0.44, r * 0.12).fill(0xD8884A).stroke({color: INK, width: 4}); for (let k = -3; k <= 3; k++) lid.circle(k * r * 0.11, 0, r * 0.02).fill(0x7A3A18);
+    lid.position.set(-r * 0.15, Y(-r * 0.8)); bell.addChild(lid);
+    // carita gruñona: ojos que siguen al gato, cejotas, y la boca = rejilla de ventilación
+    const eyes = new Graphics(), pup = new Graphics(), lids = new Graphics(), cheeks = new Graphics(), hot = new Graphics();
+    tank(hot, 0xFF4A12); hot.alpha = 0;
+    const EY = Y(-r * 0.1);
+    for (const ex of [-0.34, 0.06]) { eyes.ellipse(ex * r, EY, r * 0.135, r * 0.15).fill(0xFFFFFF).stroke({color: INK, width: 3.5});
+      pup.circle(ex * r, EY + r * 0.02, r * 0.065).fill(0x1B1D2A).circle(ex * r - r * 0.02, EY - r * 0.01, r * 0.024).fill(0xFFFFFF);
+      lids.ellipse(ex * r, EY, r * 0.145, r * 0.16).fill(0xA85A2A).moveTo(ex * r - r * 0.12, EY + r * 0.02).quadraticCurveTo(ex * r, EY + r * 0.1, ex * r + r * 0.12, EY + r * 0.02).stroke({color: INK, width: 3.5}); }
+    eyes.moveTo(-r * 0.5, EY - r * 0.2).lineTo(-r * 0.2, EY - r * 0.12).stroke({color: INK, width: 7, cap: 'round'}).moveTo(-r * 0.08, EY - r * 0.12).lineTo(r * 0.22, EY - r * 0.21).stroke({color: INK, width: 7, cap: 'round'});   // cejotas
+    eyes.roundRect(-r * 0.3, EY + r * 0.2, r * 0.32, r * 0.17, r * 0.05).fill(0x1A0E08).stroke({color: INK, width: 3.5});   // rejilla-boca
+    for (const k of [0.25, 0.5, 0.75]) eyes.moveTo(-r * 0.3 + k * r * 0.32, EY + r * 0.22).lineTo(-r * 0.3 + k * r * 0.32, EY + r * 0.35).stroke({color: 0x8A5428, width: 3});
+    for (const cx of [-0.55, 0.32]) cheeks.circle(cx * r, EY + r * 0.18, r * 0.12).fill({color: 0xFF5A2A, alpha: 0.85});
+    lids.visible = false; cheeks.scale.set(0); bell.addChild(hot, cheeks, eyes, pup, lids, wheel, ndl);
+    actors.addChild(sp); roomSp.push(sp);
+    const mx = x + sx * tx, my = y + ty;
+    flowers.push({kind: 'boiler', x, y, r, a, v: F.v || 22, sp, bell, pup, lids, cheeks, lid, hot, flame, wheel, ndl, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i, mx, my, hl: 0.8, lidY: lid.position.y, lv: {y: 0, vy: 0, r: 0, vr: 0}, steam: 0,
+      cx: x - sx * r * 0.51, cy: y - r * 1.36});   // boca de la chimenea
+  }
   function makeFlowers(list) {
     list.forEach((F, i) => {
       if (F.kind === 'kettle') return makeKettle(F, i);
+      if (F.kind === 'boiler') return makeBoiler(F, i);
       const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a || 0, INK = 0x3A0E24, ca = Math.cos(a), sa = Math.sin(a);
       // tallo (coordenadas del mundo): de la tierra a la base de la campanilla, con dos hojas
       const bx = x - ca * r * 0.8, by = y - sa * r * 0.8, st = new Graphics(), my = (GROUND + by) / 2;
@@ -2461,7 +2528,7 @@ async function main() {
       // pupilas: miran al gato en vuelo (o al que está en la resortera); en coordenadas locales de la campanilla
       const tg = flying?.body.position || onSling?.sprite?.position; if (tg) { let dx = tg.x - F.x, dy = tg.y - F.y; const c = Math.cos(F.sp.rotation), s2 = Math.sin(F.sp.rotation);
         const lx = (dx * c + dy * s2) * F.sp.scale.x, ly = (-dx * s2 + dy * c) * F.sp.scale.y, l = Math.hypot(lx, ly) || 1, k = F.r * 0.05; F.pup.position.x += (lx / l * k - F.pup.position.x) * 0.2; F.pup.position.y += (ly / l * k - F.pup.position.y) * 0.2; }
-      if (F.kind === 'kettle') animKettle(F, dt);
+      if (F.kind === 'kettle' || F.kind === 'boiler') animKettle(F, dt);
       F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || F.blinkAt < 0.12; }
   }
   // tetera: la tapa brinca/castañetea (resorte con gravedad), hierve (rubor rojo, flama, vapor por la tapa) mientras sostiene algo,
@@ -2473,10 +2540,15 @@ async function main() {
     if (lv.y < 0 || lv.vy < 0) { lv.vy += 2600 * dt; lv.y += lv.vy * dt; if (lv.y >= 0) { lv.y = 0; lv.vy = lv.vy > 200 ? -lv.vy * 0.3 : 0; if (lv.vy) SFX.clink(0.25); } }
     lv.vr += -lv.r * (lv.y < 0 ? 4 : 90) * dt; lv.vr *= Math.exp(-dt * 6); lv.r += lv.vr * dt; if (lv.y >= 0) lv.r = Math.max(-0.3, Math.min(0.3, lv.r));
     F.lid.position.y = F.lidY + lv.y; F.lid.rotation = lv.r;
+    if (F.kind === 'boiler') {   // aguja del manómetro (se va al rojo y tiembla), válvula que gira, humo negro por la chimenea
+      const tgt = F.hold ? Math.PI * 0.85 + (0.25 + boil * 0.95) * Math.PI * 1.4 + Math.sin(time * 50) * 0.08 : Math.PI * 0.85 + 0.35 + Math.sin(time * 1.7 + F.i) * 0.06;
+      F.ndl.rotation += (tgt - F.ndl.rotation) * Math.min(1, dt * (F.hold ? 12 : 3)); F.wv = (F.wv || 0) + ((F.hold ? 16 : 0) - (F.wv || 0)) * Math.min(1, dt * (F.hold ? 6 : 1.5)); F.wheel.rotation += F.wv * dt;
+      F.soot = (F.soot || 0) + dt * (F.hold ? 16 : 2.2);
+      while (F.soot > 1) { F.soot--; fx.burst('smoke', F.cx + (Math.random() - 0.5) * 10, F.cy, 1, F.hold ? 200 : 50, {dir: -Math.PI / 2 - 0.25, spread: 0.6, up: 60, g: -110, drag: 2, life: F.hold ? 0.9 : 1.6, size: F.r / (F.hold ? 110 : 160), grow: 2, tint: 0x3A3430}); } }
     F.hot.alpha += ((F.hold ? 0.15 + boil * 0.4 : 0) - F.hot.alpha) * Math.min(1, dt * 8);
     F.flame.alpha += ((F.hold ? 1 : 0.35 + Math.sin(time * 9 + F.i) * 0.08) - F.flame.alpha) * Math.min(1, dt * 10); F.flame.scale.y = 1 + (F.hold ? 0.5 : 0) + Math.sin(time * 23) * 0.12;
     // vapor: hilito por el pico en reposo; a borbotones por la tapa y el pico mientras hierve
-    F.steam += dt * (F.hold ? 13 : 3);
+    F.steam += dt * (F.hold ? 13 : F.kind === 'boiler' ? 0.6 : 3);
     while (F.steam > 1) { F.steam--; const lx = F.x, ly = F.y - F.r * 0.8 + lv.y;
       if (F.hold && Math.random() < 0.5) fx.burst('smoke', lx + (Math.random() - 0.5) * F.r * 0.6, ly - F.r * 0.1, 1, 220, {dir: -Math.PI / 2, spread: 1.0, up: 80, g: -120, drag: 2.5, life: 0.55, size: F.r / 170, grow: 1.4});
       else fx.burst('smoke', F.mx, F.my, 1, F.hold ? 260 : 60, {dir: F.a, spread: 0.5, up: 30, g: -90, drag: 2.5, life: F.hold ? 0.6 : 1.1, size: F.r / (F.hold ? 120 : 200), grow: 1.8}); }
@@ -2489,12 +2561,14 @@ async function main() {
         if ((H.t -= dt) > 0 && !(H.f && (H.f.exploded || H.f.fade))) continue;
         F.hold = null; if (H.f) H.f.gulp = false; H.sp.alpha = 1; if (H.f && (H.f.exploded || H.f.fade)) continue;
         const s = Math.max(H.s, F.v);
-        const KT = F.kind === 'kettle', ex = KT ? F.mx + ca * 10 : F.x + ca * F.r * 0.95, ey = KT ? F.my + sa * 10 : F.y + sa * F.r * 0.95;
+        const KT = F.kind === 'kettle' || F.kind === 'boiler', BO = F.kind === 'boiler', ex = KT ? F.mx + ca * 10 : F.x + ca * F.r * 0.95, ey = KT ? F.my + sa * 10 : F.y + sa * F.r * 0.95;
         Body.setPosition(b, {x: ex, y: ey}); Body.setVelocity(b, {x: ca * s, y: sa * s}); b.flSkip = F; F.kick = 1;
         if (KT) { fx.burst('smoke', F.mx, F.my, 14, 900, {dir: F.a, spread: 0.45, up: 0, g: -80, drag: 3, life: 0.9, size: F.r / 90, grow: 2.2}); F.lv.vy = -620; F.lv.vr = (Math.random() - 0.5) * 12; SFX.steamJet(); }
+        if (BO) { fx.burst('smoke', F.mx, F.my, 12, 700, {dir: F.a, spread: 0.8, up: 0, g: -60, drag: 2.5, life: 1.3, size: F.r / 80, grow: 2.4, tint: 0x2E2824}); fx.burst('star', F.mx, F.my, 8, 600, {dir: F.a, spread: 1, up: 80, size: 0.35, life: 0.5, drag: 1.5}); SFX.boilerBoom();
+          if (H.d && H.d.mat === 'mouse') { H.d.soot = 1; H.d.sootT = 0; } }
         else { fx.burst('petal', F.x + ca * F.r, F.y + sa * F.r, 12, 560, {dir: F.a, spread: 1.4, up: 60, size: 0.9, life: 0.9, g: 400, drag: 1.5}); SFX.spit(); }
         if (H.f) { H.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(KT ? 0.07 : 0.05); }
-        if (H.d && H.d.mat === 'mouse') say(H.d, KT ? ['¡QUEMA, QUEMA!', '¡AY, MI COLA!', '¡QUÉ VAPORAZO!'][Math.floor(Math.random() * 3)] : ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
+        if (H.d && H.d.mat === 'mouse') say(H.d, BO ? ['¡COF, COF!', '¡ME TIZNÓ!', '¡QUÉ CALORÓN!'][Math.floor(Math.random() * 3)] : KT ? ['¡QUEMA, QUEMA!', '¡AY, MI COLA!', '¡QUÉ VAPORAZO!'][Math.floor(Math.random() * 3)] : ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
         flLog.push({t: +time.toFixed(2), i: F.i, who: H.f ? 'cat' : H.d.mat, s: +s.toFixed(1)}); continue; }
       const objs = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
       if (flying && !flying.loop && !flying.exploded && !flying.fade && !flying.gulp) objs.push({b: flying.body, f: flying});
@@ -2507,7 +2581,8 @@ async function main() {
         if (flowers.some(G => G.hold && G.hold.b === b)) continue;
         const sp = o.f ? o.f.sprite : o.d.sprite; sp.alpha = 0; Sleeping.set(b, false);
         b.flN = (b.flN || 0) + 1; F.hold = {b, f: o.f, d: o.d, sp, t: F.hl || 0.42, s: Math.hypot(b.velocity.x, b.velocity.y)}; if (o.f) o.f.gulp = true;
-        if (F.kind === 'kettle') { F.lv.vy = -700; F.lv.vr = (Math.random() - 0.5) * 14; fx.burst('smoke', F.x, F.y - F.r * 0.9, 6, 320, {dir: -Math.PI / 2, spread: 2.2, up: 120, g: -100, drag: 2.5, life: 0.6, size: F.r / 150, grow: 1.4}); SFX.gulp(); SFX.kettleWhistle(F.hl); }
+        if (F.kind === 'boiler') { F.lv.vy = -650; F.lv.vr = (Math.random() - 0.5) * 14; fx.burst('smoke', F.x, F.y - F.r * 0.9, 6, 320, {dir: -Math.PI / 2, spread: 2.2, up: 120, g: -100, drag: 2.5, life: 0.6, size: F.r / 150, grow: 1.4, tint: 0x5A524C}); SFX.gulp(); SFX.boilerHorn(F.hl); }
+        else if (F.kind === 'kettle') { F.lv.vy = -700; F.lv.vr = (Math.random() - 0.5) * 14; fx.burst('smoke', F.x, F.y - F.r * 0.9, 6, 320, {dir: -Math.PI / 2, spread: 2.2, up: 120, g: -100, drag: 2.5, life: 0.6, size: F.r / 150, grow: 1.4}); SFX.gulp(); SFX.kettleWhistle(F.hl); }
         else { fx.burst('petal', F.x, F.y, 8, 380, {up: 120, size: 0.8, life: 0.8, g: 600}); SFX.gulp(); } break; } }
   }
   function buildRoom(R, fly) {

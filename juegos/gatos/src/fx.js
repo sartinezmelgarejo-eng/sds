@@ -44,7 +44,7 @@ export class FX {
       const a = opts.dir != null ? opts.dir + (Math.random() - 0.5) * (opts.spread ?? 2.2) : Math.random() * Math.PI * 2;
       const v = speed * (0.35 + Math.random() * 0.8), sz = (opts.size ?? 1) * (0.5 + Math.random() * 0.8);
       s.scale.set(sz); s.position.set(x + (Math.random() - 0.5) * (opts.w ?? 0), y + (Math.random() - 0.5) * (opts.h ?? 0));
-      s.rotation = Math.random() * 6;
+      s.rotation = Math.random() * 6; if (opts.tint != null) s.tint = opts.tint;
       this.root.addChild(s);
       this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (opts.up ?? 250), vr: (Math.random() - 0.5) * 14, life: opts.life ?? (0.9 + Math.random() * 0.7), t: 0, g: opts.g ?? G, drag: opts.drag ?? 0.4, grow: opts.grow ?? 0, sz});
     }
