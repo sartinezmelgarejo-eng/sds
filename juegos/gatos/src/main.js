@@ -1419,7 +1419,8 @@ async function main() {
         // en el aire: inclinación hacia la velocidad y estirón según rapidez (squash & stretch)
         const va = Math.atan2(b.velocity.y, b.velocity.x), sp = Math.min(1, b.speed / 28);
         f.sprite.rotation = Math.max(-0.6, Math.min(0.6, va * 0.35)); // sin girar: la cara real se lee mejor
-        if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08), 0.5 * (1 - sp * 0.06));
+        const wk = f.warpT > 0 ? 1 - Math.sin(f.warpT / 0.25 * Math.PI) * 0.45 : 1; if (f.warpT > 0) f.warpT -= dt;
+        if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08) * wk, 0.5 * (1 - sp * 0.06) * wk);
       }
       // rastro de puntitos (uno grande cada 5); sigue durante el loop de Miu y su picada
       if (!f.hit && !f.exploded && Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
@@ -1570,7 +1571,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     clearSpell(); spell.used = false; spell.kind = null;
-    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; queue.length = 0; clearDeck();
+    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; portals.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -2275,7 +2276,80 @@ async function main() {
   }
 
   const rooms = () => [level, ...(level.rooms || [])];
+  // ---------- PORTALES (AB2, Bosque de Bambú): pares de aros mágicos — lo que entra por uno sale por su pareja con la MISMA rapidez,
+  // girada según hacia dónde mira cada aro (gato, bloques, rocas, ratones, cohetes). Nivel o sala: "portals": [{x, y (altura del CENTRO),
+  // r (medio alto del óvalo), a (rad: hacia dónde escupe; 0 = derecha, 3.14159 = izquierda, -1.5708 = arriba)}, …] en parejas 0↔1, 2↔3.
+  // Arte de casa: un BASTIDOR de bordar (aro de madera con tornillo de latón) con un remolino de estambre mágico adentro.
+  const portals = [], portLog = [];
+  const PORT_COL = [[0x5B2BD9, 0x3FE0FF, 0xB89BFF], [0xD9306E, 0xFFC93F, 0xFF9BC4]];
+  function makePortals(list) {
+    list.forEach((P, i) => {
+      const [cDeep, cGlow, cArm] = PORT_COL[(i >> 1) % 2], x = P.x, y = GROUND - P.y, r = P.r || 110, a = P.a || 0, rx = r * 0.5;
+      const sp = new Container(); sp.position.set(x, y); sp.rotation = a; if (Math.cos(a) < -0.01) sp.scale.y = -1;   // el tornillo siempre arriba
+      const gl = new Sprite(lampGlowTex); gl.anchor.set(0.5); gl.blendMode = 'add'; gl.tint = cGlow; gl.scale.set(rx * 3.4 / 60, r * 2.6 / 60); gl.alpha = 0.55;
+      // remolino: un óvalo oscuro con brazos en espiral que gira adentro (el padre lo aplasta en óvalo)
+      const ov = new Container(); ov.scale.x = rx / r; const rot = new Container(); ov.addChild(rot);
+      const core = new Graphics().circle(0, 0, r * 0.94).fill(cDeep).circle(0, 0, r * 0.62).fill({color: 0x14082E, alpha: 0.45}).circle(0, 0, r * 0.3).fill({color: 0x0A0418, alpha: 0.6});
+      const arms = new Graphics();
+      for (let k = 0; k < 5; k++) { let px = null, py = null;
+        for (let j = 0; j <= 26; j++) { const t = j / 26, rr = r * (0.9 - t * 0.82), an = k * Math.PI * 2 / 5 + t * 3.6, qx = Math.cos(an) * rr, qy = Math.sin(an) * rr;
+          if (px != null) arms.moveTo(px, py).lineTo(qx, qy).stroke({color: j < 13 ? cArm : cGlow, width: r * 0.16 * (1 - t * 0.85), alpha: 0.85 - t * 0.35, cap: 'round'});
+          px = qx; py = qy; } }
+      rot.addChild(core, arms);
+      const eye = new Sprite(lampGlowTex); eye.anchor.set(0.5); eye.blendMode = 'add'; eye.tint = 0xFFFFFF; eye.scale.set(r * 0.9 / 60); ov.addChild(eye);
+      // bastidor: aro de madera (doble), tornillo de latón arriba y brillo
+      const fr = new Graphics(), W = 0x6B3A1C;
+      fr.ellipse(0, 0, rx + 10, r + 10).stroke({color: 0x2A1606, width: 32}).ellipse(0, 0, rx + 10, r + 10).stroke({color: W, width: 26}).ellipse(0, 0, rx + 10, r + 10).stroke({color: 0xD9A15E, width: 17})
+        .ellipse(0, 0, rx + 4, r + 4).stroke({color: 0xF2C88A, width: 4, alpha: 0.8}).ellipse(0, 0, rx - 2, r - 2).stroke({color: W, width: 6})
+        .ellipse(-rx * 0.35, -r * 0.55, rx * 0.25, r * 0.22).stroke({color: 0xFFFFFF, width: 5, alpha: 0.18});
+      for (let k = 0; k < 22; k++) { const t = k / 22 * Math.PI * 2, q = 0.07, x0 = Math.cos(t - q) * (rx - 8), y0 = Math.sin(t - q) * (r - 8), x1 = Math.cos(t + q) * (rx - 8), y1 = Math.sin(t + q) * (r - 8);   // puntadas de estambre en la tela
+        fr.moveTo(x0, y0).lineTo(x1, y1).stroke({color: cGlow, width: 4, alpha: 0.85, cap: 'round'}); }
+      for (let k = 0; k < 7; k++) { const t = -1.9 + k * 0.32; fr.moveTo(Math.cos(t) * (rx + 3), Math.sin(t) * (r + 3)).lineTo(Math.cos(t + 0.12) * (rx + 17), Math.sin(t + 0.12) * (r + 17)).stroke({color: 0xB07A3E, width: 2.5, alpha: 0.7}); }  // veta
+      fr.roundRect(-15, -r - 40, 30, 30, 6).fill(0xE8B83A).stroke({color: 0x3A2208, width: 5}).rect(-15, -r - 30, 30, 4).fill({color: 0x8A5A10, alpha: 0.6})
+        .circle(0, -r - 52, 13).fill(0xF4CF5A).stroke({color: 0x3A2208, width: 5}).moveTo(-7, -r - 52).lineTo(7, -r - 52).stroke({color: 0x8A5A10, width: 4});
+      // chispitas que salen por la cara de salida (+x local): se lee hacia dónde escupe
+      const motes = []; for (let k = 0; k < 7; k++) { const m = new Sprite(lampGlowTex); m.anchor.set(0.5); m.blendMode = 'add'; m.tint = k % 2 ? cGlow : 0xFFFFFF; motes.push({sp: m, t: k / 7, v: (Math.random() - 0.5) * 1.4, s: 0.09 + Math.random() * 0.08}); }
+      sp.addChild(gl, ov, ...motes.map(m => m.sp), fr);
+      actors.addChildAt(sp, 0); roomSp.push(sp);
+      portals.push({x, y, r, rx, a, sp, rot, ov, eye, gl, motes, pulse: 0, i});
+    });
+  }
+  function animPortals(dt) {
+    for (const P of portals) { P.pulse = Math.max(0, P.pulse - dt * 2.2); const pu = Math.sin(P.pulse * Math.PI) * P.pulse;
+      P.rot.rotation -= dt * (2.2 + P.pulse * 9); P.eye.alpha = 0.55 + Math.sin(time * 4 + P.i) * 0.15 + P.pulse * 0.45; P.gl.alpha = 0.5 + Math.sin(time * 2.3 + P.i) * 0.08 + P.pulse * 0.5;
+      P.ov.scale.y = 1 + pu * 0.18; P.ov.scale.x = P.rx / P.r * (1 + pu * 0.3);
+      for (const m of P.motes) { m.t += dt * 0.6; if (m.t > 1) { m.t -= 1; m.v = (Math.random() - 0.5) * 1.4; }
+        m.sp.position.set(m.t * P.r * 0.95, m.v * P.r * 0.55 * (1 - m.t * 0.6)); m.sp.alpha = Math.sin(m.t * Math.PI) * 0.9; m.sp.scale.set(m.s * (1 - m.t * 0.5)); } }
+  }
+  // en cada paso de física: ¿algo entró a un aro? → sale por su pareja (se ignora el aro de salida hasta que el objeto salga de él)
+  function portalStep() {
+    if (portals.length < 2) return;
+    const objs = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
+    if (flying && !flying.loop && !flying.exploded && !flying.fade) objs.push({b: flying.body, f: flying});
+    for (const d of dyn) if (!d.dead && !d.ride && !d.patrol && !tied.has(d) && !d.body.isSleeping && !d.body.isStatic) objs.push({b: d.body, d});
+    for (const o of objs) { const b = o.b, p = b.position;
+      if (b.portSkip) { const S = b.portSkip; if (Math.hypot(p.x - S.x, p.y - S.y) > S.r * 1.15) b.portSkip = null; }
+      const size = Math.max(b.bounds.max.x - b.bounds.min.x, b.bounds.max.y - b.bounds.min.y);
+      for (const P of portals) { if (P === b.portSkip || size > P.r * 1.7) continue;
+        const dx = p.x - P.x, dy = p.y - P.y, ca = Math.cos(P.a), sa = Math.sin(P.a), u = dx * ca + dy * sa, v = -dx * sa + dy * ca;
+        if ((u / (P.rx * 0.8 + size * 0.15)) ** 2 + (v / (P.r * 0.85)) ** 2 > 1) continue;
+        const Q = portals[P.i ^ 1]; if (!Q) continue;
+        const vel = b.velocity, s = Math.max(Math.hypot(vel.x, vel.y), 3), va = Math.atan2(vel.y, vel.x);
+        let phi = Math.atan2(Math.sin(va - P.a - Math.PI), Math.cos(va - P.a - Math.PI)); if (Math.abs(phi) > Math.PI / 2) phi = Math.sign(phi) * Math.PI - phi;   // entró por atrás: como si fuera por delante
+        phi = Math.max(-0.45, Math.min(0.45, phi * 0.5));   // los aros "enderezan" el tiro (más fácil de leer y de apuntar)
+        const out = Q.a + phi, vv = -v * 0.4;   // rotación pura: lo que entra ladeado sale ladeado igual
+        Sleeping.set(b, false);
+        Body.setPosition(b, {x: Q.x - Math.sin(Q.a) * vv + Math.cos(Q.a) * Q.rx * 0.3, y: Q.y + Math.cos(Q.a) * vv + Math.sin(Q.a) * Q.rx * 0.3});
+        Body.setVelocity(b, {x: Math.cos(out) * s, y: Math.sin(out) * s}); Body.setAngle(b, b.angle + out - va);
+        b.portSkip = Q; P.pulse = Q.pulse = 1;
+        fx.burst('star', P.x, P.y, 7, 380, {size: 0.7, life: 0.5, drag: 3}); fx.burst('star', Q.x, Q.y, 10, 520, {size: 0.8, life: 0.6, drag: 3}); SFX.warp();
+        if (o.f) { o.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(0.04); }
+        if (o.d && o.d.mat === 'mouse' && !o.d.warped) { o.d.warped = true; o.d.hurt = 0.4; say(o.d, ['¡WIIII!', '¡¿QUÉ PASÓ?!', '¡MAREO!'][Math.floor(Math.random() * 3)], 1.2, 0.72); }
+        portLog.push({t: +time.toFixed(2), from: P.i, to: Q.i, who: o.f ? 'cat' : o.d.mat, s: +s.toFixed(1), out: +out.toFixed(2)});
+        break; } }
+  }
   function buildRoom(R, fly) {
+    if (R.portals) makePortals(R.portals);
     R.blocks.forEach((b, i) => {
       if (b.t === 'rock') b.h = b.w;
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -2345,7 +2419,7 @@ async function main() {
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
     for (const d of dyn) { d.dead = true; if (d.lit?.fl) d.lit.fl.destroy(); if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
-    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = 0; roomSp.splice(0).forEach(o => o.destroy());
+    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = portals.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
   }
@@ -2423,8 +2497,8 @@ async function main() {
     ui.update(rdt); menus.update(rdt);
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
-    while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); acc -= STEP_MS; }
-    animBumpers(dt);
+    while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); portalStep(); acc -= STEP_MS; }
+    animBumpers(dt); animPortals(dt);
     for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle; if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
     started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
@@ -2487,6 +2561,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
