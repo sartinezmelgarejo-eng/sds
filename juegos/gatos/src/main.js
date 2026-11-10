@@ -1878,6 +1878,25 @@ async function main() {
     drawHoist(m);
   }
   // charola de fierro con franja de peligro amarilla y negra (se lee "máquina", no repisa); coords de textura ×1.5
+  // taza de té (canastilla de la noria de la Cocina): el borde coincide con la cara de arriba del cuerpo; plato abajo y asa al lado
+  function teacup(b, k) {
+    const S = 1.5, W = b.w * S, Hh = b.h * S, top = -Hh / 2, D = Math.max(Hh * 1.9, 64 * S * 0.6), INK = 0x2A1A10;
+    const C = [0xF4A6B8, 0x9EDDC8, 0x9CC8F0, 0xF6D776][k % 4], g = new Graphics();
+    // asa (atrás del cuerpo de la taza)
+    g.circle(W * 0.5, top + D * 0.42, D * 0.26).stroke({color: INK, width: 14}).circle(W * 0.5, top + D * 0.42, D * 0.26).stroke({color: C, width: 7});
+    // plato
+    g.ellipse(0, top + D + 6, W * 0.46, 11).fill(0xF6F1E6).stroke({color: INK, width: 4}).ellipse(0, top + D + 3, W * 0.3, 5).fill({color: 0xD8D0C0, alpha: 0.8});
+    // cuerpo: tazón que se angosta hacia abajo
+    g.moveTo(-W / 2, top).bezierCurveTo(-W / 2, top + D * 0.75, -W * 0.36, top + D, -W * 0.22, top + D).lineTo(W * 0.22, top + D)
+      .bezierCurveTo(W * 0.36, top + D, W / 2, top + D * 0.75, W / 2, top).closePath().fill(C).stroke({color: INK, width: 5});
+    // lunares blancos, sombra del lado derecho y brillo del izquierdo
+    for (const [x, y, r] of [[-0.3, 0.3, 7], [0, 0.42, 8], [0.28, 0.28, 6], [-0.14, 0.7, 6], [0.16, 0.72, 5]]) g.circle(x * W, top + y * D, r).fill({color: 0xFFFFFF, alpha: 0.85});
+    g.moveTo(W * 0.3, top + 6).bezierCurveTo(W * 0.44, top + D * 0.5, W * 0.3, top + D * 0.85, W * 0.16, top + D - 4).stroke({color: 0x000000, width: 7, alpha: 0.12});
+    g.moveTo(-W * 0.4, top + 10).bezierCurveTo(-W * 0.4, top + D * 0.45, -W * 0.32, top + D * 0.7, -W * 0.24, top + D * 0.8).stroke({color: 0xFFFFFF, width: 5, alpha: 0.5, cap: 'round'});
+    // borde: aro con filo dorado
+    g.ellipse(0, top, W / 2, 9).fill(0xFFFDF6).stroke({color: INK, width: 4}).ellipse(0, top + 1, W / 2 - 6, 5).stroke({color: 0xE0B040, width: 2.5});
+    return g;
+  }
   function steelDeck(b) {
     const S = 1.5, W = b.w * S, Hh = b.h * S, dk = new Graphics().roundRect(-W / 2, -Hh / 2, W, Hh, 6).fill(0x4A4744);
     for (let x = -W / 2 + 4; x < W / 2 - 4; x += 22) dk.poly([x, Hh * 0.05, x + 11, Hh * 0.05, x + 1, Hh / 2 - 3, x - 10, Hh / 2 - 3].map((v, i) => i & 1 ? v : Math.max(-W / 2 + 3, Math.min(W / 2 - 3, v)))).fill(0xF2B92B);
@@ -2032,6 +2051,8 @@ async function main() {
     const W = b.move, n = W.cars || 4, R = W.r || 260, drop = W.drop || 64, CX = b.x, CY = GROUND - b.y, om = W.wheel * Math.PI / 180, a0 = b.a || -Math.PI / 2;
     // La Guarida: rueda de FIERRO (vigas grises, placas atornilladas al piso, foquitos de alarma ámbar/rojo, charolas de fierro sin toldo)
     const lair = bgTheme === 'lair', INK = lair ? 0x0C0A08 : 0x2A1A10, WD = lair ? 0x4A4542 : 0x9A6A3A, WL = lair ? 0x8A8078 : 0xC08A50;
+    // Cocina: noria de JUGUETE de cocina (aro de molde de pay, rayos de brocheta, centro de galleta, TAZAS de té colgando)
+    const kit = bgTheme === 'kitchen', TIN = 0xC9D2D8, TIND = 0x8A969E;
     // caballete en A (dos patas por lado) con travesaño
     const g = new Graphics();
     for (const sx of [-1, 1]) { const fx = CX + sx * R * 0.62;
@@ -2039,20 +2060,40 @@ async function main() {
       if (lair) { g.roundRect(fx + 14 * sx - 32, GROUND - 12, 64, 14, 3).fill(0x3A342E).stroke({color: INK, width: 3});
         for (const k of [-20, 20]) g.circle(fx + 14 * sx + k, GROUND - 5, 3).fill(0x8A8078);
         for (let t = 0.2; t < 0.95; t += 0.25) { const ax = CX + (fx + 14 * sx - CX) * t, ay = CY + (GROUND - CY) * t; g.circle(ax, ay, 2.6).fill(0xC9BFB4); } }
+      else if (kit) { const px = fx + 14 * sx;   // pata = cuchara de palo de cabeza: la cuchara hace de pie
+        g.ellipse(px, GROUND - 10, 40, 13).fill(WL).stroke({color: INK, width: 3.5}).ellipse(px - 6, GROUND - 13, 22, 5).fill({color: 0xFFFFFF, alpha: 0.3}); }
       else g.ellipse(fx + 14 * sx, GROUND - 2, 34, 9).fill(0x5A3A22).stroke({color: INK, width: 3}); }
     const yb = CY + (GROUND - CY) * 0.55, xb = R * 0.62 * 0.55 + 6;
     g.roundRect(CX - xb, yb - 7, xb * 2, 14, 4).fill(WL).stroke({color: INK, width: 3.5});
     // rueda: aro doble con rayos, foquitos de colores y pernos de las canastillas (gira completa)
     const wc = new Container(), rg = new Graphics(); wc.position.set(CX, CY); wc.addChild(rg);
+    if (kit) {
+      // rayos = brochetas de metal; entre ellas, cucharas de palo que salen del centro (forman una flor alrededor de la galleta)
+      for (let k = 0; k < n * 2; k++) { const a = Math.PI * k / n + Math.PI / (n * 2), c = Math.cos(a), sn = Math.sin(a);
+        rg.moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: INK, width: 7}).moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: TIN, width: 3}); }
+      for (let k = 0; k < n * 2; k++) { const a = Math.PI * k / n, c = Math.cos(a), sn = Math.sin(a), sp2 = new Graphics();
+        sp2.roundRect(30, -6, R * 0.62, 12, 6).fill(WL).stroke({color: INK, width: 3.5}).ellipse(R * 0.62 + 34, 0, 30, 17).fill(WL).stroke({color: INK, width: 3.5})
+          .ellipse(R * 0.62 + 30, -4, 16, 7).fill({color: 0x7A4A22, alpha: 0.35}).moveTo(40, -2).lineTo(R * 0.6, -2).stroke({color: 0xFFFFFF, width: 2, alpha: 0.35});
+        sp2.rotation = a; rg.addChild(sp2); }
+      // aro = molde de pay: lámina con orilla rizada (festón) y brillo
+      rg.circle(0, 0, R).stroke({color: INK, width: 22}).circle(0, 0, R).stroke({color: TIN, width: 15}).circle(0, 0, R - 5).stroke({color: TIND, width: 3})
+        .circle(0, 0, R + 4).stroke({color: 0xFFFFFF, width: 2, alpha: 0.55});
+      const nf = Math.round(R / 9);
+      for (let k = 0; k < nf; k++) { const a = Math.PI * 2 * k / nf; rg.circle(Math.cos(a) * (R + 11), Math.sin(a) * (R + 11), 5).fill(TIN).stroke({color: INK, width: 2}); }
+    } else {
     for (let k = 0; k < n * 2; k++) { const a = Math.PI * k / n, c = Math.cos(a), sn = Math.sin(a);
       rg.moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: INK, width: 9}).moveTo(c * 16, sn * 16).lineTo(c * R, sn * R).stroke({color: WL, width: 4}); }
     for (const [r, w] of [[R, 16], [R * 0.6, 11]]) rg.circle(0, 0, r).stroke({color: INK, width: w}).circle(0, 0, r).stroke({color: WD, width: w - 7});
-    rg.circle(0, 0, R - 2).stroke({color: 0xFFFFFF, width: 1.5, alpha: 0.25});
+    rg.circle(0, 0, R - 2).stroke({color: 0xFFFFFF, width: 1.5, alpha: 0.25}); }
     const lights = [];
     for (let k = 0; k < n * 4; k++) { const a = Math.PI * 2 * k / (n * 4), l = new Graphics().circle(0, 0, 6).fill((lair ? [0xFFB020, 0xFF3A2A] : [0xFFD84A, 0xFF6A5A, 0x7FD4FF, 0xB8F070])[k % (lair ? 2 : 4)]).stroke({color: INK, width: 2});
       l.position.set(Math.cos(a) * R * 0.8, Math.sin(a) * R * 0.8); wc.addChild(l); lights.push(l); }
     for (let k = 0; k < n; k++) { const a = Math.PI * 2 * k / n; rg.circle(Math.cos(a) * R, Math.sin(a) * R, 9).fill(0x6A6460).stroke({color: INK, width: 3}); }
-    rg.circle(0, 0, 26).fill(WD).stroke({color: INK, width: 5}).circle(0, 0, 10).fill(0xC0392B).stroke({color: INK, width: 3}).circle(-8, -9, 4).fill({color: 0xFFFFFF, alpha: 0.4});
+    if (kit) { const hb = new Graphics();   // centro = galleta con chispas de chocolate (encima de las cucharas)
+      hb.circle(0, 0, 40).fill(0xD9A05B).stroke({color: INK, width: 5}).circle(0, 0, 33).stroke({color: 0xB97A3A, width: 3, alpha: 0.6});
+      for (const [x, y] of [[-14, -12], [12, -16], [18, 8], [-4, 4], [-18, 14], [4, 22], [24, -4]]) hb.ellipse(x, y, 5, 4).fill(0x4A2A14);
+      hb.circle(-14, -20, 7).fill({color: 0xFFFFFF, alpha: 0.3}); rg.addChild(hb); }
+    else rg.circle(0, 0, 26).fill(WD).stroke({color: INK, width: 5}).circle(0, 0, 10).fill(0xC0392B).stroke({color: INK, width: 3}).circle(-8, -9, 4).fill({color: 0xFFFFFF, alpha: 0.4});
     actors.addChildAt(wc, 0); actors.addChildAt(g, 0); roomSp.push(g, wc);
     for (let k = 0; k < n; k++) {
       const ph = a0 + Math.PI * 2 * k / n, x = CX + Math.cos(ph) * R, y = CY + Math.sin(ph) * R + drop;
@@ -2063,15 +2104,16 @@ async function main() {
       for (const sx of [-1, 1]) if (lair) chainLine(hg, 0, top + 18, sx * hw * 0.9, -b.h / 2 * S);
         else hg.moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: INK, width: 5}).moveTo(0, top).lineTo(sx * hw * 0.9, -b.h / 2 * S).stroke({color: 0x8A8078, width: 2});
       const cl = [0xE0483A, 0xF6EEDC][k & 1], roof = new Graphics();
-      if (lair) roof.circle(0, top + 10, 9).stroke({color: INK, width: 7}).circle(0, top + 10, 9).stroke({color: 0x7A726A, width: 3});   // aro de la eslinga
+      if (kit) roof.circle(0, top + 8, 8).stroke({color: INK, width: 6}).circle(0, top + 8, 8).stroke({color: TIN, width: 3});   // argolla
+      else if (lair) roof.circle(0, top + 10, 9).stroke({color: INK, width: 7}).circle(0, top + 10, 9).stroke({color: 0x7A726A, width: 3});   // aro de la eslinga
       else { roof.poly([-hw * 0.55, top + 34, 0, top + 8, hw * 0.55, top + 34]).fill(cl).stroke({color: INK, width: 3.5});
         roof.moveTo(-hw * 0.55, top + 34).lineTo(hw * 0.55, top + 34).stroke({color: INK, width: 3.5}); }
-      for (const sx of [-1, 1]) hg.moveTo(sx * hw * 0.96, -b.h / 2 * S).lineTo(sx * hw * 0.96, -b.h / 2 * S - 26).stroke({color: INK, width: 5});
-      hg.moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: INK, width: 4}).moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: WL, width: 1.5});
-      const deck = lair ? steelDeck(b) : new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor?.set(0.5);
+      if (!kit) { for (const sx of [-1, 1]) hg.moveTo(sx * hw * 0.96, -b.h / 2 * S).lineTo(sx * hw * 0.96, -b.h / 2 * S - 26).stroke({color: INK, width: 5});
+      hg.moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: INK, width: 4}).moveTo(-hw * 0.96, -b.h / 2 * S - 24).lineTo(hw * 0.96, -b.h / 2 * S - 24).stroke({color: WL, width: 1.5}); }
+      const deck = lair ? steelDeck(b) : kit ? teacup(b, k) : new Sprite(blockTex('wood', b.w, b.h, i + 3 + k, 0)); deck.anchor?.set(0.5);
       const inner = new Container(); inner.scale.set(1 / S); inner.addChild(hg, roof); deck.scale.set(1 / S);
       sp.addChild(inner, deck);
-      const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}, deck, dtex: !lair && [b.w, b.h, i + 3 + k]};
+      const m = {body, sp, x0: x, y0: y, dx: 0, dy: 0, T: 1, t: 0, wheels: [], whl: {CX, CY, R, drop, om, ph}, deck, dtex: !lair && !kit && [b.w, b.h, i + 3 + k], cup: kit};
       if (k === 0) { m.wc = wc; m.lights = lights; m.wa0 = a0; }
       body.mover = m; movers.push(m);
     }
@@ -2178,19 +2220,21 @@ async function main() {
     const st = Math.min(3, Math.floor((1 - m.life / m.max) * 4));
     if (st !== m.dmg && m.life > 0) { m.dmg = st;
       if (m.dtex) { m.deck.texture = blockTex('wood', ...m.dtex, st); SFX.creak('wood', 0.35); }
-      else { m.deck.tint = [0xFFFFFF, 0xD8D0C6, 0xB4AAA0, 0x908680][st]; SFX.creak('can', 0.35); } }   // fierro: se va abollando/oscureciendo
+      else { m.deck.tint = [0xFFFFFF, 0xD8D0C6, 0xB4AAA0, 0x908680][st]; SFX.creak(m.cup ? 'jar' : 'can', 0.35); } }   // fierro: se va abollando/oscureciendo
     if (m.life <= 0) breakCar(m);
   }
   // la canastilla suelta se hace pedazos: astillas (o fierros), techito de lona que sale volando, puntos de bloque
   function breakCar(m) {
     m.broke = true; const b = m.body, P = b.position, lair = bgTheme === 'lair', w = b.bounds.max.x - b.bounds.min.x;
     Composite.remove(engine.world, b); m.sp.visible = false;
-    fx.burst(lair ? 'can' : 'box', P.x, P.y, 16, 460, {w: w * 0.8, h: 40, size: 1.0}); fx.smoke(P.x, P.y, w * 0.4, 6);
-    if (!lair) { const n0 = fx.parts.length; fx.burst('fur', P.x, P.y - 40, 6, 300, {up: 200, size: 1.1, life: 1.4, drag: 1.8, g: 420});   // jirones del toldo
+    const mt = lair ? 'can' : m.cup ? 'jar' : 'box';   // la taza de la Cocina se hace añicos como porcelana
+    fx.burst(mt, P.x, P.y, 16, 460, {w: w * 0.8, h: 40, size: 1.0}); fx.smoke(P.x, P.y, w * 0.4, 6);
+    if (m.cup) { const n0 = fx.parts.length; fx.burst('box', P.x, P.y, 8, 380, {w: w * 0.6, h: 30, size: 0.8}); for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = 0xF4C6D0; }
+    else if (!lair) { const n0 = fx.parts.length; fx.burst('fur', P.x, P.y - 40, 6, 300, {up: 200, size: 1.1, life: 1.4, drag: 1.8, g: 420});   // jirones del toldo
       for (let j = n0; j < fx.parts.length; j++) fx.parts[j].s.tint = j & 1 ? 0xE0483A : 0xF6EEDC; }
-    SFX.breakSfx(lair ? 'can' : 'box'); if (lair) SFX.clank(0.8); cam.shake(8);
+    SFX.breakSfx(mt); if (lair) SFX.clank(0.8); cam.shake(8);
     dyn.forEach(o => Sleeping.set(o.body, false));
-    const v = lair ? PTS.can : PTS.box; addScore(v, P.x, P.y - 30, lair ? PTS_COL.can : PTS_COL.box); wreck(v);
+    const v = PTS[mt]; addScore(v, P.x, P.y - 30, PTS_COL[mt]); wreck(v);
   }
   function moveMovers(ms) {
     const h = ms / 1000;
