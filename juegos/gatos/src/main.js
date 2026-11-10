@@ -513,7 +513,9 @@ async function main() {
       if (b.rk) { // cohete: estallido más chico que la caja (AB2), con chispas de colores y sin cohetitos sueltos
         fx.explosion(b.x, b.y, 160); fx.ring(b.x, b.y, 250, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 10, 600, {up: 200, size: 0.9});
         const n0 = fx.parts.length; fx.burst('star', b.x, b.y, 18, 560, {up: 60, g: 300, drag: 1.4, life: 0.9, size: 0.5}); for (let k = n0; k < fx.parts.length; k++) fx.parts[k].s.tint = FW[k % FW.length];
-        blast(b.x, b.y, 230, 20, 20, {can: 1.2, tnt: 3, robot: 2}); cam.shake(18); cam.punch(0.04); SFX.boom(); SFX.firework(); screenFlash = 0.07; startle(b.x, 0.6); continue; }
+        blast(b.x, b.y, 230, 20, 20, {can: 1.2, tnt: 3, robot: 2});
+        for (const r of ropes) if (r.bal && !r.cut && balDist(r, b.x, b.y) < 480 + BAL_R) cutRope(r, 'pop');   // las chispas de colores revientan los globos de alrededor
+        cam.shake(18); cam.punch(0.04); SFX.boom(); SFX.firework(); screenFlash = 0.07; startle(b.x, 0.6); continue; }
       fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
       blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3, robot: 3}); // a la aspiradora le pega fuerte (premio por el timing)
       cam.shake(26); cam.punch(0.05); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
