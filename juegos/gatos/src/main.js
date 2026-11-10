@@ -1396,7 +1396,7 @@ async function main() {
     // nivel con FLOR TRAGONA: un ratón avisa (y la flor se relame: aprieta los cachetes)
     if (state === 'ready' && !warnedFl && flowers.length && readyIdle > 2.2) { warnedFl = true;
       const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...flowers.map(F => Math.hypot(F.x - o.body.position.x, F.y - o.body.position.y)));
-      if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, ['¡NO ALIMENTEN\nA LA FLOR!', '¡ESA FLOR\nMUERDE!'][Math.floor(Math.random() * 2)], 2.4, 0.8); SFX.squeak();
+      if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, flowers.some(F => F.kind === 'kettle') ? ['¡CUIDADO, LA\nTETERA HIERVE!', '¡NO TOQUEN\nLA TETERA!'][Math.floor(Math.random() * 2)] : ['¡NO ALIMENTEN\nA LA FLOR!', '¡ESA FLOR\nMUERDE!'][Math.floor(Math.random() * 2)], 2.4, 0.8); SFX.squeak();
         for (const F of flowers) F.kick = 1; } }
     if (state === 'ready' && !warnedPort && portals.length > 1 && readyIdle > 2.2) { warnedPort = true;
       const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...portals.map(P => Math.hypot(P.x - o.body.position.x, P.y - o.body.position.y)));
@@ -2366,8 +2366,61 @@ async function main() {
   // Una campanilla gigante con ojitos sobre su tallo: lo que le entra a la boca (gato, ratón, roca chica) se lo traga ("glup", cachetes
   // inflados ~0.4 s) y lo escupe con fuerza en su dirección ("¡ptuí!", estirón y pétalos). El gato conserva su poder.
   const flowers = [], flLog = [];
+  // TETERA TRAGONA (versión de Cocina de la flor): tetera de peltre azul moteado sobre su parrilla; lo que le cae encima se lo traga
+  // (la tapa brinca), hierve y silba (vapor, tiembla, se pone roja) y lo escupe por el PICO con un chorro de vapor.
+  // "flowers": [{kind: 'kettle', x, y (altura del CENTRO del cuerpo), r (~90), a (ángulo del pico; −0.5 = arriba-derecha), v}]
+  function makeKettle(F, i) {
+    const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a ?? -0.6, INK = 0x14203A, sx = Math.cos(a) < 0 ? -1 : 1;
+    const la = Math.atan2(Math.sin(a), Math.abs(Math.cos(a)));   // ángulo del pico en coordenadas locales (mirando a la derecha)
+    const sp = new Container(); sp.position.set(x, y); sp.scale.x = sx;
+    const bell = new Container(), g = new Graphics(); bell.position.set(0, r * 0.78); bell.addChild(g); sp.addChild(bell);   // pivote en la base: se aplasta desde abajo
+    const Y = v => v - r * 0.78;
+    // parrilla de la estufa (fierro negro) debajo
+    const base = new Graphics(); base.ellipse(0, r * 0.86, r * 0.95, r * 0.13).fill(0x23232B).stroke({color: 0x0E0E12, width: 4});
+    for (const k of [-0.7, 0, 0.7]) base.moveTo(k * r, r * 0.78).lineTo(k * r * 1.1, r * 0.98).stroke({color: 0x0E0E12, width: 7, cap: 'round'});
+    base.ellipse(0, r * 0.84, r * 0.6, r * 0.06).fill({color: 0xFF7A2A, alpha: 0}); sp.addChildAt(base, 0);
+    const flame = new Graphics(); for (let k = -3; k <= 3; k++) flame.ellipse(k * r * 0.17, r * 0.8, r * 0.05, r * 0.12).fill({color: k % 2 ? 0x5AB0FF : 0x8FD0FF, alpha: 0.85});
+    flame.alpha = 0; flame.blendMode = 'add'; sp.addChildAt(flame, 0);
+    // pico: tubo que sale del costado y se adelgaza hacia la punta (en la dirección del tiro)
+    const ox = r * 0.55, oy = r * 0.15, L = r * 0.95, tx = ox + Math.cos(la) * L, ty = oy + Math.sin(la) * L, nx = -Math.sin(la), ny = Math.cos(la);
+    const spout = [ox + nx * r * 0.3, oy + ny * r * 0.3, ox - nx * r * 0.3 - r * 0.05, oy - ny * r * 0.3, tx - nx * r * 0.1, ty - ny * r * 0.1, tx + nx * r * 0.1, ty + ny * r * 0.1].map((v, k) => k % 2 ? Y(v) : v);
+    g.poly(spout).fill(0x2F6FC8).stroke({color: INK, width: 5, join: 'round'});
+    g.ellipse(tx, Y(ty), r * 0.07, r * 0.12).fill(0x0A1428).stroke({color: INK, width: 3});   // boquita del pico
+    // asa de madera arriba
+    g.moveTo(-r * 0.55, Y(-r * 0.55)).bezierCurveTo(-r * 0.5, Y(-r * 1.25), r * 0.5, Y(-r * 1.25), r * 0.55, Y(-r * 0.55)).stroke({color: INK, width: r * 0.17, cap: 'round'}).stroke({color: 0x8A5428, width: r * 0.1, cap: 'round'});
+    // cuerpo (domo) azul con motitas blancas (peltre)
+    g.moveTo(-r * 0.92, Y(r * 0.78)).bezierCurveTo(-r * 1.05, Y(r * 0.1), -r * 0.8, Y(-r * 0.72), 0, Y(-r * 0.76)).bezierCurveTo(r * 0.8, Y(-r * 0.72), r * 1.05, Y(r * 0.1), r * 0.92, Y(r * 0.78)).closePath()
+      .fill(0x2F6FC8).stroke({color: INK, width: 6});
+    g.moveTo(-r * 0.62, Y(-r * 0.35)).bezierCurveTo(-r * 0.75, Y(-r * 0.05), -r * 0.78, Y(r * 0.3), -r * 0.72, Y(r * 0.55)).stroke({color: 0x7FB4F0, width: r * 0.1, alpha: 0.75, cap: 'round'});   // brillo
+    g.moveTo(r * 0.55, Y(r * 0.5)).bezierCurveTo(r * 0.8, Y(r * 0.2), r * 0.82, Y(-r * 0.1), r * 0.7, Y(-r * 0.35)).stroke({color: 0x1A4590, width: r * 0.09, alpha: 0.6, cap: 'round'});   // sombra
+    let sd = 7 + i * 13; const rnd = () => (sd = (sd * 9301 + 49297) % 233280) / 233280;
+    for (let k = 0; k < 26; k++) { const u = rnd() * 2 - 1, v = rnd() * 1.3 - 0.6; if (Math.abs(u) > 0.85 - Math.max(0, -v - 0.2) * 0.5) continue; g.circle(u * r, Y(v * r), r * (0.015 + rnd() * 0.025)).fill({color: 0xFFFFFF, alpha: 0.85}); }
+    g.roundRect(-r * 0.95, Y(r * 0.66), r * 1.9, r * 0.14, r * 0.07).fill(0xF4F6FA).stroke({color: INK, width: 4});   // ribete blanco de abajo
+    g.ellipse(0, Y(-r * 0.74), r * 0.42, r * 0.09).fill(0x0A1428).stroke({color: INK, width: 3});   // boca de la tapa
+    // tapa (brinca al tragar, castañetea al hervir)
+    const lid = new Graphics(); lid.ellipse(0, 0, r * 0.46, r * 0.13).fill(0x3A80D8).stroke({color: INK, width: 4}).circle(0, -r * 0.14, r * 0.09).fill(0x8A5428).stroke({color: INK, width: 3});
+    lid.position.set(0, Y(-r * 0.78)); bell.addChild(lid);
+    // carita: ojos (parpadean), cejas pícaras, cachetes que se inflan, y un rubor rojo que sube al hervir
+    const eyes = new Graphics(), pup = new Graphics(), lids = new Graphics(), cheeks = new Graphics(), hot = new Graphics();
+    hot.moveTo(-r * 0.92, Y(r * 0.78)).bezierCurveTo(-r * 1.05, Y(r * 0.1), -r * 0.8, Y(-r * 0.72), 0, Y(-r * 0.76)).bezierCurveTo(r * 0.8, Y(-r * 0.72), r * 1.05, Y(r * 0.1), r * 0.92, Y(r * 0.78)).closePath().fill(0xE8301E);
+    hot.alpha = 0;
+    const EY = Y(-r * 0.12);
+    for (const ex of [-0.3, 0.12]) { eyes.ellipse(ex * r, EY, r * 0.14, r * 0.17).fill(0xFFFFFF).stroke({color: INK, width: 3.5});
+      pup.circle(ex * r, EY + r * 0.01, r * 0.07).fill(0x1B1D2A).circle(ex * r - r * 0.02, EY - r * 0.03, r * 0.025).fill(0xFFFFFF);
+      lids.ellipse(ex * r, EY, r * 0.15, r * 0.18).fill(0x2A62B8).moveTo(ex * r - r * 0.12, EY + r * 0.02).quadraticCurveTo(ex * r, EY + r * 0.12, ex * r + r * 0.12, EY + r * 0.02).stroke({color: INK, width: 3.5}); }
+    eyes.moveTo(-r * 0.46, EY - r * 0.27).lineTo(-r * 0.2, EY - r * 0.2).stroke({color: INK, width: 4.5, cap: 'round'}).moveTo(r * 0.02, EY - r * 0.21).lineTo(r * 0.27, EY - r * 0.29).stroke({color: INK, width: 4.5, cap: 'round'});
+    eyes.moveTo(-r * 0.2, EY + r * 0.3).quadraticCurveTo(-r * 0.06, EY + r * 0.4, r * 0.1, EY + r * 0.28).stroke({color: INK, width: 4, cap: 'round'});   // sonrisita
+    for (const cx of [-0.52, 0.38]) cheeks.circle(cx * r, EY + r * 0.24, r * 0.15).fill(0xF2708A).circle(cx * r - r * 0.04, EY + r * 0.19, r * 0.04).fill({color: 0xFFFFFF, alpha: 0.5});
+    lids.visible = false; cheeks.scale.set(0); bell.addChild(hot, cheeks, eyes, pup, lids);
+    const sh = new Graphics(); sh.ellipse(x, GROUND - F.y + r * 1.0, r, r * 0.14).fill({color: 0x000000, alpha: 0});   // (sin sombra extra: va sobre su repisa)
+    actors.addChild(sp); roomSp.push(sp, sh);
+    // punta del pico en el mundo: de ahí sale disparado
+    const mx = x + sx * tx, my = y + ty;
+    flowers.push({kind: 'kettle', x, y, r, a, v: F.v || 23, sp, bell, pup, lids, cheeks, lid, hot, flame, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i, mx, my, hl: 0.75, lidY: lid.position.y, lv: {y: 0, vy: 0, r: 0, vr: 0}, steam: 0});
+  }
   function makeFlowers(list) {
     list.forEach((F, i) => {
+      if (F.kind === 'kettle') return makeKettle(F, i);
       const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a || 0, INK = 0x3A0E24, ca = Math.cos(a), sa = Math.sin(a);
       // tallo (coordenadas del mundo): de la tierra a la base de la campanilla, con dos hojas
       const bx = x - ca * r * 0.8, by = y - sa * r * 0.8, st = new Graphics(), my = (GROUND + by) / 2;
@@ -2406,9 +2459,27 @@ async function main() {
       F.bell.scale.set((1 + Math.sin(time * 2.2 + F.i) * 0.02 - q * 0.18 + w * 0.35), (1 + q * 0.2 - w * 0.22));
       F.cheeks.scale.set(q * (1 + Math.sin(time * 30) * 0.05));
       // pupilas: miran al gato en vuelo (o al que está en la resortera); en coordenadas locales de la campanilla
-      const tg = flying?.body.position || onSling?.sprite?.position; if (tg) { let dx = tg.x - F.x, dy = tg.y - F.y; const c = Math.cos(F.a), s2 = Math.sin(F.a), fy = F.sp.scale.y;
-        const lx = dx * c + dy * s2, ly = (-dx * s2 + dy * c) * fy, l = Math.hypot(lx, ly) || 1, k = F.r * 0.05; F.pup.position.x += (lx / l * k - F.pup.position.x) * 0.2; F.pup.position.y += (ly / l * k - F.pup.position.y) * 0.2; }
+      const tg = flying?.body.position || onSling?.sprite?.position; if (tg) { let dx = tg.x - F.x, dy = tg.y - F.y; const c = Math.cos(F.sp.rotation), s2 = Math.sin(F.sp.rotation);
+        const lx = (dx * c + dy * s2) * F.sp.scale.x, ly = (-dx * s2 + dy * c) * F.sp.scale.y, l = Math.hypot(lx, ly) || 1, k = F.r * 0.05; F.pup.position.x += (lx / l * k - F.pup.position.x) * 0.2; F.pup.position.y += (ly / l * k - F.pup.position.y) * 0.2; }
+      if (F.kind === 'kettle') animKettle(F, dt);
       F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || F.blinkAt < 0.12; }
+  }
+  // tetera: la tapa brinca/castañetea (resorte con gravedad), hierve (rubor rojo, flama, vapor por la tapa) mientras sostiene algo,
+  // y no se ladea (solo se aplasta desde la base)
+  function animKettle(F, dt) {
+    const lv = F.lv, boil = F.hold ? Math.min(1, (F.hl - F.hold.t) / F.hl) : 0;
+    F.bell.rotation = F.hold ? Math.sin(time * 46) * 0.035 * (0.4 + boil) : Math.sin(time * 1.1 + F.i) * 0.012;
+    if (F.hold && lv.y >= 0 && Math.random() < dt * 22) { lv.vy = -120 - boil * 260; lv.vr += (Math.random() - 0.5) * 4; }
+    if (lv.y < 0 || lv.vy < 0) { lv.vy += 2600 * dt; lv.y += lv.vy * dt; if (lv.y >= 0) { lv.y = 0; lv.vy = lv.vy > 200 ? -lv.vy * 0.3 : 0; if (lv.vy) SFX.clink(0.25); } }
+    lv.vr += -lv.r * (lv.y < 0 ? 4 : 90) * dt; lv.vr *= Math.exp(-dt * 6); lv.r += lv.vr * dt; if (lv.y >= 0) lv.r = Math.max(-0.3, Math.min(0.3, lv.r));
+    F.lid.position.y = F.lidY + lv.y; F.lid.rotation = lv.r;
+    F.hot.alpha += ((F.hold ? 0.15 + boil * 0.4 : 0) - F.hot.alpha) * Math.min(1, dt * 8);
+    F.flame.alpha += ((F.hold ? 1 : 0.35 + Math.sin(time * 9 + F.i) * 0.08) - F.flame.alpha) * Math.min(1, dt * 10); F.flame.scale.y = 1 + (F.hold ? 0.5 : 0) + Math.sin(time * 23) * 0.12;
+    // vapor: hilito por el pico en reposo; a borbotones por la tapa y el pico mientras hierve
+    F.steam += dt * (F.hold ? 13 : 3);
+    while (F.steam > 1) { F.steam--; const lx = F.x, ly = F.y - F.r * 0.8 + lv.y;
+      if (F.hold && Math.random() < 0.5) fx.burst('smoke', lx + (Math.random() - 0.5) * F.r * 0.6, ly - F.r * 0.1, 1, 220, {dir: -Math.PI / 2, spread: 1.0, up: 80, g: -120, drag: 2.5, life: 0.55, size: F.r / 170, grow: 1.4});
+      else fx.burst('smoke', F.mx, F.my, 1, F.hold ? 260 : 60, {dir: F.a, spread: 0.5, up: 30, g: -90, drag: 2.5, life: F.hold ? 0.6 : 1.1, size: F.r / (F.hold ? 120 : 200), grow: 1.8}); }
   }
   // en cada paso de física: atrapa lo que le entra a la boca, lo sostiene y lo escupe
   function flowerStep() {
@@ -2418,10 +2489,12 @@ async function main() {
         if ((H.t -= dt) > 0 && !(H.f && (H.f.exploded || H.f.fade))) continue;
         F.hold = null; if (H.f) H.f.gulp = false; H.sp.alpha = 1; if (H.f && (H.f.exploded || H.f.fade)) continue;
         const s = Math.max(H.s, F.v);
-        Body.setPosition(b, {x: F.x + ca * F.r * 0.95, y: F.y + sa * F.r * 0.95}); Body.setVelocity(b, {x: ca * s, y: sa * s}); b.flSkip = F; F.kick = 1;
-        fx.burst('petal', F.x + ca * F.r, F.y + sa * F.r, 12, 560, {dir: F.a, spread: 1.4, up: 60, size: 0.9, life: 0.9, g: 400, drag: 1.5}); SFX.spit();
-        if (H.f) { H.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(0.05); }
-        if (H.d && H.d.mat === 'mouse') say(H.d, ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
+        const KT = F.kind === 'kettle', ex = KT ? F.mx + ca * 10 : F.x + ca * F.r * 0.95, ey = KT ? F.my + sa * 10 : F.y + sa * F.r * 0.95;
+        Body.setPosition(b, {x: ex, y: ey}); Body.setVelocity(b, {x: ca * s, y: sa * s}); b.flSkip = F; F.kick = 1;
+        if (KT) { fx.burst('smoke', F.mx, F.my, 14, 900, {dir: F.a, spread: 0.45, up: 0, g: -80, drag: 3, life: 0.9, size: F.r / 90, grow: 2.2}); F.lv.vy = -620; F.lv.vr = (Math.random() - 0.5) * 12; SFX.steamJet(); }
+        else { fx.burst('petal', F.x + ca * F.r, F.y + sa * F.r, 12, 560, {dir: F.a, spread: 1.4, up: 60, size: 0.9, life: 0.9, g: 400, drag: 1.5}); SFX.spit(); }
+        if (H.f) { H.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(KT ? 0.07 : 0.05); }
+        if (H.d && H.d.mat === 'mouse') say(H.d, KT ? ['¡QUEMA, QUEMA!', '¡AY, MI COLA!', '¡QUÉ VAPORAZO!'][Math.floor(Math.random() * 3)] : ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
         flLog.push({t: +time.toFixed(2), i: F.i, who: H.f ? 'cat' : H.d.mat, s: +s.toFixed(1)}); continue; }
       const objs = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
       if (flying && !flying.loop && !flying.exploded && !flying.fade && !flying.gulp) objs.push({b: flying.body, f: flying});
@@ -2433,8 +2506,9 @@ async function main() {
         if (Math.hypot(p.x - F.x, p.y - F.y) > F.r * 0.85 + size * 0.3) continue;
         if (flowers.some(G => G.hold && G.hold.b === b)) continue;
         const sp = o.f ? o.f.sprite : o.d.sprite; sp.alpha = 0; Sleeping.set(b, false);
-        b.flN = (b.flN || 0) + 1; F.hold = {b, f: o.f, d: o.d, sp, t: 0.42, s: Math.hypot(b.velocity.x, b.velocity.y)}; if (o.f) o.f.gulp = true;
-        fx.burst('petal', F.x, F.y, 8, 380, {up: 120, size: 0.8, life: 0.8, g: 600}); SFX.gulp(); break; } }
+        b.flN = (b.flN || 0) + 1; F.hold = {b, f: o.f, d: o.d, sp, t: F.hl || 0.42, s: Math.hypot(b.velocity.x, b.velocity.y)}; if (o.f) o.f.gulp = true;
+        if (F.kind === 'kettle') { F.lv.vy = -700; F.lv.vr = (Math.random() - 0.5) * 14; fx.burst('smoke', F.x, F.y - F.r * 0.9, 6, 320, {dir: -Math.PI / 2, spread: 2.2, up: 120, g: -100, drag: 2.5, life: 0.6, size: F.r / 150, grow: 1.4}); SFX.gulp(); SFX.kettleWhistle(F.hl); }
+        else { fx.burst('petal', F.x, F.y, 8, 380, {up: 120, size: 0.8, life: 0.8, g: 600}); SFX.gulp(); } break; } }
   }
   function buildRoom(R, fly) {
     if (R.portals) makePortals(R.portals);
@@ -2653,6 +2727,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

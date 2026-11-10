@@ -303,3 +303,13 @@ export function gulp() { if (!ok('gulp', 0.15)) return; const t = ctx.currentTim
   tone(t, 300, 'sine', 0.3, 0.2, 90); noise(t, 0.12, 'lowpass', 500, 1, 0.35, 0.12); tone(t + 0.12, 140, 'sine', 0.18, 0.15, 70); }
 export function spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime;
   noise(t, 0.04, 'highpass', 2500, 1, 0.4, 0.04); tone(t, 180, 'triangle', 0.25, 0.22, 720); noise(t + 0.02, 0.3, 'bandpass', 900, 1.5, 0.35, 0.28, 3200); }
+// tetera tragona: silbido que sube mientras hierve (dur s) y chorro de vapor al escupir
+export function kettleWhistle(dur = 0.75) { if (!ok('whis', 0.3)) return; const t = ctx.currentTime;
+  // silbido que CRECE (no decae): dos senos casi iguales (batido) con vibrato, sube de tono y de volumen hasta el escupitajo
+  for (const [f, p] of [[1450, 0.07], [1462, 0.05], [2900, 0.012]]) { const o = ctx.createOscillator(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
+    o.type = 'sine'; o.frequency.setValueAtTime(f, t); o.frequency.exponentialRampToValueAtTime(f * 1.45, t + dur); l.frequency.value = 9; lg.gain.value = f * 0.012; l.connect(lg); lg.connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(p * 0.3, t + 0.12); g.gain.exponentialRampToValueAtTime(p, t + dur); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.12);
+    o.connect(g); g.connect(master); o.start(t); l.start(t); o.stop(t + dur + 0.15); l.stop(t + dur + 0.15); }
+  noise(t, dur, 'lowpass', 300, 1, 0.1, dur, 1000); }   // borboteo
+export function steamJet() { if (!ok('jet', 0.15)) return; const t = ctx.currentTime;
+  tone(t, 2300, 'sine', 0.09, 0.18, 2600); noise(t, 0.6, 'highpass', 1800, 0.7, 0.35, 0.55, 5000); noise(t, 0.25, 'bandpass', 700, 1.2, 0.25, 0.22, 2000); }
