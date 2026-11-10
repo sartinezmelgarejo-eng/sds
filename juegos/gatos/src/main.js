@@ -506,7 +506,7 @@ async function main() {
 
   // ---------- CAJA DE CUETES (= TNT de AB2) ----------
   // al romperse: explosión que daña y empuja alrededor (puede encadenar otras cajas) + cohetes que salen volando y truenan en el aire
-  const booms = [], rockets = []; let warnedTnt = false, turnKills = 0;
+  const booms = [], rockets = []; let warnedTnt = false, warnedPort = false, turnKills = 0;
   const FW = [0xFF4A6A, 0x4AB8FF, 0x6BE04A, 0xFFE14A, 0xD06BFF, 0xFFFFFF];
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
@@ -1392,6 +1392,11 @@ async function main() {
     if (state === 'ready' && !warnedTnt) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
       const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
       if (ms && ms.length) { const o = ms[0]; o.hurt = 0.35; setTimeout(() => { if (!o.dead && dyn.includes(o)) { say(o, ['¡NO TOQUEN\nLOS CUETES!', '¡CUIDADO CON\nLOS CUETES!'][Math.floor(Math.random() * 2)], 2.2, 0.8); SFX.squeak(); } }, 400); } }
+    // nivel con PORTALES: la primera vez, ya que el jugador se tomó un momento, el ratón más cercano a un aro presume que "eso no se toca" (pista con humor)
+    if (state === 'ready' && !warnedPort && portals.length > 1 && readyIdle > 2.2) { warnedPort = true;
+      const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...portals.map(P => Math.hypot(P.x - o.body.position.x, P.y - o.body.position.y)));
+      if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, ['¡NI SE LES\nOCURRA EL ARO!', '¡ESE ARO\nNO SE TOCA!', '¡NO USEN EL\nARO MÁGICO!'][Math.floor(Math.random() * 3)], 2.4, 0.8); SFX.squeak();
+        for (const P of portals) P.pulse = 1; } }
     if (onSling && !onSling.hop) {
       const p = sling.pouch, pw = sling.power;
       // en la resortera: sigue a la bolsa; al estirar se aplasta en la dirección del jalón y se inclina hacia el tiro
@@ -1574,7 +1579,7 @@ async function main() {
     ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; portals.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
-    booms.length = rockets.length = 0; warnedTnt = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
+    booms.length = rockets.length = 0; warnedTnt = warnedPort = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     roomIdx = 0; roomShots = 0; stampT = null; stamp.visible = false; roomSp.length = 0; ui.setRooms(rooms().length, 0);
     buildRoom(level, fly);
