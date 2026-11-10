@@ -298,3 +298,8 @@ export function warp() { if (!ok('warp', 0.12)) return; const t = ctx.currentTim
 export function portHum(v = 1) { if (!ok('phum', 0.4)) return; const t = ctx.currentTime, p = 0.035 * v;
   tone(t, 392, 'sine', p, 0.5); tone(t, 396.5, 'sine', p, 0.5); tone(t + 0.02, 784, 'triangle', p * 0.35, 0.4);
   if (Math.random() < 0.5) tone(t + rnd(0.05, 0.25), rnd(2200, 3200), 'sine', p * 0.5, 0.18); }
+// flor tragona: "glup" (se lo traga: golpe sordo que baja) y "¡ptuí!" (lo escupe: chasquido + soplido que sube)
+export function gulp() { if (!ok('gulp', 0.15)) return; const t = ctx.currentTime;
+  tone(t, 300, 'sine', 0.3, 0.2, 90); noise(t, 0.12, 'lowpass', 500, 1, 0.35, 0.12); tone(t + 0.12, 140, 'sine', 0.18, 0.15, 70); }
+export function spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime;
+  noise(t, 0.04, 'highpass', 2500, 1, 0.4, 0.04); tone(t, 180, 'triangle', 0.25, 0.22, 720); noise(t + 0.02, 0.3, 'bandpass', 900, 1.5, 0.35, 0.28, 3200); }

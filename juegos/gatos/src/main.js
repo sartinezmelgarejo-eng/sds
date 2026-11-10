@@ -1518,7 +1518,7 @@ async function main() {
   const el = app.canvas; el.style.touchAction = 'none';
   // AB2: el poder se activa tocando en CUALQUIER parte de la pantalla. Mako (Bomb) y Omi (Bubbles) también después de chocar,
   // mientras no se hayan activado solos; Miu (Silver) solo en el aire antes del primer golpe
-  const canPower = f => !!f && !f.power && !f.exploded && !f.fade && (!f.hit || f.q.name === 'mako' || f.q.name === 'omi');
+  const canPower = f => !!f && !f.power && !f.gulp && !f.exploded && !f.fade && (!f.hit || f.q.name === 'mako' || f.q.name === 'omi');
   el.addEventListener('pointerdown', e => {
     ptrs.set(e.pointerId, {x: e.clientX, y: e.clientY}); el.setPointerCapture(e.pointerId); SFX.unlockAudio();
     if (menus.blocking) { menus.skipIntro(); return; }
@@ -1576,7 +1576,7 @@ async function main() {
     Composite.clear(engine.world, false); Composite.add(engine.world, ground);
     dyn.forEach(d => { if (d.bar && !d.bar.destroyed) d.bar.destroy(); });
     clearSpell(); spell.used = false; spell.kind = null;
-    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; portals.length = 0; queue.length = 0; clearDeck();
+    ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; portals.length = 0; flowers.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
     booms.length = rockets.length = 0; warnedTnt = warnedPort = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
@@ -2356,8 +2356,80 @@ async function main() {
         portLog.push({t: +time.toFixed(2), from: P.i, to: Q.i, who: o.f ? 'cat' : o.d.mat, s: +s.toFixed(1), out: +out.toFixed(2)});
         break; } }
   }
+  // ---------- FLORES TRAGONAS (AB2, Jardín: flores que atrapan al pájaro y lo escupen) ----------
+  // Nivel o sala: "flowers": [{x, y (altura del CENTRO de la flor), r (radio ~70), a (rad: hacia dónde ESCUPE), v (rapidez mín. de salida, def. 21)}].
+  // Una campanilla gigante con ojitos sobre su tallo: lo que le entra a la boca (gato, ratón, roca chica) se lo traga ("glup", cachetes
+  // inflados ~0.4 s) y lo escupe con fuerza en su dirección ("¡ptuí!", estirón y pétalos). El gato conserva su poder.
+  const flowers = [], flLog = [];
+  function makeFlowers(list) {
+    list.forEach((F, i) => {
+      const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a || 0, INK = 0x3A0E24, ca = Math.cos(a), sa = Math.sin(a);
+      // tallo (coordenadas del mundo): de la tierra a la base de la campanilla, con dos hojas
+      const bx = x - ca * r * 0.8, by = y - sa * r * 0.8, st = new Graphics(), my = (GROUND + by) / 2;
+      for (const [c, w] of [[0x1E3A10, 20], [0x4FA82A, 13], [0x8ED85A, 4]]) st.moveTo(x, GROUND).bezierCurveTo(x - 30, my + 40, bx - ca * 60, by - sa * 60 + 30, bx, by).stroke({color: c, width: w, cap: 'round'});
+      for (const sx of [-1, 1]) { const ly = GROUND - Math.min(110, (GROUND - by) * 0.35), lx = x - 10 + sx * 8;
+        st.moveTo(lx, ly).bezierCurveTo(lx + sx * 40, ly - 50, lx + sx * 95, ly - 30, lx + sx * 120, ly - 70).bezierCurveTo(lx + sx * 80, ly + 10, lx + sx * 30, ly + 10, lx, ly).fill(0x5CB833).stroke({color: 0x1E3A10, width: 5});
+        st.moveTo(lx, ly).quadraticCurveTo(lx + sx * 60, ly - 25, lx + sx * 110, ly - 64).stroke({color: 0x2E6A1A, width: 3}); }
+      st.ellipse(x, GROUND, 46, 10).fill({color: 0x2E5A1A, alpha: 0.45});
+      // campanilla (local: +x = boca / hacia dónde escupe)
+      const sp = new Container(); sp.position.set(x, y); sp.rotation = a; if (ca < -0.01) sp.scale.y = -1;
+      const bell = new Container(), g = new Graphics(); bell.addChild(g); sp.addChild(bell);
+      for (const sy of [-1, 0, 1]) g.poly([-r * 0.95, sy * r * 0.12, -r * 0.55, sy * r * 0.42 - r * 0.12, -r * 0.5, sy * r * 0.42 + r * 0.12]).fill(0x4FA82A).stroke({color: 0x1E3A10, width: 4});   // cáliz
+      g.moveTo(-r * 0.85, -r * 0.32).bezierCurveTo(-r * 0.2, -r * 0.42, r * 0.2, -r * 0.6, r * 0.6, -r * 0.92).lineTo(r * 0.6, r * 0.92).bezierCurveTo(r * 0.2, r * 0.6, -r * 0.2, r * 0.42, -r * 0.85, r * 0.32).closePath()
+        .fill(0xE8489A).stroke({color: INK, width: 6});
+      g.moveTo(-r * 0.7, -r * 0.2).bezierCurveTo(-r * 0.2, -r * 0.3, r * 0.15, -r * 0.42, r * 0.45, -r * 0.66).stroke({color: 0xFF9BCB, width: r * 0.1, alpha: 0.7, cap: 'round'});   // brillo
+      for (const k of [-1, 1]) g.moveTo(-r * 0.6, k * r * 0.1).bezierCurveTo(-r * 0.1, k * r * 0.14, r * 0.25, k * r * 0.24, r * 0.55, k * r * 0.36).stroke({color: 0xB8286E, width: 3, alpha: 0.7});   // nervaduras
+      for (let k = 0; k < 5; k++) { const ly = (-0.8 + k * 0.4) * r; g.ellipse(r * 0.66, ly, r * 0.2, r * 0.24).fill(k % 2 ? 0xFF8CC2 : 0xFF6FB0).stroke({color: INK, width: 4.5}); }   // lóbulos de la boca
+      g.ellipse(r * 0.66, 0, r * 0.16, r * 0.58).fill(0x5A0A2E).stroke({color: INK, width: 4});   // garganta
+      for (const ly of [-0.25, 0, 0.25]) g.moveTo(r * 0.6, ly * r).lineTo(r * 0.82, ly * r * 1.3).stroke({color: 0xFFE14A, width: 3}).circle(r * 0.84, ly * r * 1.3, 4.5).fill(0xFFD23A).stroke({color: INK, width: 2});   // estambres
+      // ojitos (parpadean, se cierran al tragar) y cachetes que se inflan
+      const eyes = new Graphics(), lids = new Graphics(), cheeks = new Graphics();
+      for (const ex of [-0.38, -0.02]) { eyes.ellipse(ex * r, -r * 0.06, r * 0.13, r * 0.16).fill(0xFFFFFF).stroke({color: INK, width: 3.5}).circle(ex * r + r * 0.05, -r * 0.05, r * 0.065).fill(0x1B1D2A).circle(ex * r + r * 0.03, -r * 0.09, r * 0.025).fill(0xFFFFFF);
+        lids.ellipse(ex * r, -r * 0.06, r * 0.14, r * 0.17).fill(0xD83A88).moveTo(ex * r - r * 0.12, -r * 0.04).quadraticCurveTo(ex * r, r * 0.06, ex * r + r * 0.12, -r * 0.04).stroke({color: INK, width: 3.5}); }
+      eyes.moveTo(-r * 0.5, -r * 0.3).lineTo(-r * 0.28, -r * 0.24).stroke({color: INK, width: 4, cap: 'round'}).moveTo(-r * 0.12, -r * 0.27).lineTo(r * 0.08, -r * 0.33).stroke({color: INK, width: 4, cap: 'round'});   // cejas pícaras
+      for (const sy of [-1, 1]) cheeks.circle(r * 0.18, sy * r * 0.42, r * 0.26).fill(0xF25AA6).stroke({color: INK, width: 4}).circle(r * 0.12, sy * r * 0.42 - r * 0.08, r * 0.07).fill({color: 0xFFFFFF, alpha: 0.5});
+      lids.visible = false; cheeks.scale.set(0); bell.addChild(cheeks, eyes, lids);
+      actors.addChildAt(st, 0); actors.addChild(sp); roomSp.push(st, sp);
+      flowers.push({x, y, r, a, v: F.v || 21, sp, bell, lids, cheeks, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i});
+    });
+  }
+  function animFlowers(dt) {
+    for (const F of flowers) { F.kick = Math.max(0, F.kick - dt * 2.4); F.gulp = F.hold ? Math.min(1, F.gulp + dt * 9) : Math.max(0, F.gulp - dt * 5);
+      const w = Math.sin((1 - F.kick) * Math.PI * 3) * F.kick, q = F.gulp;
+      F.bell.rotation = Math.sin(time * 1.3 + F.i * 2) * 0.05 + (F.hold ? Math.sin(time * 40) * 0.03 : 0);
+      F.bell.scale.set((1 + Math.sin(time * 2.2 + F.i) * 0.02 - q * 0.18 + w * 0.35), (1 + q * 0.2 - w * 0.22));
+      F.cheeks.scale.set(q * (1 + Math.sin(time * 30) * 0.05));
+      F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || F.blinkAt < 0.12; }
+  }
+  // en cada paso de física: atrapa lo que le entra a la boca, lo sostiene y lo escupe
+  function flowerStep() {
+    if (!flowers.length) return; const dt = STEP_MS / 1000;
+    for (const F of flowers) { const ca = Math.cos(F.a), sa = Math.sin(F.a);
+      if (F.hold) { const H = F.hold, b = H.b; Body.setPosition(b, {x: F.x, y: F.y}); Body.setVelocity(b, {x: 0, y: 0}); Body.setAngularVelocity(b, 0);
+        if ((H.t -= dt) > 0 && !(H.f && (H.f.exploded || H.f.fade))) continue;
+        F.hold = null; if (H.f) H.f.gulp = false; H.sp.alpha = 1; if (H.f && (H.f.exploded || H.f.fade)) continue;
+        const s = Math.max(H.s, F.v);
+        Body.setPosition(b, {x: F.x + ca * F.r * 0.95, y: F.y + sa * F.r * 0.95}); Body.setVelocity(b, {x: ca * s, y: sa * s}); b.flSkip = F; F.kick = 1;
+        fx.burst('petal', F.x + ca * F.r, F.y + sa * F.r, 12, 560, {dir: F.a, spread: 1.4, up: 60, size: 0.9, life: 0.9, g: 400, drag: 1.5}); SFX.spit();
+        if (H.f) { H.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(0.05); }
+        if (H.d && H.d.mat === 'mouse') say(H.d, ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
+        flLog.push({t: +time.toFixed(2), i: F.i, who: H.f ? 'cat' : H.d.mat, s: +s.toFixed(1)}); continue; }
+      const objs = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
+      if (flying && !flying.loop && !flying.exploded && !flying.fade && !flying.gulp) objs.push({b: flying.body, f: flying});
+      for (const d of dyn) if (!d.dead && !d.ride && !d.patrol && !tied.has(d) && !d.body.isSleeping && !d.body.isStatic) objs.push({b: d.body, d});
+      for (const o of objs) { const b = o.b, p = b.position;
+        if ((b.flN || 0) >= 2) continue;   // tope: lo que cae de vuelta a la boca no se traga sin fin
+        if (b.flSkip === F) { if (Math.hypot(p.x - F.x, p.y - F.y) > F.r * 1.6) b.flSkip = null; else continue; }
+        const size = Math.max(b.bounds.max.x - b.bounds.min.x, b.bounds.max.y - b.bounds.min.y); if (!o.f && size > F.r * 1.4) continue;
+        if (Math.hypot(p.x - F.x, p.y - F.y) > F.r * 0.85 + size * 0.3) continue;
+        if (flowers.some(G => G.hold && G.hold.b === b)) continue;
+        const sp = o.f ? o.f.sprite : o.d.sprite; sp.alpha = 0; Sleeping.set(b, false);
+        b.flN = (b.flN || 0) + 1; F.hold = {b, f: o.f, d: o.d, sp, t: 0.42, s: Math.hypot(b.velocity.x, b.velocity.y)}; if (o.f) o.f.gulp = true;
+        fx.burst('petal', F.x, F.y, 8, 380, {up: 120, size: 0.8, life: 0.8, g: 600}); SFX.gulp(); break; } }
+  }
   function buildRoom(R, fly) {
     if (R.portals) makePortals(R.portals);
+    if (R.flowers) makeFlowers(R.flowers);
     R.blocks.forEach((b, i) => {
       if (b.t === 'rock') b.h = b.w;
       const top = b.y ?? b.h, cy = GROUND - top + b.h / 2;
@@ -2427,7 +2499,7 @@ async function main() {
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
     for (const d of dyn) { d.dead = true; if (d.lit?.fl) d.lit.fl.destroy(); if (d.dz) d.dz.forEach(st => st.destroy()); if (d.lamp) { d.lamp.glow.destroy(); d.lamp.cone.destroy(); d.lamp = null; } Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy(); if (d.bar && !d.bar.destroyed) d.bar.destroy(); }
-    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = portals.length = 0; roomSp.splice(0).forEach(o => o.destroy());
+    clearRopes(); dyn.length = 0; for (const b of shelves) Composite.remove(engine.world, b); shelves.length = movers.length = bumpers.length = portals.length = flowers.length = 0; roomSp.splice(0).forEach(o => o.destroy());
     for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0; booms.length = rockets.length = 0;
     for (const c of [trail, mDizzyC]) c.removeChildren().forEach(o => o.destroy()); fx.clear();
   }
@@ -2505,8 +2577,8 @@ async function main() {
     ui.update(rdt); menus.update(rdt);
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.4;
     acc += dt * 1000;
-    while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); portalStep(); acc -= STEP_MS; }
-    animBumpers(dt); animPortals(dt);
+    while (acc >= STEP_MS) { if (movers.length) moveMovers(STEP_MS); Engine.update(engine, STEP_MS); portalStep(); flowerStep(); acc -= STEP_MS; }
+    animBumpers(dt); animPortals(dt); animFlowers(dt);
     for (const m of movers) { const q = m.body.position; if (m.px != null) for (const w of m.wheels) w.rotation += (q.x - m.px + (q.y - m.py) * (w.dir || 1)) / 15; m.px = q.x; m.py = q.y; m.sp.position.set(q.x, q.y); if (m.jolt > 0) { m.jolt = Math.max(0, m.jolt - dt * 2.5); m.sp.position.y += Math.sin(time * 55) * m.jolt * 8; m.sp.position.x += Math.sin(time * 41) * m.jolt * 3; } if (m.hoist) drawHoist(m); if (m.rot) { m.sp.rotation = m.body.angle; m.gear.rotation = m.body.angle * 4; } if (m.spin || m.fall) m.sp.rotation = m.body.angle;
       // canastillas/tazas de noria: se columpian un poquito desde su perno (solo visual; más fuerte tras un golpe)
       if (m.whl) { const D = m.whl.drop; if (m.fall) { if (m.sp.pivot.y) { m.sp.pivot.set(0, 0); } }
@@ -2572,6 +2644,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get flowers() { return flowers.map(F => ({x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

@@ -28,6 +28,9 @@ export class FX {
     this.T.drop = [tex(32, 40, k => { const g = k.createLinearGradient(6, 0, 26, 40); g.addColorStop(0, 'rgba(225,248,255,0.95)'); g.addColorStop(1, 'rgba(90,170,220,0.9)'); k.fillStyle = g;
       k.beginPath(); k.moveTo(16, 2); k.bezierCurveTo(22, 14, 28, 22, 28, 28); k.arc(16, 28, 12, 0, Math.PI); k.bezierCurveTo(4, 22, 10, 14, 16, 2); k.fill(); k.fillStyle = 'rgba(255,255,255,0.85)'; k.beginPath(); k.ellipse(11, 27, 3, 5, 0.3, 0, 7); k.fill(); })];
     this.T.dirt = shard([['#6B4426', '#3A2210'], ['#5A3820', '#2E1A0A'], ['#7E5432', '#45291A']], [[8, 10], [36, 6], [44, 30], [22, 42], [4, 28]]);
+    // pétalos (flor tragona del Jardín) y polen
+    this.T.petal = [...['#FF7AB8', '#E8489A', '#FFB3D6'].map(c => tex(40, 40, k => { k.fillStyle = c; k.strokeStyle = '#7A1E4A'; k.lineWidth = 2.5; k.beginPath(); k.moveTo(20, 3); k.bezierCurveTo(36, 12, 32, 34, 20, 37); k.bezierCurveTo(8, 34, 4, 12, 20, 3); k.fill(); k.stroke(); })),
+      tex(24, 24, k => { const g = k.createRadialGradient(12, 12, 1, 12, 12, 11); g.addColorStop(0, '#FFF6A0'); g.addColorStop(0.5, '#FFD23A'); g.addColorStop(1, 'rgba(255,190,40,0)'); k.fillStyle = g; k.beginPath(); k.arc(12, 12, 11, 0, 7); k.fill(); })];
     this.puddles = [];
     this.T.canball = this.T.can; this.T.boulder = this.T.stone;
     this.T.robot = this.T.can; // la aspiradora suelta pedacitos de metal
