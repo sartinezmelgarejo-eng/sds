@@ -509,6 +509,7 @@ const ART = (() => {
     // ojos
     const closedEye = (s, up) => { ctx.beginPath(); ctx.arc(s * r, -r * 0.1 + (up ? r * 0.06 : -r * 0.04), r * 0.17, up ? Math.PI * 1.1 : 0.2, up ? Math.PI * 1.9 : Math.PI - 0.2); ctx.lineWidth = r * 0.07; ctx.strokeStyle = outline; ctx.lineCap = 'round'; ctx.stroke(); };
     if (expr === 'blink') [-0.33, 0.33].forEach(s => closedEye(s, false));
+    else if (expr === 'sleep') [-0.33, 0.33].forEach(s => { closedEye(s, false); ctx.beginPath(); ctx.arc(s * r, -r * 0.2, r * 0.19, 0.25, Math.PI - 0.25); ctx.lineWidth = r * 0.035; ctx.strokeStyle = 'rgba(60,66,84,0.55)'; ctx.stroke(); }); // dormido: párpados caídos
     else if (expr === 'laugh') [-0.33, 0.33].forEach(s => closedEye(s, true));
     else if (expr === 'flinch') [-0.33, 0.33].forEach(s => { // ojos apretados "> <" (se cubre de la explosión, como los cerdos de AB2)
       const c = s * r, g = Math.sign(s) * r * 0.13; ctx.beginPath(); ctx.moveTo(c + g, -r * 0.25); ctx.lineTo(c - g, -r * 0.13); ctx.lineTo(c + g, -r * 0.01);
@@ -533,6 +534,7 @@ const ART = (() => {
     // cejas: pícaras (normal/blink/laugh) o levantadas de susto
     ctx.strokeStyle = outline; ctx.lineWidth = r * 0.08; ctx.lineCap = 'round';
     if (expr === 'scared' || expr === 'flinch') { ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.55); ctx.lineTo(-r * 0.18, -r * 0.66); ctx.moveTo(r * 0.55, -r * 0.55); ctx.lineTo(r * 0.18, -r * 0.66); ctx.stroke(); }
+    else if (expr === 'sleep') { ctx.beginPath(); ctx.moveTo(-r * 0.52, -r * 0.42); ctx.quadraticCurveTo(-r * 0.34, -r * 0.52, -r * 0.16, -r * 0.44); ctx.moveTo(r * 0.52, -r * 0.42); ctx.quadraticCurveTo(r * 0.34, -r * 0.52, r * 0.16, -r * 0.44); ctx.stroke(); } // cejas relajadas
     else if (expr === 'dizzy' || expr === 'dizzy2') { ctx.beginPath(); ctx.moveTo(-r * 0.56, -r * 0.5); ctx.lineTo(-r * 0.16, -r * 0.6); ctx.moveTo(r * 0.55, -r * 0.5); ctx.quadraticCurveTo(r * 0.35, -r * 0.42, r * 0.15, -r * 0.48); ctx.stroke(); } // cejas disparejas
     else { ctx.beginPath(); ctx.moveTo(-r * 0.55, -r * 0.47); ctx.lineTo(-r * 0.15, -r * 0.36); ctx.moveTo(r * 0.55, -r * 0.47); ctx.lineTo(r * 0.15, -r * 0.36); ctx.stroke(); }
     // nariz + bigotes
@@ -540,7 +542,10 @@ const ART = (() => {
     ctx.strokeStyle = 'rgba(40,45,60,0.7)'; ctx.lineWidth = r * 0.025;
     [-1, 1].forEach(s => [[-0.05], [0.08]].forEach(([dy]) => { ctx.beginPath(); ctx.moveTo(s * r * 0.18, r * (0.22 + dy)); ctx.lineTo(s * r * 0.85, r * (0.12 + dy * 2.2)); ctx.stroke(); }));
     // sonrisa con dientes
-    if (expr === 'scared') { // boca en "O"
+    if (expr === 'sleep') { // dormido: boquita entreabierta, chueca, con un hilito de baba
+      ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.46, r * 0.1, r * 0.065, 0.2, 0, TAU); ctx.fillStyle = '#4A1A2A'; ctx.fill(); ctx.lineWidth = r * 0.04; ctx.strokeStyle = outline; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(r * 0.13, r * 0.5); ctx.quadraticCurveTo(r * 0.17, r * 0.6, r * 0.14, r * 0.68); ctx.lineWidth = r * 0.035; ctx.strokeStyle = 'rgba(190,225,255,0.85)'; ctx.lineCap = 'round'; ctx.stroke();
+    } else if (expr === 'scared') { // boca en "O"
       ctx.beginPath(); ctx.ellipse(0, r * 0.45, r * 0.12, r * 0.15, 0, 0, TAU); ctx.fillStyle = '#3A1A26'; ctx.fill(); ctx.lineWidth = r * 0.045; ctx.strokeStyle = outline; ctx.stroke();
     } else if (expr === 'flinch') { // dientes apretados (mueca)
       ctx.beginPath(); ctx.ellipse(0, r * 0.44, r * 0.3, r * 0.13, 0, 0, TAU); ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.lineWidth = r * 0.05; ctx.strokeStyle = outline; ctx.stroke();

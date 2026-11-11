@@ -323,3 +323,16 @@ export function boilerHorn(dur = 0.8) { if (!ok('horn', 0.3)) return; const t = 
   noise(t, dur, 'bandpass', 1400, 0.8, 0.08, dur, 2600); noise(t, dur, 'lowpass', 200, 1, 0.12, dur, 600); }   // siseo + borboteo grave
 export function boilerBoom() { if (!ok('bboom', 0.15)) return; const t = ctx.currentTime;
   tone(t, 110, 'sine', 0.45, 0.35, 40); noise(t, 0.4, 'lowpass', 900, 1, 0.5, 0.35, 200); noise(t, 0.5, 'highpass', 1500, 0.7, 0.25, 0.45, 4000); }
+// ratón dormido: ronquido suavecito (inhala "rrrr" grave con ronroneo, exhala "fiuu" silbadito); vol 0..1 según qué tan cerca está la cámara
+export function snore(vol = 1, pitch = 1) { if (!ok('snore', 0.8) || vol < 0.05) return; const t = ctx.currentTime;
+  const o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  o.type = 'sawtooth'; o.frequency.value = 85 * pitch; lfo.frequency.value = 26; lg.gain.value = 0.5; f.type = 'lowpass'; f.frequency.value = 420;
+  lfo.connect(lg); lg.connect(g.gain); o.connect(f); f.connect(g); g.connect(master);
+  g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.05 * vol, t + 0.45); g.gain.linearRampToValueAtTime(0.0001, t + 0.9);
+  o.start(t); lfo.start(t); o.stop(t + 0.95); lfo.stop(t + 0.95);
+  tone(t + 1.15, 1250 * pitch, 'sine', 0.025 * vol, 0.55, 700 * pitch);   // silbidito al soltar el aire
+}
+// ratón que despierta de golpe: resoplido + burbuja que truena + chillido de sorpresa que sube
+export function wake(pitch = 1) { if (!ok('wake', 0.3)) return; const t = ctx.currentTime;
+  noise(t, 0.12, 'bandpass', 900, 1.2, 0.12, 0.1, 400); tone(t + 0.02, 1800, 'sine', 0.08, 0.05, 2600);
+  tone(t + 0.12, 700 * pitch, 'square', 0.06, 0.22, 2100 * pitch); }

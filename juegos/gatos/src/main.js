@@ -46,7 +46,7 @@ function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null, bruise
 }
 const hatTex = (which, r) => cached(`hat|${which}|${r}`, () => canvasTex(r * 2.2, r * 2, k => ART.hat(k, r * 1.1, r * 1.25, r, which), 1.5));
 // las 4 caras de un ratón (normal/susto sin pupilas: las pupilas van aparte y siguen al gato) para un nivel de golpes
-const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch', 'dizzy', 'dizzy2'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
+const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch', 'dizzy', 'dizzy2', 'sleep'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2, hat) { // se hornea al doble para que aguante el zoom
   const sp = ART.buildCatSprite(img, fur, size, expr, eyes, hat);
   return {tex: Texture.from(sp.canvas), ax: sp.ox / sp.canvas.width, ay: sp.cy / sp.canvas.height, footY: (sp.oy - sp.cy) / 2};
@@ -389,6 +389,7 @@ async function main() {
   const bubbles = [];
   const sayT = {};
   function say(d, text, dur, sc = 1) {
+    if (d.zz) return;   // dormido: no habla (despierta primero)
     const c = new Container(), t = new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: 64, fill: '#2B2F45', align: 'center', lineHeight: 64}}); t.anchor.set(0.5, 0.42);
     const w = t.width + 80, h = t.height + 56, g = new Graphics();
     g.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
@@ -456,7 +457,7 @@ async function main() {
     if (d.life <= 0) { if (d.mat === 'rocket') igniteRocket(d); else destroyDyn(d); }
   }
   function destroyDyn(d) {
-    d.dead = true; const p = d.body.position; if (d.dz) { d.dz.forEach(st => st.destroy()); d.dz = null; }
+    d.dead = true; const p = d.body.position; if (d.dz) { d.dz.forEach(st => st.destroy()); d.dz = null; } if (d.zs) { d.zs.forEach(z => z.s.destroy()); d.zs = null; }
     Composite.remove(engine.world, d.body); d.sprite.destroy(); d.shadow.destroy();
     dyn.splice(dyn.indexOf(d), 1);
     dyn.forEach(o => Sleeping.set(o.body, false)); // lo que estaba encima debe caer
@@ -713,6 +714,35 @@ async function main() {
     else if (d.slip > 0) d.slip = Math.max(0, d.slip - dt * 2.2);
     return d.slip || 0;
   }
+  // ratón dormido: burbuja de moco que crece al exhalar y se encoge al inhalar, Zzz que suben y ronquido (solo si se ve en pantalla)
+  let zTex = null;
+  function sleepMouse(d, dt, t) {
+    const s = Math.sin(t * 1.9), e = Math.max(0, s), sc = d.r * (0.005 + 0.042 * e * (0.85 + 0.15 * Math.sin(t * 0.37))), R = d.r * 1.5, rad = 20 * sc;
+    d.bub.scale.set(sc * (1 + 0.04 * Math.sin(t * 9) * e), sc * (1 - 0.04 * Math.sin(t * 9) * e)); d.bub.position.set(R * 0.12 + rad * 0.7, R * 0.24 + rad * 0.45);
+    if (s >= 0 && (d.zs0 ?? 0) < 0) { const p = d.body.position, sx = app.screen.width / 2 + (p.x - cam.x) * cam.zoom, sy = app.screen.height / 2 + (p.y - cam.y) * cam.zoom;
+      if (sx > 0 && sx < app.screen.width && sy > 0 && sy < app.screen.height) SFX.snore(Math.min(1, cam.zoom * 1.6), d.kind === 'small' ? 1.25 : d.kind === 'boss' ? 0.8 : 1); }
+    d.zs0 = s;
+    if ((d.zAt -= dt) < 0) { d.zAt = 1.25 + Math.random() * 0.3;
+      zTex = zTex || canvasTex(72, 72, k => { k.font = '60px "Luckiest Guy"'; k.textAlign = 'center'; k.textBaseline = 'middle'; k.lineJoin = 'round'; k.lineWidth = 11; k.strokeStyle = '#1F2240'; k.strokeText('Z', 36, 40); k.fillStyle = '#EAF6FF'; k.fillText('Z', 36, 40); }, 2);
+      const z = new Sprite(zTex), p = d.body.position; z.anchor.set(0.5); z.alpha = 0; mDizzyC.addChild(z); d.zs.push({s: z, t: 0, x: p.x + d.w * 0.32, y: p.y - d.h * 0.45, k: d.r / 44, ph: Math.random() * 6}); }
+  }
+  function animZ(d, dt) {
+    for (let i = d.zs.length - 1; i >= 0; i--) { const z = d.zs[i]; z.t += dt * (d.zz ? 1 : 3);
+      if (z.t > 2) { z.s.destroy(); d.zs.splice(i, 1); continue; }
+      z.s.position.set(z.x + Math.sin(z.t * 2.4 + z.ph) * 12 * z.k + z.t * 26 * z.k, z.y - z.t * 55 * z.k); z.s.scale.set((0.28 + z.t * 0.22) * z.k); z.s.rotation = -0.25 + Math.sin(z.t * 2 + z.ph) * 0.18;
+      z.s.alpha = Math.min(1, z.t * 4) * Math.min(1, (2 - z.t) * 1.2); }
+  }
+  function wakeMouse(d, quiet) {
+    if (!d.zz) return; d.zz = 0;
+    if (d.bub) { const g = d.bub.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position;
+      if (!quiet) fx.burst('drop', w.x, w.y, 7, 280, {up: 140, life: 0.45, size: 0.32, drag: 0.8}); d.bub.destroy(); d.bub = null; }
+    if (quiet) return;
+    d.wakeT = 0.8; d.blinkAt = time + 1.2; SFX.wake(d.kind === 'boss' ? 0.7 : d.kind === 'small' ? 1.2 : 1);
+    if (time - (sayT.wake || -9) > 1.2) { sayT.wake = time; setTimeout(() => { if (dyn.includes(d) && !d.dead) say(d, ['¡¿QUÉ?!\n¡¿QUÉ?!', '¡¿EH?!\n¡GATOS!', '¡NO ESTABA\nDORMIDO!', '¡¿QUIÉN\nHACE RUIDO?!'][Math.floor(Math.random() * 4)], 1.3, 0.75); }, 180); }
+    // el grito despierta a los dormidos de al lado (en cadena, con un poquito de retraso)
+    const p = d.body.position;
+    for (const o of dyn) if (o.zz && o !== d && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 650) setTimeout(() => { if (dyn.includes(o) && !o.dead) wakeMouse(o); }, 350 + Math.random() * 350);
+  }
   function animMouse(d, dt) {
     const t = time + d.ph, B = 1 / 1.5;
     let expr = 'normal', hop = 0;
@@ -761,9 +791,17 @@ async function main() {
       d.panic = Math.max(0, Math.min(1, (d.panic || 0) + (pn ? dt * 6 : -dt * 1.5)));
       if (pn && !d.panicked) { d.panicked = 1; if (time - (d.yelpT || -9) > 1) { d.yelpT = time; SFX.squeak(); } }
       if (!pn && d.panic <= 0) d.panicked = 0; }
-    if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
+    // DORMIDO: cualquier susto lo despierta (gato que pasa cerca, algo que le cae, golpe, explosión, vecino que hace puf, agua…)
+    if (d.zz) { const why = fc && fc.speed > 3 && Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) < 420 ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
+      if (why) { d.wk = why; wakeMouse(d); } }
+    if (d.zz && laughAll > 100) wakeMouse(d, true);   // perdiste (no la risita de cada turno): hasta el dormilón despierta a burlarse
+    if (d.zz) sleepMouse(d, dt, t);
+    if (d.zs && d.zs.length) animZ(d, dt);
+    if (d.wakeT > 0) d.wakeT -= dt;
+    if (d.zz) expr = 'sleep';
+    else if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
     else if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
-    else if (d.hurt > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3) expr = 'scared';
+    else if (d.hurt > 0 || d.wakeT > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
@@ -797,13 +835,13 @@ async function main() {
     }
     if (d.beam) { // la lamparita del casco alumbra hacia donde mira (sigue al gato como reflector); parpadea un poco
       const ang = Math.atan2(d.look.y * 0.8, d.look.x), cur = d.beam.cone.rotation, da = Math.atan2(Math.sin(ang - cur), Math.cos(ang - cur)); d.beam.cone.rotation = cur + da * Math.min(1, dt * 8);
-      d.beam.cone.alpha = (expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
+      d.beam.cone.alpha = (expr === 'sleep' ? 0.18 : expr === 'blink' || expr === 'laugh' ? 0.55 : 0.8) * (0.9 + 0.1 * Math.sin(t * 23) * Math.sin(t * 7.3)); }
     if (d.fuse) { const f = d.fuse, fl = 0.75 + 0.25 * Math.sin(t * 41) * Math.sin(t * 17); f.scale.set((0.35 + 0.15 * fl) * d.r / 44); f.alpha = 0.7 + 0.3 * fl;   // la mecha chisporrotea
       if (d.panic > 0) { f.scale.x *= 1 + 0.5 * d.panic; f.scale.y *= 1 + 0.5 * d.panic; }
       if (d.panic > 0.3 && Math.random() < dt * 7) { const p = d.body.position, sd = Math.random() < 0.5 ? -1 : 1; // gotas de sudor que salen volando de la frente
         fx.burst('drop', p.x + sd * d.w * 0.3, p.y - d.h * 0.42, 1, 170, {dir: -Math.PI / 2 + sd * 0.9, spread: 0.4, up: 60, life: 0.45, size: 0.3, drag: 0.8}); }
       if (Math.random() < dt * (9 + 25 * (d.panic || 0))) { const g = f.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : null; if (w) fx.burst('flame', w.x, w.y, 1, 120, {up: 80, size: 0.25, life: 0.3, g: 200}); } }
-    const br = Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;
+    const br = d.zz ? Math.sin(t * 1.9) * 0.055 : Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;   // dormido: respira hondo y lento
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     d.sprite.y += cw * d.h * 0.4;
@@ -815,6 +853,7 @@ async function main() {
     if (slp > 0) { d.sprite.rotation += (Math.sin(time * 17) * 0.2 - d.slipDir * 0.12) * slp; d.sprite.scale.x *= 1 + 0.05 * Math.sin(time * 34) * slp; } // resbalón: se echa para atrás y manotea
     if (shk > 0) { d.sprite.rotation += Math.sin(time * 50) * 0.22 * shk; d.sprite.scale.x *= 1 + 0.07 * Math.sin(time * 50 + 1.3) * shk; } // sacudida de perrito
     if (cgh > 0) { const k = Math.sin((1 - cgh) * Math.PI); d.sprite.scale.x *= 1 + 0.1 * k; d.sprite.scale.y *= 1 - 0.12 * k; d.sprite.x -= 7 * k; d.sprite.y += 0.06 * k * d.h; } // espasmo de tos
+    if (d.wakeT > 0.25) { const u = (0.8 - d.wakeT) / 0.55; hop += Math.sin(u * Math.PI) * d.h * 0.6; d.sprite.scale.y *= 1 + 0.12 * Math.sin(u * Math.PI); d.sprite.scale.x *= 1 - 0.08 * Math.sin(u * Math.PI); }   // brinco del susto al despertar
     d.sprite.y -= hop + br * d.h * 0.25;
     if (d.infl) balloonLook(d);
   }
@@ -1299,7 +1338,7 @@ async function main() {
       const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead); if (alive.length) say(alive[Math.floor(Math.random() * alive.length)], '¡JI JI JI!\n¡SIN ATÚN!', 3); return; }
     state = 'between'; turnWait = 0.9;
     // tiro sin ratones caídos: uno se burla cuando la cámara regresa (la vista general muestra la fortaleza)
-    if (!turnKills && Math.random() < 0.65) { const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead && !bubbles.some(b => b.d === o));
+    if (!turnKills && Math.random() < 0.65) { const alive = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.zz && !bubbles.some(b => b.d === o));
       if (alive.length) { const o = alive[Math.floor(Math.random() * alive.length)];
         setTimeout(() => { if (!o.dead && dyn.includes(o)) { o.laugh = 1.4; say(o, ['¡FALLASTE!', '¡JA JA!\n¡NI CERCA!', '¡ÁNDALE,\nGATITO!', '¡AQUÍ\nSEGUIMOS!', '¡BUUU!'][Math.floor(Math.random() * 5)], 1.6, 0.85); SFX.giggle(); } }, 650); } }
   }
@@ -2525,6 +2564,7 @@ async function main() {
       // el golpe llega del lado de la explosión (la tapa sale volando hacia el otro lado)
       const ux = (F.x - x) / (Math.hypot(F.x - x, F.y - y) || 1), sx = F.x - ux * F.r, sy = F.y - F.r * 0.5;
       trapJolt(F, k, sx, sy, true);
+      if (F.hold && k > 0.5) { F.hold.t = Math.min(F.hold.t, 0.03); F.hold.s += 6 * k; F.spitB = (F.spitB || 0) + 1; }   // la sacudida le hace escupir YA lo que traía en la boca (con más fuerza)
       if (F.lv) { (F.kind === 'boiler' ? SFX.clank : SFX.clink)(0.4 + 0.5 * k); F.hot.alpha = Math.max(F.hot.alpha, 0.45 * k); F.steam += 0.6 + k;
         fx.burst('star', F.x, F.y - F.r * 0.8, Math.round(2 + 4 * k), 260, {up: 160, size: 0.45, life: 0.6, g: 500}); }
       else fx.burst('petal', F.x, F.y - F.r * 0.3, Math.round(5 + 8 * k), 420 * k, {up: 180, size: 0.9, life: 1.1, g: 420, drag: 1.4});  }
@@ -2538,7 +2578,7 @@ async function main() {
       if (o.label === 'cat' && flying && o === flying.body) { flying.trapHit = (flying.trapHit || 0) + 1;
         // AB2: los cerdos se burlan cuando el pájaro rebota en algo sin hacer daño → el ratón vivo más cercano se ríe
         if (flying.trapHit === 1 && time - (sayT.trap || -9) > 3) { sayT.trap = time; const vis = d => { const q = d.body.position, sx = app.screen.width / 2 + (q.x - cam.x) * cam.zoom, sy = app.screen.height / 2 + (q.y - cam.y) * cam.zoom; return sx > 140 && sx < app.screen.width - 140 && sy > 120; };
-          const all = dyn.filter(d => d.mat === 'mouse' && !d.dead && !d.ride), ms = all.some(vis) ? all.filter(vis) : all;
+          const all = dyn.filter(d => d.mat === 'mouse' && !d.dead && !d.ride && !d.zz), ms = all.some(vis) ? all.filter(vis) : all;
           if (ms.length) { const dd = d => Math.hypot(d.body.position.x - F.x, d.body.position.y - F.y), m = ms.reduce((a, c) => dd(c) < dd(a) ? c : a);
             setTimeout(() => { if (!m.dead && dyn.includes(m)) { m.laugh = 1.4; say(m, (F.kind === 'boiler' ? ['¡JA! ¡YA ESTÁ\nLLENA!', '¡TOC, TOC!\n¡JA JA!'] : F.kind === 'kettle' ? ['¡JA! ¡YA NO\nLE CABE!', '¡CLONC!\n¡JA JA!'] : ['¡JA! ¡YA NO\nTIENE HAMBRE!', '¡REBOTÓ!\n¡JA JA!'])[Math.floor(Math.random() * 2)], 1.5, 0.8); SFX.giggle(); } }, 350); } } } }
   });
@@ -2716,8 +2756,11 @@ async function main() {
         fg.moveTo(fx0, fy0).quadraticCurveTo(fx0 - R * 0.3, fy0 - R * 0.12, fx0 - R * 0.2, fy0 - R * 0.42).stroke({color: 0x2A1A10, width: 7}).stroke({color: 0xE8D6A8, width: 3.5});
         fuse = new Sprite(lampGlowTex); fuse.anchor.set(0.5); fuse.blendMode = 'add'; fuse.position.set(fx0 - R * 0.2, fy0 - R * 0.42); fuse.tint = 0xFFB040;
         sp.addChild(bx, fg, fuse); }
+      // ratón DORMIDO (los cerdos dormidos de AB): "zz": 1 → ojos cerrados, burbuja de moco que se infla y se desinfla, Zzz y ronquido; despierta de un brinco
+      let bub = null; if (m.zz && !m.ride) { bub = new Graphics(); bub.circle(0, 0, 20).fill({color: 0xCFEFFF, alpha: 0.55}).stroke({color: 0x4F86C0, width: 2, alpha: 0.9}).circle(-7, -7, 5).fill({color: 0xFFFFFF, alpha: 0.95}).circle(8, 9, 2.5).fill({color: 0xFFFFFF, alpha: 0.6});
+        bub.position.set(R * 0.12, R * 0.24); bub.scale.set(0.1); sp.addChild(bub); }
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, tnt: !!m.tnt, fuse, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
+      dyn.push({body, sprite: sp, zz: bub ? 1 : 0, bub, zs: bub ? [] : null, zAt: Math.random() * 1.5, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, tnt: !!m.tnt, fuse, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
       // ratón colgado de globos (los cerdos con globos de AB2): "balloons": [f, …] y "lift" en el ratón
       if (m.balloons) m.balloons.forEach((f, n) => makeBalloon(dyn[dyn.length - 1], {x: m.x, w: m.r * 2, balloons: m.balloons, lift: m.lift}, m.y + m.r * 0.92, f, n));
     });
