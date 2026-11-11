@@ -394,12 +394,15 @@ async function main() {
     g.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
     g.poly([-10, h / 2 - 6, 44, h / 2 - 6, -60, h / 2 + 62]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
     g.roundRect(-w / 2, -h / 2, w, h, 46).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9}); g.rect(-4, h / 2 - 12, 42, 14).fill(0xFFFFFF);
-    c.addChild(g, t); front.addChild(c); bubbles.push({c, d, t: 0, dur, h, sc});
+    c.addChild(g, t); front.addChild(c); bubbles.push({c, g, d, t: 0, dur, h, w, sc, side: 1});
   }
   function updateBubbles(dt) {
     for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.t += dt; const u = Math.min(1, b.t / 0.35), out = Math.max(0, (b.t - b.dur) / 0.25);
       if (b.d.dead || out >= 1) { b.c.destroy({children: true}); bubbles.splice(i, 1); continue; }
-      const p = b.d.body.position; b.c.position.set(p.x + 70 * b.sc, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6);
+      const p = b.d.body.position;
+      // si el globo se saldría por la orilla derecha de la pantalla, se voltea al lado izquierdo del ratón (cola espejeada)
+      if (b.side > 0 && app.screen.width / 2 + (p.x + (70 + b.w / 2) * b.sc - cam.x) * cam.zoom > app.screen.width - 8) { b.side = -1; b.g.scale.x = -1; }
+      b.c.position.set(p.x + 70 * b.sc * b.side, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6);
       b.c.scale.set(Math.max(0.05, backOutE(u, 2.4)) * (1 - out * 0.3) * b.sc); b.c.alpha = 1 - out; b.c.rotation = Math.sin(b.t * 4) * 0.03; }
   }
   function driveRobot(d, dt) {
@@ -2514,7 +2517,12 @@ async function main() {
         fx.burst('star', sp.x, sp.y, Math.round(3 + 5 * k), 300, {up: 100, size: 0.45, life: 0.5, g: 500}); }
       else { SFX.thump(0.3 + 0.5 * k); fx.burst('petal', sp.x, sp.y, Math.round(3 + 6 * k), 300, {up: 100, size: 0.8, life: 0.8, g: 500, drag: 1.5}); }
       if (k > 0.4) cam.shake(3 + 6 * k); F.blinkAt = Math.min(F.blinkAt, 0.1); F.bonk = (F.bonk || 0) + 1;
-      if (o.label === 'cat' && flying && o === flying.body) flying.trapHit = (flying.trapHit || 0) + 1; }
+      if (o.label === 'cat' && flying && o === flying.body) { flying.trapHit = (flying.trapHit || 0) + 1;
+        // AB2: los cerdos se burlan cuando el pájaro rebota en algo sin hacer daño → el ratón vivo más cercano se ríe
+        if (flying.trapHit === 1 && time - (sayT.trap || -9) > 3) { sayT.trap = time; const vis = d => { const q = d.body.position, sx = app.screen.width / 2 + (q.x - cam.x) * cam.zoom, sy = app.screen.height / 2 + (q.y - cam.y) * cam.zoom; return sx > 140 && sx < app.screen.width - 140 && sy > 120; };
+          const all = dyn.filter(d => d.mat === 'mouse' && !d.dead && !d.ride), ms = all.some(vis) ? all.filter(vis) : all;
+          if (ms.length) { const dd = d => Math.hypot(d.body.position.x - F.x, d.body.position.y - F.y), m = ms.reduce((a, c) => dd(c) < dd(a) ? c : a);
+            setTimeout(() => { if (!m.dead && dyn.includes(m)) { m.laugh = 1.4; say(m, (F.kind === 'boiler' ? ['¡JA! ¡YA ESTÁ\nLLENA!', '¡TOC, TOC!\n¡JA JA!'] : F.kind === 'kettle' ? ['¡JA! ¡YA NO\nLE CABE!', '¡CLONC!\n¡JA JA!'] : ['¡JA! ¡YA NO\nTIENE HAMBRE!', '¡REBOTÓ!\n¡JA JA!'])[Math.floor(Math.random() * 2)], 1.5, 0.8); SFX.giggle(); } }, 350); } } } }
   });
   function makeFlowers(list) {
     list.forEach((F, i) => {
