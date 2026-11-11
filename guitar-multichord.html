@@ -14,13 +14,7 @@
   try {
     var coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
     var minDim = Math.min(screen.width, screen.height);
-    // Tableta (cualquier táctil con lado corto ≥ 520 CSS px). El layout
-    // desktop forzado sigue pidiendo ≥ 600; el modo atril usa esta bandera.
-    window._isTablet = !!(coarse && minDim >= 520 && Math.max(screen.width, screen.height) >= 800);
-    // 2026-10-29 (Samuel): las tabletas YA NO se fuerzan a vista de computadora —
-    // en horizontal usan la vista táctil (standby + overlay + modo atril), como
-    // la versión de junio. Para la vista de computadora en tableta: ?desktop=1.
-    if (coarse && minDim >= 600 && /[?&]desktop=1/.test(location.search)) {
+    if (coarse && minDim >= 600 && !/[?&]mobile=1/.test(location.search)) {
       window._tabletDesktop = true;
       var vp = document.querySelector('meta[name="viewport"]');
       if (vp) vp.setAttribute('content', 'width=1100, viewport-fit=cover');
@@ -6082,27 +6076,6 @@ body.practica-on #landscape-play .lp-info-practica {
   cursor: pointer;
 }
 </style>
-<script>
-// Pantalla completa automática en teléfono/tableta (Samuel, 2026-10-29).
-// Los navegadores solo la permiten tras un toque: se pide en el PRIMER toque
-// de la sesión y cada vez que se le da play. iPhone (Safari) no la soporta:
-// ahí solo aplica instalada como app. Sin botón.
-(function () {
-  try {
-    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) return;
-    const el = document.documentElement;
-    const req = el.requestFullscreen || el.webkitRequestFullscreen;
-    if (!req) return;
-    const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-    const go = () => { if (isFs()) return; try { const r = req.call(el, { navigationUI: 'hide' }); if (r && r.catch) r.catch(() => {}); } catch (e) {} };
-    let first = true;
-    document.addEventListener('pointerup', (e) => {
-      const playBtn = e.target && e.target.closest && e.target.closest('#d-tx-play, #m-tx-play, #lp-play, #ls-play, #at-play, #pp-start, #ls-practica-play');
-      if (first || playBtn) { first = false; go(); }
-    }, true);
-  } catch (e) {}
-})();
-</script>
 </head>
 <body class="keypad-open">
 
@@ -8182,8 +8155,6 @@ function shellVoicing(quality, rootPc, type = 'A') {
   let thirdInt = null;
   if (ints.includes(4)) thirdInt = 4;
   else if (ints.includes(3)) thirdInt = 3;
-  else if (ints.includes(5)) thirdInt = 5;   // sus4: la 4a ocupa el lugar de la 3a
-  else if (ints.includes(2)) thirdInt = 2;   // sus2
   else thirdInt = 4;
   // Shells are inherently a root-on-bottom idiom — rotating the voicing
   // (7 or 3 in the bass) forces awkward fret spans on guitar, so we stick
@@ -9152,23 +9123,11 @@ function renderChordStaff(shape, rootPc, quality, flats, sizing) {
       case 'eighth':  glyph = '𝄾'; break;
       default:        glyph = '𝄽';
     }
-    // Vector rests (antes eran glifos Unicode 𝄻𝄼𝄽𝄾 que en Android/tabletas
-    // sin fuente musical salían como "▯"). fs/glyph se conservan arriba.
-    void fs; void glyph;
-    const sp = lineSp, y = restY;
-    const ink = 'fill="#1a1a1a" opacity="0.55"';
-    if (noteKind === 'whole') {
-      return `<rect x="${cx - 0.6 * sp}" y="${y}" width="${1.2 * sp}" height="${0.5 * sp}" ${ink}/>`;
-    }
-    if (noteKind === 'half') {
-      return `<rect x="${cx - 0.6 * sp}" y="${y - 0.5 * sp}" width="${1.2 * sp}" height="${0.5 * sp}" ${ink}/>`;
-    }
-    if (noteKind === 'eighth') {
-      return `<g ${ink}><circle cx="${cx - 0.25 * sp}" cy="${y - 0.55 * sp}" r="${0.28 * sp}"/>`
-        + `<path d="M${cx - 0.3 * sp},${y - 0.35 * sp} Q${cx + 0.1 * sp},${y - 0.2 * sp} ${cx + 0.4 * sp},${y - 0.8 * sp} L${cx},${y + 1.0 * sp}" stroke="#1a1a1a" stroke-width="${0.16 * sp}" fill="none"/></g>`;
-    }
-    // quarter (default)
-    return `<path d="M${cx - 0.3 * sp},${y - 1.5 * sp} L${cx + 0.3 * sp},${y - 0.75 * sp} L${cx - 0.15 * sp},${y - 0.15 * sp} L${cx + 0.3 * sp},${y + 0.55 * sp} Q${cx - 0.45 * sp},${y + 0.2 * sp} ${cx - 0.1 * sp},${y + 1.1 * sp}" stroke="#1a1a1a" stroke-width="${0.22 * sp}" fill="none" stroke-linejoin="round" opacity="0.55"/>`;
+    return `<text x="${cx}" y="${restY + lineSp * 0.5}" text-anchor="middle"
+              font-size="${fs}"
+              font-family="'Bravura Text','Petaluma','Apple Symbols','Segoe UI Symbol','Noto Sans Symbols 2','Noto Music','Symbola',serif"
+              fill="#1a1a1a" opacity="0.55"
+              dominant-baseline="alphabetic">${glyph}</text>`;
   };
 
   // Single shared stem across treble + bass (grand staff = one unit).
@@ -11675,7 +11634,6 @@ function renderAlternatives() {
   const altRow = document.getElementById('alt-row');
   const altName = document.getElementById('alt-chord-name');
   const fc = focusedChord();
-  if (!fc || !QUALITIES[fc.quality]) return;
   const root = chordRoot(fc);
   const flats = useFlatsFor(root);
   const chordName = chordNameForVoicing(fc.quality, root, state.userVoicing?.shape, flats)
@@ -18672,10 +18630,7 @@ class Player {
     // showing on the chord map / guitar / piano. Without this guard,
     // every bar tick reverted focus to the live AI chord and the
     // audition was invisible.
-    // Compases de silencio (curId null) o ids de otra tonalidad: conservar el
-    // foco anterior — antes reventaba renderAlternatives (QUALITIES[undefined])
-    // y se saltaba la tira/atril ese compás (audit 2026-10-29).
-    if (!_auditionRevertTimer && curId && currentMap().chordDefs[curId]) {
+    if (!_auditionRevertTimer) {
       state.focusedChord = curId;
       state.userVoicing = null;
     }
@@ -18732,7 +18687,7 @@ class Player {
       simTonality = q.tonality;
       return true;
     };
-    while (totalBars < n && safety++ < Math.max(30, n * 3)) {
+    while (totalBars < n && safety++ < 30) {
       // Frontera de estación pendiente: lo que sigue es la cola.
       if (songArr === this.song && totalBars >= pendingBoundary) {
         if (_switchToQueued()) continue;
@@ -18849,24 +18804,16 @@ class Player {
     // first cell's chord/shape should equal the peek we promised in
     // the preview. Stash it so we can overwrite cells[0] below.
     const promotedPeek = this._cachedPeek;
-    // Modo atril (tableta): planea N renglones × 4 compases por adelantado.
-    // _rows === 1 fuera del atril → comportamiento idéntico al de siempre.
-    const _rows = (window._atril && typeof window._atril.planRows === 'function')
-      ? window._atril.planRows() : 1;
-    const _prevFuture = this._cachedFuture;
-    const _hadPage = Array.isArray(this._cachedPage) && this._cachedPage.length > 0;
-    this._cachedFuture = [];
     const wasFollowupPage = promotedPeek
       && this._cachedPlanPage != null
       && Math.floor(this.totalBars / 4) === this._cachedPlanPage + 1;
     this._cachedPage = [];
     this._cachedPeek = null;
     this._cachedPlanPage = Math.floor(this.totalBars / 4);   // tag for cache invalidation
-    const lookahead = this._lookAheadBars(Math.max(8, 4 * _rows + 4));
+    const lookahead = this._lookAheadBars(8);
     // Start the chain from the actual last-played shape — same context the
     // next real trigger will be in.
     let prevShape = this.previousShape;
-    let _chainBeforeReset = null;   // último voicing antes de un reinicio de sección (tope de salto)
     let prevKeyPc = state.keyPc;
     let prevTonality = state.tonality;
     let prevChord = null;
@@ -18942,7 +18889,6 @@ class Player {
         // instead of inheriting the previous section's neighborhood.
         const _segSectionLabel = (seg.songIdx != null) ? this.song[seg.songIdx]?.label : null;
         if (_segSectionLabel && prevSectionLabel && _segSectionLabel !== prevSectionLabel) {
-          if (prevShape) _chainBeforeReset = prevShape;
           prevShape = null;
           topRepeats = 0;
           lastTop = null;
@@ -19014,37 +18960,6 @@ class Player {
           if (!shape && ch.quality && ch.quality !== eq) {
             shape = this._pickShape(ch.quality, root, 'drop2', null, pickOpts);
             finalType = 'drop2';
-          }
-          // Ajustes musicales (audit 2026-10-29, aprobados por Samuel):
-          //  · cambio de acorde con EXACTAMENTE las mismas notas → re-pick (que se mueva una voz)
-          //  · soprano: máx. 4 acordes seguidos con la misma nota arriba
-          //  · cambio de sección: tope de salto de registro ~una 5a (7 semitonos de promedio)
-          if (shape) {
-            const _notes = sh => !sh ? null
-              : (sh.__pianoShape && sh.__pianoShape.length) ? sh.__pianoShape.slice().sort((a, b) => a - b)
-              : sh.map((f, s) => f >= 0 ? STRING_OPEN_MIDI[s] + f : null).filter(x => x !== null).sort((a, b) => a - b);
-            const _top = sh => { const n = _notes(sh); return n && n.length ? n[n.length - 1] : null; };
-            const _mean = sh => { const n = _notes(sh); return n && n.length ? n.reduce((a, b) => a + b, 0) / n.length : null; };
-            const prevN = prevShape ? JSON.stringify(_notes(prevShape)) : null;
-            const isSame = sh => prevN && seg.chord !== prevChord && JSON.stringify(_notes(sh)) === prevN;
-            const isStuck = sh => topRepeats >= 3 && lastTop !== null && _top(sh) === lastTop;
-            if (isSame(shape) || isStuck(shape)) {
-              const wasStuck = isStuck(shape);
-              for (let t = 0; t < 6; t++) {
-                const alt = this._pickShape(eq, root, finalType, prevShape,
-                  Object.assign({}, pickOpts, { rotateVoicing: true, topStagnation: Math.max(4, topRepeats + 2) }));
-                if (!alt) break;
-                if (!isSame(alt) && !(wasStuck && _top(alt) === lastTop)) { shape = alt; break; }
-              }
-            }
-            if (_chainBeforeReset && !prevShape) {
-              const ref = _mean(_chainBeforeReset), j = Math.abs(_mean(shape) - ref);
-              if (j > 7) {
-                const alt = this._pickShape(eq, root, finalType, _chainBeforeReset, pickOpts);
-                if (alt && Math.abs(_mean(alt) - ref) < j) shape = alt;
-              }
-            }
-            _chainBeforeReset = null;
           }
           // qualityOverride:'add9'/'madd9' steps will sound add9 even when
           // the section family is drop2/triad/strum — promote the displayed
@@ -19124,7 +19039,6 @@ class Player {
           qualityOverride: stepForEntry?.qualityOverride || null,
           barIdxInChord: (seg.barsAlreadyConsumed || 0) + b,
           keyPc: segKeyPc,
-          tonality: segTonality,
           // Store the ACTUAL type picked (after function override AND
           // after multi-pro fast-path resolution) so the info bar /
           // pause-click handler / now-playing badge label correctly.
@@ -19145,10 +19059,9 @@ class Player {
         };
         if (bar < 4) {
           this._cachedPage.push(entry);
-        } else {
-          if (bar === 4) this._cachedPeek = entry;
-          if (bar < 4 * _rows) this._cachedFuture.push(entry);
-          if (bar >= Math.max(4, 4 * _rows - 1)) break outer;
+        } else if (bar === 4) {
+          this._cachedPeek = entry;
+          break outer;
         }
         if (shape && !isContinuation) {
           prevShape = shape;
@@ -19187,29 +19100,6 @@ class Player {
       // Also re-anchor the voice-leading chain from the promoted peek
       // so cells[1..3] flow from it cleanly.
       if (promotedPeek.shape) this.previousShape = promotedPeek.shape;
-    }
-    // Atril: al pasar de página, conserva lo que el usuario YA VIO en los
-    // renglones de abajo (mismos voicings), siempre que la estructura no
-    // haya cambiado (mismo acorde/sección/paso). Si algo cambió (edición,
-    // práctica, salto), se queda el plan fresco.
-    if (_rows > 1 && _hadPage && wasFollowupPage
-        && Array.isArray(_prevFuture) && _prevFuture.length >= 4) {
-      const _same = (a, b) => (!a && !b) || (a && b && a.chord === b.chord
-        && a.songIdx === b.songIdx && a.stepIdx === b.stepIdx
-        && a.sectionIter === b.sectionIter && a.keyPc === b.keyPc
-        && !!a._silent === !!b._silent && (a.barIdxInChord || 0) === (b.barIdxInChord || 0));
-      const fresh = this._cachedPage.concat(this._cachedFuture);
-      let ok = true;
-      for (let k = 0; k < 4 && ok; k++) ok = _same(_prevFuture[k], fresh[k]);
-      if (ok) {
-        const kept = _prevFuture.slice(0, 4);
-        let k = 4;
-        while (k < _prevFuture.length && k < fresh.length && _same(_prevFuture[k], fresh[k])) k++;
-        this._cachedPage = kept;
-        this._cachedFuture = _prevFuture.slice(4, k).concat(fresh.slice(k));
-        this._cachedPeek = this._cachedFuture[0] || this._cachedPeek;
-        if (kept[0] && kept[0].shape) this.previousShape = kept[0].shape;
-      }
     }
   }
 
@@ -19466,7 +19356,6 @@ class Player {
     // Keep the landscape follow-along view in sync with each
     // _updateVisuals tick (chord step changes, voicing updates, etc.).
     if (typeof renderLandscapePlay === 'function') renderLandscapePlay();
-    try { if (window._atril) window._atril.render(this); } catch (e) { console.warn('[atril]', e); }
   }
 
   jumpTo(chordId) {
@@ -28120,434 +28009,6 @@ window._tuner = (function setupTuner() {
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('pwa/sw.js').catch(() => {});
 }
-</script>
-
-<!-- ─────────────────────────────────────────────────────────────
-     MODO ATRIL (tableta horizontal, piano) — 2026-10-29
-     Partitura a pantalla completa al tocar: N renglones × 4 compases,
-     pentagrama en mm reales (7.5 / 9.5 / 11.5), medio cambio de página
-     (el renglón ya tocado se reemplaza por lo que viene), nombre del
-     voicing en cada compás. El planner (_buildPagePlan) planea N
-     renglones adelante SOLO cuando este modo está activo.
-─────────────────────────────────────────────────────────────── -->
-<style>
-  #atril { display: none; }
-  body.atril-on #atril {
-    display: flex; flex-direction: column;
-    position: fixed; left: 0; right: 0; top: 0; z-index: 10050;
-    background: #fdfcf3; color: #1a1a1a;
-    padding-top: env(safe-area-inset-top);
-  }
-  body.atril-on.atril-kb #atril { bottom: 132px; border-bottom: 1px solid #d8cfb5; }
-  body.atril-on:not(.atril-kb) #atril { bottom: 0; }
-  /* Sin teclado: tapamos también la fila de abajo del overlay horizontal. */
-  body.atril-on:not(.atril-kb) #landscape-play { visibility: hidden; }
-  #atril .at-hdr { flex: 0 0 34px; display: flex; align-items: center; gap: 8px;
-    padding: 0 10px; border-bottom: 1px solid #e3dcc6; font: 600 12px system-ui, sans-serif; color: #7a7158; }
-  #atril .at-hdr .at-now { font: 600 15px Georgia, serif; color: #1a1a1a; margin-right: auto;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  #atril .at-lbl { letter-spacing: .08em; text-transform: uppercase; font-size: 10px; margin-left: 6px; }
-  #atril .at-seg { display: flex; }
-  #atril .at-b { height: 28px; min-width: 34px; padding: 0 8px; border: 1.5px solid #1a1a1a; background: #fff;
-    color: #1a1a1a; font: 600 14px system-ui, sans-serif; display: flex; align-items: center; justify-content: center;
-    border-radius: 5px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-  #atril .at-seg .at-b { border-radius: 0; margin-left: -1.5px; }
-  #atril .at-seg .at-b:first-child { border-radius: 5px 0 0 5px; margin-left: 0; }
-  #atril .at-seg .at-b:last-child { border-radius: 0 5px 5px 0; }
-  #atril .at-b.on { background: #1a1a1a; color: #fdfcf3; }
-  #atril .at-page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: space-evenly; }
-  #atril .at-sys { display: flex; align-items: center; margin: 0 8px;
-    border-left: 2px solid #1a1a1a; border-right: 2px solid #1a1a1a; }
-  #atril .at-cell { flex: 1 1 0; min-width: 0; position: relative; display: flex; align-items: center; }
-  #atril .at-cell > svg { display: block; width: 100%; }
-  #atril .at-cell.cur { background: rgba(232, 190, 80, .16); box-shadow: inset 0 -4px 0 #d9a300; }
-  #atril .at-cell.done { opacity: .42; }
-  #atril .at-vt { position: absolute; top: 3px; right: 6px; font: 600 10px system-ui, sans-serif;
-    letter-spacing: .07em; color: #8a805f; text-transform: uppercase; white-space: nowrap; pointer-events: none; }
-  #atril .at-cell.cur .at-vt { color: #9a6b00; }
-  #atril .at-vt { display: flex; align-items: center; gap: 5px; }
-  #atril .at-ico { display: inline-flex; width: 34px; height: 21px; color: #1a1a1a; }
-  #atril .at-ico svg { width: 100%; height: 100%; display: block; }
-  #atril .at-cell.done .at-ico { opacity: .6; }
-  /* Compases con 2+ acordes: los nombres van arriba, la etiqueta abajo. */
-  #atril .at-vt.at-vt-low { top: auto; bottom: 2px; right: 0; left: 0; text-align: center; }
-  #atril .at-rest { width: 100%; text-align: center; font-size: 40px; color: #555; }
-  #atril .at-bar { flex: 0 0 60px; display: none; align-items: center; gap: 10px; padding: 0 12px;
-    border-top: 1px solid #e3dcc6; background: #f4efdf; }
-  body.atril-on:not(.atril-kb) #atril .at-bar { display: flex; }
-  #atril .at-bar .at-b { height: 46px; min-width: 64px; font-size: 20px; border-width: 2px; }
-  #atril .at-bar .at-play { background: #22c55e; border-color: #15803d; color: #fff; min-width: 88px; }
-  #atril .at-bar .at-stop { background: #dc2626; border-color: #991b1b; color: #fff; }
-  #atril .at-bar .at-loop.on { background: #1a1a1a; color: #fdfcf3; }
-  /* Botón para volver al atril si se cerró. */
-  #atril-reopen { display: none; position: fixed; top: 8px; left: 8px; z-index: 10051; height: 30px; padding: 0 10px;
-    border: 1.5px solid #1a1a1a; background: #fdfcf3; font: 600 12px system-ui, sans-serif; border-radius: 6px; }
-  body.atril-can:not(.atril-on) #atril-reopen { display: block; }
-</style>
-<div id="atril" aria-hidden="true">
-  <div class="at-hdr">
-    <div class="at-now" id="at-now">—</div>
-    <span class="at-lbl">Renglones</span>
-    <div class="at-seg" id="at-rows"><button class="at-b" data-v="2">2</button><button class="at-b" data-v="3">3</button><button class="at-b" data-v="4">4</button></div>
-    <span class="at-lbl">Tamaño</span>
-    <div class="at-seg" id="at-size"><button class="at-b" data-v="s" style="font-size:11px">A</button><button class="at-b" data-v="m" style="font-size:14px">A</button><button class="at-b" data-v="l" style="font-size:17px">A</button></div>
-    <button class="at-b" id="at-kb" title="mostrar / ocultar teclado">🎹</button>
-    <button class="at-b" id="at-close" title="salir del modo atril">✕</button>
-  </div>
-  <div class="at-page" id="at-page"></div>
-  <div class="at-bar">
-    <button class="at-b at-loop" id="at-loop" title="loop">⟲</button>
-    <button class="at-b at-play" id="at-play" title="play / pausa">❚❚</button>
-    <button class="at-b at-stop" id="at-stop" title="stop">■</button>
-  </div>
-</div>
-<button id="atril-reopen" title="volver al modo atril">▦ atril</button>
-<script>
-(function () {
-  const LS = 'atril.v1';
-  let cfg = { on: true, rows: 3, size: 'm', kb: true };
-  try { Object.assign(cfg, JSON.parse(localStorage.getItem(LS) || '{}')); } catch (e) {}
-  const save = () => { try { localStorage.setItem(LS, JSON.stringify(cfg)); } catch (e) {} };
-  const STAFF_MM = { s: 7.5, m: 9.5, l: 11.5 };
-  const TLBL = { drop2: 'DROP-2', drop3: 'DROP-3', shell: 'SHELL', triad: 'TRIAD', guide: 'GUIDE TONES', sus: 'SUS', add9: 'ADD-9', quartal: 'QUARTAL', strum: 'STRUM',
-    rootlessA: 'ROOTLESS A', rootlessB: 'ROOTLESS B', powellShell: 'POWELL SHELL', soWhatFull: 'SO WHAT', mehldau10th: 'MEHLDAU 10TH',
-    ustSharp11: 'UST V7#11', ustAlt: 'UST V7alt', lockedHands: 'LOCKED HANDS', mccoySpread: 'McCOY SPREAD',
-    stride10th: 'STRIDE 10TH', phineasOctaves: 'PHINEAS OCT', gospelQuartal: 'GOSPEL Q4',
-    glasperHalfDim: 'GLASPER ø', monkCluster: 'MONK CLUSTER', polychord: 'POLYCHORD' };
-  const INV = ['root', '1st inv', '2nd inv', '3rd inv'];
-  const el = id => document.getElementById(id);
-  const mqCoarse = window.matchMedia ? window.matchMedia('(pointer: coarse)') : null;
-
-  // Tableta = táctil con lado corto ≥ 520 CSS px (los teléfonos andan en 360–430).
-  function tabletish() {
-    if (typeof window._isTablet === 'boolean') return window._isTablet;
-    const a = Math.min(screen.width, screen.height), b = Math.max(screen.width, screen.height);
-    return !!(mqCoarse && mqCoarse.matches) && a >= 520 && b >= 800;
-  }
-  function eligible() {
-    return tabletish() && window.innerWidth > window.innerHeight
-      && document.body.classList.contains('player-active')
-      && typeof state !== 'undefined' && state.instrument === 'piano';
-  }
-  function active() { return cfg.on && eligible(); }
-  // px CSS por mm físico, calibrado a una tableta de ~11" (Pad 8 Pro: 236 mm de ancho útil).
-  function pxPerMm() { return Math.max(screen.width, screen.height) / 236; }
-
-  function voicingLabel(cell, ch, root, q) {
-    const fam = cell.voicingType ? (TLBL[cell.voicingType] || String(cell.voicingType).toUpperCase()) : '';
-    let inv = '';
-    try {
-      if (cell.shape && !cell.pianoShape && typeof allDistinctVoicings === 'function') {
-        const key = sh => sh.map((f, i) => f >= 0 ? i + '.' + f : '').filter(Boolean).join(',');
-        const k = key(cell.shape);
-        const m = allDistinctVoicings(q, root).find(c => key(c.shape) === k);
-        if (m && m.inversion != null && INV[m.inversion]) inv = INV[m.inversion];
-      }
-    } catch (e) {}
-    // Dibujito de la familia (el mismo de los menús y del panel de "now playing");
-    // si la familia no tiene ícono, cae al nombre en texto.
-    return famHtml(cell.voicingType, fam) + (inv ? `<span class="at-inv">${inv}</span>` : '');
-  }
-  function famHtml(type, famText) {
-    const ic = (type && typeof VOICE_ICONS !== 'undefined' && VOICE_ICONS[type]) ? VOICE_ICONS[type] : '';
-    if (ic) return `<span class="at-ico" title="${famText || type}">${ic}</span>`;
-    return famText ? `<span class="at-fam">${famText}</span>` : '';
-  }
-
-  // Compás de silencio: pentagrama vacío + silencio de redonda en cada pauta
-  // (misma geometría que renderChordStaff: padTop 36, padBot 17, gap 2 espacios).
-  function restStaff(W, H) {
-    const sp = (H - 53) / 10, t = 36, b = t + 6 * sp;
-    let g = '';
-    for (let k = 0; k < 5; k++) {
-      g += `<line x1="0" y1="${t + k * sp}" x2="${W}" y2="${t + k * sp}" stroke="#1a1a1a" stroke-width="0.7"/>`;
-      g += `<line x1="0" y1="${b + k * sp}" x2="${W}" y2="${b + k * sp}" stroke="#1a1a1a" stroke-width="0.7"/>`;
-    }
-    g += `<line x1="${W - 0.5}" y1="${t}" x2="${W - 0.5}" y2="${b + 4 * sp}" stroke="#1a1a1a" stroke-width="0.7"/>`;
-    const rw = sp * 1.3, x = W * 0.55 - rw / 2;
-    g += `<rect x="${x}" y="${t + sp}" width="${rw}" height="${sp * 0.5}" fill="#1a1a1a"/>`;
-    g += `<rect x="${x}" y="${b + sp}" width="${rw}" height="${sp * 0.5}" fill="#1a1a1a"/>`;
-    return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${g}</svg>`;
-  }
-
-  function cellHtml(cell, i, W, H, cls) {
-    if (!cell) return `<div class="at-cell ${cls}"></div>`;
-    if (cell._silent) return `<div class="at-cell ${cls}">${restStaff(W, H)}</div>`;
-    // Tonalidad de la CELDA (secciones moduladas en renglones de abajo).
-    const ton = cell.tonality || state.tonality;
-    const map = CHORD_MAP[ton] || currentMap();
-    if (cell.barIdxInChord > 0) {
-      return `<div class="at-cell ${cls}">${renderContinuationStaff({ W, H, showClef: i === 0 })}</div>`;
-    }
-    const ch = map.chordDefs[cell.chord];
-    if (!ch) return `<div class="at-cell ${cls}"></div>`;
-    const keyPc = (cell.keyPc !== undefined) ? cell.keyPc : state.keyPc;
-    const flats = useFlatsFor(keyPc);
-    const root = (keyPc + ch.deg) % 12;
-    const q = (cell.qualityOverride && QUALITIES[cell.qualityOverride]) ? cell.qualityOverride : ch.quality;
-    const name = chordNameForVoicing(q, root, cell.shape, flats) || (nameOf(root, flats) + QUALITIES[q].sfx);
-    const isMulti = cell.slots && cell.slots.length > 1;
-    let svg = '', vt = '';
-    const base = { W, H, minimal: false, showClef: i === 0, chordName: name, roman: ch.roman, tag: ch.tag,
-      subdivisions: cell.subdivisions || 1, subdivMute: cell.subdivMute || [],
-      keyPc, tonality: ton, firstOfRow: i === 0 };
-    if (isMulti) {
-      const slots = cell.slots.map(slot => {
-        if (!slot || !slot.chord) return null;
-        const sCh = map.chordDefs[slot.chord];
-        if (!sCh) return null;
-        const sRoot = (keyPc + sCh.deg) % 12;
-        const cn = chordNameForVoicing(sCh.quality, sRoot, slot.shape, flats) || (nameOf(sRoot, flats) + QUALITIES[sCh.quality].sfx);
-        return { shape: slot.shape, root: sRoot, quality: sCh.quality, chordName: symbolizeChordName(cn), tag: sCh.tag,
-          pianoShape: (Array.isArray(slot.pianoShape) && slot.pianoShape.length) ? slot.pianoShape.slice() : null };
-      });
-      const allFilled = slots.every(p => p && p.shape);
-      svg = renderChordStaff(cell.shape, root, ch.quality, flats, Object.assign(base, { slots: allFilled ? slots : null }));
-      const fams = [...new Set(cell.slots.filter(Boolean).map(s => s.voicingType).filter(Boolean))];
-      vt = fams.map(f => famHtml(f, TLBL[f] || String(f).toUpperCase())).join('');
-    } else if (cell.shape) {
-      svg = renderChordStaff(cell.shape, root, ch.quality, flats, Object.assign(base, { pianoShape: cell.pianoShape || null }));
-      vt = voicingLabel(cell, ch, root, q);
-    }
-    return `<div class="at-cell ${cls}">${svg}${vt ? `<div class="at-vt${isMulti ? ' at-vt-low' : ''}">${vt}</div>` : ''}</div>`;
-  }
-
-  function render(p) {
-    const body = document.body;
-    body.classList.toggle('atril-can', eligible());
-    const on = active();
-    const was = body.classList.contains('atril-on');
-    body.classList.toggle('atril-on', on);
-    body.classList.toggle('atril-kb', on && cfg.kb && body.classList.contains('lp-on'));
-    if (!on) return;
-    if (!was) {
-      // Recién activado: el plan aún es de 1 renglón → reconstruir con N.
-      if (p && (!p._cachedFuture || p._cachedFuture.length < 4 * (cfg.rows - 1))) {
-        p._cachedPage = null; p._cachedPeek = null;
-        if (typeof p._ensurePagePlan === 'function') p._ensurePagePlan();
-      }
-    }
-    p = p || player;
-    // El documento a veces es más ancho que la pantalla visible: anclar al visual viewport.
-    const vw = Math.round(Math.min(window.innerWidth, (window.visualViewport && window.visualViewport.width) || window.innerWidth));
-    const vh = Math.round(Math.min(window.innerHeight, (window.visualViewport && window.visualViewport.height) || window.innerHeight));
-    const kbOn = body.classList.contains('atril-kb');
-    el('atril').style.width = vw + 'px'; el('atril').style.right = 'auto';
-    el('atril').style.height = (kbOn ? window.innerHeight - 132 : vh) + 'px'; el('atril').style.bottom = 'auto';
-    if (!p || !p._cachedPage) return;
-    validateFuture(p);
-    syncControls(p);
-    const rows = cfg.rows;
-    const page = el('at-page');
-    const availH = page.clientHeight;
-    const availW = page.clientWidth - 16 - 4;
-    const W = Math.max(60, Math.floor(availW / 4));
-    const rowH = Math.floor(availH / rows);
-    // lineSp = (H - padTop - padBot)/10 en renderChordStaff (padTop 36, padBot 17 sin minimal)
-    // u = px CSS por unidad del viewBox → trazos y letras con tamaño físico parejo en cualquier pantalla.
-    const u = Math.max(0.8, pxPerMm() / 4.3);
-    const want = 10 * (STAFF_MM[cfg.size] * pxPerMm() / 4) + 53 * u;
-    const H = Math.max(80, Math.min(rowH - 4, Math.round(want)));
-    const P = Math.floor(p.totalBars / 4);
-    const barInPage = p.totalBars % 4;
-    const fut = p._cachedFuture || [];
-    let html = '';
-    for (let s = 0; s < rows; s++) {
-      const k = ((s - P) % rows + rows) % rows;     // cuántas páginas adelante muestra este renglón
-      const cells = k === 0 ? p._cachedPage : fut.slice(4 * (k - 1), 4 * k);
-      let row = '';
-      for (let i = 0; i < 4; i++) {
-        const cls = k === 0 ? (i === barInPage ? 'cur' : (i < barInPage ? 'done' : '')) : '';
-        row += cellHtml(cells[i] || null, i, W / u, H / u, cls);
-      }
-      html += `<div class="at-sys" style="height:${rowH - 2}px">${row}</div>`;
-    }
-    page.innerHTML = html;
-    page.querySelectorAll('.at-cell > svg').forEach(svg => { svg.style.height = H + 'px'; });
-    const cur = p._cachedPage[barInPage];
-    el('at-now').textContent = cur && p.song && p.song[cur.songIdx] && p.song[cur.songIdx].progression
-      ? (p.song[cur.songIdx].label ? p.song[cur.songIdx].label + ' · ' : '') + (p.song[cur.songIdx].progression.name || '')
-      : '';
-  }
-
-  // Cada compás: confirma que los renglones de abajo siguen la misma ruta que
-  // el lookahead del reproductor (canción/sección/paso/compás). Si difieren
-  // (raro, ~0.5% — alrededor de silencios), re-planea para no mostrar algo
-  // que no va a sonar. Máx. una vez por compás.
-  function validateFuture(p) {
-    if (!p.playing || typeof p._lookAheadBars !== 'function') return;
-    const tb = p.totalBars;
-    if (p.__atrilChk === tb) return;
-    p.__atrilChk = tb;
-    const bi = tb % 4;
-    const planned = p._cachedPage.slice(bi).concat(p._cachedFuture || []);
-    if (!planned.length) return;
-    const look = p._lookAheadBars(planned.length);
-    const exp = [];
-    for (const seg of look) for (let b = 0; b < seg.bars; b++)
-      exp.push([seg.chord, seg.songIdx, seg.stepIdx, seg.sectionIter, (seg.barsAlreadyConsumed || 0) + b].join('|'));
-    const n = Math.min(exp.length, planned.length);
-    for (let k = 1; k < n; k++) {   // k=0 es el compás que ya suena
-      const c = planned[k];
-      if (!c || c.songIdx == null) continue;
-      const key = [c.chord, c.songIdx, c.stepIdx, c.sectionIter, c.barIdxInChord || 0].join('|');
-      if (key !== exp[k]) {
-        p.__atrilReplans = (p.__atrilReplans || 0) + 1;
-        p._cachedPage = null; p._cachedPeek = null;
-        p._ensurePagePlan();
-        return;
-      }
-    }
-  }
-
-  function syncControls(p) {
-    document.querySelectorAll('#at-rows .at-b').forEach(b => b.classList.toggle('on', +b.dataset.v === cfg.rows));
-    document.querySelectorAll('#at-size .at-b').forEach(b => b.classList.toggle('on', b.dataset.v === cfg.size));
-    el('at-kb').classList.toggle('on', cfg.kb);
-    el('at-play').textContent = (p && p.playing) ? '❚❚' : '▶';
-    el('at-loop').classList.toggle('on', typeof loopMode !== 'undefined' && loopMode !== 'off');
-  }
-  const clickFirst = ids => { for (const id of ids) { const b = el(id); if (b) { b.click(); return; } } };
-  const rerender = () => { try { render(typeof player !== 'undefined' ? player : null); } catch (e) { console.warn('[atril]', e); } };
-  const replan = () => {
-    if (typeof player !== 'undefined' && player) { player._cachedPage = null; player._cachedPeek = null; player._ensurePagePlan && player._ensurePagePlan(); }
-    rerender();
-  };
-
-  el('at-rows').addEventListener('click', e => { const b = e.target.closest('.at-b'); if (!b) return; cfg.rows = +b.dataset.v; save(); replan(); });
-  el('at-size').addEventListener('click', e => { const b = e.target.closest('.at-b'); if (!b) return; cfg.size = b.dataset.v; save(); rerender(); });
-  el('at-kb').addEventListener('click', () => { cfg.kb = !cfg.kb; save(); rerender(); });
-  el('at-close').addEventListener('click', () => { cfg.on = false; save(); rerender(); });
-  el('atril-reopen').addEventListener('click', () => { cfg.on = true; save(); replan(); });
-  const lp = document.body.classList.contains.bind(document.body.classList);
-  el('at-play').addEventListener('click', () => { clickFirst(lp('lp-on') ? ['lp-play', 'd-tx-play'] : ['d-tx-play', 'lp-play']); setTimeout(rerender, 60); });
-  el('at-stop').addEventListener('click', () => { clickFirst(lp('lp-on') ? ['lp-stop', 'd-tx-stop'] : ['d-tx-stop', 'lp-stop']); setTimeout(rerender, 60); });
-  el('at-loop').addEventListener('click', () => { clickFirst(lp('lp-on') ? ['lp-loop', 'd-tx-loop'] : ['d-tx-loop', 'lp-loop']); setTimeout(rerender, 60); });
-  window.addEventListener('resize', () => setTimeout(rerender, 120));
-  window.addEventListener('orientationchange', () => setTimeout(rerender, 250));
-  // Al parar, el overlay se apaga solo (player-active desaparece): vigilar la clase.
-  new MutationObserver(rerender).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-  window._atril = {
-    planRows: () => (active() ? cfg.rows : 1),
-    render,
-    cfg: () => Object.assign({}, cfg),
-  };
-})();
-</script>
-
-
-<!-- Cuenta inicial del PRIMER play en teléfono/tableta (Samuel, 2026-10-29):
-     al entrar a pantalla completa + arrancar la música todo a la vez, la
-     tableta se congelaba con la pantalla negra. Ahora el primer play pinta
-     al instante una cuenta 1-2-3-4 al tempo, deja que la pantalla completa
-     se acomode, y arranca la música al terminar la cuenta. -->
-<style>
-  #first-count { position: fixed; inset: 0; z-index: 10100; display: none; align-items: center; justify-content: center;
-    flex-direction: column; background: #fdfcf3; color: #1a1a1a; font-family: Georgia, serif; }
-  #first-count.on { display: flex; }
-  #first-count .fc-n { font-size: min(34vh, 34vw); line-height: 1; font-weight: 700; transition: transform .12s ease-out, opacity .12s; }
-  #first-count .fc-n.pop { transform: scale(1.12); }
-  #first-count .fc-dots { margin-top: 2vh; display: flex; gap: 2.2vw; }
-  #first-count .fc-dots i { width: 2.4vh; height: 2.4vh; border-radius: 50%; border: 2px solid #1a1a1a; display: block; }
-  #first-count .fc-dots i.on { background: #d9a300; border-color: #d9a300; }
-  #first-count.out { opacity: 0; transition: opacity .25s; }
-  #first-count .fc-first { margin-top: 4vh; text-align: center; }
-  #first-count .fc-lbl { font: 600 1.6vh system-ui, sans-serif; letter-spacing: .12em; text-transform: uppercase; color: #8a805f; }
-  #first-count .fc-chord { font: italic 700 9vh Georgia, serif; margin-top: .6vh; }
-  #first-count .fc-chord span { font-size: .5em; color: #0b8a5c; margin-left: .3em; }
-  #first-count .fc-staff { margin: 1.5vh auto 0; width: min(46vw, 420px); }
-  #first-count .fc-staff svg { width: 100%; height: auto; display: block; }
-</style>
-<div id="first-count" aria-hidden="true"><div class="fc-n" id="fc-n">1</div><div class="fc-dots"><i></i><i></i><i></i><i></i></div>
-  <div class="fc-first" id="fc-first" hidden><div class="fc-lbl">primer acorde</div><div class="fc-chord" id="fc-chord"></div><div class="fc-staff" id="fc-staff"></div></div></div>
-<script>
-(function () {
-  try {
-    if (!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches)) return;
-    const SEL = '#d-tx-play, #m-tx-play, #lp-play, #ls-play';
-    let used = false, bypass = false;
-    const ov = document.getElementById('first-count'), num = document.getElementById('fc-n');
-    const dots = ov.querySelectorAll('.fc-dots i');
-    document.addEventListener('click', (e) => {
-      if (bypass || used) return;
-      const btn = e.target && e.target.closest && e.target.closest(SEL);
-      if (!btn || typeof player === 'undefined' || player.playing || player.paused) return;
-      used = true;
-      e.preventDefault(); e.stopImmediatePropagation();
-      try { if (typeof ensureAudio === 'function') ensureAudio(); } catch (_) {}   // desbloquea audio dentro del toque
-      const bpm = (typeof metronome !== 'undefined' && metronome.bpm) || 100;
-      const beat = Math.min(800, Math.max(350, 60000 / bpm));
-      ov.classList.remove('out'); ov.classList.add('on');
-      // Pre-genera la canción para poder mostrar el PRIMER acorde durante la
-      // cuenta; start() usará exactamente esa canción (una sola vez).
-      try {
-        const orig = player._generateSong;
-        const pre = orig.call(player);
-        player._generateSong = function () { player._generateSong = orig; return pre; };
-        const sec = pre && pre[0];
-        const steps = (sec && sec.progression && sec.progression.steps) || [];
-        const st = steps.find(x => x && x.chord && !x._silent);
-        const ton = (sec && sec.tonality) || state.tonality;
-        const kp = (sec && sec.keyPc !== undefined) ? sec.keyPc : state.keyPc;
-        const ch = st && (CHORD_MAP[ton] || currentMap()).chordDefs[st.chord];
-        if (ch) {
-          const q = (st.qualityOverride && QUALITIES[st.qualityOverride]) ? st.qualityOverride : ch.quality;
-          const root = (kp + ch.deg) % 12;
-          const nm = nameOf(root, useFlatsFor(kp)) + QUALITIES[q].sfx;
-          const rest = steps.indexOf(st) > 0 && steps.slice(0, steps.indexOf(st)).some(x => x && x._silent);
-          document.getElementById('fc-chord').innerHTML = (typeof symbolizeChordName === 'function' ? symbolizeChordName(nm) : nm)
-            + `<span>${ch.roman || ''}</span>`;
-          document.querySelector('#first-count .fc-lbl').textContent = rest ? 'primer acorde (tras un silencio)' : 'primer acorde';
-          document.getElementById('fc-first').hidden = false;
-          // Voicing EXACTO: lo elegimos aquí y lo publicamos en state.playerVoicing;
-          // el plan del primer compás lo respeta (ancla de bar 0), así que lo que
-          // se ve en la cuenta es lo que suena. Solo si el compás 1 es ese acorde.
-          if (steps.indexOf(st) === 0 && typeof player._pickShape === 'function') {
-            const segType = st.composedType || sec.voicingType || player.voicingType || 'drop2';
-            const fType = (typeof _voicingTypeForChord === 'function') ? _voicingTypeForChord(segType, ch.tag, 0, 0, 0) : segType;
-            const opts = { progName: sec.progression && sec.progression.name, sectionLabel: sec.label, rotateVoicing: false, topStagnation: 0 };
-            const shape = st.composedShape || player._pickShape(q, root, fType, null, opts) || player._pickShape(q, root, 'drop2', null, opts);
-            if (shape) {
-              const pianoShape = (Array.isArray(st.composedPianoShape) && st.composedPianoShape.length) ? st.composedPianoShape.slice()
-                : (shape.__pianoShape && shape.__pianoShape.length ? shape.__pianoShape.slice() : null);
-              state.playerVoicing = { chord: st.chord, shape, type: fType, pianoShape };
-              const flats = useFlatsFor(kp);
-              const svg = state.instrument === 'piano'
-                ? renderChordStaff(shape, root, ch.quality, flats, { W: 300, H: 180, showClef: true, keyPc: kp, tonality: ton, firstOfRow: true, pianoShape })
-                : renderMini(shape, root, ch.quality, flats, { W: 170, H: 170, r: 11, bwNotes: true });
-              const box = document.getElementById('fc-staff');
-              box.style.width = state.instrument === 'piano' ? '' : 'min(20vw, 26vh, 200px)';
-              box.innerHTML = svg || '';
-            }
-          }
-        }
-      } catch (_) {}
-      let k = 0;
-      const tick = () => {
-        num.textContent = String(k + 1);
-        dots.forEach((d, i) => d.classList.toggle('on', i <= k));
-        num.classList.add('pop'); setTimeout(() => num.classList.remove('pop'), 110);
-        k++;
-        if (k < 4) { setTimeout(tick, beat); return; }
-        setTimeout(() => {
-          bypass = true; try { btn.click(); } finally { bypass = false; }
-          // Quitar la cuenta cuando ya hay algo pintado (o a los 2 s, lo que pase primero).
-          const t0 = performance.now();
-          const done = () => {
-            const ready = document.body.classList.contains('player-active')
-              && (!document.body.classList.contains('atril-on') || (document.getElementById('at-page') || {}).childElementCount);
-            if (ready || performance.now() - t0 > 2000) {
-              ov.classList.add('out'); setTimeout(() => ov.classList.remove('on', 'out'), 260);
-            } else requestAnimationFrame(done);
-          };
-          requestAnimationFrame(() => requestAnimationFrame(done));
-        }, beat);
-      };
-      requestAnimationFrame(tick);
-    }, true);
-  } catch (e) {}
-})();
 </script>
 
 </body>
