@@ -162,7 +162,7 @@ async function main() {
       if ((q.x - x) ** 2 + (q.y - y) ** 2 < (d.w * 0.5) ** 2) { wetMouse(d); spl(); return true; } }
     const pt = {x, y};
     for (const b of shelves) if (Matter.Bounds.contains(b.bounds, pt) && Matter.Vertices.contains(b.vertices, pt)) {
-      if (Math.abs(b.angle) < 0.09 && !b.mover) { const bw = b.bounds.max.x - b.bounds.min.x; fx.puddle(Math.max(b.bounds.min.x + 30, Math.min(b.bounds.max.x - 30, x)), b.bounds.min.y + 1, bw / 140); }
+      if (Math.abs(b.angle) < 0.09 && !b.mover && !b.trapF) { const bw = b.bounds.max.x - b.bounds.min.x; fx.puddle(Math.max(b.bounds.min.x + 30, Math.min(b.bounds.max.x - 30, x)), b.bounds.min.y + 1, bw / 140); }
       spl(); return true; }
     for (const d of dyn) { if (d.dead || d.mat === 'mouse') continue; const b = d.body; if (Matter.Bounds.contains(b.bounds, pt) && Matter.Vertices.contains(b.vertices, pt)) { spl(); return true; } }
     return false; };
@@ -2417,6 +2417,7 @@ async function main() {
     // punta del pico en el mundo: de ahí sale disparado
     const mx = x + sx * tx, my = y + ty;
     flowers.push({kind: 'kettle', x, y, r, a, v: F.v || 23, sp, bell, pup, lids, cheeks, lid, hot, flame, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i, mx, my, hl: 0.75, lidY: lid.position.y, lv: {y: 0, vy: 0, r: 0, vr: 0}, steam: 0});
+    addTrap(flowers[flowers.length - 1], [[-0.92, 0.98], [0.92, 0.98], [1.0, 0.1], [0.62, -0.68], [0, -0.78], [-0.62, -0.68], [-1.0, 0.1]]);
   }
   // CALDERA TRAGONA (versión de La Guarida): caldera de cobre remachada sobre su fogón de carbón, con chimenea, manómetro y
   // válvula roja. Lo que le cae por la escotilla se lo traga, la aguja se va al rojo, la válvula gira, ruge la sirena de vapor
@@ -2483,7 +2484,38 @@ async function main() {
     const mx = x + sx * tx, my = y + ty;
     flowers.push({kind: 'boiler', x, y, r, a, v: F.v || 22, sp, bell, pup, lids, cheeks, lid, hot, flame, wheel, ndl, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i, mx, my, hl: 0.8, lidY: lid.position.y, lv: {y: 0, vy: 0, r: 0, vr: 0}, steam: 0,
       cx: x - sx * r * 0.51, cy: y - r * 1.36});   // boca de la chimenea
+    addTrap(flowers[flowers.length - 1], [[-0.8, 1.0], [0.8, 1.0], [0.84, -0.45], [0.5, -0.74], [-0.5, -0.74], [-0.84, -0.45]]);
   }
+  // AB2: las trampas son SÓLIDAS por fuera. Cuerpo estático con la silueta (sin pico/tubo/tallo); lo que la tragona SÍ se puede tragar
+  // lo atraviesa (grupo de colisión negativo propio, ver trapFilter) y entra a la boca; lo demás (bloques grandes, el gato que ya
+  // tragó 2 veces, Miu en su loop, ratones amarrados) choca: la tetera/caldera retumba y la tapa brinca, la flor se cimbra.
+  let trapGrp = 0;
+  function addTrap(F, hull) {
+    const verts = hull.map(([u, v]) => ({x: u * F.r, y: v * F.r})), c = Matter.Vertices.centre(verts);
+    const body = Bodies.fromVertices(F.x + c.x, F.y + c.y, [verts], {isStatic: true, friction: 0.7, restitution: 0.1, label: 'trap'});
+    F.grp = body.collisionFilter.group = -(900 + ++trapGrp % 90); body.trapF = F; F.body = body;
+    Composite.add(engine.world, body); shelves.push(body);
+  }
+  // ¿lo que se acerca a F se lo puede tragar? (mismo criterio que la captura en flowerStep, sin la distancia)
+  function trapFilter(F, objs) {
+    if (!F.body) return;
+    for (const o of objs) { const b = o.b, p = b.position;
+      if (Math.abs(p.x - F.x) > F.r * 3.5 || Math.abs(p.y - F.y) > F.r * 3.5) { if (b.collisionFilter.group === F.grp && !(F.hold && F.hold.b === b)) b.collisionFilter.group = 0; continue; }
+      const size = Math.max(b.bounds.max.x - b.bounds.min.x, b.bounds.max.y - b.bounds.min.y);
+      const eat = o.ok && (b.flN || 0) < 2 && (o.f || size <= F.r * 1.4);
+      b.collisionFilter.group = eat || b.flSkip === F ? F.grp : 0; }
+  }
+  Matter.Events.on(engine, 'collisionStart', ev => {
+    for (const pr of ev.pairs) { const A = pr.bodyA, B = pr.bodyB, F = A.trapF || B.trapF; if (!F) continue;
+      const o = A.trapF ? B : A; if (o.isStatic) continue;
+      const n = pr.collision.normal, closing = Math.abs(o.velocity.x * n.x + o.velocity.y * n.y); if (closing < 3) continue;
+      const k = Math.min(1, closing / 16); F.kick = Math.max(F.kick, 0.25 + 0.6 * k); const sp = pr.collision.supports?.[0] || o.position;
+      if (F.lv) { F.lv.vy = Math.min(F.lv.vy, -220 - 520 * k); F.lv.vr += (Math.random() - 0.5) * 10 * k; (F.kind === 'boiler' ? SFX.clank : SFX.clink)(0.3 + 0.6 * k);
+        fx.burst('star', sp.x, sp.y, Math.round(3 + 5 * k), 300, {up: 100, size: 0.45, life: 0.5, g: 500}); }
+      else { SFX.thump(0.3 + 0.5 * k); fx.burst('petal', sp.x, sp.y, Math.round(3 + 6 * k), 300, {up: 100, size: 0.8, life: 0.8, g: 500, drag: 1.5}); }
+      if (k > 0.4) cam.shake(3 + 6 * k); F.blinkAt = Math.min(F.blinkAt, 0.1); F.bonk = (F.bonk || 0) + 1;
+      if (o.label === 'cat' && flying && o === flying.body) flying.trapHit = (flying.trapHit || 0) + 1; }
+  });
   function makeFlowers(list) {
     list.forEach((F, i) => {
       if (F.kind === 'kettle') return makeKettle(F, i);
@@ -2517,6 +2549,7 @@ async function main() {
       lids.visible = false; cheeks.scale.set(0); bell.addChild(cheeks, eyes, pup, lids);
       actors.addChildAt(st, 0); actors.addChild(sp); roomSp.push(st, sp);
       flowers.push({x, y, r, a, v: F.v || 21, sp, bell, pup, lids, cheeks, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i});
+      addTrap(flowers[flowers.length - 1], Array.from({length: 10}, (_, k) => { const q = k * Math.PI / 5; return [-0.25 * ca + Math.cos(q) * 0.55, -0.25 * sa + Math.sin(q) * 0.55]; }));   // bulbo de la campanilla (sin la boca)
     });
   }
   function animFlowers(dt) {
@@ -2570,9 +2603,10 @@ async function main() {
         if (H.f) { H.f.warpT = 0.25; if (cam.mode === 'follow') cam.punch(KT ? 0.07 : 0.05); }
         if (H.d && H.d.mat === 'mouse') say(H.d, BO ? ['¡COF, COF!', '¡ME TIZNÓ!', '¡QUÉ CALORÓN!'][Math.floor(Math.random() * 3)] : KT ? ['¡QUEMA, QUEMA!', '¡AY, MI COLA!', '¡QUÉ VAPORAZO!'][Math.floor(Math.random() * 3)] : ['¡ME ESCUPIÓ!', '¡GUÁCALA!', '¡BABAS NO!'][Math.floor(Math.random() * 3)], 1.2, 0.72);
         flLog.push({t: +time.toFixed(2), i: F.i, who: H.f ? 'cat' : H.d.mat, s: +s.toFixed(1)}); continue; }
-      const objs = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
-      if (flying && !flying.loop && !flying.exploded && !flying.fade && !flying.gulp) objs.push({b: flying.body, f: flying});
-      for (const d of dyn) if (!d.dead && !d.ride && !d.patrol && !tied.has(d) && !d.body.isSleeping && !d.body.isStatic) objs.push({b: d.body, d});
+      const all = [], tied = new Set(ropes.filter(r => !r.cut).map(r => r.d));
+      if (flying && !flying.exploded && !flying.fade) all.push({b: flying.body, f: flying, ok: !flying.loop && !flying.gulp});
+      for (const d of dyn) if (!d.dead && !d.body.isStatic) all.push({b: d.body, d, ok: !d.ride && !d.patrol && !tied.has(d) && !d.body.isSleeping});
+      trapFilter(F, all); const objs = all.filter(o => o.ok);
       for (const o of objs) { const b = o.b, p = b.position;
         if ((b.flN || 0) >= 2) continue;   // tope: lo que cae de vuelta a la boca no se traga sin fin
         if (b.flSkip === F) { if (Math.hypot(p.x - F.x, p.y - F.y) > F.r * 1.6) b.flSkip = null; else continue; }
@@ -2802,6 +2836,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, 0, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
