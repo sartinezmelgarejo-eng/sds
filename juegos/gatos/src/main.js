@@ -808,6 +808,9 @@ async function main() {
       // al detenerse se revuelve, se voltea y murmura. Si rueda más de 2.5 s, o la 2.ª vez, o se lastima, despierta.
       if (why === 'rueda' && !(d.rollZ >= 2) && !(d.hurt > 0) && !(d.dizzyT > 0) && (d.rollT = (d.rollT || 0) + dt) < 2.5) { d.rollZ = 1; d.rollSet = 0; why = ''; }
       if (!why && d.rollZ === 1 && !tumble && (d.rollSet += dt) > 0.35) { d.rollZ = 2; stirMouse(d, ['¿TEMBLÓ?…\nZZZ…', 'QUÉ CAMA\nTAN MOVIDA…', 'MMM… NO ME\nMEZAN…', 'ZZZ… OTRO\nRATITO…']); }
+      // susto LEJANO (un puf o un tronido a lo lejos, sin sacudida): la 1.ª vez solo se revuelve y refunfuña; el 2.º susto sí lo despierta
+      if (why === 'susto' && (sh === d.stirSh || (!d.stirSh && !sh.fl && Math.hypot(sh.x - d.body.position.x, sh.y - d.body.position.y) > 350))) { why = '';
+        if (!d.stirSh) { d.stirSh = sh; stirMouse(d, ['¿EH?… ¿QUÉ\nTRONÓ?… ZZZ…', 'MMM… ESOS\nVECINOS…', 'ZZZ… ¡SHHH!…\nZZZ…', 'QUE ALGUIEN\nCONTESTE…']); d.wk = 'tronido-lejos'; } }
       if (why === 'gato' && !d.stirred && fcd > 200) stirMouse(d);   // 1.ª vez que un gato le pasa de lejitos: se revuelve, refunfuña y sigue dormido
       else if (why) { d.wk = why; wakeMouse(d); } }
     if (d.stirT > 0) d.stirT -= dt;
