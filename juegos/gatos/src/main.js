@@ -452,7 +452,7 @@ async function main() {
       const st = Math.min(3, Math.floor((1 - d.life / d.max) * 4)); // 4 estados de grieta
       if (st !== d.dmg) { d.dmg = st; d.sprite.texture = d.texs[st]; }
     }
-    if (d.mat === 'mouse' && d.life > 0) { d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto)
+    if (d.mat === 'mouse' && d.life > 0) { if (!(d.zz && amount < 1)) d.hurt = 0.35; // temblor al recibir golpe (tarea 5: cara de susto); un dormilón ni siente los golpecitos (rodar, roces)
       if (amount >= d.max * 0.25 && !d.ride) d.dizzyT = 2 + Math.random() * 0.5; } // golpazo que aguantó: queda mareado (AB2)
     if (d.life <= 0) { if (d.mat === 'rocket') igniteRocket(d); else destroyDyn(d); }
   }
@@ -734,11 +734,13 @@ async function main() {
       z.s.alpha = Math.min(1, z.t * 4) * Math.min(1, (2 - z.t) * 1.2); }
   }
   // se revuelve sin despertar (chiste AB): le truena la burbuja, resopla, se voltea para el otro lado murmurando y vuelve a roncar
-  function stirMouse(d) {
-    d.stirred = 1; d.stirFl = flying; d.stirT = 1.6; d.zs0 = 1; d.wk = 'revuelve';
+  function stirMouse(d, lines) {
+    if (!lines) { d.stirred = 1; d.stirFl = flying; }
+    d.stirT = 1.6; d.zs0 = 1; d.wk = lines ? 'rodo-dormido' : 'revuelve'; d.flip0 = d.flipS || 1;
     if (d.bub) { const g = d.bub.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position; fx.burst('drop', w.x, w.y, 4, 160, {up: 90, life: 0.35, size: 0.25, drag: 0.8}); }
     SFX.snort(d.kind === 'boss' ? 0.75 : d.kind === 'small' ? 1.25 : 1);
-    d.zz = 0; say(d, ['MMM…\n5 MINUTITOS\nMÁS…', 'ÑAM ÑAM…\nQUESITO…', '¡FUERA,\nMOSCA!…', 'ZZZ… NO\nHAY GATOS…'][Math.floor(Math.random() * 4)], 1.5, 0.62); d.zz = 1;
+    const L = lines || ['MMM…\n5 MINUTITOS\nMÁS…', 'ÑAM ÑAM…\nQUESITO…', '¡FUERA,\nMOSCA!…', 'ZZZ… NO\nHAY GATOS…'];
+    d.zz = 0; say(d, L[Math.floor(Math.random() * L.length)], 1.5, 0.62); d.zz = 1;
   }
   function wakeMouse(d, quiet) {
     if (!d.zz) return; d.zz = 0;
@@ -801,7 +803,11 @@ async function main() {
       if (!pn && d.panic <= 0) d.panicked = 0; }
     // DORMIDO: cualquier susto lo despierta (gato que pasa cerca, algo que le cae, golpe, explosión, vecino que hace puf, agua…)
     const fcd = fc ? Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) : 1e9;
-    if (d.zz) { const why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
+    if (d.zz) { let why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
+      // sueño pesado (chiste AB): la 1.ª vez que lo empujan y RUEDA/se desliza sin lastimarse, sigue roncando mientras rueda;
+      // al detenerse se revuelve, se voltea y murmura. Si rueda más de 2.5 s, o la 2.ª vez, o se lastima, despierta.
+      if (why === 'rueda' && !(d.rollZ >= 2) && !(d.hurt > 0) && !(d.dizzyT > 0) && (d.rollT = (d.rollT || 0) + dt) < 2.5) { d.rollZ = 1; d.rollSet = 0; why = ''; }
+      if (!why && d.rollZ === 1 && !tumble && (d.rollSet += dt) > 0.35) { d.rollZ = 2; stirMouse(d, ['¿TEMBLÓ?…\nZZZ…', 'QUÉ CAMA\nTAN MOVIDA…', 'MMM… NO ME\nMEZAN…', 'ZZZ… OTRO\nRATITO…']); }
       if (why === 'gato' && !d.stirred && fcd > 200) stirMouse(d);   // 1.ª vez que un gato le pasa de lejitos: se revuelve, refunfuña y sigue dormido
       else if (why) { d.wk = why; wakeMouse(d); } }
     if (d.stirT > 0) d.stirT -= dt;
@@ -856,7 +862,7 @@ async function main() {
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
     if (d.stirT > 0 || d.flipS) { const u = 1.6 - Math.max(0, d.stirT || 0), f = Math.min(1, Math.max(0, (u - 0.18) / 0.42));   // se voltea para el otro lado (y así se queda hasta despertar)
-      if (d.stirT > 0) { d.flipS = Math.cos(Math.PI * f); const j = Math.sin(Math.PI * f); d.sprite.y -= j * d.h * 0.12; d.sprite.scale.y *= 1 - 0.08 * j; d.sprite.x += Math.sin(u * 38) * 2.5 * Math.max(0, 1 - u / 0.25); }
+      if (d.stirT > 0) { d.flipS = (d.flip0 || 1) * Math.cos(Math.PI * f); const j = Math.sin(Math.PI * f); d.sprite.y -= j * d.h * 0.12; d.sprite.scale.y *= 1 - 0.08 * j; d.sprite.x += Math.sin(u * 38) * 2.5 * Math.max(0, 1 - u / 0.25); }
       if (!d.zz) d.flipS = 0; else d.sprite.scale.x *= d.flipS; }
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
@@ -1447,16 +1453,16 @@ async function main() {
       metCats.add(onSling.name); try { localStorage.setItem('gatos.met', JSON.stringify([...metCats])); } catch (e) {} ui.card(onSling.name); }
     // nivel con cajas de cuetes: la primera vez que el jugador puede tirar, un ratón junto a una caja avisa (enseña la mecánica, con humor)
     if (state === 'ready' && !warnedTnt) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
-      const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
+      const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.zz).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
       if (ms && ms.length) { const o = ms[0]; o.hurt = 0.35; setTimeout(() => { if (!o.dead && dyn.includes(o)) { say(o, ['¡NO TOQUEN\nLOS CUETES!', '¡CUIDADO CON\nLOS CUETES!'][Math.floor(Math.random() * 2)], 2.2, 0.8); SFX.squeak(); } }, 400); } }
     // nivel con PORTALES: la primera vez, ya que el jugador se tomó un momento, el ratón más cercano a un aro presume que "eso no se toca" (pista con humor)
     // nivel con FLOR TRAGONA: un ratón avisa (y la flor se relame: aprieta los cachetes)
     if (state === 'ready' && !warnedFl && flowers.length && readyIdle > 2.2) { warnedFl = true;
-      const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...flowers.map(F => Math.hypot(F.x - o.body.position.x, F.y - o.body.position.y)));
+      const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead && !o.zz), dist = o => Math.min(...flowers.map(F => Math.hypot(F.x - o.body.position.x, F.y - o.body.position.y)));
       if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, flowers.some(F => F.kind === 'boiler') ? ['¡NO TOQUEN\nLA CALDERA!', '¡ESA CALDERA\nESTÁ QUE ARDE!'][Math.floor(Math.random() * 2)] : flowers.some(F => F.kind === 'kettle') ? ['¡CUIDADO, LA\nTETERA HIERVE!', '¡NO TOQUEN\nLA TETERA!'][Math.floor(Math.random() * 2)] : ['¡NO ALIMENTEN\nA LA FLOR!', '¡ESA FLOR\nMUERDE!'][Math.floor(Math.random() * 2)], 2.4, 0.8); SFX.squeak();
         for (const F of flowers) F.kick = 1; } }
     if (state === 'ready' && !warnedPort && portals.length > 1 && readyIdle > 2.2) { warnedPort = true;
-      const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead), dist = o => Math.min(...portals.map(P => Math.hypot(P.x - o.body.position.x, P.y - o.body.position.y)));
+      const ms = dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.dead && !o.zz), dist = o => Math.min(...portals.map(P => Math.hypot(P.x - o.body.position.x, P.y - o.body.position.y)));
       if (ms.length) { const o = ms.reduce((a, c) => dist(c) < dist(a) ? c : a); o.hurt = 0.3; say(o, ['¡NI SE LES\nOCURRA EL ARO!', '¡ESE ARO\nNO SE TOCA!', '¡NO USEN EL\nARO MÁGICO!'][Math.floor(Math.random() * 3)], 2.4, 0.8); SFX.squeak();
         for (const P of portals) P.pulse = 1; } }
     if (onSling && !onSling.hop) {
