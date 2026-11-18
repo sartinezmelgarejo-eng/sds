@@ -11,7 +11,7 @@ import {Text} from '../vendor/pixi.min.mjs';
 import {UI} from './ui.js';
 import {Menus} from './menus.js';
 
-const {Engine, Bodies, Body, Composite, Sleeping} = Matter;
+const {Engine, Bodies, Body, Composite, Sleeping, Query} = Matter;
 const loadImg = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 
 // ---------- texturas procedurales ----------
@@ -768,7 +768,7 @@ async function main() {
     if (d.bub) { const g = d.bub.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position;
       if (!quiet) fx.burst('drop', w.x, w.y, 7, 280, {up: 140, life: 0.45, size: 0.32, drag: 0.8}); d.bub.destroy(); d.bub = null; }
     if (quiet) return;
-    d.wakeT = 0.8; d.blinkAt = time + 1.2; SFX.wake(d.kind === 'boss' ? 0.7 : d.kind === 'small' ? 1.2 : 1);
+    d.wakeT = 0.8; d.teeterChk = 1; d.blinkAt = time + 1.2; SFX.wake(d.kind === 'boss' ? 0.7 : d.kind === 'small' ? 1.2 : 1);
     if (time - (sayT.wake || -9) > 1.2) { sayT.wake = time; setTimeout(() => { if (dyn.includes(d) && !d.dead) say(d, ['¡¿QUÉ?!\n¡¿QUÉ?!', '¡¿EH?!\n¡GATOS!', '¡NO ESTABA\nDORMIDO!', '¡¿QUIÉN\nHACE RUIDO?!'][Math.floor(Math.random() * 4)], 1.3, 0.75); }, 180); }
     // el grito despierta a los dormidos de al lado (en cadena, con un poquito de retraso)
     const p = d.body.position;
@@ -787,6 +787,25 @@ async function main() {
       const side = flying && flying.body.position.x < p.x ? 1 : Math.random() < 0.5 ? -1 : 1;
       fx.debris(m.texture, w.x, w.y, side * (150 + Math.random() * 120), -(520 + Math.random() * 200), {size: 1 / 3, rot: d.sprite.rotation, vr: side * (6 + Math.random() * 4)});
       m.destroy(); d.mask = null; }
+  }
+  // ¿el ratón quedó en la ORILLA de su repisa? (sondea debajo de cada lado de las patas) → +1/−1 = lado sin piso; 0 = bien parado o en el aire
+  function edgeSide(d) {
+    const b = d.body, p = b.position; if (Math.hypot(b.velocity.x, b.velocity.y) > 0.6) return 0;
+    const all = Composite.allBodies(engine.world).filter(o => o !== b && !o.isSensor && o.label !== 'mouse'), foot = p.y + d.r * 0.92 + 14;
+    const has = dx => Query.point(all, {x: p.x + dx, y: foot}).length > 0;
+    if (!has(0) && !has(-d.r * 0.4) && !has(d.r * 0.4)) return 0;   // no está parado en nada (o va cayendo)
+    const L = has(-d.r - 20), Rr = has(d.r + 20);   // un pie fuera de la repisa (o repisa apenas más ancha que él)
+    if (L && Rr) return 0;
+    if (L !== Rr) return L ? 1 : -1;
+    return flying && flying.body.position.x > p.x ? -1 : 1;   // pedestal angostito: se va de espaldas al gato
+  }
+  // tambaleo en la orilla tras el brinco del susto (chiste de AB): se ladea, manotea con temblor y… ¡se cae!
+  function teeterMouse(d, dt) {
+    const T = d.teeter, u = (T.t += dt) / 0.75;
+    if (u < 1) { d.sprite.rotation += T.side * (0.06 + 0.3 * u * u) + Math.sin(T.t * 24) * 0.1 * (1 - u * 0.5); d.sprite.x += T.side * d.w * 0.06 * u; return; }
+    d.teeter = null; const b = d.body; Sleeping.set(b, false);
+    Body.setVelocity(b, {x: b.velocity.x + T.side * 2.6, y: b.velocity.y - 1.2}); Body.setAngularVelocity(b, T.side * 0.12);
+    SFX.squeak(); d.wk = (d.wk || '') + '+orilla';
   }
   function animMouse(d, dt) {
     const t = time + d.ph, B = 1 / 1.5;
@@ -854,10 +873,12 @@ async function main() {
     if (d.mask) animMask(d, dt);
     if (d.zs && d.zs.length) animZ(d, dt);
     if (d.wakeT > 0) d.wakeT -= dt;
+    if (d.teeterChk && d.wakeT <= 0.25) { d.teeterChk = 0; const side = edgeSide(d); if (side) { d.teeter = {side, t: 0}; say(d, ['¡UY, UY,\nUY…!', '¡AY, NO,\nNO, NO!', '¡WOOO-\nOOAH!'][Math.floor(Math.random() * 3)], 1, 0.7); } }
+    if (d.teeter) teeterMouse(d, dt);
     if (d.zz) expr = 'sleep';
     else if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
     else if (flinch || cgh > 0.2 || shk > 0.15) expr = 'flinch';
-    else if (d.hurt > 0 || d.wakeT > 0 || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3) expr = 'scared';
+    else if (d.hurt > 0 || d.wakeT > 0 || d.teeter || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
