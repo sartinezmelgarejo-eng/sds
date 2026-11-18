@@ -45,6 +45,26 @@ function mouseTex(kind, r, expr = 'normal', noPupils = false, hat = null, bruise
   return cached(`m|${kind}|${r}|${expr}|${noPupils}|${hat}|${bruise}`, () => canvasTex(S, S, k => ART.mouse(k, S / 2, S / 2, r, kind, {look: -1, expr, noPupils, hat, bruise}), 1.5));
 }
 const hatTex = (which, r) => cached(`hat|${which}|${r}`, () => canvasTex(r * 2.2, r * 2, k => ART.hat(k, r * 1.1, r * 1.25, r, which), 1.5));
+// ANTIFAZ de dormir (ratón dormido con "zz": 2): satín morado con ribete rosa y ojitos cerrados bordados con pestañas.
+// En unidades locales del sprite del ratón (R = r·1.5): ancho 2.1R × alto 0.62R, centro = centro del antifaz; textura al doble (escala 0.5).
+const MASK_Y = -0.13;   // altura del antifaz sobre los ojos (en R)
+const maskTex = R => cached(`mask|${R}`, () => canvasTex(R * 2.1, R * 0.62, k => {
+  const cx = R * 1.05, cy = R * 0.31, o = '#2B2F45';
+  k.lineCap = k.lineJoin = 'round';
+  k.strokeStyle = o; k.lineWidth = R * 0.11; k.beginPath(); k.moveTo(cx - R * 0.98, cy - R * 0.02); k.quadraticCurveTo(cx, cy - R * 0.12, cx + R * 0.98, cy - R * 0.02); k.stroke();   // elástico
+  k.strokeStyle = '#E58BB3'; k.lineWidth = R * 0.055; k.stroke();
+  const lobes = () => { k.beginPath(); k.ellipse(cx - R * 0.31, cy, R * 0.37, R * 0.25, 0.1, 0, Math.PI * 2); k.moveTo(cx + R * 0.68, cy); k.ellipse(cx + R * 0.31, cy, R * 0.37, R * 0.25, -0.1, 0, Math.PI * 2); };
+  lobes(); k.lineWidth = R * 0.1; k.strokeStyle = o; k.stroke();
+  const g = k.createLinearGradient(0, cy - R * 0.25, 0, cy + R * 0.25); g.addColorStop(0, '#9A78E0'); g.addColorStop(0.55, '#6A4CB8'); g.addColorStop(1, '#45307F');
+  lobes(); k.fillStyle = g; k.fill();
+  k.save(); lobes(); k.clip(); k.lineWidth = R * 0.05; k.strokeStyle = '#FFB3D1'; lobes(); k.stroke(); k.restore();   // ribete rosa por dentro
+  k.fillStyle = 'rgba(255,255,255,0.28)'; [-1, 1].forEach(s => { k.beginPath(); k.ellipse(cx + s * R * 0.31 - R * 0.08, cy - R * 0.11, R * 0.17, R * 0.06, -0.15, 0, Math.PI * 2); k.fill(); });   // brillo de satín
+  k.strokeStyle = '#FFD3E6'; k.lineWidth = R * 0.045;   // ojitos cerrados bordados + pestañas
+  [-1, 1].forEach(s => { const ex = cx + s * R * 0.31, ey = cy + R * 0.01;
+    k.beginPath(); k.arc(ex, ey - R * 0.1, R * 0.15, 0.35, Math.PI - 0.35); k.stroke();
+    for (let i = -1; i <= 1; i++) { const a = Math.PI / 2 + i * 0.6, x0 = ex + Math.cos(a) * R * 0.15, y0 = ey - R * 0.1 + Math.sin(a) * R * 0.15;
+      k.beginPath(); k.moveTo(x0, y0); k.lineTo(x0 + Math.cos(a) * R * 0.07, y0 + Math.sin(a) * R * 0.07); k.stroke(); } });
+}, 2));
 // las 4 caras de un ratón (normal/susto sin pupilas: las pupilas van aparte y siguen al gato) para un nivel de golpes
 const mouseFaces = (k, r, hat, bruise = 0) => Object.fromEntries(['normal', 'blink', 'scared', 'laugh', 'flinch', 'dizzy', 'dizzy2', 'sleep'].map(e => [e, mouseTex(k, r, e, e === 'normal' || e === 'scared', hat, bruise)]));
 function catTex(img, fur, eyes, expr, size = CAT_R * 2.3 * 2, hat) { // se hornea al doble para que aguante el zoom
@@ -744,6 +764,7 @@ async function main() {
   }
   function wakeMouse(d, quiet) {
     if (!d.zz) return; d.zz = 0;
+    if (d.mask) { d.maskT = 0; SFX.snap(0.45); }   // ¡zas! el antifaz se le sube a la frente y sale volando
     if (d.bub) { const g = d.bub.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position;
       if (!quiet) fx.burst('drop', w.x, w.y, 7, 280, {up: 140, life: 0.45, size: 0.32, drag: 0.8}); d.bub.destroy(); d.bub = null; }
     if (quiet) return;
@@ -752,6 +773,20 @@ async function main() {
     // el grito despierta a los dormidos de al lado (en cadena, con un poquito de retraso)
     const p = d.body.position;
     for (const o of dyn) if (o.zz && o !== d && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 650) setTimeout(() => { if (dyn.includes(o) && !o.dead) wakeMouse(o); }, 350 + Math.random() * 350);
+  }
+  // antifaz del dormilón: dormido se le levanta un poquito al revolverse (se asoma un ojo) y vuelve a bajar;
+  // al despertar se le sube de golpe a la frente, rebota como liga y sale volando girando (lejos del gato)
+  function animMask(d, dt) {
+    const m = d.mask, R = d.r * 1.5;
+    if (d.maskT == null) { const u = d.stirT > 0 ? Math.sin(Math.PI * Math.min(1, (1.6 - d.stirT) / 1.2)) : 0;
+      m.y = (MASK_Y - 0.3 * u) * R; m.rotation = -0.35 * u; return; }
+    const T = d.maskT += dt;
+    if (T < 0.08) { const f = T / 0.08; m.y = (MASK_Y - 0.55 * f) * R; m.scale.set(0.5 * (1 + 0.12 * f), 0.5 * (1 - 0.25 * f)); m.rotation = 0; }
+    else if (T < 0.55) { const u = T - 0.08, w = Math.exp(-u * 6) * Math.cos(u * 30); m.y = (MASK_Y - 0.55 - 0.08 * w) * R; m.scale.set(0.5 * (1 + 0.1 * w), 0.5 * (1 - 0.18 * w)); m.rotation = 0.14 * w; }
+    else { const g = m.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position, p = d.body.position;
+      const side = flying && flying.body.position.x < p.x ? 1 : Math.random() < 0.5 ? -1 : 1;
+      fx.debris(m.texture, w.x, w.y, side * (150 + Math.random() * 120), -(520 + Math.random() * 200), {size: 1 / 3, rot: d.sprite.rotation, vr: side * (6 + Math.random() * 4)});
+      m.destroy(); d.mask = null; }
   }
   function animMouse(d, dt) {
     const t = time + d.ph, B = 1 / 1.5;
@@ -816,6 +851,7 @@ async function main() {
     if (d.stirT > 0) d.stirT -= dt;
     if (d.zz && laughAll > 100) wakeMouse(d, true);   // perdiste (no la risita de cada turno): hasta el dormilón despierta a burlarse
     if (d.zz) sleepMouse(d, dt, t);
+    if (d.mask) animMask(d, dt);
     if (d.zs && d.zs.length) animZ(d, dt);
     if (d.wakeT > 0) d.wakeT -= dt;
     if (d.zz) expr = 'sleep';
@@ -2780,10 +2816,12 @@ async function main() {
         fuse = new Sprite(lampGlowTex); fuse.anchor.set(0.5); fuse.blendMode = 'add'; fuse.position.set(fx0 - R * 0.2, fy0 - R * 0.42); fuse.tint = 0xFFB040;
         sp.addChild(bx, fg, fuse); }
       // ratón DORMIDO (los cerdos dormidos de AB): "zz": 1 → ojos cerrados, burbuja de moco que se infla y se desinfla, Zzz y ronquido; despierta de un brinco
-      let bub = null; if (m.zz && !m.ride) { bub = new Graphics(); bub.circle(0, 0, 20).fill({color: 0xCFEFFF, alpha: 0.55}).stroke({color: 0x4F86C0, width: 2, alpha: 0.9}).circle(-7, -7, 5).fill({color: 0xFFFFFF, alpha: 0.95}).circle(8, 9, 2.5).fill({color: 0xFFFFFF, alpha: 0.6});
-        bub.position.set(R * 0.12, R * 0.24); bub.scale.set(0.1); sp.addChild(bub); }
+      let bub = null, mask = null; if (m.zz && !m.ride) { bub = new Graphics(); bub.circle(0, 0, 20).fill({color: 0xCFEFFF, alpha: 0.55}).stroke({color: 0x4F86C0, width: 2, alpha: 0.9}).circle(-7, -7, 5).fill({color: 0xFFFFFF, alpha: 0.95}).circle(8, 9, 2.5).fill({color: 0xFFFFFF, alpha: 0.6});
+        bub.position.set(R * 0.12, R * 0.24); bub.scale.set(0.1);
+        if (m.zz === 2) { mask = new Sprite(maskTex(R)); mask.anchor.set(0.5); mask.scale.set(0.5); mask.position.set(0, MASK_Y * R); sp.addChild(mask); }   // dormilón con ANTIFAZ
+        sp.addChild(bub); }
       Composite.add(engine.world, body); actors.addChild(sp);
-      dyn.push({body, sprite: sp, zz: bub ? 1 : 0, bub, zs: bub ? [] : null, zAt: Math.random() * 1.5, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, tnt: !!m.tnt, fuse, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
+      dyn.push({body, sprite: sp, zz: bub ? 1 : 0, bub, mask, zs: bub ? [] : null, zAt: Math.random() * 1.5, shadow: contactShadow(m.x, m.r * 2.4), w: m.r * 2, h: m.r * 2, mat: 'mouse', kind: m.k, r: m.r, hat, bz: 0, tnt: !!m.tnt, fuse, enter: m.ride && dyn.some(o => o.enter) || null, life: LIFE[m.k], max: LIFE[m.k], mt, ph: Math.random() * 6, blinkAt: 1 + Math.random() * 3, tauntAt: 4 + Math.random() * 5, laugh: 0, ride: !!m.ride, pup, beam, look: {x: -1, y: 0}, glanceAt: 2 + Math.random() * 4, glance: null});
       // ratón colgado de globos (los cerdos con globos de AB2): "balloons": [f, …] y "lift" en el ratón
       if (m.balloons) m.balloons.forEach((f, n) => makeBalloon(dyn[dyn.length - 1], {x: m.x, w: m.r * 2, balloons: m.balloons, lift: m.lift}, m.y + m.r * 0.92, f, n));
     });
@@ -2937,6 +2975,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), stirM: i => stirMouse(dyn[i]), wakeM: i => wakeMouse(dyn[i]), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
