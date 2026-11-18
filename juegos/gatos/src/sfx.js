@@ -336,3 +336,7 @@ export function snore(vol = 1, pitch = 1) { if (!ok('snore', 0.8) || vol < 0.05)
 export function wake(pitch = 1) { if (!ok('wake', 0.3)) return; const t = ctx.currentTime;
   noise(t, 0.12, 'bandpass', 900, 1.2, 0.12, 0.1, 400); tone(t + 0.02, 1800, 'sine', 0.08, 0.05, 2600);
   tone(t + 0.12, 700 * pitch, 'square', 0.06, 0.22, 2100 * pitch); }
+// ratón dormido que se revuelve: resoplido nasal ("jrrnk") + murmullo grave que baja
+export function snort(pitch = 1) { if (!ok('snort', 0.5)) return; const t = ctx.currentTime;
+  noise(t, 0.16, 'bandpass', 520 * pitch, 2, 0.1, 0.14, 300 * pitch); tone(t, 140 * pitch, 'sawtooth', 0.05, 0.16, 90 * pitch);
+  tone(t + 0.25, 330 * pitch, 'triangle', 0.035, 0.35, 220 * pitch); tone(t + 0.62, 290 * pitch, 'triangle', 0.03, 0.3, 190 * pitch); }

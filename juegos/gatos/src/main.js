@@ -718,7 +718,8 @@ async function main() {
   let zTex = null;
   function sleepMouse(d, dt, t) {
     const s = Math.sin(t * 1.9), e = Math.max(0, s), sc = d.r * (0.005 + 0.042 * e * (0.85 + 0.15 * Math.sin(t * 0.37))), R = d.r * 1.5, rad = 20 * sc;
-    d.bub.scale.set(sc * (1 + 0.04 * Math.sin(t * 9) * e), sc * (1 - 0.04 * Math.sin(t * 9) * e)); d.bub.position.set(R * 0.12 + rad * 0.7, R * 0.24 + rad * 0.45);
+    const rg = d.stirT > 0 ? Math.max(0, 1 - d.stirT / 0.6) : 1;   // tras revolverse: la burbuja tronó y vuelve a crecer
+    d.bub.scale.set(sc * rg * (1 + 0.04 * Math.sin(t * 9) * e), sc * rg * (1 - 0.04 * Math.sin(t * 9) * e)); d.bub.position.set(R * 0.12 + rad * 0.7, R * 0.24 + rad * 0.45);
     if (s >= 0 && (d.zs0 ?? 0) < 0) { const p = d.body.position, sx = app.screen.width / 2 + (p.x - cam.x) * cam.zoom, sy = app.screen.height / 2 + (p.y - cam.y) * cam.zoom;
       if (sx > 0 && sx < app.screen.width && sy > 0 && sy < app.screen.height) SFX.snore(Math.min(1, cam.zoom * 1.6), d.kind === 'small' ? 1.25 : d.kind === 'boss' ? 0.8 : 1); }
     d.zs0 = s;
@@ -731,6 +732,13 @@ async function main() {
       if (z.t > 2) { z.s.destroy(); d.zs.splice(i, 1); continue; }
       z.s.position.set(z.x + Math.sin(z.t * 2.4 + z.ph) * 12 * z.k + z.t * 26 * z.k, z.y - z.t * 55 * z.k); z.s.scale.set((0.28 + z.t * 0.22) * z.k); z.s.rotation = -0.25 + Math.sin(z.t * 2 + z.ph) * 0.18;
       z.s.alpha = Math.min(1, z.t * 4) * Math.min(1, (2 - z.t) * 1.2); }
+  }
+  // se revuelve sin despertar (chiste AB): le truena la burbuja, resopla, se voltea para el otro lado murmurando y vuelve a roncar
+  function stirMouse(d) {
+    d.stirred = 1; d.stirFl = flying; d.stirT = 1.6; d.zs0 = 1; d.wk = 'revuelve';
+    if (d.bub) { const g = d.bub.getGlobalPosition(), w = cam.toWorld ? cam.toWorld(g.x, g.y) : d.body.position; fx.burst('drop', w.x, w.y, 4, 160, {up: 90, life: 0.35, size: 0.25, drag: 0.8}); }
+    SFX.snort(d.kind === 'boss' ? 0.75 : d.kind === 'small' ? 1.25 : 1);
+    d.zz = 0; say(d, ['MMM…\n5 MINUTITOS\nMÁS…', 'ÑAM ÑAM…\nQUESITO…', '¡FUERA,\nMOSCA!…', 'ZZZ… NO\nHAY GATOS…'][Math.floor(Math.random() * 4)], 1.5, 0.62); d.zz = 1;
   }
   function wakeMouse(d, quiet) {
     if (!d.zz) return; d.zz = 0;
@@ -792,8 +800,11 @@ async function main() {
       if (pn && !d.panicked) { d.panicked = 1; if (time - (d.yelpT || -9) > 1) { d.yelpT = time; SFX.squeak(); } }
       if (!pn && d.panic <= 0) d.panicked = 0; }
     // DORMIDO: cualquier susto lo despierta (gato que pasa cerca, algo que le cae, golpe, explosión, vecino que hace puf, agua…)
-    if (d.zz) { const why = fc && fc.speed > 3 && Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) < 420 ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
-      if (why) { d.wk = why; wakeMouse(d); } }
+    const fcd = fc ? Math.hypot(fc.position.x - d.body.position.x, fc.position.y - d.body.position.y) : 1e9;
+    if (d.zz) { const why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
+      if (why === 'gato' && !d.stirred && fcd > 200) stirMouse(d);   // 1.ª vez que un gato le pasa de lejitos: se revuelve, refunfuña y sigue dormido
+      else if (why) { d.wk = why; wakeMouse(d); } }
+    if (d.stirT > 0) d.stirT -= dt;
     if (d.zz && laughAll > 100) wakeMouse(d, true);   // perdiste (no la risita de cada turno): hasta el dormilón despierta a burlarse
     if (d.zz) sleepMouse(d, dt, t);
     if (d.zs && d.zs.length) animZ(d, dt);
@@ -844,6 +855,9 @@ async function main() {
     const br = d.zz ? Math.sin(t * 1.9) * 0.055 : Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;   // dormido: respira hondo y lento
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
+    if (d.stirT > 0 || d.flipS) { const u = 1.6 - Math.max(0, d.stirT || 0), f = Math.min(1, Math.max(0, (u - 0.18) / 0.42));   // se voltea para el otro lado (y así se queda hasta despertar)
+      if (d.stirT > 0) { d.flipS = Math.cos(Math.PI * f); const j = Math.sin(Math.PI * f); d.sprite.y -= j * d.h * 0.12; d.sprite.scale.y *= 1 - 0.08 * j; d.sprite.x += Math.sin(u * 38) * 2.5 * Math.max(0, 1 - u / 0.25); }
+      if (!d.zz) d.flipS = 0; else d.sprite.scale.x *= d.flipS; }
     d.sprite.y += cw * d.h * 0.4;
     if (flinch) { const k = 1 - sh.t / sh.fl; d.sprite.x += sh.side * (Math.min(1, sh.t * 20) * 6 + Math.sin(time * 70) * 3 * k); } // se hace para atrás y tiembla
     if (d.panic > 0.05) { d.sprite.x += Math.sin(time * 63) * 2.2 * d.panic; d.sprite.y += Math.sin(time * 47) * 1.2 * d.panic; } // tiembla de miedo
