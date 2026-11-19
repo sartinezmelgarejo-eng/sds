@@ -161,13 +161,15 @@ export class Menus {
     this.btn(this.T.hatBtn, () => { SFX.whoosh(); this.showHats('select'); }, 0.62, 300, 110, 2.35, this.newHats().length > 0);
     const st = this.item(new Sprite(this.T.starBig), W - 330, 110, 2.4); st.anchor.set(0.5);
     const stt = this.item(txt(`${tStars}/${lv.length * 3}`, 64, '#FFFFFF'), W - 175, 116, 2.45); stt.anchor.set(0.5);
-    // hechizos de estambre que le quedan al jugador (AB2 muestra el inventario de hechizos en el mapa)
-    if (this.o.yarnTex && this.o.getYarn) { const ys = this.item(new Sprite(this.o.yarnTex), W - 620, 112, 2.5, 'pop', 0.8); ys.anchor.set(0.5); ys.rotation = 0.15;
-      const yt = this.item(txt('×' + this.o.getYarn(), 64, '#E2CCFF'), W - 480, 116, 2.55); yt.anchor.set(0.5); }
-    if (this.o.balloonTex && this.o.getBalloon) { const bs = this.item(new Sprite(this.o.balloonTex), W - 850, 126, 2.6, 'pop', 0.5); bs.anchor.set(0.5); bs.rotation = -0.12;
-      const bt = this.item(txt('×' + this.o.getBalloon(), 64, '#FFC8DC'), W - 755, 116, 2.65); bt.anchor.set(0.5); }
-    if (this.o.chiliTex && this.o.getChili) { const cs = this.item(new Sprite(this.o.chiliTex), W - 620, 268, 2.7, 'pop', 0.5); cs.anchor.set(0.5); cs.rotation = 0.1;
-      const ct = this.item(txt('×' + this.o.getChili(), 64, '#FFC9A8'), W - 480, 272, 2.75); ct.anchor.set(0.5); }
+    // inventario de hechizos (AB2 lo muestra en el mapa): pastilla oscura bajo las estrellas, una fila en el orden de las cartas
+    const SP = [['yarnTex', 'getYarn', 0.42, 0.15, '#E2CCFF'], ['balloonTex', 'getBalloon', 0.4, -0.12, '#FFC8DC'], ['chiliTex', 'getChili', 0.4, 0.1, '#FFC9A8']]
+      .filter(a => this.o[a[0]] && this.o[a[1]]);
+    if (SP.length) { const PW = SP.length * 172 + 24, pcx = W - 60 - PW / 2, py = 262;
+      const pill = new Graphics().roundRect(-PW / 2, -54, PW, 108, 54).fill({color: 0x14163A, alpha: 0.55}).stroke({color: 0xFFFFFF, width: 4, alpha: 0.18});
+      this.item(pill, pcx, py, 2.48);
+      SP.forEach(([tk, gk, sc, rot, col], i) => { const cx = pcx - PW / 2 + 12 + 86 + i * 172;
+        const ic = this.item(new Sprite(this.o[tk]), cx - 36, py - 2, 2.5 + i * 0.05, 'pop', sc); ic.anchor.set(0.5); ic.rotation = rot;
+        const n = this.item(txt('×' + this.o[gk](), 56, col), cx + 44, py + 4, 2.55 + i * 0.05); n.anchor.set(0.5); }); }
     // flechas para cambiar de mundo (como las páginas de episodios de AB2)
     if (page > 0) this.btn(this.T.prevW, () => { SFX.whoosh(); this.showSelect(page - 1); }, 0.6, 110, 770, 2.6);
     if (page < WS.length - 1) this.btn(this.T.nextW, () => { SFX.whoosh(); this.showSelect(page + 1); }, 0.6, W - 110, 770, 2.6, worldOpen(page + 1));

@@ -473,6 +473,7 @@ async function main() {
     // (cuerpo del globo + su cola, que es angosta: rectángulo aparte de la base a la punta)
     fx.obst = bubbles.filter(b => !b.gone && b.c.alpha > 0.3).flatMap(b => { const k = Math.abs(b.c.scale.y), tl = (62 + b.ext) / 2, tx = (-30 + b.tx / 2) * b.side;
       return [{x: b.c.x, cy: b.c.y, hw: b.w * k / 2 + 6, hh: b.h * k / 2 + 6}, {x: b.c.x + tx * k, cy: b.c.y + (b.h / 2 + tl) * k, hw: 52 * k, hh: tl * k + 4}]; });
+    fx.view = {x: cam.x, hw: (app.screen.width / 2 - 12) / cam.zoom}; // los puntos no se cortan en la orilla de la pantalla
   }
   function driveRobot(d, dt) {
     if (d.enter) { enterRobot(d, dt); return; }
@@ -2922,7 +2923,7 @@ async function main() {
   }
   function updateRoom(dt) {
     const r = roomFx; if (!r) return; r.t += dt;
-    if (!r.ban && r.t >= 0) { r.ban = true; SFX.win(); ui.banner('¡SALA DESPEJADA!', `SALA ${roomIdx + 2} DE ${rooms().length}`); }
+    if (!r.ban && r.t >= 0) { r.ban = true; SFX.win(); ui.banner('¡SALA DESPEJADA!', roomIdx + 2 < rooms().length ? '¡VAMOS POR LA SIGUIENTE!' : '¡VAMOS POR LA ÚLTIMA!'); }
     const sw = app.screen.width, sh = app.screen.height, T0 = 1.5, TI = 0.45, TH = 0.25;
     // la cortinilla entra de izquierda a derecha, se queda un instante (aquí se cambia la sala) y sale hacia la derecha
     const uin = Math.min(1, Math.max(0, (r.t - T0) / TI)), uout = Math.min(1, Math.max(0, (r.t - T0 - TI - TH) / TI));
@@ -2948,7 +2949,7 @@ async function main() {
     g.poly(pts).fill(col).stroke({color: 0x1F2240, width: 22, join: 'round'}); g.poly(pts).stroke({color: 0xFFC93C, width: 8, join: 'round'});
     const Lb = edge(x0 + amp * 0.6, 0), Rb = edge(x1 - amp * 0.6, 2.1).reverse(); g.poly([...Lb, ...Rb].flat()).fill({color: 0x000000, alpha: 0.18});
     for (let i = 0; i < 6; i++) { const y = sh * (0.12 + i * 0.15), w = sw * 0.12; g.roundRect(x1 - w - amp * 2 - (i % 3) * 30, y, w, 8, 4).fill({color: 0xFFFFFF, alpha: 0.12}); }
-    wipeTxt.text = `SALA ${roomIdx + (roomFx && roomFx.swapped ? 1 : 2)}`; wipeTxt.scale.set(Math.min(sw, sh * 1.33) / 2048 * 1.6);
+    wipeTxt.text = `SALA ${roomIdx + (roomFx && roomFx.swapped ? 1 : 2)} DE ${rooms().length}`; wipeTxt.scale.set(Math.min(sw, sh * 1.33) / 2048 * 1.6);
     wipeTxt.position.set(Math.max(x0, Math.min(x1, sw / 2)) , sh * 0.56); wipeTxt.visible = x1 - x0 > sw * 0.5;
   }
   const ui = new UI(app, {

@@ -169,7 +169,7 @@ export class FX {
     // medidas reales (a escala 1, sin la sombra) para que updateTexts los acomode sin encimarse
     t.anchor.set(0.5); const w = t.width * 0.92, h = t.height * 0.78;
     t.position.set(x, y); t.scale.set(0.2); this.top.addChild(t);
-    this.texts.push({t, t0: 0, y0: y, x, w, h, oy: 0, oyT: 0, n: 0});
+    this.texts.push({t, t0: 0, y0: y, x, w, h, oy: 0, oyT: 0, n: 0, dx: 0});
   }
   // AB2: los números de puntos nunca se tapan entre sí. Del más viejo al más nuevo: si un número choca
   // (con su tamaño real, ya con el rebote) contra uno de abajo ya acomodado, sube hasta quedar 8 u arriba.
@@ -182,7 +182,12 @@ export class FX {
     for (const o of T) {
       if (o.t.alpha < 0.25 && o.t0 > 1) continue; // ya casi invisible: no estorba
       const sc = Math.max(1, o.t.scale.x), hw = o.w * sc / 2, hh = o.h * sc / 2, by = o.y0 - o.t0 * 70;
-      let oy = 0; const ovX = q => Math.abs(q.x - o.x) < q.hw + hw, above = obst.filter(q => q.cy < o.y0 - q.hh * 0.5 && ovX(q));
+      // orilla de la pantalla (fx.view lo pone main.js cada cuadro): un número que se saldría a medias se recorre
+      // hacia adentro (como los globos); si ya está muy afuera se deja ir. Suave, salvo el primer cuadro.
+      const v = this.view; let dxT = 0;
+      if (v) { const lim = v.hw - hw * 1.1; if (lim > 0) { const d = Math.max(-lim, Math.min(lim, o.x - v.x)) + v.x - o.x; if (Math.abs(d) < hw * 3) dxT = d; } }
+      o.dx = o.n === 0 ? dxT : o.dx + (dxT - o.dx) * Math.min(1, dt * 14); const ox = o.x + o.dx;
+      let oy = 0; const ovX = q => Math.abs(q.x - ox) < q.hw + hw, above = obst.filter(q => q.cy < o.y0 - q.hh * 0.5 && ovX(q));
       const solid = placed.concat(obst.filter(q => !above.includes(q)));
       for (let pass = 0; pass < 8; pass++) {
         const cy = by + oy;
@@ -197,7 +202,7 @@ export class FX {
         o.oyT = oy; } else o.oyT = Math.min(o.oyT, oy); // solo sube: no vuelve a bajar cuando el de abajo se va
       o.oy = o.n++ === 0 ? o.oyT : o.oy + (o.oyT - o.oy) * Math.min(1, dt * 16);
       if (o.oy < cap) o.oy = cap;   // nunca atraviesa el globo
-      placed.push({x: o.x, cy: by + o.oy, hw, hh});
+      placed.push({x: ox, cy: by + o.oy, hw, hh});
     }
   }
   clear() { this.puddles.forEach(q => q.s.destroy()); this.puddles = []; this.parts.forEach(p => p.s.destroy()); this.texts.forEach(o => o.t.destroy()); this.parts = []; this.texts = []; }
@@ -228,7 +233,7 @@ export class FX {
       const o = this.texts[i]; o.t0 += dt; const u = o.t0;
       // aparece con rebote, sube despacio y se desvanece
       const pop = u < 0.18 ? 0.2 + (u / 0.18) * 1.0 : u < 0.3 ? 1.2 - (u - 0.18) / 0.12 * 0.2 : 1;
-      o.t.scale.set(pop); o.t.y = o.y0 - u * 70 + o.oy; o.t.alpha = u > 1.0 ? Math.max(0, 1 - (u - 1.0) / 0.4) : 1;
+      o.t.scale.set(pop); o.t.x = o.x + o.dx; o.t.y = o.y0 - u * 70 + o.oy; o.t.alpha = u > 1.0 ? Math.max(0, 1 - (u - 1.0) / 0.4) : 1;
       if (u > 1.4) { o.t.destroy(); this.texts.splice(i, 1); }
     }
   }
