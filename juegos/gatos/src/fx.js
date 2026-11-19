@@ -63,6 +63,20 @@ export class FX {
     const s = new Sprite(this.ringTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; s.scale.set(0.1); this.root.addChild(s);
     this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R / 110});
   }
+  // picada de Miu (Silver AB2): onda aplanada que corre a ras de la estructura + líneas de velocidad que suben (el "aire" que trae)
+  slam(x, y, R) {
+    if (!this.ringTex) this.ring(x, y, 1, 0xFFFFFF, 0.01);
+    for (const [k, dur, c] of [[1.25, 0.42, 0xE8F6FF], [0.8, 0.3, 0xFFFFFF]]) {
+      const s = new Sprite(this.ringTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = c; s.blendMode = 'add'; s.scale.set(0.1); s.alpha = 0; this.root.addChild(s);
+      this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R * k / 110, flat: 0.24, maxA: 0.45});
+    }
+    if (!this.lineTex) this.lineTex = tex(16, 128, k => { const g = k.createLinearGradient(0, 0, 0, 128); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.7, 'rgba(255,255,255,0.85)'); g.addColorStop(1, 'rgba(255,255,255,1)'); k.fillStyle = g; k.beginPath(); k.ellipse(8, 64, 5, 64, 0, 0, 7); k.fill(); });
+    const n = Math.max(4, Math.round(9 * (this.k ?? 1)));
+    for (let i = 0; i < n; i++) { const dx = (i / (n - 1) - 0.5) * R * 0.9 + (Math.random() - 0.5) * 20, h = R * (0.5 + Math.random() * 0.6);
+      const s = new Sprite(this.lineTex); s.anchor.set(0.5, 1); s.position.set(x + dx, y - R * 0.15 - Math.random() * 30); s.tint = i % 2 ? 0xDFF1FF : 0xFFFFFF; s.blendMode = 'add';
+      const sx = 0.9 + Math.random() * 0.8, sy = h / 128; s.scale.set(sx, sy); s.alpha = 0; (this.under || this.root).addChild(s);
+      this.parts.push({s, vx: 0, vy: -520 - Math.random() * 300, vr: 0, life: 0.28 + Math.random() * 0.12, t: 0, g: 0, drag: 2.5, grow: 0, sz: sx, glow: 0.8, atk: 0.03}); }
+  }
   // destello de impacto (AB2): estrella blanca de picos irregulares que aparece de golpe, crece un poco y se apaga en ~0.15 s
   impact(x, y, R, rot = 0) {
     if (!this.impTex) this.impTex = tex(160, 160, k => { k.translate(80, 80); const P = 9;
@@ -100,7 +114,9 @@ export class FX {
   }
   // BLOOM de explosión (AB2): luz aditiva que "quema" el centro y baña de naranja lo que está alrededor + rayos de luz
   // que se abren y giran un poco. Todo con blendMode 'add' → sobre fondos claros satura a blanco (el brillo de AB2).
-  bloom(x, y, R) {
+  // pal (opcional): paleta para otros golpes — {halo, core, rays, peak, rays0, screen}. Miu = azul-blanco, Omi = crema suave.
+  // En calidad baja (k < 0.8) se salta el halo grande (relleno aditivo enorme = lo que más cuesta en GPU).
+  bloom(x, y, R, pal = null) {
     if (!this.bloomTex) {
       this.bloomTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(0.2, 'rgba(255,190,90,0.7)'); g.addColorStop(0.5, 'rgba(255,130,40,0.28)'); g.addColorStop(1, 'rgba(255,90,20,0)'); k.fillStyle = g; k.fillRect(0, 0, 128, 128); });
       this.raysTex = tex(256, 256, k => { k.translate(128, 128); const N = 14;
@@ -111,10 +127,18 @@ export class FX {
     const add = (t, sz, life, opts) => { const s = new Sprite(t); s.anchor.set(0.5); s.position.set(x, y); s.blendMode = 'add'; s.scale.set(sz); s.rotation = opts.rot ?? 0; s.alpha = 0; if (opts.tint != null) s.tint = opts.tint;
       (opts.back ? (this.under || this.root) : this.root).addChild(s);
       this.parts.push({s, vx: 0, vy: 0, vr: opts.vr ?? 0, life, t: 0, g: 0, drag: 0, grow: opts.grow ?? 0, sz, glow: opts.peak ?? 1, atk: opts.atk ?? 0.05}); };
-    add(this.bloomTex, R * 3.4 / 64, 0.7, {grow: 0.35, peak: 0.5, atk: 0.04, tint: 0xFFB070});          // halo grande que ilumina lo de alrededor (lento en apagarse)
-    add(this.bloomTex, R * 1.3 / 64, 0.26, {grow: 0.5, peak: 0.6, atk: 0.02});            // núcleo que satura a blanco
-    add(this.raysTex, R * 2.3 / 128, 0.34, {grow: 0.9, peak: 0.75, atk: 0.03, tint: 0xFFD9A0, rot: Math.random() * 6.3, vr: (Math.random() < 0.5 ? -1 : 1) * 0.9});
-    if (this.onBoom) this.onBoom(x, y, R);
+    if (pal && !this.bloomTexW) { // versión neutra (blanca) para teñir con colores fríos sin que salga verdosa
+      this.bloomTexW = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.2, 'rgba(255,255,255,0.7)'); g.addColorStop(0.5, 'rgba(255,255,255,0.26)'); g.addColorStop(1, 'rgba(255,255,255,0)'); k.fillStyle = g; k.fillRect(0, 0, 128, 128); });
+      this.raysTexW = tex(256, 256, k => { k.translate(128, 128); const N = 18;
+        for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2 + (i % 2) * 0.07, L = i % 2 ? 80 : 126, w = i % 2 ? 0.035 : 0.055;
+          const g = k.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L); g.addColorStop(0, 'rgba(255,255,255,0.95)'); g.addColorStop(0.45, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+          k.fillStyle = g; k.beginPath(); k.moveTo(Math.cos(a - w * 2.4) * 10, Math.sin(a - w * 2.4) * 10); k.lineTo(Math.cos(a - w) * L, Math.sin(a - w) * L); k.lineTo(Math.cos(a + w) * L, Math.sin(a + w) * L); k.lineTo(Math.cos(a + w * 2.4) * 10, Math.sin(a + w * 2.4) * 10); k.closePath(); k.fill(); } });
+    }
+    const P = pal || {}, pk = P.peak ?? 1, L = P.life ?? 1, low = (this.k ?? 1) < 0.8, BT = pal ? this.bloomTexW : this.bloomTex, RT = pal ? this.raysTexW : this.raysTex;
+    if (!low) add(BT, R * 3.4 / 64, 0.7 * L, {grow: 0.35, peak: 0.5 * pk, atk: 0.04, tint: P.halo ?? 0xFFB070, back: P.back});          // halo grande que ilumina lo de alrededor (lento en apagarse)
+    add(BT, R * 1.3 / 64, 0.26 * L, {grow: 0.5, peak: 0.6 * pk, atk: 0.02, tint: P.core, back: P.back});            // núcleo que satura a blanco
+    if (P.rays !== null) add(RT, R * 2.3 / 128, 0.34 * L, {grow: 0.9, peak: 0.75 * pk * (P.rays0 ?? 1), atk: 0.03, tint: P.rays ?? 0xFFD9A0, back: P.back, rot: Math.random() * 6.3, vr: (Math.random() < 0.5 ? -1 : 1) * 0.9});
+    if (this.onBoom) this.onBoom(x, y, R, P);
   }
   // estela (loop y picada de Miu): bolitas suaves que se encogen y desvanecen en su lugar
   streak(x, y, r, color = 0xEDE4FF) {
@@ -160,7 +184,7 @@ export class FX {
         if (p.s.y > GROUND - 6) { this.puddle(p.s.x); this.burst('drop', p.s.x, GROUND - 8, 1, 120, {up: 160, life: 0.35, size: p.sz * 0.5, drag: 0.5}); p.s.destroy(); this.parts.splice(i, 1); continue; } }
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
-      if (p.ring) p.s.scale.set(0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)));
+      if (p.ring) { const r = 0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)); p.s.scale.set(r, r * (p.flat ?? 1)); }
       const u = p.t / p.life;
       if (p.glow) { const a = p.t < p.atk ? p.t / p.atk : Math.pow(Math.max(0, 1 - (p.t - p.atk) / (p.life - p.atk)), 1.6); p.s.alpha = p.glow * a; if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); } continue; }
       p.s.alpha = (p.maxA ?? 1) * (u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : Math.min(1, p.maxA ? u * 6 : 1));

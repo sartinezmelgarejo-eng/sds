@@ -259,7 +259,8 @@ async function main() {
   }
   const dizzyTex = canvasTex(64, 64, k => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 12 : 27; k.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } k.closePath();
     k.lineJoin = 'round'; k.lineWidth = 7; k.strokeStyle = '#2A1F3D'; k.stroke(); k.fillStyle = '#FFE14A'; k.fill(); k.fillStyle = 'rgba(255,255,255,0.7)'; k.beginPath(); k.arc(27, 25, 5, 0, 7); k.fill(); }, 2);
-  fx.onBoom = (x, y, R) => { bloomN++; const k = Math.min(1.15, R / 200); if (!bloomP || k >= bloomP.k * (1 - bloomP.t / bloomP.life)) bloomP = {x, y, k, t: 0, life: 0.55 + 0.25 * k}; }; // la más fuerte manda
+  // la más fuerte manda; P.screen = tinte del resplandor de pantalla (Miu azul-blanco, Omi crema), P.sk = cuánto pesa en pantalla
+  fx.onBoom = (x, y, R, P = {}) => { bloomN++; if (fx.k < 0.8 || P.sk === 0) return; const k = Math.min(1.15, R / 200) * (P.sk ?? 1); if (!bloomP || k >= bloomP.k * (1 - bloomP.t / bloomP.life)) bloomP = {x, y, k, t: 0, life: 0.55 + 0.25 * k, tint: P.screen ?? 0xFFC890}; };
   fx.under = new Container(); world.addChildAt(fx.under, world.getChildIndex(actors)); // estelas detrás de los gatos
   let score = 0, shownScore = 0;
   const hud = new Container(); app.stage.addChild(hud);
@@ -700,7 +701,7 @@ async function main() {
       else if (I.t < T_HOLD) target = 4 + Math.sin((I.t - T_SET) * 5) * 0.04;                         // respira inflado
       else target = Math.max(1, 4 - 3 * Math.pow(Math.min(1, (I.t - T_HOLD) / T_DEF), 0.7));         // se desinfla
       if (Math.abs(target - I.k) > 0.005) { Body.scale(b, target / I.k, target / I.k); I.k = target; }
-      if (!I.pushed && I.t >= T_IN * 0.6) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.5, can: 0.5}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
+      if (!I.pushed && I.t >= T_IN * 0.6) { I.pushed = true; blast(b.position.x, b.position.y, CAT_R * 4.6, 17, 10, {box: 1.5, can: 0.5}); cam.shake(12); fx.ring(b.position.x, b.position.y, CAT_R * 4.8, 0xFFFFFF, 0.3); if (fx.under) fx.under.addChild(fx.parts[fx.parts.length - 1].s); fx.bloom(b.position.x, b.position.y, CAT_R * 2.6, {halo: 0xFFF0D8, core: 0xFFFFFF, rays: 0xFFF6E8, rays0: 0.6, peak: 0.8, back: 1, screen: 0xFFF2DC, sk: 0.55}); fx.burst('fur', b.position.x, b.position.y, 14, 500, {up: 60, life: 1}); }
       if (!I.deflated && I.t > T_HOLD) { I.deflated = true; SFX.deflate(); I.dir = -Math.PI / 2 + (Math.random() - 0.5) * 1.2; }
       if (I.deflated && I.t < T_HOLD + T_DEF) { // globo suelto: empuje que cambia de dirección a tirones
         I.dir += (Math.random() - 0.5) * 9 * dt + Math.sin(I.t * 23) * 4 * dt;
@@ -1493,7 +1494,8 @@ async function main() {
       if (flying.dive) { // Miu: onda de choque + temblor de estructuras
         const p = flying.body.position; flying.dive = false;
         blast(p.x, p.y + CAT_R, 240, 16, 34, {can: 2.0, box: 0.85}); dyn.forEach(o => { Sleeping.set(o.body, false); Body.setAngularVelocity(o.body, (Math.random() - 0.5) * 0.05); });
-        fx.smoke(p.x, p.y + CAT_R, 140, 14); fx.ring(p.x, p.y + CAT_R, 240, 0xCFEFFF, 0.45); cam.shake(30, 0.5); cam.punch(0.06); SFX.slam(); startle(p.x, 0.8);
+        { const n0 = fx.parts.length; fx.smoke(p.x, p.y + CAT_R, 140, 14); if (fx.under) for (let i = n0; i < fx.parts.length; i++) fx.under.addChild(fx.parts[i].s); } fx.ring(p.x, p.y + CAT_R, 240, 0xCFEFFF, 0.45); // humo detrás: Miu se sigue viendo
+        fx.bloom(p.x, p.y + CAT_R * 0.6, 120, {halo: 0x3F8CFF, core: 0xBFE2FF, rays: 0x9CD0FF, peak: 0.5, life: 0.6, back: 1, screen: 0x6FB0FF, sk: 0.45}); fx.slam(p.x, p.y + CAT_R, 260); cam.shake(30, 0.5); cam.punch(0.06); SFX.slam(); startle(p.x, 0.8);
       }
       break;
     }
@@ -2974,7 +2976,7 @@ async function main() {
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.22;
     bloomSp.visible = !!bloomP;
     if (bloomP) { bloomP.t += rdt; const u = bloomP.t / bloomP.life, q = toScreen(bloomP.x, bloomP.y), S = Math.max(app.screen.width, app.screen.height);
-      bloomSp.position.set(q.x, q.y); bloomSp.width = bloomSp.height = S * (0.55 + 0.35 * Math.min(1, u * 2.5)) * bloomP.k;
+      bloomSp.position.set(q.x, q.y); bloomSp.tint = bloomP.tint; bloomSp.width = bloomSp.height = S * (0.55 + 0.35 * Math.min(1, u * 2.5)) * bloomP.k;
       bloomSp.alpha = (bloomP.t < 0.04 ? bloomP.t / 0.04 : Math.pow(Math.max(0, 1 - u), 1.8)) * 0.45 * bloomP.k;
       if (u >= 1) bloomP = null; }
     acc += dt * 1000;
