@@ -424,27 +424,39 @@ async function main() {
     const c = new Container(), t = new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: 64, fill: '#2B2F45', align: 'center', lineHeight: 64}}); t.anchor.set(0.5, 0.42);
     const w = t.width + 80, h = t.height + 56, g = new Graphics(), tl = new Graphics();
     drawTail(tl, w, h, 0);
-    g.roundRect(-w / 2, -h / 2, w, h, 46).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9}); g.rect(-4, h / 2 - 12, 42, 14).fill(0xFFFFFF);
+    g.roundRect(-w / 2, -h / 2, w, h, 46).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9});
+    const pt = new Graphics(); pt.rect(-4, h / 2 - 12, 42, 14).fill(0xFFFFFF);   // parche que abre el contorno donde entra la cola (se mueve con la base)
     // AB2: un ratón dice una cosa a la vez → el globo que traía se encoge rápido y el nuevo sale encima (antes quedaban encimados)
     for (const o of bubbles) if (o.d === d && !o.gone) { o.gone = 1; o.dur = Math.min(o.dur, o.t); o.fo = 0.12; }
-    c.addChild(tl, g, t); front.addChild(c); bubbles.push({c, g, tl, d, t: 0, dur, h, w, sc, side: 1, oy: 0, ext: 0});
+    c.addChild(tl, g, pt, t); front.addChild(c); bubbles.push({c, g, tl, pt, d, t: 0, dur, h, w, sc, side: 1, oy: 0, ext: 0, dx: 0, tx: 0});
   }
   // sombra + cola del globo (en su propio Graphics, detrás del cuerpo). ext = cuánto se alarga la cola hacia abajo
   // cuando el globo subió para no encimarse: así sigue apuntando al ratón y no al globo de abajo.
-  function drawTail(tl, w, h, ext) {
+  // tx = cuánto se corre la PUNTA en x (local) cuando el globo se recorrió para no salirse de la pantalla: sigue apuntando al ratón
+  function drawTail(tl, w, h, ext, tx = 0) {
     tl.clear(); tl.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
     const tip = h / 2 + 62 + ext, k = Math.min(1, ext / 260);
+    // la base acompaña a la punta (sin salirse del globo) para que la cola no quede acostada
+    const bs = Math.max(-w / 2 + 50 - (-10 + 14 * k), Math.min(w / 2 - 50 - (44 - 10 * k), tx * 0.8));
     // cola larga: base un poco más angosta y punta más vertical (si no, se ve como cuchillo de lado)
-    tl.poly([-10 + 14 * k, h / 2 - 6, 44 - 10 * k, h / 2 - 6, -60 + 34 * k, tip]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
+    tl.poly([-10 + 14 * k + bs, h / 2 - 6, 44 - 10 * k + bs, h / 2 - 6, -60 + 34 * k + tx, tip]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
+    return bs;
   }
   function updateBubbles(dt) {
     for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.t += dt; const u = Math.min(1, b.t / 0.35), out = Math.max(0, (b.t - b.dur) / (b.fo || 0.25));
       if (b.d.dead || out >= 1) { b.c.destroy({children: true}); bubbles.splice(i, 1); continue; }
       const p = b.d.body.position;
       // si el globo se saldría por la orilla derecha de la pantalla, se voltea al lado izquierdo del ratón (cola espejeada)
-      if (b.side > 0 && app.screen.width / 2 + (p.x + (70 + b.w / 2) * b.sc - cam.x) * cam.zoom > app.screen.width - 8) { b.side = -1; b.g.scale.x = -1; b.tl.scale.x = -1; }
-      const ext = Math.round(b.oy / Math.max(0.3, b.sc)); if (Math.abs(ext - b.ext) > 3) { b.ext = ext; drawTail(b.tl, b.w, b.h, ext); }
-      b.c.position.set(p.x + 70 * b.sc * b.side, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6 - b.oy);
+      if (b.side > 0 && app.screen.width / 2 + (p.x + (70 + b.w / 2) * b.sc - cam.x) * cam.zoom > app.screen.width - 8) { b.side = -1; b.g.scale.x = -1; b.tl.scale.x = -1; b.pt.scale.x = -1; b.pt.x = -b.pt.x; }
+      // si aun volteado se sale (ratón pegado a la orilla de la PANTALLA), el globo se recorre hacia adentro y la cola se estira
+      // hacia el ratón (AB2: los globos nunca quedan cortados). Tope: si el ratón ya está fuera de cuadro, no lo persigue.
+      const hw = (app.screen.width / 2 - 10) / cam.zoom, cx0 = p.x + 70 * b.sc * b.side, bw2 = b.w * b.sc / 2;
+      let want = Math.min(0, cam.x + hw - (cx0 + bw2)) + Math.max(0, cam.x - hw - (cx0 - bw2));
+      want = Math.max(-b.w * b.sc * 0.42, Math.min(b.w * b.sc * 0.42, want));
+      b.dx = b.t < 0.05 ? want : b.dx + (want - b.dx) * Math.min(1, dt * 14);
+      const ext = Math.round(b.oy / Math.max(0.3, b.sc)), tx = Math.round(-b.dx * b.side / Math.max(0.3, b.sc));
+      if (Math.abs(ext - b.ext) > 3 || Math.abs(tx - b.tx) > 3) { b.ext = ext; b.tx = tx; b.pt.x = drawTail(b.tl, b.w, b.h, ext, tx) * b.side; }
+      b.c.position.set(cx0 + b.dx, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6 - b.oy);
       b.c.scale.set(Math.max(0.05, backOutE(u, 2.4)) * (1 - out * (b.gone ? 0.7 : 0.3)) * b.sc); b.c.alpha = 1 - out; b.c.rotation = Math.sin(b.t * 4) * 0.03; }
     // globos de ratones distintos que se enciman: el más nuevo sube hasta quedar arriba del otro (se desliza suave)
     for (let i = 0; i < bubbles.length; i++) { const b = bubbles[i]; if (b.gone) continue; let need = 0;
