@@ -2949,7 +2949,7 @@ async function main() {
     const Lb = edge(x0 + amp * 0.6, 0), Rb = edge(x1 - amp * 0.6, 2.1).reverse(); g.poly([...Lb, ...Rb].flat()).fill({color: 0x000000, alpha: 0.18});
     for (let i = 0; i < 6; i++) { const y = sh * (0.12 + i * 0.15), w = sw * 0.12; g.roundRect(x1 - w - amp * 2 - (i % 3) * 30, y, w, 8, 4).fill({color: 0xFFFFFF, alpha: 0.12}); }
     wipeTxt.text = `SALA ${roomIdx + (roomFx && roomFx.swapped ? 1 : 2)}`; wipeTxt.scale.set(Math.min(sw, sh * 1.33) / 2048 * 1.6);
-    wipeTxt.position.set(Math.max(x0, Math.min(x1, sw / 2)) , sh / 2); wipeTxt.visible = x1 - x0 > sw * 0.5;
+    wipeTxt.position.set(Math.max(x0, Math.min(x1, sw / 2)) , sh * 0.56); wipeTxt.visible = x1 - x0 > sw * 0.5;
   }
   const ui = new UI(app, {
     onRetry: () => buildLevel(levelId, false),

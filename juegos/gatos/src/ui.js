@@ -190,7 +190,7 @@ export class UI {
   }
   burstAt(K, x, y) { const keep = this.box; this.box = this.cardBox; this.burst(x, y); this.box = keep; }
   banner(title, sub) { this.banT.text = title; this.banS.text = sub || ''; this.banTime = 0; this.ban.visible = true;
-    const k = Math.min(1, 720 / this.banT.width); this.banT.scale.set(k); }
+    const k = Math.min(1, 720 / this.banT.width); this.banT.scale.set(k); this.banTop = this.ban.getLocalBounds().y; }
   hideBanner() { this.banTime = -1; this.ban.visible = false; }
   // botón gordito: se hunde al presionar y rebota al soltar
   button(t, cb, base = 1) { return makeButton(t, cb, base); }
@@ -313,7 +313,9 @@ export class UI {
       // entra cayendo con rebote (0.2–0.65 s), se queda, y sale hacia arriba acelerando (2.4–2.8 s)
       const uin = clamp01((bt - 0.2) / 0.45), uout = clamp01((bt - 2.4) / 0.4);
       this.ban.scale.set(s * (0.6 + 0.4 * backOut(uin)));
-      this.ban.position.set(sw / 2, sh * 0.3 - (1 - backOut(uin, 1.2)) * sh * 0.25 - uout * uout * sh * 0.6);
+      // no tapa el Destructómetro (HUD arriba a la der., base a 268+45 u del HUD): baja lo justo para librarlo
+      const y0 = Math.max(sh * 0.3, 313 * hs + 14 - (this.banTop || -90) * s);
+      this.ban.position.set(sw / 2, y0 - (1 - backOut(uin, 1.2)) * sh * 0.25 - uout * uout * sh * 0.6);
       this.ban.alpha = Math.min(1, uin * 3) * (1 - uout); this.ban.rotation = (1 - uin) * -0.08;
       if (bt > 2.85) this.hideBanner();
     }
