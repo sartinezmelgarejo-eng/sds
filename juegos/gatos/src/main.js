@@ -1650,7 +1650,7 @@ async function main() {
       if (endT > 0.6 && i < queue.length && !queue[i].bonus) {
         const q = queue[i]; q.bonus = true; q.sprite.texture = catT[q.name].angry.tex;
         q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true};
-        addScore(10000, q.x, GROUND - 400, '#FFE27A', true, 1.5); fx.burst('star', q.x, GROUND - 330, 10, 600, {up: 300, size: 1.1, life: 0.8}); SFX.meow(i);
+        addScore(10000, q.x, GROUND - 540, '#FFE27A', true, 1.5); fx.burst('star', q.x, GROUND - 330, 10, 600, {up: 300, size: 1.1, life: 0.8}); SFX.meow(i);
       }
       if (!resultsShown && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
     }
