@@ -166,10 +166,30 @@ export class FX {
   smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
   points(x, y, value, color = '#FFFFFF', big = false, k = 1) {
     const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: (big ? 84 : 58) * k, fill: color, stroke: {color: '#1F2240', width: (big ? 12 : 9) * k, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
-    // si hay otro número reciente encima, apilar hacia arriba para que no se encimen
-    for (let k = 0; k < 6; k++) { const hit = this.texts.find(o => o.t0 < 0.8 && Math.abs(o.x - x) < 170 && Math.abs(o.y0 - y) < 64); if (!hit) break; y = hit.y0 - 70; }
-    t.anchor.set(0.5); t.position.set(x, y); t.scale.set(0.2); this.root.addChild(t);
-    this.texts.push({t, t0: 0, y0: y, x});
+    // medidas reales (a escala 1, sin la sombra) para que updateTexts los acomode sin encimarse
+    t.anchor.set(0.5); const w = t.width * 0.92, h = t.height * 0.78;
+    t.position.set(x, y); t.scale.set(0.2); this.root.addChild(t);
+    this.texts.push({t, t0: 0, y0: y, x, w, h, oy: 0, oyT: 0, n: 0});
+  }
+  // AB2: los números de puntos nunca se tapan entre sí. Del más viejo al más nuevo: si un número choca
+  // (con su tamaño real, ya con el rebote) contra uno de abajo ya acomodado, sube hasta quedar 8 u arriba.
+  // El ajuste se suaviza para que se deslicen en vez de brincar; el primer cuadro se coloca directo.
+  stackTexts(dt) {
+    const T = this.texts, placed = [];
+    for (const o of T) {
+      if (o.t.alpha < 0.25 && o.t0 > 1) continue; // ya casi invisible: no estorba
+      const sc = Math.max(1, o.t.scale.x), hw = o.w * sc / 2, hh = o.h * sc / 2, by = o.y0 - o.t0 * 70;
+      let oy = 0;
+      for (let pass = 0; pass < 8; pass++) {
+        const cy = by + oy;
+        const hit = placed.find(q => Math.abs(q.x - o.x) < q.hw + hw && Math.abs(q.cy - cy) < q.hh + hh);
+        if (!hit) break;
+        oy = hit.cy - hit.hh - 8 - hh - by;
+      }
+      o.oyT = Math.min(o.oyT, oy); // solo sube: no vuelve a bajar cuando el de abajo se va
+      o.oy = o.n++ === 0 ? o.oyT : o.oy + (o.oyT - o.oy) * Math.min(1, dt * 16);
+      placed.push({x: o.x, cy: by + o.oy, hw, hh});
+    }
   }
   clear() { this.puddles.forEach(q => q.s.destroy()); this.puddles = []; this.parts.forEach(p => p.s.destroy()); this.texts.forEach(o => o.t.destroy()); this.parts = []; this.texts = []; }
   update(dt) {
@@ -194,11 +214,12 @@ export class FX {
       q.cur += (q.k - q.cur) * Math.min(1, dt * 7); q.s.scale.set(q.cur, q.cur * (0.8 + 0.2 * Math.min(1, q.t * 3)));
       q.s.alpha = q.t < 4 ? 1 : Math.max(0, 1 - (q.t - 4) / 3); if (q.t > 4) q.s.scale.x = q.cur * (1 - (q.t - 4) * 0.06);
       if (q.t > 7) { q.s.destroy(); this.puddles.splice(i, 1); } }
+    this.stackTexts(dt);
     for (let i = this.texts.length - 1; i >= 0; i--) {
       const o = this.texts[i]; o.t0 += dt; const u = o.t0;
       // aparece con rebote, sube despacio y se desvanece
       const pop = u < 0.18 ? 0.2 + (u / 0.18) * 1.0 : u < 0.3 ? 1.2 - (u - 0.18) / 0.12 * 0.2 : 1;
-      o.t.scale.set(pop); o.t.y = o.y0 - u * 70; o.t.alpha = u > 1.0 ? Math.max(0, 1 - (u - 1.0) / 0.4) : 1;
+      o.t.scale.set(pop); o.t.y = o.y0 - u * 70 + o.oy; o.t.alpha = u > 1.0 ? Math.max(0, 1 - (u - 1.0) / 0.4) : 1;
       if (u > 1.4) { o.t.destroy(); this.texts.splice(i, 1); }
     }
   }
