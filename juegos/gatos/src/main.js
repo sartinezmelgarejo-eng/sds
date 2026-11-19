@@ -466,6 +466,10 @@ async function main() {
           // el de arriba va DETRÁS del de abajo: su cola larga pasa por debajo del otro globo, no encima del texto
           const bi = front.getChildIndex(b.c), oi = front.getChildIndex(o.c); if (bi > oi) front.setChildIndex(b.c, oi); } } }
       b.oy += (need - b.oy) * Math.min(1, dt * 14); }
+    // los puntos flotantes esquivan los globos (fx.stackTexts los trata como números ya acomodados)
+    // (cuerpo del globo + su cola, que es angosta: rectángulo aparte de la base a la punta)
+    fx.obst = bubbles.filter(b => !b.gone && b.c.alpha > 0.3).flatMap(b => { const k = Math.abs(b.c.scale.y), tl = (62 + b.ext) / 2, tx = (-30 + b.tx / 2) * b.side;
+      return [{x: b.c.x, cy: b.c.y, hw: b.w * k / 2 + 6, hh: b.h * k / 2 + 6}, {x: b.c.x + tx * k, cy: b.c.y + (b.h / 2 + tl) * k, hw: 52 * k, hh: tl * k + 4}]; });
   }
   function driveRobot(d, dt) {
     if (d.enter) { enterRobot(d, dt); return; }

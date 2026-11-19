@@ -175,19 +175,28 @@ export class FX {
   // (con su tamaño real, ya con el rebote) contra uno de abajo ya acomodado, sube hasta quedar 8 u arriba.
   // El ajuste se suaviza para que se deslicen en vez de brincar; el primer cuadro se coloca directo.
   stackTexts(dt) {
-    const T = this.texts, placed = [];
+    // obst: globos de diálogo (los pone main.js cada cuadro) → los números tampoco caen encima de un globo
+    // Si el número nace DEBAJO del globo, el globo le hace de techo (se queda abajo y se desvanece, en vez de brincar
+    // por encima); si nace dentro o arriba, el globo cuenta como un número ya acomodado y el número sube por encima.
+    const T = this.texts, obst = this.obst || [], placed = [];
     for (const o of T) {
       if (o.t.alpha < 0.25 && o.t0 > 1) continue; // ya casi invisible: no estorba
       const sc = Math.max(1, o.t.scale.x), hw = o.w * sc / 2, hh = o.h * sc / 2, by = o.y0 - o.t0 * 70;
-      let oy = 0;
+      let oy = 0; const ovX = q => Math.abs(q.x - o.x) < q.hw + hw, above = obst.filter(q => q.cy < o.y0 - q.hh * 0.5 && ovX(q));
+      const solid = placed.concat(obst.filter(q => !above.includes(q)));
       for (let pass = 0; pass < 8; pass++) {
         const cy = by + oy;
-        const hit = placed.find(q => Math.abs(q.x - o.x) < q.hw + hw && Math.abs(q.cy - cy) < q.hh + hh);
+        const hit = solid.find(q => ovX(q) && Math.abs(q.cy - cy) < q.hh + hh);
         if (!hit) break;
         oy = hit.cy - hit.hh - 8 - hh - by;
       }
-      o.oyT = Math.min(o.oyT, oy); // solo sube: no vuelve a bajar cuando el de abajo se va
+      // techo (globo arriba): el objetivo no puede pasar a través del globo; bajo el techo se apilan hacia ABAJO
+      let cap = -Infinity; for (const q of above) cap = Math.max(cap, q.cy + q.hh + 6 + hh - by);
+      if (Math.min(o.oyT, oy) < cap) { oy = cap;
+        for (let pass = 0; pass < 6; pass++) { const cy = by + oy, hit = placed.find(q => ovX(q) && Math.abs(q.cy - cy) < q.hh + hh); if (!hit) break; oy = hit.cy + hit.hh + 8 + hh - by; }
+        o.oyT = oy; } else o.oyT = Math.min(o.oyT, oy); // solo sube: no vuelve a bajar cuando el de abajo se va
       o.oy = o.n++ === 0 ? o.oyT : o.oy + (o.oyT - o.oy) * Math.min(1, dt * 16);
+      if (o.oy < cap) o.oy = cap;   // nunca atraviesa el globo
       placed.push({x: o.x, cy: by + o.oy, hw, hh});
     }
   }
