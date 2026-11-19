@@ -8,7 +8,7 @@ function tex(w, h, draw) { const c = document.createElement('canvas'); c.width =
 
 export class FX {
   constructor(parent) {
-    this.root = new Container(); parent.addChild(this.root); this.parts = []; this.texts = [];
+    this.root = new Container(); parent.addChild(this.root); this.top = new Container(); parent.addChild(this.top); this.parts = []; this.texts = []; // top: números de puntos SIEMPRE encima de explosiones/humo
     const shard = (cols, poly) => cols.map(([f, s]) => tex(48, 48, (k) => { k.beginPath(); poly.forEach(([x, y], i) => i ? k.lineTo(x, y) : k.moveTo(x, y)); k.closePath(); k.fillStyle = f; k.fill(); k.lineWidth = 3; k.strokeStyle = s; k.stroke(); }));
     this.T = {
       box: shard([['#D9A464', '#5A3415'], ['#B97E43', '#4A2810'], ['#E9C38A', '#6A4420']], [[4, 10], [40, 4], [44, 30], [10, 42]]),
@@ -168,7 +168,7 @@ export class FX {
     const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: (big ? 84 : 58) * k, fill: color, stroke: {color: '#1F2240', width: (big ? 12 : 9) * k, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
     // medidas reales (a escala 1, sin la sombra) para que updateTexts los acomode sin encimarse
     t.anchor.set(0.5); const w = t.width * 0.92, h = t.height * 0.78;
-    t.position.set(x, y); t.scale.set(0.2); this.root.addChild(t);
+    t.position.set(x, y); t.scale.set(0.2); this.top.addChild(t);
     this.texts.push({t, t0: 0, y0: y, x, w, h, oy: 0, oyT: 0, n: 0});
   }
   // AB2: los números de puntos nunca se tapan entre sí. Del más viejo al más nuevo: si un número choca

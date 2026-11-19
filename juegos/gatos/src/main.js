@@ -361,7 +361,10 @@ async function main() {
     badge.scale.set(ps); badgeCat.scale.set(ps * 70 / (badgeCat.texture.width || 1) * 1.15); badgeCat.alpha = full ? 0.35 : 1;
     if (m.extraT >= 0) { m.extraT += rdt; const u = m.extraT;
       const sc = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25, uin = Math.min(1, u / 0.35), uout = Math.max(0, (u - 1.5) / 0.35);
-      extraTxt.position.set(app.screen.width / 2, app.screen.height * 0.24 - uout * 60 * sc); extraTxt.scale.set(sc * (0.3 + 0.7 * backOutE(uin)) * (1 + Math.sin(u * 9) * 0.03));
+      // centrado, pero sin tapar el Destructómetro (arriba a la derecha): si choca, se corre a la izquierda
+      const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25, mLeft = app.screen.width - (40 + MW + 30 + 50) * hs;
+      const halfW = extraTxt.getLocalBounds().width / 2 * sc * 1.08;
+      extraTxt.position.set(Math.max(halfW + 20, Math.min(app.screen.width / 2, mLeft - 56 - halfW)), app.screen.height * 0.24 - uout * 60 * sc); extraTxt.scale.set(sc * (0.3 + 0.7 * backOutE(uin)) * (1 + Math.sin(u * 9) * 0.03));
       extraTxt.rotation = Math.sin(u * 5) * 0.04; extraTxt.alpha = 1 - uout;
       if (u > 1.85) { m.extraT = -1; extraTxt.visible = false; } }
   }
