@@ -10,7 +10,9 @@ export function unlockAudio() {
   if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
   const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
   ctx = new AC(); master = ctx.createGain(); master.gain.value = muted ? 0 : 0.55;
-  const comp = ctx.createDynamicsCompressor(); master.connect(comp); comp.connect(ctx.destination);
+  // filtro maestro (abierto = 20 kHz): la cámara lenta del último ratón lo cierra para que todo suene "bajo el agua"
+  mlp = ctx.createBiquadFilter(); mlp.type = 'lowpass'; mlp.frequency.value = 20000; mlp.Q.value = 0.9;
+  const comp = ctx.createDynamicsCompressor(); master.connect(mlp); mlp.connect(comp); comp.connect(ctx.destination);
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   music(true);
@@ -176,6 +178,16 @@ export function music(on) {
   }
 }
 // baja la música un rato (fanfarrias de victoria/derrota) y la regresa
+// cámara lenta del último ratón (AB2): el mundo se apaga (filtro que se cierra y se vuelve a abrir) + un "vuuum" grave que baja
+let mlp = null;
+export function slowmo(sec) {
+  if (!ok('slowmo', 0.5)) return; const t = ctx.currentTime, f = mlp.frequency;
+  f.cancelScheduledValues(t); f.setValueAtTime(Math.max(400, f.value), t); f.exponentialRampToValueAtTime(650, t + 0.12);
+  f.setValueAtTime(650, t + sec * 0.7); f.exponentialRampToValueAtTime(20000, t + sec + 0.35);
+  tone(t, 190, 'sine', 0.42, sec * 0.9, 48); tone(t, 95, 'triangle', 0.25, sec * 0.8, 36);
+  noise(t, sec * 0.8, 'lowpass', 900, 0.7, 0.3, sec * 0.7, 120);
+  tone(t + 0.04, 1568, 'sine', 0.07, 0.6); tone(t + 0.1, 2093, 'sine', 0.05, 0.7); // destellito agudo (no se filtra mucho: suena lejano)
+}
 export function duck(sec) {
   if (!mus) return; const g = mus.out.gain, t = ctx.currentTime;
   g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.0001, g.value), t); g.exponentialRampToValueAtTime(0.012, t + 0.25);

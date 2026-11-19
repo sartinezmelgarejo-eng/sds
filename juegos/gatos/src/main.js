@@ -141,6 +141,10 @@ async function main() {
     k.fillStyle = ART.rad(k, 256, 230, 150, 380, [[0, 'rgba(20,10,40,0)'], [1, 'rgba(20,10,40,0.5)']]); k.fillRect(0, 0, 512, 512);
   }));
   app.stage.addChild(vignette);
+  // viñeta extra (más cerrada y oscura) que solo aparece en la cámara lenta del último ratón
+  const slowVigSp = new Sprite(canvasTex(512, 512, k => {
+    k.fillStyle = ART.rad(k, 256, 240, 110, 330, [[0, 'rgba(12,6,28,0)'], [0.55, 'rgba(12,6,28,0.35)'], [1, 'rgba(12,6,28,0.85)']]); k.fillRect(0, 0, 512, 512);
+  })); slowVigSp.alpha = 0; slowVigSp.visible = false; app.stage.addChild(slowVigSp);
   // destello blanco de pantalla en explosiones (da sensación de "bloom")
   const flashSp = new Sprite(Texture.WHITE); flashSp.alpha = 0; app.stage.addChild(flashSp); let screenFlash = 0;
 
@@ -489,8 +493,7 @@ async function main() {
       if (time - (sayT.mourn || -9) > 3 && Math.random() < 0.45) { const nb = dyn.filter(o => o.mat === 'mouse' && !o.dead && !o.ride && !bubbles.some(b => b.d === o) && Math.hypot(o.body.position.x - p.x, o.body.position.y - p.y) < 800);
         if (nb.length) { sayT.mourn = time; const o = nb[Math.floor(Math.random() * nb.length)]; o.hurt = 0.35;
           setTimeout(() => { if (!o.dead && dyn.includes(o)) say(o, ['¡NOOO!', '¡PACO!\n¡NOOO!', '¡SE LLEVARON\nA BETO!', '¡RETIRADA!'][Math.floor(Math.random() * 4)], 1.3, 0.72); }, 250); } }
-      if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) { slow = 1.1; // cámara lenta breve en el último ratón
-        if (flying && cam.mode === 'follow') { cam.follow({position: {x: p.x, y: p.y - 80}}, 2.3); lastFocus = 1.3; } } // y la cámara se acerca a él (AB2)
+      if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) lastMoment(p, d.r || 40); // ¡el último! cámara lenta + acercamiento (AB2)
       // los gatos en espera festejan con un brinco (escalonado), como los pájaros de AB2
       queue.forEach((q, i) => { q.alert = Math.max(q.alert || 0, 0.8); if (!q.hop) q.hop = {t: -0.15 - i * 0.1, dur: 0.5, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 110}; });
       addScore(PTS.mouse, p.x, p.y - d.h * 0.6, PTS_COL.mouse, true);
@@ -506,10 +509,21 @@ async function main() {
       if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07});
       if (d.mat === 'rocket') { booms.push({x: p.x, y: p.y, t: 0.01, rk: true}); if (d.lit?.fl) d.lit.fl.destroy(); } // caja de cuetes: explota (en cadena, con un respiro entre cada una)
       if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
-        if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) slow = 1.1; }
+        if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) lastMoment(p, 120); }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
       if (d.mat !== 'robot') wreck(PTS[d.mat]);
     }
+  }
+  // EL ÚLTIMO RATÓN (AB2): el mundo entra en cámara lenta, la cámara se le acerca aunque estuviera en otro lado,
+  // la orilla de la pantalla se oscurece (viñeta que se cierra), el sonido se apaga como bajo el agua con un "vuuum" grave,
+  // y su puf es más grande: anillo dorado + chispas. Luego todo regresa a velocidad normal y arranca el festejo.
+  const SLOW_T = 1.25; let slowVig = 0;
+  function lastMoment(p, r) {
+    slow = SLOW_T; slowVig = 0.001; GAME.lastMoment = (GAME.lastMoment || 0) + 1;
+    SFX.slowmo(SLOW_T * 1.15);
+    fx.ring(p.x, p.y, r * 6, 0xFFE27A, 0.6); { const n1 = fx.parts.length; fx.burst('star', p.x, p.y, 14, 650, {up: 260, size: 1.1, life: 1.1, drag: 1}); for (let i = n1; i < fx.parts.length; i++) fx.parts[i].s.tint = [0xFFE27A, 0xFFFFFF, 0xFFC94A][i % 3]; }
+    fx.smoke(p.x, p.y, r * 1.3, 8);
+    if (flying && cam.mode !== 'flyover' && !menus.blocking) { cam.follow({position: {x: p.x, y: p.y - 80}}, 2.3); lastFocus = SLOW_T + 0.2; }
   }
   const byBody = b => dyn.find(o => o.body === b);
   // algo se sigue moviendo (o hay un cohete con la mecha prendida): el turno no termina
@@ -1691,7 +1705,7 @@ async function main() {
   // ---------- loop ----------
   const resize = () => {
     cam.resize(app.screen.width, app.screen.height);
-    vignette.width = app.screen.width; vignette.height = app.screen.height; flashSp.width = app.screen.width; flashSp.height = app.screen.height;
+    vignette.width = app.screen.width; vignette.height = app.screen.height; slowVigSp.width = app.screen.width; slowVigSp.height = app.screen.height; flashSp.width = app.screen.width; flashSp.height = app.screen.height;
     const fs = Math.max(app.screen.width, app.screen.height) / 2048 * 0.75;
     bg.fl.scale.set(fs); bg.fr.scale.set(-fs, fs);
   };
@@ -1707,7 +1721,7 @@ async function main() {
     ropes.length = 0; dyn.length = 0; shelves.length = 0; movers.length = 0; bumpers.length = 0; portals.length = 0; flowers.length = 0; queue.length = 0; clearDeck();
     for (const c of [actors, lvlBehind, trail, slingCat, dizzyC, mDizzyC]) c.removeChildren().forEach(o => o.destroy());
     fx.clear(); ui.hide(); ui.setLevelName(level.name); for (const b of bubbles) b.c.destroy({children: true}); bubbles.length = 0;
-    booms.length = rockets.length = 0; warnedTnt = warnedPort = warnedFl = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; lastFocus = 0; laughAll = 0; endT = 0;
+    booms.length = rockets.length = 0; warnedTnt = warnedPort = warnedFl = false; score = shownScore = 0; resetHudStars(); resultsShown = false; started = 0; slow = 0; slowVig = 0; slowVigSp.visible = false; lastFocus = 0; laughAll = 0; endT = 0;
     state = 'intro'; onSling = null; flying = null; aimPtr = null; sling.aiming = sling.held = false; sling.pull = {x: 0, y: 0}; sling.pouch = {...sling.rest}; sling.pv = {x: 0, y: 0};
     roomIdx = 0; roomShots = 0; stampT = null; stamp.visible = false; roomSp.length = 0; ui.setRooms(rooms().length, 0);
     buildRoom(level, fly);
@@ -2872,7 +2886,7 @@ async function main() {
     if (roomWipe.visible) drawWipe(tail, lead, sw, sh);
     if (!r.swapped && uin >= 1) { r.swapped = true; ui.hideBanner();
       clearRoom(); roomIdx++; buildRoom(rooms()[roomIdx], true); ui.setRooms(rooms().length, roomIdx);
-      started = 0; slow = 0; lastFocus = 0; laughAll = 0; queue.forEach(q => { if (q.hop) q.sprite.position.set(q.hop.x0, q.hop.y0); q.hop = null; });
+      started = 0; slow = 0; slowVig = 0; slowVigSp.visible = false; lastFocus = 0; laughAll = 0; queue.forEach(q => { if (q.hop) q.sprite.position.set(q.hop.x0, q.hop.y0); q.hop = null; });
       cam.snapRest(); state = 'intro';
       cam.flyover(fortX, SLING.x, () => { if (state === 'intro') endTurn(); }, dyn.some(d => d.enter) ? 1.3 : 0); cam.flyT = 0.6; }
     if (uout >= 1) { roomFx = null; roomWipe.visible = false; }
@@ -2944,6 +2958,8 @@ async function main() {
   app.ticker.add(tk => {
     adaptRes(tk.deltaMS);
     const rdt = Math.min(tk.deltaMS, 50) / 1000; if (slow > 0) slow -= rdt;
+    // viñeta del último ratón: se cierra rápido (0.15 s), se sostiene y se abre al salir de la cámara lenta
+    if (slowVig > 0) { slowVig = slow > 0.3 ? Math.min(1, slowVig + rdt / 0.15) : Math.max(0, slowVig - rdt / 0.45); slowVigSp.alpha = slowVig * 0.85; slowVigSp.visible = slowVig > 0; }
     if (lastFocus > 0) { lastFocus -= rdt; if (lastFocus <= 0 && flying && cam.mode === 'follow') cam.follow(flying.body); }
     // con un menú abierto (título, niveles, pausa) el mundo se congela pero se sigue dibujando
     const dt = menus.blocking || ui.cardOpen ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
@@ -2993,7 +3009,7 @@ async function main() {
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
     updateTurn(dt); updateTutorial(rdt); updateTapHint(rdt);
-    cam.update(dt);
+    cam.update(dt > 0 && slow > 0 ? rdt : dt); // en la cámara lenta del último ratón la cámara se mueve a velocidad real (se acerca de verdad)
     if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
     scoreTxt.text = Math.round(shownScore).toLocaleString('en-US');
     { const hs = Math.min(app.screen.width / 2048, app.screen.height / 1536) * 1.25; hud.scale.set(hs);
@@ -3018,6 +3034,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), stirM: i => stirMouse(dyn[i]), wakeM: i => wakeMouse(dyn[i]), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, get quality() { return {on: Q.on, res: app.renderer.resolution, fxK: fx.k ?? 1, steps: RES, i: Q.i, fails: Q.fails, log: Q.log}; }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), stirM: i => stirMouse(dyn[i]), wakeM: i => wakeMouse(dyn[i]), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, get quality() { return {on: Q.on, res: app.renderer.resolution, fxK: fx.k ?? 1, steps: RES, i: Q.i, fails: Q.fails, log: Q.log}; }, get slowVig() { return {v: +slowVig.toFixed(2), a: +slowVigSp.alpha.toFixed(2), vis: slowVigSp.visible, w: slowVigSp.width, idx: app.stage.children.indexOf(slowVigSp), n: app.stage.children.length, slow: +slow.toFixed(2)}; }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });
