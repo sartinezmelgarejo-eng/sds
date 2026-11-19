@@ -3008,7 +3008,8 @@ async function main() {
     if (lastFocus > 0) { lastFocus -= rdt; if (lastFocus <= 0 && flying && cam.mode === 'follow') cam.follow(flying.body); }
     // con un menú abierto (título, niveles, pausa) el mundo se congela pero se sigue dibujando
     const dt = menus.blocking || ui.cardOpen ? 0 : rdt * (slow > 0.3 ? 0.3 : slow > 0 ? 1 - 0.7 * slow / 0.3 : 1); time += dt;
-    hud.visible = !menus.blocking; ui.hud.visible = !menus.blocking && !ui.open;
+    // con el panel de victoria/derrota abierto, el HUD de juego (puntos, estrellas, Destructómetro, cartas) se desvanece (AB2)
+    hud.alpha = ui.open ? Math.max(0, hud.alpha - rdt * 5) : 1; hud.visible = !menus.blocking && hud.alpha > 0; ui.hud.visible = !menus.blocking && !ui.open;
     ui.update(rdt); menus.update(rdt);
     if (screenFlash > 0) screenFlash = Math.max(0, screenFlash - rdt); flashSp.alpha = screenFlash / 0.12 * 0.22;
     bloomSp.visible = !!bloomP;

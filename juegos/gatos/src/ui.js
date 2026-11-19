@@ -323,7 +323,8 @@ export class UI {
     if (!this.open) return;
     this.t += dt; const t = this.t;
     this.dim.clear().rect(0, 0, sw, sh).fill({color: 0x0A0820, alpha: Math.min(0.62, t * 2)});
-    const s = Math.min(sw / W, sh / H) * 1.05; this.box.scale.set(s); this.box.position.set(sw / 2, sh / 2 - 20 * s);
+    // el contenido del panel va de y≈-505 (título) a y≈+770 (base de los botones): se centra esa caja y cabe completa
+    const s = Math.min(Math.min(sw / W, sh / H) * 1.05, sh * 0.97 / 1275); this.box.scale.set(s); this.box.position.set(sw / 2, sh / 2 - 132 * s);
     for (const a of this.anims) {
       const u = (t - a.t0) / a.dur;
       if (u < 0) continue;
