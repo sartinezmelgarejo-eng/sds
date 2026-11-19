@@ -92,10 +92,29 @@ export class FX {
     if (!this.flashTex) this.flashTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,255,240,1)'); g.addColorStop(0.4, 'rgba(255,230,150,0.6)'); g.addColorStop(1, 'rgba(255,200,120,0)'); k.fillStyle = g; k.fillRect(0, 0, 128, 128); });
     const f = new Sprite(this.flashTex); f.anchor.set(0.5); f.position.set(x, y); const fs = R * 1.5 / 64; f.scale.set(fs); this.root.addChild(f);
     this.parts.push({s: f, vx: 0, vy: 0, vr: 0, life: 0.1, t: 0, g: 0, drag: 0, grow: 0.6, sz: fs});
+    this.bloom(x, y, R);
     // brasas
     const n1 = this.parts.length;
     this.burst('star', x, y, 18, R * 5, {up: 200, size: 0.6, life: 0.8, drag: 1.2});
     for (let i = n1; i < this.parts.length; i++) this.parts[i].s.tint = [0xFFC030, 0xFF7A20, 0xFFE070][i % 3];
+  }
+  // BLOOM de explosión (AB2): luz aditiva que "quema" el centro y baña de naranja lo que está alrededor + rayos de luz
+  // que se abren y giran un poco. Todo con blendMode 'add' → sobre fondos claros satura a blanco (el brillo de AB2).
+  bloom(x, y, R) {
+    if (!this.bloomTex) {
+      this.bloomTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 0, 64, 64, 64); g.addColorStop(0, 'rgba(255,240,200,1)'); g.addColorStop(0.2, 'rgba(255,190,90,0.7)'); g.addColorStop(0.5, 'rgba(255,130,40,0.28)'); g.addColorStop(1, 'rgba(255,90,20,0)'); k.fillStyle = g; k.fillRect(0, 0, 128, 128); });
+      this.raysTex = tex(256, 256, k => { k.translate(128, 128); const N = 14;
+        for (let i = 0; i < N; i++) { const a = i / N * Math.PI * 2 + (i % 2) * 0.09, L = i % 2 ? 84 : 124, w = i % 2 ? 0.045 : 0.07;
+          const g = k.createLinearGradient(0, 0, Math.cos(a) * L, Math.sin(a) * L); g.addColorStop(0, 'rgba(255,250,225,0.95)'); g.addColorStop(0.45, 'rgba(255,215,130,0.55)'); g.addColorStop(1, 'rgba(255,170,70,0)');
+          k.fillStyle = g; k.beginPath(); k.moveTo(Math.cos(a - w * 2.4) * 10, Math.sin(a - w * 2.4) * 10); k.lineTo(Math.cos(a - w) * L, Math.sin(a - w) * L); k.lineTo(Math.cos(a + w) * L, Math.sin(a + w) * L); k.lineTo(Math.cos(a + w * 2.4) * 10, Math.sin(a + w * 2.4) * 10); k.closePath(); k.fill(); } });
+    }
+    const add = (t, sz, life, opts) => { const s = new Sprite(t); s.anchor.set(0.5); s.position.set(x, y); s.blendMode = 'add'; s.scale.set(sz); s.rotation = opts.rot ?? 0; s.alpha = 0; if (opts.tint != null) s.tint = opts.tint;
+      (opts.back ? (this.under || this.root) : this.root).addChild(s);
+      this.parts.push({s, vx: 0, vy: 0, vr: opts.vr ?? 0, life, t: 0, g: 0, drag: 0, grow: opts.grow ?? 0, sz, glow: opts.peak ?? 1, atk: opts.atk ?? 0.05}); };
+    add(this.bloomTex, R * 3.4 / 64, 0.7, {grow: 0.35, peak: 0.5, atk: 0.04, tint: 0xFFB070});          // halo grande que ilumina lo de alrededor (lento en apagarse)
+    add(this.bloomTex, R * 1.3 / 64, 0.26, {grow: 0.5, peak: 0.6, atk: 0.02});            // núcleo que satura a blanco
+    add(this.raysTex, R * 2.3 / 128, 0.34, {grow: 0.9, peak: 0.75, atk: 0.03, tint: 0xFFD9A0, rot: Math.random() * 6.3, vr: (Math.random() < 0.5 ? -1 : 1) * 0.9});
+    if (this.onBoom) this.onBoom(x, y, R);
   }
   // estela (loop y picada de Miu): bolitas suaves que se encogen y desvanecen en su lugar
   streak(x, y, r, color = 0xEDE4FF) {
@@ -142,7 +161,9 @@ export class FX {
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
       if (p.ring) p.s.scale.set(0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)));
-      const u = p.t / p.life; p.s.alpha = (p.maxA ?? 1) * (u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : Math.min(1, p.maxA ? u * 6 : 1));
+      const u = p.t / p.life;
+      if (p.glow) { const a = p.t < p.atk ? p.t / p.atk : Math.pow(Math.max(0, 1 - (p.t - p.atk) / (p.life - p.atk)), 1.6); p.s.alpha = p.glow * a; if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); } continue; }
+      p.s.alpha = (p.maxA ?? 1) * (u > 0.6 ? Math.max(0, 1 - (u - 0.6) / 0.4) : Math.min(1, p.maxA ? u * 6 : 1));
       if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); }
     }
     for (let i = this.puddles.length - 1; i >= 0; i--) { const q = this.puddles[i]; q.t += dt; // se extiende rápido, se queda brillando y se seca despacio
