@@ -422,27 +422,37 @@ async function main() {
   function say(d, text, dur, sc = 1) {
     if (d.zz) return;   // dormido: no habla (despierta primero)
     const c = new Container(), t = new Text({text, style: {fontFamily: 'Luckiest Guy', fontSize: 64, fill: '#2B2F45', align: 'center', lineHeight: 64}}); t.anchor.set(0.5, 0.42);
-    const w = t.width + 80, h = t.height + 56, g = new Graphics();
-    g.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
-    g.poly([-10, h / 2 - 6, 44, h / 2 - 6, -60, h / 2 + 62]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
+    const w = t.width + 80, h = t.height + 56, g = new Graphics(), tl = new Graphics();
+    drawTail(tl, w, h, 0);
     g.roundRect(-w / 2, -h / 2, w, h, 46).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9}); g.rect(-4, h / 2 - 12, 42, 14).fill(0xFFFFFF);
     // AB2: un ratón dice una cosa a la vez → el globo que traía se encoge rápido y el nuevo sale encima (antes quedaban encimados)
     for (const o of bubbles) if (o.d === d && !o.gone) { o.gone = 1; o.dur = Math.min(o.dur, o.t); o.fo = 0.12; }
-    c.addChild(g, t); front.addChild(c); bubbles.push({c, g, d, t: 0, dur, h, w, sc, side: 1, oy: 0});
+    c.addChild(tl, g, t); front.addChild(c); bubbles.push({c, g, tl, d, t: 0, dur, h, w, sc, side: 1, oy: 0, ext: 0});
+  }
+  // sombra + cola del globo (en su propio Graphics, detrás del cuerpo). ext = cuánto se alarga la cola hacia abajo
+  // cuando el globo subió para no encimarse: así sigue apuntando al ratón y no al globo de abajo.
+  function drawTail(tl, w, h, ext) {
+    tl.clear(); tl.roundRect(-w / 2 + 6, -h / 2 + 10, w, h, 46).fill({color: 0x1F2240, alpha: 0.35});
+    const tip = h / 2 + 62 + ext, k = Math.min(1, ext / 260);
+    // cola larga: base un poco más angosta y punta más vertical (si no, se ve como cuchillo de lado)
+    tl.poly([-10 + 14 * k, h / 2 - 6, 44 - 10 * k, h / 2 - 6, -60 + 34 * k, tip]).fill(0xFFFFFF).stroke({color: 0x1F2240, width: 9, join: 'round'});
   }
   function updateBubbles(dt) {
     for (let i = bubbles.length - 1; i >= 0; i--) { const b = bubbles[i]; b.t += dt; const u = Math.min(1, b.t / 0.35), out = Math.max(0, (b.t - b.dur) / (b.fo || 0.25));
       if (b.d.dead || out >= 1) { b.c.destroy({children: true}); bubbles.splice(i, 1); continue; }
       const p = b.d.body.position;
       // si el globo se saldría por la orilla derecha de la pantalla, se voltea al lado izquierdo del ratón (cola espejeada)
-      if (b.side > 0 && app.screen.width / 2 + (p.x + (70 + b.w / 2) * b.sc - cam.x) * cam.zoom > app.screen.width - 8) { b.side = -1; b.g.scale.x = -1; }
+      if (b.side > 0 && app.screen.width / 2 + (p.x + (70 + b.w / 2) * b.sc - cam.x) * cam.zoom > app.screen.width - 8) { b.side = -1; b.g.scale.x = -1; b.tl.scale.x = -1; }
+      const ext = Math.round(b.oy / Math.max(0.3, b.sc)); if (Math.abs(ext - b.ext) > 3) { b.ext = ext; drawTail(b.tl, b.w, b.h, ext); }
       b.c.position.set(p.x + 70 * b.sc * b.side, p.y - b.d.h * 0.5 - (b.h / 2 + 180) * b.sc + Math.sin(b.t * 3) * 6 - b.oy);
       b.c.scale.set(Math.max(0.05, backOutE(u, 2.4)) * (1 - out * (b.gone ? 0.7 : 0.3)) * b.sc); b.c.alpha = 1 - out; b.c.rotation = Math.sin(b.t * 4) * 0.03; }
     // globos de ratones distintos que se enciman: el más nuevo sube hasta quedar arriba del otro (se desliza suave)
     for (let i = 0; i < bubbles.length; i++) { const b = bubbles[i]; if (b.gone) continue; let need = 0;
       const bx = b.c.x, by = b.c.y + b.oy, bw = b.w * b.sc / 2, bh = b.h * b.sc / 2;
       for (let j = 0; j < i; j++) { const o = bubbles[j]; if (o.gone || o.d === b.d) continue; const ow = o.w * o.sc / 2, oh = o.h * o.sc / 2;
-        if (Math.abs(bx - o.c.x) < bw + ow + 10) { const top = o.c.y - oh - 14; if (by + bh > top && by - bh < o.c.y + oh) need = Math.max(need, by + bh - top); } }
+        if (Math.abs(bx - o.c.x) < bw + ow + 10) { const top = o.c.y - oh - 14; if (by + bh > top && by - bh < o.c.y + oh) { need = Math.max(need, by + bh - top);
+          // el de arriba va DETRÁS del de abajo: su cola larga pasa por debajo del otro globo, no encima del texto
+          const bi = front.getChildIndex(b.c), oi = front.getChildIndex(o.c); if (bi > oi) front.setChildIndex(b.c, oi); } } }
       b.oy += (need - b.oy) * Math.min(1, dt * 14); }
   }
   function driveRobot(d, dt) {
