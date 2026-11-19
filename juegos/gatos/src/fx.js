@@ -38,7 +38,10 @@ export class FX {
   burst(kind, x, y, n, speed, opts = {}) {
     const ts = this.T[kind];
     // tope de partículas (rendimiento en tablet): con muchas vivas, cada ráfaga nueva se reduce
-    if (this.parts.length > 260) n = Math.max(1, Math.round(n * 260 / this.parts.length));
+    // + presupuesto según la calidad adaptativa (main pone fx.k: 1 a resolución alta … 0.5 a resolución 1): menos relleno de GPU
+    const k = this.k ?? 1, cap = 260 * k;
+    if (k < 1 && n > 2) n = Math.max(2, Math.round(n * k));
+    if (this.parts.length > cap) n = Math.max(1, Math.round(n * cap / this.parts.length));
     for (let i = 0; i < n; i++) {
       const s = new Sprite(ts[i % ts.length]); s.anchor.set(0.5);
       const a = opts.dir != null ? opts.dir + (Math.random() - 0.5) * (opts.spread ?? 2.2) : Math.random() * Math.PI * 2;
