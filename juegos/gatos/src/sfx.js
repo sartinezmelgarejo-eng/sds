@@ -100,6 +100,7 @@ export function whoosh() { if (!ctx) return; const t = ctx.currentTime; noise(t,
 // lata de atún que se abre: clic del anillo, "psst" del vacío y la tapa que tintinea
 export function canOpen() { if (!ok('can', 0.3)) return; const t = ctx.currentTime; tone(t, 2400, 'square', 0.08, 0.025, 1800); noise(t + 0.03, 0.35, 'highpass', 3500, 0.7, 0.35, 0.3, 7000);
   tone(t + 0.12, 1560, 'triangle', 0.16, 0.35); tone(t + 0.12, 2350, 'sine', 0.08, 0.25); tone(t + 0.36, 1480, 'triangle', 0.07, 0.25); }
+export function flip() { if (!ok('flip', 0.05)) return; const t = ctx.currentTime; noise(t, 0.07, 'bandpass', rnd(2600, 3400), 1.4, 0.32, 0.06, 1400); tone(t + 0.02, rnd(500, 620), 'sine', 0.06, 0.05, 900); } // carta que se voltea: "fwip" de papel
 export function pop() { if (!ok('pop', 0.04)) return; const t = ctx.currentTime; tone(t, 380 + Math.random() * 120, 'sine', 0.22, 0.09, 760); }
 
 // ---- música de fondo: marimba juguetona sintetizada (loop de 8 compases, bajito) ----

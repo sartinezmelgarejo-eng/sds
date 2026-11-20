@@ -1074,6 +1074,25 @@ async function main() {
     ART.rr(k, 8, 8, CARD_W, CARD_H, 26); k.lineWidth = 7; k.strokeStyle = '#1F2240'; k.stroke();
     ART.rr(k, 17, 16, CARD_W - 18, 30, 14); k.fillStyle = 'rgba(255,255,255,0.22)'; k.fill();
   }, 2));
+  // reverso de las cartas (se reparten boca abajo y se voltean, como una mano de cartas): azul marino con orla dorada y una lata de atún con huella
+  const cardBack = canvasTex(CARD_W + 16, CARD_H + 24, k => {
+    ART.rr(k, 8, 18, CARD_W, CARD_H, 26); k.fillStyle = '#10122E'; k.fill();
+    ART.rr(k, 8, 8, CARD_W, CARD_H, 26); k.fillStyle = ART.lin(k, 0, 8, 0, 8 + CARD_H, [[0, '#4B4FA8'], [1, '#22245E']]); k.fill();
+    k.save(); k.clip(); k.strokeStyle = 'rgba(255,255,255,0.07)'; k.lineWidth = 9;
+    for (let i = -CARD_H; i < CARD_W + 40; i += 26) { k.beginPath(); k.moveTo(i, 0); k.lineTo(i + CARD_H, CARD_H + 30); k.stroke(); }
+    const g = k.createRadialGradient(8 + CARD_W / 2, 8 + CARD_H / 2, 4, 8 + CARD_W / 2, 8 + CARD_H / 2, 90); g.addColorStop(0, 'rgba(255,230,140,0.35)'); g.addColorStop(1, 'rgba(255,230,140,0)');
+    k.fillStyle = g; k.fillRect(0, 0, CARD_W + 16, CARD_H + 24); k.restore();
+    ART.rr(k, 19, 19, CARD_W - 22, CARD_H - 22, 18); k.lineWidth = 4; k.strokeStyle = '#E8B83A'; k.stroke();
+    const cx = 8 + CARD_W / 2, cy = 8 + CARD_H / 2;
+    k.beginPath(); k.ellipse(cx, cy + 22, 40, 12, 0, 0, Math.PI * 2); k.fillStyle = '#A9AFC2'; k.fill(); k.lineWidth = 5; k.strokeStyle = '#10122E'; k.stroke();
+    k.fillStyle = ART.lin(k, cx - 40, 0, cx + 40, 0, [[0, '#8E95AC'], [0.4, '#E9EDF5'], [1, '#7A8098']]); k.fillRect(cx - 40, cy - 16, 80, 38);
+    k.fillStyle = '#E8473C'; k.fillRect(cx - 40, cy - 8, 80, 22); k.lineWidth = 5; k.strokeStyle = '#10122E'; k.strokeRect(cx - 40, cy - 16, 80, 38);
+    k.beginPath(); k.ellipse(cx, cy - 16, 40, 12, 0, 0, Math.PI * 2); k.fillStyle = '#D7DCE8'; k.fill(); k.stroke();
+    k.fillStyle = '#FFE27A'; k.beginPath(); k.ellipse(cx, cy + 5, 9, 7, 0, 0, Math.PI * 2); k.fill();
+    [[-11, -4], [-4, -9], [4, -9], [11, -4]].forEach(([x, y]) => { k.beginPath(); k.arc(cx + x, cy + 5 + y, 3.4, 0, Math.PI * 2); k.fill(); });
+    ART.rr(k, 8, 8, CARD_W, CARD_H, 26); k.lineWidth = 7; k.strokeStyle = '#10122E'; k.stroke();
+    ART.rr(k, 17, 16, CARD_W - 18, 30, 14); k.fillStyle = 'rgba(255,255,255,0.14)'; k.fill();
+  }, 2);
   const cardGlow = canvasTex(CARD_W + 60, CARD_H + 60, k => { k.shadowColor = '#FFE66A'; k.shadowBlur = 22; ART.rr(k, 30, 30, CARD_W, CARD_H, 28); k.lineWidth = 10; k.strokeStyle = '#FFF2A0'; k.stroke(); k.stroke(); });
   const deck = new Container(); deck.sortableChildren = true; hud.addChild(deck); const SPELL_SC = 0.8;
   const cards = new Map(); let deckHit = 0, deckA = 1;
@@ -1082,12 +1101,13 @@ async function main() {
     const c = new Container(), glow = new Sprite(cardGlow), bg = new Sprite(cardBg(q.name)), t = catT[q.name].calm, face = new Sprite(t.tex);
     glow.anchor.set(0.5); glow.alpha = 0; bg.anchor.set(0.5); bg.scale.set(0.5); face.anchor.set(t.ax, t.ay); face.scale.set(CARD_W / t.tex.width * 1.3); face.position.set(0, -18);
     const name = new Text({text: q.name.toUpperCase(), style: {fontFamily: 'Luckiest Guy', fontSize: 32, fill: '#FFFFFF', stroke: {color: '#1F2240', width: 7, join: 'round'}}}); name.anchor.set(0.5); name.position.set(0, CARD_H / 2 - 26);
-    c.addChild(glow, bg, face, name);
+    const back = new Sprite(cardBack); back.anchor.set(0.5); back.scale.set(0.5); back.visible = false;
+    c.addChild(glow, bg, face, name, back); const front = [bg, face, name];
     if (q.extra) { const b = new Graphics(); b.circle(0, 2, 24).fill(0x1F2240); b.circle(0, 0, 24).fill(0xFFD860).stroke({color: 0x1F2240, width: 5});
-      b.rect(-11, -3.5, 22, 7).fill(0x1F2240); b.rect(-3.5, -11, 7, 22).fill(0x1F2240); b.position.set(CARD_W / 2 - 14, -CARD_H / 2 + 12); c.addChild(b); }
+      b.rect(-11, -3.5, 22, 7).fill(0x1F2240); b.rect(-3.5, -11, 7, 22).fill(0x1F2240); b.position.set(CARD_W / 2 - 14, -CARD_H / 2 + 12); c.addChild(b); front.push(b); }
     c.eventMode = 'static'; c.cursor = 'pointer'; c.hitArea = {contains: (x, y) => Math.abs(x) < CARD_W / 2 + 6 && Math.abs(y) < CARD_H / 2 + 10};
     c.on('pointerdown', () => { deckHit = performance.now(); SFX.unlockAudio(); pickCard(q.id); });
-    Object.assign(c, {qid: q.id, face, glow, nm: name, nmW: name.width, faceX: 0, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0}); deck.addChild(c); return c;
+    Object.assign(c, {qid: q.id, face, glow, back, front, bg, nm: name, nmW: name.width, faceX: 0, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0}); deck.addChild(c); return c;
   }
   function pickCard(id) {
     const c = cards.get(id); if (!c || c.gone) return;
@@ -1120,7 +1140,7 @@ async function main() {
         for (const d of order) if (d !== c && zOf(d) > zOf(c)) { const dh = hw(d) * (d.spell ? SPELL_SC : 1); if (d.tx > c.tx) R = Math.min(R, d.tx - dh); else L = Math.max(L, d.tx + dh); }
         const k = 1 / (0.86 + c.lift * 0.14), vis = Math.max(0, R - L) * k, mid = ((L + R) / 2 - c.tx) * k, full = vis > CARD_W * 0.97;
         const nx = full ? 0 : mid, ns = full ? 1 : Math.max(0.55, Math.min(1, (vis - 14) / c.nmW)), fx0 = full ? 0 : mid * 0.45, e = Math.min(1, dt * 12);
-        c.nm.x += (nx - c.nm.x) * e; c.nm.scale.set(c.nm.scale.x + (ns - c.nm.scale.x) * e); c.faceX += (fx0 - c.faceX) * e; c.face.x = c.faceX; c.nm.visible = vis > 34; } }
+        c.nm.x += (nx - c.nm.x) * e; c.nm.scale.set(c.nm.scale.x + (ns - c.nm.scale.x) * e); c.faceX += (fx0 - c.faceX) * e; c.face.x = c.faceX; c.nm.visible = vis > 34 && !(c.back && c.back.visible); } }
     const end = state === 'win' || state === 'lose' || ui.open;
     deckA += ((end ? 0 : 1) - deckA) * Math.min(1, dt * 6); deck.alpha = deckA; deck.visible = deckA > 0.02;
     for (const [id, c] of cards) {
@@ -1129,16 +1149,26 @@ async function main() {
       c.glow.alpha = c.lift * (0.75 + Math.sin(time * 5) * 0.25);
       let sc = (0.86 + c.lift * 0.14) * (c.spell ? SPELL_SC : 1), y = by - c.lift * 34 + (c.spell ? CARD_H * 0.86 * (1 - SPELL_SC) / 2 : 0), rot = 0;
       if (sel) c.zIndex = 60;
-      if (c.deal != null) { if (state !== 'intro') c.dealT += dt; const u = (c.dealT - c.deal * 0.09) / 0.45;
+      let sx = 1;
+      if (c.deal != null) { if (state !== 'intro') c.dealT += dt; const t0 = c.dealT - c.deal * 0.09, u = t0 / 0.45;
         if (u <= 0) sc = 0;
-        else { if (!c.dealS) { c.dealS = 1; SFX.pop(); } const v = Math.min(1, u), m = 1 - Math.min(1, v * 1.5); y += m * m * 220; rot -= m * 0.35; sc *= 0.55 + 0.45 * backOutE(v); if (u >= 1) c.deal = null; } }
+        else { if (!c.dealS) { c.dealS = 1; SFX.pop(); } const v = Math.min(1, u), m = 1 - Math.min(1, v * 1.5); y += m * m * 220; rot -= m * 0.35; sc *= 0.55 + 0.45 * backOutE(v);
+          // las cartas de gato llegan boca abajo y se voltean en cascada (0.3 s después de salir, 0.24 s de giro): al pasar de canto cambia reverso → frente
+          if (c.back) { const f = Math.max(0, Math.min(1, (t0 - 0.3) / 0.24)), showBack = f < 0.5;
+            if (c.back.visible !== showBack) { c.back.visible = showBack; for (const o of c.front) o.visible = !showBack; if (!showBack) { SFX.flip(); c.pop = 0.3; } }
+            sx = Math.max(0.04, Math.abs(Math.cos(f * Math.PI))); y -= Math.sin(f * Math.PI) * 16; }
+          if (t0 >= (c.back ? 0.56 : 0.45)) { c.deal = null; if (c.back) { c.back.visible = false; for (const o of c.front) o.visible = true; } } }
+        if (c.back && c.back.visible) c.glow.alpha = 0; }
       if (c.enter) { c.enter += dt; const u = Math.min(1, c.enter / 0.4); sc *= Math.max(0, backOutE(u)); if (u >= 1) c.enter = 0; }   // entra con rebote
       if (c.pop > 0) { c.pop = Math.max(0, c.pop - dt); sc *= 1 + Math.sin((1 - c.pop / 0.3) * Math.PI) * 0.12; }                       // botecito al tocarla
       if (c.wig > 0) { c.wig -= dt; rot = Math.sin(c.wig * 40) * 0.12 * (c.wig / 0.35); }
       if (c.spell && state === 'ready' && !c.gone) c.glow.alpha = 0.35 + Math.sin(time * 3) * 0.2;           // el hechizo brilla suave: "úsame"
       if (c.gone && c.spell && spell.kind === c.kind) { c.gone += dt; const u = Math.min(1, c.gone / 0.5); y -= u * 320; sc *= 1 + u * 0.8; rot = u * 0.4; c.alpha = 1 - u * u; // se usa: sube grande
         if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
-      else if (c.gone) { c.gone += dt; const u = Math.min(1, c.gone / 0.35); y -= u * 160; sc *= 1 + u * 0.3; rot = -u * 0.6; c.alpha = 1 - u;
+      else if (c.gone) { c.gone += dt; const g = Math.min(1, c.gone / 0.16), u = Math.max(0, Math.min(1, (c.gone - 0.16) / 0.35));
+        // gato lanzado: su carta se apaga (gris, se hunde un poco: "ya se usó") y luego sale girando hacia arriba
+        if (!c.spell && c.bg) { const tn = Math.round(255 - g * 105), gr = (tn << 16) | (tn << 8) | Math.min(255, tn + 14); c.bg.tint = gr; c.face.tint = gr; c.glow.alpha *= 1 - g; }
+        y += Math.sin(g * Math.PI) * 10 - u * 160; sc *= (1 - Math.sin(g * Math.PI) * 0.05) * (1 + u * 0.3); rot = -u * 0.6; c.alpha = 1 - u;
         if (u >= 1) { c.destroy({children: true}); cards.delete(id); continue; } }
       // los que no están en la resortera respiran un poquito (como los pájaros en sus cartas)
       if (!sel && !c.gone) c.face.scale.y = c.face.scale.x * (1 + Math.sin(time * 3 + id) * 0.025);
@@ -1149,7 +1179,7 @@ async function main() {
           const k = Math.max(0, 1 - J.t / 0.5); jx = Math.sin(time * 70) * 6 * k * J.p; rot += Math.sin(time * 55) * 0.06 * k;
           if (c.face.texture !== ct.angry.tex) c.face.texture = ct.angry.tex; }
         if (J.t > 1.1) { c.jolt = null; c.face.texture = ct.calm.tex; } }
-      c.position.set(c.cx + jx, y); c.scale.set(sc); c.rotation = rot;
+      c.position.set(c.cx + jx, y); c.scale.set(sc * sx, sc); c.rotation = rot;
     }
   }
   function clearDeck() { for (const c of cards.values()) c.destroy({children: true}); cards.clear(); }
