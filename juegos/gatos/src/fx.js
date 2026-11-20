@@ -36,6 +36,9 @@ export class FX {
       k.moveTo(8, 53); k.quadraticCurveTo(4 + i, 26, 13 + (i % 2) * 4, 3); k.quadraticCurveTo(11, 28, 16, 53); k.closePath(); k.fill(); k.stroke(); }));
     this.T.leaf = ['#6CBF45', '#9BD44E', '#4E9A30'].map(c => tex(40, 32, k => { k.fillStyle = c; k.strokeStyle = '#2A5A18'; k.lineWidth = 2.5; k.beginPath(); k.moveTo(3, 16);
       k.quadraticCurveTo(18, 1, 37, 16); k.quadraticCurveTo(18, 31, 3, 16); k.fill(); k.stroke(); k.beginPath(); k.moveTo(5, 16); k.lineTo(33, 16); k.lineWidth = 1.5; k.stroke(); }));
+    // piedritas de concreto (La Guarida) y migajas de pan/galleta (Cocina): lo que cae fuerte en el piso las avienta y rebotan
+    this.T.pebble = shard([['#9A948C', '#3A3632'], ['#7E7870', '#2E2A26'], ['#B4AEA4', '#45403A']], [[10, 8], [34, 6], [42, 26], [28, 40], [8, 32]]);
+    this.T.crumb = shard([['#E2B064', '#7A4A18'], ['#C88A3E', '#5E3410'], ['#F0CC8A', '#8A5A22']], [[12, 6], [30, 10], [40, 22], [34, 38], [14, 40], [6, 22]]);
     this.puddles = [];
     this.T.canball = this.T.can; this.T.boulder = this.T.stone;
     this.T.robot = this.T.can; // la aspiradora suelta pedacitos de metal
