@@ -736,9 +736,11 @@ async function main() {
     if (!f.hit) { const c = new Sprite(dotTex); c.anchor.set(0.5); c.scale.set(0.7); c.position.set(p.x, p.y); trail.addChild(c);
       for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.3, d = new Sprite(dotTex); d.anchor.set(0.5); d.scale.set(0.24 + (k % 2) * 0.08); d.position.set(p.x + Math.cos(a) * 42, p.y + Math.sin(a) * 42); trail.addChild(d); } }
     if (name === 'mako') { // 💥 Bola de pelos: explota
+      // mechones de Mako (blanco y negro) ANTES del fuego → quedan debajo y salen volando cuando la bola se abre
+      const nf = fx.parts.length; fx.burst('fur', p.x, p.y, 12, 1250, {up: 160, size: 1.3, life: 1.2, drag: 1.6, g: 900});
+      for (let k = nf; k < fx.parts.length; k++) fx.parts[k].s.tint = [0xFFFFFF, 0xF2ECE4, 0x55504F][k % 3];
       fx.explosion(p.x, p.y, 200); fx.ring(p.x, p.y, 320, 0xFFF1C8);
       screenFlash = 0.12;
-      fx.burst('fur', p.x, p.y, 26, 900, {up: 120, size: 1.4, life: 1.4, drag: 1.5});
       blast(p.x, p.y, 280, 26, 34, {can: 1.6});
       cam.shake(34, 0.5); cam.punch(0.07); SFX.boom(); startle(p.x, 1);
       f.exploded = true; f.sprite.visible = false; Composite.remove(engine.world, b); f.still = 99;

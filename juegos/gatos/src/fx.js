@@ -94,15 +94,23 @@ export class FX {
     const s = new Sprite(this.impTex); s.anchor.set(0.5); s.position.set(x, y); s.rotation = rot; const sz = R / 76; s.scale.set(sz); this.root.addChild(s);
     this.parts.push({s, vx: 0, vy: 0, vr: 0, life: 0.15, t: 0, g: 0, drag: 0, grow: 0.5, sz});
   }
-  // bola de fuego: núcleo blanco + capa naranja que se expande
+  // bola de fuego (AB2): estalla con rebote (pop), se abre en bolas irregulares que suben y pasan de amarillo → naranja → rojo
+  // → tizne antes de que entre el humo; el núcleo blanco-amarillo dura poquito encima de todo
   fireball(x, y, R) {
     if (!this.fireTex) this.fireTex = tex(128, 128, k => { const g = k.createRadialGradient(64, 64, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,250,210,1)'); g.addColorStop(0.18, 'rgba(255,210,70,1)'); g.addColorStop(0.55, 'rgba(255,120,20,0.95)'); g.addColorStop(0.8, 'rgba(210,60,15,0.6)'); g.addColorStop(1, 'rgba(160,40,10,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
-    for (let i = 10; i >= 0; i--) { // el núcleo (i=0) al final para que quede encima
-      const s = new Sprite(this.fireTex); s.anchor.set(0.5); const a = Math.random() * 6.3, d = i ? R * (0.25 + Math.random() * 0.3) : 0;
-      s.position.set(x + Math.cos(a) * d, y + Math.sin(a) * d); const sz = (i ? 0.45 + Math.random() * 0.25 : 1.0) * R / 64; s.scale.set(sz);
-      this.root.addChild(s);
-      this.parts.push({s, vx: Math.cos(a) * 160, vy: Math.sin(a) * 160 - 80, vr: 0, life: 0.6 + Math.random() * 0.25, t: 0, g: -160, drag: 2.2, grow: 0.7, sz});
+    // bola neutra (blanco con orilla un poco más oscura) para teñir con la rampa de color
+    if (!this.puffTex) this.puffTex = tex(128, 128, k => { const g = k.createRadialGradient(56, 54, 4, 64, 64, 62); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, 'rgba(235,235,235,1)'); g.addColorStop(0.85, 'rgba(200,200,200,0.85)'); g.addColorStop(1, 'rgba(180,180,180,0)'); k.fillStyle = g; k.beginPath(); k.arc(64, 64, 62, 0, 7); k.fill(); });
+    const ramp = [[0, 0xFFF4C0], [0.16, 0xFFC040], [0.42, 0xFF8420], [0.7, 0xC8461E], [1, 0x6A4A42]];
+    const n = Math.max(6, Math.round(10 * (this.k ?? 1)));
+    for (let i = 0; i < n; i++) {
+      const a = i / n * 6.283 + (Math.random() - 0.5) * 0.6, d = R * (0.12 + Math.random() * 0.3), v = R * (2.2 + Math.random() * 1.2);
+      const s = new Sprite(this.puffTex); s.anchor.set(0.5); s.position.set(x + Math.cos(a) * d, y + Math.sin(a) * d); s.rotation = Math.random() * 6.3;
+      const sz = (0.42 + Math.random() * 0.26) * R / 64; s.scale.set(sz * 0.4); s.tint = ramp[0][1]; this.root.addChild(s);
+      this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.8 - R * 0.6, vr: (Math.random() - 0.5) * 1.2, life: 0.36 + Math.random() * 0.22, t: 0, g: -R * 1.1, drag: 6, grow: 0.45, sz, pop: 0.07 + Math.random() * 0.03, ramp});
     }
+    // núcleo caliente encima: estalla y se apaga rápido (deja ver cómo se oscurecen las bolas de afuera)
+    const c = new Sprite(this.fireTex); c.anchor.set(0.5); c.position.set(x, y); const cz = R * 0.95 / 64; c.scale.set(cz * 0.4); this.root.addChild(c);
+    this.parts.push({s: c, vx: 0, vy: -R * 0.3, vr: 0, life: 0.3, t: 0, g: 0, drag: 3, grow: 0.25, sz: cz, pop: 0.06});
   }
   // explosión estilo AB2: destello blanco, bola de fuego aditiva en capas, chispas y humo oscuro que sube y se queda un rato
   explosion(x, y, R) {
@@ -228,7 +236,12 @@ export class FX {
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
       else if (p.g > 0 && p.vy > 0 && !p.drop) for (const f of this.floors) { const x = p.s.x; if (x < f.x0 || x > f.x1) continue; // ...y en las repisas fijas (AB2: los pedacitos se quedan donde caen)
         const top = f.y0 + (x - f.x0) * f.m - 6; if (p.y0 > top + 14) continue; /* nació debajo de la repisa: no aterriza encima */ if (py <= top + 1 && p.s.y > top) { p.s.y = top; p.vy *= -0.3; p.vx = p.vx * 0.6 + f.m * 60; p.vr *= 0.5; this.floorHits++; break; } }
-      if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
+      if (p.grow || p.pop) { let f = 1 + (p.grow || 0) * p.t / p.life;
+        if (p.pop) f *= p.t < p.pop ? 0.4 + 0.75 * (1 - Math.pow(1 - p.t / p.pop, 2)) : 1.15 - 0.15 * Math.min(1, (p.t - p.pop) / 0.1); // estalla con rebote
+        p.s.scale.set(p.sz * f); }
+      if (p.ramp) { const u = Math.min(1, p.t / p.life), R = p.ramp; let j = 1; while (j < R.length - 1 && R[j][0] < u) j++; // tinte que se va enfriando
+        const [u0, c0] = R[j - 1], [u1, c1] = R[j], w = Math.min(1, Math.max(0, (u - u0) / (u1 - u0))), ch = sh => Math.round(((c0 >> sh) & 255) * (1 - w) + ((c1 >> sh) & 255) * w);
+        p.s.tint = (ch(16) << 16) | (ch(8) << 8) | ch(0); }
       if (p.ring) { const r = 0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)); p.s.scale.set(r, r * (p.flat ?? 1)); }
       const u = p.t / p.life;
       if (p.glow) { const a = p.t < p.atk ? p.t / p.atk : Math.pow(Math.max(0, 1 - (p.t - p.atk) / (p.life - p.atk)), 1.6); p.s.alpha = p.glow * a; if (u >= 1) { p.s.destroy(); this.parts.splice(i, 1); } continue; }
