@@ -268,6 +268,9 @@ export function splash(v = 0.6) { if (!ok('splash', 0.15)) return; const t = ctx
   noise(t + 0.02, 0.4, 'bandpass', 1800, 0.8, 0.3 * v, 0.35, 500);
   for (let i = 0; i < 4; i++) { const tt = t + 0.25 + i * rnd(0.08, 0.18), f = rnd(1200, 2000); tone(tt, f, 'sine', 0.06 * v, 0.07, f * 1.9); } }
 // ratón mojado que se sacude como perrito: rachas de ruido rápido ("brrrr") + gotitas que salen volando
+// resoplido de alivio ("¡uf!") del ratón al que el gato casi le da: soplo de aire que baja + chillidito que cae
+export function phew(pitch = 1) { if (!ctx || !ok('phew', 0.3)) return; const t = ctx.currentTime;
+  noise(t, 0.32, 'bandpass', 1800 * pitch, 0.9, 0.09, 0.3, 700 * pitch); tone(t + 0.05, 1500 * pitch, 'sine', 0.05, 0.22, 900 * pitch); }
 export function shake(pitch = 1) { if (!ok('shake', 0.4)) return; const t = ctx.currentTime;
   for (let i = 0; i < 7; i++) noise(t + i * 0.055, 0.05, 'bandpass', (1500 + (i % 2) * 500) * pitch, 1.1, 0.07, 0.045);
   for (let i = 0; i < 3; i++) { const tt = t + 0.15 + i * rnd(0.07, 0.14), f = rnd(1500, 2400) * pitch; tone(tt, f, 'sine', 0.035, 0.06, f * 1.8); } }
