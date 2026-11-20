@@ -72,6 +72,30 @@ export class FX {
     const s = new Sprite(this.ringTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; s.scale.set(0.1); this.root.addChild(s);
     this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R / 110});
   }
+  // onda expansiva de explosión (AB2): borde brillante con ribete oscuro por fuera (se lee igual sobre la cocina clara que sobre
+  // la Guarida oscura), velo claro por dentro; se adelgaza y apaga mientras crece. Si toca el piso, barre polvo a los dos lados.
+  shock(x, y, R, color = 0xFFF1C8, dur = 0.42, dustTint) {
+    if (!this.shockTex) this.shockTex = tex(256, 256, k => {
+      let g = k.createRadialGradient(128, 128, 40, 128, 128, 108); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.8, 'rgba(255,255,255,0.16)'); g.addColorStop(1, 'rgba(255,255,255,0.4)');
+      k.fillStyle = g; k.beginPath(); k.arc(128, 128, 108, 0, 7); k.fill();
+      g = k.createRadialGradient(128, 128, 106, 128, 128, 127); g.addColorStop(0, 'rgba(70,40,25,0.55)'); g.addColorStop(0.35, 'rgba(70,40,25,0.32)'); g.addColorStop(1, 'rgba(70,40,25,0)');
+      k.fillStyle = g; k.beginPath(); k.arc(128, 128, 127, 0, 7); k.arc(128, 128, 106, 0, 7, true); k.fill();
+      k.lineWidth = 7; k.strokeStyle = '#FFFFFF'; k.beginPath(); k.arc(128, 128, 106, 0, 7); k.stroke(); });
+    const s = new Sprite(this.shockTex); s.anchor.set(0.5); s.position.set(x, y); s.tint = color; s.scale.set(0.1); s.alpha = 0; (this.under || this.root).addChild(s);
+    this.parts.push({s, vx: 0, vy: 0, vr: 0, life: dur, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R / 110, glow: 0.95, atk: 0.02});
+    // segundo frente, más chico y rápido (aditivo): el "golpe" de aire del centro
+    const s2 = new Sprite(this.shockTex); s2.anchor.set(0.5); s2.position.set(x, y); s2.tint = 0xFFFFFF; s2.blendMode = 'add'; s2.scale.set(0.1); s2.alpha = 0; this.root.addChild(s2);
+    this.parts.push({s: s2, vx: 0, vy: 0, vr: 0, life: dur * 0.55, t: 0, g: 0, drag: 0, grow: 0, sz: 0.1, ring: R * 0.55 / 110, glow: 0.7, atk: 0.01});
+    this.shockN = (this.shockN || 0) + 1;
+    // polvo que barre el piso cuando el frente llega a la barra (cada bocanada sale cuando el anillo pasa por ahí)
+    const dy = GROUND - y; if (dy < -20 || dy > R * 0.9) return;
+    const half = Math.sqrt(Math.max(0, R * R - dy * dy)), n = Math.max(2, Math.round(5 * (this.k ?? 1))), V = R / dur;
+    for (const side of [-1, 1]) for (let i = 0; i < n; i++) {
+      const d = Math.max(dy, 30) + (half - Math.max(dy, 30)) * (i / Math.max(1, n - 1)), dx = Math.sqrt(Math.max(0, d * d - dy * dy)), n0 = this.parts.length;
+      this.burst('smoke', x + side * dx, GROUND - 14, 1, 40, {up: 30 + Math.random() * 40, g: -40, drag: 2.6, life: 0.7 + Math.random() * 0.3, size: 0.9 + Math.random() * 0.6, grow: 1.6, w: 30, h: 8, tint: dustTint});
+      for (let j = n0; j < this.parts.length; j++) { const p = this.parts[j]; p.vx += side * (260 + Math.random() * 160); p.delay = d / V * 0.75; p.s.alpha = 0; p.maxA = 0.7; }
+    }
+  }
   // picada de Miu (Silver AB2): onda aplanada que corre a ras de la estructura + líneas de velocidad que suben (el "aire" que trae)
   slam(x, y, R) {
     if (!this.ringTex) this.ring(x, y, 1, 0xFFFFFF, 0.01);

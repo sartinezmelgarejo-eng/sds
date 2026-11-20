@@ -576,7 +576,7 @@ async function main() {
       else if (d.skin === 'pot') fx.burst('dirt', p.x, p.y + d.h * 0.1, Math.round(n * 0.7), 300, {w: d.w * 0.6, h: d.h * 0.4, up: 200, size: 0.8}); // la maceta suelta su tierra
       if (d.mat === 'tnt') booms.push({x: p.x, y: p.y, t: 0.07});
       if (d.mat === 'rocket') { booms.push({x: p.x, y: p.y, t: 0.01, rk: true}); if (d.lit?.fl) d.lit.fl.destroy(); } // caja de cuetes: explota (en cadena, con un respiro entre cada una)
-      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.ring(p.x, p.y, 380, 0xFFB0A0); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
+      if (d.mat === 'robot') { d.bar.destroy(); fx.explosion(p.x, p.y, 240); fx.shock(p.x, p.y, 420, 0xFFD0C0, 0.5, bgTheme === 'garden' ? 0xEEE0C6 : dustTint(ground)); fx.burst('can', p.x, p.y, 22, 900, {up: 300, size: 1.3}); cam.shake(40); cam.punch(0.07); SFX.boom(); screenFlash = 0.12; startle(p.x, 1);
         if (!dyn.some(o => o.mat === 'mouse' || o.mat === 'robot')) lastMoment(p, 120); }
       addScore(PTS[d.mat], p.x, p.y - d.h * 0.3, PTS_COL[d.mat]);
       if (d.mat !== 'robot') wreck(PTS[d.mat]);
@@ -617,12 +617,12 @@ async function main() {
   function updateBooms(dt) {
     for (let i = booms.length - 1; i >= 0; i--) { const b = booms[i]; if ((b.t -= dt) > 0) continue; booms.splice(i, 1);
       if (b.rk) { // cohete: estallido más chico que la caja (AB2), con chispas de colores y sin cohetitos sueltos
-        fx.explosion(b.x, b.y, 160); fx.ring(b.x, b.y, 250, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 10, 600, {up: 200, size: 0.9});
+        fx.explosion(b.x, b.y, 160); fx.shock(b.x, b.y, 280, 0xFFE0B8, 0.38, bgTheme === 'garden' ? 0xEEE0C6 : dustTint(ground)); fx.burst('tnt', b.x, b.y, 10, 600, {up: 200, size: 0.9});
         const n0 = fx.parts.length; fx.burst('star', b.x, b.y, 18, 560, {up: 60, g: 300, drag: 1.4, life: 0.9, size: 0.5}); for (let k = n0; k < fx.parts.length; k++) fx.parts[k].s.tint = FW[k % FW.length];
         blast(b.x, b.y, 230, 20, 20, {can: 1.2, tnt: 3, robot: 2});
         for (const r of ropes) if (r.bal && !r.cut && balDist(r, b.x, b.y) < 480 + BAL_R) cutRope(r, 'pop');   // las chispas de colores revientan los globos de alrededor
         cam.shake(18); cam.punch(0.04); SFX.boom(); SFX.firework(); screenFlash = 0.07; startle(b.x, 0.6); continue; }
-      fx.explosion(b.x, b.y, 210); fx.ring(b.x, b.y, 340, 0xFFD0A0); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
+      fx.explosion(b.x, b.y, 210); fx.shock(b.x, b.y, 380, 0xFFE0B8, 0.44, bgTheme === 'garden' ? 0xEEE0C6 : dustTint(ground)); fx.burst('tnt', b.x, b.y, 16, 760, {up: 280, size: 1.1});
       blast(b.x, b.y, 320, 25, 30, {can: 1.3, tnt: 3, robot: 3}); // a la aspiradora le pega fuerte (premio por el timing)
       cam.shake(26); cam.punch(0.05); SFX.boom(); SFX.crackle(); screenFlash = 0.1; startle(b.x, 0.8);
       const n = 3 + Math.floor(Math.random() * 2);
@@ -739,7 +739,7 @@ async function main() {
       // mechones de Mako (blanco y negro) ANTES del fuego → quedan debajo y salen volando cuando la bola se abre
       const nf = fx.parts.length; fx.burst('fur', p.x, p.y, 12, 1250, {up: 160, size: 1.3, life: 1.2, drag: 1.6, g: 900});
       for (let k = nf; k < fx.parts.length; k++) fx.parts[k].s.tint = [0xFFFFFF, 0xF2ECE4, 0x55504F][k % 3];
-      fx.explosion(p.x, p.y, 200); fx.ring(p.x, p.y, 320, 0xFFF1C8);
+      fx.explosion(p.x, p.y, 200); fx.shock(p.x, p.y, 360, 0xFFF1C8, 0.44, bgTheme === 'garden' ? 0xEEE0C6 : dustTint(ground));
       screenFlash = 0.12;
       blast(p.x, p.y, 280, 26, 34, {can: 1.6});
       cam.shake(34, 0.5); cam.punch(0.07); SFX.boom(); startle(p.x, 1);
@@ -1485,7 +1485,7 @@ async function main() {
   }
   function chiliBoom(d, x, y) {
     if (d.heat) { d.heat.gl.destroy(); d.heat = null; } if (!d.dead) destroyDyn(d);                        // pedazos + puntos (y si era caja de cuetes, también truena)
-    fx.explosion(x, y, 190); fx.ring(x, y, 300, 0xFFB070); fx.burst('flame', x, y, 18, 620, {up: 220, g: -60, drag: 2.2, life: 0.6, size: 1.3});
+    fx.explosion(x, y, 190); fx.shock(x, y, 330, 0xFFD8A8, 0.42, bgTheme === 'garden' ? 0xEEE0C6 : dustTint(ground)); fx.burst('flame', x, y, 18, 620, {up: 220, g: -60, drag: 2.2, life: 0.6, size: 1.3});
     blast(x, y, 200, 14, 8, {can: 1.2});
     cam.shake(22); cam.punch(0.04); SFX.boom(); SFX.crackle(); screenFlash = 0.08; startle(x, 0.7);
   }
