@@ -1130,6 +1130,31 @@ async function main() {
   // pero durante el juego está oculta tras el mazo → aquí: cada carta de gato (de izq. a der.) se agacha, brinca con ojitos
   // felices cerrados y aterriza con rebote. Un estruendo (jolt) o el enojo (grr) mandan más; se usa la carta → se cancela.
   let joyN = 0;
+  // notita ♪ (blanca con contorno oscuro; se tiñe de color) y chispita para el festejo de las cartas
+  const noteTex = canvasTex(56, 72, k => { k.lineJoin = 'round'; k.lineCap = 'round';
+    const path = () => { k.beginPath(); k.ellipse(18, 56, 12, 9, -0.45, 0, Math.PI * 2); k.moveTo(28, 54); k.lineTo(28, 10); k.quadraticCurveTo(36, 22, 48, 26); k.quadraticCurveTo(44, 34, 30, 30); };
+    path(); k.lineWidth = 12; k.strokeStyle = '#2A170B'; k.stroke(); k.fillStyle = '#2A170B'; k.fill();
+    k.beginPath(); k.ellipse(18, 56, 9, 6.5, -0.45, 0, Math.PI * 2); k.fillStyle = '#FFFFFF'; k.fill();
+    k.beginPath(); k.moveTo(28, 52); k.lineTo(28, 12); k.quadraticCurveTo(36, 24, 46, 27); k.lineWidth = 5; k.strokeStyle = '#FFFFFF'; k.stroke(); });
+  const twinkTex = canvasTex(40, 40, k => { k.translate(20, 20); k.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, r = i % 2 ? 4.5 : 18; k.lineTo(Math.cos(a) * r, Math.sin(a) * r); } k.closePath();
+    k.fillStyle = '#FFFFFF'; k.fill(); k.lineWidth = 3; k.strokeStyle = 'rgba(42,23,11,0.8)'; k.stroke(); });
+  const NOTE_COL = [0xFFD54A, 0x7FD8FF, 0xFF8FC0, 0x9BE07A];
+  function cardNotes(c) {   // en el punto alto del brinco: una ♪ que sube meciéndose + 3 chispitas que saltan de las orillas
+    c.nts = c.nts || [];
+    const n = new Sprite(noteTex); n.anchor.set(0.5); n.tint = NOTE_COL[(c.qid + joyN) % NOTE_COL.length]; const sd = (c.qid + joyN) % 2 ? 1 : -1;
+    n.position.set(sd * CARD_W * 0.3, -CARD_H * 0.32); c.addChild(n); c.nts.push({s: n, t: 0, life: 0.9, vx: sd * 30, vy: -150, note: 1, sd});
+    for (let i = 0; i < 3; i++) { const sp = new Sprite(twinkTex), a = -Math.PI / 2 + (i - 1) * 0.9 + (Math.random() - 0.5) * 0.3; sp.anchor.set(0.5); sp.tint = i === 1 ? 0xFFF3A0 : 0xFFE36A;
+      sp.position.set(Math.cos(a) * CARD_W * 0.36, -CARD_H * 0.08 + Math.sin(a) * CARD_H * 0.3); c.addChild(sp);
+      c.nts.push({s: sp, t: -i * 0.04, life: 0.45, vx: Math.cos(a) * 140, vy: Math.sin(a) * 140, note: 0}); }
+  }
+  function updateCardNotes(c, dt) {
+    for (let i = c.nts.length - 1; i >= 0; i--) { const o = c.nts[i]; o.t += dt; const s = o.s;
+      if (o.t >= o.life || s.destroyed) { if (!s.destroyed) s.destroy(); c.nts.splice(i, 1); continue; }
+      if (o.t < 0) { s.visible = false; continue; } s.visible = true; const u = o.t / o.life;
+      s.x += o.vx * dt; s.y += o.vy * dt;
+      if (o.note) { o.vy *= 1 - dt * 1.2; s.rotation = Math.sin(o.t * 9) * 0.28 * o.sd; s.scale.set((o.t < 0.12 ? 0.3 + 0.8 * o.t / 0.12 : o.t < 0.2 ? 1.1 - 0.1 * (o.t - 0.12) / 0.08 : 1) * 0.85); s.alpha = u > 0.6 ? 1 - (u - 0.6) / 0.4 : 1; }
+      else { o.vx *= 1 - dt * 5; o.vy *= 1 - dt * 5; s.rotation += dt * 5; s.scale.set(Math.sin(u * Math.PI) * 0.95); s.alpha = 1; } }
+  }
   function joyQueue() {
     if (deckA < 0.5 || state === 'lose') return; let j = 0;
     for (const c of [...cards.values()].sort((a, b) => a.qid - b.qid)) if (!c.spell && !c.gone && !c.grr && !(c.joy && c.joy.t < 0.45)) c.joy = {t: -0.08 * j++ - 0.12};
@@ -1357,11 +1382,12 @@ async function main() {
         if (J.t > 0) { const u = J.t;
           if (u < 0.09) { const k = Math.sin(u / 0.09 * Math.PI / 2); y += k * 8; sx *= 1 + 0.07 * k; sc *= 1 - 0.05 * k; }          // se agacha (anticipación)
           else if (u < 0.49) { const v = (u - 0.09) / 0.4, b = Math.sin(v * Math.PI); y -= b * 34; sc *= 1 + 0.05 * b; sx *= 1 - 0.04 * b; rot += Math.sin(v * Math.PI * 2) * 0.05;   // ¡brinco!
-            if (c.face.texture !== ct.blink.tex) c.face.texture = ct.blink.tex; }
+            if (c.face.texture !== ct.blink.tex) c.face.texture = ct.blink.tex; if (v > 0.4 && !J.nt) { J.nt = 1; cardNotes(c); } }
           else if (u < 0.65) { const k = Math.sin((u - 0.49) / 0.16 * Math.PI); y += k * 6; sx *= 1 + 0.06 * k; sc *= 1 - 0.04 * k; if (c.face.texture !== ct.calm.tex) c.face.texture = ct.calm.tex; }   // aterriza
           else { c.joy = null; if (c.face.texture !== ct.calm.tex) c.face.texture = ct.calm.tex; } } }
       else if (c.joy && (c.gone || c.jolt || c.grr)) c.joy = null;
       c.position.set(c.cx + jx, y); c.scale.set(sc * sx, sc); c.rotation = rot;
+      if (c.nts && c.nts.length) updateCardNotes(c, dt);
     }
   }
   function clearDeck() { for (const c of cards.values()) c.destroy({children: true}); cards.clear(); }
