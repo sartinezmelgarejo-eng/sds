@@ -485,7 +485,7 @@ async function main() {
   // CUETES QUE SE PONEN NERVIOSOS (AB2: la TNT es el blanco jugoso): mientras el jugador apunta, se traza la parábola del tiro
   // (sin choques) hasta que topa con algo; si la PRIMERA cosa que tocaría es una caja de cuetes, la caja tiembla, da brinquitos
   // y sus cohetes chisporrotean (chispitas + chirrido de mecha). Al dejar de apuntarle se calma.
-  let tntAimT = 0, tntAimD = null, tntAimN = 0, tntAimLog = [], tntAimMiss = 0;
+  let tntAimT = 0, tntAimD = null, tntAimN = 0, tntAimLog = [], tntAimMiss = 0, tntAimSayT = -99;
   function tntAimPath() {
     if (!(state === 'ready' && sling.aiming && onSling && !onSling.hop && sling.power > 0.45)) return null;
     const tn = dyn.filter(o => o.mat === 'tnt' && !o.dead); if (!tn.length) return null;
@@ -506,6 +506,14 @@ async function main() {
     tntAimKeep(dt);
   }
   function tntAimKeep(dt) {
+    // los ratones pegados a la caja apuntada se encogen y tiemblan (aunque no se estire al tope); el más cercano suplica una vez por apuntada
+    const T = tntAimD && !tntAimD.dead ? tntAimD : null, tk = T ? T.aimK || 0 : 0;
+    let near = null, nd = 1e9;
+    for (const d of dyn) { if (d.mat !== 'mouse') continue;
+      const ed = T && !d.dead && !d.zz && !d.ride && !d.enter && !d.infl ? Math.hypot(T.body.position.x - d.body.position.x, T.body.position.y - d.body.position.y) - (T.w + d.w) / 2 : 1e9;
+      d.boxFear = Math.max(0, Math.min(1, (d.boxFear || 0) + (ed < 150 ? dt * 3 : -dt * 3))); if (ed < 150 && ed < nd) { nd = ed; near = d; } }
+    if (near && tk > 0.6 && T.begT !== tntAimN && time - tntAimSayT > 4 && !bubbles.some(b => b.d === near && !b.gone)) { T.begT = tntAimN; tntAimSayT = time; near.hurt = 0.3;
+      say(near, ['¡AHÍ NO!', '¡A LA CAJA\nNO, PORFA!', '¡APUNTA PA\'\nOTRO LADO!'][tntAimN % 3], 1.1, 0.75); SFX.squeak(); tntAimLog.push('ruega'); }
     const zf = Math.max(1, 34 / (cam.zoom * CAT_R));   // vista alejada: chispas más grandes para que se lean
     for (const d of dyn) { if (d.mat !== 'tnt') continue;
       d.aimK = Math.max(0, Math.min(1, (d.aimK || 0) + (d === tntAimD && !d.dead ? dt * 4 : -dt * 3)));
@@ -1033,7 +1041,8 @@ async function main() {
       else if (!nm.at) { if (!flying || flying !== nm.fl || flying.fade || flying.hit && fcd > 260 || fcd > 360) nm.at = time + Math.max(0.3, 0.45 - nm.t); else { nmDuck = 1; d.cower = Math.max(d.cower, Math.min(1, nm.t * 12)); } }
       else if (time > nm.at) { nm.spent = 1; phew(d, nm.x); }
       else { nmDuck = 1; d.cower = Math.max(d.cower, 0.85); } }
-    if (d.tntFear) { if (aimNerv <= 0.05 || state !== 'ready') d.tntFear = 0; else { d.cower = Math.max(d.cower, 0.7 * aimNerv); d.tntShiv = Math.sin(time * 52) * d.w * 0.025 * aimNerv; } }   // junto a los cuetes: encogido y temblando   // sigue agachado, con los ojos apretados, un ratito después de que pasó (AB2: no se atreve a mirar)
+    if (d.tntFear && (aimNerv <= 0.05 || state !== 'ready')) d.tntFear = 0;
+    { const I = Math.max(d.tntFear ? aimNerv : 0, d.boxFear || 0); if (I > 0) { d.cower = Math.max(d.cower, 0.7 * I); d.tntShiv = Math.sin(time * 52) * d.w * 0.025 * I; } else d.tntShiv = 0; }   // junto a los cuetes: encogido y temblando   // sigue agachado, con los ojos apretados, un ratito después de que pasó (AB2: no se atreve a mirar)
     if (d.phewT > 0) { d.phewT -= dt; if (d.phewT <= 0) { d.laugh = 0.9; } }   // y se ríe (la burla con globo ya la dicen al terminar el turno)
     if (d.zz) { let why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
       // sueño pesado (chiste AB): la 1.ª vez que lo empujan y RUEDA/se desliza sin lastimarse, sigue roncando mientras rueda;
@@ -1057,7 +1066,7 @@ async function main() {
     else if (d.infl) expr = 'scared';                                               // hechizo ¡RATONES GLOBO!: cara de pánico mientras se infla
     else if (flinch || nmDuck || cgh > 0.2 || shk > 0.15) expr = 'flinch';
     else if (d.phewT > 0) { expr = 'scared'; const u = (0.55 - d.phewT) / 0.3; if (u < 1) hop = Math.sin(u * Math.PI) * d.h * 0.12; }  // brinquito del susto que ya pasó
-    else if (d.hurt > 0 || d.wakeT > 0 || d.teeter || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3 || (aimNerv > 0.35 && !d.ride && !d.enter)) expr = 'scared';
+    else if (d.hurt > 0 || d.wakeT > 0 || d.teeter || near || tumble || dg || slp > 0.2 || (sh && sh.t > 0) || d.panic > 0.3 || d.boxFear > 0.3 || (aimNerv > 0.35 && !d.ride && !d.enter)) expr = 'scared';
     else if (dz > 0) expr = (time * 7 | 0) % 2 ? 'dizzy2' : 'dizzy'; // ojos en espiral que giran
     else if (d.laugh > 0 || laughAll > 0) {
       d.laugh -= dt; expr = 'laugh';
@@ -1100,7 +1109,7 @@ async function main() {
     const br = d.zz ? Math.sin(t * 1.9) * 0.055 : Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;   // dormido: respira hondo y lento
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
-    if (d.tntFear) d.sprite.x += d.tntShiv || 0;
+    if (d.tntShiv) d.sprite.x += d.tntShiv;
     if (d.stirT > 0 || d.flipS) { const u = 1.6 - Math.max(0, d.stirT || 0), f = Math.min(1, Math.max(0, (u - 0.18) / 0.42));   // se voltea para el otro lado (y así se queda hasta despertar)
       if (d.stirT > 0) { d.flipS = (d.flip0 || 1) * Math.cos(Math.PI * f); const j = Math.sin(Math.PI * f); d.sprite.y -= j * d.h * 0.12; d.sprite.scale.y *= 1 - 0.08 * j; d.sprite.x += Math.sin(u * 38) * 2.5 * Math.max(0, 1 - u / 0.25); }
       if (!d.zz) d.flipS = 0; else d.sprite.scale.x *= d.flipS; }
