@@ -31,6 +31,11 @@ export class FX {
     // pétalos (flor tragona del Jardín) y polen
     this.T.petal = [...['#FF7AB8', '#E8489A', '#FFB3D6'].map(c => tex(40, 40, k => { k.fillStyle = c; k.strokeStyle = '#7A1E4A'; k.lineWidth = 2.5; k.beginPath(); k.moveTo(20, 3); k.bezierCurveTo(36, 12, 32, 34, 20, 37); k.bezierCurveTo(8, 34, 4, 12, 20, 3); k.fill(); k.stroke(); })),
       tex(24, 24, k => { const g = k.createRadialGradient(12, 12, 1, 12, 12, 11); g.addColorStop(0, '#FFF6A0'); g.addColorStop(0.5, '#FFD23A'); g.addColorStop(1, 'rgba(255,190,40,0)'); k.fillStyle = g; k.beginPath(); k.arc(12, 12, 11, 0, 7); k.fill(); })];
+    // briznas de pasto y hojitas (lo que cae sobre el pasto del Jardín las levanta)
+    this.T.blade = ['#5FB13E', '#3E8A2C', '#8FD85E', '#4C9A34'].map((c, i) => tex(24, 56, k => { k.fillStyle = c; k.strokeStyle = '#24561A'; k.lineWidth = 2; k.beginPath();
+      k.moveTo(8, 53); k.quadraticCurveTo(4 + i, 26, 13 + (i % 2) * 4, 3); k.quadraticCurveTo(11, 28, 16, 53); k.closePath(); k.fill(); k.stroke(); }));
+    this.T.leaf = ['#6CBF45', '#9BD44E', '#4E9A30'].map(c => tex(40, 32, k => { k.fillStyle = c; k.strokeStyle = '#2A5A18'; k.lineWidth = 2.5; k.beginPath(); k.moveTo(3, 16);
+      k.quadraticCurveTo(18, 1, 37, 16); k.quadraticCurveTo(18, 31, 3, 16); k.fill(); k.stroke(); k.beginPath(); k.moveTo(5, 16); k.lineTo(33, 16); k.lineWidth = 1.5; k.stroke(); }));
     this.puddles = [];
     this.T.canball = this.T.can; this.T.boulder = this.T.stone;
     this.T.robot = this.T.can; // la aspiradora suelta pedacitos de metal
@@ -163,7 +168,7 @@ export class FX {
     const s = new Sprite(this.pudTex); s.anchor.set(0.5, 0.45); s.position.set(x, y); s.scale.set(0.1, 0.1); (this.under || this.root).addChild(s);
     this.puddles.push({s, x, k: Math.min(0.55, maxK), cur: 0.1, t: 0, maxK});
   }
-  smoke(x, y, r, n = 9) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6}); }
+  smoke(x, y, r, n = 9, tint) { this.burst('smoke', x, y, n, r * 2.2, {up: 40, g: -60, drag: 3.5, life: 0.75, size: r / 40, grow: 1.4, w: r * 0.6, h: r * 0.6, tint}); }
   points(x, y, value, color = '#FFFFFF', big = false, k = 1) {
     const t = new Text({text: value.toLocaleString('en-US'), style: {fontFamily: 'Luckiest Guy', fontSize: (big ? 84 : 58) * k, fill: color, stroke: {color: '#1F2240', width: (big ? 12 : 9) * k, join: 'round'}, dropShadow: {color: '#1F2240', distance: 5, angle: Math.PI / 2, blur: 0, alpha: 0.9}}});
     // medidas reales (a escala 1, sin la sombra) para que updateTexts los acomode sin encimarse
