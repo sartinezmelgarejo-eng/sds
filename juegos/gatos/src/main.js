@@ -968,8 +968,9 @@ async function main() {
     if (!d.zz && !d.ride && fc && flying && fc === flying.body && fc.speed > 6 && fcd < d.w / 2 + CAT_R + 120 && (!d.nm || d.nm.fl !== flying) && state === 'flying') d.nm = {fl: flying, life: d.life, t: 0, x: fc.position.x};
     if (d.nm && !d.nm.spent) { const nm = d.nm; nm.t += dt;
       if (d.life < nm.life - 0.01 || d.body.speed > 1.5 || tumble || d.zz || d.hurt > 0 || d.wakeT > 0 || d.stirT > 0 || d.teeter || d.dizzyT > 0) nm.spent = 1;   // le dio, lo movió o ya tiene su propio chiste (despertó, se tambalea)
-      else if (!nm.at) { if (!flying || flying !== nm.fl || flying.fade || flying.hit && fcd > 260 || fcd > 360) nm.at = time + 0.22; else { nmDuck = 1; d.cower = Math.max(d.cower, Math.min(1, nm.t * 12)); } }
-      else if (time > nm.at) { nm.spent = 1; phew(d, nm.x); } }
+      else if (!nm.at) { if (!flying || flying !== nm.fl || flying.fade || flying.hit && fcd > 260 || fcd > 360) nm.at = time + Math.max(0.3, 0.45 - nm.t); else { nmDuck = 1; d.cower = Math.max(d.cower, Math.min(1, nm.t * 12)); } }
+      else if (time > nm.at) { nm.spent = 1; phew(d, nm.x); }
+      else { nmDuck = 1; d.cower = Math.max(d.cower, 0.85); } }   // sigue agachado, con los ojos apretados, un ratito después de que pasó (AB2: no se atreve a mirar)
     if (d.phewT > 0) { d.phewT -= dt; if (d.phewT <= 0) { d.laugh = 0.9; } }   // y se ríe (la burla con globo ya la dicen al terminar el turno)
     if (d.zz) { let why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
       // sueño pesado (chiste AB): la 1.ª vez que lo empujan y RUEDA/se desliza sin lastimarse, sigue roncando mientras rueda;
