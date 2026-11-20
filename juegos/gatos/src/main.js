@@ -1099,9 +1099,12 @@ async function main() {
   }
   function updateDeck(dt) {
     const live = [...(onSling ? [onSling] : []), ...queue], ids = new Set(live.map(q => q.id));
-    for (const q of live) if (!cards.has(q.id)) { const c = makeCard(q); c.enter = 0.001; cards.set(q.id, c); }
+    // reparto al empezar el nivel (AB2): con el mazo vacío, las cartas suben desde abajo una tras otra (no todas de golpe) cuando termina el sobrevuelo
+    const fresh = !cards.size; let nd = 0;
+    for (const q of live) if (!cards.has(q.id)) { const c = makeCard(q); if (fresh) { c.deal = nd++; c.dealT = 0; } else c.enter = 0.001; cards.set(q.id, c); }
     // carta del hechizo: al final del mazo mientras no se use (sale cuando ya hay gato en la resortera)
-    for (const S of SPELLS) if (S.avail() && (onSling || cards.has(S.id)) && state !== 'win' && state !== 'lose') { ids.add(S.id); if (!cards.has(S.id)) { const c = S.make(); c.enter = 0.001; cards.set(S.id, c); } }
+    for (const S of SPELLS) if (S.avail() && (onSling || cards.has(S.id)) && state !== 'win' && state !== 'lose') { ids.add(S.id); if (!cards.has(S.id)) { const c = S.make(), dl = [...cards.values()].filter(d => d.deal != null);
+      if (dl.length) { c.deal = Math.max(...dl.map(d => d.deal)) + 1; c.dealT = dl[0].dealT; } else c.enter = 0.001; cards.set(S.id, c); } }   // si aún se reparte, el hechizo llega al final
     // fuera las cartas de los gatos lanzados: suben girando y se desvanecen
     for (const [id, c] of cards) if (!ids.has(id) && !c.gone) { c.gone = 0.001; SFX.pop(); }
     const sh = app.screen.height / hud.scale.y, order = [...cards.values()].filter(c => !c.gone).sort((a, b) => a.qid - b.qid);
@@ -1126,6 +1129,9 @@ async function main() {
       c.glow.alpha = c.lift * (0.75 + Math.sin(time * 5) * 0.25);
       let sc = (0.86 + c.lift * 0.14) * (c.spell ? SPELL_SC : 1), y = by - c.lift * 34 + (c.spell ? CARD_H * 0.86 * (1 - SPELL_SC) / 2 : 0), rot = 0;
       if (sel) c.zIndex = 60;
+      if (c.deal != null) { if (state !== 'intro') c.dealT += dt; const u = (c.dealT - c.deal * 0.09) / 0.45;
+        if (u <= 0) sc = 0;
+        else { if (!c.dealS) { c.dealS = 1; SFX.pop(); } const v = Math.min(1, u), m = 1 - Math.min(1, v * 1.5); y += m * m * 220; rot -= m * 0.35; sc *= 0.55 + 0.45 * backOutE(v); if (u >= 1) c.deal = null; } }
       if (c.enter) { c.enter += dt; const u = Math.min(1, c.enter / 0.4); sc *= Math.max(0, backOutE(u)); if (u >= 1) c.enter = 0; }   // entra con rebote
       if (c.pop > 0) { c.pop = Math.max(0, c.pop - dt); sc *= 1 + Math.sin((1 - c.pop / 0.3) * Math.PI) * 0.12; }                       // botecito al tocarla
       if (c.wig > 0) { c.wig -= dt; rot = Math.sin(c.wig * 40) * 0.12 * (c.wig / 0.35); }
