@@ -1258,7 +1258,7 @@ async function main() {
   }
   // TIRO CARGADO: si el gato iba pujando al soltar, sale con un estallido de aire hacia atrás (bocanadas + chispitas) y un sacudón leve
   let chargedN = 0;
-  function chargedShot(p, v) { chargedN++; const back = Math.atan2(-v.y, -v.x), f = Math.max(1, 34 / (cam.zoom * CAT_R));
+  function chargedShot(p, v) { chargedN++; if (flying) flying.charged = {x: p.x, y: p.y}; const back = Math.atan2(-v.y, -v.x), f = Math.max(1, 34 / (cam.zoom * CAT_R));
     fx.smoke(p.x + Math.cos(back) * CAT_R * 0.9, p.y + Math.sin(back) * CAT_R * 0.9, CAT_R * 1.3 * Math.min(f, 1.6), 6);
     fx.burst('fur', p.x, p.y, 6, 360, {dir: back, spread: 1.1, up: 80, size: 0.9, life: 0.6, drag: 2});
     cam.shake(7); SFX.thump(0.6); }
@@ -1980,6 +1980,10 @@ async function main() {
         const wk = f.warpT > 0 ? 1 - Math.sin(f.warpT / 0.25 * Math.PI) * 0.45 : 1; if (f.warpT > 0) f.warpT -= dt;
         if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08) * wk, 0.5 * (1 - sp * 0.06) * wk);
       }
+      // TIRO CARGADO: los primeros 0.4 s deja una estela gruesa de aire (bocanadas que se encogen), como el arrancón de AB2
+      if (f.charged && !f.hit && f.t < 0.4) { const C = f.charged, L = Math.hypot(b.position.x - C.x, b.position.y - C.y), u = f.t / 0.4;
+        for (let k = 1; k <= Math.floor(L / 20); k++) fx.streak(C.x + (b.position.x - C.x) * k * 20 / L, C.y + (b.position.y - C.y) * k * 20 / L, CAT_R * (1.5 - 0.7 * u), 0xD9CFC4);
+        if (L >= 20) f.charged = {x: b.position.x, y: b.position.y}; } else if (f.charged) f.charged = null;
       // rastro de puntitos (uno grande cada 5); sigue durante el loop de Miu y su picada
       if (!f.hit && !f.exploded && Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 52) {
         const d = new Sprite(dotTex); d.anchor.set(0.5); const big = ++f.dots % 5 === 0;
