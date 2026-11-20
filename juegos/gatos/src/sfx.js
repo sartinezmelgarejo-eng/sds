@@ -318,6 +318,14 @@ export function portHum(v = 1) { if (!ok('phum', 0.4)) return; const t = ctx.cur
 export function gulp() { if (!ok('gulp', 0.15)) return; const t = ctx.currentTime;
   tone(t, 300, 'sine', 0.3, 0.2, 90); noise(t, 0.12, 'lowpass', 500, 1, 0.35, 0.12); tone(t + 0.12, 140, 'sine', 0.18, 0.15, 70); }
 // ratón nervioso que traga saliva: "glu-up" agudo y corto (pitch: chiquito > 1, jefa < 1)
+// pujido de esfuerzo al estirar la resortera al tope ("nnngh"): diente de sierra grave que sube despacio, filtrado nasal, con temblor
+export function strain(i = 0) {
+  if (!ok('strain', 0.8)) return; const t = ctx.currentTime, b = 150 + (i % 3) * 30, d = 0.75;
+  const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(b, t); o.frequency.linearRampToValueAtTime(b * 1.45, t + d);
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 3; f.frequency.setValueAtTime(500, t); f.frequency.linearRampToValueAtTime(900, t + d);
+  const trem = ctx.createGain(), lfo = ctx.createOscillator(), dep = ctx.createGain(); lfo.frequency.setValueAtTime(14, t); lfo.frequency.linearRampToValueAtTime(26, t + d); dep.gain.value = 0.35; trem.gain.value = 0.65; lfo.connect(dep); dep.connect(trem.gain);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.09, t + 0.12); g.gain.setValueAtTime(0.09, t + d - 0.15); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(f); f.connect(trem); trem.connect(g); g.connect(master); o.start(t); lfo.start(t); o.stop(t + d + 0.05); lfo.stop(t + d + 0.05); }
 export function nervGulp(pitch = 1) { if (!ok('ngulp', 0.4)) return; const t = ctx.currentTime;
   tone(t, 620 * pitch, 'sine', 0.16, 0.09, 380 * pitch); tone(t + 0.1, 300 * pitch, 'sine', 0.2, 0.12, 170 * pitch); noise(t + 0.08, 0.06, 'lowpass', 700, 1, 0.18, 0.06); }
 export function spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime;

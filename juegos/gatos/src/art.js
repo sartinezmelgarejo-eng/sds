@@ -784,7 +784,7 @@ const ART = (() => {
     t.drawImage(sil, 0, 0); t.globalCompositeOperation = 'source-in'; t.fillStyle = '#3A2414'; t.fillRect(0, 0, cw, ch);
     for (let a = 0; a < 20; a++) g.drawImage(tint, Math.cos(a / 20 * TAU) * ol, Math.sin(a / 20 * TAU) * ol);
     g.drawImage(img, hx, hy, hw, hh); paws(g);
-    if (expr === 'blink' && eyes) blinkLids(g, img, eyes, hx, hy, hw, hh);
+    if ((expr === 'blink' || expr === 'strain') && eyes) blinkLids(g, img, eyes, hx, hy, hw, hh);   // strain = ojos apretados de esfuerzo
     // sombreado del mundo (luz arriba-izq, sombra fría abajo-der), solo sobre el sprite
     g.save(); g.globalCompositeOperation = 'source-atop';
     g.fillStyle = rad(g, hx + hw * 0.3, hy + hh * 0.25, S * 0.1, S * 0.95, [[0, 'rgba(255,238,205,0.16)'], [0.55, 'rgba(255,238,205,0)'], [1, 'rgba(45,30,80,0.42)']]); g.fillRect(0, 0, cw, ch);
@@ -798,12 +798,12 @@ const ART = (() => {
       const [[lx, ly], [rx, ry]] = eyes, fx = (lx + rx) / 2, top = headTop(img, fx);
       catHat(g, hx + fx * hw, hy + (top + 0.1) * hh, hw * (hat === 'sombrero' ? 0.74 : hat === 'cowboy' ? 0.64 : hat === 'crown' ? 0.62 : 0.54), hat, Math.atan2((ry - ly) * hh, (rx - lx) * hw) * 0.8);
     }
-    if (expr === 'angry' && eyes) {
-      g.save(); g.lineCap = 'round';
+    if ((expr === 'angry' || expr === 'strain') && eyes) {
+      g.save(); g.lineCap = 'round'; const st = expr === 'strain';   // esfuerzo: cejas más bajas, más inclinadas y gruesas
       eyes.forEach(([ex, ey], i) => {
-        const px = hx + ex * hw, py = hy + ey * hh - S * 0.085, d = i === 0 ? 1 : -1;
-        [['#FFF4D7', S * 0.06], ['#2A170B', S * 0.04]].forEach(([col, lw]) => { g.strokeStyle = col; g.lineWidth = lw;
-          g.beginPath(); g.moveTo(px - d * S * 0.08, py - S * 0.04); g.lineTo(px + d * S * 0.06, py + S * 0.02); g.stroke(); });
+        const px = hx + ex * hw, py = hy + ey * hh - S * (st ? 0.07 : 0.085), d = i === 0 ? 1 : -1;
+        [['#FFF4D7', S * (st ? 0.07 : 0.06)], ['#2A170B', S * (st ? 0.048 : 0.04)]].forEach(([col, lw]) => { g.strokeStyle = col; g.lineWidth = lw;
+          g.beginPath(); g.moveTo(px - d * S * 0.08, py - S * (st ? 0.06 : 0.04)); g.lineTo(px + d * S * 0.06, py + S * (st ? 0.03 : 0.02)); g.stroke(); });
       });
       g.restore();
     }
