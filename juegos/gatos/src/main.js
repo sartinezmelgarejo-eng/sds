@@ -490,7 +490,7 @@ async function main() {
   let tntAimT = 0, tntAimD = null, tntAimN = 0, tntAimLog = [], tntAimMiss = 0, tntAimSayT = -99;
   function tntAimPath() {
     if (!(state === 'ready' && sling.aiming && onSling && !onSling.hop && sling.power > 0.45)) return null;
-    const tn = dyn.filter(o => o.mat === 'tnt' && !o.dead); if (!tn.length) return null;
+    const tn = dyn.filter(o => !o.dead && (o.mat === 'tnt' || (o.mat === 'mouse' && o.tnt && !o.zz && !o.ride && !o.enter))); if (!tn.length) return null;   // también el ratón que CARGA cuetes
     const k = V_MAX / MAX_PULL, G = GRAVITY * 1e6, h = 1 / 60, R = CAT_R * 0.8;
     let x = sling.pouch.x, y = sling.pouch.y, vx = -sling.pull.x * k, vy = -sling.pull.y * k;
     const occ = Composite.allBodies(engine.world).filter(b => !b.isSensor && b.label !== 'cat' && b.label !== 'mouse' && b.label !== 'ground' && !tn.some(t => t.body === b));
@@ -515,11 +515,11 @@ async function main() {
       const ed = T && !d.dead && !d.zz && !d.ride && !d.enter && !d.infl ? Math.hypot(T.body.position.x - d.body.position.x, T.body.position.y - d.body.position.y) - (T.w + d.w) / 2 : 1e9;
       d.boxFear = Math.max(0, Math.min(1, (d.boxFear || 0) + (ed < 150 ? dt * 3 : -dt * 3))); if (ed < 150 && ed < nd) { nd = ed; near = d; } }
     if (near && tk > 0.6 && T.begT !== tntAimN && time - tntAimSayT > 4 && !bubbles.some(b => b.d === near && !b.gone)) { T.begT = tntAimN; tntAimSayT = time; near.hurt = 0.3;
-      say(near, ['¡AHÍ NO!', '¡A LA CAJA\nNO, PORFA!', '¡APUNTA PA\'\nOTRO LADO!'][tntAimN % 3], 1.1, 0.75); SFX.squeak(); tntAimLog.push('ruega'); }
+      say(near, near === T ? ['¡A MÍ NO!\n¡TRAIGO CUETES!', '¡NO, NO, NO!\n¡VOY CARGADO!', '¡CUIDADO,\nQUE TRUENO!'][tntAimN % 3] : ['¡AHÍ NO!', '¡A LA CAJA\nNO, PORFA!', '¡APUNTA PA\'\nOTRO LADO!'][tntAimN % 3], 1.1, 0.75); SFX.squeak(); tntAimLog.push('ruega'); }
     const zf = Math.max(1, 34 / (cam.zoom * CAT_R));   // vista alejada: chispas más grandes para que se lean
-    for (const d of dyn) { if (d.mat !== 'tnt') continue;
+    for (const d of dyn) { if (d.mat !== 'tnt' && !(d.mat === 'mouse' && d.tnt)) continue;
       d.aimK = Math.max(0, Math.min(1, (d.aimK || 0) + (d === tntAimD && !d.dead ? dt * 4 : -dt * 3)));
-      if (d.aimK > 0.3 && !d.dead && Math.random() < dt * 22 * d.aimK) {   // chispitas en las puntas de los cohetes
+      if (d.aimK > 0.3 && !d.dead && d.mat === 'tnt' && Math.random() < dt * 22 * d.aimK) {   // chispitas en las puntas de los cohetes
         const c = Math.cos(d.body.angle), sn = Math.sin(d.body.angle), ox = (Math.random() - 0.5) * d.w * 0.7, oy = -d.h * 0.48, p = d.body.position;
         fx.burst('spark', p.x + ox * c - oy * sn, p.y + ox * sn + oy * c, 2, 260, {dir: -Math.PI / 2 + d.body.angle, spread: 1.6, up: 60 * zf, g: 900 * zf, drag: 1.5, life: 0.35 + Math.random() * 0.2, size: (0.55 + d.w / 400) * zf});
         if (Math.random() < 0.25) fx.burst('smoke', p.x + ox * c - oy * sn, p.y + ox * sn + oy * c, 1, 40, {up: 50 * zf, g: -60, drag: 3, life: 0.6, size: 0.28 * zf, grow: 1.6, tint: 0xD8D2CA}); } }
@@ -1084,7 +1084,7 @@ async function main() {
           fx.burst('smoke', p.x + sd * d.w * 0.4, p.y - d.h * (0.05 + Math.random() * 0.3), 1, 150, {dir: sd < 0 ? Math.PI : 0, spread: 0.7, up: 30, g: -40, drag: 3, life: 0.55, size: 0.34 * d.w / 100, grow: 1.7, tint: bgTheme === 'garden' ? 0xE6D8BC : dustTint(ground) ?? 0xE2D8CA}); }
         if (d.dshake <= 0) d.dusty = 0; } }
     // ratón con cuetes (AB2: el cerdo con TNT): si un gato pasa cerca o algo le cae, entra en PÁNICO: voltea a su mecha y al gato, suda y tiembla
-    if (d.tnt) { const pn = near || dg || tumble || (sh && sh.t > 0);
+    if (d.tnt) { const pn = near || dg || tumble || (sh && sh.t > 0) || d.aimK > 0.3;   // también cuando le apuntan
       d.panic = Math.max(0, Math.min(1, (d.panic || 0) + (pn ? dt * 6 : -dt * 1.5)));
       if (pn && !d.panicked) { d.panicked = 1; if (time - (d.yelpT || -9) > 1) { d.yelpT = time; SFX.squeak(); } }
       if (!pn && d.panic <= 0) d.panicked = 0; }
