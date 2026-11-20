@@ -1727,7 +1727,10 @@ async function main() {
       if (queue.length && !endT0) { endT0 = true; cam.follow({position: {x: (queue[0].x + queue[queue.length - 1].x) / 2 + 140, y: GROUND - 260}}, 2.4); }
       if (endT > 0.6 && i < queue.length && !queue[i].bonus) {
         const q = queue[i]; q.bonus = true; q.sprite.texture = catT[q.name].angry.tex;
-        q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true};
+        q.hop = {t: 0, dur: 0.75, x0: q.sprite.x, y0: q.sprite.y, x1: q.sprite.x, y1: q.sprite.y, h: 300, spin: true,
+          onEnd: () => { q.land = 0.32; SFX.thump(0.25); // AB2: aterriza con aplastón y polvito a los lados
+            const dy = GROUND - 12; fx.burst('smoke', q.x - 30, dy, 4, 260, {dir: Math.PI, spread: 0.5, up: 30, g: -50, drag: 4, life: 0.6, size: 0.42, grow: 1.6});
+            fx.burst('smoke', q.x + 30, dy, 4, 260, {dir: 0, spread: 0.5, up: 30, g: -50, drag: 4, life: 0.6, size: 0.42, grow: 1.6}); }};
         addScore(10000, q.x, GROUND - 540, '#FFE27A', true, 1.5); fx.burst('star', q.x, GROUND - 330, 10, 600, {up: 300, size: 1.1, life: 0.8}); SFX.meow(i);
       }
       if (!resultsShown && endT > 0.6 + queue.length * 0.6 + 1.1) showResults(true);
@@ -1760,7 +1763,8 @@ async function main() {
         const T = closed ? catT[q.name].blink : catT[q.name].calm; if (q.sprite.texture !== T.tex) q.sprite.texture = T.tex;
         if (bt > 0.4) { q.blinkAt = time + 2 + Math.random() * 3.5; q.dbl = Math.random() < 0.3; }
       }
-      q.sprite.scale.set(0.5 / Math.sqrt(br), 0.5 * br); q.sprite.y = GROUND - catT[q.name].calm.footY - hop;
+      let sq = br; if (q.land > 0) { q.land -= dt; const k = Math.max(0, q.land) / 0.32; sq *= 1 - 0.2 * k * Math.cos((1 - k) * Math.PI * 2); } // aplastón al aterrizar con rebote
+      q.sprite.scale.set(0.5 / Math.sqrt(sq), 0.5 * sq); q.sprite.y = GROUND - catT[q.name].calm.footY * sq - hop; // pies pegados al piso al aplastarse
       if (q.shiver > 0) { q.shiver -= dt; const k = Math.max(0, q.shiver) / 0.45; q.sprite.x = q.x + Math.sin(time * 70) * 5 * k; q.sprite.rotation = Math.sin(time * 55) * 0.05 * k; }
       else { // AB2: los de la fila siguen con la cabeza al gato que va volando (se inclinan hacia él, más si va alto)
         const fb = flying && !flying.fade ? flying.body.position : null, a = fb ? Math.atan2(fb.y - q.sprite.y, Math.abs(fb.x - q.x) + 200) : 0;
