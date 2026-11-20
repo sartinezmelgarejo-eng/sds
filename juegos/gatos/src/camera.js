@@ -82,6 +82,13 @@ export class Camera {
         const zf = this.fitZoom * (this.followZ || 1.55);
         // mirar un poco hacia adelante del gato
         this.tx = p.x + v.x * 8; this.ty = Math.min(p.y + v.y * 4, GROUND - this.sh / zf * 0.3); this.tz = zf;
+        // pegado a la orilla del nivel la cámara ya no puede centrarlo: acercar el zoom para que el gato
+        // quede a ≥22% del borde de la pantalla y no se pierda la acción (p. ej. Mako en el portal de 3-2)
+        // (solo la orilla derecha: la resortera vive cerca de x0 y no queremos zoom al lanzar)
+        const m = 0.22 * this.sw, dr = Math.max(BOUNDS.x1 - p.x, 1);
+        const ze = dr * zf < m ? Math.min(m / dr, this.fitZoom * 2.4) : 0;
+        if (ze > zf) this.tz = ze;
+        this.edgeZ = ze > zf ? this.tz : 0;
       } else if (this.mode === 'rest') {
         const r = this.restView(); this.tx = r.x; this.ty = r.y; this.tz = r.z;
       } else if (this.mode === 'user') {
