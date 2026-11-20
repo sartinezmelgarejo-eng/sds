@@ -150,13 +150,15 @@ export class UI {
     const panel = new Sprite(this.T.cardP); panel.anchor.set(0.5); panel.y = 40;
     const rays = new Sprite(this.T.rays); rays.anchor.set(0.5); rays.y = -160;
     const face = new Sprite(c.tex); face.anchor.set(c.ax, c.ay); face.y = -150;
-    const tag = txt('¡GATO NUEVO!', 80, '#FFFFFF'); tag.anchor.set(0.5); tag.y = -505; tag.rotation = -0.04;
+    // listón rojo propio (como la cinta de AB2) montado sobre la orilla de arriba del panel, con el título encima
+    const rib = new Sprite(this.banRib.texture); rib.anchor.set(0.5); rib.y = -528; rib.rotation = -0.03;
+    const tag = txt('¡GATO NUEVO!', 84, '#FFFFFF'); tag.anchor.set(0.5); tag.y = -555; tag.rotation = -0.03;
     const nm = txt(name.toUpperCase(), 150, '#FFE27A'); nm.anchor.set(0.5); nm.y = 175;
     const pw = txt(info[0], 84, info[1]); pw.anchor.set(0.5); pw.y = 295;
     const ds = txt(info[2], 58, '#FFFFFF', 0.2); ds.anchor.set(0.5); ds.y = 455; ds.style.lineHeight = 74;
     const ok = this.button(this.T.next, () => this.closeCard(), 0.62); ok.position.set(0, 660);
-    box.addChild(panel, rays, face, tag, nm, pw, ds, ok);
-    this.card_ = {panel, rays, face, tag, nm, pw, ds, ok, c, name}; SFX.fanfare();
+    box.addChild(panel, rays, face, rib, tag, nm, pw, ds, ok);
+    this.card_ = {panel, rays, face, rib, tag, nm, pw, ds, ok, c, name}; SFX.fanfare();
   }
   closeCard(silent) {
     if (!this.cardOpen) return; this.cardOpen = false; this.cardRoot.destroy({children: true}); this.cardRoot = null; this.card_ = null; this.sparks = this.sparks.filter(p => !p.s.destroyed);
@@ -168,7 +170,7 @@ export class UI {
     const s = Math.min(sw / W, sh / H) * 0.94; this.cardBox.scale.set(s); this.cardBox.position.set(sw / 2, sh / 2 - 70 * s);
     const pop = (o, t0, sc = 1) => o.scale.set(sc * Math.max(0, backOut(clamp01((t - t0) / 0.38))));
     pop(K.panel, 0, 1);
-    pop(K.tag, 0.15); pop(K.nm, 0.3); pop(K.pw, 0.4); pop(K.ds, 0.5); pop(K.ok, 0.7, 0.62); if (t > 1.1) K.ok.scale.set(0.62 * (1 + Math.sin(t * 5) * 0.05));
+    pop(K.rib, 0.1, 0.84 / 1.5); K.rib.y = -528 - 60 * (1 - clamp01((t - 0.1) / 0.3)) ** 2; pop(K.tag, 0.18); pop(K.nm, 0.3); pop(K.pw, 0.4); pop(K.ds, 0.5); pop(K.ok, 0.7, 0.62); if (t > 1.1) K.ok.scale.set(0.62 * (1 + Math.sin(t * 5) * 0.05));
     K.rays.rotation = t * 0.35; K.rays.alpha = clamp01((t - 0.2) * 3) * 0.85; K.rays.scale.set(0.75 + Math.sin(t * 2) * 0.03);
     // mini-animación del poder (ciclo de 2.4 s, la cara al centro)
     const v = Math.max(0, t - 0.25), u = v % 2.4, base = 0.8 * Math.min(1, backOut(clamp01(v / 0.45))); let sx = 1, sy = 1, x = 0, y = -150, rot = 0;
@@ -180,8 +182,8 @@ export class UI {
       const g = u < 0.25 ? backOut(u / 0.25, 2.5) : u < 1.3 ? 1 : u < 1.7 ? 1 - (u - 1.3) / 0.4 : 0;
       sx = sy = 1 + 0.55 * g; if (u > 0.25 && u < 1.3) { sx *= 1 + Math.sin(u * 20) * 0.02; sy *= 1 - Math.sin(u * 20) * 0.02; }
     } else { // loop hacia arriba y picada
-      if (u < 0.9) { const a = u / 0.9 * Math.PI * 1.5; x = Math.sin(a) * 150; y = -150 - (1 - Math.cos(a)) * 120; rot = -a; }
-      else if (u < 1.25) { const w = (u - 0.9) / 0.35; x = -150 + 150 * w; y = -270 + 240 * w * w; rot = Math.PI * 0.5 * (1 - w); sy = 1.15; sx = 0.88; }
+      if (u < 0.9) { const a = u / 0.9 * Math.PI * 1.5; x = Math.sin(a) * 150; y = -150 - (1 - Math.cos(a)) * 80; rot = -a; } // (80: que no se meta en el listón)
+      else if (u < 1.25) { const w = (u - 0.9) / 0.35; x = -150 + 150 * w; y = -230 + 200 * w * w; rot = Math.PI * 0.5 * (1 - w); sy = 1.15; sx = 0.88; }
       else if (u < 1.5) { const w = (u - 1.25) / 0.25; y = -150 + 120 * (1 - w); sx = 1 + 0.25 * (1 - w); sy = 1 - 0.25 * (1 - w); if (!K.slam) { K.slam = true; this.burstAt(K, 0, -20); } }
       else { K.slam = false; }
     }

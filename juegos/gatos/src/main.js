@@ -219,8 +219,8 @@ async function main() {
     hand.visible = want;
     const letGo = () => { if (sling.held) { sling.held = false; sling.pull = {x: 0, y: 0}; sling.pv = {x: 0, y: 0}; } }; // la bolsa regresa sola con el resorte
     // pista para elegir gato: si el jugador duda >3.5 s y nunca ha cambiado de gato, la manita toca a uno de la fila
-    readyIdle = state === 'ready' && !sling.aiming ? readyIdle + dt : 0;
-    const tq = !want && levelId !== LEVELS[0] && readyIdle > 3.5 && onSling && !swappedEver() && queue.find(q => q.name !== onSling.name && !q.hop);
+    readyIdle = state === 'ready' && !sling.aiming && !ui.cardOpen ? readyIdle + dt : 0; // (la carta de GATO NUEVO congela la espera: sin manitas ni avisos detrás de la carta)
+    const tq = !want && !ui.cardOpen && levelId !== LEVELS[0] && readyIdle > 3.5 && onSling && !swappedEver() && queue.find(q => q.name !== onSling.name && !q.hop);
     const tcd = tq && cards.get(tq.id); cardHand.visible = !!tcd;
     if (tcd) { swapT += dt; const c = swapT % 1.8, u = Math.min(1, c / 0.45), e = 1 - Math.pow(1 - u, 3);
       // la manita (encima del HUD) toca la CARTA de ese gato en el mazo de abajo
@@ -1087,7 +1087,7 @@ async function main() {
       b.rect(-11, -3.5, 22, 7).fill(0x1F2240); b.rect(-3.5, -11, 7, 22).fill(0x1F2240); b.position.set(CARD_W / 2 - 14, -CARD_H / 2 + 12); c.addChild(b); }
     c.eventMode = 'static'; c.cursor = 'pointer'; c.hitArea = {contains: (x, y) => Math.abs(x) < CARD_W / 2 + 6 && Math.abs(y) < CARD_H / 2 + 10};
     c.on('pointerdown', () => { deckHit = performance.now(); SFX.unlockAudio(); pickCard(q.id); });
-    Object.assign(c, {qid: q.id, face, glow, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0}); deck.addChild(c); return c;
+    Object.assign(c, {qid: q.id, face, glow, nm: name, nmW: name.width, faceX: 0, cx: null, lift: 0, pop: 0, enter: 0, wig: 0, gone: 0}); deck.addChild(c); return c;
   }
   function pickCard(id) {
     const c = cards.get(id); if (!c || c.gone) return;
@@ -1108,8 +1108,16 @@ async function main() {
     // gatos: con más de 4 se enciman en abanico (como la mano de cartas de AB2); hechizos: más chicos y en abanico, el de la izquierda encima (se ven los contadores)
     const nc = order.filter(c => !c.spell).length, step = nc > 4 ? Math.max(CARD_W * 0.55, (4 * (CARD_W + CARD_GAP)) / nc) : CARD_W + CARD_GAP;
     let tx = 40 + CARD_W / 2, js = 0;
-    order.forEach((c, j) => { if (c.spell) { if (!js) tx += CARD_W / 2 + 30 + CARD_W * SPELL_SC / 2; else tx += CARD_W * 0.62; c.zIndex = 100 - js++; } else { if (j) tx += step; c.zIndex = j; }
+    order.forEach((c, j) => { if (c.spell) { if (!js) tx += CARD_W / 2 + 30 + CARD_W * SPELL_SC / 2; else tx += CARD_W * 0.62; c.zIndex = 100 - js++; } else { if (j) tx += step + (nc > 4 && onSling && order[j - 1].qid === onSling.id ? CARD_W * 0.3 : 0); c.zIndex = j; } // (abre hueco tras la carta elegida, que va más grande)
       c.cx = c.cx == null ? tx : c.cx + (tx - c.cx) * Math.min(1, dt * 10); c.tx = tx; });
+    // mazo encimado: cada carta deja ver solo una franja (la de encima la tapa). El nombre (y un poco la cara) se recorre/encoge a la franja visible
+    // para que se lea completo ("MAKO", no "MAKC") — como AB2, donde cada carta encimada deja ver su retrato
+    { const live2 = order.filter(c => !c.spell), hw = c => CARD_W / 2 * (0.86 + c.lift * 0.14), zOf = c => (onSling && onSling.id === c.qid ? 60 : c.zIndex);
+      for (const c of live2) { let L = c.tx - hw(c), R = c.tx + hw(c);
+        for (const d of order) if (d !== c && zOf(d) > zOf(c)) { const dh = hw(d) * (d.spell ? SPELL_SC : 1); if (d.tx > c.tx) R = Math.min(R, d.tx - dh); else L = Math.max(L, d.tx + dh); }
+        const k = 1 / (0.86 + c.lift * 0.14), vis = Math.max(0, R - L) * k, mid = ((L + R) / 2 - c.tx) * k, full = vis > CARD_W * 0.97;
+        const nx = full ? 0 : mid, ns = full ? 1 : Math.max(0.55, Math.min(1, (vis - 14) / c.nmW)), fx0 = full ? 0 : mid * 0.45, e = Math.min(1, dt * 12);
+        c.nm.x += (nx - c.nm.x) * e; c.nm.scale.set(c.nm.scale.x + (ns - c.nm.scale.x) * e); c.faceX += (fx0 - c.faceX) * e; c.face.x = c.faceX; c.nm.visible = vis > 34; } }
     const end = state === 'win' || state === 'lose' || ui.open;
     deckA += ((end ? 0 : 1) - deckA) * Math.min(1, dt * 6); deck.alpha = deckA; deck.visible = deckA > 0.02;
     for (const [id, c] of cards) {
@@ -1572,7 +1580,7 @@ async function main() {
     if (state === 'ready' && onSling && !onSling.hop && !ui.cardOpen && CARDS && !metCats.has(onSling.name)) {
       metCats.add(onSling.name); try { localStorage.setItem('gatos.met', JSON.stringify([...metCats])); } catch (e) {} ui.card(onSling.name); }
     // nivel con cajas de cuetes: la primera vez que el jugador puede tirar, un ratón junto a una caja avisa (enseña la mecánica, con humor)
-    if (state === 'ready' && !warnedTnt) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
+    if (state === 'ready' && !warnedTnt && !ui.cardOpen) { warnedTnt = true; const tn = dyn.filter(o => o.mat === 'tnt');
       const ms = tn.length && dyn.filter(o => o.mat === 'mouse' && !o.ride && !o.zz).sort((a, b) => Math.min(...tn.map(t => Math.hypot(t.body.position.x - a.body.position.x, t.body.position.y - a.body.position.y))) - Math.min(...tn.map(t => Math.hypot(t.body.position.x - b.body.position.x, t.body.position.y - b.body.position.y))));
       if (ms && ms.length) { const o = ms[0]; o.hurt = 0.35; setTimeout(() => { if (!o.dead && dyn.includes(o)) { say(o, ['¡NO TOQUEN\nLOS CUETES!', '¡CUIDADO CON\nLOS CUETES!'][Math.floor(Math.random() * 2)], 2.2, 0.8); SFX.squeak(); } }, 400); } }
     // nivel con PORTALES: la primera vez, ya que el jugador se tomó un momento, el ratón más cercano a un aro presume que "eso no se toca" (pista con humor)
