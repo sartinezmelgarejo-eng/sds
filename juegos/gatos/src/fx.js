@@ -8,6 +8,7 @@ function tex(w, h, draw) { const c = document.createElement('canvas'); c.width =
 
 export class FX {
   constructor(parent) {
+    this.floors = []; this.floorHits = 0; // floors: caras de arriba de repisas fijas {x0, x1, y0, m} (las pone main.js) → las partículas rebotan ahí también
     this.root = new Container(); parent.addChild(this.root); this.top = new Container(); parent.addChild(this.top); this.parts = []; this.texts = []; // top: números de puntos SIEMPRE encima de explosiones/humo
     const shard = (cols, poly) => cols.map(([f, s]) => tex(48, 48, (k) => { k.beginPath(); poly.forEach(([x, y], i) => i ? k.lineTo(x, y) : k.moveTo(x, y)); k.closePath(); k.fillStyle = f; k.fill(); k.lineWidth = 3; k.strokeStyle = s; k.stroke(); }));
     this.T = {
@@ -57,7 +58,7 @@ export class FX {
       s.scale.set(sz); s.position.set(x + (Math.random() - 0.5) * (opts.w ?? 0), y + (Math.random() - 0.5) * (opts.h ?? 0));
       s.rotation = Math.random() * 6; if (opts.tint != null) s.tint = opts.tint;
       this.root.addChild(s);
-      this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (opts.up ?? 250), vr: (Math.random() - 0.5) * 14, life: opts.life ?? (0.9 + Math.random() * 0.7), t: 0, g: opts.g ?? G, drag: opts.drag ?? 0.4, grow: opts.grow ?? 0, sz});
+      this.parts.push({s, vx: Math.cos(a) * v, vy: Math.sin(a) * v - (opts.up ?? 250), vr: (Math.random() - 0.5) * 14, life: opts.life ?? (0.9 + Math.random() * 0.7), t: 0, y0: s.y, g: opts.g ?? G, drag: opts.drag ?? 0.4, grow: opts.grow ?? 0, sz});
     }
   }
   // pedazo suelto con textura propia (p. ej. el gorro que pierde un ratón): vuela girando, rebota en la barra y se desvanece
@@ -220,11 +221,13 @@ export class FX {
       if (p.delay > 0) { p.delay -= dt; continue; }
       p.t += dt;
       p.vy += p.g * dt; const d = Math.exp(-p.drag * dt); p.vx *= d; p.vy *= d;
-      p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += p.vr * dt;
+      const py = p.s.y; p.s.x += p.vx * dt; p.s.y += p.vy * dt; p.s.rotation += p.vr * dt;
       if (p.drop) { p.s.rotation = Math.atan2(p.vy, p.vx) - Math.PI / 2; const v = Math.hypot(p.vx, p.vy); p.s.scale.set(p.sz * 0.85, p.sz * Math.min(1.9, 0.9 + v / 900)); // gota estirada
         if (p.vy > 0 && this.onDrop && this.onDrop(p)) { p.s.destroy(); this.parts.splice(i, 1); continue; } // cayó sobre un ratón o una repisa (main decide)
         if (p.s.y > GROUND - 6) { this.puddle(p.s.x); this.burst('drop', p.s.x, GROUND - 8, 1, 120, {up: 160, life: 0.35, size: p.sz * 0.5, drag: 0.5}); p.s.destroy(); this.parts.splice(i, 1); continue; } }
       if (p.s.y > GROUND - 6 && p.g > 0) { p.s.y = GROUND - 6; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; } // rebotan en la barra
+      else if (p.g > 0 && p.vy > 0 && !p.drop) for (const f of this.floors) { const x = p.s.x; if (x < f.x0 || x > f.x1) continue; // ...y en las repisas fijas (AB2: los pedacitos se quedan donde caen)
+        const top = f.y0 + (x - f.x0) * f.m - 6; if (p.y0 > top + 14) continue; /* nació debajo de la repisa: no aterriza encima */ if (py <= top + 1 && p.s.y > top) { p.s.y = top; p.vy *= -0.3; p.vx = p.vx * 0.6 + f.m * 60; p.vr *= 0.5; this.floorHits++; break; } }
       if (p.grow) p.s.scale.set(p.sz * (1 + p.grow * p.t / p.life));
       if (p.ring) { const r = 0.1 + (p.ring - 0.1) * (1 - Math.pow(1 - p.t / p.life, 3)); p.s.scale.set(r, r * (p.flat ?? 1)); }
       const u = p.t / p.life;
