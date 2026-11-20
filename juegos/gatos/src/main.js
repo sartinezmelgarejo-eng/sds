@@ -2989,12 +2989,24 @@ async function main() {
   }
   // caras de arriba de las repisas/rampas fijas (sin máquina ni tragona) para que las partículas de fx reboten ahí:
   // por cada cuerpo, la arista más alta casi horizontal (|pendiente| < 0.8) → {x0, x1, y0, m}
+  // cara de arriba de un cuerpo (arista casi horizontal más alta) → {x0, x1, y0, m}
+  function topEdge(b, minW = 20) { const v = b.vertices; let best = null;
+    for (let i = 0; i < v.length; i++) { const a = v[i], c = v[(i + 1) % v.length], dx = c.x - a.x; if (Math.abs(dx) < minW) continue;
+      const m = (c.y - a.y) / dx; if (Math.abs(m) > 0.8) continue; const my = (a.y + c.y) / 2; if (!best || my < best.my) best = {my, x0: Math.min(a.x, c.x), x1: Math.max(a.x, c.x), y0: dx > 0 ? a.y : c.y, m}; }
+    return best; }
+  let floorsS = [];
   function syncFloors() {
-    fx.floors = [];
-    for (const b of shelves) { if (b.mover || b.trapF) continue; const v = b.vertices; let best = null;
-      for (let i = 0; i < v.length; i++) { const a = v[i], c = v[(i + 1) % v.length], dx = c.x - a.x; if (Math.abs(dx) < 20) continue;
-        const m = (c.y - a.y) / dx; if (Math.abs(m) > 0.8) continue; const my = (a.y + c.y) / 2; if (!best || my < best.my) best = {my, x0: Math.min(a.x, c.x), x1: Math.max(a.x, c.x), y0: dx > 0 ? a.y : c.y, m}; }
-      if (best) fx.floors.push(best); }
+    floorsS = [];
+    for (const b of shelves) { if (b.mover || b.trapF) continue; const e = topEdge(b); if (e) floorsS.push(e); }
+    fx.floors = floorsS;
+  }
+  // AB2: los pedacitos también se quedan encima de bloques sueltos grandes que están quietos (si el bloque se mueve, ya no los sostiene y caen)
+  const FLOOR_MATS = new Set(['box', 'can', 'jar', 'wood', 'pot', 'stone']);
+  function dynFloors() {
+    const L = floorsS.slice();
+    for (const d of dyn) { if (d.dead || !FLOOR_MATS.has(d.mat) || d.w < 110 || d.body.speed > 0.4 || Math.abs(d.body.angularVelocity) > 0.01) continue;
+      const e = topEdge(d.body, 90); if (e) { e.dyn = 1; L.push(e); } }
+    fx.floors = L;
   }
   function buildRoom(R, fly) {
     if (R.portals) makePortals(R.portals);
@@ -3188,7 +3200,7 @@ async function main() {
       // canastillas/tazas de noria: se columpian un poquito desde su perno (solo visual; más fuerte tras un golpe)
       if (m.whl) { const D = m.whl.drop; if (m.fall) { if (m.sp.pivot.y) { m.sp.pivot.set(0, 0); } }
         else { m.sp.pivot.set(0, -D); m.sp.position.y -= D; m.sw = Math.max((m.sw || 0) - dt * 0.6, m.jolt || 0); m.sp.rotation = (0.035 + m.sw * 0.2) * Math.sin(time * (2.1 + m.sw * 2) + m.whl.ph * 1.7); } } if (m.wc) { m.wc.rotation = m.wa0 + m.whl.om * m.t; m.lights.forEach((l, j) => l.alpha = 0.55 + 0.45 * ((Math.floor(time * 3) + j) % 3 === 0)); } }
-    started += dt; fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
+    started += dt; dynFloors(); fx.update(dt); curBg?.update?.(dt); if (laughAll > 0) laughAll -= dt;
     if (started > 1 && dt > 0) crush(dt);
     if (dt > 0) for (const d of dyn) if (d.patrol) driveRobot(d, dt); updateBubbles(dt); if (dt > 0) { updateBooms(dt); updateLitRockets(dt); } updateRopes(dt);
     { // zumbido del motor: volumen por distancia a la cámara, paneo según el lado de la pantalla
