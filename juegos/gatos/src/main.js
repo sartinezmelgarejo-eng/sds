@@ -1636,6 +1636,16 @@ async function main() {
       break;
     }
   });
+  // derrape (AB2): el gato que resbala o rueda rápido sobre el piso o una repisa levanta una estela de polvito detrás
+  Matter.Events.on(engine, 'collisionActive', ev => {
+    const f = flying; if (!f || f.exploded || f.fade || f.gulp || !f.hit) return;
+    for (const pr of ev.pairs) { const o = pr.bodyA === f.body ? pr.bodyB : pr.bodyB === f.body ? pr.bodyA : null; if (!o || !o.isStatic) continue;
+      const n = pr.collision.normal, v = f.body.velocity, tv = Math.abs(v.x * n.y - v.y * n.x); // velocidad a lo largo de la superficie
+      if (tv < 3.2 || Math.abs(n.y) < 0.5 || f.t - (f.slideT ?? -1) < 0.07) break;
+      f.slideT = f.t; const sp = pr.collision.supports?.[0] || {x: f.body.position.x, y: f.body.bounds.max.y}, dir = v.x > 0 ? Math.PI : 0, k = Math.min(1, (tv - 3.2) / 8);
+      fx.burst('smoke', sp.x, sp.y - 6, 1 + (k > 0.5 ? 1 : 0), 120 + 160 * k, {dir, spread: 0.5, up: 50, g: -60, drag: 3.5, life: 0.5 + 0.3 * k, size: 0.22 + 0.25 * k, grow: 1.7});
+      break; }
+  });
   function updateTurn(dt) {
     sling.update(dt); updateSpell(dt);
     if (state === 'loading' && onSling && !onSling.hop) state = 'ready';
