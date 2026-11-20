@@ -1009,7 +1009,11 @@ async function main() {
     k.fillStyle = g; k.beginPath(); k.moveTo(0, 74); k.lineTo(320, 0); k.lineTo(320, 160); k.lineTo(0, 86); k.closePath(); k.fill();
     const g2 = k.createLinearGradient(0, 0, 200, 0); g2.addColorStop(0, 'rgba(255,255,230,0.5)'); g2.addColorStop(1, 'rgba(255,255,230,0)'); k.fillStyle = g2; k.beginPath(); k.moveTo(0, 77); k.lineTo(200, 45); k.lineTo(200, 115); k.lineTo(0, 83); k.closePath(); k.fill(); });
   const lampGlowTex = canvasTex(120, 120, k => { const g = k.createRadialGradient(60, 60, 0, 60, 60, 60); g.addColorStop(0, 'rgba(255,250,210,0.95)'); g.addColorStop(0.25, 'rgba(255,225,140,0.45)'); g.addColorStop(1, 'rgba(255,200,100,0)'); k.fillStyle = g; k.fillRect(0, 0, 120, 120); });
-  const dotTex = canvasTex(40, 40, k => { k.fillStyle = 'rgba(60,40,70,0.25)'; k.beginPath(); k.arc(22, 23, 15, 0, Math.PI * 2); k.fill(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.arc(19, 19, 15, 0, Math.PI * 2); k.fill(); }, 2);
+  // puntito del rastro (AB2): bolita de humo blanca con sombra y contorno fino oscuro → se lee también sobre el azulejo blanco y el cielo claro
+  const dotTex = canvasTex(40, 40, k => { k.fillStyle = 'rgba(50,34,70,0.30)'; k.beginPath(); k.arc(22, 23, 15, 0, Math.PI * 2); k.fill();
+    k.fillStyle = 'rgba(55,40,80,0.62)'; k.beginPath(); k.arc(19, 19, 15.5, 0, Math.PI * 2); k.fill();
+    k.fillStyle = ART.rad(k, 15, 14, 0, 18, [[0, '#FFFFFF'], [0.6, '#FBF8FF'], [1, '#DCD3E6']]); k.beginPath(); k.arc(19, 19, 13.4, 0, Math.PI * 2); k.fill();
+    k.fillStyle = 'rgba(255,255,255,0.95)'; k.beginPath(); k.ellipse(15, 14, 4.2, 3, -0.6, 0, Math.PI * 2); k.fill(); }, 2);
   const flyTex = n => CATS[n].flyImg ? catT[n].fly : catT[n].angry;
 
   // gatos en espera (sobre la barra, a la izquierda de la resortera)
@@ -1660,9 +1664,9 @@ async function main() {
         if (!f.inflate) f.sprite.scale.set(0.5 * (1 + sp * 0.08) * wk, 0.5 * (1 - sp * 0.06) * wk);
       }
       // rastro de puntitos (uno grande cada 5); sigue durante el loop de Miu y su picada
-      if (!f.hit && !f.exploded && Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 46) {
+      if (!f.hit && !f.exploded && Math.hypot(b.position.x - f.lastDot.x, b.position.y - f.lastDot.y) > 52) {
         const d = new Sprite(dotTex); d.anchor.set(0.5); const big = ++f.dots % 5 === 0;
-        d.scale.set(big ? 0.32 : 0.2); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
+        d.tgt = big ? 0.46 : 0.3; d.pop = 0; d.scale.set(0.05); d.position.set(b.position.x, b.position.y); trail.addChild(d); f.lastDot = {x: b.position.x, y: b.position.y};
       }
       if (f.hit || f.loop) {
         // mareado tras el golpe (AB2): ojos cerrados + estrellitas girando sobre la cabeza
@@ -3104,6 +3108,7 @@ async function main() {
       }
       const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
     }
+    for (const d of trail.children) if (d.pop !== undefined && d.pop < 1) { d.pop = Math.min(1, d.pop + rdt / 0.22); const u = d.pop - 1; d.scale.set(d.tgt * (1 + 2.7 * u * u * u + 1.7 * u * u)); } // brotan con rebote
     updateTurn(dt); updateTutorial(rdt); updateTapHint(rdt);
     cam.update(dt > 0 && slow > 0 ? rdt : dt); // en la cámara lenta del último ratón la cámara se mueve a velocidad real (se acerca de verdad)
     if (shownScore < score) { shownScore = Math.min(score, shownScore + Math.max(50, (score - shownScore) * dt * 6)); }
