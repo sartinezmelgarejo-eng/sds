@@ -1766,7 +1766,7 @@ async function main() {
         const fb = flying && !flying.fade ? flying.body.position : null, a = fb ? Math.atan2(fb.y - q.sprite.y, Math.abs(fb.x - q.x) + 200) : 0;
         q.look = (q.look || 0) + ((fb ? Math.max(-0.05, Math.min(0.3, 0.08 - a * 0.35)) : 0) - (q.look || 0)) * Math.min(1, dt * 5);
         q.sprite.x = q.x + q.look * 18; q.sprite.rotation = q.look; }
-      q.shadow.scale.x = q.shadow.scale.y * 4 * (1 - hop / 80);
+      q.shadow.sb ??= q.shadow.scale.x; q.shadow.scale.x = q.shadow.sb * (1 - hop / 80); q.shadow.alpha *= 1 - hop / 60; // al saltar la sombra se encoge y aclara
     });
     sling.draw(); slBack.rotation = slFront.rotation = sling.sway;
   }
@@ -3131,7 +3131,9 @@ async function main() {
       // altura = hueco entre el borde de abajo del cuerpo y la superficie (antes d.w/2: las tablas anchas quedaban "pegadas" al piso)
       const sy = surfaceY(p.x, p.y, d), hgt = Math.max(0, sy - d.body.bounds.max.y); d.shadow.position.set(p.x, sy);
       const par = surfStatic ? shelfShade : lvlBehind; if (d.shadow.parent !== par && !par.destroyed) par.addChild(d.shadow);
-      d.shadow.alpha = Math.max(0, 1 - hgt / (sy < GROUND ? (d.mat === 'mouse' ? 140 : 260) : 420)); // en repisa/bloque se desvanece antes
+      // al salirse de la orilla de una repisa (o caer el bloque de abajo) la sombra no brinca encendida: se apaga y vuelve a aparecer abajo con fundido
+      if (d.shY !== undefined && Math.abs(sy - d.shY) > 40) d.shK = 0; d.shY = sy; d.shK = Math.min(1, (d.shK ?? 1) + rdt / 0.2);
+      d.shadow.alpha = Math.max(0, 1 - hgt / (sy < GROUND ? (d.mat === 'mouse' ? 140 : 260) : 420)) * d.shK * d.shK; // en repisa/bloque se desvanece antes
     }
     for (const d of trail.children) if (d.pop !== undefined && d.pop < 1) { d.pop = Math.min(1, d.pop + rdt / 0.22); const u = d.pop - 1; d.scale.set(d.tgt * (1 + 2.7 * u * u * u + 1.7 * u * u)); } // brotan con rebote
     updateTurn(dt); updateTutorial(rdt); updateTapHint(rdt);
