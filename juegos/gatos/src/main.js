@@ -156,7 +156,15 @@ async function main() {
   // sombras de contacto (se reutiliza una textura)
   const shadowTex = canvasTex(256, 64, k => { k.fillStyle = ART.rad(k, 128, 32, 0, 128, [[0, 'rgba(40,28,60,0.42)'], [1, 'rgba(40,28,60,0)']]); k.save(); k.translate(128, 32); k.scale(1, 0.25); k.beginPath(); k.arc(0, 0, 128, 0, Math.PI * 2); k.fill(); k.restore(); });
   const lvlBehind = new Container(); // sombras del nivel (se limpian al reiniciar)
-  const contactShadow = (x, w, parent = lvlBehind) => { const s = new Sprite(shadowTex); s.anchor.set(0.5); s.width = w; s.height = w * 0.25; s.position.set(x, GROUND); parent.addChild(s); return s; };
+  let shelfShade = new Container(); // sombras que caen SOBRE repisas fijas: entre las repisas y las piezas sueltas (se ven encima del muro/tabla)
+  function layerShelves() {
+    if (shelfShade.destroyed) shelfShade = new Container();
+    if (shelfShade.parent) shelfShade.parent.removeChild(shelfShade);
+    const ds = new Set(dyn.map(d => d.sprite)); let first = actors.children.findIndex(c => ds.has(c)); if (first < 0) first = actors.children.length;
+    for (const c of actors.children.filter((c, i) => c.isShelf && i > first)) { actors.removeChild(c); actors.addChildAt(c, first++); } // repisa detrás de las piezas sueltas
+    actors.addChildAt(shelfShade, first); // justo encima de las repisas, debajo de la primera pieza suelta
+  }
+  const contactShadow = (x, w, parent = lvlBehind) => { const s = new Sprite(shadowTex); s.anchor.set(0.5); s.width = w; s.height = Math.min(w * 0.25, 40); s.position.set(x, GROUND); parent.addChild(s); return s; };
 
   // resortera (parte trasera detrás del gato, delantera encima)
   const slH = SLING.h, slTexW = slH * 0.9;
@@ -195,6 +203,20 @@ async function main() {
       spl(); return true; }
     for (const d of dyn) { if (d.dead || d.mat === 'mouse') continue; const b = d.body; if (Matter.Bounds.contains(b.bounds, pt) && Matter.Vertices.contains(b.vertices, pt)) { spl(); return true; } }
     return false; };
+  // superficie fija bajo (x, y): la repisa/rampa estática más alta debajo del punto, o el piso (sombras de contacto AB2:
+  // un bloque sobre una repisa proyecta su sombrita EN la repisa, no en el piso de abajo). Corta la vertical x con las aristas.
+  let surfStatic = false; // ¿la última superficie hallada es una repisa fija? (su sombra va en shelfShade, encima de la repisa)
+  function surfaceY(x, y, self) {
+    let best = GROUND;
+    const cut = b => { if (x < b.bounds.min.x || x > b.bounds.max.x || b.bounds.max.y < y || b.bounds.min.y > best) return;
+      const v = b.vertices;
+      for (let i = 0; i < v.length; i++) { const a = v[i], c = v[(i + 1) % v.length]; if ((a.x - x) * (c.x - x) > 0 || a.x === c.x) continue;
+        const yy = a.y + (c.y - a.y) * (x - a.x) / (c.x - a.x); if (yy >= y && yy < best) best = yy; } };
+    for (const b of shelves) cut(b); const sStat = best;
+    if (self?.mat === 'mouse') for (const o of dyn) if (o !== self && !o.dead && o.mat !== 'mouse' && !o.patrol) cut(o.body); // el ratón también sobre tablas/latas sueltas
+    surfStatic = best < GROUND && best === sStat;
+    return best;
+  }
   function wetMouse(d) { if (!(d.wet > 0)) d.hurt = Math.max(d.hurt || 0, 0.2); d.wet = Math.min(1, (d.wet || 0) + 0.3); if (!d.shakeAt && !(d.shake > 0)) d.shakeAt = time + 0.55 + Math.random() * 0.35; }
   const dizzyC = new Container(); front.addChild(dizzyC); // estrellitas de mareo
   const mDizzyC = new Container(); front.addChild(mDizzyC); // estrellitas de los ratones mareados
@@ -2896,7 +2918,7 @@ async function main() {
       if (b.static && b.bump) return makeBumper(b, cy);
       if (b.static) { const body = Bodies.rectangle(b.x, cy, b.w, b.h, {isStatic: true, friction: 0.9, angle: b.a || 0, label: 'shelf'}); Composite.add(engine.world, body); shelves.push(body);
         const sk = SKIN[bgTheme].shelf === 'stone' && b.w >= 240 && b.h >= 120 ? (bgTheme === 'garden' ? 'wall' : 'wallx') : SKIN[bgTheme].shelf;   // terrazas anchas = muro de cara plana
-        const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; actors.addChild(sp); roomSp.push(sp);
+        const sp = new Sprite(blockTex(sk, b.w, b.h, i + 2, 0)); sp.anchor.set(0.5); sp.scale.set(1 / 1.5); sp.position.set(b.x, cy); sp.rotation = b.a || 0; sp.isShelf = !b.move; actors.addChild(sp); roomSp.push(sp);
         if (b.move) makeMover(body, sp, b, cy);
         return; }
       // roca redonda (AB2): física de lata, rueda; b.w = diámetro
@@ -2954,7 +2976,7 @@ async function main() {
       // ratón colgado de globos (los cerdos con globos de AB2): "balloons": [f, …] y "lift" en el ratón
       if (m.balloons) m.balloons.forEach((f, n) => makeBalloon(dyn[dyn.length - 1], {x: m.x, w: m.r * 2, balloons: m.balloons, lift: m.lift}, m.y + m.r * 0.92, f, n));
     });
-    fortX = R.blocks.reduce((s, b) => s + b.x, 0) / R.blocks.length;
+    fortX = R.blocks.reduce((s, b) => s + b.x, 0) / R.blocks.length; layerShelves();
   }
   // quita la sala actual (bloques, ratones, repisas, efectos); los gatos en espera se quedan
   function clearRoom() {
@@ -3106,7 +3128,10 @@ async function main() {
         const av = Math.abs(d.body.angularVelocity);
         if (av > 0.004 && av < 0.035 && d.body.speed < 3) { SFX.creak(d.skin, Math.min(1, av / 0.02) * Math.min(1, d.w * d.h / 20000)); d.creakAt = time + 0.8 + Math.random() * 0.8; }
       }
-      const hgt = Math.max(0, GROUND - p.y - d.w * 0.5); d.shadow.x = p.x; d.shadow.alpha = Math.max(0, 1 - hgt / 600);
+      // altura = hueco entre el borde de abajo del cuerpo y la superficie (antes d.w/2: las tablas anchas quedaban "pegadas" al piso)
+      const sy = surfaceY(p.x, p.y, d), hgt = Math.max(0, sy - d.body.bounds.max.y); d.shadow.position.set(p.x, sy);
+      const par = surfStatic ? shelfShade : lvlBehind; if (d.shadow.parent !== par && !par.destroyed) par.addChild(d.shadow);
+      d.shadow.alpha = Math.max(0, 1 - hgt / (sy < GROUND ? (d.mat === 'mouse' ? 140 : 260) : 420)); // en repisa/bloque se desvanece antes
     }
     for (const d of trail.children) if (d.pop !== undefined && d.pop < 1) { d.pop = Math.min(1, d.pop + rdt / 0.22); const u = d.pop - 1; d.scale.set(d.tgt * (1 + 2.7 * u * u * u + 1.7 * u * u)); } // brotan con rebote
     updateTurn(dt); updateTutorial(rdt); updateTapHint(rdt);
