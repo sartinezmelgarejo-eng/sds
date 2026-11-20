@@ -22,10 +22,26 @@ En línea: https://sartinezmelgarejo-eng.github.io/sds/oido-app/
   pista (sus presets se abren debajo) → ✓ QUEDARSE o ✕ NO.
 - **＋ TRACK**: AUDIO · INSTRUMENTO (abre el browser de instrumentos) · BATERÍA. Nombre y color tocando el nombre.
 - ↶ deshace todo (y los avisos traen DESHACER).
+- **HOJA FRASE** (20-nov, `frase.js`): tocar un cuadrito de frase (📻 RADIO › 〰 TIRA; tablet: debajo de la tira) abre la frase
+  para editarla. Teléfono de pie = hoja completa en una columna; acostado = onda + ▶ a la izquierda, ajustes a la derecha;
+  tablet = en el panel derecho (✕ vuelve a la pista). Dentro:
+  - **onda** de la frase con su **rejilla de compases** (a SU tempo, desde el «1») y un poco de lo de antes/después en gris.
+  - asas **◀ INICIO / FIN ▶**: arrastrar = se pegan al compás; **mantener 0,4 s y luego mover** = libre y fino (×¼, azul).
+  - **arrastrar la onda ↔ = mover el «1»** (raya naranja; se pega al golpe más cercano; mantener = libre). Inicio y fin van
+    pegados a la rejilla, así que se mueven con ella (la onda no se mueve).
+  - **TEMPO** «♩ 93 → 96»: arrastrar ↕ el número (mantener = décimas) · **÷2 ×2** (misma onda, recuenta compases) ·
+    **SUENA A**: SU TEMPO | AL PROYECTO (= «CAE A» de la Mac).
+  - **LARGO** 1 · 2 · 4 · 8 compases · **SONIDO** SECO | CON FX · **BANDA** TODO · GRAVES · MEDIOS · AGUDOS.
+  - **▶ OÍR EN LOOP** (suena de verdad: una «radio» sintetizada con WebAudio; respeta tempo, largo, «1», seco/FX, banda; cabezal
+    azul) · **CLIC** del compás · **→ PISTA X** (a SU pista: la de su nombre o RADIO; deja una región en el compás donde vas).
+  - **✎ NOMBRE** (o tocar el título) · **🗑 BORRAR FRASE** (aviso con DESHACER). Cada cambio entra al ↶.
+  - El audio es de mentira pero coherente: cada frase tiene un tempo/«1» «reales» y el detectado trae error (la 2 salió a la
+    mitad → ×2; las demás con el «1» corrido ~0,1–0,2 s → mover el «1» al golpe alto).
 
 ## Archivos
 `index.html` · `estilo.css` · `datos.js` (pistas, plugins reales de Samuel, presets y estaciones de mentira) ·
-`sonido.js` (batería WebAudio + secuenciador) · `app.js` (vistas, gestos, browser) · `manifest.webmanifest` + iconos.
+`sonido.js` (batería WebAudio + secuenciador; expone `Sonido.ctx`) · `frase.js` (HOJA FRASE: modelo, dibujo, gestos,
+sonido; se engancha con `Object.assign(ACC, FraseEd.acc)` / `Object.assign(PD, FraseEd.pd)`) · `app.js` (vistas, gestos, browser) · `manifest.webmanifest` + iconos.
 Sin frameworks, sin build: se abre `index.html` servido por cualquier servidor estático
 (`python3 -m http.server` en esta carpeta).
 

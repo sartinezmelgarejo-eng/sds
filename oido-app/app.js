@@ -34,6 +34,7 @@ function validarUi() {
   if (!getPista(ui.sel)) ui.sel = P.pistas[0] ? P.pistas[0].uid : 'tm';
   if (P.clip >= P.ritmo.length) P.clip = 0;
   if (ui.compas >= patron().compases) ui.compas = 0;
+  if (ui.frase && !P.frases.some(f => f.n === ui.frase)) { FraseEd.parar(); ui.frase = null; if (ui.hoja && ui.hoja.tipo === 'frase') ui.hoja = null; }
 }
 
 // ---------- acceso a datos ----------
@@ -231,14 +232,14 @@ function vistaRadio(m) {
     }
     return `<div class="radio">${filaEstacion()}${seg}<div class="xys">${xyHTML(0)}${xyHTML(1)}</div>${perillasRadio()}${pie}</div>`;
   }
-  const frases = `<div class="frases">${P.frases.map(f => `<button style="--c:${f.color}" data-a="frase" data-v="${f.n}">${f.n} · ${esc(f.nombre)}<small>${f.c} c</small></button>`).join('')}</div>`;
+  const frases = FraseEd.cuadritos();
   const eso = `<div class="radio-pie"><button class="naranja eso" data-a="eso" style="flex:2">¡ESO! · 4 c</button><button class="${P.radio.seco ? 'on' : ''}" data-a="seco">SECO</button></div>`;
   if (m === 'acostado') {
     return `<div class="radio">${filaEstacion(`<div class="seg" style="width:220px"><button class="on" data-a="radio-modo" data-v="tira">〰 TIRA</button><button data-a="radio-modo" data-v="fx">✋ FX</button></div>`)}
       <div class="tira" data-pd="tira"><canvas></canvas></div><div style="display:flex;gap:8px"><button class="naranja eso" data-a="eso" style="min-width:150px">¡ESO! · 4 c</button>${frases}</div></div>`;
   }
   return `<div class="radio">${filaEstacion()}${seg}<div class="tira" data-pd="tira"><canvas></canvas></div>
-    <div class="ayuda">arrastra sobre la onda = guardar ese pedazo como frase (al compás)</div>${eso}${frases}</div>`;
+    <div class="ayuda">arrastra sobre la onda = guardar ese pedazo como frase (al compás) · toca una frase = editarla</div>${eso}${frases}</div>`;
 }
 
 // ---------- 🎚 PISTAS ----------
@@ -436,11 +437,11 @@ function vistaTablet() {
   let centro = '';
   if (ui.vistaT === 'ritmo') centro = ritmoTablet();
   else if (ui.vistaT === 'radio') centro = `<div class="radio">${filaEstacion()}<div class="tira" data-pd="tira" style="flex:1"><canvas></canvas></div>
-      <div style="display:flex;gap:8px"><button class="naranja eso" data-a="eso" style="min-width:180px">¡ESO! · 4 c</button><div class="frases" style="flex:1">${P.frases.map(f => `<button style="--c:${f.color}" data-a="frase" data-v="${f.n}">${f.n} · ${esc(f.nombre)}<small>${f.c} c</small></button>`).join('')}</div></div>
+      <div style="display:flex;gap:8px"><button class="naranja eso" data-a="eso" style="min-width:180px">¡ESO! · 4 c</button><div style="flex:1;min-width:0">${FraseEd.cuadritos()}</div></div>
       <div class="xys" style="grid-template-columns:1fr 190px 1fr;flex:1.3">${xyHTML(0)}<div style="display:flex;flex-direction:column;justify-content:center;gap:10px">${perillasRadio('perillas-fx dos')}<button class="${P.radio.seco ? 'on' : ''}" data-a="seco">SECO</button><button data-a="cadena-radio">PLUGINS (${P.radio.fx.length}) ›</button></div>${xyHTML(1)}</div></div>`;
   else if (ui.vistaT === 'cancion') centro = vistaArreglo();
   else centro = vistaMezcla(false);
-  const panel = `<section class="t-panel">${ui.plug ? paginaPlugin(ui.sel, ui.plug) : paginaPista(ui.sel)}</section>`;
+  const panel = `<section class="t-panel">${ui.frase && FraseEd.frase(ui.frase) ? FraseEd.html('v') : ui.plug ? paginaPlugin(ui.sel, ui.plug) : paginaPista(ui.sel)}</section>`;
   return barra + lista + `<main class="t-centro">${centro}</main>` + panel;
 }
 function ritmoTablet() {
@@ -465,12 +466,13 @@ function ritmoTablet() {
 function abrirHoja(tipo, x) { $$('.aviso').forEach(e => e.remove()); ui.hoja = { tipo, x }; renderCapas(); }
 function cerrarHoja() {
   if (ui.hoja && ui.hoja.s0) confirmar(ui.hoja.s0);
+  if (ui.hoja && ui.hoja.tipo === 'frase') { FraseEd.parar(); ui.frase = null; ui.frRen = false; }
   if (ui.hoja && ui.hoja.tipo === 'browser' && ui.br && ui.br.s0) { P = JSON.parse(ui.br.s0); validarUi(); }
   ui.hoja = null; ui.br = null; $$('.paso.editando').forEach(e => e.classList.remove('editando')); render();
 }
 function renderCapas() {
   if (!ui.hoja) { capas.innerHTML = ''; return; }
-  const h = ui.hoja; let cont = '', completa = false;
+  const h = ui.hoja; let cont = '', completa = false, extra = '';
   switch (h.tipo) {
     case 'paso': cont = hojaPaso(h.x); break;
     case 'fila': cont = hojaFila(); break;
@@ -483,9 +485,11 @@ function renderCapas() {
     case 'presets': cont = hojaPresets(); completa = true; break;
     case 'estaciones': cont = hojaEstaciones(); completa = true; break;
     case 'browser': cont = hojaBrowser(); completa = true; break;
+    case 'frase': cont = FraseEd.html(modo() === 'acostado' ? 'h' : 'v'); completa = true; extra = ' fr-hoja'; break;
   }
-  capas.innerHTML = `<div class="velo" data-a="cerrar-hoja"></div><div class="hoja ${completa ? 'completa' : ''}">${completa ? '' : '<div class="asa" data-pd="cerrar-desl"></div>'}${cont}</div>`;
+  capas.innerHTML = `<div class="velo" data-a="cerrar-hoja"></div><div class="hoja ${completa ? 'completa' : ''}${extra}">${completa ? '' : '<div class="asa" data-pd="cerrar-desl"></div>'}${cont}</div>`;
   $$('.hoja .tit', capas).forEach(t => t.dataset.pd = 'cerrar-desl');
+  if (h.tipo === 'frase') FraseEd.dibujar();
 }
 const cerrarX = `<button data-a="cerrar-hoja" aria-label="cerrar" style="min-width:52px;font-size:18px">✕</button>`;
 
@@ -719,8 +723,8 @@ const ACC = {
   'fila-s'() { guardar(); const f = patron().filas[ui.fila]; f.s = !f.s; render(); },
   hoja(v, el) { if (v === 'nombre' && modo() !== 'tablet' && !ui.pista) return; abrirHoja(v, el.dataset.x); },
   'cerrar-hoja'() { cerrarHoja(); },
-  'abrir-pista'(v) { if (modo() === 'tablet') { ui.sel = v; ui.plug = null; render(); } else { ui.tab = 'pistas'; ui.pista = v; ui.plug = null; render(); $('.desliza') && ($('.desliza').scrollTop = 0); } },
-  sel(v) { ui.sel = v; ui.plug = null; render(); },
+  'abrir-pista'(v) { if (modo() === 'tablet') { ui.sel = v; ui.plug = null; ui.frase = null; FraseEd.parar(); render(); } else { ui.tab = 'pistas'; ui.pista = v; ui.plug = null; render(); $('.desliza') && ($('.desliza').scrollTop = 0); } },
+  sel(v) { ui.sel = v; ui.plug = null; ui.frase = null; FraseEd.parar(); render(); },
   volver() {
     if (ui.plug) ui.plug = null;
     else if (ui.pista === 'radio') { ui.pista = null; ui.tab = 'radio'; }
@@ -763,7 +767,7 @@ const ACC = {
   seco() { P.radio.seco = !P.radio.seco; render(); aviso(P.radio.seco ? 'SECO: lo que samplees se guarda SIN los FX' : 'Lo que samplees se guarda CON los FX'); },
   'cadena-radio'() { if (modo() === 'tablet') { ui.sel = 'radio'; ui.plug = null; } else { ui.tab = 'pistas'; ui.pista = 'radio'; ui.plug = null; } render(); },
   eso() { guardar(); nuevaFrase(4); },
-  frase(v) { aviso(`Frase ${v} sonaría en Oído (prototipo: sin audio de la radio)`); },
+  frase(v) { FraseEd.abrir(+v); },
   tempo(v) { guardar(); poner('tempo', P.tempo + +v); render(); },
   tap() {
     const t = performance.now(); ui.taps = (ui.taps || []).filter(x => t - x < 2500); ui.taps.push(t);
@@ -821,10 +825,12 @@ const ACC = {
   'br-cancelar'() { cerrarHoja(); },
 };
 
+Object.assign(ACC, FraseEd.acc);
+
 function nuevaFrase(c, desde) {
-  const e = ESTACIONES[P.radio.estacion], n = P.frases.length + 1;
+  const e = ESTACIONES[P.radio.estacion], n = P.frases.reduce((m, f) => Math.max(m, f.n), 0) + 1;
   const col = ['#f8d3c4', '#d6e2f0', '#dcebd6', '#eadcf2', '#f6e7bf', '#d3eeec'][n % 6];
-  P.frases.push({ n, nombre: e.nombre.split(' ')[0].toUpperCase().slice(0, 8), c, color: col });
+  P.frases.push(FraseEd.completar({ n, nombre: e.nombre.split(' ')[0].toUpperCase().slice(0, 8), c, color: col }, P.radio.estacion));
   ui.marca = desde !== undefined ? [desde, desde + c] : [8 - c, 8];
   render(); aviso(`¡ESO! frase ${n} · ${c} c de ${e.nombre}${P.radio.seco ? ' (seca)' : ' (con FX)'}`, true);
 }
@@ -846,6 +852,7 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Enter' && e.target.id === 'in-nombre') ACC['nombre-ok']();
+  if (e.key === 'Enter' && e.target.id === 'in-frase') { ACC['fr-nombre-ok'](); return; }
   if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur();
 });
 ['pointerup', 'touchend', 'click'].forEach(t => document.addEventListener(t, () => Sonido.iniciar(), { capture: true, passive: true }));
@@ -1019,6 +1026,7 @@ const PD = {
       (ev, cancel) => { if (cancel) return; const [x, y] = ui.marca; guardar(); nuevaFrase(y - x, x); });
   },
 };
+Object.assign(PD, FraseEd.pd);
 function iman(d, v) { if (d.iman && Math.abs(v) < d.iman) return 0; return v; }
 function refrescarCeldaDeK(k) {
   if (!k.startsWith('g:')) return;
@@ -1057,7 +1065,7 @@ function dibujarTira() {
   if (ui.marca) { g.fillStyle = '#ff4a14'; g.fillText(`frase · ${ui.marca[1] - ui.marca[0]} c`, ui.marca[0] / 8 * W + 6, H - 8); }
 }
 function despues() {
-  dibujarTira();
+  dibujarTira(); FraseEd.dibujar();
   const el = $('.paso.editando'); if (el && !ui.hoja) el.classList.remove('editando');
 }
 
@@ -1065,6 +1073,7 @@ function despues() {
 let ultSuena = [];
 function cuadro() {
   requestAnimationFrame(cuadro);
+  FraseEd.cuadro();
   const tocando = Sonido.tocando;
   ultSuena.forEach(el => el.classList.remove('suena')); ultSuena = [];
   if (!tocando) { $$('[data-med]').forEach(m => m.style.height = '0'); return; }
@@ -1099,6 +1108,8 @@ addEventListener('resize', () => {
     const m = modo();
     if (document.activeElement && document.activeElement.tagName === 'INPUT' && m === modoAnt) return; // teclado abierto: no redibujar
     if (ui.hoja && ui.hoja.tipo === 'paso') ui.hoja = null; // la lupa se cierra al girar; el paso queda
+    if (ui.frase && m === 'tablet' && ui.hoja && ui.hoja.tipo === 'frase') ui.hoja = null; // tablet: la frase va al panel
+    if (ui.frase && m !== 'tablet' && !ui.hoja) ui.hoja = { tipo: 'frase' };
     modoAnt = m; render();
   }, 120);
 });

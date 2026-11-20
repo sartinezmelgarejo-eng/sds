@@ -163,6 +163,7 @@ const Sonido = (() => {
   return {
     iniciar, pad, tocar, parar, saltar, posicion, cambiarTempo, ahora,
     get tocando() { return tocando; },
+    get ctx() { return ctx; }, // la HOJA FRASE (frase.js) suena en el mismo contexto
     get listo() { return !!ctx && ctx.state === 'running'; },
     ponerFuente(f) { fuente = f; },
     alGolpe(f) { alGolpe = f; },
