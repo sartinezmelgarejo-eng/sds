@@ -317,6 +317,9 @@ export function portHum(v = 1) { if (!ok('phum', 0.4)) return; const t = ctx.cur
 // flor tragona: "glup" (se lo traga: golpe sordo que baja) y "¡ptuí!" (lo escupe: chasquido + soplido que sube)
 export function gulp() { if (!ok('gulp', 0.15)) return; const t = ctx.currentTime;
   tone(t, 300, 'sine', 0.3, 0.2, 90); noise(t, 0.12, 'lowpass', 500, 1, 0.35, 0.12); tone(t + 0.12, 140, 'sine', 0.18, 0.15, 70); }
+// ratón nervioso que traga saliva: "glu-up" agudo y corto (pitch: chiquito > 1, jefa < 1)
+export function nervGulp(pitch = 1) { if (!ok('ngulp', 0.4)) return; const t = ctx.currentTime;
+  tone(t, 620 * pitch, 'sine', 0.16, 0.09, 380 * pitch); tone(t + 0.1, 300 * pitch, 'sine', 0.2, 0.12, 170 * pitch); noise(t + 0.08, 0.06, 'lowpass', 700, 1, 0.18, 0.06); }
 export function spit() { if (!ok('spit', 0.15)) return; const t = ctx.currentTime;
   noise(t, 0.04, 'highpass', 2500, 1, 0.4, 0.04); tone(t, 180, 'triangle', 0.25, 0.22, 720); noise(t + 0.02, 0.3, 'bandpass', 900, 1.5, 0.35, 0.28, 3200); }
 // tetera tragona: silbido que sube mientras hierve (dur s) y chorro de vapor al escupir
