@@ -469,7 +469,12 @@ async function main() {
     aimNerv = Math.max(0, Math.min(1, aimNerv + (aimHold > 0.35 ? dt * 5 : -dt * 2.5)));
     if (aimNerv > 0.5 && !aimPeak && aimHold > 0.35) { aimPeak = 1; aimEp++; const ms = awakeMice(); aimLog.push(['nerv', ms.length]);
       const g = ms.sort((a, b) => a.body.position.x - b.body.position.x)[0];
-      if (g) setTimeout(() => { if (aimNerv > 0.3 && !g.dead) { say(g, ['¡GLUP!', '¡GULP!…', '¡MAMÁ!…'][aimEp % 3], 0.8, 0.75); SFX.nervGulp(g.kind === 'boss' ? 0.7 : g.kind === 'small' ? 1.25 : 1); g.gulpT = 0.3; } }, 280); }
+      // el que está pegado a una caja de cuetes entra en pánico extra: se encoge abrazándose y suplica (AB2: el cerdo junto a la TNT)
+      const tn = dyn.filter(o => o.mat === 'tnt' && !o.dead), tdist = o => Math.min(...tn.map(t => Math.hypot(t.body.position.x - o.body.position.x, t.body.position.y - o.body.position.y) - (t.w + o.w) / 2));
+      const tf = tn.length ? ms.filter(o => tdist(o) < 140).sort((a, b) => tdist(a) - tdist(b))[0] : null;
+      if (tf) { tf.tntFear = 1; aimLog.push(['cuetes', dyn.indexOf(tf)]);
+        setTimeout(() => { if (aimNerv > 0.3 && !tf.dead && tf.tntFear) { tf.hurt = 0.4; say(tf, ['¡LOS CUETES NO,\nLOS CUETES NO!', '¡AQUÍ NO,\nHAY CUETES!', '¡NO APUNTES\nA LOS CUETES!'][aimEp % 3], 1.3, 0.8); SFX.squeak(); } }, tf === g ? 280 : 720); }
+      if (g && g !== tf) setTimeout(() => { if (aimNerv > 0.3 && !g.dead) { say(g, ['¡GLUP!', '¡GULP!…', '¡MAMÁ!…'][aimEp % 3], 0.8, 0.75); SFX.nervGulp(g.kind === 'boss' ? 0.7 : g.kind === 'small' ? 1.25 : 1); g.gulpT = 0.3; } }, 280); }
     if (aimPrev && !sling.aiming) {   // soltó la resortera: si no salió volando (se arrepintió) y los tenía nerviosos, se burlan
       if (aimPeak && state === 'ready' && !flying && time - aimBurlaT > 6) { aimBurlaT = time; const ms = awakeMice(), r = ms[Math.floor(Math.random() * ms.length)];
         if (r) setTimeout(() => { if (state !== 'ready' || r.dead) return; ms.forEach(o => { if (!o.dead && !o.zz) o.laugh = Math.max(o.laugh || 0, 0.7 + Math.random() * 0.4); }); r.laugh = 1.4; aimLog.push(['burla', dyn.indexOf(r), +time.toFixed(2)]); SFX.giggle(); say(r, ['¡JA! ¡NO SE\nATREVE!', '¡ESO PENSÉ!', '¡GALLINA!…\nDIGO, ¡GATINA!'][Math.floor(Math.random() * 3)], 1.6, 0.8); }, 450); }
@@ -995,7 +1000,8 @@ async function main() {
       if (d.life < nm.life - 0.01 || d.body.speed > 1.5 || tumble || d.zz || d.hurt > 0 || d.wakeT > 0 || d.stirT > 0 || d.teeter || d.dizzyT > 0) nm.spent = 1;   // le dio, lo movió o ya tiene su propio chiste (despertó, se tambalea)
       else if (!nm.at) { if (!flying || flying !== nm.fl || flying.fade || flying.hit && fcd > 260 || fcd > 360) nm.at = time + Math.max(0.3, 0.45 - nm.t); else { nmDuck = 1; d.cower = Math.max(d.cower, Math.min(1, nm.t * 12)); } }
       else if (time > nm.at) { nm.spent = 1; phew(d, nm.x); }
-      else { nmDuck = 1; d.cower = Math.max(d.cower, 0.85); } }   // sigue agachado, con los ojos apretados, un ratito después de que pasó (AB2: no se atreve a mirar)
+      else { nmDuck = 1; d.cower = Math.max(d.cower, 0.85); } }
+    if (d.tntFear) { if (aimNerv <= 0.05 || state !== 'ready') d.tntFear = 0; else { d.cower = Math.max(d.cower, 0.7 * aimNerv); d.tntShiv = Math.sin(time * 52) * d.w * 0.025 * aimNerv; } }   // junto a los cuetes: encogido y temblando   // sigue agachado, con los ojos apretados, un ratito después de que pasó (AB2: no se atreve a mirar)
     if (d.phewT > 0) { d.phewT -= dt; if (d.phewT <= 0) { d.laugh = 0.9; } }   // y se ríe (la burla con globo ya la dicen al terminar el turno)
     if (d.zz) { let why = fc && fc.speed > 3 && fcd < 420 && !(d.stirFl === flying && fcd > 200) ? 'gato' : dg ? 'cae' : tumble ? 'rueda' : sh && sh.t > 0 ? 'susto' : d.hurt > 0 ? 'golpe' : d.infl ? 'globo' : slp > 0.2 ? 'resbala' : d.wet > 0.3 ? 'agua' : d.soot ? 'hollin' : d.dizzyT > 0 ? 'mareo' : '';
       // sueño pesado (chiste AB): la 1.ª vez que lo empujan y RUEDA/se desliza sin lastimarse, sigue roncando mientras rueda;
@@ -1062,6 +1068,7 @@ async function main() {
     const br = d.zz ? Math.sin(t * 1.9) * 0.055 : Math.sin(t * 2.6) * 0.03, sq = expr === 'scared' ? 0.06 : 0;   // dormido: respira hondo y lento
     const cw = d.cower * 0.16; // encogido: más ancho y chaparro, pegado al piso
     d.sprite.scale.set(B * (1 - br * 0.6 - sq * 0.5 + cw * 0.7), B * (1 + br + sq - cw));
+    if (d.tntFear) d.sprite.x += d.tntShiv || 0;
     if (d.stirT > 0 || d.flipS) { const u = 1.6 - Math.max(0, d.stirT || 0), f = Math.min(1, Math.max(0, (u - 0.18) / 0.42));   // se voltea para el otro lado (y así se queda hasta despertar)
       if (d.stirT > 0) { d.flipS = (d.flip0 || 1) * Math.cos(Math.PI * f); const j = Math.sin(Math.PI * f); d.sprite.y -= j * d.h * 0.12; d.sprite.scale.y *= 1 - 0.08 * j; d.sprite.x += Math.sin(u * 38) * 2.5 * Math.max(0, 1 - u / 0.25); }
       if (!d.zz) d.flipS = 0; else d.sprite.scale.x *= d.flipS; }
