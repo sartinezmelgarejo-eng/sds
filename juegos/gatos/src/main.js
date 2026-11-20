@@ -1646,7 +1646,9 @@ async function main() {
       const cx = v.x - w * (sp.y - o.position.y), cy = v.y + w * (sp.x - o.position.x), tv = Math.abs(cx * n.y - cy * n.x); // deslizamiento real en el contacto (una lata que RUEDA no levanta polvo)
       if (tv < 4 || Math.abs(n.y) < 0.6) continue;
       o.slideT = time; slideN++; slideBudgetT = time + 0.025 / (fx.k ?? 1); const k = Math.min(1, (tv - 4) / 8);
-      fx.burst('smoke', sp.x, sp.y - 6, 1, 100 + 140 * k, {dir: v.x > 0 ? Math.PI : 0, spread: 0.6, up: 40, g: -60, drag: 3.5, life: 0.45 + 0.3 * k, size: 0.2 + 0.25 * k, grow: 1.7});
+      const ow = Math.max(0.8, Math.min(1.8, (o.bounds.max.x - o.bounds.min.x) / 110)); // una caja grande levanta más polvo que un frasquito
+      for (const q of ((pr.collision.supports || []).slice(0, Math.min(2, pr.collision.supportCount ?? 2)).filter(Boolean).concat(sp).slice(0, 2))) // en ambas esquinas que rozan
+        fx.burst('smoke', q.x, q.y - 8, 1, 110 + 150 * k, {dir: v.x > 0 ? Math.PI : 0, spread: 0.6, up: 50, g: -60, drag: 3.5, life: 0.5 + 0.35 * k, size: (0.34 + 0.3 * k) * ow, grow: 1.8});
       break; }
     const f = flying; if (!f || f.exploded || f.fade || f.gulp || !f.hit) return;
     for (const pr of ev.pairs) { const o = pr.bodyA === f.body ? pr.bodyB : pr.bodyB === f.body ? pr.bodyA : null; if (!o || !o.isStatic) continue;
