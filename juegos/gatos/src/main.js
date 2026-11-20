@@ -281,6 +281,8 @@ async function main() {
     tapTxt.position.set(48, -18); tapTxt.scale.set(0.62 + (press ? 0.12 : 0) + Math.sin(tapT * 6) * 0.03);
   }
   // gota de sudor (casi le da: AB2 el cerdo suda cuando el pájaro le pasa rozando): lágrima celeste con brillo, punta hacia arriba
+  const droolTex = canvasTex(28, 44, k => { k.beginPath(); k.moveTo(14, 2); k.bezierCurveTo(17, 14, 25, 22, 25, 31); k.arc(14, 31, 11, 0, Math.PI); k.bezierCurveTo(3, 22, 11, 14, 14, 2); k.closePath();
+    k.fillStyle = 'rgba(230,246,255,0.92)'; k.fill(); k.lineWidth = 3; k.strokeStyle = '#6A8FB0'; k.stroke(); k.fillStyle = '#FFFFFF'; k.beginPath(); k.ellipse(10, 30, 3, 5, 0.3, 0, 7); k.fill(); });
   const sweatTex = canvasTex(40, 56, k => { k.beginPath(); k.moveTo(20, 3); k.bezierCurveTo(26, 16, 36, 26, 36, 38); k.arc(20, 38, 16, 0, Math.PI); k.bezierCurveTo(4, 26, 14, 16, 20, 3); k.closePath();
     k.fillStyle = '#8FD3FF'; k.fill(); k.lineWidth = 3.5; k.strokeStyle = '#2E6FA8'; k.stroke(); k.fillStyle = 'rgba(255,255,255,0.9)'; k.beginPath(); k.ellipse(14, 36, 4, 7, 0.3, 0, 7); k.fill(); });
   const dizzyTex = canvasTex(64, 64, k => { k.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 12 : 27; k.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r); } k.closePath();
@@ -521,6 +523,62 @@ async function main() {
         const c = Math.cos(d.body.angle), sn = Math.sin(d.body.angle), ox = (Math.random() - 0.5) * d.w * 0.7, oy = -d.h * 0.48, p = d.body.position;
         fx.burst('spark', p.x + ox * c - oy * sn, p.y + ox * sn + oy * c, 2, 260, {dir: -Math.PI / 2 + d.body.angle, spread: 1.6, up: 60 * zf, g: 900 * zf, drag: 1.5, life: 0.35 + Math.random() * 0.2, size: (0.55 + d.w / 400) * zf});
         if (Math.random() < 0.25) fx.burst('smoke', p.x + ox * c - oy * sn, p.y + ox * sn + oy * c, 1, 40, {up: 50 * zf, g: -60, drag: 3, life: 0.6, size: 0.28 * zf, grow: 1.6, tint: 0xD8D2CA}); } }
+  }
+  // TRAGONAS HAMBRIENTAS (AB2: todo lo del escenario "siente" el tiro): si la parábola del apuntado (o el gato que ya vuela)
+  // va directo a la boca de una flor/tetera/caldera tragona, ésta se relame: saca la lengua, abre la boca/levanta la tapa,
+  // se estira hacia el gato, se le cae la baba y hace "mmm". Al dejar de apuntarle se calma.
+  let hungT = 0, hungF = null, hungN = 0, hungLog = [], hungMiss = 0;
+  function trapAimPath() {
+    if (!(state === 'ready' && sling.aiming && onSling && !onSling.hop && sling.power > 0.35)) return null;
+    const k = V_MAX / MAX_PULL, G = GRAVITY * 1e6, h = 1 / 60;
+    let x = sling.pouch.x, y = sling.pouch.y, vx = -sling.pull.x * k, vy = -sling.pull.y * k;
+    const occ = Composite.allBodies(engine.world).filter(b => !b.isSensor && !b.trapF && b.label !== 'cat' && b.label !== 'mouse' && b.label !== 'ground');
+    for (let i = 0; i < 300; i++) { vy += G * h; x += vx * h; y += vy * h;
+      if (y > GROUND - CAT_R * 0.6 || x > BOUNDS.x1 || y > BOUNDS.y1) return null;
+      for (const F of flowers) if (!F.hold && Math.hypot(x - F.x, y - F.y) < F.r * 0.85 + CAT_R * 0.5) return F;
+      if (x > SLING.x + 200 && Query.point(occ, {x, y}).length) return null; }
+    return null;
+  }
+  function trapFlyTarget() {   // en vuelo: ¿el gato va derechito a la boca? (recta corta en la dirección de la velocidad)
+    if (!flying || flying.exploded || flying.fade || flying.gulp || flying.loop) return null;
+    const p = flying.body.position, v = flying.body.velocity, sp = Math.hypot(v.x, v.y); if (sp < 1) return null;
+    const ux = v.x / sp, uy = v.y / sp;
+    for (const F of flowers) { if (F.hold) continue; const dx = F.x - p.x, dy = F.y - p.y, al = dx * ux + dy * uy;
+      if (al < 0 || al > F.r * 5) continue; if (Math.abs(dx * uy - dy * ux) < F.r * 0.85 + CAT_R * 0.4) return F; }
+    return null;
+  }
+  function trapHungry(dt) {
+    if (!flowers.length) return;
+    hungT -= dt; if (hungT <= 0) { hungT = 0.06; const t = state === 'ready' ? trapAimPath() : trapFlyTarget();
+      if (!(!t && hungF && (hungMiss += 0.06) < 0.25)) { hungMiss = 0;
+        if (t !== hungF) { hungF = t; if (t) { hungN++; hungLog.push([F_IDX(t), state === 'ready' ? 'apunta' : 'vuela']); if ((t.want || 0) < 0.2) { t.lick = 0; SFX.slurp(t.kind === 'boiler' ? 0.7 : t.kind === 'kettle' ? 0.9 : 1.15); } } } } }
+    const zf = Math.max(1, 34 / (cam.zoom * CAT_R));
+    for (const F of flowers) { const on = F === hungF && !F.hold;
+      F.want = Math.max(0, Math.min(1, (F.want || 0) + (on ? dt * 4 : -dt * 2.5))); if (F.hold) F.want = 0;   // al tragar, la lengua se mete de golpe
+      if (!F.tongue) continue; const w = F.want;
+      F.lick = (F.lick || 0) + dt; F.tongue.visible = w > 0.02;
+      if (F.tongue.visible) { const L = Math.min(1, w * 1.6), lk = Math.sin(F.lick * 9);
+        F.tongue.scale.set(0.25 + 0.75 * L, (0.7 + 0.3 * L) * (1 + 0.08 * Math.sin(F.lick * 18)));
+        F.tongue.rotation = F.tBase + lk * (F.kind === 'boiler' ? 0.3 : 0.45) * L; }
+      if (w > 0.5 && Math.random() < dt * 2.5 * w) {   // babita que cuelga y cae
+        const g = F.tongue.toGlobal({x: F.tL * 0.85, y: 0}), q = fxWorld(g);
+        fx.debris(droolTex, q.x, q.y + F.r * 0.04, (Math.random() - 0.5) * 40, 60, {size: (0.35 + F.r / 400) * Math.min(zf, 1.6), vr: 0, life: 0.7, g: 1300, rot: 0}); }
+      if (F.lv && w > 0.3 && F.lv.y >= 0 && Math.random() < dt * 9 * w) { F.lv.vy = -140 - 160 * w; F.lv.vr += (Math.random() - 0.5) * 3; }   // la tapa castañetea de ganas
+    }
+  }
+  const F_IDX = F => flowers.indexOf(F);
+  function fxWorld(g) { return {x: cam.x + (g.x - app.screen.width / 2) / cam.zoom, y: cam.y + (g.y - app.screen.height / 2) / cam.zoom}; }
+  // lengua de la tragona: rosa con raya al centro; sale de la garganta (flor) o de debajo de la tapa (tetera/caldera)
+  function addTongue(F) {
+    const r = F.r, t = new Graphics(), L = r * (F.kind === 'boiler' ? 0.42 : F.lv ? 0.62 : 0.78), W = r * 0.24; F.tL = L;
+    t.moveTo(0, -W * 0.55).bezierCurveTo(L * 0.5, -W * 0.7, L * 0.95, -W * 0.75, L, 0).bezierCurveTo(L * 0.95, W * 0.75, L * 0.5, W * 0.7, 0, W * 0.55).closePath().fill(0xE8324E).stroke({color: 0x3A0614, width: 5});
+    t.moveTo(L * 0.15, 0).lineTo(L * 0.7, 0).stroke({color: 0x9A1830, width: 3.5, cap: 'round'});
+    t.ellipse(L * 0.55, -W * 0.25, L * 0.12, W * 0.12).fill({color: 0xFFFFFF, alpha: 0.45});
+    t.visible = false;
+    if (F.kind === 'boiler') { t.position.set(-r * 0.14, -r * 0.56); F.tBase = 1.45; F.bell.addChild(t); }   // la caldera: por la rejilla-boca, colgando
+    else if (F.lv) { t.position.set(F.lidX + r * 0.15, F.lidY + r * 0.02); F.tBase = -0.5; F.bell.addChildAt(t, F.bell.getChildIndex(F.lid)); }
+    else { t.position.set(r * 0.6, r * 0.12); F.tBase = 0.35; F.bell.addChild(t); }
+    F.tongue = t;
   }
   function aimSweat(d) {   // gotita de sudor que resbala por un lado de la frente
     const p = d.body.position, sd = Math.random() < 0.5 ? -1 : 1;
@@ -3107,7 +3165,10 @@ async function main() {
             setTimeout(() => { if (!m.dead && dyn.includes(m)) { m.laugh = 1.4; say(m, (F.kind === 'boiler' ? ['¡JA! ¡YA ESTÁ\nLLENA!', '¡TOC, TOC!\n¡JA JA!'] : F.kind === 'kettle' ? ['¡JA! ¡YA NO\nLE CABE!', '¡CLONC!\n¡JA JA!'] : ['¡JA! ¡YA NO\nTIENE HAMBRE!', '¡REBOTÓ!\n¡JA JA!'])[Math.floor(Math.random() * 2)], 1.5, 0.8); SFX.giggle(); } }, 350); } } } }
   });
   function makeFlowers(list) {
-    list.forEach((F, i) => {
+    list.forEach((F, i) => { makeFlower1(F, i); addTongue(flowers[flowers.length - 1]); });
+  }
+  function makeFlower1(F, i) {
+    {
       if (F.kind === 'kettle') return makeKettle(F, i);
       if (F.kind === 'boiler') return makeBoiler(F, i);
       const x = F.x, y = GROUND - F.y, r = F.r || 90, a = F.a || 0, INK = 0x3A0E24, ca = Math.cos(a), sa = Math.sin(a);
@@ -3140,25 +3201,26 @@ async function main() {
       actors.addChildAt(st, 0); actors.addChild(sp); roomSp.push(st, sp);
       flowers.push({x, y, r, a, v: F.v || 21, sp, bell, pup, lids, cheeks, hold: null, kick: 0, gulp: 0, blinkAt: 2 + Math.random() * 3, i});
       addTrap(flowers[flowers.length - 1], Array.from({length: 10}, (_, k) => { const q = k * Math.PI / 5; return [-0.25 * ca + Math.cos(q) * 0.55, -0.25 * sa + Math.sin(q) * 0.55]; }));   // bulbo de la campanilla (sin la boca)
-    });
+    }
   }
   function animFlowers(dt) {
     for (const F of flowers) { F.kick = Math.max(0, F.kick - dt * 2.4); F.gulp = F.hold ? Math.min(1, F.gulp + dt * 9) : Math.max(0, F.gulp - dt * 5);
-      const w = Math.sin((1 - F.kick) * Math.PI * 3) * F.kick, q = F.gulp;
-      F.bell.rotation = Math.sin(time * 1.3 + F.i * 2) * 0.05 + (F.hold ? Math.sin(time * 40) * 0.03 : 0);
-      F.bell.scale.set((1 + Math.sin(time * 2.2 + F.i) * 0.02 - q * 0.18 + w * 0.35), (1 + q * 0.2 - w * 0.22));
+      const w = Math.sin((1 - F.kick) * Math.PI * 3) * F.kick, q = F.gulp, hw = (F.want || 0) * (1 - q), hb = hw * (1 + 0.06 * Math.sin(time * 14));
+      F.bell.rotation = Math.sin(time * 1.3 + F.i * 2) * 0.05 + (F.hold ? Math.sin(time * 40) * 0.03 : 0) + hw * Math.sin(time * 7) * 0.04;
+      // con hambre (le apuntan): se estira hacia la boca y la abre (la flor: más alta de boca; tetera/caldera: más alta, como de puntitas)
+      F.bell.scale.set((1 + Math.sin(time * 2.2 + F.i) * 0.02 - q * 0.18 + w * 0.35 + hb * (F.lv ? -0.04 : 0.12)), (1 + q * 0.2 - w * 0.22 + hb * (F.lv ? 0.1 : 0.14)));
       F.cheeks.scale.set(q * (1 + Math.sin(time * 30) * 0.05));
       // pupilas: miran al gato en vuelo (o al que está en la resortera); en coordenadas locales de la campanilla
       const tg = flying?.body.position || onSling?.sprite?.position; if (tg) { let dx = tg.x - F.x, dy = tg.y - F.y; const c = Math.cos(F.sp.rotation), s2 = Math.sin(F.sp.rotation);
         const lx = (dx * c + dy * s2) * F.sp.scale.x, ly = (-dx * s2 + dy * c) * F.sp.scale.y, l = Math.hypot(lx, ly) || 1, k = F.r * 0.05; F.pup.position.x += (lx / l * k - F.pup.position.x) * 0.2; F.pup.position.y += (ly / l * k - F.pup.position.y) * 0.2; }
       if (F.kind === 'kettle' || F.kind === 'boiler') animKettle(F, dt);
-      F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || F.blinkAt < 0.12; }
+      F.blinkAt -= dt; if (F.blinkAt < 0) F.blinkAt = 2.5 + Math.random() * 3; F.lids.visible = !!F.hold || (F.blinkAt < 0.12 && !(F.want > 0.3)); }   // con hambre no parpadea (ojos clavados en el gato)
   }
   // tetera: la tapa brinca/castañetea (resorte con gravedad), hierve (rubor rojo, flama, vapor por la tapa) mientras sostiene algo,
   // y no se ladea (solo se aplasta desde la base)
   function animKettle(F, dt) {
     const lv = F.lv, boil = F.hold ? Math.min(1, (F.hl - F.hold.t) / F.hl) : 0;
-    F.bell.rotation = F.hold ? Math.sin(time * 46) * 0.035 * (0.4 + boil) : Math.sin(time * 1.1 + F.i) * 0.012;
+    F.bell.rotation = F.hold ? Math.sin(time * 46) * 0.035 * (0.4 + boil) : Math.sin(time * 1.1 + F.i) * 0.012 + (F.want || 0) * Math.sin(time * 8) * 0.03;
     if (F.hold && lv.y >= 0 && Math.random() < dt * 22) { lv.vy = -120 - boil * 260; lv.vr += (Math.random() - 0.5) * 4; }
     if (lv.y < 0 || lv.vy < 0) { lv.vy += 2600 * dt; lv.y += lv.vy * dt;
       if (lv.y >= 0) { lv.y = 0; const v0 = lv.vy; lv.vy = v0 > 200 ? -v0 * 0.3 : 0;
@@ -3440,7 +3502,7 @@ async function main() {
         SFX.motor((0.45 + 0.55 * cam.zoom / 0.9) * k * (r.stun > 0 ? 0.5 : 1), sxp * 0.8, r.stun > 0 ? 0.6 : 0.8 + 0.4 * Math.min(1, Math.abs(r.vx) / r.speed)); }
       else SFX.motor(0);
     }
-    aimTense(dt); tntAim(dt);
+    aimTense(dt); tntAim(dt); trapHungry(dt);
     for (const d of [...dyn]) { // copia: destroyDyn saca elementos durante el recorrido
       const p = d.body.position; d.sprite.position.set(p.x, p.y); d.sprite.rotation = d.body.angle;
       if (d.wob) { const w = d.wob; w.t += dt; const k = w.a * Math.exp(-w.t * 9); d.sprite.rotation += k * Math.sin(w.t * 55); if (w.t > 0.45) d.wob = null; }
@@ -3508,6 +3570,6 @@ async function main() {
   }
 
   const toScreen = (x, y) => ({x: app.screen.width / 2 + (x - cam.x) * cam.zoom, y: app.screen.height / 2 + (y - cam.y) * cam.zoom});
-  window.GAME = {sayM: (i, s, dur = 2) => say(dyn[i], s, dur), get bubs() { return bubbles.map(b => ({i: dyn.indexOf(b.d), gone: !!b.gone, x: Math.round(b.c.x), y: Math.round(b.c.y), oy: Math.round(b.oy), a: +b.c.alpha.toFixed(2)})); }, get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), stirM: i => stirMouse(dyn[i]), wakeM: i => wakeMouse(dyn[i]), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get slideN() { return slideN; }, get landN() { return [landN, heavyN, grassN, kickN, chipN, dustyN]; }, get nearN() { return nearN; }, get aim() { return {hold: +aimHold.toFixed(2), nerv: +aimNerv.toFixed(2), ep: aimEp, peak: aimPeak, log: aimLog}; }, get grrN() { return grrN; }, get joyN() { return joyN; }, joyQueue, get joy() { return [...cards.values()].filter(c => c.joy).map(c => +c.joy.t.toFixed(2)); }, get chargedN() { return chargedN; }, get tntAim() { return {n: tntAimN, on: tntAimD ? dyn.indexOf(tntAimD) : -1, log: tntAimLog, k: dyn.filter(d => d.mat === 'tnt').map(d => +(d.aimK || 0).toFixed(2))}; }, get strain() { return strain ? [+strain.t.toFixed(2), strain.on, !!strain.sw, strainN] : [0, false, false, strainN]; }, get slingGrr() { return slingGrr ? [+slingGrr.t.toFixed(2), !!slingGrr.mk, slingGrrN] : [null, false, slingGrrN]; }, grrQueue, get grr() { return [...cards.values()].filter(c => c.grr).map(c => [+c.grr.t.toFixed(2), !!c.grr.mk]); }, get landLog() { return landLog; }, syncFloors, get floors() { return [fx.floors.length, fx.floorHits]; }, get chipLog() { return chipLog; }, set ts(v) { dbgTs = v; }, massLog: () => GAME.dyn.filter(d => !d.dead).map(d => [d.mat, +d.body.mass.toFixed(1)]), get flyShadow() { return {a: +flyShadow.alpha.toFixed(2), x: Math.round(flyShadow.x), y: Math.round(flyShadow.y), w: Math.round(flyShadow.width), on: !!flyShadow.parent}; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, get quality() { return {on: Q.on, res: app.renderer.resolution, fxK: fx.k ?? 1, steps: RES, i: Q.i, fails: Q.fails, log: Q.log}; }, get bloom() { return {n: bloomN, on: !!bloomP, a: +bloomSp.alpha.toFixed(2), w: Math.round(bloomSp.width), x: Math.round(bloomSp.x), y: Math.round(bloomSp.y)}; }, get slowVig() { return {v: +slowVig.toFixed(2), a: +slowVigSp.alpha.toFixed(2), vis: slowVigSp.visible, w: slowVigSp.width, idx: app.stage.children.indexOf(slowVigSp), n: app.stage.children.length, slow: +slow.toFixed(2)}; }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
+  window.GAME = {sayM: (i, s, dur = 2) => say(dyn[i], s, dur), get bubs() { return bubbles.map(b => ({i: dyn.indexOf(b.d), gone: !!b.gone, x: Math.round(b.c.x), y: Math.round(b.c.y), oy: Math.round(b.oy), a: +b.c.alpha.toFixed(2)})); }, get bumpDbg() { return bumpers.map(b => b.dbg); }, get bumps() { return bumpers.map(b => b.n || 0); }, get movers() { return movers.map(m => ({x: m.body.position.x, y: m.body.position.y, t: m.t, fall: !!m.fall, car: !!m.whl, broke: !!m.broke, life: m.life == null ? null : Math.round(m.life * 10) / 10, dmg: m.dmg})); }, get ropes() { return ropes.map(r => ({cut: !!r.cut, x: r.A.x, y: r.A.y, len: r.len, bx: r.d.body.position.x, by: r.d.body.position.y, dead: !!r.d.dead, px: r.px, bal: !!r.bal, away: !!r.bal?.away, pop: !!(r.bal && r.cut && !r.bal.away)})); }, cutRopesNear, dropCar: i => dropCar(movers.filter(m => m.whl)[i], 1), castSpell, castBalloon, castChili, get spell() { return {used: spell.used, kind: spell.kind, running: !!spell.run, inv: yarnInv, bal: balInv, chi: chiInv, chiAvail: chiAvail(), avail: spellAvail(), balAvail: balAvail(), balls: spell.run ? spell.run.balls.length : 0, infl: dyn.filter(d => d.infl).length}; }, app, cam, catT, get queue() { return queue; }, swapCat, get onSling() { return onSling; }, menus, pause, engine, sling, launch, ui, buildLevel, get levelId() { return levelId; }, get room() { return roomIdx; }, get rooms() { return rooms().length; }, killMice: () => dyn.filter(d => d.mat === 'mouse').forEach(d => destroyDyn(d)), toScreen, tap: () => { if (canPower(flying)) { flying.power = true; activatePower(flying); } }, get score() { return score; }, addPts: v => { score += v; }, meter: meterState, wreck, get dyn() { return dyn; }, debugBreak: i => destroyDyn(dyn[i]), splash: (x, y, w = 120, h = 160) => fx.splash(x, y, w, h), fx, hitRobot: (d, a) => damage(d, a), stirM: i => stirMouse(dyn[i]), wakeM: i => wakeMouse(dyn[i]), boom: (x, y, dmg = 0, push = 0) => { fx.explosion(x, y, 200); blast(x, y, 280, push, dmg); startle(x, 1); cam.shake(30); }, get state() { return state; }, get bg() { return curBg; }, get flying() { return flying; }, get slideN() { return slideN; }, get landN() { return [landN, heavyN, grassN, kickN, chipN, dustyN]; }, get nearN() { return nearN; }, get aim() { return {hold: +aimHold.toFixed(2), nerv: +aimNerv.toFixed(2), ep: aimEp, peak: aimPeak, log: aimLog}; }, get grrN() { return grrN; }, get joyN() { return joyN; }, joyQueue, get joy() { return [...cards.values()].filter(c => c.joy).map(c => +c.joy.t.toFixed(2)); }, get chargedN() { return chargedN; }, get hungry() { return {n: hungN, on: hungF ? flowers.indexOf(hungF) : -1, log: hungLog, w: flowers.map(F => +(F.want || 0).toFixed(2))}; }, get tntAim() { return {n: tntAimN, on: tntAimD ? dyn.indexOf(tntAimD) : -1, log: tntAimLog, k: dyn.filter(d => d.mat === 'tnt').map(d => +(d.aimK || 0).toFixed(2))}; }, get strain() { return strain ? [+strain.t.toFixed(2), strain.on, !!strain.sw, strainN] : [0, false, false, strainN]; }, get slingGrr() { return slingGrr ? [+slingGrr.t.toFixed(2), !!slingGrr.mk, slingGrrN] : [null, false, slingGrrN]; }, grrQueue, get grr() { return [...cards.values()].filter(c => c.grr).map(c => [+c.grr.t.toFixed(2), !!c.grr.mk]); }, get landLog() { return landLog; }, syncFloors, get floors() { return [fx.floors.length, fx.floorHits]; }, get chipLog() { return chipLog; }, set ts(v) { dbgTs = v; }, massLog: () => GAME.dyn.filter(d => !d.dead).map(d => [d.mat, +d.body.mass.toFixed(1)]), get flyShadow() { return {a: +flyShadow.alpha.toFixed(2), x: Math.round(flyShadow.x), y: Math.round(flyShadow.y), w: Math.round(flyShadow.width), on: !!flyShadow.parent}; }, get bubbles() { return bubbles.length; }, rockets, rktLog, portLog, flLog, get warned() { return [warnedTnt, warnedPort, warnedFl, +readyIdle.toFixed(1)]; }, get flowers() { return flowers.map(F => ({kind: F.kind || 'flower', mx: F.mx, my: F.my, x: F.x, y: F.y, r: F.r, a: F.a, hold: !!F.hold, bonk: F.bonk || 0, pop: F.pop || 0, blast: F.blast || 0, lid: F.lv ? [Math.round(F.lv.x || 0), Math.round(F.lv.y), +F.lv.r.toFixed(2)] : null, solid: !!F.body})); }, get portals() { return portals.map(P => ({x: P.x, y: P.y, r: P.r, a: P.a})); }, endTurn, get turnKills() { return turnKills; }, get roomShots() { return roomShots; }, get stamp() { return stamp.visible ? stampTxt.text : ''; }, get cards() { return [...cards.values()].filter(c => !c.gone).map(c => { const g = c.getGlobalPosition(); return {id: c.qid, x: g.x, y: g.y, sel: !!onSling && onSling.id === c.qid}; }); }, get quality() { return {on: Q.on, res: app.renderer.resolution, fxK: fx.k ?? 1, steps: RES, i: Q.i, fails: Q.fails, log: Q.log}; }, get bloom() { return {n: bloomN, on: !!bloomP, a: +bloomSp.alpha.toFixed(2), w: Math.round(bloomSp.width), x: Math.round(bloomSp.x), y: Math.round(bloomSp.y)}; }, get slowVig() { return {v: +slowVig.toFixed(2), a: +slowVigSp.alpha.toFixed(2), vis: slowVigSp.visible, w: slowVigSp.width, idx: app.stage.children.indexOf(slowVigSp), n: app.stage.children.length, slow: +slow.toFixed(2)}; }, hats, setHat: (n, h) => { setHat(n, h); buildLevel(levelId, false); }, ready: true};
 }
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('beforeend', `<pre style="color:#fff">${e.stack || e}</pre>`); });

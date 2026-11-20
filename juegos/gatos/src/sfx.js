@@ -367,3 +367,7 @@ export function wake(pitch = 1) { if (!ok('wake', 0.3)) return; const t = ctx.cu
 export function snort(pitch = 1) { if (!ok('snort', 0.5)) return; const t = ctx.currentTime;
   noise(t, 0.16, 'bandpass', 520 * pitch, 2, 0.1, 0.14, 300 * pitch); tone(t, 140 * pitch, 'sawtooth', 0.05, 0.16, 90 * pitch);
   tone(t + 0.25, 330 * pitch, 'triangle', 0.035, 0.35, 220 * pitch); tone(t + 0.62, 290 * pitch, 'triangle', 0.03, 0.3, 190 * pitch); }
+// tragona con hambre (le apuntan): "mmm" con vibrato + relamido húmedo ("slrp") — pitch: flor > 1, caldera < 1
+export function slurp(pitch = 1) { if (!ok('slurp', 0.6)) return; const t = ctx.currentTime;
+  tone(t, 220 * pitch, 'triangle', 0.14, 0.32, 260 * pitch); tone(t + 0.1, 250 * pitch, 'sine', 0.08, 0.22, 210 * pitch);
+  noise(t + 0.3, 0.16, 'bandpass', 1400, 2.5, 0.22, 0.14, 3800); tone(t + 0.32, 900 * pitch, 'sine', 0.07, 0.08, 1500 * pitch); }
